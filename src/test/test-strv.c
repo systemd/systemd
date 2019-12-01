@@ -6,6 +6,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "virt.h"
 
 static void test_specifier_printf(void) {
         static const Specifier table[] = {
@@ -422,13 +423,13 @@ static void test_strv_split_nulstr(void) {
         assert_se(streq(l[3], "str3"));
 }
 
-static void test_strv_parse_nulstr(void) {
+static void test_strv_parse(char** (*test_function)(const char*, size_t)) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx";
 
         log_info("/* %s */", __func__);
 
-        l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
+        l = test_function(nulstr, sizeof(nulstr)-1);
         assert_se(l);
         puts("Parse nulstr:");
         strv_print(l);
@@ -440,6 +441,22 @@ static void test_strv_parse_nulstr(void) {
         assert_se(streq(l[4], "hoge5"));
         assert_se(streq(l[5], ""));
         assert_se(streq(l[6], "xxx"));
+}
+
+static void test_strv_parse_nulstr(void) {
+        log_info("/* %s */", __func__);
+        test_strv_parse(strv_parse_nulstr);
+}
+
+static void test_strv_parse_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* We will get EPERM locking memory in a container. */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+        test_strv_parse(strv_parse_password);
 }
 
 static void test_strv_overlap(void) {
@@ -978,6 +995,7 @@ int main(int argc, char *argv[]) {
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
+        test_strv_parse_password();
         test_strv_overlap();
         test_strv_sort();
         test_strv_extend_strv();

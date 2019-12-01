@@ -936,6 +936,64 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
         return 1;
 }
 
+/* The equivalent of strv_parse_nulstr, but for sensitive data. */
+char **strv_parse_password(const char *s, size_t l) {
+        const char *p;
+        size_t c = 0, i = 0;
+        char **v;
+
+        assert(s ||l <= 0);
+
+        if (l <= 0)
+                return new0(char*, 1);
+
+
+        /* Sweep the string for the number of passwords. */
+        for (p = s; p < s + l; p++)
+                if (*p == 0)
+                        c++;
+
+        if (s[l-1] != 0)
+                c++;
+
+        v = new0(char*, c+1);
+        if (!v)
+                return NULL;
+
+        p = s;
+        while (p < s + l) {
+                const char *e;
+                _cleanup_(erase_freep_and_unlock) char *pp;
+                size_t n;
+
+                /* Scan for the next NUL byte, marking the end of the next password */
+                e = memchr(p, 0, s + l - p);
+
+                /* If there is no NUL byte, take the entire thing */
+                n = e ? e - p : s + l - p;
+                pp = new_aligned0(char, n + 1);
+                if (!pp || lock_mem(pp) < 0) {
+                        strv_free_erase_unlock(v);
+                        return NULL;
+                }
+
+                strncpy(pp, p, n);
+                v[i] = TAKE_PTR(pp);
+
+                i++;
+
+                if (!e)
+                        break;
+
+                /* Start scanning after the last password */
+                p = e + 1;
+        }
+
+        assert(i == c);
+
+        return v;
+}
+
 int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
 
