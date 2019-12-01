@@ -83,6 +83,15 @@ char **strv_free_erase(char **l) {
         return mfree(l);
 }
 
+char **strv_free_erase_unlock(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                erase_freep_and_unlock(i);
+
+        return mfree(l);
+}
+
 char **strv_copy(char * const *l) {
         char **r, **k;
 

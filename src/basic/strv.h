@@ -22,8 +22,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char **strv_free_erase(char **l);
+char **strv_free_erase_unlock(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
 #define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase_unlock);
+#define _cleanup_strv_free_erase_unlock_ _cleanup_(strv_free_erase_unlockp)
 
 void strv_clear(char **l);
 
