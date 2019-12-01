@@ -5,9 +5,12 @@
 #include <malloc.h>
 #include <stdbool.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 
 #include "macro.h"
+#include "missing_mman.h"
+#include "missing_syscall.h"
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
@@ -69,6 +72,31 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
+/* The caller call this with page aligned memory to avoid prematurely unlocking sensitive memory */
+static inline int lock_mem(void *p) {
+        int r;
+
+        if (!p)
+                return 0;
+
+        size_t l = malloc_usable_size(p);
+        if (l == 0)
+                return 0;
+
+        r = mlock2(p, l, MLOCK_ONFAULT);
+        if (r < 0 && errno == ENOSYS) {
+                r = mlock(p, l);
+                if (r < 0)
+                        return r;
+        } else
+                return r;
+
+#ifdef MADV_DONTDUMP /* Linux >= 3.4 */
+        r = madvise(p, l, MADV_DONTDUMP);
+#endif
+        return r;
+}
+
 #if HAVE_EXPLICIT_BZERO
 static inline void* explicit_bzero_safe(void *p, size_t l) {
         if (l > 0)
@@ -88,6 +116,19 @@ static inline void erase_and_freep(void *p) {
                 explicit_bzero_safe(ptr, l);
                 free(ptr);
         }
+}
+
+static inline void erase_freep_and_unlock(void *p) {
+        void *ptr = *(void**) p;
+
+        if (ptr) {
+                size_t l = malloc_usable_size(ptr);
+                explicit_bzero_safe(ptr, l);
+                (void) munlock(p, l);
+                (void) madvise(p, l, MADV_NORMAL);
+                free(ptr);
+        }
+
 }
 
 /* Use with _cleanup_ to erase a single 'char' when leaving scope */
