@@ -41,14 +41,10 @@ static int property_get_bit_rates(
 
         manager = link->manager;
 
-        if (!manager->use_speed_meter)
-                return sd_bus_error_set(error, BUS_ERROR_SPEED_METER_INACTIVE, "Speed meter is disabled.");
-
-        if (manager->speed_meter_usec_old == 0)
-                return sd_bus_error_set(error, BUS_ERROR_SPEED_METER_INACTIVE, "Speed meter is not active.");
-
-        if (!link->stats_updated)
-                return sd_bus_error_set(error, BUS_ERROR_SPEED_METER_INACTIVE, "Failed to measure bit-rates.");
+        if (!manager->use_speed_meter ||
+            manager->speed_meter_usec_old == 0 ||
+            !link->stats_updated)
+                return sd_bus_message_append(reply, "(tt)", UINT64_MAX, UINT64_MAX);
 
         assert(manager->speed_meter_usec_new > manager->speed_meter_usec_old);
         interval_sec = (manager->speed_meter_usec_new - manager->speed_meter_usec_old) / USEC_PER_SEC;
