@@ -404,7 +404,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         if (r < 0)
                 log_debug_errno(r, "%s: failed to query ssid: %m", link->name);
 
-        if (link->iftype == NL80211_IFTYPE_STATION) {
+        if (link->wlan_iftype == NL80211_IFTYPE_STATION) {
                 k = wifi_get_station(genl, link->ifindex, &link->bssid);
                 if (k < 0)
                         log_debug_errno(k, "%s: failed to query bssid: %m", link->name);
