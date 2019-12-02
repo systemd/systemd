@@ -491,6 +491,7 @@ endforeach
 
 foreach ident : [
         ['memfd_create',      '''#include <sys/mman.h>'''],
+        ['mlock2',            '''#include <sys/mman.h>'''],
         ['gettid',            '''#include <sys/types.h>
                                  #include <unistd.h>'''],
         ['pivot_root',        '''#include <stdlib.h>
