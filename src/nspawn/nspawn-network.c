@@ -19,6 +19,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-util.h"
 #include "util.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
@@ -395,24 +396,33 @@ int remove_bridge(const char *bridge_name) {
 
 static int parse_interface(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        char ifi_str[2 + DECIMAL_STR_MAX(int)];
         int ifi, r;
 
         r = parse_ifindex_or_ifname(name, &ifi);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve interface %s: %m", name);
 
-        sprintf(ifi_str, "n%i", ifi);
-        r = sd_device_new_from_device_id(&d, ifi_str);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get device for interface %s: %m", name);
+        if (path_is_read_only_fs("/sys") <= 0) {
+                char ifi_str[2 + DECIMAL_STR_MAX(int)];
 
-        r = sd_device_get_is_initialized(d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether interface %s is initialized or not: %m", name);
-        if (r == 0) {
-                log_error("Network interface %s is not initialized yet.", name);
-                return -EBUSY;
+                /* udev should be around. */
+
+                sprintf(ifi_str, "n%i", ifi);
+                r = sd_device_new_from_device_id(&d, ifi_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get device %s: %m", name);
+
+                r = sd_device_get_is_initialized(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether interface %s is initialized: %m", name);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Network interface %s is not initialized yet.", name);
+
+                r = device_is_renaming(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine the interface %s is being renamed: %m", name);
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Interface %s is being renamed.", name);
         }
 
         return ifi;
