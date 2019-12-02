@@ -8,7 +8,7 @@ CHANGES WITH 244:
           AllowedMemoryNodes= setting.
 
         * The signal used in restart jobs (as opposed to e.g. stop jobs) may
-          now be configured using a new RestartKillSignal= settting. This
+          now be configured using a new RestartKillSignal= setting. This
           allows units which signals to request termination to implement
           different behaviour when stopping in preparation for a restart.
 
