@@ -477,6 +477,10 @@ mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
 
+# Logitech MX Ergo (via Bluetooth)
+mouse:bluetooth:v046dpb01d:name:MX Ergo Mouse:
+ ID_INPUT_TRACKBALL=1
+
 ## Other ##
 
 # Logitech M-BJ58 Optical Mouse
