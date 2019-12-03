@@ -33,6 +33,7 @@ typedef struct SwapParameters {
         char *what;
         char *options;
         int priority;
+        bool priority_set;
 } SwapParameters;
 
 struct Swap {
