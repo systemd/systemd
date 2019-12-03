@@ -33,7 +33,7 @@ static inline bool streq_ptr(const char *a, const char *b) {
 }
 
 static inline const char* strempty(const char *s) {
-        return s ?: "";
+        return s ?: "(empty string)";
 }
 
 static inline const char* strnull(const char *s) {
