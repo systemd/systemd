@@ -1724,11 +1724,50 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, i->aliases) {
+
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
+
+                if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) &&
+                    !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) &&
+                    !i->default_instance) {
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for templates without DefaultInstance must be templates.");
+                }
+
+                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
+                    !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE | UNIT_NAME_INSTANCE)) {
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for template instances must be a templates or template instances containing the instance name.");
+                }
+
+                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
+                    unit_name_is_valid(dst, UNIT_NAME_INSTANCE)) {
+                        _cleanup_free_ char *src_inst = NULL, *dst_inst = NULL;
+
+                        q = unit_name_to_instance(i->name, &src_inst);
+                        if (q < 0)
+                                return q;
+
+                        q = unit_name_to_instance(dst, &dst_inst);
+                        if (q < 0)
+                                return q;
+                        if (!strstr(dst_inst, src_inst?src_inst:i->default_instance))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for template instances must be a templates or template instances containing the instance name.");
+                }
+
+                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) && unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
+                        _cleanup_free_ char *s_copy = NULL, *instance = NULL;
+                        q = unit_name_to_instance(i->name,&instance);
+                        if (q < 0)
+                                return q;
+
+                        q = unit_name_replace_instance(dst,instance,&s_copy);
+                        if (q < 0)
+                                return q;
+                        free_and_replace(dst, s_copy);
+                }
 
                 alias_path = path_make_absolute(dst, config_path);
                 if (!alias_path)
@@ -1737,6 +1776,22 @@ static int install_info_symlink_alias(
                 q = create_symlink(paths, i->path, alias_path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
+
+                /* if we are a template with a DefaultInstance and we target a template, also create a link from the DefaultInstance*/
+                if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) && i->default_instance) {
+                        _cleanup_free_ char *s_copy = NULL,*final_path = NULL;
+
+                        q = unit_name_replace_instance(dst,i->default_instance,&s_copy);
+                        if (q < 0)
+                                return q;
+                        final_path = path_make_absolute(s_copy, config_path);
+                        if (!final_path)
+                                return -ENOMEM;
+                        q = create_symlink(paths, i->path, final_path, force, changes, n_changes);
+                        if (r == 0)
+                                r = q;
+                }
+
         }
 
         return r;
