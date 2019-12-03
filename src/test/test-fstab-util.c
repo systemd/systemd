@@ -100,6 +100,9 @@ static void test_fstab_find_pri(void) {
         assert_se(fstab_find_pri("pri=11", &pri) == 1);
         assert_se(pri == 11);
 
+        assert_se(fstab_find_pri("pri=-2", &pri) == 1);
+        assert_se(pri == -2);
+
         assert_se(fstab_find_pri("opt,pri=12,opt", &pri) == 1);
         assert_se(pri == 12);
 
