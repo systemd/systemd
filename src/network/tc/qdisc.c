@@ -188,6 +188,8 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
 }
 
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
+        unsigned i;
+
         assert(qdisc);
         assert(has_root);
         assert(has_clsact);
@@ -195,9 +197,10 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         if (section_is_invalid(qdisc->section))
                 return -EINVAL;
 
-        if (qdisc->has_network_emulator && qdisc->has_token_buffer_filter)
+        i = qdisc->has_network_emulator + qdisc->has_token_buffer_filter + qdisc->has_stochastic_fairness_queueing;
+        if (i > 1)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: TrafficControlQueueingDiscipline section has both NetworkEmulator and TokenBufferFilter settings. "
+                                         "%s: TrafficControlQueueingDiscipline section has more than one type of discipline. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
