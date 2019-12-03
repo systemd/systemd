@@ -117,7 +117,8 @@ static void swap_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
 
-        s->parameters_proc_swaps.priority = s->parameters_fragment.priority = -1;
+        s->parameters_proc_swaps.priority = s->parameters_fragment.priority = 0;
+        s->parameters_fragment.priority_set = false;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
@@ -433,6 +434,7 @@ static int swap_setup_unit(
         SWAP(u)->from_proc_swaps = true;
 
         p->priority = priority;
+        p->priority_set = true;
 
         unit_add_to_dbus_queue(u);
         return 0;
@@ -766,15 +768,15 @@ static void swap_enter_activating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_ACTIVATE;
 
         if (s->from_fragment) {
-                int priority = -1;
+                int priority = 0;
 
                 r = fstab_find_pri(s->parameters_fragment.options, &priority);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
-                else if (r == 1 && s->parameters_fragment.priority >= 0)
+                else if (r == 1 && s->parameters_fragment.priority_set)
                         log_warning("Duplicate swap priority configuration by Priority and Options fields.");
 
-                if (r <= 0 && s->parameters_fragment.priority >= 0) {
+                if (r <= 0 && s->parameters_fragment.priority_set) {
                         if (s->parameters_fragment.options)
                                 r = asprintf(&opts, "%s,pri=%i", s->parameters_fragment.options, s->parameters_fragment.priority);
                         else
