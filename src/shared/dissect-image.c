@@ -1196,7 +1196,7 @@ int dissected_image_decrypt_interactively(
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
-        _cleanup_strv_free_erase_ char **z = NULL;
+        _cleanup_strv_free_erase_unlock_ char **z = NULL;
         int n = 3, r;
 
         if (passphrase)

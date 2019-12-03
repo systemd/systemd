@@ -55,7 +55,7 @@ static bool arg_console = false;
 static const char *arg_device = NULL;
 
 static int send_passwords(const char *socket_name, char **passwords) {
-        _cleanup_(erase_and_freep) char *packet = NULL;
+        _cleanup_(erase_freep_and_unlock) char *packet = NULL;
         _cleanup_close_ int socket_fd = -1;
         union sockaddr_union sa = {};
         size_t packet_length = 1;
