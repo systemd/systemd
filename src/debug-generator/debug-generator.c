@@ -126,7 +126,15 @@ static int generate_wants_symlinks(void) {
 
         STRV_FOREACH(u, arg_wants) {
                 _cleanup_free_ char *p = NULL, *f = NULL;
-                const char *target = arg_default_unit ?: SPECIAL_DEFAULT_TARGET;
+                const char *target;
+
+                /* This should match what do_queue_default_job() in core/main.c does. */
+                if (arg_default_unit)
+                        target = arg_default_unit;
+                else if (in_initrd())
+                        target = SPECIAL_INITRD_TARGET;
+                else
+                        target = SPECIAL_DEFAULT_TARGET;
 
                 p = strjoin(arg_dest, "/", target, ".wants/", *u);
                 if (!p)
