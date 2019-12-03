@@ -10,3 +10,7 @@ Parent=root
 TokenBufferFilterRate=0.5M
 TokenBufferFilterBurst=5K
 TokenBufferFilterLatencySec=70msec
+
+[TrafficControlQueueingDiscipline]
+Parent=clsact
+StochasticFairnessQueueingPerturbPeriodSec=5sec
