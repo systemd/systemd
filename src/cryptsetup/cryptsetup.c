@@ -228,7 +228,7 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse %s: %m", option);
 
-        } else
+        } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
