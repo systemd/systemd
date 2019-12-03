@@ -3495,8 +3495,13 @@ static int load_kexec_kernel(void) {
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
-        if (r == -ENOKEY) /* The call doesn't log about ENOKEY, let's do so here. */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        if (r == -ENOKEY)
+                /* The call doesn't log about ENOKEY, let's do so here. */
+                return log_error_errno(r,
+                                       "No kexec kernel loaded and autodetection failed.\n%s",
+                                       is_efi_boot()
+                                       ? "Cannot automatically load kernel: ESP partition mount point not found."
+                                       : "Automatic loading works only on systems booted with EFI.");
         if (r < 0)
                 return r;
 
