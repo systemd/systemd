@@ -45,6 +45,7 @@ int strv_insert(char ***l, size_t position, char *value);
 char **strv_parse_password(const char *s, size_t l);
 int strv_to_password(char **l, char **p, size_t *q);
 int strv_extend_password(char ***a, char **b, bool filter_duplicates);
+int strv_consume_password(char ***l, char *p);
 
 static inline int strv_push_prepend(char ***l, char *value) {
         return strv_insert(l, 0, value);

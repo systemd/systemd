@@ -1089,6 +1089,16 @@ rollback:
         return r;
 }
 
+int strv_consume_password(char ***l, char *p) {
+        int r;
+
+        r = strv_push(l, p);
+        if (r < 0)
+                erase_freep_and_unlock(p);
+
+        return r;
+}
+
 
 int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;
