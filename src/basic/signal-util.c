@@ -287,3 +287,18 @@ int signal_from_string(const char *s) {
 void nop_signal_handler(int sig) {
         /* nothing here */
 }
+
+int signal_is_blocked(int sig) {
+        sigset_t ss;
+        int r;
+
+        r = pthread_sigmask(SIG_SETMASK, NULL, &ss);
+        if (r != 0)
+                return -r;
+
+        r = sigismember(&ss, sig);
+        if (r < 0)
+                return -errno;
+
+        return r;
+}

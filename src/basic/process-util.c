@@ -40,6 +40,7 @@
 #include "rlimit-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -1486,6 +1487,38 @@ int set_oom_score_adjust(int value) {
 
         return write_string_file("/proc/self/oom_score_adj", t,
                                  WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
+}
+
+int pidfd_get_pid(int fd, pid_t *ret) {
+        char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *fdinfo = NULL;
+        char *p;
+        int r;
+
+        if (fd < 0)
+                return -EBADF;
+
+        xsprintf(path, "/proc/self/fdinfo/%i", fd);
+
+        r = read_full_file(path, &fdinfo, NULL);
+        if (r == -ENOENT) /* if fdinfo doesn't exist we assume the process does not exist */
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        p = startswith(fdinfo, "Pid:");
+        if (!p) {
+                p = strstr(fdinfo, "\nPid:");
+                if (!p)
+                        return -ENOTTY; /* not a pidfd? */
+
+                p += 5;
+        }
+
+        p += strspn(p, WHITESPACE);
+        p[strcspn(p, WHITESPACE)] = 0;
+
+        return parse_pid(p, ret);
 }
 
 static const char *const ioprio_class_table[] = {

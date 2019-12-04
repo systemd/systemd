@@ -517,6 +517,18 @@ foreach ident : [
                                  #include <unistd.h>'''],
         ['get_mempolicy',     '''#include <stdlib.h>
                                  #include <unistd.h>'''],
+        ['pidfd_send_signal', '''#include <stdlib.h>
+                                 #include <unistd.h>
+                                 #include <signal.h>
+                                 #include <sys/wait.h>'''],
+        ['pidfd_open',        '''#include <stdlib.h>
+                                 #include <unistd.h>
+                                 #include <signal.h>
+                                 #include <sys/wait.h>'''],
+        ['rt_sigqueueinfo',   '''#include <stdlib.h>
+                                 #include <unistd.h>
+                                 #include <signal.h>
+                                 #include <sys/wait.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')

@@ -41,3 +41,5 @@ static inline const char* signal_to_string_with_check(int n) {
 
         return signal_to_string(n);
 }
+
+int signal_is_blocked(int sig);

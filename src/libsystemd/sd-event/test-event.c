@@ -9,6 +9,7 @@
 #include "fs-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -62,6 +63,11 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
         assert_se(s);
         assert_se(si);
 
+        assert_se(si->si_uid == getuid());
+        assert_se(si->si_signo == SIGCHLD);
+        assert_se(si->si_code == CLD_EXITED);
+        assert_se(si->si_status == 78);
+
         log_info("got child on %c", PTR_TO_INT(userdata));
 
         assert_se(userdata == INT_TO_PTR('f'));
@@ -75,6 +81,7 @@ static int child_handler(sd_event_source *s, const siginfo_t *si, void *userdata
 static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         sd_event_source *p = NULL;
         pid_t pid;
+        siginfo_t plain_si;
 
         assert_se(s);
         assert_se(si);
@@ -83,16 +90,41 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 
         assert_se(userdata == INT_TO_PTR('e'));
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGUSR2, -1) >= 0);
 
         pid = fork();
         assert_se(pid >= 0);
 
-        if (pid == 0)
-                _exit(EXIT_SUCCESS);
+        if (pid == 0) {
+                sigset_t ss;
+
+                assert_se(sigemptyset(&ss) >= 0);
+                assert_se(sigaddset(&ss, SIGUSR2) >= 0);
+
+                zero(plain_si);
+                assert_se(sigwaitinfo(&ss, &plain_si) >= 0);
+
+                assert_se(plain_si.si_signo == SIGUSR2);
+                assert_se(plain_si.si_value.sival_int == 4711);
+
+                _exit(78);
+        }
 
         assert_se(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);
+        assert_se(sd_event_source_set_child_process_own(p, true) >= 0);
+
+        /* We can't use structured initialization here, since the structure contains various unions and these
+         * fields lie in overlapping (carefully aligned) unions that LLVM is allergic to allow assignments
+         * to */
+        zero(plain_si);
+        plain_si.si_signo = SIGUSR2;
+        plain_si.si_code = SI_QUEUE;
+        plain_si.si_pid = getpid();
+        plain_si.si_uid = getuid();
+        plain_si.si_value.sival_int = 4711;
+
+        assert_se(sd_event_source_send_child_signal(p, SIGUSR2, &plain_si, 0) >= 0);
 
         sd_event_source_unref(s);
 
@@ -119,7 +151,7 @@ static int defer_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
-static bool do_quit = false;
+static bool do_quit;
 
 static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         log_info("got timer on %c", PTR_TO_INT(userdata));
@@ -161,13 +193,15 @@ static int post_handler(sd_event_source *s, void *userdata) {
         return 2;
 }
 
-static void test_basic(void) {
+static void test_basic(bool with_pidfd) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
         int a[2] = { -1, -1 }, b[2] = { -1, -1}, d[2] = { -1, -1}, k[2] = { -1, -1 };
         uint64_t event_now;
         int64_t priority;
+
+        assert_se(setenv("SYSTEMD_PIDFD", yes_no(with_pidfd), 1) >= 0);
 
         assert_se(pipe(a) >= 0);
         assert_se(pipe(b) >= 0);
@@ -201,6 +235,8 @@ static void test_basic(void) {
 
         assert_se(sd_event_add_io(e, &x, a[0], EPOLLIN, io_handler, INT_TO_PTR('a')) >= 0);
         assert_se(sd_event_add_io(e, &y, b[0], EPOLLIN, io_handler, INT_TO_PTR('b')) >= 0);
+
+        do_quit = false;
         assert_se(sd_event_add_time(e, &z, CLOCK_MONOTONIC, 0, 0, time_handler, INT_TO_PTR('c')) >= 0);
         assert_se(sd_event_add_exit(e, &q, exit_handler, INT_TO_PTR('g')) >= 0);
 
@@ -258,6 +294,8 @@ static void test_basic(void) {
         safe_close_pair(b);
         safe_close_pair(d);
         safe_close_pair(k);
+
+        assert_se(unsetenv("SYSTEMD_PIDFD") >= 0);
 }
 
 static void test_sd_event_now(void) {
@@ -482,15 +520,89 @@ static void test_inotify(unsigned n_create_events) {
         sd_event_unref(e);
 }
 
+static int pidfd_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        assert_se(s);
+        assert_se(si);
+
+        assert_se(si->si_uid == getuid());
+        assert_se(si->si_signo == SIGCHLD);
+        assert_se(si->si_code == CLD_EXITED);
+        assert_se(si->si_status == 66);
+
+        log_info("got pidfd on %c", PTR_TO_INT(userdata));
+
+        assert_se(userdata == INT_TO_PTR('p'));
+
+        assert_se(sd_event_exit(sd_event_source_get_event(s), 0) >= 0);
+        sd_event_source_unref(s);
+
+        return 0;
+}
+
+static void test_pidfd(void) {
+        sd_event_source *s = NULL, *t = NULL;
+        sd_event *e = NULL;
+        int pidfd;
+        pid_t pid, pid2;
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+
+        pid = fork();
+        if (pid == 0) {
+                /* child */
+                _exit(66);
+        }
+
+        assert_se(pid > 1);
+
+        pidfd = pidfd_open(pid, 0);
+        if (pidfd < 0) {
+                /* No pidfd_open() supported or blocked? */
+                assert_se(ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno));
+                (void) wait_for_terminate(pid, NULL);
+                return;
+        }
+
+        pid2 = fork();
+        if (pid2 == 0)
+                freeze();
+
+        assert_se(pid > 2);
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(sd_event_add_child_pidfd(e, &s, pidfd, WEXITED, pidfd_handler, INT_TO_PTR('p')) >= 0);
+        assert_se(sd_event_source_set_child_pidfd_own(s, true) >= 0);
+
+        /* This one should never trigger, since our second child lives forever */
+        assert_se(sd_event_add_child(e, &t, pid2, WEXITED, pidfd_handler, INT_TO_PTR('q')) >= 0);
+        assert_se(sd_event_source_set_child_process_own(t, true) >= 0);
+
+        assert_se(sd_event_loop(e) >= 0);
+
+        /* Child should still be alive */
+        assert_se(kill(pid2, 0) >= 0);
+
+        t = sd_event_source_unref(t);
+
+        /* Child should now be dead, since we dropped the ref */
+        assert_se(kill(pid2, 0) < 0 && errno == ESRCH);
+
+        sd_event_unref(e);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
-        test_basic();
+        test_basic(true);   /* test with pidfd */
+        test_basic(false);  /* test without pidfd */
+
         test_sd_event_now();
         test_rtqueue();
 
         test_inotify(100); /* should work without overflow */
         test_inotify(33000); /* should trigger a q overflow */
+
+        test_pidfd();
 
         return 0;
 }

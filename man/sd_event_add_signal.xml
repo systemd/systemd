@@ -75,14 +75,13 @@
     project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for further information.</para>
 
-    <para>Only a single handler may be installed for a specific
-    signal. The signal will be unblocked by this call, and must be
-    blocked before this function is called in all threads (using
+    <para>Only a single handler may be installed for a specific signal. The signal must be blocked in all
+    threads before this function is called (using <citerefentry
+    project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
     <citerefentry
-    project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry>). If
-    the handler is not specified (<parameter>handler</parameter> is
-    <constant>NULL</constant>), a default handler which causes the
-    program to exit cleanly will be used.</para>
+    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>). If
+    the handler is not specified (<parameter>handler</parameter> is <constant>NULL</constant>), a default
+    handler which causes the program to exit cleanly will be used.</para>
 
     <para>By default, the event source is enabled permanently
     (<constant>SD_EVENT_ON</constant>), but this may be changed with
@@ -189,7 +188,9 @@
       <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
