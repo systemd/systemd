@@ -1460,7 +1460,7 @@ static int copy_files(Item *i) {
                          dfd, bn,
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
-                         COPY_REFLINK | COPY_MERGE_EMPTY);
+                         COPY_REFLINK | COPY_MERGE_EMPTY | COPY_MAC_CREATE);
         if (r < 0) {
                 struct stat a, b;
 
