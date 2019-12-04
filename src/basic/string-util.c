@@ -1064,3 +1064,13 @@ bool string_is_safe(const char *p) {
 
         return true;
 }
+
+char* string_erase(char *x) {
+        if (!x)
+                return NULL;
+
+        /* A delicious drop of snake-oil! To be called on memory where we stored passphrases or so, after we
+         * used them. */
+        explicit_bzero_safe(x, strlen(x));
+        return x;
+}

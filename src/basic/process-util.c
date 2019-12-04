@@ -1338,6 +1338,13 @@ int safe_fork_full(
                         log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
                         _exit(EXIT_FAILURE);
                 }
+
+        } else if (flags & FORK_STDOUT_TO_STDERR) {
+
+                if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
+                        log_full_errno(prio, r, "Failed to connect stdout to stderr: %m");
+                        _exit(EXIT_FAILURE);
+                }
         }
 
         if (flags & FORK_RLIMIT_NOFILE_SAFE) {

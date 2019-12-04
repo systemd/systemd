@@ -80,14 +80,21 @@ static inline void* explicit_bzero_safe(void *p, size_t l) {
 void *explicit_bzero_safe(void *p, size_t l);
 #endif
 
-static inline void erase_and_freep(void *p) {
-        void *ptr = *(void**) p;
+static inline void* erase_and_free(void *p) {
+        size_t l;
 
-        if (ptr) {
-                size_t l = malloc_usable_size(ptr);
-                explicit_bzero_safe(ptr, l);
-                free(ptr);
-        }
+        if (!p)
+                return NULL;
+
+        l = malloc_usable_size(p);
+        explicit_bzero_safe(p, l);
+        free(p);
+
+        return NULL;
+}
+
+static inline void erase_and_freep(void *p) {
+        erase_and_free(*(void**) p);
 }
 
 /* Use with _cleanup_ to erase a single 'char' when leaving scope */

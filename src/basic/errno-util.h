@@ -101,3 +101,11 @@ static inline bool ERRNO_IS_PRIVILEGE(int r) {
                       EACCES,
                       EPERM);
 }
+
+/* Three difference errors for "not enough disk space" */
+static inline bool ERRNO_IS_DISK_SPACE(int r) {
+        return IN_SET(abs(r),
+                      ENOSPC,
+                      EDQUOT,
+                      EFBIG);
+}

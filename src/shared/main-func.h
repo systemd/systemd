@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#include "sd-daemon.h"
+
 #include "pager.h"
 #include "selinux-util.h"
 #include "spawn-ask-password-agent.h"
@@ -16,6 +18,8 @@
                 save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \
+                if (r < 0)                                              \
+                        (void) sd_notifyf(0, "ERRNO=%i", -r);           \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \

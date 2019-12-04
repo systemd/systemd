@@ -278,3 +278,5 @@ static inline char* str_realloc(char **p) {
 
         return (*p = t);
 }
+
+char* string_erase(char *x);
