@@ -535,10 +535,11 @@ static void test_memory_deny_write_execute_mmap(void) {
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__)
                 assert_se(p == MAP_FAILED);
                 assert_se(errno == EPERM);
-#else /* unknown architectures */
-                assert_se(p != MAP_FAILED);
-                assert_se(munmap(p, page_size()) >= 0);
 #endif
+                /* Depending on kernel, libseccomp, and glibc versions, other architectures
+                 * might fail or not. Let's not assert success. */
+                if (p != MAP_FAILED)
+                        assert_se(munmap(p, page_size()) == 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS, -1,0);
                 assert_se(p != MAP_FAILED);
