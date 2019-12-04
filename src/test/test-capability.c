@@ -195,7 +195,7 @@ static void test_update_inherited_set(void) {
         cap_free(caps);
 }
 
-static void test_set_ambient_caps(void) {
+static void test_apply_ambient_caps(void) {
         cap_t caps;
         uint64_t set = 0;
         cap_flag_value_t fv;
@@ -207,11 +207,21 @@ static void test_set_ambient_caps(void) {
         assert_se(!capability_ambient_set_apply(set, true));
 
         caps = cap_get_proc();
+        assert_se(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_SET);
+        assert_se(fv == CAP_SET);
         cap_free(caps);
 
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
+
+        assert_se(!capability_ambient_set_apply(0, true));
+        caps = cap_get_proc();
+        assert_se(caps);
+        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
+        assert_se(fv == CAP_CLEAR);
+        cap_free(caps);
+
+        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
 }
 
 static void test_ensure_cap_64bit(void) {
@@ -259,7 +269,7 @@ int main(int argc, char *argv[]) {
         fork_test(test_have_effective_cap);
 
         if (run_ambient)
-                fork_test(test_set_ambient_caps);
+                fork_test(test_apply_ambient_caps);
 
         return 0;
 }

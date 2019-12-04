@@ -3595,8 +3595,7 @@ static int exec_child(
 
                 /* This is done before enforce_user, but ambient set
                  * does not survive over setresuid() if keep_caps is not set. */
-                if (!needs_ambient_hack &&
-                    context->capability_ambient_set != 0) {
+                if (!needs_ambient_hack) {
                         r = capability_ambient_set_apply(context->capability_ambient_set, true);
                         if (r < 0) {
                                 *exit_status = EXIT_CAPABILITIES;
