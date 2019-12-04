@@ -16,7 +16,7 @@ static int netdev_nlmon_verify(NetDev *netdev, const char *filename) {
 
 const NetDevVTable nlmon_vtable = {
         .object_size = sizeof(NLMon),
-        .sections = "Match\0NetDev\0",
+        .sections = NETDEV_COMMON_SECTIONS,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_nlmon_verify,
 };

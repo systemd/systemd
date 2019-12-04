@@ -723,7 +723,7 @@ static void l2tp_tunnel_done(NetDev *netdev) {
 const NetDevVTable l2tptnl_vtable = {
         .object_size = sizeof(L2tpTunnel),
         .init = l2tp_tunnel_init,
-        .sections = "Match\0NetDev\0L2TP\0L2TPSession\0",
+        .sections = NETDEV_COMMON_SECTIONS "L2TP\0L2TPSession\0",
         .create_after_configured = l2tp_create_tunnel,
         .done = l2tp_tunnel_done,
         .create_type = NETDEV_CREATE_AFTER_CONFIGURED,

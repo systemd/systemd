@@ -371,7 +371,7 @@ static void vxlan_init(NetDev *netdev) {
 const NetDevVTable vxlan_vtable = {
         .object_size = sizeof(VxLan),
         .init = vxlan_init,
-        .sections = "Match\0NetDev\0VXLAN\0",
+        .sections = NETDEV_COMMON_SECTIONS "VXLAN\0",
         .fill_message_create = netdev_vxlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vxlan_verify,

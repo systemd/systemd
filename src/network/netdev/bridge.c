@@ -355,7 +355,7 @@ static void bridge_init(NetDev *n) {
 const NetDevVTable bridge_vtable = {
         .object_size = sizeof(Bridge),
         .init = bridge_init,
-        .sections = "Match\0NetDev\0Bridge\0",
+        .sections = NETDEV_COMMON_SECTIONS "Bridge\0",
         .post_create = netdev_bridge_post_create,
         .create_type = NETDEV_CREATE_MASTER,
 };

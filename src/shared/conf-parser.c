@@ -221,8 +221,19 @@ static int parse_line(
                         return -ENOMEM;
 
                 if (sections && !nulstr_contains(sections, n)) {
+                        bool ignore = flags & CONFIG_PARSE_RELAXED;
+                        const char *t;
 
-                        if (!(flags & CONFIG_PARSE_RELAXED) && !startswith(n, "X-"))
+                        ignore = ignore || startswith(n, "X-");
+
+                        if (!ignore)
+                                NULSTR_FOREACH(t, sections)
+                                        if (streq_ptr(n, startswith(t, "-"))) {
+                                                ignore = true;
+                                                break;
+                                        }
+
+                        if (!ignore)
                                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown section '%s'. Ignoring.", n);
 
                         free(n);
@@ -282,7 +293,7 @@ int config_parse(const char *unit,
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
-        bool section_ignored = false;
+        bool section_ignored = false, bom_seen = false;
         int r;
 
         assert(filename);
@@ -328,13 +339,13 @@ int config_parse(const char *unit,
                         continue;
 
                 l = buf;
-                if (!(flags & CONFIG_PARSE_REFUSE_BOM)) {
+                if (!bom_seen) {
                         char *q;
 
                         q = startswith(buf, UTF8_BYTE_ORDER_MARK);
                         if (q) {
                                 l = q;
-                                flags |= CONFIG_PARSE_REFUSE_BOM;
+                                bom_seen = true;
                         }
                 }
 

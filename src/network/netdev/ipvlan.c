@@ -74,7 +74,7 @@ static void ipvlan_init(NetDev *n) {
 const NetDevVTable ipvlan_vtable = {
         .object_size = sizeof(IPVlan),
         .init = ipvlan_init,
-        .sections = "Match\0NetDev\0IPVLAN\0",
+        .sections = NETDEV_COMMON_SECTIONS "IPVLAN\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .generate_mac = true,
@@ -83,7 +83,7 @@ const NetDevVTable ipvlan_vtable = {
 const NetDevVTable ipvtap_vtable = {
         .object_size = sizeof(IPVlan),
         .init = ipvlan_init,
-        .sections = "Match\0NetDev\0IPVTAP\0",
+        .sections = NETDEV_COMMON_SECTIONS "IPVTAP\0",
         .fill_message_create = netdev_ipvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .generate_mac = true,

@@ -65,7 +65,7 @@ static void vxcan_done(NetDev *n) {
 
 const NetDevVTable vxcan_vtable = {
         .object_size = sizeof(VxCan),
-        .sections = "Match\0NetDev\0VXCAN\0",
+        .sections = NETDEV_COMMON_SECTIONS "VXCAN\0",
         .done = vxcan_done,
         .fill_message_create = netdev_vxcan_fill_message_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,

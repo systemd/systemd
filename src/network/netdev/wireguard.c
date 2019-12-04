@@ -967,7 +967,7 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
 
 const NetDevVTable wireguard_vtable = {
         .object_size = sizeof(Wireguard),
-        .sections = "Match\0NetDev\0WireGuard\0WireGuardPeer\0",
+        .sections = NETDEV_COMMON_SECTIONS "WireGuard\0WireGuardPeer\0",
         .post_create = netdev_wireguard_post_create,
         .init = wireguard_init,
         .done = wireguard_done,

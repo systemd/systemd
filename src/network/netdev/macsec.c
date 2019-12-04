@@ -1235,7 +1235,7 @@ static void macsec_done(NetDev *netdev) {
 const NetDevVTable macsec_vtable = {
         .object_size = sizeof(MACsec),
         .init = macsec_init,
-        .sections = "Match\0NetDev\0MACsec\0MACsecReceiveChannel\0MACsecTransmitAssociation\0MACsecReceiveAssociation\0",
+        .sections = NETDEV_COMMON_SECTIONS "MACsec\0MACsecReceiveChannel\0MACsecTransmitAssociation\0MACsecReceiveAssociation\0",
         .fill_message_create = netdev_macsec_fill_message_create,
         .post_create = netdev_macsec_configure,
         .done = macsec_done,

@@ -348,7 +348,7 @@ static void geneve_init(NetDev *netdev) {
 const NetDevVTable geneve_vtable = {
         .object_size = sizeof(Geneve),
         .init = geneve_init,
-        .sections = "Match\0NetDev\0GENEVE\0",
+        .sections = NETDEV_COMMON_SECTIONS "GENEVE\0",
         .create = netdev_geneve_create,
         .create_type = NETDEV_CREATE_INDEPENDENT,
         .config_verify = netdev_geneve_verify,
