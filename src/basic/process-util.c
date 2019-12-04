@@ -1340,9 +1340,8 @@ int safe_fork_full(
                 }
 
         } else if (flags & FORK_STDOUT_TO_STDERR) {
-
                 if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
-                        log_full_errno(prio, r, "Failed to connect stdout to stderr: %m");
+                        log_full_errno(prio, errno, "Failed to connect stdout to stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
         }
