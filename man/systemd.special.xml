@@ -38,6 +38,7 @@
     <filename>hibernate.target</filename>,
     <filename>hybrid-sleep.target</filename>,
     <filename>suspend-then-hibernate.target</filename>,
+    <filename>initrd.target</filename>,
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
@@ -202,14 +203,16 @@
         <varlistentry>
           <term><filename>default.target</filename></term>
           <listitem>
-            <para>The default unit systemd starts at bootup. Usually,
-            this should be aliased (symlinked) to
-            <filename>multi-user.target</filename> or
-            <filename>graphical.target</filename>.</para>
+            <para>The default unit systemd starts at bootup. Usually, this should be aliased (symlinked) to
+            <filename>multi-user.target</filename> or <filename>graphical.target</filename>. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
 
-            <para>The default unit systemd starts at bootup can be
-            overridden with the <varname>systemd.unit=</varname> kernel
-            command line option.</para>
+            <para>The default unit systemd starts at bootup can be overridden with the
+            <varname>systemd.unit=</varname> kernel command line option, or more conveniently, with the short
+            names like <varname>single</varname>, <varname>rescue</varname>, <varname>1</varname>,
+            <varname>3</varname>, <varname>5</varname>, …; see
+            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -339,6 +342,15 @@
           <listitem>
             <para>This scope unit is where the system and service manager (PID 1) itself resides. It
             is active as long as the system is running.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd.target</filename></term>
+          <listitem>
+            <para>This is the default target in the initramfs, similar to <filename>default.target</filename>
+            in the main system. It is used to mount the real root and transition to it. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

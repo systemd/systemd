@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 
 #include "sd-dhcp-server.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "dhcp-internal.h"
@@ -13,7 +14,6 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
-#include "sd-id128.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"

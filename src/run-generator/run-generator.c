@@ -9,6 +9,7 @@
 #include "generator.h"
 #include "mkdir.h"
 #include "proc-cmdline.h"
+#include "special.h"
 #include "specifier.h"
 #include "strv.h"
 
@@ -116,7 +117,7 @@ static int generate(void) {
                 return log_error_errno(r, "Failed to create unit file %s: %m", p);
 
         /* And now redirect default.target to our new target */
-        p = strjoina(arg_dest, "/default.target");
+        p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
         if (symlink("kernel-command-line.target", p) < 0)
                 return log_error_errno(errno, "Failed to link unit file kernel-command-line.target → %s: %m", p);
 
