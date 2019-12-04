@@ -36,6 +36,7 @@ static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
+        free(entry->id_old);
         free(entry->path);
         free(entry->root);
         free(entry->title);
@@ -73,12 +74,13 @@ static int boot_entry_load(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry file suffix: %s", path);
 
         b = basename(path);
-        tmp.id = strndup(b, c - b);
-        if (!tmp.id)
+        tmp.id = strdup(b);
+        tmp.id_old = strndup(b, c - b);
+        if (!tmp.id || !tmp.id_old)
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry filename: %s", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -289,6 +291,7 @@ static int boot_entry_load_unified(
         };
         _cleanup_fclose_ FILE *f = NULL;
         const char *k;
+        char *b;
         int r;
 
         assert(root);
@@ -314,8 +317,10 @@ static int boot_entry_load_unified(
         if (!os_pretty_name || !os_id || !(version_id || build_id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
 
-        tmp.id = strjoin(os_id, "-", version_id ?: build_id);
-        if (!tmp.id)
+        b = basename(path);
+        tmp.id = strdup(b);
+        tmp.id_old = strjoin(os_id, "-", version_id ?: build_id);
+        if (!tmp.id || !tmp.id_old)
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
