@@ -20,7 +20,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 /* we warn but don't fail the link, as it may be brought up later */
-                log_link_warning_errno(link, r, "Could not bring up interface: %m");
+                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
 
         return 1;
 }
@@ -60,7 +60,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Failed to configure CAN link: %m");
+                log_link_message_warning_errno(link, m, r, "Failed to configure CAN link");
                 link_enter_failed(link);
         }
 
@@ -183,7 +183,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_link_warning_errno(link, r, "Could not bring down interface: %m");
+                log_link_message_warning_errno(link, m, r, "Could not bring down interface");
                 link_enter_failed(link);
                 return 1;
         }

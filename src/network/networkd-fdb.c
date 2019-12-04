@@ -105,7 +105,7 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not add FDB entry: %m");
+                log_link_message_warning_errno(link, m, r, "Could not add FDB entry");
                 link_enter_failed(link);
                 return 1;
         }

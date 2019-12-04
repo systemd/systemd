@@ -398,7 +398,7 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -ESRCH)
-                log_link_warning_errno(link, r, "Could not drop route: %m");
+                log_link_message_warning_errno(link, m, r, "Could not drop route, ignoring");
 
         return 1;
 }

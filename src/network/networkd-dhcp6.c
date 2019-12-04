@@ -112,7 +112,7 @@ static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Lin
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_debug_errno(link, r, "Received error on unreachable route removal for DHCPv6 delegated subnet: %m");
+                log_link_message_warning_errno(link, m, r, "Received error on unreachable route removal for DHCPv6 delegated subnet");
 
         return 1;
 }
@@ -251,7 +251,7 @@ static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_debug_errno(link, r, "Received error when adding unreachable route for DHCPv6 delegated subnet: %m");
+                log_link_message_warning_errno(link, m, r, "Received error when adding unreachable route for DHCPv6 delegated subnet");
 
         return 1;
 }
@@ -402,7 +402,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not set DHCPv6 address: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set DHCPv6 address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)
@@ -714,7 +714,7 @@ static int dhcp6_route_add_handler(sd_netlink *nl, sd_netlink_message *m, Link *
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_debug_errno(link, r, "Received error adding DHCPv6 Prefix Delegation route: %m");
+                log_link_message_warning_errno(link, m, r, "Received error adding DHCPv6 Prefix Delegation route");
                 link_enter_failed(link);
                 return 1;
         }
@@ -780,7 +780,7 @@ static int dhcp6_prefix_remove_handler(sd_netlink *nl, sd_netlink_message *m, Li
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
-                log_link_debug_errno(link, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
+                log_link_message_warning_errno(link, m, r, "Received error on DHCPv6 Prefix Delegation route removal");
                 link_enter_failed(link);
                 return 1;
         }

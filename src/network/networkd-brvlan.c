@@ -141,7 +141,7 @@ static int set_brvlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *lin
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST)
-                log_link_error_errno(link, r, "Could not add VLAN to bridge port: %m");
+                log_link_message_warning_errno(link, m, r, "Could not add VLAN to bridge port");
 
         return 1;
 }

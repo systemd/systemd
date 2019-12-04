@@ -929,7 +929,7 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_warning_errno(link, r, "Could not set nexthop: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
                 link_enter_failed(link);
                 return 1;
         }
@@ -981,7 +981,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_warning_errno(link, r, "Could not set route: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set route");
                 link_enter_failed(link);
                 return 1;
         }
@@ -1170,7 +1170,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_warning_errno(link, r, "could not set address: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)
@@ -1303,7 +1303,7 @@ static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not set MTU, ignoring: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set MTU, ignoring");
         else
                 log_link_debug(link, "Setting MTU done.");
 
@@ -1415,7 +1415,7 @@ static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not set link flags, ignoring: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set link flags, ignoring");
 
         return 1;
 }
@@ -1582,7 +1582,7 @@ static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not set address genmode for interface, ignoring: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set address genmode for interface, ignoring");
 
         return 1;
 }
@@ -1656,7 +1656,7 @@ static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 /* we warn but don't fail the link, as it may be brought up later */
-                log_link_warning_errno(link, r, "Could not bring up interface: %m");
+                log_link_message_warning_errno(link, m, r, "Could not bring up interface");
 
         return 1;
 }
@@ -1713,7 +1713,7 @@ static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_warning_errno(link, r, "Could not bring down interface: %m");
+                log_link_message_warning_errno(link, m, r, "Could not bring down interface");
 
         return 1;
 }
@@ -2118,7 +2118,7 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "Could not join netdev: %m");
+                log_link_message_warning_errno(link, m, r, "Could not join netdev");
                 link_enter_failed(link);
                 return 1;
         }
@@ -4053,3 +4053,10 @@ static const char* const link_state_table[_LINK_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_state, LinkState);
+
+int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_link_full(link, level, err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
+}

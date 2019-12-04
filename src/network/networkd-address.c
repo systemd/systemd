@@ -431,7 +431,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                log_link_warning_errno(link, r, "Could not drop address: %m");
+                log_link_message_warning_errno(link, m, r, "Could not drop address");
 
         return 1;
 }
