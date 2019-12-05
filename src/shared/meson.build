@@ -147,6 +147,8 @@ shared_sources = files('''
         ptyfwd.h
         reboot-util.c
         reboot-util.h
+        resize-fs.c
+        resize-fs.h
         resolve-util.c
         resolve-util.h
         seccomp-util.h
