@@ -2924,7 +2924,7 @@ int link_reconfigure(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING)) {
+        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
                 log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
@@ -3419,7 +3419,7 @@ static int link_carrier_lost(Link *link) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING)) {
+        if (!IN_SET(link->state, LINK_STATE_UNMANAGED, LINK_STATE_PENDING, LINK_STATE_INITIALIZED)) {
                 log_link_debug(link, "State is %s, dropping config", link_state_to_string(link->state));
                 r = link_drop_foreign_config(link);
                 if (r < 0)
