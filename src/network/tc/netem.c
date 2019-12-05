@@ -2,12 +2,9 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include <linux/pkt_sched.h>
-#include <math.h>
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "hashmap.h"
-#include "in-addr-util.h"
 #include "netem.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
@@ -15,7 +12,6 @@
 #include "qdisc.h"
 #include "string-util.h"
 #include "tc-util.h"
-#include "util.h"
 
 int network_emulator_new(NetworkEmulator **ret) {
         NetworkEmulator *ne = NULL;
@@ -34,33 +30,33 @@ int network_emulator_new(NetworkEmulator **ret) {
         return 0;
 }
 
-int network_emulator_fill_message(Link *link, QDiscs *qdisc, sd_netlink_message *req) {
+int network_emulator_fill_message(Link *link, const NetworkEmulator *ne, sd_netlink_message *req) {
         struct tc_netem_qopt opt = {
                .limit = 1000,
         };
         int r;
 
         assert(link);
-        assert(qdisc);
+        assert(ne);
         assert(req);
 
-        if (qdisc->ne.limit > 0)
-                opt.limit = qdisc->ne.limit;
+        if (ne->limit > 0)
+                opt.limit = ne->limit;
 
-        if (qdisc->ne.loss > 0)
-                opt.loss = qdisc->ne.loss;
+        if (ne->loss > 0)
+                opt.loss = ne->loss;
 
-        if (qdisc->ne.duplicate > 0)
-                opt.duplicate = qdisc->ne.duplicate;
+        if (ne->duplicate > 0)
+                opt.duplicate = ne->duplicate;
 
-        if (qdisc->ne.delay != USEC_INFINITY) {
-                r = tc_time_to_tick(qdisc->ne.delay, &opt.latency);
+        if (ne->delay != USEC_INFINITY) {
+                r = tc_time_to_tick(ne->delay, &opt.latency);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to calculate latency in TCA_OPTION: %m");
         }
 
-        if (qdisc->ne.jitter != USEC_INFINITY) {
-                r = tc_time_to_tick(qdisc->ne.jitter, &opt.jitter);
+        if (ne->jitter != USEC_INFINITY) {
+                r = tc_time_to_tick(ne->jitter, &opt.jitter);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to calculate jitter in TCA_OPTION: %m");
         }
@@ -84,7 +80,7 @@ int config_parse_tc_network_emulator_delay(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         usec_t u;
         int r;
@@ -139,7 +135,7 @@ int config_parse_tc_network_emulator_rate(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         uint32_t rate;
         int r;
@@ -189,7 +185,7 @@ int config_parse_tc_network_emulator_packet_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         int r;
 

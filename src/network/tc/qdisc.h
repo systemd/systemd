@@ -7,8 +7,10 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "sfq.h"
+#include "tbf.h"
 
-typedef struct QDiscs {
+typedef struct QDisc {
         NetworkConfigSection *section;
         Network *network;
 
@@ -20,15 +22,21 @@ typedef struct QDiscs {
         uint32_t parent;
 
         bool has_network_emulator:1;
+        bool has_token_buffer_filter:1;
+        bool has_stochastic_fairness_queueing:1;
 
         NetworkEmulator ne;
-} QDiscs;
+        TokenBufferFilter tbf;
+        StochasticFairnessQueueing sfq;
+} QDisc;
 
-void qdisc_free(QDiscs *qdisc);
-int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDiscs **ret);
+void qdisc_free(QDisc *qdisc);
+int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
-int qdisc_configure(Link *link, QDiscs *qdisc);
+int qdisc_configure(Link *link, QDisc *qdisc);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(QDiscs, qdisc_free);
+int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_qdiscs_parent);

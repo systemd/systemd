@@ -12,16 +12,15 @@
 #include "qdisc.h"
 #include "set.h"
 #include "string-util.h"
-#include "util.h"
 
-static int qdisc_new(QDiscs **ret) {
-        QDiscs *qdisc;
+static int qdisc_new(QDisc **ret) {
+        QDisc *qdisc;
 
-        qdisc = new(QDiscs, 1);
+        qdisc = new(QDisc, 1);
         if (!qdisc)
                 return -ENOMEM;
 
-        *qdisc = (QDiscs) {
+        *qdisc = (QDisc) {
                 .family = AF_UNSPEC,
                 .parent = TC_H_ROOT,
         };
@@ -31,9 +30,9 @@ static int qdisc_new(QDiscs **ret) {
         return 0;
 }
 
-int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDiscs **ret) {
+int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDisc **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
-        _cleanup_(qdisc_freep) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
         int r;
 
         assert(network);
@@ -76,7 +75,7 @@ int qdisc_new_static(Network *network, const char *filename, unsigned section_li
         return 0;
 }
 
-void qdisc_free(QDiscs *qdisc) {
+void qdisc_free(QDisc *qdisc) {
         if (!qdisc)
                 return;
 
@@ -106,7 +105,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         }
 
         if (link->route_messages == 0) {
-                log_link_debug(link, "QDiscs configured");
+                log_link_debug(link, "QDisc configured");
                 link->qdiscs_configured = true;
                 link_check_ready(link);
         }
@@ -114,7 +113,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int qdisc_configure(Link *link, QDiscs *qdisc) {
+int qdisc_configure(Link *link, QDisc *qdisc) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ char *tca_kind = NULL;
         int r;
@@ -147,7 +146,27 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
                 if (r < 0)
                         return log_oom();
 
-                r = network_emulator_fill_message(link, qdisc, req);
+                r = network_emulator_fill_message(link, &qdisc->ne, req);
+                if (r < 0)
+                        return r;
+        }
+
+        if (qdisc->has_token_buffer_filter) {
+                r = free_and_strdup(&tca_kind, "tbf");
+                if (r < 0)
+                        return log_oom();
+
+                r = token_buffer_filter_fill_message(link, &qdisc->tbf, req);
+                if (r < 0)
+                        return r;
+        }
+
+        if (qdisc->has_stochastic_fairness_queueing) {
+                r = free_and_strdup(&tca_kind, "sfq");
+                if (r < 0)
+                        return log_oom();
+
+                r = stochastic_fairness_queueing_fill_message(link, &qdisc->sfq, req);
                 if (r < 0)
                         return r;
         }
@@ -168,6 +187,42 @@ int qdisc_configure(Link *link, QDiscs *qdisc) {
         return 0;
 }
 
+int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
+        unsigned i;
+
+        assert(qdisc);
+        assert(has_root);
+        assert(has_clsact);
+
+        if (section_is_invalid(qdisc->section))
+                return -EINVAL;
+
+        i = qdisc->has_network_emulator + qdisc->has_token_buffer_filter + qdisc->has_stochastic_fairness_queueing;
+        if (i > 1)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: TrafficControlQueueingDiscipline section has more than one type of discipline. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         qdisc->section->filename, qdisc->section->line);
+
+        if (qdisc->parent == TC_H_ROOT) {
+                if (*has_root)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: More than one root TrafficControlQueueingDiscipline sections are defined. "
+                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 qdisc->section->filename, qdisc->section->line);
+                *has_root = true;
+        } else if (qdisc->parent == TC_H_CLSACT) {
+                if (*has_clsact)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: More than one clsact TrafficControlQueueingDiscipline sections are defined. "
+                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 qdisc->section->filename, qdisc->section->line);
+                *has_clsact = true;
+        }
+
+        return 0;
+}
+
 int config_parse_tc_qdiscs_parent(
                 const char *unit,
                 const char *filename,
@@ -180,7 +235,7 @@ int config_parse_tc_qdiscs_parent(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(qdisc_free_or_set_invalidp) QDiscs *qdisc = NULL;
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
         int r;
 
