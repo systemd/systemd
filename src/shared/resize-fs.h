@@ -5,7 +5,7 @@
 
 #include "stat-util.h"
 
-int resize_fs(int fd, uint64_t sz);
+int resize_fs(int fd, uint64_t sz, uint64_t *ret_size);
 
 #define BTRFS_MINIMAL_SIZE (256U*1024U*1024U)
 #define XFS_MINIMAL_SIZE (14U*1024U*1024U)
