@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -231,7 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_close_ int mountfd = -1, devfd = -1;
         _cleanup_free_ char *devpath = NULL;
         uint64_t size, numblocks;
@@ -244,58 +245,40 @@ int main(int argc, char *argv[]) {
         log_setup_service();
 
         r = parse_argv(argc, argv);
-        if (r < 0)
-                return EXIT_FAILURE;
-        if (r == 0)
-                return EXIT_SUCCESS;
+        if (r <= 0)
+                return r;
 
         r = path_is_mount_point(arg_target, NULL, 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", arg_target);
-                return EXIT_FAILURE;
-        }
-        if (r == 0) {
-                log_error_errno(r, "\"%s\" is not a mount point: %m", arg_target);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", arg_target);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point: %m", arg_target);
 
         r = get_block_device(arg_target, &devno);
-        if (r < 0) {
-                log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
 
         r = maybe_resize_slave_device(arg_target, devno);
         if (r < 0)
-                return EXIT_FAILURE;
+                return r;
 
         mountfd = open(arg_target, O_RDONLY|O_CLOEXEC);
-        if (mountfd < 0) {
-                log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
-                return EXIT_FAILURE;
-        }
+        if (mountfd < 0)
+                return log_error_errno(errno, "Failed to open \"%s\": %m", arg_target);
 
         r = device_path_make_major_minor(S_IFBLK, devno, &devpath);
-        if (r < 0) {
-                log_error_errno(r, "Failed to format device major/minor path: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to format device major/minor path: %m");
 
         devfd = open(devpath, O_RDONLY|O_CLOEXEC);
-        if (devfd < 0) {
-                log_error_errno(errno, "Failed to open \"%s\": %m", devpath);
-                return EXIT_FAILURE;
-        }
+        if (devfd < 0)
+                return log_error_errno(errno, "Failed to open \"%s\": %m", devpath);
 
-        if (ioctl(devfd, BLKBSZGET, &blocksize) != 0) {
-                log_error_errno(errno, "Failed to query block size of \"%s\": %m", devpath);
-                return EXIT_FAILURE;
-        }
+        if (ioctl(devfd, BLKBSZGET, &blocksize) != 0)
+                return log_error_errno(errno, "Failed to query block size of \"%s\": %m", devpath);
 
-        if (ioctl(devfd, BLKGETSIZE64, &size) != 0) {
-                log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
-                return EXIT_FAILURE;
-        }
+        if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
+                return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
 
         if (size % blocksize != 0)
                 log_notice("Partition size %"PRIu64" is not a multiple of the blocksize %d,"
@@ -303,10 +286,8 @@ int main(int argc, char *argv[]) {
 
         numblocks = size / blocksize;
 
-        if (fstatfs(mountfd, &sfs) < 0) {
-                log_error_errno(errno, "Failed to stat file system \"%s\": %m", arg_target);
-                return EXIT_FAILURE;
-        }
+        if (fstatfs(mountfd, &sfs) < 0)
+                return log_error_errno(errno, "Failed to stat file system \"%s\": %m", arg_target);
 
         switch(sfs.f_type) {
         case EXT4_SUPER_MAGIC:
@@ -316,15 +297,14 @@ int main(int argc, char *argv[]) {
                 r = resize_btrfs(arg_target, mountfd, devfd, numblocks, blocksize);
                 break;
         default:
-                log_error("Don't know how to resize fs %llx on \"%s\"",
-                          (long long unsigned) sfs.f_type, arg_target);
-                return EXIT_FAILURE;
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Don't know how to resize fs %llx on \"%s\"",
+                                       (long long unsigned) sfs.f_type, arg_target);
         }
-
-        if (r < 0)
-                return EXIT_FAILURE;
-
-        log_info("Successfully resized \"%s\" to %s bytes (%"PRIu64" blocks of %d bytes).",
-                 arg_target, format_bytes(fb, sizeof fb, size), numblocks, blocksize);
-        return EXIT_SUCCESS;
+        if (r > 0)
+                log_info("Successfully resized \"%s\" to %s bytes (%"PRIu64" blocks of %d bytes).",
+                         arg_target, format_bytes(fb, sizeof fb, size), numblocks, blocksize);
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
