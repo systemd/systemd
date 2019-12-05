@@ -7716,7 +7716,7 @@ static int systemctl_help(void) {
                "  isolate UNIT                        Start one unit and stop all others\n"
                "  kill UNIT...                        Send signal to processes of a unit\n"
                "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
-               "                                      or configuration of unit\n"
+               "                                      configuration of unit\n"
                "  is-active PATTERN...                Check whether units are active\n"
                "  is-failed PATTERN...                Check whether units are failed\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
