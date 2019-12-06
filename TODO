@@ -378,8 +378,6 @@ Features:
 * show whether a service has out-of-date configuration in "systemctl status" by
   using mtime data of ConfigurationDirectory=.
 
-* replace all remaining uses of fgets() + LINE_MAX by read_line()
-
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
   can leverage code from sysusers.d for this.
@@ -460,8 +458,6 @@ Features:
 
 * define gpt header bits to select volatility mode
 
-* ProtectKernelLogs= (drops CAP_SYSLOG, add seccomp for syslog() syscall, and DeviceAllow to /dev/kmsg) in service files
-
 * ProtectClock= (drops CAP_SYS_TIMES, adds seecomp filters for settimeofday, adjtimex), sets DeviceAllow o /dev/rtc
 
 * ProtectTracing= (drops CAP_SYS_PTRACE, blocks ptrace syscall, makes /sys/kernel/tracing go away)
@@ -519,7 +515,7 @@ Features:
 
 * when we detect that there are waiting jobs but no running jobs, do something
 
-* push CPUAffinity= also into the "cpuset" cgroup controller (only after the cpuset controller got ported to the unified hierarchy)
+* push CPUAffinity= also into the "cpuset" cgroup controller
 
 * PID 1 should send out sd_notify("WATCHDOG=1") messages (for usage in the --user mode, and when run via nspawn)
 
@@ -579,8 +575,6 @@ Features:
   can be used for resuming the system but nothing else.
 
 * what to do about udev db binary stability for apps? (raw access is not an option)
-
-* man: maybe use the word "inspect" rather than "introspect"?
 
 * systemctl: if some operation fails, show log output?
 
