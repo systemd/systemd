@@ -1583,12 +1583,11 @@ assert_cc(SCMP_SYS(shmdt) > 0);
 
 int seccomp_memory_deny_write_execute(void) {
         uint32_t arch;
-        int r;
-        int loaded = 0;
+        unsigned loaded = 0;
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                int filter_syscall = 0, block_syscall = 0, shmat_syscall = 0;
+                int filter_syscall = 0, block_syscall = 0, shmat_syscall = 0, r;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
@@ -1678,12 +1677,13 @@ int seccomp_memory_deny_write_execute(void) {
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
-                        log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                        log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m",
+                                        seccomp_arch_to_string(arch));
                 loaded++;
         }
 
         if (loaded == 0)
-                log_debug_errno(r, "Failed to install any seccomp rules for MemoryDenyWriteExecute=");
+                log_debug("Failed to install any seccomp rules for MemoryDenyWriteExecute=.");
 
         return loaded;
 }
