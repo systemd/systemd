@@ -163,7 +163,7 @@ int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_fla
         if (fd < 0)
                 return -errno;
 
-        return loop_device_make(fd, open_flags, loop_flags, ret);
+        return loop_device_make_full(fd, open_flags, 0, 0, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
