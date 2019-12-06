@@ -44,7 +44,7 @@ int loop_device_make_full(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (ioctl(loop, LOOP_GET_STATUS64, &info) >= 0) {
+                if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
                         /* Oh! This is a loopback device? That's interesting! */
 
 #if HAVE_VALGRIND_MEMCHECK_H
