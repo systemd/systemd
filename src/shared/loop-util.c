@@ -58,7 +58,7 @@ int loop_device_make_full(
                 }
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
-                        int copy;
+                        _cleanup_close_ int copy = -1;
 
                         /* If this is already a block device, store a copy of the fd as it is */
 
@@ -71,7 +71,7 @@ int loop_device_make_full(
                                 return -ENOMEM;
 
                         *d = (LoopDevice) {
-                                .fd = copy,
+                                .fd = TAKE_FD(copy),
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
