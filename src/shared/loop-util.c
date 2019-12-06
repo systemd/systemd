@@ -11,6 +11,7 @@
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -19,6 +20,7 @@
 #include "parse-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd >= 0) {
@@ -166,7 +168,6 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 return NULL;
 
         if (d->fd >= 0) {
-
                 if (d->nr >= 0 && !d->relinquished) {
                         if (ioctl(d->fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
@@ -181,11 +182,19 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
-                        log_debug_errno(errno, "Failed to open loop control device: %m");
-                else {
-                        if (ioctl(control, LOOP_CTL_REMOVE, d->nr) < 0)
-                                log_debug_errno(errno, "Failed to remove loop device: %m");
-                }
+                        log_warning_errno(errno,
+                                          "Failed to open loop control device, cannot remove loop device %s: %m",
+                                          strna(d->node));
+                else
+                        for (unsigned n_attempts = 0;;) {
+                                if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
+                                        break;
+                                if (errno != EBUSY || ++n_attempts >= 64) {
+                                        log_warning_errno(errno, "Failed to remove device %s: %m", strna(d->node));
+                                        break;
+                                }
+                                usleep(50 * USEC_PER_MSEC);
+                        }
         }
 
         free(d->node);
