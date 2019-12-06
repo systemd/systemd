@@ -8,7 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Remote File Systems (Pre)
+Description=Cryptsetup Units Slice
 Documentation=man:systemd.special(7)
-RefuseManualStart=yes
-After=remote-cryptsetup.target
+DefaultDependencies=no

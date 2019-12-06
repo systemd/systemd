@@ -227,7 +227,7 @@ static int create_disk(
                 *filtered = NULL, *u_escaped = NULL, *filtered_escaped = NULL, *name_escaped = NULL, *header_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, tmp, swap, netdev;
+        bool noauto, nofail, tmp, swap, netdev, attach_in_initrd;
         int r, detached_header, keyfile_can_timeout;
 
         assert(name);
@@ -238,6 +238,7 @@ static int create_disk(
         tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
+        attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
 
         keyfile_can_timeout = fstab_filter_options(options, "keyfile-timeout\0", NULL, &keyfile_timeout_value, NULL);
         if (keyfile_can_timeout < 0)
@@ -290,11 +291,14 @@ static int create_disk(
                 "Documentation=man:crypttab(5) man:systemd-cryptsetup-generator(8) man:systemd-cryptsetup@.service(8)\n"
                 "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
-                "Conflicts=umount.target\n"
                 "IgnoreOnIsolate=true\n"
                 "After=%s\n",
                 arg_crypttab,
                 netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
+
+        /* If initrd takes care of attaching the disk then it should also detach it during shutdown. */
+        if (!attach_in_initrd)
+                fprintf(f, "Conflicts=umount.target\n");
 
         if (password) {
                 password_escaped = specifier_escape(password);

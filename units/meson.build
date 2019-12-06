@@ -74,6 +74,7 @@ units = [
          'sysinit.target.wants/'],
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
+        ['system-systemd\\x2dcryptsetup.slice', 'HAVE_LIBCRYPTSETUP'],
         ['system-update.target',                ''],
         ['system-update-pre.target',            ''],
         ['system-update-cleanup.service',       ''],
