@@ -13,7 +13,7 @@
 #include "resize-fs.h"
 #include "stat-util.h"
 
-int resize_fs(int fd, uint64_t sz) {
+int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
         struct statfs sfs;
         int r;
 
@@ -38,6 +38,9 @@ int resize_fs(int fd, uint64_t sz) {
                 if (ioctl(fd, EXT4_IOC_RESIZE_FS, &u) < 0)
                         return -errno;
 
+                if (ret_size)
+                        *ret_size = u * sfs.f_bsize;
+
         } else if (is_fs_type(&sfs, BTRFS_SUPER_MAGIC)) {
                 struct btrfs_ioctl_vol_args args = {};
 
@@ -49,11 +52,16 @@ int resize_fs(int fd, uint64_t sz) {
                 if (sz < BTRFS_MINIMAL_SIZE)
                         return -ERANGE;
 
+                sz -= sz % sfs.f_bsize;
+
                 r = snprintf(args.name, sizeof(args.name), "%" PRIu64, sz);
                 assert((size_t) r < sizeof(args.name));
 
                 if (ioctl(fd, BTRFS_IOC_RESIZE, &args) < 0)
                         return -errno;
+
+                if (ret_size)
+                        *ret_size = sz;
 
         } else if (is_fs_type(&sfs, XFS_SB_MAGIC)) {
                 xfs_fsop_geom_t geo;
@@ -72,6 +80,9 @@ int resize_fs(int fd, uint64_t sz) {
 
                 if (ioctl(fd, XFS_IOC_FSGROWFSDATA, &d) < 0)
                         return -errno;
+
+                if (ret_size)
+                        *ret_size = d.newblocks * geo.blocksize;
 
         } else
                 return -EOPNOTSUPP;
