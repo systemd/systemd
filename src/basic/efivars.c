@@ -90,13 +90,14 @@ int efi_get_variable(
                 n = read(fd, buf, (size_t) st.st_size - 4);
                 if (n < 0)
                         return -errno;
-                if (n != st.st_size - 4)
-                        return -EIO;
+                assert(n <= st.st_size - 4);
 
                 /* Always NUL terminate (2 bytes, to protect UTF-16) */
-                ((char*) buf)[st.st_size - 4] = 0;
-                ((char*) buf)[st.st_size - 4 + 1] = 0;
-        }
+                ((char*) buf)[n - 4] = 0;
+                ((char*) buf)[n - 4 + 1] = 0;
+        } else
+                /* Assume that the reported size is accurate */
+                n = st.st_size - 4;
 
         /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
          * with a smaller value. */
@@ -108,7 +109,7 @@ int efi_get_variable(
                 *ret_value = TAKE_PTR(buf);
 
         if (ret_size)
-                *ret_size = (size_t) st.st_size - 4;
+                *ret_size = n;
 
         return 0;
 }
