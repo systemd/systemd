@@ -1,49 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 test_data_files = '''
-        a.service
-        a-conj.service
-        b.service
-        basic.target
-        c.service
-        d.service
-        daughter.service
-        dml.slice
-        dml-passthrough.slice
-        dml-passthrough-empty.service
-        dml-passthrough-set-dml.service
-        dml-passthrough-set-ml.service
-        dml-override.slice
-        dml-override-empty.service
-        dml-discard.slice
-        dml-discard-empty.service
-        dml-discard-set-ml.service
-        e.service
-        end.service
-        f.service
-        g.service
-        grandchild.service
-        h.service
-        hello-after-sleep.target
-        hello.service
-        hwdb.d/10-bad.hwdb
-        i.service
         journal-data/journal-1.txt
         journal-data/journal-2.txt
-        nomem.slice
-        nomemleaf.service
-        parent-deep.slice
-        parent.slice
-        sched_idle_bad.service
-        sched_idle_ok.service
-        sched_rr_bad.service
-        sched_rr_change.service
-        sched_rr_ok.service
-        shutdown.target
-        sleep.service
-        sockets.target
-        son.service
-        sysinit.target
         test-execute/exec-basic.service
         test-execute/exec-ambientcapabilities-merge-nfsnobody.service
         test-execute/exec-ambientcapabilities-merge-nobody.service
@@ -194,14 +153,6 @@ test_data_files = '''
         test-umount/example.swaps
         test-umount/garbled.mountinfo
         test-umount/rhbug-1554943.mountinfo
-        testsuite.target
-        timers.target
-        unit-with-.service.d/20-override.conf
-        unit-with-multiple-.service.d/20-override.conf
-        unit-with-multiple-.service.d/30-override.conf
-        unit-with-multiple-dashes.service
-        unit-with-multiple-dashes.service.d/10-override.conf
-        unstoppable.service
 '''.split()
 
 if conf.get('ENABLE_RESOLVE') == 1
@@ -231,6 +182,10 @@ if install_tests
                              install_dir : testsdir + '/testdata/' + subdir)
         endforeach
 endif
+
+install_subdir(
+        'units',
+        install_dir : testsdir + '/testdata/')
 
 ############################################################
 

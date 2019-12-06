@@ -806,7 +806,6 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_free_ char *test_execute_path = NULL;
 
         static const test_entry user_tests[] = {
                 entry(test_exec_basic),
@@ -878,9 +877,10 @@ int main(int argc, char *argv[]) {
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
+        _cleanup_free_ char *unit_dir = NULL;
+        assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
+        assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        test_execute_path = path_join(get_testdata_dir(), "test-execute");
-        assert_se(set_unit_path(test_execute_path) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
          * cases, otherwise (and if they are present in the environment),
