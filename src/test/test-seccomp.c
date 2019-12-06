@@ -29,7 +29,7 @@
 #include "virt.h"
 
 /* __NR_socket may be invalid due to libseccomp */
-#if !defined(__NR_socket) || __NR_socket <= 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+#if !defined(__NR_socket) || __NR_socket < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
 /* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
  * and we can't restrict it hence via seccomp. */
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
@@ -305,14 +305,14 @@ static void test_protect_sysctl(void) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-#if defined __NR__sysctl && __NR__sysctl > 0
+#if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, NULL) < 0);
                 assert_se(errno == EFAULT);
 #endif
 
                 assert_se(seccomp_protect_sysctl() >= 0);
 
-#if defined __NR__sysctl && __NR__sysctl > 0
+#if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, 0, 0, 0) < 0);
                 assert_se(errno == EPERM);
 #endif
@@ -347,14 +347,14 @@ static void test_protect_syslog(void) {
         assert_se(pid >= 0);
 
         if (pid == 0) {
-#if defined __NR_syslog && __NR_syslog > 0
+#if defined __NR_syslog && __NR_syslog >= 0
                 assert_se(syscall(__NR_syslog, -1, NULL, 0) < 0);
                 assert_se(errno == EINVAL);
 #endif
 
                 assert_se(seccomp_protect_syslog() >= 0);
 
-#if defined __NR_syslog && __NR_syslog > 0
+#if defined __NR_syslog && __NR_syslog >= 0
                 assert_se(syscall(__NR_syslog, 0, 0, 0) < 0);
                 assert_se(errno == EPERM);
 #endif
@@ -684,7 +684,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 assert_se(poll(NULL, 0, 0) == 0);
 
                 assert_se(s = hashmap_new(NULL));
-#if defined __NR_access && __NR_access > 0
+#if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(-1)) >= 0);
 #else
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(-1)) >= 0);
@@ -700,7 +700,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 s = hashmap_free(s);
 
                 assert_se(s = hashmap_new(NULL));
-#if defined __NR_access && __NR_access > 0
+#if defined __NR_access && __NR_access >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_access + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #else
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_faccessat + 1), INT_TO_PTR(EILSEQ)) >= 0);
@@ -716,7 +716,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 s = hashmap_free(s);
 
                 assert_se(s = hashmap_new(NULL));
-#if defined __NR_poll && __NR_poll > 0
+#if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(-1)) >= 0);
 #else
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(-1)) >= 0);
@@ -733,7 +733,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 s = hashmap_free(s);
 
                 assert_se(s = hashmap_new(NULL));
-#if defined __NR_poll && __NR_poll > 0
+#if defined __NR_poll && __NR_poll >= 0
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_poll + 1), INT_TO_PTR(EILSEQ)) >= 0);
 #else
                 assert_se(hashmap_put(s, UINT32_TO_PTR(__NR_ppoll + 1), INT_TO_PTR(EILSEQ)) >= 0);
@@ -811,7 +811,7 @@ static int real_open(const char *path, int flags, mode_t mode) {
          * testing purposes that calls the real syscall, on architectures where SYS_open is defined. On
          * other architectures, let's just fall back to the glibc call. */
 
-#if defined __NR_open && __NR_open > 0
+#if defined __NR_open && __NR_open >= 0
         return (int) syscall(__NR_open, path, flags, mode);
 #else
         return open(path, flags, mode);
