@@ -2979,7 +2979,7 @@ static int inner_child(
                         0,
                         0,
                         arg_selinux_apifs_context,
-                        true);
+                        MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
         if (r < 0)
                 return r;
 
@@ -3371,6 +3371,18 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = mount_custom(
+                        directory,
+                        arg_custom_mounts,
+                        arg_n_custom_mounts,
+                        arg_userns_mode != USER_NAMESPACE_NO,
+                        arg_uid_shift,
+                        arg_uid_range,
+                        arg_selinux_apifs_context,
+                        MOUNT_ROOT_ONLY);
+        if (r < 0)
+                return r;
+
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
@@ -3401,7 +3413,12 @@ static int outer_child(
          * inside the container that create a new mount namespace.
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode. */
+         * shared propagation mode.
+         *
+         * IMPORTANT: Do not overmount the root directory anymore from now on to
+         * enable moving the root directory mount to root later on.
+         * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
+         */
         r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
@@ -3474,7 +3491,7 @@ static int outer_child(
                         arg_uid_shift,
                         arg_uid_range,
                         arg_selinux_apifs_context,
-                        false);
+                        MOUNT_NON_ROOT_ONLY);
         if (r < 0)
                 return r;
 
