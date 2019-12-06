@@ -1584,6 +1584,7 @@ assert_cc(SCMP_SYS(shmdt) > 0);
 int seccomp_memory_deny_write_execute(void) {
         uint32_t arch;
         int r;
+        int loaded = 0;
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
@@ -1593,22 +1594,23 @@ int seccomp_memory_deny_write_execute(void) {
 
                 switch (arch) {
 
+                /* Note that on some architectures shmat() isn't available, and the call is multiplexed through ipc().
+                 * We ignore that here, which means there's still a way to get writable/executable
+                 * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
+
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_S390:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
-                        shmat_syscall = SCMP_SYS(shmat);
+                        /* shmat multiplexed, see above */
                         break;
 
                 case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_S390X:
                         filter_syscall = SCMP_SYS(mmap);
-
-                        /* Note that shmat() isn't available, and the call is multiplexed through ipc().
-                         * We ignore that here, which means there's still a way to get writable/executable
-                         * memory, if an IPC key is mapped like this. That's a pity, but no total loss. */
-
+                        /* shmat multiplexed, see above */
                         break;
 
                 case SCMP_ARCH_ARM:
@@ -1619,8 +1621,7 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_AARCH64:
-                case SCMP_ARCH_S390X:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, s390x, and arm64 have only mmap */
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32 and arm64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
@@ -1666,7 +1667,7 @@ int seccomp_memory_deny_write_execute(void) {
 #endif
 
                 if (shmat_syscall > 0) {
-                        r = add_seccomp_syscall_filter(seccomp, arch, SCMP_SYS(shmat),
+                        r = add_seccomp_syscall_filter(seccomp, arch, shmat_syscall,
                                                        1,
                                                        SCMP_A2(SCMP_CMP_MASKED_EQ, SHM_EXEC, SHM_EXEC));
                         if (r < 0)
@@ -1678,9 +1679,13 @@ int seccomp_memory_deny_write_execute(void) {
                         return r;
                 if (r < 0)
                         log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                loaded++;
         }
 
-        return 0;
+        if (loaded == 0)
+                log_debug_errno(r, "Failed to install any seccomp rules for MemoryDenyWriteExecute=");
+
+        return loaded;
 }
 
 int seccomp_restrict_archs(Set *archs) {
