@@ -3343,13 +3343,6 @@ static int outer_child(
                         return r;
 
                 directory = "/run/systemd/nspawn-root";
-
-        } else if (!dissected_image) {
-                /* Turn directory into bind mount (we need that so that we can move the bind mount to root
-                 * later on). */
-                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0)
-                        return r;
         }
 
         r = setup_pivot_root(
@@ -3376,6 +3369,13 @@ static int outer_child(
                         MOUNT_ROOT_ONLY);
         if (r < 0)
                 return r;
+
+        /* Make sure we always have a mount that we can move to root later on. */
+        if (!path_is_mount_point(directory, NULL, 0)) {
+                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
