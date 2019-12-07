@@ -61,3 +61,34 @@ int parse_tc_percent(const char *s, uint32_t *percent)  {
         *percent = (double) r / 1000 * UINT32_MAX;
         return 0;
 }
+
+int tc_transmit_time(uint64_t rate, uint32_t size, uint32_t *ret) {
+        return tc_time_to_tick(USEC_PER_SEC * ((double)size / (double)rate), ret);
+}
+
+int tc_fill_ratespec_and_table(struct tc_ratespec *rate, uint32_t *rtab, uint32_t mtu) {
+        uint32_t cell_log = 0;
+        int r;
+
+        if (mtu == 0)
+                mtu = 2047;
+
+        while ((mtu >> cell_log) > 255)
+                cell_log++;
+
+        for (size_t i = 0; i < 256; i++) {
+                uint32_t sz;
+
+                sz = (i + 1) << cell_log;
+                if (sz < rate->mpu)
+                        sz = rate->mpu;
+                r = tc_transmit_time(rate->rate, sz, &rtab[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        rate->cell_align = -1;
+        rate->cell_log = cell_log;
+        rate->linklayer = TC_LINKLAYER_ETHERNET;
+        return 0;
+}

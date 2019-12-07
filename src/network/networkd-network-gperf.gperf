@@ -252,6 +252,10 @@ TrafficControlQueueingDiscipline.NetworkEmulatorDuplicateRate,               con
 TrafficControlQueueingDiscipline.NetworkEmulatorPacketLimit,                 config_parse_tc_network_emulator_packet_limit,               0, 0
 TrafficControlQueueingDiscipline.TokenBufferFilterRate,                      config_parse_tc_token_buffer_filter_size,                    0, 0
 TrafficControlQueueingDiscipline.TokenBufferFilterBurst,                     config_parse_tc_token_buffer_filter_size,                    0, 0
+TrafficControlQueueingDiscipline.TokenBufferFilterLimitSize,                 config_parse_tc_token_buffer_filter_size,                    0, 0
+TrafficControlQueueingDiscipline.TokenBufferFilterMTUBytes,                  config_parse_tc_token_buffer_filter_size,                    0, 0
+TrafficControlQueueingDiscipline.TokenBufferFilterMPUBytes,                  config_parse_tc_token_buffer_filter_size,                    0, 0
+TrafficControlQueueingDiscipline.TokenBufferFilterPeakRate,                  config_parse_tc_token_buffer_filter_size,                    0, 0
 TrafficControlQueueingDiscipline.TokenBufferFilterLatencySec,                config_parse_tc_token_buffer_filter_latency,                 0, 0
 TrafficControlQueueingDiscipline.StochasticFairnessQueueingPerturbPeriodSec, config_parse_tc_stochastic_fairness_queueing_perturb_period, 0, 0
 /* backwards compatibility: do not add new entries to this section */

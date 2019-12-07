@@ -12,6 +12,7 @@
 #include "parse-util.h"
 #include "qdisc.h"
 #include "string-util.h"
+#include "tc-util.h"
 #include "util.h"
 
 int token_buffer_filter_new(TokenBufferFilter **ret) {
@@ -27,6 +28,7 @@ int token_buffer_filter_new(TokenBufferFilter **ret) {
 }
 
 int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, sd_netlink_message *req) {
+        uint32_t rtab[256], ptab[256];
         struct tc_tbf_qopt opt = {};
         int r;
 
@@ -35,7 +37,42 @@ int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, s
         assert(req);
 
         opt.rate.rate = tbf->rate >= (1ULL << 32) ? ~0U : tbf->rate;
-        opt.limit = tbf->rate * (double) tbf->latency / USEC_PER_SEC + tbf->burst;
+        opt.peakrate.rate = tbf->peak_rate >= (1ULL << 32) ? ~0U : tbf->peak_rate;
+
+        if (tbf->limit > 0)
+                opt.limit = tbf->limit;
+        else {
+                double lim, lim2;
+
+                lim = tbf->rate * (double) tbf->latency / USEC_PER_SEC + tbf->burst;
+                if (tbf->peak_rate > 0) {
+                        lim2 = tbf->peak_rate * (double) tbf->latency / USEC_PER_SEC + tbf->mtu;
+                        lim = MIN(lim, lim2);
+                }
+                opt.limit = lim;
+        }
+
+        opt.rate.mpu = tbf->mpu;
+
+        r = tc_fill_ratespec_and_table(&opt.rate, rtab, tbf->mtu);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to calculate ratespec: %m");
+
+        r = tc_transmit_time(opt.rate.rate, tbf->burst, &opt.buffer);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to calculate buffer size: %m");
+
+        if (opt.peakrate.rate > 0) {
+                opt.peakrate.mpu = tbf->mpu;
+
+                r = tc_fill_ratespec_and_table(&opt.peakrate, ptab, tbf->mtu);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to calculate ratespec: %m");
+
+                r = tc_transmit_time(opt.peakrate.rate, tbf->mtu, &opt.mtu);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to calculate mtu size: %m");
+        }
 
         r = sd_netlink_message_open_array(req, TCA_OPTIONS);
         if (r < 0)
@@ -53,6 +90,26 @@ int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, s
                 r = sd_netlink_message_append_data(req, TCA_TBF_RATE64, &tbf->rate, sizeof(tbf->rate));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_TBF_RATE64 attribute: %m");
+        }
+
+        r = sd_netlink_message_append_data(req, TCA_TBF_RTAB, rtab, sizeof(rtab));
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append TCA_TBF_RTAB attribute: %m");
+
+        if (opt.peakrate.rate > 0) {
+                if (tbf->peak_rate >= (1ULL << 32)) {
+                        r = sd_netlink_message_append_data(req, TCA_TBF_PRATE64, &tbf->peak_rate, sizeof(tbf->peak_rate));
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append TCA_TBF_PRATE64 attribute: %m");
+                }
+
+                r = sd_netlink_message_append_data(req, TCA_TBF_PBURST, &tbf->mtu, sizeof(tbf->mtu));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_TBF_PBURST attribute: %m");
+
+                r = sd_netlink_message_append_data(req, TCA_TBF_PTAB, ptab, sizeof(ptab));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_TBF_PTAB attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -93,6 +150,14 @@ int config_parse_tc_token_buffer_filter_size(
                         qdisc->tbf.rate = 0;
                 else if (streq(lvalue, "TokenBufferFilterBurst"))
                         qdisc->tbf.burst = 0;
+                else if (streq(lvalue, "TokenBufferFilterLimitSize"))
+                        qdisc->tbf.limit = 0;
+                else if (streq(lvalue, "TokenBufferFilterMTUBytes"))
+                        qdisc->tbf.mtu = 0;
+                else if (streq(lvalue, "TokenBufferFilterMPUBytes"))
+                        qdisc->tbf.mpu = 0;
+                else if (streq(lvalue, "TokenBufferFilterPeakRate"))
+                        qdisc->tbf.peak_rate = 0;
 
                 qdisc = NULL;
                 return 0;
@@ -110,6 +175,14 @@ int config_parse_tc_token_buffer_filter_size(
                 qdisc->tbf.rate = k / 8;
         else if (streq(lvalue, "TokenBufferFilterBurst"))
                 qdisc->tbf.burst = k;
+        else if (streq(lvalue, "TokenBufferFilterLimitSize"))
+                qdisc->tbf.limit = k;
+        else if (streq(lvalue, "TokenBufferFilterMPUBytes"))
+                qdisc->tbf.mpu = k;
+        else if (streq(lvalue, "TokenBufferFilterMTUBytes"))
+                qdisc->tbf.mtu = k;
+        else if (streq(lvalue, "TokenBufferFilterPeakRate"))
+                qdisc->tbf.peak_rate = k / 8;
 
         qdisc->has_token_buffer_filter = true;
         qdisc = NULL;
@@ -162,6 +235,40 @@ int config_parse_tc_token_buffer_filter_latency(
 
         qdisc->has_token_buffer_filter = true;
         qdisc = NULL;
+
+        return 0;
+}
+
+int token_buffer_filter_section_verify(const TokenBufferFilter *tbf, const NetworkConfigSection *section) {
+        if (tbf->limit > 0 && tbf->latency > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Specifying both TokenBufferFilterLimitSize= and TokenBufferFilterLatencySec= is not allowed. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         section->filename, section->line);
+
+        if (tbf->limit == 0 && tbf->latency == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Either TokenBufferFilterLimitSize= or TokenBufferFilterLatencySec= is required. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         section->filename, section->line);
+
+        if (tbf->rate == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: TokenBufferFilterRate= is mandatory. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         section->filename, section->line);
+
+        if (tbf->burst == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: TokenBufferFilterBurst= is mandatory. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         section->filename, section->line);
+
+        if (tbf->peak_rate > 0 && tbf->mtu == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: TokenBufferFilterMTUBytes= is mandatory when TokenBufferFilterPeakRate= is specified. "
+                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                         section->filename, section->line);
 
         return 0;
 }
