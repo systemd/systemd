@@ -1004,12 +1004,10 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>PrefixRoute=</varname></term>
+          <term><varname>AddPrefixRoute=</varname></term>
           <listitem>
-            <para>Takes a boolean. When adding or modifying an IPv6 address, the userspace
-            application needs a way to suppress adding a prefix route. This is for example relevant
-            together with IFA_F_MANAGERTEMPADDR, where userspace creates autoconf generated addresses,
-            but depending on on-link, no route for the prefix should be added. Defaults to false.</para>
+            <para>Takes a boolean. When true, the prefix route for the address is automatically added.
+            Defaults to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

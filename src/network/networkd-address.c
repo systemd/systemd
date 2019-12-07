@@ -32,6 +32,7 @@ int address_new(Address **ret) {
                 .scope = RT_SCOPE_UNIVERSE,
                 .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
                 .cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME,
+                .prefix_route = true,
         };
 
         *ret = TAKE_PTR(address);
@@ -593,7 +594,7 @@ int address_configure(
         if (address->manage_temporary_address)
                 address->flags |= IFA_F_MANAGETEMPADDR;
 
-        if (address->prefix_route)
+        if (!address->prefix_route)
                 address->flags |= IFA_F_NOPREFIXROUTE;
 
         if (address->autojoin)
@@ -908,6 +909,8 @@ int config_parse_address_flags(const char *unit,
         else if (streq(lvalue, "ManageTemporaryAddress"))
                 n->manage_temporary_address = r;
         else if (streq(lvalue, "PrefixRoute"))
+                n->prefix_route = !r;
+        else if (streq(lvalue, "AddPrefixRoute"))
                 n->prefix_route = r;
         else if (streq(lvalue, "AutoJoin"))
                 n->autojoin = r;

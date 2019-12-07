@@ -202,6 +202,7 @@ Address=
 Scope=
 HomeAddress=
 PrefixRoute=
+AddPrefixRoute=
 ManageTemporaryAddress=
 Broadcast=
 Peer=

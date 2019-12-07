@@ -111,10 +111,10 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
                 return RT_SCOPE_UNIVERSE;
 }
 
-static bool link_noprefixroute(Link *link) {
-        return link->network->dhcp_route_table_set &&
-                link->network->dhcp_route_table != RT_TABLE_MAIN &&
-                !link->manager->dhcp4_prefix_root_cannot_set_table;
+static bool link_prefixroute(Link *link) {
+        return !link->network->dhcp_route_table_set ||
+                link->network->dhcp_route_table == RT_TABLE_MAIN ||
+                link->manager->dhcp4_prefix_root_cannot_set_table;
 }
 
 static int dhcp_route_configure(Route **route, Link *link) {
@@ -254,7 +254,7 @@ static int link_set_dhcp_routes(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: could not get address: %m");
 
-        if (link_noprefixroute(link)) {
+        if (!link_prefixroute(link)) {
                 _cleanup_(route_freep) Route *prefix_route = NULL;
 
                 r = dhcp_prefix_route_from_lease(link->dhcp_lease, table, &address, &prefix_route);
@@ -516,7 +516,7 @@ static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct
                 (void) route_remove(route, link, NULL);
         }
 
-        if (link_noprefixroute(link)) {
+        if (!link_prefixroute(link)) {
                 _cleanup_(route_freep) Route *prefix_route = NULL;
 
                 r = dhcp_prefix_route_from_lease(lease, table, address, &prefix_route);
@@ -719,7 +719,7 @@ static int dhcp4_update_address(Link *link,
         addr->cinfo.ifa_valid = lifetime;
         addr->prefixlen = prefixlen;
         addr->broadcast.s_addr = address->s_addr | ~netmask->s_addr;
-        addr->prefix_route = link_noprefixroute(link);
+        addr->prefix_route = link_prefixroute(link);
 
         /* allow reusing an existing address and simply update its lifetime
          * in case it already exists */
