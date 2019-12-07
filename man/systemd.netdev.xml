@@ -182,6 +182,9 @@
           <row><entry><varname>xfrm</varname></entry>
           <entry>A virtual tunnel interface like vti/vti6 but with several advantages.</entry></row>
 
+          <row><entry><varname>ifb</varname></entry>
+          <entry> The Intermediate Functional Block (ifb) pseudo network interface acts as a QoS concentrator for multiple different sources of traffic.</entry></row>
+
         </tbody>
       </tgroup>
     </table>
