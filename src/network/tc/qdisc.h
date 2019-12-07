@@ -3,6 +3,7 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "fq-codel.h"
 #include "netem.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
@@ -25,10 +26,12 @@ typedef struct QDisc {
         bool has_network_emulator:1;
         bool has_token_buffer_filter:1;
         bool has_stochastic_fairness_queueing:1;
+        bool has_fair_queuing_controlled_delay:1;
 
         NetworkEmulator ne;
         TokenBufferFilter tbf;
         StochasticFairnessQueueing sfq;
+        FairQueuingControlledDelay fq_codel;
 } QDisc;
 
 void qdisc_free(QDisc *qdisc);

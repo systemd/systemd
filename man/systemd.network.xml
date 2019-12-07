@@ -2442,6 +2442,14 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayPacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
+          dropped. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

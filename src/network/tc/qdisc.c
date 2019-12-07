@@ -169,6 +169,16 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                         return r;
         }
 
+        if (qdisc->has_fair_queuing_controlled_delay) {
+                r = free_and_strdup(&tca_kind, "fq_codel");
+                if (r < 0)
+                        return log_oom();
+
+                r = fair_queuing_controlled_delay_fill_message(link, &qdisc->fq_codel, req);
+                if (r < 0)
+                        return r;
+        }
+
         p = tca_kind ?:qdisc->tca_kind;
         if (p) {
                 r = sd_netlink_message_append_string(req, TCA_KIND, p);
