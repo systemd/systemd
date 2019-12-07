@@ -7,6 +7,8 @@ sources = files('''
         netdev/bridge.h
         netdev/dummy.c
         netdev/dummy.h
+        netdev/ifb.c
+        netdev/ifb.h
         netdev/ipvlan.c
         netdev/ipvlan.h
         netdev/macvlan.c
