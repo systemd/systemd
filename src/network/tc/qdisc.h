@@ -21,6 +21,7 @@ typedef struct QDisc {
         uint32_t handle;
         uint32_t parent;
 
+        char *tca_kind;
         bool has_network_emulator:1;
         bool has_token_buffer_filter:1;
         bool has_stochastic_fairness_queueing:1;

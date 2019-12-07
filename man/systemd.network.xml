@@ -2327,8 +2327,8 @@
       <varlistentry>
         <term><varname>Parent=</varname></term>
         <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>
-          or <literal>clsact</literal>. Defaults to <literal>root</literal>.</para>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 

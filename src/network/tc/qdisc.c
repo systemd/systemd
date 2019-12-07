@@ -84,6 +84,7 @@ void qdisc_free(QDisc *qdisc) {
 
         network_config_section_free(qdisc->section);
 
+        free(qdisc->tca_kind);
         free(qdisc);
 }
 
@@ -116,6 +117,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 int qdisc_configure(Link *link, QDisc *qdisc) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_free_ char *tca_kind = NULL;
+        char *p;
         int r;
 
         assert(link);
@@ -131,12 +133,8 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create tcm_parent message: %m");
 
-        if (qdisc->parent == TC_H_CLSACT) {
-                tca_kind = strdup("clsact");
-                if (!tca_kind)
-                        return log_oom();
-
-                r = sd_rtnl_message_set_qdisc_handle(req, TC_H_MAKE(TC_H_CLSACT, 0));
+        if (qdisc->handle != TC_H_UNSPEC) {
+                r = sd_rtnl_message_set_qdisc_handle(req, qdisc->handle);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
         }
@@ -171,8 +169,9 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                         return r;
         }
 
-        if (tca_kind) {
-                r = sd_netlink_message_append_string(req, TCA_KIND, tca_kind);
+        p = tca_kind ?:qdisc->tca_kind;
+        if (p) {
+                r = sd_netlink_message_append_string(req, TCA_KIND, p);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
         }
@@ -218,10 +217,10 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
                                                  "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
                                                  qdisc->section->filename, qdisc->section->line);
                 *has_root = true;
-        } else if (qdisc->parent == TC_H_CLSACT) {
+        } else if (qdisc->parent == TC_H_CLSACT) { /* TC_H_CLSACT == TC_H_INGRESS */
                 if (*has_clsact)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: More than one clsact TrafficControlQueueingDiscipline sections are defined. "
+                                                 "%s: More than one clsact or ingress TrafficControlQueueingDiscipline sections are defined. "
                                                  "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
                                                  qdisc->section->filename, qdisc->section->line);
                 *has_clsact = true;
@@ -255,15 +254,28 @@ int config_parse_tc_qdiscs_parent(
         if (r < 0)
                 return r;
 
-        if (streq(rvalue, "root"))
+        if (streq(rvalue, "root")) {
                 qdisc->parent = TC_H_ROOT;
-        else if (streq(rvalue, "clsact"))
+                qdisc->handle = TC_H_UNSPEC;
+        } else if (streq(rvalue, "clsact")) {
                 qdisc->parent = TC_H_CLSACT;
-        else {
+                qdisc->handle = TC_H_MAKE(TC_H_CLSACT, 0);
+        } else if (streq(rvalue, "ingress")) {
+                qdisc->parent = TC_H_INGRESS;
+                qdisc->handle = TC_H_MAKE(TC_H_INGRESS, 0);
+        } else {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse [QueueDiscs] 'Parent=', ignoring assignment: %s",
+                           "Failed to parse 'Parent=', ignoring assignment: %s",
                            rvalue);
                 return 0;
+        }
+
+        if (streq(rvalue, "root"))
+                qdisc->tca_kind = mfree(qdisc->tca_kind);
+        else {
+                r = free_and_strdup(&qdisc->tca_kind, rvalue);
+                if (r < 0)
+                        return log_oom();
         }
 
         qdisc = NULL;
