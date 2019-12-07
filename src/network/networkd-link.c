@@ -774,6 +774,7 @@ static void link_enter_unmanaged(Link *link) {
 
 int link_stop_clients(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
+        Address *ad;
 
         assert(link);
         assert(link->manager);
@@ -797,6 +798,14 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
         }
+
+        if (link->network)
+                LIST_FOREACH(addresses, ad, link->network->static_addresses)
+                        if (ad->acd && sd_ipv4acd_is_running(ad->acd) == 0) {
+                                k = sd_ipv4acd_stop(ad->acd);
+                                if (k < 0)
+                                        r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
+                        }
 
         if (link->dhcp6_client) {
                 k = sd_dhcp6_client_stop(link->dhcp6_client);
@@ -2584,6 +2593,24 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
+static int link_configure_ipv4_dad(Link *link) {
+        Address *address;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        LIST_FOREACH(addresses, address, link->network->static_addresses)
+                if (address->family == AF_INET &&
+                    FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
+                        r = configure_ipv4_duplicate_address_detection(link, address);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to configure IPv4ACD: %m");
+                }
+
+        return 0;
+}
+
 static int link_configure_qdiscs(Link *link) {
         QDisc *qdisc;
         Iterator i;
@@ -2729,6 +2756,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_configure_addrgen_mode(link);
+        if (r < 0)
+                return r;
+
+        r = link_configure_ipv4_dad(link);
         if (r < 0)
                 return r;
 

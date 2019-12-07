@@ -1479,6 +1479,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '23-active-slave.network',
         '24-keep-configuration-static.network',
         '24-search-domain.network',
+        '25-address-dad-veth-peer.network',
+        '25-address-dad-veth99.network',
         '25-address-link-section.network',
         '25-address-preferred-lifetime-zero.network',
         '25-address-static.network',
@@ -1580,6 +1582,20 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip route show dev dummy98')
         print(output)
         self.assertRegex(output, 'default via 20.20.20.1 proto static')
+
+    def test_address_dad(self):
+        copy_unit_to_networkd_unit_path('25-address-dad-veth99.network', '25-address-dad-veth-peer.network',
+                                        '25-veth.netdev')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+
+        output = check_output('ip -4 address show dev veth99')
+        print(output)
+        self.assertRegex(output, '192.168.100.10/24')
+
+        output = check_output('ip -4 address show dev veth-peer')
+        print(output)
+        self.assertNotRegex(output, '192.168.100.10/24')
 
     def test_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')

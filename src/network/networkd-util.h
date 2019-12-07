@@ -35,6 +35,9 @@ AddressFamily link_local_address_family_from_string(const char *s) _pure_;
 const char *routing_policy_rule_address_family_to_string(AddressFamily b) _const_;
 AddressFamily routing_policy_rule_address_family_from_string(const char *s) _pure_;
 
+const char *duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
+AddressFamily duplicate_address_detection_address_family_from_string(const char *s) _pure_;
+
 int kernel_route_expiration_supported(void);
 
 int network_config_section_new(const char *filename, unsigned line, NetworkConfigSection **s);
