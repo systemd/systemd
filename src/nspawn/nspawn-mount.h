@@ -54,9 +54,9 @@ int inaccessible_mount_parse(CustomMount **l, size_t *n, const char *s);
 int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
-int mount_custom(const char *dest, CustomMount *mounts, size_t n, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context, MountSettingsMask mount_settings);
+int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, const char *selinux_apifs_context, MountSettingsMask mount_settings);
 
-int setup_volatile_mode(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
 
 int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s);
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);

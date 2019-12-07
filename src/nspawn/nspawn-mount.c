@@ -775,11 +775,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         return 0;
 }
 
-static int mount_tmpfs(
-                const char *dest,
-                CustomMount *m,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const char *selinux_apifs_context) {
 
         const char *options;
         _cleanup_free_ char *buf = NULL, *where = NULL;
@@ -914,7 +910,7 @@ static int mount_arbitrary(const char *dest, CustomMount *m) {
 int mount_custom(
                 const char *dest,
                 CustomMount *mounts, size_t n,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                uid_t uid_shift,
                 const char *selinux_apifs_context,
                 MountSettingsMask mount_settings) {
 
@@ -942,7 +938,7 @@ int mount_custom(
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
-                        r = mount_tmpfs(dest, m, userns, uid_shift, uid_range, selinux_apifs_context);
+                        r = mount_tmpfs(dest, m, uid_shift, selinux_apifs_context);
                         break;
 
                 case CUSTOM_MOUNT_OVERLAY:
@@ -968,10 +964,7 @@ int mount_custom(
         return 0;
 }
 
-static int setup_volatile_state(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_state(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL;
         const char *p, *options;
@@ -1000,10 +993,7 @@ static int setup_volatile_state(
         return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
-static int setup_volatile_yes(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
@@ -1090,10 +1080,7 @@ fail:
         return r;
 }
 
-static int setup_volatile_overlay(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
@@ -1158,19 +1145,19 @@ finish:
 int setup_volatile_mode(
                 const char *directory,
                 VolatileMode mode,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                uid_t uid_shift,
                 const char *selinux_apifs_context) {
 
         switch (mode) {
 
         case VOLATILE_YES:
-                return setup_volatile_yes(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_yes(directory, uid_shift, selinux_apifs_context);
 
         case VOLATILE_STATE:
-                return setup_volatile_state(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_state(directory, uid_shift, selinux_apifs_context);
 
         case VOLATILE_OVERLAY:
-                return setup_volatile_overlay(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_overlay(directory, uid_shift, selinux_apifs_context);
 
         default:
                 return 0;

@@ -2975,8 +2975,6 @@ static int inner_child(
                         "/",
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        false,
-                        0,
                         0,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
@@ -3364,9 +3362,7 @@ static int outer_child(
         r = setup_volatile_mode(
                         directory,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
@@ -3375,9 +3371,7 @@ static int outer_child(
                         directory,
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_ROOT_ONLY);
         if (r < 0)
@@ -3487,9 +3481,7 @@ static int outer_child(
                         directory,
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY);
         if (r < 0)
