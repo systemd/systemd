@@ -223,6 +223,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni8-L:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnCube:pnI15-TC:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# Cube iWork 11 Stylus
+sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni8-T:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # Cytrix (Mytrix)
 #########################################
