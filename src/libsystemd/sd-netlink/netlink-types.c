@@ -371,6 +371,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_MACSEC] = "macsec",
         [NL_UNION_LINK_INFO_DATA_NLMON] = "nlmon",
         [NL_UNION_LINK_INFO_DATA_XFRM] = "xfrm",
+        [NL_UNION_LINK_INFO_DATA_IFB] = "ifb",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
