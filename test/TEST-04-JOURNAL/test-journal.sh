@@ -87,6 +87,11 @@ journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
 grep -q "^_PID=$PID" /output
 grep -vq "^_PID=$PID" /output
 
+# test SilentOnSuccess
+systemctl start silent-success
+journalctl --sync
+[[ -z `journalctl -b -q -p info -u silent-success.service` ]]
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 

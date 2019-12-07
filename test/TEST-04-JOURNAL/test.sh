@@ -34,6 +34,15 @@ Type=simple
 ExecStart=/bin/sh -x -c 'while :; do printf "Hola\n" || touch /i-lose-my-logs; sleep 1; done'
 EOF
 
+        cat >$initdir/etc/systemd/system/silent-success.service <<EOF
+[Unit]
+Description=Silent successful service
+SilentOnSuccess=true
+
+[Service]
+ExecStart=/bin/true
+EOF
+
         cp test-journal.sh $initdir/
 
         setup_testsuite

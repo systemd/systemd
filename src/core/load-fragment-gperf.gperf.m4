@@ -305,6 +305,7 @@ Unit.AssertGroup,                config_parse_unit_condition_string, CONDITION_G
 Unit.AssertControlGroupController,     config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER,   offsetof(Unit, asserts)
 Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 Unit.CollectMode,                config_parse_collect_mode,          0,                             offsetof(Unit, collect_mode)
+Unit.SilentOnSuccess,            config_parse_bool,                  0,                             offsetof(Unit, silent_on_success)
 m4_dnl
 Service.PIDFile,                 config_parse_pid_file,              0,                             offsetof(Service, pid_file)
 Service.ExecCondition,           config_parse_exec,                  SERVICE_EXEC_CONDITION,        offsetof(Service, exec_command)

@@ -1021,6 +1021,21 @@
         files. This functionality should not be used in normal
         units.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>SilentOnSuccess=</varname></term>
+        <listitem><para>Takes a boolean argument. If
+        <option>true</option>, this unit will not log any status messages when
+        it successfully starts. This option has no effect on debug-level
+        messages; messages relating to stops, restarts, or failed starts; or
+        any output streams produced by the unit's process. This option is only
+        recommended for processes that repeatedly start automatically and
+        frequently (such as with a timer that runs many times an hour), where
+        the process is sufficiently unimportant or adequately monitored
+        externally such that a "no news is good news" approach at the systemd
+        level is reasonable. This option defaults to <option>false</option>.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
 
     <refsect2>
