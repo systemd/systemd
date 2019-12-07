@@ -556,6 +556,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'gretun97',
         'gretun98',
         'gretun99',
+        'ifb99',
         'ip6gretap98',
         'ip6gretap99',
         'ip6gretun96',
@@ -633,6 +634,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-gre-tunnel-local-any.netdev',
         '25-gre-tunnel-remote-any.netdev',
         '25-gre-tunnel.netdev',
+        '25-ifb.netdev',
         '25-ip6gretap-tunnel-local-any.netdev',
         '25-ip6gretap-tunnel.netdev',
         '25-ip6gre-tunnel-any-any.netdev',
@@ -1378,6 +1380,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
 
         self.wait_online(['nlmon99:carrier'])
+
+    @expectedFailureIfModuleIsNotAvailable('ifb')
+    def test_ifb(self):
+        copy_unit_to_networkd_unit_path('25-ifb.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        self.wait_online(['ifb99:degraded'])
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
