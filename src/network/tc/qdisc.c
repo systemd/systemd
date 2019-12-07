@@ -105,7 +105,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
                 return 1;
         }
 
-        if (link->route_messages == 0) {
+        if (link->qdisc_messages == 0) {
                 log_link_debug(link, "QDiscs configured");
                 link->qdiscs_configured = true;
                 link_check_ready(link);
