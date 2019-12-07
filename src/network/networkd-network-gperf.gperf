@@ -106,7 +106,8 @@ Address.Label,                          config_parse_label,                     
 Address.PreferredLifetime,              config_parse_lifetime,                           0,                             0
 Address.HomeAddress,                    config_parse_address_flags,                      0,                             0
 Address.ManageTemporaryAddress,         config_parse_address_flags,                      0,                             0
-Address.PrefixRoute,                    config_parse_address_flags,                      0,                             0
+Address.PrefixRoute,                    config_parse_address_flags,                      0,                             0 /* deprecated */
+Address.AddPrefixRoute,                 config_parse_address_flags,                      0,                             0
 Address.AutoJoin,                       config_parse_address_flags,                      0,                             0
 Address.DuplicateAddressDetection,      config_parse_duplicate_address_detection,        0,                             0
 Address.Scope,                          config_parse_address_scope,                      0,                             0
