@@ -1991,13 +1991,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
 
     def test_bind_carrier(self):
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dummy98 up')
+        time.sleep(2)
+
         copy_unit_to_networkd_unit_path('25-bind-carrier.network', '11-dummy.netdev')
         start_networkd()
         self.wait_online(['test1:routable'])
 
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
-        time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
@@ -2021,7 +2022,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.check_operstate('test1', 'routable')
 
-        check_output('ip link del dummy99')
+        check_output('ip link set dummy99 down')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
@@ -2030,8 +2031,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '192.168.10')
         self.check_operstate('test1', 'off')
 
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dummy98 up')
+        check_output('ip link set dummy99 up')
         time.sleep(2)
         output = check_output('ip address show test1')
         print(output)
