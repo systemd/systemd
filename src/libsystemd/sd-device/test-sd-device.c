@@ -81,9 +81,10 @@ static void test_sd_device_enumerator_subsystems(void) {
                 test_sd_device_one(d);
 }
 
-static void test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
+static unsigned test_sd_device_enumerator_filter_subsystem_one(const char *subsystem, Hashmap *h) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d, *t;
+        unsigned n_new_dev = 0;
 
         assert_se(sd_device_enumerator_new(&e) >= 0);
         assert_se(sd_device_enumerator_add_match_subsystem(e, subsystem, true) >= 0);
@@ -92,18 +93,27 @@ static void test_sd_device_enumerator_filter_subsystem_one(const char *subsystem
                 const char *syspath;
 
                 assert_se(sd_device_get_syspath(d, &syspath) >= 0);
-                assert_se(t = hashmap_remove(h, syspath));
+                t = hashmap_remove(h, syspath);
                 assert_se(!sd_device_unref(t));
 
-                log_debug("Removed subsystem:%s syspath:%s", subsystem, syspath);
+                if (t)
+                        log_debug("Removed subsystem:%s syspath:%s", subsystem, syspath);
+                else {
+                        log_warning("New device found: subsystem:%s syspath:%s", subsystem, syspath);
+                        n_new_dev++;
+                }
         }
 
+        /* Assume no device is unplugged. */
         assert_se(hashmap_isempty(h));
+
+        return n_new_dev;
 }
 
 static void test_sd_device_enumerator_filter_subsystem(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(hashmap_freep) Hashmap *subsystems;
+        unsigned n_new_dev = 0;
         sd_device *d;
         Hashmap *h;
         char *s;
@@ -139,10 +149,16 @@ static void test_sd_device_enumerator_filter_subsystem(void) {
         }
 
         while ((h = hashmap_steal_first_key_and_value(subsystems, (void**) &s))) {
-                test_sd_device_enumerator_filter_subsystem_one(s, h);
+                n_new_dev += test_sd_device_enumerator_filter_subsystem_one(s, h);
                 hashmap_free(h);
                 free(s);
         }
+
+        if (n_new_dev > 0)
+                log_warning("%u new device is found in re-scan", n_new_dev);
+
+        /* Assume that not so many devices are plugged. */
+        assert_se(n_new_dev <= 10);
 }
 
 int main(int argc, char **argv) {
