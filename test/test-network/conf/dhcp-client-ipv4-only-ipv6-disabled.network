@@ -7,3 +7,4 @@ IPv6AcceptRA=false
 
 [DHCPv4]
 RoutesToDNS=yes
+SendOption=12:string:test
