@@ -1562,13 +1562,13 @@ static int verify_arguments(void) {
         if (arg_userns_chown && arg_volatile_mode != VOLATILE_NO)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--volatile= and --private-users-chown may not be combined.");
 
-        /* If --network-namespace-path is given with any other network-related option, we need to error out,
-         * to avoid conflicts between different network options. */
+        /* If --network-namespace-path is given with any other network-related option (except --private-network),
+         * we need to error out, to avoid conflicts between different network options. */
         if (arg_network_namespace_path &&
                 (arg_network_interfaces || arg_network_macvlan ||
                  arg_network_ipvlan || arg_network_veth_extra ||
                  arg_network_bridge || arg_network_zone ||
-                 arg_network_veth || arg_private_network))
+                 arg_network_veth))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--network-namespace-path= cannot be combined with other network options.");
 
         if (arg_network_bridge && arg_network_zone)
