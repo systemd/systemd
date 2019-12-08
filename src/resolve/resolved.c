@@ -21,9 +21,6 @@
 static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        const char *user = "systemd-resolve";
-        uid_t uid;
-        gid_t gid;
         int r;
 
         log_setup_service();
@@ -37,18 +34,21 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "SELinux setup failed: %m");
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
-        if (r < 0)
-                return log_error_errno(r, "Cannot resolve user name %s: %m", user);
-
-        /* Always create the directory where resolv.conf will live */
-        r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid, MKDIR_WARN_MODE);
-        if (r < 0)
-                return log_error_errno(r, "Could not create runtime directory: %m");
-
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume most
-         * privileges are already dropped. */
+         * privileges are already dropped and we can't create our directory. */
         if (getuid() == 0) {
+                const char *user = "systemd-resolve";
+                uid_t uid;
+                gid_t gid;
+
+                r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot resolve user name %s: %m", user);
+
+                /* As we're root, we can create the directory where resolv.conf will live */
+                r = mkdir_safe_label("/run/systemd/resolve", 0755, uid, gid, MKDIR_WARN_MODE);
+                if (r < 0)
+                        return log_error_errno(r, "Could not create runtime directory: %m");
 
                 /* Drop privileges, but keep three caps. Note that we drop those too, later on (see below) */
                 r = drop_privileges(uid, gid,
