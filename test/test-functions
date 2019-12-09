@@ -39,8 +39,67 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
-BASICTOOLS="test env sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
-DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find vi mv"
+BASICTOOLS=(
+    bash
+    cat
+    chmod
+    chown
+    cmp
+    cryptsetup
+    date
+    dmsetup
+    echo
+    env
+    false
+    gzip
+    head
+    ln
+    loadkeys
+    login
+    modprobe
+    mount
+    rm
+    sed
+    setfont
+    setsid
+    sh
+    sleep
+    sulogin
+    tail
+    tee
+    test
+    true
+    umount
+    xargs
+)
+
+DEBUGTOOLS=(
+    cp
+    df
+    dhclient
+    dmesg
+    du
+    find
+    free
+    grep
+    hostname
+    id
+    ip
+    less
+    ln
+    ls
+    mkdir
+    mv
+    ping
+    ps
+    route
+    sort
+    strace
+    stty
+    touch
+    tty
+    vi
+)
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
@@ -765,14 +824,14 @@ EOF
 }
 
 install_basic_tools() {
-    [[ $BASICTOOLS ]] && dracut_install $BASICTOOLS
+    dracut_install "${BASICTOOLS[@]}"
     dracut_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     dracut_install -o ldconfig.real
 }
 
 install_debug_tools() {
-    [[ $DEBUGTOOLS ]] && dracut_install $DEBUGTOOLS
+    dracut_install "${DEBUGTOOLS[@]}"
 
     if [[ $INTERACTIVE_DEBUG ]]; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
