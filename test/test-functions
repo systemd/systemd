@@ -58,6 +58,8 @@ BASICTOOLS=(
     login
     modprobe
     mount
+    mv
+    nc
     rm
     sed
     setfont
@@ -65,6 +67,7 @@ BASICTOOLS=(
     sh
     sleep
     socat
+    stat
     sulogin
     tail
     tee
@@ -91,7 +94,6 @@ DEBUGTOOLS=(
     ln
     ls
     mkdir
-    mv
     ping
     ps
     route
