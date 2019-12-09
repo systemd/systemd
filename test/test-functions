@@ -69,6 +69,7 @@ BASICTOOLS=(
     tail
     tee
     test
+    touch
     true
     umount
     xargs
@@ -97,7 +98,6 @@ DEBUGTOOLS=(
     sort
     strace
     stty
-    touch
     tty
     vi
 )
