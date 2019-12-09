@@ -193,7 +193,10 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
         p = strv_length(*a);
         q = strv_length(b);
 
-        t = reallocarray(*a, p + q + 1, sizeof(char *));
+        if (p >= SIZE_MAX - q)
+                return -ENOMEM;
+
+        t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -383,19 +386,18 @@ char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
 
 int strv_push(char ***l, char *value) {
         char **c;
-        size_t n, m;
+        size_t n;
 
         if (!value)
                 return 0;
 
         n = strv_length(*l);
 
-        /* Increase and check for overflow */
-        m = n + 2;
-        if (m < n)
+        /* Check for overflow */
+        if (n > SIZE_MAX-2)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + 2), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -408,19 +410,19 @@ int strv_push(char ***l, char *value) {
 
 int strv_push_pair(char ***l, char *a, char *b) {
         char **c;
-        size_t n, m;
+        size_t n;
 
         if (!a && !b)
                 return 0;
 
         n = strv_length(*l);
 
-        /* increase and check for overflow */
-        m = n + !!a + !!b + 1;
-        if (m < n)
+        /* Check for overflow */
+        if (n > SIZE_MAX-3)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        /* increase and check for overflow */
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + !!a + !!b + 1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -846,8 +848,10 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         /* Adds the value n times to l */
 
         k = strv_length(*l);
+        if (n >= SIZE_MAX - k)
+                return -ENOMEM;
 
-        nl = reallocarray(*l, k + n + 1, sizeof(char *));
+        nl = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(k + n + 1), sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 
