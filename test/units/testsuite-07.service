@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-07-ISSUE-1981
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
