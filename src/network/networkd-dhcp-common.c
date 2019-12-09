@@ -279,7 +279,7 @@ int config_parse_dhcp_send_option(
 
         _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
         _cleanup_free_ char *word = NULL, *q = NULL;
-        OrderedHashmap **options = userdata;
+        OrderedHashmap **options = data;
         union in_addr_union addr;
         DHCPOptionDataType type;
         uint8_t u, uint8_data;
