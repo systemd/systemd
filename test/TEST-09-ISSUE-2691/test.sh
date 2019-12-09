@@ -16,22 +16,7 @@ test_setup() {
 
         setup_basic_environment
         mask_supporting_services
-
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<'EOF'
-[Unit]
-Description=Testsuite service
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh -c '>/testok'
-RemainAfterExit=yes
-ExecStop=/bin/sh -c 'kill -SEGV $$$$'
-TimeoutStopSec=270s
-EOF
-
-        setup_testsuite
     )
 }
 
-do_test "$@"
+do_test "$@" 09
