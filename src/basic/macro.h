@@ -163,6 +163,11 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
+
+        /* Avoid subtraction overflow */
+        if (u == 0)
+                return 0;
+
         /* clz(0) is undefined */
         if (u == 1)
                 return 1;
