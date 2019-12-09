@@ -6,7 +6,7 @@
 #include "macro.h"
 #include "unit-def.h"
 
-#define UNIT_NAME_MAX 256
+#define UNIT_NAME_MAX 512
 
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN    = 1 << 0, /* Allow foo.service */
