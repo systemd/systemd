@@ -204,6 +204,13 @@ run_qemu() {
         PARAMS+="ro"
     fi
 
+    local _end
+    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+        _end="systemd.wants=end.service"
+    else
+        _end=""
+    fi
+
     KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 raid=noautodetect \
@@ -213,6 +220,9 @@ init=$PATH_TO_INIT \
 console=$CONSOLE \
 selinux=0 \
 $_cgroup_args \
+SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/units: \
+systemd.unit=testsuite.target \
+systemd.wants=testsuite-$1.service ${_end}
 $KERNEL_APPEND \
 "
 
@@ -253,24 +263,41 @@ $QEMU_OPTIONS \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$SYSTEMD_NSPAWN $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
+    local _nspawn_cmd=(
+        --register=no
+        --kill-signal=SIGKILL
+        --directory=$TESTDIR/$1
+        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/units:
+        $PATH_TO_INIT
+        $KERNEL_APPEND
+        systemd.unit=testsuite.target
+        systemd.wants=testsuite-$2.service
+    )
+
+    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+        _nspawn_cmd+=( systemd.wants=end.service )
+    fi
+
+    local _nspawn_pre
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
-        _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
+        _nspawn_pre=(timeout --foreground $NSPAWN_TIMEOUT)
+    else
+        _nspawn_pre=()
     fi
 
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
         dwarn "nspawn doesn't support SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=hybrid, skipping"
         exit
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _nspawn_cmd="env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+        _nspawn_pre=("${nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
-        _nspawn_cmd="env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY $_nspawn_cmd"
+        _nspawn_pre=("${nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
     else
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
     fi
 
-    (set -x; $_nspawn_cmd)
+    (set -x; "${_nspawn_pre[@]}" "$SYSTEMD_NSPAWN" $NSPAWN_ARGUMENTS "${_nspawn_cmd[@]}")
     rc=$?
     if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "test timed out after $NSPAWN_TIMEOUT s"
@@ -475,7 +502,7 @@ unset_ld_preload() {
 }
 
 unset_ld_preload systemd-remount-fs
-unset_ld_preload testsuite
+unset_ld_preload testsuite-
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
@@ -927,19 +954,6 @@ enable_user_manager() {
     done
     dracut_install su
     install_user_dbus
-}
-
-setup_testsuite() {
-    cp $TEST_BASE_DIR/testsuite.target $initdir/etc/systemd/system/
-    cp $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/
-
-    mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
-    ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
-    # Don't shutdown the machine after running the test when INTERACTIVE_DEBUG is set
-    [[ -z $INTERACTIVE_DEBUG ]] && ln -fs $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/testsuite.target.wants/end.service
-
-    # make the testsuite the default target
-    ln -fs testsuite.target $initdir/etc/systemd/system/default.target
 }
 
 setup_nspawn_root() {
@@ -1786,21 +1800,21 @@ test_cleanup() {
 
 test_run() {
     if [ -z "$TEST_NO_QEMU" ]; then
-        if run_qemu; then
+        if run_qemu "$1"; then
             check_result_qemu || return 1
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
-        if run_nspawn "nspawn-root"; then
+        if run_nspawn "nspawn-root" "$1"; then
             check_result_nspawn "nspawn-root" || return 1
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
         if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
-            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root"; then
+            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root" "$1"; then
                 check_result_nspawn "unprivileged-nspawn-root" || return 1
             else
                 dwarn "can't run systemd-nspawn, skipping"
@@ -1834,7 +1848,7 @@ do_test() {
         case $1 in
             --run)
                 echo "TEST RUN: $TEST_DESCRIPTION"
-                test_run
+                test_run "$2"
                 ret=$?
                 if (( $ret == 0 )); then
                     echo "TEST RUN: $TEST_DESCRIPTION [OK]"
@@ -1857,7 +1871,7 @@ do_test() {
                 (
                     test_setup
                     test_setup_cleanup
-                    test_run
+                    test_run "$2"
                 ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
                 test_cleanup
                 if [ $ret -eq 0 ]; then

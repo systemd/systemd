@@ -1,6 +1,6 @@
 [Unit]
 Description=End the test
-After=testsuite.service
+After=testsuite.target
 OnFailure=poweroff.target
 OnFailureJobMode=replace-irreversibly
 
