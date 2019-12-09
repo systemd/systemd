@@ -1,0 +1,7 @@
+[Unit]
+Description=TEST-03-JOBS
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
