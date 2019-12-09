@@ -14,6 +14,8 @@ install_subdir('test-umount',
                install_dir : testdata_dir)
 install_subdir('testsuite-04.units',
                install_dir : testdata_dir)
+install_subdir('testsuite-06.units',
+               install_dir : testdata_dir)
 
 if conf.get('ENABLE_RESOLVE') == 1
         install_subdir('test-resolve',

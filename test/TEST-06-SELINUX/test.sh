@@ -26,49 +26,6 @@ test_setup() {
         setup_basic_environment
         mask_supporting_services
 
-        # setup the testsuite service
-        cat <<EOF >$initdir/etc/systemd/system/testsuite.service
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/test-selinux-checks.sh
-Type=oneshot
-EOF
-
-        cat <<EOF >$initdir/etc/systemd/system/hola.service
-[Service]
-Type=oneshot
-ExecStart=/bin/echo Start Hola
-ExecReload=/bin/echo Reload Hola
-ExecStop=/bin/echo Stop Hola
-RemainAfterExit=yes
-EOF
-
-        setup_testsuite
-
-        cat <<EOF >$initdir/etc/systemd/system/load-systemd-test-module.service
-[Unit]
-Description=Load systemd-test module
-DefaultDependencies=no
-Requires=local-fs.target
-Conflicts=shutdown.target
-After=local-fs.target
-Before=sysinit.target shutdown.target autorelabel.service
-ConditionSecurity=selinux
-ConditionPathExists=|/.load-systemd-test-module
-
-[Service]
-ExecStart=/bin/sh -x -c 'echo 0 >/sys/fs/selinux/enforce && cd /systemd-test-module && make -f /usr/share/selinux/devel/Makefile load  && rm /.load-systemd-test-module'
-Type=oneshot
-TimeoutSec=0
-RemainAfterExit=yes
-EOF
-
-        touch $initdir/.load-systemd-test-module
-        mkdir -p $initdir/etc/systemd/system/basic.target.wants
-        ln -fs load-systemd-test-module.service $initdir/etc/systemd/system/basic.target.wants/load-systemd-test-module.service
-
         local _modules_dir=/var/lib/selinux
         rm -rf $initdir/$_modules_dir
         if ! cp -ar $_modules_dir $initdir/$_modules_dir; then
@@ -87,11 +44,10 @@ EOF
         mkdir $initdir/systemd-test-module
         cp systemd_test.te $initdir/systemd-test-module
         cp systemd_test.if $initdir/systemd-test-module
-        cp test-selinux-checks.sh $initdir
         dracut_install -o sesearch
         dracut_install runcon
         dracut_install checkmodule semodule semodule_package m4 make /usr/libexec/selinux/hll/pp load_policy sefcontext_compile
     )
 }
 
-do_test "$@"
+do_test "$@" 06

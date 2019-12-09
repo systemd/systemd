@@ -1,0 +1,14 @@
+[Unit]
+Description=Load systemd-test module
+DefaultDependencies=no
+Requires=local-fs.target
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target autorelabel.service
+ConditionSecurity=selinux
+
+[Service]
+ExecStart=sh -x -c 'echo 0 >/sys/fs/selinux/enforce && cd /systemd-test-module && make -f /usr/share/selinux/devel/Makefile load'
+Type=oneshot
+TimeoutSec=0
+RemainAfterExit=yes
