@@ -220,7 +220,7 @@ init=$PATH_TO_INIT \
 console=$CONSOLE \
 selinux=0 \
 $_cgroup_args \
-SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/units: \
+SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units: \
 systemd.unit=testsuite.target \
 systemd.wants=testsuite-$1.service ${_end}
 $KERNEL_APPEND \
@@ -267,7 +267,7 @@ run_nspawn() {
         --register=no
         --kill-signal=SIGKILL
         --directory=$TESTDIR/$1
-        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/units:
+        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:
         $PATH_TO_INIT
         $KERNEL_APPEND
         systemd.unit=testsuite.target
