@@ -41,6 +41,7 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 
 BASICTOOLS=(
     bash
+    busybox
     cat
     chmod
     chown
@@ -53,6 +54,7 @@ BASICTOOLS=(
     false
     gzip
     head
+    ip
     ln
     loadkeys
     login
@@ -61,6 +63,7 @@ BASICTOOLS=(
     mv
     nc
     rm
+    rmdir
     sed
     setfont
     setsid
@@ -69,12 +72,14 @@ BASICTOOLS=(
     socat
     stat
     sulogin
+    sysctl
     tail
     tee
     test
     touch
     true
     umount
+    unshare
     xargs
 )
 
@@ -89,7 +94,6 @@ DEBUGTOOLS=(
     grep
     hostname
     id
-    ip
     less
     ln
     ls

@@ -38,6 +38,10 @@ if conf.get('ENABLE_RESOLVE') == 1
                        install_dir : testdata_dir)
 endif
 
+install_data('create-busybox-container',
+             install_mode : 'rwxr-xr-x',
+             install_dir : testdata_dir)
+
 ############################################################
 
 rule_syntax_check_py = find_program('rule-syntax-check.py')
