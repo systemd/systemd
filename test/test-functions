@@ -64,6 +64,7 @@ BASICTOOLS=(
     setsid
     sh
     sleep
+    socat
     sulogin
     tail
     tee
