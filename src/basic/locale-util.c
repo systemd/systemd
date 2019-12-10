@@ -355,6 +355,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
                         [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{",
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "X",
                 },
 
                 /* UTF-8 */
@@ -379,6 +381,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 */
                         [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨 */
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 */
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "\342\226\221",             /* ░ */
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "\342\226\223",             /* ▒ */
                 },
         };
 
