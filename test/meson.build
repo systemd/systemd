@@ -12,6 +12,8 @@ install_subdir('test-path',
                install_dir : testdata_dir)
 install_subdir('test-umount',
                install_dir : testdata_dir)
+install_subdir('test-network-generator-conversion',
+               install_dir : testdata_dir)
 install_subdir('testsuite-04.units',
                install_dir : testdata_dir)
 install_subdir('testsuite-06.units',
@@ -48,6 +50,8 @@ install_data('create-busybox-container',
              install_mode : 'rwxr-xr-x',
              install_dir : testdata_dir)
 
+test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
+
 ############################################################
 
 rule_syntax_check_py = find_program('rule-syntax-check.py')
@@ -71,6 +75,9 @@ endif
 
 if install_tests
         install_data('run-unit-tests.py',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testsdir)
+        install_data('test-network-generator-conversion.sh',
                      install_mode : 'rwxr-xr-x',
                      install_dir : testsdir)
 endif
