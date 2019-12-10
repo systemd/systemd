@@ -13,8 +13,5 @@ NetworkEmulatorLossRate=20%
 NetworkEmulatorPacketLimit=100
 
 [TrafficControlQueueingDiscipline]
-Parent=clsact
-NetworkEmulatorDelaySec=100ms
-NetworkEmulatorDelayJitterSec=13ms
-NetworkEmulatorLossRate=20.5%
-NetworkEmulatorPacketLimit=200
+Parent=ingress
+FairQueuingControlledDelayPacketLimit=20480

@@ -1509,7 +1509,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
-        '25-qdisc-netem.network',
+        '25-qdisc-netem-and-fqcodel.network',
         '25-qdisc-tbf-and-sfq.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
@@ -2083,7 +2083,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.1')
 
     def test_qdisc(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-netem.network', '12-dummy.netdev',
+        copy_unit_to_networkd_unit_path('25-qdisc-netem-and-fqcodel.network', '12-dummy.netdev',
                                         '25-qdisc-tbf-and-sfq.network', '11-dummy.netdev')
         start_networkd()
 
@@ -2093,7 +2093,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'qdisc netem')
         self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
-        self.assertRegex(output, 'limit 200 delay 100.0ms  13.0ms loss 20.5%')
+        self.assertRegex(output, 'qdisc fq_codel')
+        self.assertRegex(output, 'limit 20480p')
         output = check_output('tc qdisc show dev test1')
         print(output)
         self.assertRegex(output, 'qdisc tbf')
