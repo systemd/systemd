@@ -20,6 +20,7 @@
 
 #include <net/ethernet.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 
 #include "sd-event.h"
 
@@ -44,7 +45,7 @@ int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr);
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int interface_index);
 int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address);
 int sd_ipv4acd_is_running(sd_ipv4acd *acd);
-int sd_ipv4acd_start(sd_ipv4acd *acd);
+int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts);
 int sd_ipv4acd_stop(sd_ipv4acd *acd);
 sd_ipv4acd *sd_ipv4acd_ref(sd_ipv4acd *acd);
 sd_ipv4acd *sd_ipv4acd_unref(sd_ipv4acd *acd);

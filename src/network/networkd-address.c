@@ -670,7 +670,7 @@ int address_configure(
                         log_debug("Starting IPv4ACD client. Probing address %s", strna(pretty));
                 }
 
-                r = sd_ipv4acd_start(address->acd);
+                r = sd_ipv4acd_start(address->acd, true);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
         }
