@@ -14,27 +14,8 @@ test_setup() {
 
         setup_basic_environment
         mask_supporting_services
-
-        cat >$initdir/etc/systemd/system.conf <<EOF
-[Manager]
-DefaultLimitNOFILE=10000:16384
-EOF
-
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/test-rlimits.sh
-Type=oneshot
-EOF
-
-        cp test-rlimits.sh $initdir/
-
-        setup_testsuite
     )
     setup_nspawn_root
 }
 
-do_test "$@"
+do_test "$@" 05
