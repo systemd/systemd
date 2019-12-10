@@ -8,7 +8,9 @@
 #include "hash-funcs.h"
 #include "macro.h"
 
-char *id128_to_uuid_string(sd_id128_t id, char s[37]);
+#define ID128_UUID_STRING_MAX 37
+
+char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]);
 
 bool id128_is_valid(const char *s) _pure_;
 

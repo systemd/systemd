@@ -21,7 +21,7 @@
 
 int main(int argc, char *argv[]) {
         sd_id128_t id, id2;
-        char t[33], q[37];
+        char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
         int r;

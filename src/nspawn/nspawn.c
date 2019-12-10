@@ -2866,7 +2866,7 @@ static int inner_child(
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
-        char as_uuid[37];
+        char as_uuid[ID128_UUID_STRING_MAX];
         size_t n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_COMPAT,
