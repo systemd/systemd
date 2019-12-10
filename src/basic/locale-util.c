@@ -345,6 +345,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_MU]                      = "u",
                         [SPECIAL_GLYPH_CHECK_MARK]              = "+",
                         [SPECIAL_GLYPH_CROSS_MARK]              = "-",
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "X",
                         [SPECIAL_GLYPH_ARROW]                   = "->",
                         [SPECIAL_GLYPH_ELLIPSIS]                = "...",
                         [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = ":-]",
@@ -371,6 +373,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ (actually called: GREEK SMALL LETTER MU) */
                         [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
                         [SPECIAL_GLYPH_CROSS_MARK]              = "\342\234\227",             /* ✗ (actually called: BALLOT X) */
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "\342\226\221",             /* ░ */
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "\342\226\223",             /* ▒ */
 
                         /* Single glyph in Unicode, two in ASCII */
                         [SPECIAL_GLYPH_ARROW]                   = "\342\206\222",             /* → (actually called: RIGHTWARDS ARROW) */
