@@ -58,15 +58,19 @@ BASICTOOLS=(
     ln
     loadkeys
     login
+    mkfifo
+    mktemp
     modprobe
     mount
     mv
     nc
+    readlink
     rm
     rmdir
     sed
     setfont
     setsid
+    seq
     sh
     sleep
     socat
