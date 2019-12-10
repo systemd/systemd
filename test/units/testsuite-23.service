@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-23-TYPE-EXEC
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
