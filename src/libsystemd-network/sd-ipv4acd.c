@@ -441,7 +441,7 @@ int sd_ipv4acd_is_running(sd_ipv4acd *acd) {
         return acd->state != IPV4ACD_STATE_INIT;
 }
 
-int sd_ipv4acd_start(sd_ipv4acd *acd) {
+int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
         int r;
 
         assert_return(acd, -EINVAL);
@@ -458,7 +458,9 @@ int sd_ipv4acd_start(sd_ipv4acd *acd) {
         safe_close(acd->fd);
         acd->fd = r;
         acd->defend_window = 0;
-        acd->n_conflict = 0;
+
+        if (reset_conflicts)
+                acd->n_conflict = 0;
 
         r = sd_event_add_io(acd->event, &acd->receive_message_event_source, acd->fd, EPOLLIN, ipv4acd_on_packet, acd);
         if (r < 0)
