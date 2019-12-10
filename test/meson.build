@@ -17,6 +17,18 @@ install_subdir('testsuite-04.units',
 install_subdir('testsuite-06.units',
                install_dir : testdata_dir)
 
+testsuite08_dir = testdata_dir + '/testsuite-08.units'
+install_data('testsuite-08.units/-.mount',
+             install_dir : testsuite08_dir)
+install_data('testsuite-08.units/systemd-remount-fs.service',
+             install_dir : testsuite08_dir)
+meson.add_install_script(meson_make_symlink,
+                         './-.mount',
+                         testsuite08_dir + '/root.mount')
+meson.add_install_script(meson_make_symlink,
+                         '../-.mount',
+                         testsuite08_dir + '/local-fs.target.wants/-.mount')
+
 if conf.get('ENABLE_RESOLVE') == 1
         install_subdir('test-resolve',
                        install_dir : testdata_dir)
