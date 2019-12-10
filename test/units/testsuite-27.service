@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-27-STDOUTFILE
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

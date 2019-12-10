@@ -5,7 +5,7 @@ set -o pipefail
 systemd-analyze log-level debug
 systemd-analyze log-target console
 
-systemd-run --wait --unit=one \
+systemd-run --wait --unit=test27-one \
             -p StandardOutput=file:/tmp/stdout \
             -p StandardError=file:/tmp/stderr \
             -p Type=exec \
@@ -17,7 +17,7 @@ cmp /tmp/stderr <<EOF
 y
 EOF
 
-systemd-run --wait --unit=two \
+systemd-run --wait --unit=test27-two \
             -p StandardOutput=file:/tmp/stdout \
             -p StandardError=file:/tmp/stderr \
             -p Type=exec \
@@ -29,7 +29,7 @@ cmp /tmp/stderr <<EOF
 a
 EOF
 
-systemd-run --wait --unit=three \
+systemd-run --wait --unit=test27-three \
             -p StandardOutput=append:/tmp/stdout \
             -p StandardError=append:/tmp/stderr \
             -p Type=exec \
@@ -45,6 +45,6 @@ EOF
 
 systemd-analyze log-level info
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
