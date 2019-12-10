@@ -1,4 +1,3 @@
-
 [Unit]
 Description=Testsuite: EXTEND_TIMEOUT_USEC Success - extend timeout on all services
 
@@ -11,4 +10,4 @@ Type=notify
 TimeoutStartSec=4
 TimeoutStopSec=4
 RuntimeMaxSec=4
-ExecStart=/extend_timeout_test_service.sh SERVICE=success_all extend_timeout_interval=4 sleep_interval=2 start_intervals=3 run_intervals=3 stop_intervals=3
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-16.units/extend-timeout.sh SERVICE=success_all extend_timeout_interval=4 sleep_interval=2 start_intervals=3 run_intervals=3 stop_intervals=3

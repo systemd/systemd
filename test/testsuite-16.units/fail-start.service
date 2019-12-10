@@ -1,4 +1,3 @@
-
 [Unit]
 Description=Testsuite: Fail Start (EXTEND_TIMEOUT_USEC Didn't occur in sufficient time after TimeoutStartSec.)
 
@@ -10,4 +9,4 @@ Type=notify
 TimeoutStartSec=10
 TimeoutStopSec=4
 RuntimeMaxSec=4
-ExecStart=/extend_timeout_test_service.sh SERVICE=fail_start extend_timeout_interval=5 sleep_interval=7 start_intervals=2 run_intervals=0 stop_intervals=0
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-16.units/extend-timeout.sh SERVICE=fail_start extend_timeout_interval=5 sleep_interval=7 start_intervals=2 run_intervals=0 stop_intervals=0

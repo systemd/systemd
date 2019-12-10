@@ -19,7 +19,7 @@ function wait_for()
 
     if [[ ! -f /${service}.${result} ]]
     then
-        journalctl -u testsuite-${service/_/-}.service >> "${TL}"
+        journalctl -u ${service/_/-}.service >> "${TL}"
     fi
 }
 
