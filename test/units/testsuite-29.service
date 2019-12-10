@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-29-UDEV-ID_RENAMING
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
