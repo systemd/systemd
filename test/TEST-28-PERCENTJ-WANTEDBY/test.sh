@@ -15,42 +15,8 @@ test_setup() {
 
         setup_basic_environment
         mask_supporting_services
-
-        # Set up the services.
-        cat >$initdir/etc/systemd/system/specifier-j-wants.service << EOF
-[Unit]
-Description=Wants with percent-j specifier
-Wants=specifier-j-depends-%j.service
-After=specifier-j-depends-%j.service
-
-[Service]
-Type=oneshot
-ExecStart=test -f /tmp/test-specifier-j-%j
-ExecStart=/bin/sh -c 'echo OK > /testok'
-EOF
-        cat >$initdir/etc/systemd/system/specifier-j-depends-wants.service << EOF
-[Unit]
-Description=Dependent service for percent-j specifier
-
-[Service]
-Type=oneshot
-ExecStart=touch /tmp/test-specifier-j-wants
-EOF
-        cat >$initdir/etc/systemd/system/testsuite.service << EOF
-[Unit]
-Description=Testsuite: Ensure %j Wants directives work
-Wants=specifier-j-wants.service
-After=specifier-j-wants.service
-
-[Service]
-Type=oneshot
-ExecStart=/bin/true
-EOF
-
-        setup_testsuite
     )
-
     setup_nspawn_root
 }
 
-do_test "$@"
+do_test "$@" 28

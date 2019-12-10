@@ -22,6 +22,8 @@ install_subdir('testsuite-11.units',
                install_dir : testdata_dir)
 install_subdir('testsuite-16.units',
                install_dir : testdata_dir)
+install_subdir('testsuite-28.units',
+               install_dir : testdata_dir)
 
 testsuite08_dir = testdata_dir + '/testsuite-08.units'
 install_data('testsuite-08.units/-.mount',
