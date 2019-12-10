@@ -908,7 +908,7 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
 _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         Object *o;
         int r;
-        char bid[33], sid[33];
+        char bid[SD_ID128_STRING_MAX], sid[SD_ID128_STRING_MAX];
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);

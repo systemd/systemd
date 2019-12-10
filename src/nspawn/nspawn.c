@@ -2229,9 +2229,9 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         _cleanup_free_ char *d = NULL;
+        char id[SD_ID128_STRING_MAX];
         const char *dirname, *p, *q;
         sd_id128_t this_id;
-        char id[33];
         bool try;
         int r;
 

@@ -655,7 +655,7 @@ static int output_export(
                 const size_t highlight[2]) {
 
         sd_id128_t boot_id;
-        char sid[33];
+        char sid[SD_ID128_STRING_MAX];
         int r;
         usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
