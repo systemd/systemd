@@ -15,20 +15,7 @@ test_setup() {
 
         setup_basic_environment
         mask_supporting_services
-
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/bin/bash -x /testsuite.sh
-Type=oneshot
-EOF
-        cp testsuite.sh $initdir/
-
-        setup_testsuite
     )
 }
 
-do_test "$@"
+do_test "$@" 31

@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-31-DEVICE-ENUMERATION
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
