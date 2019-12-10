@@ -665,6 +665,9 @@ create_empty_image() {
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         _size=$((4*_size))
     fi
+
+    echo "Setting up $TESTDIR/rootdisk.img (${_size} MB)"
+
     rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
     truncate -s "${_size}M" "$TESTDIR/rootdisk.img"
@@ -1894,7 +1897,7 @@ test_cleanup() {
 }
 
 test_setup() {
-    if type -P meson && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if type -P meson >/dev/null && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "Needs to be built with -Dinstall-tests=true"
         exit 1
     fi
