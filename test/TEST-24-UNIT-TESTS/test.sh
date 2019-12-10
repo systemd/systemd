@@ -65,37 +65,10 @@ test_setup() {
         LOG_LEVEL=5
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
-        for i in getfacl dirname basename capsh cut rev stat mktemp rmdir ionice unshare uname tr awk getent diff xzcat lz4cat; do
-            inst_binary $i
-        done
-
-        inst /etc/hosts
-
         setup_basic_environment
-        install_keymaps yes
-        install_zoneinfo
-        # Install nproc to determine # of CPUs for correct parallelization
-        inst_binary nproc
-
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/testsuite.sh
-Type=oneshot
-EOF
-        cp testsuite.sh $initdir/
-
-        setup_testsuite
+        mask_supporting_services
     )
     setup_nspawn_root
-
-    # mask some services that we do not want to run in these tests
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -fs /dev/null $initdir/etc/systemd/system/systemd-resolved.service
 }
 
-do_test "$@"
+do_test "$@" 24

@@ -21,23 +21,23 @@ function report_result() {
 
     if [[ $ret -ne 0 && $ret != 77 ]]; then
         echo "$name failed with $ret"
-        echo "$name" >> /failed-tests
+        echo "$name" >>/failed-tests
         {
             echo "--- $name begin ---"
             cat "/$name.log"
             echo "--- $name end ---"
-        } >> /failed
+        } >>/failed
     elif [[ $ret == 77 ]]; then
         echo "$name skipped"
-        echo "$name" >> /skipped-tests
+        echo "$name" >>/skipped-tests
         {
             echo "--- $name begin ---"
             cat "/$name.log"
             echo "--- $name end ---"
-        } >> /skipped
+        } >>/skipped
     else
         echo "$name OK"
-        echo "$name" >> /testok
+        echo "$name" >>/testok
     fi
 
     systemd-cat echo "--- $name ---"
@@ -69,7 +69,7 @@ for task in "${TEST_LIST[@]}"; do
 
     if [[ -x $task ]]; then
         log_file="/${task##*/}.log"
-        $task &> "$log_file" &
+        $task &>"$log_file" &
         running[$task]=$!
     fi
 done

@@ -40,37 +40,51 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
 BASICTOOLS=(
+    awk
+    basename
     bash
     busybox
+    capsh
     cat
     chmod
     chown
     cmp
     cryptsetup
+    cut
     date
+    dd
+    diff
+    dirname
     dmsetup
     echo
     env
     false
+    getent
+    getfacl
+    gunzip
     gzip
     head
+    ionice
     ip
     ln
     loadkeys
     login
+    lz4cat
     mkfifo
     mktemp
     modprobe
     mount
     mv
     nc
+    nproc
     readlink
+    rev
     rm
     rmdir
     sed
+    seq
     setfont
     setsid
-    seq
     sh
     sleep
     socat
@@ -81,10 +95,13 @@ BASICTOOLS=(
     tee
     test
     touch
+    tr
     true
     umount
+    uname
     unshare
     xargs
+    xzcat
 )
 
 DEBUGTOOLS=(
@@ -385,6 +402,7 @@ setup_basic_environment() {
     install_systemd
     install_missing_libraries
     install_config_files
+    install_zoneinfo
     create_rc_local
     install_basic_tools
     install_libnss
@@ -964,10 +982,16 @@ install_keymaps() {
 }
 
 install_zoneinfo() {
-    for i in /usr/share/zoneinfo/{,*/,*/*/}*; do
-        [[ -f $i ]] || continue
-        inst $i
-    done
+    inst_any /usr/share/zoneinfo/Asia/Seoul
+    inst_any /usr/share/zoneinfo/Asia/Vladivostok
+    inst_any /usr/share/zoneinfo/Australia/Sydney
+    inst_any /usr/share/zoneinfo/Europe/Berlin
+    inst_any /usr/share/zoneinfo/Europe/Kiev
+    inst_any /usr/share/zoneinfo/Pacific/Auckland
+    inst_any /usr/share/zoneinfo/Pacific/Honolulu
+    inst_any /usr/share/zoneinfo/CET
+    inst_any /usr/share/zoneinfo/EET
+    inst_any /usr/share/zoneinfo/UTC
 }
 
 install_fonts() {
