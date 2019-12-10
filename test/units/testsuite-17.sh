@@ -69,6 +69,6 @@ while : ; do
     sleep .5
 done
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
