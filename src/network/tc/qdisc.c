@@ -189,6 +189,7 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
 
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         unsigned i;
+        int r;
 
         assert(qdisc);
         assert(has_root);
@@ -203,6 +204,12 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
                                          "%s: TrafficControlQueueingDiscipline section has more than one type of discipline. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
+
+        if (qdisc->has_token_buffer_filter) {
+                r = token_buffer_filter_section_verify(&qdisc->tbf, qdisc->section);
+                if (r < 0)
+                        return r;
+        }
 
         if (qdisc->parent == TC_H_ROOT) {
                 if (*has_root)

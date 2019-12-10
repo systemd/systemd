@@ -2097,7 +2097,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc qdisc show dev test1')
         print(output)
         self.assertRegex(output, 'qdisc tbf')
-        self.assertRegex(output, 'rate 500Kbit burst 5000b lat 70.0ms')
+        self.assertRegex(output, 'rate 1Gbit burst 5000b peakrate 100Gbit minburst 987500b lat 70.0ms')
         self.assertRegex(output, 'qdisc sfq')
         self.assertRegex(output, 'perturb 5sec')
 
