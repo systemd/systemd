@@ -92,6 +92,7 @@ BASICTOOLS=(
     sulogin
     sysctl
     tail
+    tar
     tee
     test
     touch
