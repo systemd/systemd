@@ -78,6 +78,8 @@ option('environment-d', type : 'boolean',
        description : 'support for environment.d')
 option('binfmt', type : 'boolean',
        description : 'support for custom binary formats')
+option('repart', type : 'boolean',
+       description : 'install the systemd-repart tool')
 option('coredump', type : 'boolean',
        description : 'install the coredump handler')
 option('pstore', type : 'boolean',
@@ -256,6 +258,8 @@ option('audit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libaudit support')
 option('blkid', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libblkid support')
+option('fdisk', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libfdisk support')
 option('kmod', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for loadable modules')
 option('pam', type : 'combo', choices : ['auto', 'true', 'false'],

@@ -873,6 +873,17 @@ endif
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
+want_libfdisk = get_option('fdisk')
+if want_libfdisk != 'false' and not skip_deps
+        libfdisk = dependency('fdisk',
+                              required : want_libfdisk == 'true')
+        have = libfdisk.found()
+else
+        have = false
+        libfdisk = []
+endif
+conf.set10('HAVE_LIBFDISK', have)
+
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false' and not skip_deps
         libseccomp = dependency('libseccomp',
@@ -1314,6 +1325,7 @@ foreach term : ['utmp',
                 'hibernate',
                 'environment-d',
                 'binfmt',
+                'repart',
                 'coredump',
                 'pstore',
                 'resolve',
@@ -1534,6 +1546,7 @@ subdir('src/coredump')
 subdir('src/pstore')
 subdir('src/hostname')
 subdir('src/import')
+subdir('src/partition')
 subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
@@ -2343,6 +2356,21 @@ if conf.get('ENABLE_BINFMT') == 1
                                  mkdir_p.format(binfmtdir))
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+endif
+
+if conf.get('ENABLE_REPART') == 1 and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_LIBFDISK') == 1
+        executable('systemd-repart',
+                   systemd_repart_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libcryptsetup,
+                                   libblkid,
+                                   libfdisk,
+                                   libopenssl],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
 endif
 
 if conf.get('ENABLE_VCONSOLE') == 1
