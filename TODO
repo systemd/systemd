@@ -22,9 +22,49 @@ Features:
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
+* unify on openssl:
+  - port sd_id128_get_machine_app_specific() over from khash
+  - port resolved over from libgcrypt (DNSSEC code)
+  - port journald + fsprg over from libgcrypt
+  - port importd over from libgcrypt
+  - when that's done: kill khash.c
+  - when that's done: kill gnutls support in resolved
+
 * kill zenata, all hail weblate?
 
+* when we resize disks (homed?) always round up to 4K sectors, not 512K
+
+* add growvol and makevol options for /etc/crypttab, similar to
+  x-systemd.growfs and x-systemd-makefs.
+
+* hook up the TPM to /etc/crypttab, with a new option that is similar to the
+  new PKCS#11 option in crypttab, and allows unlocking a LUKS volume via a key
+  unsealed from the TPM. Optionally, if TPM is not available fall back to
+  TPM-less mode, and set up linear DM mapping instead (inspired by kpartx), so
+  that the device paths stay the same, regardless if crypto is used or not.
+
 * move discoverable partitions spec into markdown and our tree
+
+* systemd-repart: by default generate minimized partition tables (i.e. tables
+  that only covere the space actually used, excluding any free space at the
+  end), in order to maximize dd'ability. Requires libfdisk work, see
+  https://github.com/karelzak/util-linux/issues/907
+
+* systemd-repart: optionally, allow specifiying a path to initialize new
+  partitions from, i.e. an fs image file or a source device node. This would
+  then turn systemd-repart into a simple installer: with a few .partition files
+  you could replicate the host system on another device.
+
+* systemd-repart: MBR partition table support. Care needs to be taken regarding
+  Type=, so that partition definitions can sanely apply to both the GPT and the
+  MBR case. Idea: accept syntax "Type=gpt:home mbr:0x83" for setting the types
+  for the two partition types explicitly. And provide an internal mapping so
+  that "Type=linux-generic" maps to the right types for both partition tables
+  automatically.
+
+* when switching root from initrd to host, set the machine_id env var so that
+  if the host has no machine ID set yet we continue to use the random one the
+  initrd had set.
 
 * sd-event: add native support for P_ALL waitid() watching, then move PID 1 to
   it fo reaping assigned but unknown children. This needs to some special care
@@ -173,13 +213,6 @@ Features:
 * optionally: turn on cgroup delegation for per-session scope units
 
 * introduce per-unit (i.e. per-slice, per-service) journal log size limits.
-
-* optionally, if a per-partition GPT flag is set for the root/home/… partitions
-  format the partition on next boot and unset the flag, in order to implement
-  factory reset. also, add a second flag that simply indicates whether such a
-  scheme is supported. then, add a tool (or maybe beef up systemd-dissect) to
-  show state of these flags, and optionally trigger such a factory reset on
-  next boot by setting the flag.
 
 * sd-boot: automatically load EFI modules from some drop-in dir, so that people
   can add in file system drivers and such
@@ -393,10 +426,6 @@ Features:
 * hostnamed: populate form factor data from a new hwdb database, so that old
   yogas can be recognized as "convertible" too, even if they predate the DMI
   "convertible" form factor
-
-* Maybe add a small tool invoked early at boot, that adds in or resizes
-  partitions automatically, to be used when the media used is actually larger
-  than the image written onto it is.
 
 * Maybe add PrivatePIDs= as new unit setting, and do minimal PID namespacing
   after all. Be strict however, only support the equivalent of nspawn's
