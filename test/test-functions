@@ -353,27 +353,9 @@ setup_selinux() {
         exit 1
     fi
 
-    cat <<EOF >$initdir/etc/systemd/system/autorelabel.service
-[Unit]
-Description=Relabel all filesystems
-DefaultDependencies=no
-Requires=local-fs.target
-Conflicts=shutdown.target
-After=local-fs.target
-Before=sysinit.target shutdown.target
-ConditionSecurity=selinux
-ConditionPathExists=|/.autorelabel
-
-[Service]
-ExecStart=/bin/sh -x -c 'echo 0 >/sys/fs/selinux/enforce && fixfiles -f -F relabel && rm /.autorelabel && systemctl --force reboot'
-Type=oneshot
-TimeoutSec=0
-RemainAfterExit=yes
-EOF
-
     touch $initdir/.autorelabel
-    mkdir -p $initdir/etc/systemd/system/basic.target.wants
-    ln -fs autorelabel.service $initdir/etc/systemd/system/basic.target.wants/autorelabel.service
+    mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants
+    ln -sf ../autorelabel.service $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/
 
     dracut_install $_fixfiles_tools
     dracut_install fixfiles
