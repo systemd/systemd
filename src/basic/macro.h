@@ -163,6 +163,11 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
+
+        /* Avoid subtraction overflow */
+        if (u == 0)
+                return 0;
+
         /* clz(0) is undefined */
         if (u == 1)
                 return 1;
@@ -172,6 +177,29 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 return 0;
 
         return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
+}
+
+static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
+        size_t m;
+
+        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
+         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
+         * grow stuff, for example strv_extend() and suchlike.
+         *
+         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
+         * and rounds up to next multiple of 2, needing no further counter.
+         *
+         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
+         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
+
+        if (l <= 2)
+                return 2; /* Never allocate less than 2 of something.  */
+
+        m = ALIGN_POWER2(l);
+        if (m == 0) /* overflow? */
+                return l;
+
+        return m;
 }
 
 #ifndef __COVERITY__

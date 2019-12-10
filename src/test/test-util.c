@@ -26,7 +26,19 @@ static void test_align_power2(void) {
         assert_se(ALIGN_POWER2(1) == 1);
         assert_se(ALIGN_POWER2(2) == 2);
         assert_se(ALIGN_POWER2(3) == 4);
+        assert_se(ALIGN_POWER2(4) == 4);
+        assert_se(ALIGN_POWER2(5) == 8);
+        assert_se(ALIGN_POWER2(6) == 8);
+        assert_se(ALIGN_POWER2(7) == 8);
+        assert_se(ALIGN_POWER2(9) == 16);
+        assert_se(ALIGN_POWER2(10) == 16);
+        assert_se(ALIGN_POWER2(11) == 16);
         assert_se(ALIGN_POWER2(12) == 16);
+        assert_se(ALIGN_POWER2(13) == 16);
+        assert_se(ALIGN_POWER2(14) == 16);
+        assert_se(ALIGN_POWER2(15) == 16);
+        assert_se(ALIGN_POWER2(16) == 16);
+        assert_se(ALIGN_POWER2(17) == 32);
 
         assert_se(ALIGN_POWER2(ULONG_MAX) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1) == 0);
