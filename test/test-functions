@@ -909,6 +909,19 @@ install_dbus() {
         | while read file; do
         inst $file
     done
+
+    # setup policy for Type=dbus test
+    mkdir -p $initdir/etc/dbus-1/system.d
+    cat > $initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+    <policy user="root">
+        <allow own="systemd.test.ExecStopPost"/>
+    </policy>
+</busconfig>
+EOF
 }
 
 install_user_dbus() {
