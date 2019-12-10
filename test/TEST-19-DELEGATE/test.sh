@@ -7,16 +7,4 @@ TEST_NO_NSPAWN=1
 QEMU_TIMEOUT=600
 UNIFIED_CGROUP_HIERARCHY=yes
 
-test_setup() {
-    create_empty_image_rootdir
-
-    (
-        LOG_LEVEL=5
-        eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
-
-        setup_basic_environment
-        mask_supporting_services
-    )
-}
-
 do_test "$@" 19

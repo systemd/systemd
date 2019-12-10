@@ -52,23 +52,4 @@ check_result_qemu() {
     return $_ret
 }
 
-test_setup() {
-    if type -P meson && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
-        dfatal "Needs to be built with -Dinstall-tests=true"
-        exit 1
-    fi
-
-    create_empty_image_rootdir
-
-    # Create what will eventually be our root filesystem onto an overlay
-    (
-        LOG_LEVEL=5
-        eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
-
-        setup_basic_environment
-        mask_supporting_services
-    )
-    setup_nspawn_root
-}
-
 do_test "$@" 24
