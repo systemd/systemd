@@ -90,3 +90,13 @@ typedef enum NLUnionLinkInfoData {
 
 const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
+
+typedef enum NLUnionTCAOptionData {
+        NL_UNION_TCA_OPTION_DATA_TBF,
+        NL_UNION_TCA_OPTION_DATA_FQ_CODEL,
+        _NL_UNION_TCA_OPTION_DATA_MAX,
+        _NL_UNION_TCA_OPTION_DATA_INVALID = -1,
+} NLUnionTCAOptionData;
+
+const char *nl_union_tca_option_data_to_string(NLUnionTCAOptionData p) _const_;
+NLUnionTCAOptionData nl_union_tca_option_data_from_string(const char *p) _pure_;

@@ -439,7 +439,7 @@ static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
 
 static const NLType rtnl_link_info_types[] = {
         [IFLA_INFO_KIND]        = { .type = NETLINK_TYPE_STRING },
-        [IFLA_INFO_DATA]        = { .type = NETLINK_TYPE_UNION, .type_system_union = &rtnl_link_info_data_type_system_union},
+        [IFLA_INFO_DATA]        = { .type = NETLINK_TYPE_UNION, .type_system_union = &rtnl_link_info_data_type_system_union },
 /*
         [IFLA_INFO_XSTATS],
         [IFLA_INFO_SLAVE_KIND]  = { .type = NETLINK_TYPE_STRING },
@@ -734,9 +734,53 @@ static const NLTypeSystem rtnl_nexthop_type_system = {
        .types = rtnl_nexthop_types,
 };
 
+static const NLType rtnl_tca_option_data_tbf_types[] = {
+        [TCA_TBF_PARMS]   = { .size = sizeof(struct tc_tbf_qopt) },
+        [TCA_TBF_RTAB]    = { .size = TC_RTAB_SIZE },
+        [TCA_TBF_PTAB]    = { .size = TC_RTAB_SIZE },
+        [TCA_TBF_RATE64]  = { .type = NETLINK_TYPE_U64 },
+        [TCA_TBF_PRATE64] = { .type = NETLINK_TYPE_U64 },
+        [TCA_TBF_BURST]   = { .type = NETLINK_TYPE_U32 },
+        [TCA_TBF_PBURST]  = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLType rtnl_tca_option_data_fq_codel_types[] = {
+        [TCA_FQ_CODEL_TARGET]          = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_LIMIT]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_INTERVAL]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_ECN]             = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_FLOWS]           = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_QUANTUM]         = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_CE_THRESHOLD]    = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_DROP_BATCH_SIZE] = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CODEL_MEMORY_LIMIT]    = { .type = NETLINK_TYPE_U32 },
+};
+
+static const char* const nl_union_tca_option_data_table[] = {
+        [NL_UNION_TCA_OPTION_DATA_TBF] = "tbf",
+        [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nl_union_tca_option_data, NLUnionTCAOptionData);
+
+static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
+        [NL_UNION_TCA_OPTION_DATA_TBF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
+                                                   .types = rtnl_tca_option_data_tbf_types },
+        [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
+                                                   .types = rtnl_tca_option_data_fq_codel_types },
+};
+
+static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {
+        .num = _NL_UNION_TCA_OPTION_DATA_MAX,
+        .lookup = nl_union_tca_option_data_from_string,
+        .type_systems = rtnl_tca_option_data_type_systems,
+        .match_type = NL_MATCH_SIBLING,
+        .match = TCA_KIND,
+};
+
 static const NLType rtnl_qdisc_types[] = {
         [TCA_KIND]           = { .type = NETLINK_TYPE_STRING },
-        [TCA_OPTIONS]        = { .size = sizeof(struct tc_netem_qopt) },
+        [TCA_OPTIONS]        = { .type = NETLINK_TYPE_UNION, .type_system_union = &rtnl_tca_option_data_type_system_union },
         [TCA_INGRESS_BLOCK]  = { .type = NETLINK_TYPE_U32 },
         [TCA_EGRESS_BLOCK]   = { .type = NETLINK_TYPE_U32 },
 };
