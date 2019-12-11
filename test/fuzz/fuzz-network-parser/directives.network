@@ -279,3 +279,4 @@ TokenBufferFilterPeakRate=
 TokenBufferFilterLatencySec=
 StochasticFairnessQueueingPerturbPeriodSec=
 FairQueuingControlledDelayPacketLimit=
+FairQueueTrafficPolicingPacketLimit=
