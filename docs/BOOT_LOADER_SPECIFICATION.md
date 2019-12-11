@@ -1,5 +1,6 @@
 ---
 title: The Boot Loader Specification
+category: Booting
 ---
 
 # The Boot Loader Specification

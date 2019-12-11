@@ -1,5 +1,6 @@
 ---
 title: Using /tmp/ And /var/tmp/ Safely
+category: Interfaces
 ---
 
 # Using `/tmp/` And `/var/tmp/` Safely

@@ -1,5 +1,6 @@
 ---
 title: Random Seeds
+category: Concepts
 ---
 
 # Random Seeds

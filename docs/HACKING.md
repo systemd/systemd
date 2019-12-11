@@ -1,5 +1,6 @@
 ---
 title: Hacking on systemd
+category: Contributing
 ---
 
 # Hacking on systemd

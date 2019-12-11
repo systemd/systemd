@@ -1,5 +1,6 @@
 ---
 title: What settings are currently available for transient units?
+category: Interfaces
 ---
 
 # What settings are currently available for transient units?

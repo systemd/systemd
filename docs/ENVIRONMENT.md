@@ -1,5 +1,6 @@
 ---
 title: Known Environment Variables
+category: Interfaces
 ---
 
 # Known Environment Variables

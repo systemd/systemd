@@ -1,5 +1,6 @@
 ---
 title: Coding Style
+category: Contributing
 ---
 
 # Coding Style

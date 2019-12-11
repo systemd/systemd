@@ -1,5 +1,6 @@
 ---
 title: Predictable Network Interface Names
+category: Concepts
 ---
 
 # Predictable Network Interface Names

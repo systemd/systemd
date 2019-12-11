@@ -1,5 +1,6 @@
 ---
 title: The Boot Loader Interface
+category: Booting
 ---
 
 # The Boot Loader Interface

@@ -1,5 +1,6 @@
 ---
 title: Steps to a Successful Release
+category: Contributing
 ---
 
 # Steps to a Successful Release
