@@ -15,18 +15,6 @@
 #include "tc-util.h"
 #include "util.h"
 
-int token_buffer_filter_new(TokenBufferFilter **ret) {
-        TokenBufferFilter *ne = NULL;
-
-        ne = new0(TokenBufferFilter, 1);
-        if (!ne)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(ne);
-
-        return 0;
-}
-
 int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, sd_netlink_message *req) {
         uint32_t rtab[256], ptab[256];
         struct tc_tbf_qopt opt = {};

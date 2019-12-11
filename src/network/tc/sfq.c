@@ -11,18 +11,6 @@
 #include "sfq.h"
 #include "string-util.h"
 
-int stochastic_fairness_queueing_new(StochasticFairnessQueueing **ret) {
-        StochasticFairnessQueueing *sfq = NULL;
-
-        sfq = new0(StochasticFairnessQueueing, 1);
-        if (!sfq)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(sfq);
-
-        return 0;
-}
-
 int stochastic_fairness_queueing_fill_message(Link *link, const StochasticFairnessQueueing *sfq, sd_netlink_message *req) {
         struct tc_sfq_qopt_v1 opt = {};
         int r;

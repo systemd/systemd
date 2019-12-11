@@ -19,7 +19,6 @@ typedef struct TokenBufferFilter {
         size_t mpu;
 } TokenBufferFilter;
 
-int token_buffer_filter_new(TokenBufferFilter **ret);
 int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, sd_netlink_message *req);
 int token_buffer_filter_section_verify(const TokenBufferFilter *tbf, const NetworkConfigSection *section);
 

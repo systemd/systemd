@@ -13,23 +13,6 @@
 #include "string-util.h"
 #include "tc-util.h"
 
-int network_emulator_new(NetworkEmulator **ret) {
-        NetworkEmulator *ne = NULL;
-
-        ne = new(NetworkEmulator, 1);
-        if (!ne)
-                return -ENOMEM;
-
-        *ne = (NetworkEmulator) {
-                .delay = USEC_INFINITY,
-                .jitter = USEC_INFINITY,
-        };
-
-        *ret = TAKE_PTR(ne);
-
-        return 0;
-}
-
 int network_emulator_fill_message(Link *link, const NetworkEmulator *ne, sd_netlink_message *req) {
         struct tc_netem_qopt opt = {
                .limit = 1000,

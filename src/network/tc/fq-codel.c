@@ -10,18 +10,6 @@
 #include "qdisc.h"
 #include "string-util.h"
 
-int fair_queuing_controlled_delay_new(FairQueuingControlledDelay **ret) {
-        FairQueuingControlledDelay *fqcd = NULL;
-
-        fqcd = new0(FairQueuingControlledDelay, 1);
-        if (!fqcd)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(fqcd);
-
-        return 0;
-}
-
 int fair_queuing_controlled_delay_fill_message(Link *link, const FairQueuingControlledDelay *fqcd, sd_netlink_message *req) {
         int r;
 

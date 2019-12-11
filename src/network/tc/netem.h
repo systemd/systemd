@@ -17,7 +17,6 @@ typedef struct NetworkEmulator {
         uint32_t duplicate;
 } NetworkEmulator;
 
-int network_emulator_new(NetworkEmulator **ret);
 int network_emulator_fill_message(Link *link, const NetworkEmulator *ne, sd_netlink_message *req);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_delay);
