@@ -12,8 +12,6 @@ typedef struct QDiscs {
         NetworkConfigSection *section;
         Network *network;
 
-        Link *link;
-
         int family;
 
         uint32_t handle;
