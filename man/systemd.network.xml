@@ -2327,8 +2327,8 @@
       <varlistentry>
         <term><varname>Parent=</varname></term>
         <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>
-          or <literal>clsact</literal>. Defaults to <literal>root</literal>.</para>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2439,6 +2439,14 @@
         <term><varname>StochasticFairnessQueueingPerturbPeriodSec=</varname></term>
         <listitem>
           <para>Specifies the interval in seconds for queue algorithm perturbation. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayPacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
+          dropped. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
 
