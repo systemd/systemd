@@ -262,7 +262,7 @@
         <varlistentry>
           <term><constant>v238</constant></term>
 
-          <listitem><para>This is the naming naming that was implemented in systemd 238.</para></listitem>
+          <listitem><para>This is the naming scheme that was implemented in systemd 238.</para></listitem>
         </varlistentry>
 
         <varlistentry>
