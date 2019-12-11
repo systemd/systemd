@@ -428,8 +428,7 @@ ID_NET_NAME_PATH=encf5f0</programlisting>
     <para>
       <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames">the
-      original page describing stable interface names</ulink>
+      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>
     </para>
   </refsect1>
 
