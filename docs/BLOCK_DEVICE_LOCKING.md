@@ -1,5 +1,6 @@
 ---
 title: Locking Block Device Access
+category: Interfaces
 ---
 
 # Locking Block Device Access

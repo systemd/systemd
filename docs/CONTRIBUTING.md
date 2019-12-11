@@ -1,5 +1,6 @@
 ---
 title: Contributing
+category: Contributing
 ---
 
 # Contributing

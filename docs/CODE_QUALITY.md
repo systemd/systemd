@@ -1,5 +1,6 @@
 ---
 title: Code Quality Tools
+category: Contributing
 ---
 
 # Code Quality Tools

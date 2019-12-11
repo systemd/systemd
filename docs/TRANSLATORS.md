@@ -1,5 +1,6 @@
 ---
 title: Notes for Translators
+category: Contributing
 ---
 
 # Notes for Translators

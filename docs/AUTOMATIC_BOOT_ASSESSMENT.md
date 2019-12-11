@@ -1,5 +1,6 @@
 ---
 title: Automatic Boot Assessment
+category: Booting
 ---
 
 # Automatic Boot Assessment

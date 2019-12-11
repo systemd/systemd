@@ -1,5 +1,6 @@
 ---
 title: Testing systemd using sanitizers
+category: Contributing
 ---
 
 # Testing systemd using sanitizers

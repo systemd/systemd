@@ -1,5 +1,6 @@
 ---
 title: Reporting of security vulnerabilities
+category: Contributing
 ---
 
 # Reporting of security vulnerabilities

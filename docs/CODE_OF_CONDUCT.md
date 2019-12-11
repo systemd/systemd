@@ -1,5 +1,6 @@
 ---
 title: The systemd Community Conduct Guidelines
+category: Contributing
 ---
 
 # The systemd Community Conduct Guidelines

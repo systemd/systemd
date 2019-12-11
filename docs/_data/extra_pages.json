@@ -1,0 +1,10 @@
+[
+    { "category": "Project", "title": "Brand", "url": "https://brand.systemd.io/" },
+    { "category": "Project", "title": "Releases", "url": "https://github.com/systemd/systemd/releases" },
+    { "category": "Project", "title": "GitHub Project Page", "url": "https://github.com/systemd/systemd" },
+    { "category": "Project", "title": "Issues", "url": "https://github.com/systemd/systemd/issues" },
+    { "category": "Project", "title": "Pull Requests", "url": "https://github.com/systemd/systemd/pulls" },
+    { "category": "Project", "title": "Mailing List", "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel" },
+    { "category": "Manual Pages", "title": "Index", "url": "https://www.freedesktop.org/software/systemd/man/" },
+    { "category": "Manual Pages", "title": "Directives", "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html" }
+]
