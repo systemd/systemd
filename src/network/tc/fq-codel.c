@@ -29,11 +29,11 @@ int fair_queuing_controlled_delay_fill_message(Link *link, const FairQueuingCont
         assert(fqcd);
         assert(req);
 
-        r = sd_netlink_message_open_array(req, TCA_OPTIONS);
+        r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "fq_codel");
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
 
-        r = sd_netlink_message_append_data(req, TCA_FQ_CODEL_LIMIT, &fqcd->limit, sizeof(fqcd->limit));
+        r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_LIMIT, fqcd->limit);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_LIMIT attribute: %m");
 
