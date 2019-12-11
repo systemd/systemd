@@ -13,65 +13,94 @@
 #include "set.h"
 #include "string-util.h"
 
-static int qdisc_new(QDisc **ret) {
+const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
+        [QDISC_KIND_FQ_CODEL] = &fq_codel_vtable,
+        [QDISC_KIND_NETEM] = &netem_vtable,
+        [QDISC_KIND_SFQ] = &sfq_vtable,
+        [QDISC_KIND_TBF] = &tbf_vtable,
+};
+
+static int qdisc_new(QDiscKind kind, QDisc **ret) {
         QDisc *qdisc;
 
-        qdisc = new(QDisc, 1);
-        if (!qdisc)
-                return -ENOMEM;
+        if (kind == _QDISC_KIND_INVALID) {
+                qdisc = new(QDisc, 1);
+                if (!qdisc)
+                        return -ENOMEM;
 
-        *qdisc = (QDisc) {
-                .family = AF_UNSPEC,
-                .parent = TC_H_ROOT,
-        };
+                *qdisc = (QDisc) {
+                        .family = AF_UNSPEC,
+                        .parent = TC_H_ROOT,
+                        .kind = kind,
+                };
+        } else {
+                qdisc = malloc0(qdisc_vtable[kind]->object_size);
+                if (!qdisc)
+                        return -ENOMEM;
+
+                qdisc->family = AF_UNSPEC;
+                qdisc->parent = TC_H_ROOT;
+                qdisc->kind = kind;
+        }
 
         *ret = TAKE_PTR(qdisc);
 
         return 0;
 }
 
-int qdisc_new_static(Network *network, const char *filename, unsigned section_line, QDisc **ret) {
+int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
+        QDisc *existing;
         int r;
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                qdisc = ordered_hashmap_get(network->qdiscs_by_section, n);
-                if (qdisc) {
-                        *ret = TAKE_PTR(qdisc);
+        existing = ordered_hashmap_get(network->qdiscs_by_section, n);
+        if (existing) {
+                if (existing->kind != _QDISC_KIND_INVALID &&
+                    kind != _QDISC_KIND_INVALID &&
+                    existing->kind != kind)
+                        return -EINVAL;
 
+                if (existing->kind == kind || kind == _QDISC_KIND_INVALID) {
+                        *ret = existing;
                         return 0;
                 }
         }
 
-        r = qdisc_new(&qdisc);
+        r = qdisc_new(kind, &qdisc);
         if (r < 0)
                 return r;
 
-        qdisc->network = network;
+        if (existing) {
+                qdisc->family = existing->family;
+                qdisc->handle = existing->handle;
+                qdisc->parent = existing->parent;
+                qdisc->tca_kind = TAKE_PTR(existing->tca_kind);
 
-        if (filename) {
-                qdisc->section = TAKE_PTR(n);
-
-                r = ordered_hashmap_ensure_allocated(&network->qdiscs_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = ordered_hashmap_put(network->qdiscs_by_section, qdisc->section, qdisc);
-                if (r < 0)
-                        return r;
+                qdisc_free(ordered_hashmap_remove(network->qdiscs_by_section, n));
         }
 
-        *ret = TAKE_PTR(qdisc);
+        qdisc->network = network;
+        qdisc->section = TAKE_PTR(n);
 
+        r = ordered_hashmap_ensure_allocated(&network->qdiscs_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(network->qdiscs_by_section, qdisc->section, qdisc);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(qdisc);
         return 0;
 }
 
@@ -116,8 +145,6 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 
 int qdisc_configure(Link *link, QDisc *qdisc) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_free_ char *tca_kind = NULL;
-        char *p;
         int r;
 
         assert(link);
@@ -139,49 +166,16 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
                         return log_link_error_errno(link, r, "Could not set tcm_handle message: %m");
         }
 
-        if (qdisc->has_network_emulator) {
-                r = free_and_strdup(&tca_kind, "netem");
+        if (QDISC_VTABLE(qdisc)) {
+                r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
                 if (r < 0)
-                        return log_oom();
+                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
 
-                r = network_emulator_fill_message(link, &qdisc->ne, req);
-                if (r < 0)
-                        return r;
-        }
-
-        if (qdisc->has_token_buffer_filter) {
-                r = free_and_strdup(&tca_kind, "tbf");
-                if (r < 0)
-                        return log_oom();
-
-                r = token_buffer_filter_fill_message(link, &qdisc->tbf, req);
+                r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
                 if (r < 0)
                         return r;
-        }
-
-        if (qdisc->has_stochastic_fairness_queueing) {
-                r = free_and_strdup(&tca_kind, "sfq");
-                if (r < 0)
-                        return log_oom();
-
-                r = stochastic_fairness_queueing_fill_message(link, &qdisc->sfq, req);
-                if (r < 0)
-                        return r;
-        }
-
-        if (qdisc->has_fair_queuing_controlled_delay) {
-                r = free_and_strdup(&tca_kind, "fq_codel");
-                if (r < 0)
-                        return log_oom();
-
-                r = fair_queuing_controlled_delay_fill_message(link, &qdisc->fq_codel, req);
-                if (r < 0)
-                        return r;
-        }
-
-        p = tca_kind ?:qdisc->tca_kind;
-        if (p) {
-                r = sd_netlink_message_append_string(req, TCA_KIND, p);
+        } else {
+                r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
         }
@@ -197,7 +191,6 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
 }
 
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
-        unsigned i;
         int r;
 
         assert(qdisc);
@@ -207,15 +200,8 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         if (section_is_invalid(qdisc->section))
                 return -EINVAL;
 
-        i = qdisc->has_network_emulator + qdisc->has_token_buffer_filter + qdisc->has_stochastic_fairness_queueing;
-        if (i > 1)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: TrafficControlQueueingDiscipline section has more than one type of discipline. "
-                                         "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         qdisc->section->filename, qdisc->section->line);
-
-        if (qdisc->has_token_buffer_filter) {
-                r = token_buffer_filter_section_verify(&qdisc->tbf, qdisc->section);
+        if (QDISC_VTABLE(qdisc) && QDISC_VTABLE(qdisc)->verify) {
+                r = QDISC_VTABLE(qdisc)->verify(qdisc);
                 if (r < 0)
                         return r;
         }
@@ -260,7 +246,7 @@ int config_parse_tc_qdiscs_parent(
         assert(rvalue);
         assert(data);
 
-        r = qdisc_new_static(network, filename, section_line, &qdisc);
+        r = qdisc_new_static(_QDISC_KIND_INVALID, network, filename, section_line, &qdisc);
         if (r < 0)
                 return r;
 

@@ -2,15 +2,15 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
-#include "networkd-link.h"
+#include "qdisc.h"
 
 typedef struct FairQueuingControlledDelay {
+        QDisc meta;
         uint32_t limit;
 } FairQueuingControlledDelay;
 
-int fair_queuing_controlled_delay_fill_message(Link *link, const FairQueuingControlledDelay *sfq, sd_netlink_message *req);
+DEFINE_QDISC_CAST(FQ_CODEL, FairQueuingControlledDelay);
+extern const QDiscVTable fq_codel_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queuing_controlled_delay_limit);

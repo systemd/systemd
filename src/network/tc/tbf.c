@@ -15,14 +15,17 @@
 #include "tc-util.h"
 #include "util.h"
 
-int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, sd_netlink_message *req) {
+static int token_buffer_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         uint32_t rtab[256], ptab[256];
         struct tc_tbf_qopt opt = {};
+        TokenBufferFilter *tbf;
         int r;
 
         assert(link);
-        assert(tbf);
+        assert(qdisc);
         assert(req);
+
+        tbf = TBF(qdisc);
 
         opt.rate.rate = tbf->rate >= (1ULL << 32) ? ~0U : tbf->rate;
         opt.peakrate.rate = tbf->peak_rate >= (1ULL << 32) ? ~0U : tbf->peak_rate;
@@ -121,6 +124,7 @@ int config_parse_tc_token_buffer_filter_size(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
+        TokenBufferFilter *tbf;
         uint64_t k;
         int r;
 
@@ -129,23 +133,28 @@ int config_parse_tc_token_buffer_filter_size(
         assert(rvalue);
         assert(data);
 
-        r = qdisc_new_static(network, filename, section_line, &qdisc);
+        r = qdisc_new_static(QDISC_KIND_TBF, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return r;
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        tbf = TBF(qdisc);
 
         if (isempty(rvalue)) {
                 if (streq(lvalue, "TokenBufferFilterRate"))
-                        qdisc->tbf.rate = 0;
+                        tbf->rate = 0;
                 else if (streq(lvalue, "TokenBufferFilterBurst"))
-                        qdisc->tbf.burst = 0;
+                        tbf->burst = 0;
                 else if (streq(lvalue, "TokenBufferFilterLimitSize"))
-                        qdisc->tbf.limit = 0;
+                        tbf->limit = 0;
                 else if (streq(lvalue, "TokenBufferFilterMTUBytes"))
-                        qdisc->tbf.mtu = 0;
+                        tbf->mtu = 0;
                 else if (streq(lvalue, "TokenBufferFilterMPUBytes"))
-                        qdisc->tbf.mpu = 0;
+                        tbf->mpu = 0;
                 else if (streq(lvalue, "TokenBufferFilterPeakRate"))
-                        qdisc->tbf.peak_rate = 0;
+                        tbf->peak_rate = 0;
 
                 qdisc = NULL;
                 return 0;
@@ -160,19 +169,18 @@ int config_parse_tc_token_buffer_filter_size(
         }
 
         if (streq(lvalue, "TokenBufferFilterRate"))
-                qdisc->tbf.rate = k / 8;
+                tbf->rate = k / 8;
         else if (streq(lvalue, "TokenBufferFilterBurst"))
-                qdisc->tbf.burst = k;
+                tbf->burst = k;
         else if (streq(lvalue, "TokenBufferFilterLimitSize"))
-                qdisc->tbf.limit = k;
+                tbf->limit = k;
         else if (streq(lvalue, "TokenBufferFilterMPUBytes"))
-                qdisc->tbf.mpu = k;
+                tbf->mpu = k;
         else if (streq(lvalue, "TokenBufferFilterMTUBytes"))
-                qdisc->tbf.mtu = k;
+                tbf->mtu = k;
         else if (streq(lvalue, "TokenBufferFilterPeakRate"))
-                qdisc->tbf.peak_rate = k / 8;
+                tbf->peak_rate = k / 8;
 
-        qdisc->has_token_buffer_filter = true;
         qdisc = NULL;
 
         return 0;
@@ -192,6 +200,7 @@ int config_parse_tc_token_buffer_filter_latency(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
+        TokenBufferFilter *tbf;
         usec_t u;
         int r;
 
@@ -200,12 +209,17 @@ int config_parse_tc_token_buffer_filter_latency(
         assert(rvalue);
         assert(data);
 
-        r = qdisc_new_static(network, filename, section_line, &qdisc);
+        r = qdisc_new_static(QDISC_KIND_TBF, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return r;
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        tbf = TBF(qdisc);
 
         if (isempty(rvalue)) {
-                qdisc->tbf.latency = 0;
+                tbf->latency = 0;
 
                 qdisc = NULL;
                 return 0;
@@ -219,44 +233,52 @@ int config_parse_tc_token_buffer_filter_latency(
                 return 0;
         }
 
-        qdisc->tbf.latency = u;
+        tbf->latency = u;
 
-        qdisc->has_token_buffer_filter = true;
         qdisc = NULL;
 
         return 0;
 }
 
-int token_buffer_filter_section_verify(const TokenBufferFilter *tbf, const NetworkConfigSection *section) {
+static int token_buffer_filter_verify(QDisc *qdisc) {
+        TokenBufferFilter *tbf = TBF(qdisc);
+
         if (tbf->limit > 0 && tbf->latency > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Specifying both TokenBufferFilterLimitSize= and TokenBufferFilterLatencySec= is not allowed. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         section->filename, section->line);
+                                         qdisc->section->filename, qdisc->section->line);
 
         if (tbf->limit == 0 && tbf->latency == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Either TokenBufferFilterLimitSize= or TokenBufferFilterLatencySec= is required. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         section->filename, section->line);
+                                         qdisc->section->filename, qdisc->section->line);
 
         if (tbf->rate == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: TokenBufferFilterRate= is mandatory. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         section->filename, section->line);
+                                         qdisc->section->filename, qdisc->section->line);
 
         if (tbf->burst == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: TokenBufferFilterBurst= is mandatory. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         section->filename, section->line);
+                                         qdisc->section->filename, qdisc->section->line);
 
         if (tbf->peak_rate > 0 && tbf->mtu == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: TokenBufferFilterMTUBytes= is mandatory when TokenBufferFilterPeakRate= is specified. "
                                          "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
-                                         section->filename, section->line);
+                                         qdisc->section->filename, qdisc->section->line);
 
         return 0;
 }
+
+const QDiscVTable tbf_vtable = {
+        .object_size = sizeof(TokenBufferFilter),
+        .tca_kind = "tbf",
+        .fill_message = token_buffer_filter_fill_message,
+        .verify = token_buffer_filter_verify
+};

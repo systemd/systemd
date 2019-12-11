@@ -2,14 +2,13 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
-#include "networkd-link.h"
-#include "networkd-util.h"
-#include "tc-util.h"
+#include "qdisc.h"
+#include "time-util.h"
 
 typedef struct TokenBufferFilter {
+        QDisc meta;
+
         uint64_t rate;
         uint64_t peak_rate;
         uint32_t burst;
@@ -19,8 +18,8 @@ typedef struct TokenBufferFilter {
         size_t mpu;
 } TokenBufferFilter;
 
-int token_buffer_filter_fill_message(Link *link, const TokenBufferFilter *tbf, sd_netlink_message *req);
-int token_buffer_filter_section_verify(const TokenBufferFilter *tbf, const NetworkConfigSection *section);
+DEFINE_QDISC_CAST(TBF, TokenBufferFilter);
+extern const QDiscVTable tbf_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_token_buffer_filter_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_token_buffer_filter_size);

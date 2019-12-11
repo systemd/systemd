@@ -10,12 +10,15 @@
 #include "qdisc.h"
 #include "string-util.h"
 
-int fair_queuing_controlled_delay_fill_message(Link *link, const FairQueuingControlledDelay *fqcd, sd_netlink_message *req) {
+static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
+        FairQueuingControlledDelay *fqcd;
         int r;
 
         assert(link);
-        assert(fqcd);
+        assert(qdisc);
         assert(req);
+
+        fqcd = FQ_CODEL(qdisc);
 
         r = sd_netlink_message_open_container_union(req, TCA_OPTIONS, "fq_codel");
         if (r < 0)
@@ -45,6 +48,7 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        FairQueuingControlledDelay *fqcd;
         Network *network = data;
         int r;
 
@@ -53,18 +57,23 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
         assert(rvalue);
         assert(data);
 
-        r = qdisc_new_static(network, filename, section_line, &qdisc);
+        r = qdisc_new_static(QDISC_KIND_FQ_CODEL, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0)
-                return r;
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        fqcd = FQ_CODEL(qdisc);
 
         if (isempty(rvalue)) {
-                qdisc->fq_codel.limit = 0;
+                fqcd->limit = 0;
 
                 qdisc = NULL;
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &qdisc->fq_codel.limit);
+        r = safe_atou32(rvalue, &fqcd->limit);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -72,8 +81,13 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
                 return 0;
         }
 
-        qdisc->has_fair_queuing_controlled_delay = true;
         qdisc = NULL;
 
         return 0;
 }
+
+const QDiscVTable fq_codel_vtable = {
+        .object_size = sizeof(FairQueuingControlledDelay),
+        .tca_kind = "fq_codel",
+        .fill_message = fair_queuing_controlled_delay_fill_message,
+};

@@ -2,15 +2,17 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
-#include "networkd-link.h"
+#include "qdisc.h"
+#include "time-util.h"
 
 typedef struct StochasticFairnessQueueing {
+        QDisc meta;
+
         usec_t perturb_period;
 } StochasticFairnessQueueing;
 
-int stochastic_fairness_queueing_fill_message(Link *link, const StochasticFairnessQueueing *sfq, sd_netlink_message *req);
+DEFINE_QDISC_CAST(SFQ, StochasticFairnessQueueing);
+extern const QDiscVTable sfq_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_stochastic_fairness_queueing_perturb_period);
