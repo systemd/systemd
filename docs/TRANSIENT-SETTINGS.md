@@ -1,6 +1,7 @@
 ---
 title: What settings are currently available for transient units?
 category: Interfaces
+layout: default
 ---
 
 # What settings are currently available for transient units?

@@ -1,6 +1,7 @@
 ---
 title: Known Environment Variables
 category: Interfaces
+layout: default
 ---
 
 # Known Environment Variables

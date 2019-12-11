@@ -1,6 +1,7 @@
 ---
 title: Code Quality Tools
 category: Contributing
+layout: default
 ---
 
 # Code Quality Tools

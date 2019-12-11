@@ -1,6 +1,7 @@
 ---
 title: Locking Block Device Access
 category: Interfaces
+layout: default
 ---
 
 # Locking Block Device Access

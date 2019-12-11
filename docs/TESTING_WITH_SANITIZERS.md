@@ -1,6 +1,7 @@
 ---
 title: Testing systemd using sanitizers
 category: Contributing
+layout: default
 ---
 
 # Testing systemd using sanitizers

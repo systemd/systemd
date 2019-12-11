@@ -1,6 +1,7 @@
 ---
 title: Predictable Network Interface Names
 category: Concepts
+layout: default
 ---
 
 # Predictable Network Interface Names

@@ -1,6 +1,7 @@
 ---
 title: Reporting of security vulnerabilities
 category: Contributing
+layout: default
 ---
 
 # Reporting of security vulnerabilities

@@ -1,6 +1,7 @@
 ---
 title: Automatic Boot Assessment
 category: Booting
+layout: default
 ---
 
 # Automatic Boot Assessment
