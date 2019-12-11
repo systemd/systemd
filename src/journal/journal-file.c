@@ -3056,7 +3056,7 @@ static const char* format_timestamp_safe(char *buf, size_t l, usec_t t) {
 }
 
 void journal_file_print_header(JournalFile *f) {
-        char a[33], b[33], c[33], d[33];
+        char a[SD_ID128_STRING_MAX], b[SD_ID128_STRING_MAX], c[SD_ID128_STRING_MAX], d[SD_ID128_STRING_MAX];
         char x[FORMAT_TIMESTAMP_MAX], y[FORMAT_TIMESTAMP_MAX], z[FORMAT_TIMESTAMP_MAX];
         struct stat st;
         char bytes[FORMAT_BYTES_MAX];

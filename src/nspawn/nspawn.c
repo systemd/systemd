@@ -2229,9 +2229,9 @@ static int setup_hostname(void) {
 
 static int setup_journal(const char *directory) {
         _cleanup_free_ char *d = NULL;
+        char id[SD_ID128_STRING_MAX];
         const char *dirname, *p, *q;
         sd_id128_t this_id;
-        char id[33];
         bool try;
         int r;
 
@@ -2866,7 +2866,7 @@ static int inner_child(
                 FDSet *fds) {
 
         _cleanup_free_ char *home = NULL;
-        char as_uuid[37];
+        char as_uuid[ID128_UUID_STRING_MAX];
         size_t n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_COMPAT,

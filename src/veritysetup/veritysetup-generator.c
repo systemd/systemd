@@ -166,7 +166,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int determine_devices(void) {
         _cleanup_free_ void *m = NULL;
         sd_id128_t root_uuid, verity_uuid;
-        char ids[37];
+        char ids[ID128_UUID_STRING_MAX];
         size_t l;
         int r;
 

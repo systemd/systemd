@@ -11,7 +11,7 @@
 #include "io-util.h"
 #include "stdio-util.h"
 
-char *id128_to_uuid_string(sd_id128_t id, char s[37]) {
+char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]) {
         unsigned n, k = 0;
 
         assert(s);

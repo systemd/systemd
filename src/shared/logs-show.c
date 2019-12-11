@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "journal-internal.h"
 #include "json.h"
@@ -26,8 +27,8 @@
 #include "namespace-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
-#include "process-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -654,7 +655,7 @@ static int output_export(
                 const size_t highlight[2]) {
 
         sd_id128_t boot_id;
-        char sid[33];
+        char sid[SD_ID128_STRING_MAX];
         int r;
         usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
@@ -1353,8 +1354,8 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
+        char buf[ID128_UUID_STRING_MAX];
         pid_t pid, child;
-        char buf[37];
         ssize_t k;
         int r;
 

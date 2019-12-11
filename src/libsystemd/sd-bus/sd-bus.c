@@ -2672,7 +2672,7 @@ static int process_builtin(sd_bus *bus, sd_bus_message *m) {
                 r = sd_bus_message_new_method_return(m, &reply);
         else if (streq_ptr(m->member, "GetMachineId")) {
                 sd_id128_t id;
-                char sid[33];
+                char sid[SD_ID128_STRING_MAX];
 
                 r = sd_id128_get_machine(&id);
                 if (r < 0)
