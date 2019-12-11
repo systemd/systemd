@@ -859,7 +859,7 @@
         effect.</para>
 
         <example>
-          <title>A service with with the the <varname>SuccessExitStatus=</varname> setting</title>
+          <title>A service with with the <varname>SuccessExitStatus=</varname> setting</title>
 
           <programlisting>SuccessExitStatus=TEMPFAIL 250 SIGUSR1</programlisting>
 
