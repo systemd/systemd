@@ -1,6 +1,7 @@
 ---
 title: Control Group APIs and Delegation
 category: Interfaces
+layout: default
 ---
 
 # Control Group APIs and Delegation

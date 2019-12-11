@@ -1,6 +1,7 @@
 ---
 title: The systemd Community Conduct Guidelines
 category: Contributing
+layout: default
 ---
 
 # The systemd Community Conduct Guidelines

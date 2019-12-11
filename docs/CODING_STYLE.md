@@ -1,6 +1,7 @@
 ---
 title: Coding Style
 category: Contributing
+layout: default
 ---
 
 # Coding Style

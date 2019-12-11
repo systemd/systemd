@@ -1,6 +1,7 @@
 ---
 title: Contributing
 category: Contributing
+layout: default
 ---
 
 # Contributing

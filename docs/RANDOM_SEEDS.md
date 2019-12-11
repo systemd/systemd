@@ -1,6 +1,7 @@
 ---
 title: Random Seeds
 category: Concepts
+layout: default
 ---
 
 # Random Seeds

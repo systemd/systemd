@@ -1,6 +1,7 @@
 ---
 title: Portable Services Introduction
 category: Concepts
+layout: default
 ---
 
 # Portable Services Introduction

@@ -1,6 +1,7 @@
 ---
 title: Users, Groups, UIDs and GIDs on `systemd` Systems
 category: Concepts
+layout: default
 ---
 
 # Users, Groups, UIDs and GIDs on `systemd` Systems

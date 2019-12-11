@@ -1,6 +1,7 @@
 ---
 title: Steps to a Successful Release
 category: Contributing
+layout: default
 ---
 
 # Steps to a Successful Release

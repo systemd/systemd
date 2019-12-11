@@ -1,6 +1,7 @@
 ---
 title: Hacking on systemd
 category: Contributing
+layout: default
 ---
 
 # Hacking on systemd

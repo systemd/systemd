@@ -1,6 +1,7 @@
 ---
 title: Porting systemd To New Distributions
 category: Concepts
+layout: default
 ---
 
 # Porting systemd To New Distributions

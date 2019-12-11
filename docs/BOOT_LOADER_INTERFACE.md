@@ -1,6 +1,7 @@
 ---
 title: The Boot Loader Interface
 category: Booting
+layout: default
 ---
 
 # The Boot Loader Interface
