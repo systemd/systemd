@@ -199,7 +199,7 @@
               </row>
               <row>
                 <entry><option>enabled-runtime</option></entry>
-                <entry>Like <option>enabled</option>, but the the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
+                <entry>Like <option>enabled</option>, but the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
               </row>
               <row>
                 <entry><option>running</option></entry>
