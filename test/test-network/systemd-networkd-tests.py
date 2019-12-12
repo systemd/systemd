@@ -1509,6 +1509,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
+        '25-qdisc-fq.network',
         '25-qdisc-netem-and-fqcodel.network',
         '25-qdisc-tbf-and-sfq.network',
         '25-route-ipv6-src.network',
@@ -2101,6 +2102,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'rate 1Gbit burst 5000b peakrate 100Gbit minburst 987500b lat 70.0ms')
         self.assertRegex(output, 'qdisc sfq')
         self.assertRegex(output, 'perturb 5sec')
+
+    def test_qdisc2(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-fq.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc fq')
+        self.assertRegex(output, 'limit 1000p')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [

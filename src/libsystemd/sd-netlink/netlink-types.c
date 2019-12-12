@@ -734,14 +734,18 @@ static const NLTypeSystem rtnl_nexthop_type_system = {
        .types = rtnl_nexthop_types,
 };
 
-static const NLType rtnl_tca_option_data_tbf_types[] = {
-        [TCA_TBF_PARMS]   = { .size = sizeof(struct tc_tbf_qopt) },
-        [TCA_TBF_RTAB]    = { .size = TC_RTAB_SIZE },
-        [TCA_TBF_PTAB]    = { .size = TC_RTAB_SIZE },
-        [TCA_TBF_RATE64]  = { .type = NETLINK_TYPE_U64 },
-        [TCA_TBF_PRATE64] = { .type = NETLINK_TYPE_U64 },
-        [TCA_TBF_BURST]   = { .type = NETLINK_TYPE_U32 },
-        [TCA_TBF_PBURST]  = { .type = NETLINK_TYPE_U32 },
+static const NLType rtnl_tca_option_data_fq_types[] = {
+        [TCA_FQ_PLIMIT]             = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_FLOW_PLIMIT]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_QUANTUM]            = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_INITIAL_QUANTUM]    = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_RATE_ENABLE]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_FLOW_DEFAULT_RATE]  = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_FLOW_MAX_RATE]      = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_BUCKETS_LOG]        = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_FLOW_REFILL_DELAY]  = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_LOW_RATE_THRESHOLD] = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_CE_THRESHOLD]       = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLType rtnl_tca_option_data_fq_codel_types[] = {
@@ -756,18 +760,31 @@ static const NLType rtnl_tca_option_data_fq_codel_types[] = {
         [TCA_FQ_CODEL_MEMORY_LIMIT]    = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_tbf_types[] = {
+        [TCA_TBF_PARMS]   = { .size = sizeof(struct tc_tbf_qopt) },
+        [TCA_TBF_RTAB]    = { .size = TC_RTAB_SIZE },
+        [TCA_TBF_PTAB]    = { .size = TC_RTAB_SIZE },
+        [TCA_TBF_RATE64]  = { .type = NETLINK_TYPE_U64 },
+        [TCA_TBF_PRATE64] = { .type = NETLINK_TYPE_U64 },
+        [TCA_TBF_BURST]   = { .type = NETLINK_TYPE_U32 },
+        [TCA_TBF_PBURST]  = { .type = NETLINK_TYPE_U32 },
+};
+
 static const char* const nl_union_tca_option_data_table[] = {
-        [NL_UNION_TCA_OPTION_DATA_TBF] = "tbf",
+        [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
+        [NL_UNION_TCA_OPTION_DATA_TBF] = "tbf",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_tca_option_data, NLUnionTCAOptionData);
 
 static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
-        [NL_UNION_TCA_OPTION_DATA_TBF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
-                                                   .types = rtnl_tca_option_data_tbf_types },
+        [NL_UNION_TCA_OPTION_DATA_FQ] =          { .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
+                                                   .types = rtnl_tca_option_data_fq_types },
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
                                                    .types = rtnl_tca_option_data_fq_codel_types },
+        [NL_UNION_TCA_OPTION_DATA_TBF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
+                                                   .types = rtnl_tca_option_data_tbf_types },
 };
 
 static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {

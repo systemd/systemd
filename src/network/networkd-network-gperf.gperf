@@ -259,6 +259,7 @@ TrafficControlQueueingDiscipline.TokenBufferFilterPeakRate,                  con
 TrafficControlQueueingDiscipline.TokenBufferFilterLatencySec,                config_parse_tc_token_buffer_filter_latency,                 0, 0
 TrafficControlQueueingDiscipline.StochasticFairnessQueueingPerturbPeriodSec, config_parse_tc_stochastic_fairness_queueing_perturb_period, 0, 0
 TrafficControlQueueingDiscipline.FairQueuingControlledDelayPacketLimit,      config_parse_tc_fair_queuing_controlled_delay_limit,         0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingPacketLimit,        config_parse_tc_fair_queue_traffic_policing_packet_limit,    0, 0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                             0,                             offsetof(Network, link_local)
 DHCP.ClientIdentifier,                  config_parse_dhcp_client_identifier,             0,                             offsetof(Network, dhcp_client_identifier)
