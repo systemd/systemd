@@ -2095,7 +2095,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc netem')
         self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
         self.assertRegex(output, 'qdisc fq_codel')
-        self.assertRegex(output, 'limit 20480p')
+        self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10.0ms ce_threshold 100.0ms interval 200.0ms memory_limit 64Mb ecn')
         output = check_output('tc qdisc show dev test1')
         print(output)
         self.assertRegex(output, 'qdisc tbf')
