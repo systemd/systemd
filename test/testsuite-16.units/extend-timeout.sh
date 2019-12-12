@@ -4,23 +4,15 @@ set -e
 set -o pipefail
 
 # sleep interval (seconds)
-sleep_interval=1
+: ${sleep_interval:=1}
 # extend_timeout_interval second(s)
-extend_timeout_interval=1
+: ${extend_timeout_interval:=1}
 # number of sleep_intervals before READY=1
-start_intervals=10
+: ${start_intervals:=10}
 # number of sleep_intervals before exiting
-stop_intervals=10
+: ${stop_intervals:=10}
 # run intervals, number of sleep_intervals to run
-run_intervals=7
-# service name
-SERVICE=unknown
-
-while [ $# -gt 0 ];
-do
-    eval ${1%=*}=${1#*=}
-    shift
-done
+: ${run_intervals:=7}
 
 # We convert to usec
 extend_timeout_interval=$(( $extend_timeout_interval * 1000000 ))

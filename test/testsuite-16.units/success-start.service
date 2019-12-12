@@ -8,4 +8,5 @@ Type=notify
 TimeoutStartSec=8
 TimeoutStopSec=4
 RuntimeMaxSec=4
-ExecStart=/usr/lib/systemd/tests/testdata/testsuite-16.units/extend-timeout.sh SERVICE=success_start extend_timeout_interval=4 sleep_interval=6 start_intervals=1 run_intervals=0 stop_intervals=0
+Environment=SERVICE=success_start extend_timeout_interval=4 sleep_interval=6 start_intervals=1 run_intervals=0 stop_intervals=0
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-16.units/extend-timeout.sh
