@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="SELinux tests"
+IMAGE_NAME="selinux"
 TEST_NO_NSPAWN=1
 
 # Requirements:
@@ -15,7 +16,7 @@ test -f /usr/share/selinux/devel/include/system/systemd.if || exit 0
 SETUP_SELINUX=yes
 KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
-test_setup() {
+test_create_image() {
     create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay

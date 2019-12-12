@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
+IMAGE_NAME="cryptsetup"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
@@ -23,8 +24,7 @@ check_result_qemu() {
     return $ret
 }
 
-
-test_setup() {
+test_create_image() {
     create_empty_image_rootdir
     echo -n test >$TESTDIR/keyfile
     cryptsetup -q luksFormat --pbkdf pbkdf2 --pbkdf-force-iterations 1000 ${LOOPDEV}p2 $TESTDIR/keyfile

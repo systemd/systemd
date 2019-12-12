@@ -16,6 +16,7 @@ TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
+IMAGE_NAME=${IMAGE_NAME:-default}
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
@@ -136,6 +137,7 @@ DEBUGTOOLS=(
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
+IMAGESTATEDIR="$STATEDIR/.."
 TESTLOG="$STATEDIR/test.log"
 
 is_built_with_asan() {
@@ -276,6 +278,9 @@ run_qemu() {
 
     find_qemu_bin || return 1
 
+    # Umount initdir to avoid concurrent access to the filesystem
+    umount_initdir
+
     local _cgroup_args
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
         _cgroup_args="systemd.unified_cgroup_hierarchy=yes"
@@ -320,7 +325,7 @@ $KERNEL_APPEND \
 -m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
+-drive format=raw,cache=unsafe,file=${IMAGESTATEDIR}/${IMAGE_NAME}.img \
 $QEMU_OPTIONS \
 "
 
@@ -631,7 +636,7 @@ install_systemd() {
     # and it could fill the available space
     strip_binaries
 
-   [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
+    [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
 
     # enable debug logging in PID1
     echo LogLevel=debug >> $initdir/etc/systemd/system.conf
@@ -658,19 +663,26 @@ install_missing_libraries() {
 }
 
 create_empty_image() {
+    if [ -z "$IMAGE_NAME" ]; then
+        echo "create_empty_image: \$IMAGE_NAME not set"
+        exit 1
+    fi
+
     local _size=500
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         _size=$((4*_size))
     fi
 
-    echo "Setting up $TESTDIR/rootdisk.img (${_size} MB)"
+    image="${TESTDIR}/${IMAGE_NAME}.img"
+    public="$IMAGESTATEDIR/${IMAGE_NAME}.img"
+    echo "Setting up $public (${_size} MB)"
 
-    rm -f "$TESTDIR/rootdisk.img"
+    rm -f "$image" "$public"
     # Create the blank file to use as a root filesystem
-    truncate -s "${_size}M" "$TESTDIR/rootdisk.img"
-    LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
+    truncate -s "${_size}M" "$image"
+    LOOPDEV=$(losetup --show -P -f "$image")
     [ -b "$LOOPDEV" ] || return 1
-    echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
+    echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
     sfdisk "$LOOPDEV" <<EOF
 ,$((_size-50))M
 ,
@@ -685,13 +697,37 @@ EOF
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
     fi
+
+    # the image is created, let's expose it
+    ln -vs "$(realpath $image)" "$public"
+}
+
+mount_initdir() {
+    if [ -z "${LOOPDEV}" ]; then
+        image="${TESTDIR}/${IMAGE_NAME}.img"
+        LOOPDEV=$(losetup --show -P -f "$image")
+        [ -b "$LOOPDEV" ] || return 1
+        echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
+    fi
+
+    mkdir -p $initdir
+    mount ${LOOPDEV}p1 $initdir
+    TEST_SETUP_CLEANUP_ROOTDIR=1
+}
+
+umount_initdir() {
+    _umount_dir $initdir
+    if [[ $LOOPDEV && -b $LOOPDEV ]]; then
+        ddebug "losetup -d $LOOPDEV"
+        losetup -d $LOOPDEV
+    fi
+    LOOPDEV=
+    sed -i /LOOPDEV=/d $STATEFILE
 }
 
 create_empty_image_rootdir() {
     create_empty_image
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
-    TEST_SETUP_CLEANUP_ROOTDIR=1
+    mount_initdir
 }
 
 check_asan_reports() {
@@ -744,14 +780,14 @@ check_result_nspawn() {
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$TESTDIR/$1" || ret=$(($ret+1))
+    umount_initdir
     return $ret
 }
 
 # can be overridden in specific test
 check_result_qemu() {
     local ret=1
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
+    mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cp -a $initdir/var/log/journal $TESTDIR
@@ -1042,6 +1078,10 @@ has_user_dbus_socket() {
 }
 
 setup_nspawn_root() {
+    if [ -z "${initdir}" ]; then
+        dfatal "\$initdir not defined"
+        exit 1
+    fi
     rm -fr $TESTDIR/nspawn-root
     ddebug "cp -ar $initdir $TESTDIR/nspawn-root"
     cp -ar $initdir $TESTDIR/nspawn-root
@@ -1110,7 +1150,10 @@ import_testdir() {
             mkdir -p "$TESTDIR"
         fi
 
-        echo "TESTDIR=\"$TESTDIR\"" > $STATEFILE
+        cat >$STATEFILE<<EOF
+TESTDIR="$TESTDIR"
+LOOPDEV="$LOOPDEV"
+EOF
         export TESTDIR
     fi
 }
@@ -1866,13 +1909,10 @@ _test_cleanup() {
     # (post-test) cleanup should always ignore failure and cleanup as much as possible
     (
         set +e
-        _umount_dir $initdir
-        if [[ $LOOPDEV && -b $LOOPDEV ]]; then
-            ddebug "losetup -d $LOOPDEV"
-            losetup -d $LOOPDEV
-        fi
-        rm -fr "$TESTDIR"
-        rm -f "$STATEFILE"
+        umount_initdir
+        rm -vf "${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+        rm -vfr "$TESTDIR"
+        rm -vf "$STATEFILE"
     ) || :
 }
 
@@ -1881,12 +1921,7 @@ test_cleanup() {
     _test_cleanup
 }
 
-test_setup() {
-    if type -P meson >/dev/null && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
-        dfatal "Needs to be built with -Dinstall-tests=true"
-        exit 1
-    fi
-
+test_create_image() {
     create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
@@ -1895,6 +1930,27 @@ test_setup() {
         setup_basic_environment
         mask_supporting_services
     )
+}
+
+test_setup() {
+    if type -P meson >/dev/null && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+        dfatal "Needs to be built with -Dinstall-tests=true"
+        exit 1
+    fi
+
+    image="${TESTDIR}/${IMAGE_NAME}.img"
+    public="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+    if [ -e "$image" ]; then
+        echo "Reusing existing image $PWD/$image → $(realpath $image)"
+        mount_initdir
+    elif [ -e "$public" ]; then
+        echo "Reusing existing cached image $PWD/$public → $(realpath $public)"
+        ln -s "$(realpath $public)" "$image"
+        mount_initdir
+    else
+        test_create_image
+    fi
+
     setup_nspawn_root
 }
 

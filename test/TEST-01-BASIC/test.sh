@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Basic systemd setup"
+IMAGE_NAME="basic"
 RUN_IN_UNPRIVILEGED_CONTAINER=${RUN_IN_UNPRIVILEGED_CONTAINER:-yes}
 
 . $TEST_BASE_DIR/test-functions
 
-test_setup() {
+test_create_image() {
     create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
