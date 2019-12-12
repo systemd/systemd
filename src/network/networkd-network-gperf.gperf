@@ -258,7 +258,14 @@ TrafficControlQueueingDiscipline.TokenBufferFilterMPUBytes,                  con
 TrafficControlQueueingDiscipline.TokenBufferFilterPeakRate,                  config_parse_tc_token_buffer_filter_size,                    0, 0
 TrafficControlQueueingDiscipline.TokenBufferFilterLatencySec,                config_parse_tc_token_buffer_filter_latency,                 0, 0
 TrafficControlQueueingDiscipline.StochasticFairnessQueueingPerturbPeriodSec, config_parse_tc_stochastic_fairness_queueing_perturb_period, 0, 0
-TrafficControlQueueingDiscipline.FairQueuingControlledDelayPacketLimit,      config_parse_tc_fair_queuing_controlled_delay_limit,         0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayPacketLimit,      config_parse_tc_fair_queuing_controlled_delay_u32,           0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayMemoryLimit,      config_parse_tc_fair_queuing_controlled_delay_size,          0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayFlows,            config_parse_tc_fair_queuing_controlled_delay_u32,           0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayQuantum,          config_parse_tc_fair_queuing_controlled_delay_size,          0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayTargetSec,        config_parse_tc_fair_queuing_controlled_delay_usec,          0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayIntervalSec,      config_parse_tc_fair_queuing_controlled_delay_usec,          0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayCEThresholdSec,   config_parse_tc_fair_queuing_controlled_delay_usec,          0, 0
+TrafficControlQueueingDiscipline.FairQueuingControlledDelayECN,              config_parse_tc_fair_queuing_controlled_delay_bool,          0, 0
 TrafficControlQueueingDiscipline.FairQueueTrafficPolicingPacketLimit,        config_parse_tc_fair_queue_traffic_policing_packet_limit,    0, 0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                             0,                             offsetof(Network, link_local)

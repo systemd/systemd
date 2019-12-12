@@ -23,6 +23,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
 
 static int qdisc_new(QDiscKind kind, QDisc **ret) {
         QDisc *qdisc;
+        int r;
 
         if (kind == _QDISC_KIND_INVALID) {
                 qdisc = new(QDisc, 1);
@@ -42,6 +43,12 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
                 qdisc->family = AF_UNSPEC;
                 qdisc->parent = TC_H_ROOT;
                 qdisc->kind = kind;
+
+                if (QDISC_VTABLE(qdisc)->init) {
+                        r = QDISC_VTABLE(qdisc)->init(qdisc);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         *ret = TAKE_PTR(qdisc);

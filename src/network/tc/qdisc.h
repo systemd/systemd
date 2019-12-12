@@ -32,6 +32,8 @@ typedef struct QDisc {
 typedef struct QDiscVTable {
         size_t object_size;
         const char *tca_kind;
+        /* called in qdisc_new() */
+        int (*init)(QDisc *qdisc);
         int (*fill_message)(Link *link, QDisc *qdisc, sd_netlink_message *m);
         int (*verify)(QDisc *qdisc);
 } QDiscVTable;
