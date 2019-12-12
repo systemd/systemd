@@ -42,25 +42,12 @@ test_setup() {
         setup_basic_environment
         mask_supporting_services
 
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-After=multi-user.target
-
-[Service]
-ExecStart=/bin/sh -x -c 'systemctl --state=failed --no-legend --no-pager > /failed ; echo OK > /testok'
-Type=oneshot
-EOF
-
-        setup_testsuite
-
         install_dmevent
         generate_module_dependencies
         cat >$initdir/etc/crypttab <<EOF
 $DM_NAME UUID=$ID_FS_UUID /etc/varkey
 EOF
-        echo -n test > $initdir/etc/varkey
+        echo -n test >$initdir/etc/varkey
         cat $initdir/etc/crypttab | ddebug
 
         cat >>$initdir/etc/fstab <<EOF
@@ -86,4 +73,4 @@ test_setup_cleanup() {
     _test_setup_cleanup
 }
 
-do_test "$@"
+do_test "$@" 02
