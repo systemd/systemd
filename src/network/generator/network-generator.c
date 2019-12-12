@@ -574,7 +574,7 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
 
 static int parse_cmdline_ip_address(Context *context, int family, const char *value) {
         union in_addr_union addr = {}, peer = {}, gateway = {};
-        const char *hostname, *ifname, *dhcp_type, *dns, *p;
+        const char *hostname = NULL, *ifname, *dhcp_type, *dns, *p;
         unsigned char prefixlen;
         int r;
 
@@ -599,9 +599,11 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         if (!p)
                 return -EINVAL;
 
-        hostname = strndupa(value, p - value);
-        if (!hostname_is_valid(hostname, false))
-                return -EINVAL;
+        if (p != value) {
+                hostname = strndupa(value, p - value);
+                if (!hostname_is_valid(hostname, false))
+                        return -EINVAL;
+        }
 
         value = p + 1;
 
