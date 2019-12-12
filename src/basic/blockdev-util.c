@@ -54,32 +54,36 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         return 1;
 }
 
-int get_block_device(const char *path, dev_t *dev) {
+int get_block_device(const char *path, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
         struct stat st;
-        struct statfs sfs;
+        int r;
 
         assert(path);
-        assert(dev);
+        assert(ret);
 
-        /* Gets the block device directly backing a file system. If
-         * the block device is encrypted, returns the device mapper
-         * block device. */
+        /* Gets the block device directly backing a file system. If the block device is encrypted, returns
+         * the device mapper block device. */
 
-        if (lstat(path, &st))
+        fd = open(path, O_NOFOLLOW|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st))
                 return -errno;
 
         if (major(st.st_dev) != 0) {
-                *dev = st.st_dev;
+                *ret = st.st_dev;
                 return 1;
         }
 
-        if (statfs(path, &sfs) < 0)
-                return -errno;
+        r = btrfs_get_block_device_fd(fd, ret);
+        if (r > 0)
+                return 1;
+        if (r != -ENOTTY) /* not btrfs */
+                return r;
 
-        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
-                return btrfs_get_block_device(path, dev);
-
-        *dev = 0;
+        *ret = 0;
         return 0;
 }
 
