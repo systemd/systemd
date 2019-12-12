@@ -14,6 +14,8 @@ typedef enum MountSettingsMask {
         MOUNT_APPLY_APIVFS_NETNS = 1 << 4, /* if set, /proc/sys/net will be mounted read-write.
                                                Works only if MOUNT_APPLY_APIVFS_RO is also set. */
         MOUNT_APPLY_TMPFS_TMP    = 1 << 5, /* if set, /tmp will be mounted as tmpfs */
+        MOUNT_ROOT_ONLY          = 1 << 6, /* if set, only root mounts are mounted */
+        MOUNT_NON_ROOT_ONLY      = 1 << 7, /* if set, only non-root mounts are mounted */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
@@ -52,9 +54,9 @@ int inaccessible_mount_parse(CustomMount **l, size_t *n, const char *s);
 int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shift, const char *selinux_apifs_context);
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
-int mount_custom(const char *dest, CustomMount *mounts, size_t n, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context, bool in_userns);
+int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, const char *selinux_apifs_context, MountSettingsMask mount_settings);
 
-int setup_volatile_mode(const char *directory, VolatileMode mode, bool userns, uid_t uid_shift, uid_t uid_range, const char *selinux_apifs_context);
+int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
 
 int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s);
 int setup_pivot_root(const char *directory, const char *pivot_root_new, const char *pivot_root_old);

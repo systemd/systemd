@@ -2975,11 +2975,9 @@ static int inner_child(
                         "/",
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        false,
-                        0,
                         0,
                         arg_selinux_apifs_context,
-                        true);
+                        MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
         if (r < 0)
                 return r;
 
@@ -3345,13 +3343,6 @@ static int outer_child(
                         return r;
 
                 directory = "/run/systemd/nspawn-root";
-
-        } else if (!dissected_image) {
-                /* Turn directory into bind mount (we need that so that we can move the bind mount to root
-                 * later on). */
-                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0)
-                        return r;
         }
 
         r = setup_pivot_root(
@@ -3364,12 +3355,27 @@ static int outer_child(
         r = setup_volatile_mode(
                         directory,
                         arg_volatile_mode,
-                        arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context);
         if (r < 0)
                 return r;
+
+        r = mount_custom(
+                        directory,
+                        arg_custom_mounts,
+                        arg_n_custom_mounts,
+                        arg_uid_shift,
+                        arg_selinux_apifs_context,
+                        MOUNT_ROOT_ONLY);
+        if (r < 0)
+                return r;
+
+        /* Make sure we always have a mount that we can move to root later on. */
+        if (!path_is_mount_point(directory, NULL, 0)) {
+                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
@@ -3401,7 +3407,12 @@ static int outer_child(
          * inside the container that create a new mount namespace.
          * See https://github.com/systemd/systemd/issues/3860
          * Further submounts (such as /dev) done after this will inherit the
-         * shared propagation mode. */
+         * shared propagation mode.
+         *
+         * IMPORTANT: Do not overmount the root directory anymore from now on to
+         * enable moving the root directory mount to root later on.
+         * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
+         */
         r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
@@ -3470,11 +3481,9 @@ static int outer_child(
                         directory,
                         arg_custom_mounts,
                         arg_n_custom_mounts,
-                        arg_userns_mode != USER_NAMESPACE_NO,
                         arg_uid_shift,
-                        arg_uid_range,
                         arg_selinux_apifs_context,
-                        false);
+                        MOUNT_NON_ROOT_ONLY);
         if (r < 0)
                 return r;
 

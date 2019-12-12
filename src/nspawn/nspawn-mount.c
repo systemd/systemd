@@ -222,8 +222,6 @@ int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) 
 
         if (!path_is_absolute(destination))
                 return -EINVAL;
-        if (empty_or_root(destination))
-                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_BIND);
         if (!m)
@@ -261,8 +259,6 @@ int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
                 return -ENOMEM;
 
         if (!path_is_absolute(path))
-                return -EINVAL;
-        if (empty_or_root(path))
                 return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_TMPFS);
@@ -322,9 +318,6 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
                 if (!path_is_absolute(destination))
                         return -EINVAL;
         }
-
-        if (empty_or_root(destination))
-                return -EINVAL;
 
         m = custom_mount_add(l, n, CUSTOM_MOUNT_OVERLAY);
         if (!m)
@@ -422,7 +415,7 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
 
         (void) mkdir(full, 0755);
 
-        if (mount_settings & MOUNT_APPLY_APIVFS_RO)
+        if (FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO))
                 extra_flags |= MS_RDONLY;
 
         r = mount_verbose(LOG_ERR, "sysfs", full, "sysfs",
@@ -608,29 +601,29 @@ int mount_all(const char *dest,
 #endif
         };
 
-        bool use_userns = (mount_settings & MOUNT_USE_USERNS);
-        bool netns = (mount_settings & MOUNT_APPLY_APIVFS_NETNS);
-        bool ro = (mount_settings & MOUNT_APPLY_APIVFS_RO);
-        bool in_userns = (mount_settings & MOUNT_IN_USERNS);
-        bool tmpfs_tmp = (mount_settings & MOUNT_APPLY_TMPFS_TMP);
+        bool use_userns = FLAGS_SET(mount_settings, MOUNT_USE_USERNS);
+        bool netns = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_NETNS);
+        bool ro = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO);
+        bool in_userns = FLAGS_SET(mount_settings, MOUNT_IN_USERNS);
+        bool tmpfs_tmp = FLAGS_SET(mount_settings, MOUNT_APPLY_TMPFS_TMP);
         size_t k;
         int r;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
-                bool fatal = (mount_table[k].mount_settings & MOUNT_FATAL);
+                bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
 
-                if (in_userns != (bool)(mount_table[k].mount_settings & MOUNT_IN_USERNS))
+                if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
                         continue;
 
-                if (!netns && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_NETNS))
+                if (!netns && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_NETNS))
                         continue;
 
-                if (!ro && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_RO))
+                if (!ro && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_RO))
                         continue;
 
-                if (!tmpfs_tmp && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_TMPFS_TMP))
+                if (!tmpfs_tmp && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_TMPFS_TMP))
                         continue;
 
                 r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
@@ -782,11 +775,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
         return 0;
 }
 
-static int mount_tmpfs(
-                const char *dest,
-                CustomMount *m,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const char *selinux_apifs_context) {
 
         const char *options;
         _cleanup_free_ char *buf = NULL, *where = NULL;
@@ -921,9 +910,9 @@ static int mount_arbitrary(const char *dest, CustomMount *m) {
 int mount_custom(
                 const char *dest,
                 CustomMount *mounts, size_t n,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                uid_t uid_shift,
                 const char *selinux_apifs_context,
-                bool in_userns) {
+                MountSettingsMask mount_settings) {
 
         size_t i;
         int r;
@@ -933,7 +922,13 @@ int mount_custom(
         for (i = 0; i < n; i++) {
                 CustomMount *m = mounts + i;
 
-                if (m->in_userns != in_userns)
+                if (FLAGS_SET(mount_settings, MOUNT_IN_USERNS) != m->in_userns)
+                        continue;
+
+                if (FLAGS_SET(mount_settings, MOUNT_ROOT_ONLY) && !path_equal(m->destination, "/"))
+                        continue;
+
+                if (FLAGS_SET(mount_settings, MOUNT_NON_ROOT_ONLY) && path_equal(m->destination, "/"))
                         continue;
 
                 switch (m->type) {
@@ -943,7 +938,7 @@ int mount_custom(
                         break;
 
                 case CUSTOM_MOUNT_TMPFS:
-                        r = mount_tmpfs(dest, m, userns, uid_shift, uid_range, selinux_apifs_context);
+                        r = mount_tmpfs(dest, m, uid_shift, selinux_apifs_context);
                         break;
 
                 case CUSTOM_MOUNT_OVERLAY:
@@ -969,10 +964,7 @@ int mount_custom(
         return 0;
 }
 
-static int setup_volatile_state(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_state(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL;
         const char *p, *options;
@@ -1001,10 +993,7 @@ static int setup_volatile_state(
         return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
-static int setup_volatile_yes(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
@@ -1091,10 +1080,7 @@ fail:
         return r;
 }
 
-static int setup_volatile_overlay(
-                const char *directory,
-                bool userns, uid_t uid_shift, uid_t uid_range,
-                const char *selinux_apifs_context) {
+static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
@@ -1159,19 +1145,19 @@ finish:
 int setup_volatile_mode(
                 const char *directory,
                 VolatileMode mode,
-                bool userns, uid_t uid_shift, uid_t uid_range,
+                uid_t uid_shift,
                 const char *selinux_apifs_context) {
 
         switch (mode) {
 
         case VOLATILE_YES:
-                return setup_volatile_yes(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_yes(directory, uid_shift, selinux_apifs_context);
 
         case VOLATILE_STATE:
-                return setup_volatile_state(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_state(directory, uid_shift, selinux_apifs_context);
 
         case VOLATILE_OVERLAY:
-                return setup_volatile_overlay(directory, userns, uid_shift, uid_range, selinux_apifs_context);
+                return setup_volatile_overlay(directory, uid_shift, selinux_apifs_context);
 
         default:
                 return 0;
