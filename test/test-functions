@@ -290,10 +290,6 @@ run_qemu() {
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
         PARAMS+="rd.hostonly=0"
-    elif [[ "$LOOKS_LIKE_ARCH" ]]; then
-        PARAMS+="rw"
-    else
-        PARAMS+="ro"
     fi
 
     local _end
@@ -305,6 +301,7 @@ run_qemu() {
 
     KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
+rw \
 raid=noautodetect \
 rd.luks=0 \
 loglevel=2 \
@@ -314,7 +311,7 @@ selinux=0 \
 $_cgroup_args \
 SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units: \
 systemd.unit=testsuite.target \
-systemd.wants=testsuite-$1.service ${_end}
+systemd.wants=testsuite-$1.service ${_end} \
 $KERNEL_APPEND \
 "
 
@@ -681,9 +678,9 @@ EOF
 
     udevadm settle
 
-    local _label="-L systemd"
+    local _label="-L systemd.${name}"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
-    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd"
+    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd.${name}"
     if ! mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
@@ -862,16 +859,6 @@ install_config_files() {
 
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
-    # fstab
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
-       ROOTMOUNT="/dev/sda1           /       ${FSTYPE}    rw 0 1"
-    else
-       ROOTMOUNT="LABEL=systemd           /       ${FSTYPE}    rw 0 1"
-    fi
-
-    cat >$initdir/etc/fstab <<EOF
-$ROOTMOUNT
-EOF
 }
 
 install_basic_tools() {
@@ -1058,8 +1045,6 @@ setup_nspawn_root() {
     rm -fr $TESTDIR/nspawn-root
     ddebug "cp -ar $initdir $TESTDIR/nspawn-root"
     cp -ar $initdir $TESTDIR/nspawn-root
-    # we don't mount in the nspawn root
-    rm -f $TESTDIR/nspawn-root/etc/fstab
     if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
         cp -ar $TESTDIR/nspawn-root $TESTDIR/unprivileged-nspawn-root
     fi

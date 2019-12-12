@@ -14,8 +14,6 @@ test_setup() {
     (
         LOG_LEVEL=5
         setup_basic_environment
-
-        rm $initdir/etc/fstab
     )
     mask_supporting_services
 }
