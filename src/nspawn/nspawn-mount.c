@@ -415,7 +415,7 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
 
         (void) mkdir(full, 0755);
 
-        if (mount_settings & MOUNT_APPLY_APIVFS_RO)
+        if (FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO))
                 extra_flags |= MS_RDONLY;
 
         r = mount_verbose(LOG_ERR, "sysfs", full, "sysfs",
@@ -601,29 +601,29 @@ int mount_all(const char *dest,
 #endif
         };
 
-        bool use_userns = (mount_settings & MOUNT_USE_USERNS);
-        bool netns = (mount_settings & MOUNT_APPLY_APIVFS_NETNS);
-        bool ro = (mount_settings & MOUNT_APPLY_APIVFS_RO);
-        bool in_userns = (mount_settings & MOUNT_IN_USERNS);
-        bool tmpfs_tmp = (mount_settings & MOUNT_APPLY_TMPFS_TMP);
+        bool use_userns = FLAGS_SET(mount_settings, MOUNT_USE_USERNS);
+        bool netns = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_NETNS);
+        bool ro = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO);
+        bool in_userns = FLAGS_SET(mount_settings, MOUNT_IN_USERNS);
+        bool tmpfs_tmp = FLAGS_SET(mount_settings, MOUNT_APPLY_TMPFS_TMP);
         size_t k;
         int r;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
-                bool fatal = (mount_table[k].mount_settings & MOUNT_FATAL);
+                bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
 
-                if (in_userns != (bool)(mount_table[k].mount_settings & MOUNT_IN_USERNS))
+                if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
                         continue;
 
-                if (!netns && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_NETNS))
+                if (!netns && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_NETNS))
                         continue;
 
-                if (!ro && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_APIVFS_RO))
+                if (!ro && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_APIVFS_RO))
                         continue;
 
-                if (!tmpfs_tmp && (bool)(mount_table[k].mount_settings & MOUNT_APPLY_TMPFS_TMP))
+                if (!tmpfs_tmp && FLAGS_SET(mount_table[k].mount_settings, MOUNT_APPLY_TMPFS_TMP))
                         continue;
 
                 r = chase_symlinks(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
@@ -922,13 +922,13 @@ int mount_custom(
         for (i = 0; i < n; i++) {
                 CustomMount *m = mounts + i;
 
-                if ((mount_settings & MOUNT_IN_USERNS) != m->in_userns)
+                if (FLAGS_SET(mount_settings, MOUNT_IN_USERNS) != m->in_userns)
                         continue;
 
-                if (mount_settings & MOUNT_ROOT_ONLY && !path_equal(m->destination, "/"))
+                if (FLAGS_SET(mount_settings, MOUNT_ROOT_ONLY) && !path_equal(m->destination, "/"))
                         continue;
 
-                if (mount_settings & MOUNT_NON_ROOT_ONLY && path_equal(m->destination, "/"))
+                if (FLAGS_SET(mount_settings, MOUNT_NON_ROOT_ONLY) && path_equal(m->destination, "/"))
                         continue;
 
                 switch (m->type) {
