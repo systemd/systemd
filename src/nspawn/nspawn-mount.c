@@ -102,6 +102,30 @@ static char *resolve_source_path(const char *dest, const char *source) {
         return strdup(source);
 }
 
+static int allocate_temporary_source(CustomMount *m) {
+        assert(m);
+        assert(!m->source);
+        assert(!m->rm_rf_tmpdir);
+
+        m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
+        if (!m->rm_rf_tmpdir)
+                return log_oom();
+
+        if (!mkdtemp(m->rm_rf_tmpdir)) {
+                m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
+                return log_error_errno(errno, "Failed to acquire temporary directory: %m");
+        }
+
+        m->source = path_join(m->rm_rf_tmpdir, "src");
+        if (!m->source)
+                return log_oom();
+
+        if (mkdir(m->source, 0755) < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", m->source);
+
+        return 0;
+}
+
 int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         size_t i;
         int r;
@@ -136,21 +160,9 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                         } else {
                                 /* No source specified? In that case, use a throw-away temporary directory in /var/tmp */
 
-                                m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
-                                if (!m->rm_rf_tmpdir)
-                                        return log_oom();
-
-                                if (!mkdtemp(m->rm_rf_tmpdir)) {
-                                        m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
-                                        return log_error_errno(errno, "Failed to acquire temporary directory: %m");
-                                }
-
-                                m->source = path_join(m->rm_rf_tmpdir, "src");
-                                if (!m->source)
-                                        return log_oom();
-
-                                if (mkdir(m->source, 0755) < 0)
-                                        return log_error_errno(errno, "Failed to create %s: %m", m->source);
+                                r = allocate_temporary_source(m);
+                                if (r < 0)
+                                        return r;
                         }
                 }
 
@@ -167,6 +179,20 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                 free_and_replace(*j, s);
                         }
 
+                        if (m->source) {
+                                char *s;
+
+                                s = resolve_source_path(dest, m->source);
+                                if (!s)
+                                        return log_oom();
+
+                                free_and_replace(m->source, s);
+                        } else {
+                                r = allocate_temporary_source(m);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         if (m->work_dir) {
                                 char *s;
 
@@ -176,8 +202,6 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
 
                                 free_and_replace(m->work_dir, s);
                         } else {
-                                assert(m->source);
-
                                 r = tempfn_random(m->source, NULL, &m->work_dir);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to acquire working directory: %m");
