@@ -7,7 +7,7 @@
  *  - physical/geographical location of the hardware
  *  - the interface's MAC address
  *
- * http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+ * https://systemd.io/PREDICTABLE_INTERFACE_NAMES
  *
  * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
