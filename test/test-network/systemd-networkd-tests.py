@@ -2143,7 +2143,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc qdisc show dev dummy98')
         print(output)
         self.assertRegex(output, 'qdisc fq')
-        self.assertRegex(output, 'limit 1000p')
+        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511 quantum 1500 initial_quantum 13000 maxrate 1Mbit')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
