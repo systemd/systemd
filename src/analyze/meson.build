@@ -2,6 +2,8 @@
 
 systemd_analyze_sources = files('''
         analyze.c
+        analyze-condition.c
+        analyze-condition.h
         analyze-verify.c
         analyze-verify.h
         analyze-security.c

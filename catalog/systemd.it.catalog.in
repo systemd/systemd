@@ -1,9 +1,14 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright © 2013 Daniele Medri
+#  Copyright © 2013-2019 Daniele Medri
 
 # Message catalog for systemd's own messages
+# Italian translation
 
+# Il formato dei messaggi di catalogo è descritto (in inglese) qui:
+# https://www.freedesktop.org/wiki/Software/systemd/catalog
+
+# Subject: The Journal has been started
 -- f77379a8490b408bbe5f6940505a777b
 Subject: Il registro è stato avviato
 Defined-By: systemd
@@ -12,6 +17,7 @@ Support: %SUPPORT_URL%
 Il processo relativo al registro di sistema è stato avviato, ha aperto i
 file in scrittura ed è ora pronto a gestire richieste.
 
+# Subject: The Journal has been stopped
 -- d93fb3c9c24d451a97cea615ce59c00b
 Subject: Il registro è stato terminato
 Defined-By: systemd
@@ -20,6 +26,7 @@ Support: %SUPPORT_URL%
 Il processo relativo al registro di sistema è stato terminato e ha chiuso
 tutti i file attivi.
 
+# Subject: Disk space used by the journal
 -- ec387f577b844b8fa948f33cad9a75e6
 Subject: Spazio disco utilizzato dal journal
 Defined-By: systemd
@@ -27,14 +34,15 @@ Support: %SUPPORT_URL%
 
 @JOURNAL_NAME@ (@JOURNAL_PATH@) sta attualmente utilizzando @CURRENT_USE_PRETTY@.
 L'utilizzo massimo consentito è impostato a @MAX_USE_PRETTY@.
-Lasciando liberi almeno @DISK_KEEP_FREE_PRETTY@ (dell'attuale @DISK_AVAILABLE_PRETTY@ di spazio libero).
-Il limite di utilizzo forzato è quindi @LIMIT_PRETTY@, del quale @AVAILABLE_PRETTY@ sono ancora disponibili.
+Si lasciano liberi almeno @DISK_KEEP_FREE_PRETTY@ (attuale spazio libero: @DISK_AVAILABLE_PRETTY@).
+Il limite di utilizzo forzato è quindi @LIMIT_PRETTY@, con @AVAILABLE_PRETTY@ ancora disponibili.
 
 I limiti di controllo dello spazio disco utilizzati dal Journal possono
 essere configurati con le impostazioni SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=,
 RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize= nel file di configurazione
 /etc/systemd/journald.conf. Guardare journald.conf(5) per i dettagli.
 
+# Subject: Messages from a service have been suppressed
 -- a596d6fe7bfa4994828e72309e95d61e
 Subject: I messaggi di un servizio sono stati soppressi
 Defined-By: systemd
@@ -47,18 +55,20 @@ I messaggi del servizio sono stati eliminati.
 Solo i messaggi del servizio indicato sono stati
 eliminati, i messaggi degli altri servizi rimangono invariati.
 
-I limiti oltre i quali i messaggi si eliminano si configurano
+I limiti oltre i quali si eliminano i messaggi si configurano
 con RateLimitIntervalSec= e RateLimitBurst= in
 /etc/systemd/journald.conf. Vedi journald.conf(5) per maggiori informazioni.
 
+# Subject: Journal messages have been missed
 -- e9bf28e6e834481bb6f48f548ad13606
 Subject: I messaggi di un servizio sono stati perduti
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-I messaggi del kernel sono andati persi perché, il registro di sistema
+I messaggi del kernel sono andati persi perché il registro di sistema
 non è stato in grado di gestirli abbastanza velocemente.
 
+# Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) dumped core
 -- fc2e22bc6ee647b6b90729ab34a250b1
 Subject: Il processo @COREDUMP_PID@ (@COREDUMP_COMM@) ha generato un dump.
 Defined-By: systemd
@@ -68,19 +78,21 @@ Documentation: man:core(5)
 Il processo @COREDUMP_PID@ (@COREDUMP_COMM@) si è bloccato generando un dump.
 
 Questo di solito capita per un errore di programmazione nell'applicazione e
-dovrebbe essere segnalato al vendor come un bug.
+dovrebbe essere segnalato come bug al vendor.
 
+# Subject: Core file was truncated to @SIZE_LIMIT@ bytes
 -- 5aadd8e954dc4b1a8c954d63fd9e1137
 Subject: Il Core file è stato troncato a @SIZE_LIMIT@ bytes.
 Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:coredump.conf(5)
 
-Il processo più memoria mappata del limite massimo configurato da systemd-coredump(8) 
+Il processo ha più memoria mappata del limite massimo configurato da systemd-coredump(8) 
 per processare e memorizzare. Solo i primi @SIZE_LIMIT@ bytes sono stati salvati.
 Il file potrebbe essere ancora utile, ma strumenti come gdb(1) dovrebbero
 segnalare la troncatura.
 
+# Subject: A new session @SESSION_ID@ has been created for user @USER_ID@
 -- 8d45620c1a4348dbb17410da57c60c66
 Subject: La nuova sessione @SESSION_ID@ è stata creata per l'utente @USER_ID@
 Defined-By: systemd
@@ -91,6 +103,7 @@ Una nuova sessione con ID @SESSION_ID@ è stata creata per l'utente @USER_ID@.
 
 Il processo primario della sessione è @LEADER@.
 
+# Subject: A new seat @SEAT_ID@ has been terminated
 -- 3354939424b4456d9802ca8333ed424a
 Subject: La sessione @SESSION_ID@ è terminata
 Defined-By: systemd
@@ -99,6 +112,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 La sessione con ID @SESSION_ID@ è terminata.
 
+# Subject: A new seat @SEAT_ID@ is now available
 -- fcbefc5da23d428093f97c82a9290f7b
 Subject: La nuova postazione @SEAT_ID@ è ora disponibile
 Defined-By: systemd
@@ -107,6 +121,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 La nuova postazione @SEAT_ID@ è stata configurata ed è ora disponibile.
 
+# Subject: A seat @SEAT_ID@ has been removed
 -- e7852bfe46784ed0accde04bc864c2d5
 Subject: La postazione @SEAT_ID@ è stata rimossa
 Defined-By: systemd
@@ -115,6 +130,7 @@ Documentation: https://www.freedesktop.org/wiki/Software/systemd/multiseat
 
 La postazione @SEAT_ID@ è stata rimossa e non è più disponibile.
 
+# Subject: Time Change
 -- c7a787079b354eaaa9e77b371893cd27
 Subject: Cambio d'orario
 Defined-By: systemd
@@ -122,6 +138,7 @@ Support: %SUPPORT_URL%
 
 L'orologio di sistema è cambiato in @REALTIME@ microsecondi dal 1 gennaio, 1970.
 
+# Subject: Time zone change to @TIMEZONE@
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Il fuso orario è cambiato in @TIMEZONE@
 Defined-By: systemd
@@ -129,14 +146,15 @@ Support: %SUPPORT_URL%
 
 Il fuso orario di sistema è cambiato in @TIMEZONE@.
 
+# Subject: System start-up is now complete
 -- b07a249cd024414a82dd00cd181378ff
 Subject: Avvio del sistema completato.
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Tutti i servizi di sistema richiesti per la fase di avvio sono stati eseguiti
-con successo. Nota che la macchina potrebbe non essere ancora pronta in quanto
-i servizi attivati sono in fase di completamento.
+con successo. La macchina potrebbe ancora attendere i servizi attivati sono
+in fase di completamento.
 
 L'avvio del kernel ha richiesto @KERNEL_USEC@ microsecondi.
 
@@ -144,17 +162,19 @@ L'avvio del disco RAM ha richiesto @INITRD_USEC@ microsecondi.
 
 L'avvio dello userspace ha richiesto @USERSPACE_USEC@ microsecondi.
 
+# Subject: User manager start-up is now complete
 -- eed00a68ffd84e31882105fd973abdd1
-Subject: User manager start-up is now complete
+Subject: L'istanza di gestione per l'utente è completata
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
 L'istanza di gestione per l'utente @_UID@ è stata avviata. Tutti i servizi
-interrogati sono stati avviati. Da notare che altri servizi potrebbero essere
-ancora in fase di avvio o in attesa di essere avviati.
+interrogati sono stati avviati. Altri servizi potrebbero essere ancora in 
+fase di avvio o in attesa di essere avviati.
 
 L'avvio dell'istanza ha impiegato @USERSPACE_USEC@ microsecondi.
 
+# Subject: System sleep state @SLEEP@ entered
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Il sistema è entrato in fase di pausa @SLEEP@
 Defined-By: systemd
@@ -162,6 +182,7 @@ Support: %SUPPORT_URL%
 
 Il sistema è entrato nello stato di pausa @SLEEP@.
 
+# Subject: System sleep state @SLEEP@ left
 -- 8811e6df2a8e40f58a94cea26f8ebf14
 Subject: Il sistema è uscito dalla fase di pausa @SLEEP@
 Defined-By: systemd
@@ -169,6 +190,7 @@ Support: %SUPPORT_URL%
 
 Il sistema è uscito dallo stato di pausa @SLEEP@.
 
+# Subject: System shutdown initiated
 -- 98268866d1d54a499c4e98921d93bc40
 Subject: Il sistema è in fase di spegnimento
 Defined-By: systemd
@@ -177,6 +199,7 @@ Support: %SUPPORT_URL%
 Systemd è in fase di spegnimento. Tutti i servizi di sistema
 saranno terminati e tutti i file systems smontati.
 
+# Subject: Unit @UNIT@ has begun with start-up
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: L'unità @UNIT@ inizia la fase di avvio
 Defined-By: systemd
@@ -184,8 +207,9 @@ Support: %SUPPORT_URL%
 
 L'unità @UNIT@ ha iniziato la fase di avvio.
 
+# Subject: Unit @UNIT@ has finished start-up
 -- 39f53479d3a045ac8e11786248231fbf
-Subject: L'unità @UNIT@ termina la fase di avvio
+Subject: L'unità @UNIT@ ha terminato la fase di avvio
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
@@ -193,20 +217,23 @@ L'unità @UNIT@ ha terminato la fase di avvio.
 
 La fase di avvio è @JOB_RESULT@.
 
+# Subject: Unit @UNIT@ has begun shutting down
 -- de5b426a63be47a7b6ac3eaac82e2f6f
-Subject: L'unità @UNIT@ inizia la fase di spegnimento
+Subject: L'unità @UNIT@ ha iniziato la fase di spegnimento
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
 L'unità @UNIT@ ha iniziato la fase di spegnimento.
 
+# Subject Unit @UNIT@ has finished shutting down
 -- 9d1aaa27d60140bd96365438aad20286
-Subject: L'unità @UNIT@ termina la fase di spegnimento
+Subject: L'unità @UNIT@ ha terminato la fase di spegnimento
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
 L'unità @UNIT@ ha terminato la fase di spegnimento.
 
+# Subject: Unit @UNIT@ has failed
 -- be02cf6855d2428ba40df7e9d022f03d
 Subject: L'unità @UNIT@ è fallita
 Defined-By: systemd
@@ -216,22 +243,25 @@ L'unità @UNIT@ è fallita.
 
 Il risultato è @JOB_RESULT@.
 
+# Subject: Unit @UNIT@ has begun with reloading its configuration
 -- d34d037fff1847e6ae669a370e694725
-Subject: L'unità @UNIT@ inizia a caricare la propria configurazione
+Subject: L'unità @UNIT@ è iniziata con il ricaricamento della propria configurazione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unità @UNIT@ è iniziata ricaricando la propria configurazione
+L'unità @UNIT@ è iniziata con il ricaricamento della propria configurazione
 
+# Subject: Unit @UNIT@ has finished reloading its configuration
 -- 7b05ebc668384222baa8881179cfda54
-Subject: L'unità @UNIT@ termina il caricamento della propria configurazione
+Subject: L'unità @UNIT@ è terminata con il ricaricamento della propria configurazione
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-L'unità @UNIT@ è terminata ricaricando la propria configurazione
+L'unità @UNIT@ è terminata con il ricaricamento della propria configurazione
 
 Il risultato è @JOB_RESULT@.
 
+# Subject: Process @EXECUTABLE@ could not be executed
 -- 641257651c1b4ec9a8624d7a40a9e1e7
 Subject: Il processo @EXECUTABLE@ non può essere eseguito
 Defined-By: systemd
@@ -241,6 +271,7 @@ Il processo @EXECUTABLE@ non può essere eseguito e termina.
 
 Il numero di errore restituito durante l'esecuzione del processo è @ERRNO@.
 
+# Subject: One or more messages could not be forwarded to syslog
 -- 0027229ca0644181a76c4e92458afa2e
 Subject: Uno o più messaggi non possono essere inoltrati a syslog
 Defined-By: systemd
@@ -251,6 +282,7 @@ eseguito in parallelo a journald. Questo di solito capita perché,
 l'implementazione di syslog non sta al passo con la
 velocità dei messaggi accodati.
 
+# Subject: Mount point is not empty
 -- 1dee0369c7fc4736b7099b38ecb46ee7
 Subject: Il punto di montaggio non è vuoto
 Defined-By: systemd
@@ -262,6 +294,7 @@ Questo non interferisce con il montaggio, ma i file pre-esistenti in questa
 directory diventano inaccessibili. Per visualizzare i file, si suggerisce
 di montare manualmente il file system indicato in una posizione secondaria.
 
+# Subject: A virtual machine or container has been started
 -- 24d8d4452573402496068381a6312df2
 Subject: Avviata macchina virtuale o container
 Defined-By: systemd
@@ -270,13 +303,15 @@ Support: %SUPPORT_URL%
 La macchina virtuale @NAME@ con PID primario @LEADER@ è stata
 avviata ed è pronta all'uso.
 
+# Subject: A virtual machine or container has been terminated
 -- 58432bd3bace477cb514b56381b8a758
 Subject: Terminata macchina virtuale o container
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-La macchina virtuale @NAME@ con PID primario @LEADER@ è stata spenta.
+La macchina virtuale @NAME@ con PID primario @LEADER@ è stata terminata.
 
+# Subject: DNSSEC mode has been turned off, as server doesn't support it
 -- 36db2dfa5a9045e1bd4af5f93e1cf057
 Subject: La modalità DNSSEC è stata spenta, il server non la supporta
 Defined-By: systemd
@@ -284,18 +319,19 @@ Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8) resolved.conf(5)
 
 Il servizio di risoluzione (systemd-resolved.service) ha rilevato che il
-server DNS indicato non supporta DNSSEC e la validazione DNSSEC è stata
-conseguentemente disabilitata.
+server DNS indicato non supporta DNSSEC e la validazione di quest'ultimo tipo
+è stata conseguentemente disabilitata.
 
 Ciò avverrà se DNSSEC=allow-downgrade è configurato nel file
-resolved.conf e il server DNS indicato è incompatibile con DNSSEC. Da notare
-che in questo modo ci si espone ad attacchi DNSSEC downgrade, e un aggressore
+resolved.conf e il server DNS indicato è incompatibile con DNSSEC. 
+In questo modo ci si espone ad attacchi "DNSSEC downgrade", e un aggressore
 potrebbe disabilitare la validazione DNSSEC sul sistema inserendo risposte
 DNS nel canale di comunicazione.
 
-Questo evento potrebbe essere indice che il DNS server è forse incompatibile
-con DNSSEC o che un aggressore è riuscito nel suo intento malevolo.
+Questo evento potrebbe indicare un'incompatibilità del DNS Server con DNSSEC o
+che un aggressore è riuscito nel suo intento malevolo.
 
+# Subject: DNSSEC validation failed
 -- 1675d7f172174098b1108bf8c7dc8f5d
 Subject: La validazione DNSSEC è fallita
 Defined-By: systemd
@@ -306,6 +342,7 @@ Una query DNS o un dato hanno fatto fallire la validazione DNSSEC. Questo è
 usualmente un segnale che il canale di comunicazione utilizzato è stato
 manomesso.
 
+# Subject: A DNSSEC trust anchor has been revoked
 -- 4d4408cfd0d144859184d1e65d7c8a65
 Subject: Un trust anchor DNSSEC è stato revocato
 Defined-By: systemd
@@ -315,3 +352,76 @@ Documentation: man:systemd-resolved.service(8)
 Un trust anchor DNSSEC è stato revocato. Un nuovo punto di fiducia è stato
 riconfigurato o il sistema operativo deve essere aggiornato per fornire un
 nuovo ancoraggio.
+
+# Subject: Automatic restarting of a unit has been scheduled
+-- 5eb03494b6584870a536b337290809b3
+Subject: Il riavvio automatico di un'unità è stato schedulato
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Il riavvio automatico dell'unità @UNIT@ è stato schedulato, come risultato
+delle impostazioni configurate in Restart=.
+
+# Subject: Resources consumed by unit runtime
+-- ae8f7b866b0347b9af31fe1c80b127c0
+Subject: Risorse utilizzate dall'unità in esecuzione
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Unità @UNIT@ terminata consumando le indicate risorse.
+
+# Subject: Unit succeeded
+-- 7ad2d189f7e94e70a38c781354912448
+Subject: Unità terminata
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Unità @UNIT@ entrata con successo nello stato 'dead' (morto).
+
+# Subject: Unit failed
+-- d9b373ed55a64feb8242e02dbe79a49c
+Subject: Unit fallita
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Unità @UNIT@ entrata nello stato 'failed' (fallito) con risultato '@UNIT_RESULT@'.
+
+# Subject: Unit process exited
+-- 98e322203f7a4ed290d09fe03c09fe15
+Subject: Uscito processo unità
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Un processo @COMMAND@ appartenente all'unità @UNIT@ è uscito.
+
+Il codice di uscita del processo è '@EXIT_CODE@' ed è uscito con @EXIT_STATUS@.
+
+# Subject: The system is configured in a way that might cause problems
+-- 50876a9db00f4c40bde1a2ad381c3a1b
+Subject: Il sistema è configurato in un modo che potrebbe causare problemi
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+I seguenti "tags" sono possibili:
+- "split-usr" — /usr è un file system separato e non è stato montato all'avvio di systemd
+- "cgroups-missing" — il kernel era compilato senza supporto cgroup o l'accesso ai
+  file attesi è ristretto.
+- "var-run-bad" — /var/run non è un link simbolico (symlink) a /run
+- "overflowuid-not-65534" — l'ID usato dal kernel per gli utenti "unknown" (tipo
+  NFS o user namespace) non è 65534
+- "overflowgid-not-65534" — l'ID usato dal kernel per il gruppo "unknown" (tipo
+  NFS o user namespace) non è 65534
+L'attuale sistema è taggato come @TAINT@.
+
+# Subject: A process of @UNIT@ unit has been killed by the OOM killer.
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: Un processo dell'unità @UNIT@ è stato terminato da un OOM killer.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Un processo dell'unità @UNIT@ è stato terminato dalla logica del kernel Linux per
+gestire gli eventi out-of-memory (OOM). In altri termini, il sistema ha
+poca memoria e dovrebbe essere liberata. Un processo associato con @UNIT@ è
+stato identificato come il processo ideale da terminare e così è stato.
+
+La pressione sulla memoira potrebbe o meno essere causata da @UNIT@.

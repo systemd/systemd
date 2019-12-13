@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "conf-files.h"
 #include "def.h"
@@ -14,14 +12,13 @@
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "path-util.h"
 #include "set.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
 
 static int files_add(
                 Hashmap *h,
@@ -99,7 +96,7 @@ static int files_add(
 
                 /* Does this node have the executable bit set? */
                 if (flags & CONF_FILES_EXECUTABLE)
-                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
+                        /* As requested: check if the file is marked executable. Note that we don't check access(X_OK)
                          * here, as we care about whether the file is marked executable at all, and not whether it is
                          * executable for us, because if so, such errors are stuff we should log about. */
 
@@ -115,7 +112,7 @@ static int files_add(
 
                         key = p;
                 } else {
-                        p = strjoin(dirpath, "/", de->d_name);
+                        p = path_join(dirpath, de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
@@ -207,7 +204,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                                 _cleanup_free_ char *rdir = NULL;
                                 char *p1, *p2;
 
-                                rdir = prefix_root(root, *dir);
+                                rdir = path_join(root, *dir);
                                 if (!rdir)
                                         return -ENOMEM;
 
@@ -221,7 +218,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
                                 if (p2) {
                                         /* Our new entry has higher priority */
 
-                                        t = prefix_root(root, path);
+                                        t = path_join(root, path);
                                         if (!t)
                                                 return log_oom();
 
@@ -238,7 +235,7 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         }
 
         /* The new file has lower priority than all the existing entries */
-        t = prefix_root(root, path);
+        t = path_join(root, path);
         if (!t)
                 return -ENOMEM;
 
@@ -261,16 +258,12 @@ int conf_files_list_strv(char ***strv, const char *suffix, const char *root, uns
         return conf_files_list_strv_internal(strv, suffix, root, flags, copy);
 }
 
-int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir, ...) {
+int conf_files_list(char ***strv, const char *suffix, const char *root, unsigned flags, const char *dir) {
         _cleanup_strv_free_ char **dirs = NULL;
-        va_list ap;
 
         assert(strv);
 
-        va_start(ap, dir);
-        dirs = strv_new_ap(dir, ap);
-        va_end(ap);
-
+        dirs = strv_new(dir);
         if (!dirs)
                 return -ENOMEM;
 
@@ -313,7 +306,7 @@ int conf_files_list_with_replacement(
                 if (r < 0)
                         return log_error_errno(r, "Failed to extend config file list: %m");
 
-                p = prefix_root(root, replacement);
+                p = path_join(root, replacement);
                 if (!p)
                         return log_oom();
         }

@@ -1,6 +1,6 @@
 [NetDev]
-Name=ip6gretap99
-Kind=ip6gretap
+Name=ip6gretun99
+Kind=ip6gre
 
 [Tunnel]
 Local=2a00:ffde:4567:edde::4987

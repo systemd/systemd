@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="sysusers.d" conditional='ENABLE_SYSUSERS'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -207,12 +206,12 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
       <title>Shell</title>
 
       <para>The login shell of the user. If not specified, this will be set to
-      <filename>/sbin/nologin</filename>, except if the UID of the user is 0, in
+      <filename>/usr/sbin/nologin</filename>, except if the UID of the user is 0, in
       which case <filename>/bin/sh</filename> will be used.</para>
 
       <para>Only applies to lines of type <varname>u</varname> and should otherwise
       be left unset (or <literal>-</literal>). It is recommended to omit this, unless
-      a shell different <filename>/sbin/nologin</filename> must be used.</para>
+      a shell different <filename>/usr/sbin/nologin</filename> must be used.</para>
     </refsect2>
   </refsect1>
 

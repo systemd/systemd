@@ -5,7 +5,7 @@
 
 #include "sd-device.h"
 
-enum udev_builtin_cmd {
+typedef enum {
 #if HAVE_BLKID
         UDEV_BUILTIN_BLKID,
 #endif
@@ -25,9 +25,9 @@ enum udev_builtin_cmd {
 #endif
         _UDEV_BUILTIN_MAX,
         _UDEV_BUILTIN_INVALID = -1,
-};
+} UdevBuiltinCommand;
 
-struct udev_builtin {
+typedef struct UdevBuiltin {
         const char *name;
         int (*cmd)(sd_device *dev, int argc, char *argv[], bool test);
         const char *help;
@@ -35,32 +35,35 @@ struct udev_builtin {
         void (*exit)(void);
         bool (*validate)(void);
         bool run_once;
-};
+} UdevBuiltin;
+
+#define PTR_TO_UDEV_BUILTIN_CMD(p) ((UdevBuiltinCommand) ((intptr_t) (p)-1))
+#define UDEV_BUILTIN_CMD_TO_PTR(u) ((void *)             ((intptr_t) (u)+1))
 
 #if HAVE_BLKID
-extern const struct udev_builtin udev_builtin_blkid;
+extern const UdevBuiltin udev_builtin_blkid;
 #endif
-extern const struct udev_builtin udev_builtin_btrfs;
-extern const struct udev_builtin udev_builtin_hwdb;
-extern const struct udev_builtin udev_builtin_input_id;
-extern const struct udev_builtin udev_builtin_keyboard;
+extern const UdevBuiltin udev_builtin_btrfs;
+extern const UdevBuiltin udev_builtin_hwdb;
+extern const UdevBuiltin udev_builtin_input_id;
+extern const UdevBuiltin udev_builtin_keyboard;
 #if HAVE_KMOD
-extern const struct udev_builtin udev_builtin_kmod;
+extern const UdevBuiltin udev_builtin_kmod;
 #endif
-extern const struct udev_builtin udev_builtin_net_id;
-extern const struct udev_builtin udev_builtin_net_setup_link;
-extern const struct udev_builtin udev_builtin_path_id;
-extern const struct udev_builtin udev_builtin_usb_id;
+extern const UdevBuiltin udev_builtin_net_id;
+extern const UdevBuiltin udev_builtin_net_setup_link;
+extern const UdevBuiltin udev_builtin_path_id;
+extern const UdevBuiltin udev_builtin_usb_id;
 #if HAVE_ACL
-extern const struct udev_builtin udev_builtin_uaccess;
+extern const UdevBuiltin udev_builtin_uaccess;
 #endif
 
 void udev_builtin_init(void);
 void udev_builtin_exit(void);
-enum udev_builtin_cmd udev_builtin_lookup(const char *command);
-const char *udev_builtin_name(enum udev_builtin_cmd cmd);
-bool udev_builtin_run_once(enum udev_builtin_cmd cmd);
-int udev_builtin_run(sd_device *dev, enum udev_builtin_cmd cmd, const char *command, bool test);
+UdevBuiltinCommand udev_builtin_lookup(const char *command);
+const char *udev_builtin_name(UdevBuiltinCommand cmd);
+bool udev_builtin_run_once(UdevBuiltinCommand cmd);
+int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test);
 void udev_builtin_list(void);
 bool udev_builtin_validate(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);

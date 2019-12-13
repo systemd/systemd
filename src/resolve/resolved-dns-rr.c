@@ -7,6 +7,7 @@
 #include "dns-type.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "memory-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
@@ -555,20 +556,12 @@ int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const u
 
 #define FIELD_EQUAL(a, b, field) \
         ((a).field ## _size == (b).field ## _size &&  \
-         memcmp((a).field, (b).field, (a).field ## _size) == 0)
+         memcmp_safe((a).field, (b).field, (a).field ## _size) == 0)
 
-int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
+int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
         int r;
 
-        assert(a);
-        assert(b);
-
-        if (a == b)
-                return 1;
-
-        r = dns_resource_key_equal(a->key, b->key);
-        if (r <= 0)
-                return r;
+        /* Check if a and b are the same, but don't look at their keys */
 
         if (a->unparseable != b->unparseable)
                 return 0;
@@ -690,6 +683,22 @@ int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecor
         default:
                 return FIELD_EQUAL(a->generic, b->generic, data);
         }
+}
+
+int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        if (a == b)
+                return 1;
+
+        r = dns_resource_key_equal(a->key, b->key);
+        if (r <= 0)
+                return r;
+
+        return dns_resource_record_payload_equal(a, b);
 }
 
 static char* format_location(uint32_t latitude, uint32_t longitude, uint32_t altitude,
@@ -954,7 +963,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         case DNS_TYPE_DNSKEY: {
                 _cleanup_free_ char *alg = NULL;
                 char *ss;
-                int n;
                 uint16_t key_tag;
 
                 key_tag = dnssec_keytag(rr, true);
@@ -963,16 +971,15 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 if (r < 0)
                         return NULL;
 
-                r = asprintf(&s, "%s %u %u %s %n",
+                r = asprintf(&s, "%s %u %u %s",
                              k,
                              rr->dnskey.flags,
                              rr->dnskey.protocol,
-                             alg,
-                             &n);
+                             alg);
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
+                r = base64_append(&s, r,
                                   rr->dnskey.key, rr->dnskey.key_size,
                                   8, columns());
                 if (r < 0)
@@ -998,7 +1005,6 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 _cleanup_free_ char *alg = NULL;
                 char expiration[STRLEN("YYYYMMDDHHmmSS") + 1], inception[STRLEN("YYYYMMDDHHmmSS") + 1];
                 const char *type;
-                int n;
 
                 type = dns_type_to_string(rr->rrsig.type_covered);
 
@@ -1017,7 +1023,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                 /* TYPE?? follows
                  * http://tools.ietf.org/html/rfc3597#section-5 */
 
-                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s %n",
+                r = asprintf(&s, "%s %s%.*u %s %u %u %s %s %u %s",
                              k,
                              type ?: "TYPE",
                              type ? 0 : 1, type ? 0u : (unsigned) rr->rrsig.type_covered,
@@ -1027,12 +1033,11 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                              expiration,
                              inception,
                              rr->rrsig.key_tag,
-                             rr->rrsig.signer,
-                             &n);
+                             rr->rrsig.signer);
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
+                r = base64_append(&s, r,
                                   rr->rrsig.signature, rr->rrsig.signature_size,
                                   8, columns());
                 if (r < 0)
@@ -1138,15 +1143,11 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         }
 
         case DNS_TYPE_OPENPGPKEY: {
-                int n;
-
-                r = asprintf(&s, "%s %n",
-                             k,
-                             &n);
+                r = asprintf(&s, "%s", k);
                 if (r < 0)
                         return NULL;
 
-                r = base64_append(&s, n,
+                r = base64_append(&s, r,
                                   rr->generic.data, rr->generic.data_size,
                                   8, columns());
                 if (r < 0)

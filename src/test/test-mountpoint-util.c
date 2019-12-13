@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "def.h"
@@ -36,7 +37,7 @@ static void test_mount_propagation_flags(const char *name, int ret, unsigned lon
 
 static void test_mnt_id(void) {
         _cleanup_fclose_ FILE *f = NULL;
-        Hashmap *h;
+        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
         Iterator i;
         char *p;
         void *k;
@@ -57,7 +58,14 @@ static void test_mnt_id(void) {
                 assert_se(r > 0);
 
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
-
+#if HAS_FEATURE_MEMORY_SANITIZER
+                /* We don't know the length of the string, so we need to unpoison it one char at a time */
+                for (const char *c = path; ;c++) {
+                        msan_unpoison(c, 1);
+                        if (!*c)
+                                break;
+                }
+#endif
                 log_debug("mountinfo: %s → %i", path, mnt_id);
 
                 assert_se(hashmap_put(h, INT_TO_PTR(mnt_id), path) >= 0);
@@ -73,10 +81,11 @@ static void test_mnt_id(void) {
                         continue;
                 }
 
-                log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
-
-                if (mnt_id == mnt_id2)
+                if (mnt_id == mnt_id2) {
+                        log_debug("mnt ids of %s is %i\n", p, mnt_id);
                         continue;
+                } else
+                        log_debug("mnt ids of %s are %i, %i\n", p, mnt_id, mnt_id2);
 
                 /* The ids don't match? If so, then there are two mounts on the same path, let's check if
                  * that's really the case */
@@ -84,8 +93,6 @@ static void test_mnt_id(void) {
                 log_debug("the other path for mnt id %i is %s\n", mnt_id2, t);
                 assert_se(path_equal(p, t));
         }
-
-        hashmap_free_free(h);
 }
 
 static void test_path_is_mount_point(void) {

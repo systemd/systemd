@@ -3,9 +3,10 @@
 
 typedef struct VCan VCan;
 
+#include <netinet/in.h>
 #include <linux/can/netlink.h>
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct VCan {
         NetDev meta;

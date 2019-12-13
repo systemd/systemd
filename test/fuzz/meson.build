@@ -4,7 +4,7 @@ sanitize_address = custom_target(
         'sanitize-address-fuzzers',
         output : 'sanitize-address-fuzzers',
         command : [meson_build_sh,
-                   meson.source_root(),
+                   project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
                    '-Db_lundef=false -Db_sanitize=address',
@@ -16,11 +16,11 @@ sanitizers = [['address', sanitize_address]]
 if git.found()
         out = run_command(
                 git,
-                '--git-dir=@0@/.git'.format(meson.source_root()),
+                '--git-dir=@0@/.git'.format(project_source_root),
                  'ls-files', ':/test/fuzz/*/*')
 else
         out = run_command(
-                'sh', '-c', 'ls @0@/*/*'.format(meson.current_source_dir()))
+                'sh', '-c', 'ls @0@/test/fuzz/*/*'.format(project_source_root))
 endif
 
 fuzz_regression_tests = []

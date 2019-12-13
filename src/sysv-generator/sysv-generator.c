@@ -87,7 +87,7 @@ static int add_alias(const char *service, const char *alias) {
         assert(service);
         assert(alias);
 
-        link = strjoina(arg_dest, "/", alias);
+        link = prefix_roota(arg_dest, alias);
 
         r = symlink(service, link);
         if (r < 0) {
@@ -116,7 +116,7 @@ static int generate_unit_file(SysvStub *s) {
         if (!path_escaped)
                 return log_oom();
 
-        unit = strjoina(arg_dest, "/", s->name);
+        unit = prefix_roota(arg_dest, s->name);
 
         /* We might already have a symlink with the same name from a Provides:,
          * or from backup files like /etc/init.d/foo.bak. Real scripts always win,
@@ -322,7 +322,7 @@ static int handle_provides(SysvStub *s, unsigned line, const char *full_text, co
         for (;;) {
                 _cleanup_free_ char *word = NULL, *m = NULL;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -391,7 +391,7 @@ static int handle_dependencies(SysvStub *s, unsigned line, const char *full_text
                 _cleanup_free_ char *word = NULL, *m = NULL;
                 bool is_before;
 
-                r = extract_first_word(&text, &word, NULL, EXTRACT_QUOTES|EXTRACT_RELAX);
+                r = extract_first_word(&text, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Failed to parse word from provides string: %m", s->path, line);
                 if (r == 0)
@@ -642,7 +642,7 @@ static int load_sysv(SysvStub *s) {
         if (description) {
                 char *d;
 
-                d = strappend(s->has_lsb ? "LSB: " : "SYSV: ", description);
+                d = strjoin(s->has_lsb ? "LSB: " : "SYSV: ", description);
                 if (!d)
                         return log_oom();
 
@@ -784,7 +784,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 continue;
                         }
 
-                        fpath = strjoin(*path, "/", de->d_name);
+                        fpath = path_join(*path, de->d_name);
                         if (!fpath)
                                 return log_oom();
 
@@ -829,7 +829,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                         _cleanup_free_ char *path = NULL;
                         struct dirent *de;
 
-                        path = strjoin(*p, "/", rcnd_table[i].path);
+                        path = path_join(*p, rcnd_table[i].path);
                         if (!path) {
                                 r = log_oom();
                                 goto finish;
@@ -859,7 +859,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 if (a < 0 || b < 0)
                                         continue;
 
-                                fpath = strjoin(*p, "/", de->d_name);
+                                fpath = path_join(*p, de->d_name);
                                 if (!fpath) {
                                         r = log_oom();
                                         goto finish;

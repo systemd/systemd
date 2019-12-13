@@ -4,9 +4,9 @@
 ***/
 
 #include <errno.h>
+#include <netinet/if_ether.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 

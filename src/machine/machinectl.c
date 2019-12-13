@@ -4,11 +4,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <locale.h>
 #include <math.h>
 #include <net/if.h>
 #include <netinet/in.h>
-#include <string.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -18,8 +16,10 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-unit-procs.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
@@ -35,6 +35,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -44,13 +45,14 @@
 #include "rlimit-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "sort-util.h"
+#include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -252,7 +254,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sort table: %m");
@@ -603,9 +605,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 fputs("\t   Iface:", stdout);
 
                 for (c = 0; c < i->n_netif; c++) {
-                        char name[IF_NAMESIZE+1] = "";
+                        char name[IF_NAMESIZE+1];
 
-                        if (if_indextoname(i->netif[c], name)) {
+                        if (format_ifname(i->netif[c], name)) {
                                 fputc(' ', stdout);
                                 fputs(name, stdout);
 
@@ -1721,6 +1723,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+        ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
@@ -1739,7 +1742,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_error("Machine image '%s' does not exist.", argv[1]);
+                        log_error("Machine image '%s' does not exist.", argv[i]);
                         return -ENXIO;
                 }
 
@@ -1811,7 +1814,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        log_error("Machine image '%s' does not exist.", argv[1]);
+                        log_error("Machine image '%s' does not exist.", argv[i]);
                         return -ENXIO;
                 }
 
@@ -1990,16 +1993,6 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
-static const char *nullify_dash(const char *p) {
-        if (isempty(p))
-                return NULL;
-
-        if (streq(p, "-"))
-                return NULL;
-
-        return p;
-}
-
 static int import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
@@ -2011,10 +2004,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2078,10 +2071,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2145,10 +2138,10 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         if (argc >= 2)
-                path = nullify_dash(argv[1]);
+                path = empty_or_dash_to_null(argv[1]);
 
         if (argc >= 3)
-                local = nullify_dash(argv[2]);
+                local = empty_or_dash_to_null(argv[2]);
         else if (path) {
                 r = path_extract_filename(path, &fn);
                 if (r < 0)
@@ -2227,8 +2220,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (path) {
                 determine_compression_from_filename(path);
@@ -2277,8 +2269,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (path) {
                 determine_compression_from_filename(path);
@@ -2335,8 +2326,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
@@ -2399,8 +2389,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = raw_strip_suffixes(local, &ll);
@@ -2666,10 +2655,15 @@ static int clean_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_read(reply, "(st)", &name, &usage)) > 0) {
-                log_info("Removed image '%s'. Freed exclusive disk space: %s",
-                         name, format_bytes(fb, sizeof(fb), usage));
-
-                total += usage;
+                if (usage == UINT64_MAX) {
+                        log_info("Removed image '%s'", name);
+                        total = UINT64_MAX;
+                } else {
+                        log_info("Removed image '%s'. Freed exclusive disk space: %s",
+                                 name, format_bytes(fb, sizeof(fb), usage));
+                        if (total != UINT64_MAX)
+                                total += usage;
+                }
                 c++;
         }
 
@@ -2677,8 +2671,11 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        log_info("Removed %u images in total. Total freed exclusive disk space %s.",
-                 c, format_bytes(fb, sizeof(fb), total));
+        if (total == UINT64_MAX)
+                log_info("Removed %u images in total.", c);
+        else
+                log_info("Removed %u images in total. Total freed exclusive disk space: %s.",
+                         c, format_bytes(fb, sizeof(fb), total));
 
         return 0;
 }
@@ -2693,38 +2690,10 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the virtual machine and container\n"
-               "registration manager.\n\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --no-legend              Do not show the headers and footers\n"
-               "     --no-ask-password        Do not ask for system passwords\n"
-               "  -H --host=[USER@]HOST       Operate on remote host\n"
-               "  -M --machine=CONTAINER      Operate on local container\n"
-               "  -p --property=NAME          Show only properties by this name\n"
-               "  -q --quiet                  Suppress output\n"
-               "  -a --all                    Show all properties, including empty ones\n"
-               "     --value                  When showing properties, only print the value\n"
-               "  -l --full                   Do not ellipsize output\n"
-               "     --kill-who=WHO           Who to send signal to\n"
-               "  -s --signal=SIGNAL          Which signal to send\n"
-               "     --uid=USER               Specify user ID to invoke shell as\n"
-               "  -E --setenv=VAR=VALUE       Add an environment variable for shell\n"
-               "     --read-only              Create read-only bind mount\n"
-               "     --mkdir                  Create directory before bind mounting, if missing\n"
-               "  -n --lines=INTEGER          Number of journal entries to show\n"
-               "     --max-addresses=INTEGER  Number of internet addresses to show at most\n"
-               "  -o --output=STRING          Change journal output mode (short, short-precise,\n"
-               "                               short-iso, short-iso-precise, short-full,\n"
-               "                               short-monotonic, short-unix, verbose, export,\n"
-               "                               json, json-pretty, json-sse, json-seq, cat,\n"
-               "                               with-unit)\n"
-               "     --verify=MODE            Verification mode for downloaded images (no,\n"
-               "                              checksum, signature)\n"
-               "     --force                  Download image even if already exists\n\n"
-               "Machine Commands:\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sSend control commands to or query the virtual machine and container%s\n"
+               "%sregistration manager.%s\n"
+               "\nMachine Commands:\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
                "  show [NAME...]              Show properties of one or more VMs/containers\n"
@@ -2763,8 +2732,41 @@ static int help(int argc, char *argv[], void *userdata) {
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
+               "\nOptions:\n"
+               "  -h --help                   Show this help\n"
+               "     --version                Show package version\n"
+               "     --no-pager               Do not pipe output into a pager\n"
+               "     --no-legend              Do not show the headers and footers\n"
+               "     --no-ask-password        Do not ask for system passwords\n"
+               "  -H --host=[USER@]HOST       Operate on remote host\n"
+               "  -M --machine=CONTAINER      Operate on local container\n"
+               "  -p --property=NAME          Show only properties by this name\n"
+               "  -q --quiet                  Suppress output\n"
+               "  -a --all                    Show all properties, including empty ones\n"
+               "     --value                  When showing properties, only print the value\n"
+               "  -l --full                   Do not ellipsize output\n"
+               "     --kill-who=WHO           Who to send signal to\n"
+               "  -s --signal=SIGNAL          Which signal to send\n"
+               "     --uid=USER               Specify user ID to invoke shell as\n"
+               "  -E --setenv=VAR=VALUE       Add an environment variable for shell\n"
+               "     --read-only              Create read-only bind mount\n"
+               "     --mkdir                  Create directory before bind mounting, if missing\n"
+               "  -n --lines=INTEGER          Number of journal entries to show\n"
+               "     --max-addresses=INTEGER  Number of internet addresses to show at most\n"
+               "  -o --output=STRING          Change journal output mode (short, short-precise,\n"
+               "                               short-iso, short-iso-precise, short-full,\n"
+               "                               short-monotonic, short-unix, verbose, export,\n"
+               "                               json, json-pretty, json-sse, json-seq, cat,\n"
+               "                               with-unit)\n"
+               "     --verify=MODE            Verification mode for downloaded images (no,\n"
+               "                              checksum, signature)\n"
+               "     --force                  Download image even if already exists\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -3103,6 +3105,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

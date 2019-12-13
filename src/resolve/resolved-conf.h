@@ -19,10 +19,7 @@ enum DnsStubListenerMode {
 
 int manager_parse_config_file(Manager *m);
 
-int manager_add_search_domain_by_string(Manager *m, const char *domain);
 int manager_parse_search_domains_and_warn(Manager *m, const char *string);
-
-int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word);
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);
 
 const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

@@ -337,9 +337,42 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.set-reboot-parameter">
+                <description gettext-domain="systemd">Set the reboot "reason" in the kernel</description>
+                <message gettext-domain="systemd">Authentication is required to set the reboot "reason" in the kernel.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
+        </action>
+
         <action id="org.freedesktop.login1.set-reboot-to-firmware-setup">
-                <description gettext-domain="systemd">Allow indication to the firmware to boot to setup interface</description>
+                <description gettext-domain="systemd">Indicate to the firmware to boot to setup interface</description>
                 <message gettext-domain="systemd">Authentication is required to indicate to the firmware to boot to setup interface.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.set-reboot-to-boot-loader-menu">
+                <description gettext-domain="systemd">Indicate to the boot loader to boot to the boot loader menu</description>
+                <message gettext-domain="systemd">Authentication is required to indicate to the boot loader to boot to the boot loader menu.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.set-reboot-to-boot-loader-entry">
+                <description gettext-domain="systemd">Indicate to the boot loader to boot a specific entry</description>
+                <message gettext-domain="systemd">Authentication is required to indicate to the boot loader to boot into a specific boot loader entry.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

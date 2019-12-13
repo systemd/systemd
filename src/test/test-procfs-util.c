@@ -2,8 +2,8 @@
 
 #include <errno.h>
 
+#include "format-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "procfs-util.h"
 
 int main(int argc, char *argv[]) {
@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
         log_info("Current system CPU time: %s", format_timespan(buf, sizeof(buf), nsec/NSEC_PER_USEC, 1));
 
-        assert_se(procfs_memory_get_current(&v) >= 0);
+        assert_se(procfs_memory_get_used(&v) >= 0);
         log_info("Current memory usage: %s", format_bytes(buf, sizeof(buf), v));
 
         assert_se(procfs_tasks_get_current(&v) >= 0);

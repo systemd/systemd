@@ -20,6 +20,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -113,9 +114,9 @@ static int print_inhibitors(sd_bus *bus) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, who,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, strna(u),
-                                   TABLE_UINT32, pid,
+                                   TABLE_PID, (pid_t) pid,
                                    TABLE_STRING, strna(comm),
                                    TABLE_STRING, what,
                                    TABLE_STRING, why,
@@ -158,8 +159,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Execute a process while inhibiting shutdown/sleep/idle.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sExecute a process while inhibiting shutdown/sleep/idle.%s\n\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "     --no-pager           Do not pipe output into a pager\n"
@@ -174,6 +175,7 @@ static int help(void) {
                "     --list               List active inhibitors\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -270,6 +272,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -283,18 +286,23 @@ static int run(int argc, char *argv[]) {
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
-
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_close_ int fd = -1;
+                _cleanup_strv_free_ char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
+                _cleanup_close_ int fd = -1;
                 pid_t pid;
 
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT, -1);
 
-                if (!arg_who)
-                        arg_who = w = strv_join(argv + optind, " ");
+                if (!arg_who) {
+                        w = strv_join(argv + optind, " ");
+                        if (!w)
+                                return log_oom();
+
+                        arg_who = w;
+                }
 
                 if (!arg_mode)
                         arg_mode = "block";
@@ -303,12 +311,16 @@ static int run(int argc, char *argv[]) {
                 if (fd < 0)
                         return log_error_errno(fd, "Failed to inhibit: %s", bus_error_message(&error, fd));
 
+                arguments = strv_copy(argv + optind);
+                if (!arguments)
+                        return log_oom();
+
                 r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
                 if (r < 0)
                         return r;
                 if (r == 0) {
                         /* Child */
-                        execvp(argv[optind], argv + optind);
+                        execvp(arguments[0], arguments);
                         log_open();
                         log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);

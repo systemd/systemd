@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -40,19 +37,22 @@
   <refsect1>
     <title>Description</title>
 
-    <para>systemd is a system and service manager for Linux operating
-    systems. When run as first process on boot (as PID 1), it acts as
-    init system that brings up and maintains userspace
-    services.</para>
+    <para>systemd is a system and service manager for Linux operating systems. When run as first process on
+    boot (as PID 1), it acts as init system that brings up and maintains userspace services. Seperate
+    instances are started for logged-in users to start their services.</para>
 
-    <para>For compatibility with SysV, if systemd is called as
-    <command>init</command> and a PID that is not 1, it will execute
-    <command>telinit</command> and pass all command line arguments
-    unmodified. That means <command>init</command> and
-    <command>telinit</command> are mostly equivalent when invoked from
-    normal login sessions. See
-    <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for more information.</para>
+    <para><command>systemd</command> is usually not invoked directly by the user, but is installed as the
+    <filename>/sbin/init</filename> symlink and started during early boot. The user manager instances are
+    started automatically through the
+    <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    service.</para>
+
+    <para>For compatibility with SysV, if the binary is called as <command>init</command> and is not the
+    first process on the machine (PID is not 1), it will execute <command>telinit</command> and pass all
+    command line arguments unmodified. That means <command>init</command> and <command>telinit</command> are
+    mostly equivalent when invoked from normal login sessions. See
+    <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+    information.</para>
 
     <para>When run as a system instance, systemd interprets the
     configuration file <filename>system.conf</filename> and the files
@@ -62,210 +62,6 @@
     <filename>user.conf.d</filename> directories. See
     <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for more information.</para>
-  </refsect1>
-
-  <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--test</option></term>
-
-        <listitem><para>Determine startup sequence, dump it and exit.
-        This is an option useful for debugging only.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--dump-configuration-items</option></term>
-
-        <listitem><para>Dump understood unit configuration items. This
-        outputs a terse but complete list of configuration items
-        understood in unit definition files.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--dump-bus-properties</option></term>
-
-        <listitem><para>Dump exposed bus properties. This outputs
-        a terse but complete list of properties exposed to dbus.
-        </para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--unit=</option></term>
-
-        <listitem><para>Set default unit to activate on startup. If
-        not specified, defaults to
-        <filename>default.target</filename>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--system</option></term>
-        <term><option>--user</option></term>
-
-        <listitem><para>For <option>--system</option>, tell systemd to
-        run a system instance, even if the process ID is not 1, i.e.
-        systemd is not run as init process. <option>--user</option>
-        does the opposite, running a user instance even if the process
-        ID is 1. Normally, it should not be necessary to pass these
-        options, as systemd automatically detects the mode it is
-        started in. These options are hence of little use except for
-        debugging. Note that it is not supported booting and
-        maintaining a full system with systemd running in
-        <option>--system</option> mode, but PID not 1. In practice,
-        passing <option>--system</option> explicitly is only useful in
-        conjunction with <option>--test</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--dump-core</option></term>
-
-        <listitem><para>Enable core dumping on crash. This switch has
-        no effect when running as user instance. This setting may also
-        be enabled during boot on the kernel command line via the
-        <varname>systemd.dump_core=</varname> option, see
-        below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--crash-vt=</option><replaceable>VT</replaceable></term>
-
-        <listitem><para>Switch to a specific virtual console (VT) on
-        crash. Takes a positive integer in the range 1–63, or a
-        boolean argument. If an integer is passed, selects which VT to
-        switch to. If <constant>yes</constant>, the VT kernel messages
-        are written to is selected. If <constant>no</constant>, no VT
-        switch is attempted. This switch has no effect when running as
-        user instance. This setting may also be enabled during boot,
-        on the kernel command line via the
-        <varname>systemd.crash_vt=</varname> option, see
-        <!-- FIXME: there is no crash_vt command line option? -->
-        below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--crash-shell</option></term>
-
-        <listitem><para>Run a shell on crash. This switch has no
-        effect when running as user instance. This setting may also be
-        enabled during boot, on the kernel command line via the
-        <varname>systemd.crash_shell=</varname> option, see
-        below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--crash-reboot</option></term>
-
-        <listitem><para>Automatically reboot the system on crash. This
-        switch has no effect when running as user instance. This
-        setting may also be enabled during boot, on the kernel command
-        line via the <varname>systemd.crash_reboot=</varname> option,
-        see below.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--confirm-spawn</option></term>
-
-        <listitem><para>Ask for confirmation when spawning processes.
-        This switch has no effect when run as user
-        instance.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--show-status=</option></term>
-
-        <listitem><para>Takes a boolean argument or the special value <constant>auto</constant>. If on, terse unit
-        status information is shown on the console during boot-up and shutdown. If off, no such status information is
-        shown. If set to <constant>auto</constant> behavior is similar to off, except that it is automatically switched
-        to on, as soon as the first unit failure or significant boot delay is encountered. This switch has no effect
-        when invoked as user instance. If specified, overrides both the kernel command line setting
-        <varname>systemd.show_status=</varname> (see below) and the configuration file option
-        <option>ShowStatus=</option>, see
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--log-target=</option></term>
-
-        <listitem><para>Set log target. Argument must be one of
-        <option>console</option>,
-        <option>journal</option>,
-        <option>kmsg</option>,
-        <option>journal-or-kmsg</option>,
-        <option>null</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--log-level=</option></term>
-
-        <listitem><para>Set log level. As
-        argument this accepts a numerical log
-        level or the well-known <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        symbolic names (lowercase):
-        <option>emerg</option>,
-        <option>alert</option>,
-        <option>crit</option>,
-        <option>err</option>,
-        <option>warning</option>,
-        <option>notice</option>,
-        <option>info</option>,
-        <option>debug</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--log-color=</option></term>
-
-        <listitem><para>Highlight important log messages. Argument is
-        a boolean value. If the argument is omitted, it defaults to
-        <option>true</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--log-location=</option></term>
-
-        <listitem><para>Include code location in log messages. This is
-        mostly relevant for debugging purposes. Argument is a boolean
-        value. If the argument is omitted it defaults to
-        <option>true</option>.</para></listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><option>--default-standard-output=</option></term>
-        <term><option>--default-standard-error=</option></term>
-
-        <listitem><para>Sets the default output or error output for
-        all services and sockets, respectively. That is, controls the
-        default for <option>StandardOutput=</option> and
-        <option>StandardError=</option> (see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details). Takes one of
-        <option>inherit</option>,
-        <option>null</option>,
-        <option>tty</option>,
-        <option>journal</option>,
-        <option>journal+console</option>,
-        <option>syslog</option>,
-        <option>syslog+console</option>,
-        <option>kmsg</option>,
-        <option>kmsg+console</option>.  If the
-        argument is omitted
-        <option>--default-standard-output=</option> defaults to
-        <option>journal</option> and
-        <option>--default-standard-error=</option> to
-        <option>inherit</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--machine-id=</option></term>
-
-        <listitem><para>Override the machine-id set on the hard drive,
-        useful for network booting or for containers. May not be set
-        to all zeros.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--service-watchdogs=</option></term>
-
-        <listitem><para>Globally enable/disable all service watchdog timeouts and emergency
-        actions. This setting may also be specified during boot, on the kernel
-        command line via the <varname>systemd.service_watchdogs=</varname>
-        option, see below. Defaults to enabled.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -585,7 +381,7 @@
         <filename>exit.target</filename> unit when this signal is
         received. This is mostly equivalent to <command>systemctl
         --user start exit.target
-        --job-mode=replace-irreversible</command>.</para></listitem>
+        --job-mode=replace-irreversibly</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -593,7 +389,7 @@
 
         <listitem><para>Upon receiving this signal the systemd system manager will start the
         <filename>ctrl-alt-del.target</filename> unit. This is mostly equivalent to
-        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversible</command>. If
+        <command>systemctl start ctrl-alt-del.target --job-mode=replace-irreversibly</command>. If
         this signal is received more than 7 times per 2s, an immediate reboot is triggered. Note
         that pressing
         <keycombo><keycap>Ctrl</keycap><keycap>Alt</keycap><keycap>Del</keycap></keycombo> on the
@@ -685,7 +481,7 @@
         <listitem><para>Halts the machine, starts the
         <filename>halt.target</filename> unit. This is mostly
         equivalent to <command>systemctl start halt.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -695,7 +491,7 @@
         <listitem><para>Powers off the machine, starts the
         <filename>poweroff.target</filename> unit. This is mostly
         equivalent to <command>systemctl start poweroff.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -705,7 +501,7 @@
         <listitem><para>Reboots the machine, starts the
         <filename>reboot.target</filename> unit. This is mostly
         equivalent to <command>systemctl start reboot.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -715,7 +511,7 @@
         <listitem><para>Reboots the machine via kexec, starts the
         <filename>kexec.target</filename> unit. This is mostly
         equivalent to <command>systemctl start kexec.target
-        --job-mode=replace-irreversible</command>.</para>
+        --job-mode=replace-irreversibly</command>.</para>
         </listitem>
       </varlistentry>
 
@@ -873,23 +669,11 @@
         script runlevel link farms.</para></listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><varname>$SYSTEMD_COLORS</varname></term>
-
-        <listitem><para>The value must be a boolean. Controls whether colorized output should be
-        generated. This can be specified to override the decision that <command>systemd</command>
-        makes based on <varname>$TERM</varname> and what the console is connected to.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$SYSTEMD_URLIFY</varname></term>
-
-        <listitem><para>The value must be a boolean. Controls whether clickable links should be generated in the output
-        for terminal emulators supporting this. This can be specified to override the decision that
-        <command>systemd</command> makes based on <varname>$TERM</varname> and other conditions.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="less-variables.xml" xpointer="pager"/>
+      <xi:include href="less-variables.xml" xpointer="less"/>
+      <xi:include href="less-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="less-variables.xml" xpointer="colors"/>
+      <xi:include href="less-variables.xml" xpointer="urlify"/>
 
       <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
@@ -919,13 +703,13 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para>When run as system instance systemd parses a number of
-    kernel command line arguments<footnote><para>If run inside a Linux
-    container these arguments may be passed as command line arguments
-    to systemd itself, next to any of the command line options listed
-    in the Options section above. If run outside of Linux containers,
-    these arguments are parsed from <filename>/proc/cmdline</filename>
-    instead.</para></footnote>:</para>
+    <para>When run as the system instance systemd parses a number of options listed below. They can be
+    specified as kernel command line arguments<footnote><para>If run inside a Linux container these arguments
+    may be passed as command line arguments to systemd itself, next to any of the command line options listed
+    in the Options section above. If run outside of Linux containers, these arguments are parsed from
+    <filename>/proc/cmdline</filename> instead.</para></footnote>, or through the
+    <literal>SystemdOptions</literal> EFI variable (on EFI systems). The kernel command line has higher
+    priority. Following variables are understood:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
@@ -1025,9 +809,17 @@
         it defaults to <constant>auto</constant>. If specified overrides the system
         manager configuration file option <option>ShowStatus=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        However, the process command line option <option>--show-status=</option>
-        takes precedence over both this kernel command line option and the
-        configuration file option.</para></listitem>
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.status_unit_format=</varname></term>
+
+        <listitem><para>Takes either <option>name</option> or <option>description</option> as the value. If
+        <option>name</option>, the system manager will use unit names in status messages. If specified,
+        overrides the system manager configuration file option <option>StatusUnitFormat=</option>, see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1048,11 +840,15 @@
       <varlistentry>
         <term><varname>systemd.default_standard_output=</varname></term>
         <term><varname>systemd.default_standard_error=</varname></term>
-        <listitem><para>Controls default standard output and error
-        output for services, with the same effect as the
-        <option>--default-standard-output=</option> and
-        <option>--default-standard-error=</option> command line
-        arguments described above, respectively.</para></listitem>
+
+        <listitem><para>Controls default standard output and error output for services and sockets. That is,
+        controls the default for <option>StandardOutput=</option> and <option>StandardError=</option> (see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details). Takes one of <option>inherit</option>, <option>null</option>, <option>tty</option>,
+        <option>journal</option>, <option>journal+console</option>, <option>kmsg</option>,
+        <option>kmsg+console</option>. If the argument is omitted
+        <varname>systemd.default-standard-output=</varname> defaults to <option>journal</option> and
+        <varname>systemd.default-standard-error=</varname> to <option>inherit</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1200,6 +996,188 @@
     <para>For other kernel command line parameters understood by
     components of the core OS, please refer to
     <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para><command>systemd</command> is only very rarely invoked directly, since it is started early and is
+    already running by the time users may interact with it. Normally, tools like
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> are used to
+    give commands to the manager. Since <command>systemd</command> is usually not invoked directly, the
+    options listed below are mostly useful for debugging and special purposes.</para>
+
+    <refsect2>
+      <title>Introspection and debugging options</title>
+
+      <para>Those options are used for testing and introspection, and <command>systemd</command> may
+      be invoked with them at any time:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--dump-configuration-items</option></term>
+
+          <listitem><para>Dump understood unit configuration items. This outputs a terse but complete list of
+          configuration items understood in unit definition files.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--dump-bus-properties</option></term>
+
+          <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
+          exposed on D-Bus.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--test</option></term>
+
+          <listitem><para>Determine the initial start-up transaction (i.e. the list of jobs enqueued at
+          start-up), dump it and exit — without actually executing any of the determined jobs. This option is
+          useful for debugging only. Note that during regular service manager start-up additional units not
+          shown by this operation may be started, because hardware, socket, bus or other kinds of activation
+          might add additional jobs as the transaction is executed. Use <option>--system</option> to request
+          the initial transaction of the system service manager (this is also the implied default), combine
+          with <option>--user</option> to request the initial transaction of the per-user service manager
+          instead.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--system</option></term>
+          <term><option>--user</option></term>
+
+          <listitem><para>When used in conjunction with <option>--test</option>, selects whether to calculate
+          the initial transaction for the system instance or for a per-user instance. These options have no
+          effect when invoked without <option>--test</option>, as during regular
+          (i.e. non-<option>--test</option>) invocations the service manager will automatically detect
+          whether it shall operate in system or per-user mode, by checking whether the PID it is run as is 1
+          or not. Note that it is not supported booting and maintaining a system with the service manager
+          running in <option>--system</option> mode but with a PID other than 1.</para></listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Options that duplicate kernel command line settings</title>
+
+      <para>Those options correspond directly to options listed above in "Kernel Command Line". Both forms
+      may be used equivalently for the system manager, but it is recommended to use the forms listed above in
+      this context, because they are properly namespaced. When an option is specified both on the kernel
+      command line, and as a normal command line argument, the latter has higher precedence.</para>
+
+      <para>When <command>systemd</command> is used a user manager, the kernel command line is ignored and
+      the options described are understood. Nevertheless, <command>systemd</command> is usually started in
+      this mode through the
+      <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      service, which is shared between all users, and it may be more convenient to use configuration files to
+      modify settings, see
+      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      or a drop-in that specifies one of the environment variables listed above in "Environment, see
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--unit=</option></term>
+
+          <listitem><para>Set default unit to activate on startup. If not specified, defaults to
+          <filename>default.target</filename>. See <varname>systemd.unit=</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--dump-core</option></term>
+
+          <listitem><para>Enable core dumping on crash. This switch has no effect when running as user
+          instance. Same as <varname>systemd.dump_core=</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--crash-vt=</option><replaceable>VT</replaceable></term>
+
+          <listitem><para>Switch to a specific virtual console (VT) on crash. This switch has no effect when
+          running as user instance. Same as <varname>systemd.crash_chvt=</varname> above (but not the
+          different spelling!).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--crash-shell</option></term>
+
+          <listitem><para>Run a shell on crash. This switch has no effect when running as user instance. See
+          <varname>systemd.crash_shell=</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--crash-reboot</option></term>
+
+          <listitem><para>Automatically reboot the system on crash. This switch has no effect when running as
+          user instance. See <varname>systemd.crash_reboot</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--confirm-spawn</option></term>
+
+          <listitem><para>Ask for confirmation when spawning processes. This switch has no effect when run as
+          user instance. See <varname>systemd.confirm_spawn</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--show-status</option></term>
+
+          <listitem><para>Show terse unit status information is shown on the console during boot-up and
+          shutdown. See <varname>systemd.show_status</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-target=</option></term>
+
+          <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-level=</option></term>
+
+          <listitem><para>Set log level. See <varname>systemd.log_level</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-color</option></term>
+
+          <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-location</option></term>
+
+          <listitem><para>Include code location in log messages. See <varname>systemd.log_location</varname>
+          above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--machine-id=</option></term>
+
+          <listitem><para>Override the machine-id set on the hard drive. See
+          <varname>systemd.machine_id=</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--service-watchdogs</option></term>
+
+          <listitem><para>Globally enable/disable all service watchdog timeouts and emergency actions. See
+          <varname>systemd.service_watchdogs</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--default-standard-output=</option></term>
+          <term><option>--default-standard-error=</option></term>
+
+          <listitem><para>Sets the default output or error output for all services and sockets,
+          respectively. See <varname>systemd.default_standard_output=</varname> and
+          <varname>systemd.default_standard_error=</varname> above.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

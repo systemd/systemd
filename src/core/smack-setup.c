@@ -5,13 +5,11 @@
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdio_ext.h>
 #include <stdlib.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
@@ -25,12 +23,36 @@
 
 #if ENABLE_SMACK
 
-static int write_access2_rules(const char* srcdir) {
+static int fdopen_unlocked_at(int dfd, const char *dir, const char *name, int *status, FILE **ret_file) {
+        int fd, r;
+        FILE *f;
+
+        fd = openat(dfd, name, O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                if (*status == 0)
+                        *status = -errno;
+
+                return log_warning_errno(errno, "Failed to open \"%s/%s\": %m", dir, name);
+        }
+
+        r = fdopen_unlocked(fd, "r", &f);
+        if (r < 0) {
+                if (*status == 0)
+                        *status = r;
+
+                safe_close(fd);
+                return log_error_errno(r, "Failed to open \"%s/%s\": %m", dir, name);
+        }
+
+        *ret_file = f;
+        return 0;
+}
+
+static int write_access2_rules(const char *srcdir) {
         _cleanup_close_ int load2_fd = -1, change_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        int dfd = -1;
-        int r = 0;
+        int dfd = -1, r = 0;
 
         load2_fd = open("/sys/fs/smackfs/load2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (load2_fd < 0)  {
@@ -58,28 +80,14 @@ static int write_access2_rules(const char* srcdir) {
         assert(dfd >= 0);
 
         FOREACH_DIRENT(entry, dir, return 0) {
-                int fd;
                 _cleanup_fclose_ FILE *policy = NULL;
 
+                dirent_ensure_type(dir, entry);
                 if (!dirent_is_file(entry))
                         continue;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        if (r == 0)
-                                r = -errno;
-                        log_warning_errno(errno, "Failed to open '%s': %m", entry->d_name);
+                if (fdopen_unlocked_at(dfd, srcdir, entry->d_name, &r, &policy) < 0)
                         continue;
-                }
-
-                policy = fdopen(fd, "r");
-                if (!policy) {
-                        if (r == 0)
-                                r = -errno;
-                        safe_close(fd);
-                        log_error_errno(errno, "Failed to open '%s': %m", entry->d_name);
-                        continue;
-                }
 
                 /* load2 write rules in the kernel require a line buffered stream */
                 for (;;) {
@@ -114,12 +122,11 @@ static int write_access2_rules(const char* srcdir) {
         return r;
 }
 
-static int write_cipso2_rules(const char* srcdir) {
+static int write_cipso2_rules(const char *srcdir) {
         _cleanup_close_ int cipso2_fd = -1;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        int dfd = -1;
-        int r = 0;
+        int dfd = -1, r = 0;
 
         cipso2_fd = open("/sys/fs/smackfs/cipso2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (cipso2_fd < 0)  {
@@ -140,28 +147,14 @@ static int write_cipso2_rules(const char* srcdir) {
         assert(dfd >= 0);
 
         FOREACH_DIRENT(entry, dir, return 0) {
-                int fd;
                 _cleanup_fclose_ FILE *policy = NULL;
 
+                dirent_ensure_type(dir, entry);
                 if (!dirent_is_file(entry))
                         continue;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        if (r == 0)
-                                r = -errno;
-                        log_error_errno(errno, "Failed to open '%s': %m", entry->d_name);
+                if (fdopen_unlocked_at(dfd, srcdir, entry->d_name, &r, &policy) < 0)
                         continue;
-                }
-
-                policy = fdopen(fd, "r");
-                if (!policy) {
-                        if (r == 0)
-                                r = -errno;
-                        safe_close(fd);
-                        log_error_errno(errno, "Failed to open '%s': %m", entry->d_name);
-                        continue;
-                }
 
                 /* cipso2 write rules in the kernel require a line buffered stream */
                 for (;;) {
@@ -190,12 +183,11 @@ static int write_cipso2_rules(const char* srcdir) {
         return r;
 }
 
-static int write_netlabel_rules(const char* srcdir) {
+static int write_netlabel_rules(const char *srcdir) {
         _cleanup_fclose_ FILE *dst = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *entry;
-        int dfd = -1;
-        int r = 0;
+        int dfd = -1, r = 0;
 
         dst = fopen("/sys/fs/smackfs/netlabel", "we");
         if (!dst)  {
@@ -216,27 +208,10 @@ static int write_netlabel_rules(const char* srcdir) {
         assert(dfd >= 0);
 
         FOREACH_DIRENT(entry, dir, return 0) {
-                int fd;
                 _cleanup_fclose_ FILE *policy = NULL;
 
-                fd = openat(dfd, entry->d_name, O_RDONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        if (r == 0)
-                                r = -errno;
-                        log_warning_errno(errno, "Failed to open %s: %m", entry->d_name);
+                if (fdopen_unlocked_at(dfd, srcdir, entry->d_name, &r, &policy) < 0)
                         continue;
-                }
-
-                policy = fdopen(fd, "r");
-                if (!policy) {
-                        if (r == 0)
-                                r = -errno;
-                        safe_close(fd);
-                        log_error_errno(errno, "Failed to open %s: %m", entry->d_name);
-                        continue;
-                }
-
-                (void) __fsetlocking(policy, FSETLOCKING_BYCALLER);
 
                 /* load2 write rules in the kernel require a line buffered stream */
                 for (;;) {

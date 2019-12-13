@@ -1,0 +1,10 @@
+[NetDev]
+Name=ipiptun99
+Kind=ipip
+MTUBytes=1480
+
+[Tunnel]
+Local=192.168.223.238
+Remote=192.169.224.239
+Independent=true
+AssignToLoopback=yes

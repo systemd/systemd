@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-cat"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -143,7 +140,7 @@
     <example>
       <title>Invoke a program</title>
 
-      <para>This calls <filename noindex='true'>/bin/ls</filename>
+      <para>This calls <filename index="false">/bin/ls</filename>
       with standard output and error connected to the journal:</para>
 
       <programlisting># systemd-cat ls</programlisting>

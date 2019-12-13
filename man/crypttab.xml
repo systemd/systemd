@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
@@ -151,6 +152,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>keyfile-timeout=</option></term>
+
+        <listitem><para> Specifies the timeout for the device on
+        which the key file resides and falls back to a password if
+        it could not be mounted. See
+        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for key files on external devices.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>luks</option></term>
 
         <listitem><para>Force LUKS mode. When this mode is used, the
@@ -196,11 +208,11 @@
         <term><option>nofail</option></term>
 
         <listitem><para>This device will not be a hard dependency of
-        <filename>cryptsetup.target</filename>. It'll be still pulled in and started, but the system
+        <filename>cryptsetup.target</filename>. It'll still be pulled in and started, but the system
         will not wait for the device to show up and be unlocked, and boot will not fail if this is
         unsuccessful. Note that other units that depend on the unlocked device may still fail. In
-        particular, if the device is used for a mount point, the mount point itself is also needs to
-        have <option>noauto</option> option, or the boot will fail if the device is not unlocked
+        particular, if the device is used for a mount point, the mount point itself also needs to
+        have the <option>nofail</option> option, or the boot will fail if the device is not unlocked
         successfully.</para></listitem>
       </varlistentry>
 
@@ -222,6 +234,26 @@
 
         <listitem><para>Set up the encrypted block device in read-only
         mode.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>same-cpu-crypt</option></term>
+
+        <listitem><para>Perform encryption using the same cpu that IO was submitted on. The default is to use
+        an unbound workqueue so that encryption work is automatically balanced between available CPUs.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>submit-from-crypt-cpus</option></term>
+
+        <listitem><para>Disable offloading writes to a separate thread after encryption. There are some
+        situations where offloading write bios from the encryption threads to a single thread degrades
+        performance significantly. The default is to offload write bios to the same thread because it benefits
+        CFQ to have writes submitted using the same context.</para>
+        <para>This requires kernel 4.0 or newer.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -399,6 +431,25 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>x-initrd.attach</option></term>
+
+        <listitem><para>Setup this encrypted block device in the initramfs, similarly to
+        <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        units marked with <option>x-initrd.mount</option>.</para>
+
+        <para>Although it's not necessary to mark the mount entry for the root file system with
+        <option>x-initrd.mount</option>, <option>x-initrd.attach</option> is still recommended with
+        the encrypted block device containing the root file system as otherwise systemd will
+        attempt to detach the device during the regular system shutdown while it's still in
+        use. With this option the device will still be detached but later after the root file
+        system is unmounted.</para>
+
+        <para>All other encrypted block devices that contain file systems mounted in the initramfs
+        should use this option.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is
@@ -417,7 +468,8 @@
       <programlisting>luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
 swap       /dev/sda7       /dev/urandom       swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
-hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile</programlisting>
+hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile
+external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s</programlisting>
     </example>
   </refsect1>
 

@@ -10,11 +10,12 @@
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sysexits.h>
 #include <termios.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -85,11 +86,12 @@ static int verify_vc_kbmode(int fd) {
         return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
 }
 
-static int toggle_utf8(const char *name, int fd, bool utf8) {
+static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         int r;
         struct termios tc = {};
 
         assert(name);
+        assert(fd >= 0);
 
         r = ioctl(fd, KDSKBMODE, utf8 ? K_UNICODE : K_XLATE);
         if (r < 0)
@@ -245,7 +247,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         /*
                          * Console fonts supported by the kernel are limited in size to 32 x 32 and maximum 512
                          * characters. Thus with 1 bit per pixel it requires up to 65536 bytes. The height always
-                         * requries 32 per glyph, regardless of the actual height - see the comment above #define
+                         * requires 32 per glyph, regardless of the actual height - see the comment above #define
                          * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
                         fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);
@@ -291,7 +293,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                 if (verify_vc_kbmode(fd_d) < 0)
                         continue;
 
-                toggle_utf8(ttyname, fd_d, utf8);
+                (void) toggle_utf8_vc(ttyname, fd_d, utf8);
 
                 if (cfo.op != KD_FONT_OP_SET)
                         continue;
@@ -456,7 +458,7 @@ int main(int argc, char **argv) {
                 log_warning_errno(r, "Failed to read /proc/cmdline: %m");
 
         (void) toggle_utf8_sysfs(utf8);
-        (void) toggle_utf8(vc, fd, utf8);
+        (void) toggle_utf8_vc(vc, fd, utf8);
 
         r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;

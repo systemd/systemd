@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.path">
   <refentryinfo>
@@ -37,9 +34,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The path specific configuration options are
-    configured in the [Path] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The path specific configuration options are
+    configured in the <literal>[Path]</literal> section.</para>
 
     <para>For each path file, a matching unit file must exist,
     describing the unit to activate when the path changes. By default,

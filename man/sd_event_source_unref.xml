@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_source_unref" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -22,6 +19,8 @@
     <refname>sd_event_source_unref</refname>
     <refname>sd_event_source_unrefp</refname>
     <refname>sd_event_source_ref</refname>
+    <refname>sd_event_source_disable_unref</refname>
+    <refname>sd_event_source_disable_unrefp</refname>
 
     <refpurpose>Increase or decrease event source reference counters</refpurpose>
   </refnamediv>
@@ -45,6 +44,15 @@
         <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef>sd_event_source* <function>sd_event_source_disable_unref</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_event_source_disable_unrefp</function></funcdef>
+        <paramdef>sd_event_source **<parameter>source</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -80,23 +88,32 @@
     the passed event source object is
     <constant>NULL</constant>.</para>
 
-    <para>Note that event source objects stay alive and may be
-    dispatched as long as they have a reference counter greater than
-    zero. In order to drop a reference of an event source and make
-    sure the associated event source handler function is not called
-    anymore it is recommended to combine a call of
+    <para>Note that event source objects stay alive and may be dispatched as long as they have a reference
+    counter greater than zero. In order to drop a reference of an event source and make sure the associated
+    event source handler function is not called anymore it is recommended to combine a call of
     <function>sd_event_source_unref()</function> with a prior call to
-    <function>sd_event_source_set_enabled()</function> with
-    <constant>SD_EVENT_OFF</constant>.</para>
+    <function>sd_event_source_set_enabled()</function> with <constant>SD_EVENT_OFF</constant> or call
+    <function>sd_event_source_disable_unref()</function>, see below.</para>
+
+    <para><function>sd_event_source_disable_unref()</function> combines a call to
+    <function>sd_event_source_set_enabled()</function> with <constant>SD_EVENT_OFF</constant> with
+    <function>sd_event_source_unref()</function>. This ensures that the source is disabled before the local
+    reference to it is lost. The <parameter>source</parameter> parameter is allowed to be
+    <constant>NULL</constant>.</para>
+
+    <para><function>sd_event_source_disable_unrefp()</function> is similar to
+    <function>sd_event_source_unrefp()</function>, but in addition disables the source first. This call is
+    useful in conjunction with GCC's and LLVM's
+    <ulink url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up Variable
+    Attribute</ulink>. Note that this function is defined as inline function.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para><function>sd_event_source_unref()</function> always returns
-    <constant>NULL</constant>.
-    <function>sd_event_source_ref()</function> always returns the
-    event source object passed in.</para>
+    <para><function>sd_event_source_unref()</function> and
+    <function>sd_event_source_disable_unref()</function> always return <constant>NULL</constant>.
+    <function>sd_event_source_ref()</function> always returns the event source object passed in.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

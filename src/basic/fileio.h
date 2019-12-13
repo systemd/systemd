@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -20,12 +21,24 @@ typedef enum {
         WRITE_STRING_FILE_SYNC              = 1 << 4,
         WRITE_STRING_FILE_DISABLE_BUFFER    = 1 << 5,
         WRITE_STRING_FILE_NOFOLLOW          = 1 << 6,
+        WRITE_STRING_FILE_MKDIR_0755        = 1 << 7,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
            and friends. */
 
 } WriteStringFileFlags;
+
+typedef enum {
+        READ_FULL_FILE_SECURE   = 1 << 0,
+        READ_FULL_FILE_UNBASE64 = 1 << 1,
+        READ_FULL_FILE_UNHEX    = 1 << 2,
+} ReadFullFileFlags;
+
+int fopen_unlocked(const char *path, const char *options, FILE **ret);
+int fdopen_unlocked(int fd, const char *options, FILE **ret);
+FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc);
+FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode);
 
 int write_string_stream_ts(FILE *f, const char *line, WriteStringFileFlags flags, struct timespec *ts);
 static inline int write_string_stream(FILE *f, const char *line, WriteStringFileFlags flags) {
@@ -38,9 +51,16 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
 
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
-int read_one_line_file(const char *fn, char **line);
-int read_full_file(const char *fn, char **contents, size_t *size);
-int read_full_stream(FILE *f, char **contents, size_t *size);
+int read_one_line_file(const char *filename, char **line);
+int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+static inline int read_full_file(const char *filename, char **contents, size_t *size) {
+        return read_full_file_full(filename, 0, contents, size);
+}
+int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size);
+int read_full_stream_full(FILE *f, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+static inline int read_full_stream(FILE *f, char **contents, size_t *size) {
+        return read_full_stream_full(f, NULL, 0, contents, size);
+}
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
 
@@ -76,3 +96,5 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
 }
 
 int safe_fgetc(FILE *f, char *ret);
+
+int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);

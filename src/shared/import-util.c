@@ -1,17 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "import-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 int import_url_last_component(const char *url, char **ret) {
         const char *e, *p;

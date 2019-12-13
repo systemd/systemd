@@ -152,6 +152,10 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
+        r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_LOCAL_FS_PRE_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (r < 0)
+                return r;
+
         r = unit_add_two_dependencies_by_name(UNIT(a), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;
@@ -164,9 +168,7 @@ static int automount_verify(Automount *a) {
         int r;
 
         assert(a);
-
-        if (UNIT(a)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(a)->load_state == UNIT_LOADED);
 
         if (path_equal(a->where, "/")) {
                 log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
@@ -201,6 +203,24 @@ static int automount_set_where(Automount *a) {
         return 1;
 }
 
+static int automount_add_extras(Automount *a) {
+        int r;
+
+        r = automount_set_where(a);
+        if (r < 0)
+                return r;
+
+        r = automount_add_trigger_dependencies(a);
+        if (r < 0)
+                return r;
+
+        r = automount_add_mount_dependencies(a);
+        if (r < 0)
+                return r;
+
+        return automount_add_default_dependencies(a);
+}
+
 static int automount_load(Unit *u) {
         Automount *a = AUTOMOUNT(u);
         int r;
@@ -209,27 +229,16 @@ static int automount_load(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         /* Load a .automount file */
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
-                r = automount_set_where(a);
-                if (r < 0)
-                        return r;
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-                r = automount_add_trigger_dependencies(a);
-                if (r < 0)
-                        return r;
-
-                r = automount_add_mount_dependencies(a);
-                if (r < 0)
-                        return r;
-
-                r = automount_add_default_dependencies(a);
-                if (r < 0)
-                        return r;
-        }
+        r = automount_add_extras(a);
+        if (r < 0)
+                return r;
 
         return automount_verify(a);
 }
@@ -568,7 +577,7 @@ static void automount_enter_waiting(Automount *a) {
         if (r < 0)
                 goto fail;
 
-        (void) mkdir_p_label(a->where, 0555);
+        (void) mkdir_p_label(a->where, a->directory_mode);
 
         unit_warn_if_dir_nonempty(UNIT(a), a->where);
 
@@ -578,10 +587,13 @@ static void automount_enter_waiting(Automount *a) {
                 goto fail;
         }
 
-        if (pipe2(p, O_NONBLOCK|O_CLOEXEC) < 0) {
+        if (pipe2(p, O_CLOEXEC) < 0) {
                 r = -errno;
                 goto fail;
         }
+        r = fd_nonblock(p[0], true);
+        if (r < 0)
+                goto fail;
 
         xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
@@ -756,7 +768,7 @@ static void automount_enter_running(Automount *a) {
                 return;
         }
 
-        mkdir_p_label(a->where, a->directory_mode);
+        (void) mkdir_p_label(a->where, a->directory_mode);
 
         /* Before we do anything, let's see if somebody is playing games with us? */
         if (lstat(a->where, &st) < 0) {
@@ -778,7 +790,7 @@ static void automount_enter_running(Automount *a) {
                 goto fail;
         }
 
-        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(UNIT(a)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0) {
                 log_unit_warning(UNIT(a), "Failed to queue mount startup job: %s", bus_error_message(&error, r));
                 goto fail;
@@ -793,7 +805,6 @@ fail:
 
 static int automount_start(Unit *u) {
         Automount *a = AUTOMOUNT(u);
-        Unit *trigger;
         int r;
 
         assert(a);
@@ -804,13 +815,11 @@ static int automount_start(Unit *u) {
                 return -EEXIST;
         }
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 automount_enter_dead(a, AUTOMOUNT_FAILURE_START_LIMIT_HIT);
                 return r;
@@ -1035,7 +1044,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                         goto fail;
                 }
 
-                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, &error, NULL);
+                r = manager_add_job(UNIT(a)->manager, JOB_STOP, trigger, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
                         log_unit_warning(UNIT(a), "Failed to queue umount startup job: %s", bus_error_message(&error, r));
                         goto fail;

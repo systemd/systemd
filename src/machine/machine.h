@@ -7,6 +7,7 @@ typedef enum KillWho KillWho;
 #include "list.h"
 #include "machined.h"
 #include "operation.h"
+#include "time-util.h"
 
 typedef enum MachineState {
         MACHINE_OPENING,    /* Machine is being registered */
@@ -53,6 +54,7 @@ struct Machine {
         bool in_gc_queue:1;
         bool started:1;
         bool stopping:1;
+        bool referenced:1;
 
         sd_bus_message *create_message;
 
@@ -88,7 +90,7 @@ MachineState machine_state_from_string(const char *s) _pure_;
 const char *kill_who_to_string(KillWho k) _const_;
 KillWho kill_who_from_string(const char *s) _pure_;
 
-int machine_openpt(Machine *m, int flags);
+int machine_openpt(Machine *m, int flags, char **ret_slave);
 int machine_open_terminal(Machine *m, const char *path, int mode);
 
 int machine_get_uid_shift(Machine *m, uid_t *ret);

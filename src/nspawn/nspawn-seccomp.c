@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <linux/netlink.h>
 #include <sys/capability.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #if HAVE_SECCOMP
@@ -122,6 +123,7 @@ static int seccomp_add_default_syscall_filter(
                  * @cpu-emulation
                  * @keyring           (NB: keyring is not namespaced!)
                  * @obsolete
+                 * @pkey
                  * @swap
                  *
                  * bpf                (NB: bpffs is not namespaced!)
@@ -133,18 +135,14 @@ static int seccomp_add_default_syscall_filter(
                  * nfsservctl
                  * open_by_handle_at
                  * perf_event_open
-                 * pkey_alloc
-                 * pkey_free
-                 * pkey_mprotect
                  * quotactl
                  */
         };
 
-        int r;
-        size_t i;
         char **p;
+        int r;
 
-        for (i = 0; i < ELEMENTSOF(whitelist); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(whitelist); i++) {
                 if (whitelist[i].capability != 0 && (cap_list_retain & (1ULL << whitelist[i].capability)) == 0)
                         continue;
 
@@ -154,7 +152,7 @@ static int seccomp_add_default_syscall_filter(
         }
 
         STRV_FOREACH(p, syscall_whitelist) {
-                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, false);
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
                                           *p, seccomp_arch_to_string(arch));
@@ -186,7 +184,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                         return r;
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp filter: %m");
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
@@ -222,7 +220,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
                 }
 
                 r = seccomp_load(seccomp);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 if (r < 0)
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));

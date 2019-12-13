@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -77,8 +78,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         determine_compression_from_filename(path);
 
@@ -154,8 +154,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         if (argc >= 3)
                 path = argv[2];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         determine_compression_from_filename(path);
 

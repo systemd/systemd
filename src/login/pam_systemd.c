@@ -10,14 +10,18 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-internal.h"
 #include "bus-util.h"
-#include "cgroup-util.h"
-#include "def.h"
+#include "cgroup-setup.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -31,7 +35,8 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "util.h"
+
+#define LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC (2*USEC_PER_MINUTE)
 
 static int parse_argv(
                 pam_handle_t *handle,
@@ -47,28 +52,30 @@ static int parse_argv(
         assert(argc == 0 || argv);
 
         for (i = 0; i < (unsigned) argc; i++) {
-                if (startswith(argv[i], "class=")) {
+                const char *p;
+
+                if ((p = startswith(argv[i], "class="))) {
                         if (class)
-                                *class = argv[i] + 6;
+                                *class = p;
 
-                } else if (startswith(argv[i], "type=")) {
+                } else if ((p = startswith(argv[i], "type="))) {
                         if (type)
-                                *type = argv[i] + 5;
+                                *type = p;
 
-                } else if (startswith(argv[i], "desktop=")) {
+                } else if ((p = startswith(argv[i], "desktop="))) {
                         if (desktop)
-                                *desktop = argv[i] + 8;
+                                *desktop = p;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
                                 *debug = true;
 
-                } else if (startswith(argv[i], "debug=")) {
+                } else if ((p = startswith(argv[i], "debug="))) {
                         int k;
 
-                        k = parse_boolean(argv[i] + 6);
+                        k = parse_boolean(p);
                         if (k < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring.");
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", p);
                         else if (debug)
                                 *debug = k;
 
@@ -94,7 +101,7 @@ static int get_user_data(
 
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name.");
+                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
                 return r;
         }
 
@@ -113,6 +120,15 @@ static int get_user_data(
         *ret_username = username;
 
         return PAM_SUCCESS;
+}
+
+static bool display_is_local(const char *display) {
+        assert(display);
+
+        return
+                display[0] == ':' &&
+                display[1] >= '0' &&
+                display[1] <= '9';
 }
 
 static int socket_from_display(const char *display, char **path) {
@@ -240,7 +256,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         if (streq(limit, "infinity")) {
                 r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", (uint64_t)-1);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else {
@@ -248,7 +264,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                 if (r >= 0) {
                         r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
                         if (r < 0) {
-                                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                                 return r;
                         }
                 } else {
@@ -256,13 +272,34 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                         if (r >= 0) {
                                 r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
                                 if (r < 0) {
-                                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                                         return r;
                                 }
                         } else
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max: %s, ignoring.", limit);
                 }
         }
+
+        return 0;
+}
+
+static int append_session_runtime_max_sec(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
+        usec_t val;
+        int r;
+
+        /* No need to parse "infinity" here, it will be set by default later in scope_init() */
+        if (isempty(limit) || streq(limit, "infinity"))
+                return 0;
+
+        r = parse_sec(limit, &val);
+        if (r >= 0) {
+                r = sd_bus_message_append(m, "(sv)", "RuntimeMaxUSec", "t", (uint64_t) val);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
+                        return r;
+                }
+        } else
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.runtime_max_sec: %s, ignoring.", limit);
 
         return 0;
 }
@@ -279,11 +316,11 @@ static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, con
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", val);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else
-                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.limit: %s, ignoring.", limit);
+                pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.tasks_max: %s, ignoring.", limit);
 
         return 0;
 }
@@ -299,7 +336,7 @@ static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, con
         if (r >= 0) {
                 r = sd_bus_message_append(m, "(sv)", field, "t", val);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                         return r;
                 }
         } else if (streq(field, "CPUWeight"))
@@ -316,14 +353,21 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         assert(handle);
         assert(key);
 
-        /* Looks for an environment variable, preferrably in the environment block associated with the specified PAM
-         * handle, falling back to the process' block instead. */
+        /* Looks for an environment variable, preferably in the environment block associated with the
+         * specified PAM handle, falling back to the process' block instead. Why check both? Because we want
+         * to permit configuration of session properties from unit files that invoke PAM services, so that
+         * PAM services don't have to be reworked to set systemd-specific properties, but these properties
+         * can still be set from the unit file Environment= block. */
 
         v = pam_getenv(handle, key);
         if (!isempty(v))
                 return v;
 
-        v = getenv(key);
+        /* We use secure_getenv() here, since we might get loaded into su/sudo, which are SUID. Ideally
+         * they'd clean up the environment before invoking foreign code (such as PAM modules), but alas they
+         * currently don't (to be precise, they clean up the environment they pass to their children, but
+         * not their own environ[]). */
+        v = secure_getenv(key);
         if (!isempty(v))
                 return v;
 
@@ -343,7 +387,7 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
 
         r = pam_misc_setenv(handle, key, value, 0);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s.", key);
+                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s: %s", key, pam_strerror(handle, r));
 
         return r;
 }
@@ -351,13 +395,14 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
 static bool validate_runtime_directory(pam_handle_t *handle, const char *path, uid_t uid) {
         struct stat st;
 
+        assert(handle);
         assert(path);
 
         /* Just some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually set
          * up properly for us. */
 
         if (lstat(path, &st) < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror(errno));
+                pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror_safe(errno));
                 goto fail;
         }
 
@@ -393,7 +438,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *seat = NULL,
                 *type = NULL, *class = NULL,
                 *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
-                *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL;
+                *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
         bool debug = false, remote;
@@ -419,10 +464,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd initializing");
 
         r = get_user_data(handle, &username, &pw);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user data.");
+        if (r != PAM_SUCCESS)
                 return r;
-        }
 
         /* Make sure we don't enter a loop by talking to
          * systemd-logind when it is actually waiting for the
@@ -430,7 +473,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
          * "systemd-user" we simply set XDG_RUNTIME_DIR and
          * leave. */
 
-        pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        (void) pam_get_item(handle, PAM_SERVICE, (const void**) &service);
         if (streq_ptr(service, "systemd-user")) {
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
@@ -438,7 +481,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (validate_runtime_directory(handle, rt, pw->pw_uid)) {
                         r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
                         if (r != PAM_SUCCESS) {
-                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir: %s", pam_strerror(handle, r));
                                 return r;
                         }
                 }
@@ -452,10 +495,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         /* Otherwise, we ask logind to create a session for us */
 
-        pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
+        (void) pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
+        (void) pam_get_item(handle, PAM_TTY, (const void**) &tty);
+        (void) pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
+        (void) pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
@@ -526,12 +569,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         (void) pam_get_data(handle, "systemd.tasks_max",  (const void **)&tasks_max);
         (void) pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
         (void) pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
+        (void) pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
 
         /* Talk to logind over the message bus */
 
         r = sd_bus_open_system(&bus);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -544,8 +588,8 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            strempty(seat), vtnr, strempty(tty), strempty(display),
                            yes_no(remote), strempty(remote_user), strempty(remote_host));
                 pam_syslog(handle, LOG_DEBUG, "Session limits: "
-                           "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s",
-                           strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight));
+                           "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
+                           strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
         }
 
         r = sd_bus_message_new_method_call(
@@ -556,7 +600,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         "org.freedesktop.login1.Manager",
                         "CreateSession");
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to create CreateSession method call: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to create CreateSession method call: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -575,17 +619,21 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         remote_user,
                         remote_host);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
         r = sd_bus_message_open_container(m, 'a', "(sv)");
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to open message container: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to open message container: %s", strerror_safe(r));
                 return PAM_SYSTEM_ERR;
         }
 
         r = append_session_memory_max(handle, m, memory_max);
+        if (r < 0)
+                return PAM_SESSION_ERR;
+
+        r = append_session_runtime_max_sec(handle, m, runtime_max_sec);
         if (r < 0)
                 return PAM_SESSION_ERR;
 
@@ -603,11 +651,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = sd_bus_message_close_container(m);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to close message container: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to close message container: %s", strerror_safe(r));
                 return PAM_SYSTEM_ERR;
         }
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
                         if (debug)
@@ -615,7 +663,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         return PAM_SUCCESS;
                 } else {
                         pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
-                        return PAM_SYSTEM_ERR;
+                        return PAM_SESSION_ERR;
                 }
         }
 
@@ -630,7 +678,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                 &vtnr,
                                 &existing);
         if (r < 0) {
-                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror(-r));
+                pam_syslog(handle, LOG_ERR, "Failed to parse message: %s", strerror_safe(r));
                 return PAM_SESSION_ERR;
         }
 
@@ -692,7 +740,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to install existing flag.");
+                pam_syslog(handle, LOG_ERR, "Failed to install existing flag: %s", pam_strerror(handle, r));
                 return r;
         }
 
@@ -705,7 +753,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
                 r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(session_fd), NULL);
                 if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to install session fd.");
+                        pam_syslog(handle, LOG_ERR, "Failed to install session fd: %s", pam_strerror(handle, r));
                         safe_close(session_fd);
                         return r;
                 }
@@ -741,7 +789,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
                 r = sd_bus_open_system(&bus);
                 if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror(-r));
+                        pam_syslog(handle, LOG_ERR, "Failed to connect to system bus: %s", strerror_safe(r));
                         return PAM_SESSION_ERR;
                 }
 

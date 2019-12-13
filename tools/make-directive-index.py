@@ -46,10 +46,20 @@ TEMPLATE = '''\
         <refsect1>
                 <title>Environment variables</title>
 
-                <para>Environment variables understood by the systemd
-                manager and other programs.</para>
+                <para>Environment variables understood by the systemd manager
+                and other programs and environment variable-compatible settings.</para>
 
                 <variablelist id='environment-variables' />
+        </refsect1>
+
+        <refsect1>
+                <title>EFI variables</title>
+
+                <para>EFI variables understood by
+                <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+                and other programs.</para>
+
+                <variablelist id='efi-variables' />
         </refsect1>
 
         <refsect1>
@@ -98,16 +108,25 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
-                <title>System manager directives</title>
+                <title><citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+                directives</title>
 
-                <para>Directives for configuring the behaviour of the
-                systemd process.</para>
+                <para>Directives for configuring systemd-nspawn containers.</para>
 
-                <variablelist id='systemd-directives' />
+                <variablelist id='nspawn-directives' />
         </refsect1>
 
         <refsect1>
-                <title>command line options</title>
+                <title>Program configuration options</title>
+
+                <para>Directives for configuring the behaviour of the
+                systemd process and other tools through configuration files.</para>
+
+                <variablelist id='config-directives' />
+        </refsect1>
+
+        <refsect1>
+                <title>Command line options</title>
 
                 <para>Command-line options accepted by programs in the
                 systemd suite.</para>
@@ -168,10 +187,13 @@ def _extract_directives(directive_groups, formatting, page):
                              storvar if klass else storopt)):
             for name in variablelist.iterfind(xpath):
                 text = re.sub(r'([= ]).*', r'\1', name.text).rstrip()
+                if text.startswith('-'):
+                    # for options, merge options with and without mandatory arg
+                    text = text.partition('=')[0]
                 stor[text].append((pagename, section))
                 if text not in formatting:
                     # use element as formatted display
-                    if name.text[-1] in '= ':
+                    if name.text[-1] in "= '":
                         name.clear()
                     else:
                         name.tail = ''
@@ -185,7 +207,7 @@ def _extract_directives(directive_groups, formatting, page):
         for name in t.iterfind(xpath):
             if absolute_only and not (name.text and name.text.startswith('/')):
                 continue
-            if name.attrib.get('noindex'):
+            if name.attrib.get('index') == 'false':
                 continue
             name.tail = ''
             if name.text:
@@ -209,7 +231,7 @@ def _extract_directives(directive_groups, formatting, page):
 
     storfile = directive_groups['constants']
     for name in t.iterfind('.//constant'):
-        if name.attrib.get('noindex'):
+        if name.attrib.get('index') == 'false':
             continue
         name.tail = ''
         if name.text.startswith('('): # a cast, strip it

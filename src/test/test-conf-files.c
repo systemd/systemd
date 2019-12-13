@@ -30,7 +30,7 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
         while (files) {
                 _cleanup_free_ char *path;
 
-                assert_se(path = strappend(tmp_dir, files));
+                assert_se(path = path_join(tmp_dir, files));
                 (void) mkdir_parents(path, 0755);
                 assert_se(write_string_file(path, "foobar", WRITE_STRING_FILE_CREATE) >= 0);
 
@@ -42,38 +42,34 @@ static void setup_test_dir(char *tmp_dir, const char *files, ...) {
 static void test_conf_files_list(bool use_root) {
         char tmp_dir[] = "/tmp/test-conf-files-XXXXXX";
         _cleanup_strv_free_ char **found_files = NULL, **found_files2 = NULL;
-        const char *root_dir, *search_1, *search_2, *expect_a, *expect_b, *expect_c, *mask;
+        const char *root_dir, *search, *expect_a, *expect_b, *expect_c, *mask;
 
-        log_debug("/* %s(%s) */", __func__, yes_no(use_root));
+        log_info("/* %s(%s) */", __func__, yes_no(use_root));
 
         setup_test_dir(tmp_dir,
-                       "/dir1/a.conf",
-                       "/dir2/a.conf",
-                       "/dir2/b.conf",
-                       "/dir2/c.foo",
-                       "/dir2/d.conf",
+                       "/dir/a.conf",
+                       "/dir/b.conf",
+                       "/dir/c.foo",
                        NULL);
 
-        mask = strjoina(tmp_dir, "/dir1/d.conf");
+        mask = strjoina(tmp_dir, "/dir/d.conf");
         assert_se(symlink("/dev/null", mask) >= 0);
 
         if (use_root) {
                 root_dir = tmp_dir;
-                search_1 = "/dir1";
-                search_2 = "/dir2";
+                search = "/dir";
         } else {
                 root_dir = NULL;
-                search_1 = strjoina(tmp_dir, "/dir1");
-                search_2 = strjoina(tmp_dir, "/dir2");
+                search = strjoina(tmp_dir, "/dir");
         }
 
-        expect_a = strjoina(tmp_dir, "/dir1/a.conf");
-        expect_b = strjoina(tmp_dir, "/dir2/b.conf");
-        expect_c = strjoina(tmp_dir, "/dir2/c.foo");
+        expect_a = strjoina(tmp_dir, "/dir/a.conf");
+        expect_b = strjoina(tmp_dir, "/dir/b.conf");
+        expect_c = strjoina(tmp_dir, "/dir/c.foo");
 
         log_debug("/* Check when filtered by suffix */");
 
-        assert_se(conf_files_list(&found_files, ".conf", root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) == 0);
+        assert_se(conf_files_list(&found_files, ".conf", root_dir, CONF_FILES_FILTER_MASKED, search) == 0);
         strv_print(found_files);
 
         assert_se(found_files);
@@ -82,7 +78,7 @@ static void test_conf_files_list(bool use_root) {
         assert_se(!found_files[2]);
 
         log_debug("/* Check when unfiltered */");
-        assert_se(conf_files_list(&found_files2, NULL, root_dir, CONF_FILES_FILTER_MASKED, search_1, search_2, NULL) == 0);
+        assert_se(conf_files_list(&found_files2, NULL, root_dir, CONF_FILES_FILTER_MASKED, search) == 0);
         strv_print(found_files2);
 
         assert_se(found_files2);
@@ -102,11 +98,11 @@ static void test_conf_files_insert(const char *root) {
         char **dirs = STRV_MAKE("/dir1", "/dir2", "/dir3");
 
         _cleanup_free_ const char
-                *foo1 = prefix_root(root, "/dir1/foo.conf"),
-                *foo2 = prefix_root(root, "/dir2/foo.conf"),
-                *bar2 = prefix_root(root, "/dir2/bar.conf"),
-                *zzz3 = prefix_root(root, "/dir3/zzz.conf"),
-                *whatever = prefix_root(root, "/whatever.conf");
+                *foo1 = path_join(root, "/dir1/foo.conf"),
+                *foo2 = path_join(root, "/dir2/foo.conf"),
+                *bar2 = path_join(root, "/dir2/bar.conf"),
+                *zzz3 = path_join(root, "/dir3/zzz.conf"),
+                *whatever = path_join(root, "/whatever.conf");
 
         assert_se(conf_files_insert(&s, root, dirs, "/dir2/foo.conf") == 0);
         assert_se(strv_equal(s, STRV_MAKE(foo2)));

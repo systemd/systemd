@@ -1,199 +1,200 @@
-#compdef systemctl
+#compdef systemctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_systemctl_commands] )) || _systemctl_commands()
 {
-  local -a _systemctl_cmds
-  _systemctl_cmds=(
-    "list-sockets:List sockets"
-    "list-timers:List timers"
-    "list-units:List units"
-    "start:Start (activate) one or more units"
-    "stop:Stop (deactivate) one or more units"
-    "reload:Reload one or more units"
-    "restart:Start or restart one or more units"
-    "condrestart:Restart one or more units if active"
-    "try-restart:Restart one or more units if active"
-    "reload-or-restart:Reload one or more units if possible, otherwise start or restart"
-    "force-reload:Reload one or more units if possible, otherwise restart if active"
-    "hibernate:Hibernate the system"
-    "hybrid-sleep:Hibernate and suspend the system"
-    "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
-    "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
-    "isolate:Start one unit and stop all others"
-    "kill:Send signal to processes of a unit"
-    "is-active:Check whether units are active"
-    "is-failed:Check whether units are failed"
-    "status:Show runtime status of one or more units"
-    "show:Show properties of one or more units/jobs or the manager"
-    "cat:Show the source unit files and drop-ins"
-    "reset-failed:Reset failed state for all, one, or more units"
-    "list-unit-files:List installed unit files"
-    "enable:Enable one or more unit files"
-    "disable:Disable one or more unit files"
-    "add-wants:Add Wants= dependencies to a unit"
-    "add-requires:Add Requires= dependencies to a unit"
-    "reenable:Reenable one or more unit files"
-    "preset:Enable/disable one or more unit files based on preset configuration"
-    "set-default:Set the default target"
-    "get-default:Query the default target"
-    "edit:Edit one or more unit files"
-    "is-system-running:Query overall status of the system"
-    "help:Show documentation for specified units"
-    "list-dependencies:Show unit dependency tree"
-    "mask:Mask one or more units"
-    "unmask:Unmask one or more units"
-    "link:Link one or more units files into the search path"
-    "is-enabled:Check whether unit files are enabled"
-    "list-jobs:List jobs"
-    "cancel:Cancel all, one, or more jobs"
-    "show-environment:Dump environment"
-    "set-environment:Set one or more environment variables"
-    "unset-environment:Unset one or more environment variables"
-    "daemon-reload:Reload systemd manager configuration"
-    "daemon-reexec:Reexecute systemd manager"
-    "default:Enter system default mode"
-    "rescue:Enter system rescue mode"
-    "emergency:Enter system emergency mode"
-    "halt:Shut down and halt the system"
-    "suspend:Suspend the system"
-    "poweroff:Shut down and power-off the system"
-    "reboot:Shut down and reboot the system"
-    "kexec:Shut down and reboot the system with kexec"
-    "exit:Ask for user instance termination"
-    "switch-root:Change root directory"
-    "revert:Revert unit files to their vendor versions"
-    "set-property:Sets one or more properties of a unit"
-  )
+    local -a _systemctl_cmds
+    _systemctl_cmds=(
+        "list-sockets:List sockets"
+        "list-timers:List timers"
+        "list-units:List units"
+        "start:Start (activate) one or more units"
+        "stop:Stop (deactivate) one or more units"
+        "reload:Reload one or more units"
+        "restart:Start or restart one or more units"
+        "condrestart:Restart one or more units if active"
+        "try-restart:Restart one or more units if active"
+        "reload-or-restart:Reload one or more units if possible, otherwise start or restart"
+        "force-reload:Reload one or more units if possible, otherwise restart if active"
+        "hibernate:Hibernate the system"
+        "hybrid-sleep:Hibernate and suspend the system"
+        "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
+        "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
+        "isolate:Start one unit and stop all others"
+        "kill:Send signal to processes of a unit"
+        "is-active:Check whether units are active"
+        "is-failed:Check whether units are failed"
+        "status:Show runtime status of one or more units"
+        "show:Show properties of one or more units/jobs or the manager"
+        "cat:Show the source unit files and drop-ins"
+        "reset-failed:Reset failed state for all, one, or more units"
+        "list-unit-files:List installed unit files"
+        "enable:Enable one or more unit files"
+        "disable:Disable one or more unit files"
+        "add-wants:Add Wants= dependencies to a unit"
+        "add-requires:Add Requires= dependencies to a unit"
+        "reenable:Reenable one or more unit files"
+        "preset:Enable/disable one or more unit files based on preset configuration"
+        "preset-all:Enable/disable all unit files based on preset configuration"
+        "set-default:Set the default target"
+        "get-default:Query the default target"
+        "edit:Edit one or more unit files"
+        "is-system-running:Query overall status of the system"
+        "help:Show documentation for specified units"
+        "list-dependencies:Show unit dependency tree"
+        "mask:Mask one or more units"
+        "unmask:Unmask one or more units"
+        "link:Link one or more units files into the search path"
+        "is-enabled:Check whether unit files are enabled"
+        "list-jobs:List jobs"
+        "cancel:Cancel all, one, or more jobs"
+        "show-environment:Dump environment"
+        "set-environment:Set one or more environment variables"
+        "unset-environment:Unset one or more environment variables"
+        "daemon-reload:Reload systemd manager configuration"
+        "daemon-reexec:Reexecute systemd manager"
+        "default:Enter system default mode"
+        "rescue:Enter system rescue mode"
+        "emergency:Enter system emergency mode"
+        "halt:Shut down and halt the system"
+        "suspend:Suspend the system"
+        "poweroff:Shut down and power-off the system"
+        "reboot:Shut down and reboot the system"
+        "kexec:Shut down and reboot the system with kexec"
+        "exit:Ask for user instance termination"
+        "switch-root:Change root directory"
+        "revert:Revert unit files to their vendor versions"
+        "set-property:Sets one or more properties of a unit"
+    )
 
-  if (( CURRENT == 1 )); then
-    _describe -t commands 'systemctl command' _systemctl_cmds || compadd "$@"
-  else
-    local curcontext="$curcontext" expl
-
-    cmd="${${_systemctl_cmds[(r)$words[1]:*]%%:*}}"
-    # Deal with any aliases
-    case $cmd in
-      condrestart) cmd="try-restart";;
-      force-reload) cmd="try-reload-or-restart";;
-    esac
-
-    if (( $#cmd )); then
-      curcontext="${curcontext%:*:*}:systemctl-${cmd}:"
-
-      local update_policy
-      zstyle -s ":completion:${curcontext}:" cache-policy update_policy
-      if [[ -z "$update_policy" ]]; then
-        zstyle ":completion:${curcontext}:" cache-policy _systemctl_caching_policy
-      fi
-
-      _call_function ret _systemctl_$cmd || _message 'no more arguments'
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'systemctl command' _systemctl_cmds || compadd "$@"
     else
-      _message "unknown systemctl command: $words[1]"
+        local curcontext="$curcontext" expl
+
+        cmd="${${_systemctl_cmds[(r)$words[1]:*]%%:*}}"
+        # Deal with any aliases
+        case $cmd in
+            condrestart) cmd="try-restart";;
+            force-reload) cmd="try-reload-or-restart";;
+        esac
+
+        if (( $#cmd )); then
+            curcontext="${curcontext%:*:*}:systemctl-${cmd}:"
+
+            local update_policy
+            zstyle -s ":completion:${curcontext}:" cache-policy update_policy
+            if [[ -z "$update_policy" ]]; then
+                zstyle ":completion:${curcontext}:" cache-policy _systemctl_caching_policy
+            fi
+
+            _call_function ret _systemctl_$cmd || _message 'no more arguments'
+        else
+            _message "unknown systemctl command: $words[1]"
+        fi
+        return ret
     fi
-    return ret
-  fi
 }
 
 # @todo _systemd-run has a helper with the same name, so we must redefine
 __systemctl()
 {
-  systemctl $_sys_service_mgr --full --no-legend --no-pager "$@" 2>/dev/null
+    systemctl $_sys_service_mgr --full --no-legend --no-pager "$@" 2>/dev/null
 }
 
 
 # Fills the unit list
 (( $+functions[_systemctl_all_units] )) ||
-_systemctl_all_units()
+    _systemctl_all_units()
 {
-  if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
-    ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
-  then
-    _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
-    _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
-  fi
+    if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
+           ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
+    then
+        _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
+        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
+    fi
 }
 
 # Fills the unit list including all file units
 (( $+functions[_systemctl_really_all_units] )) ||
-_systemctl_really_all_units()
+    _systemctl_really_all_units()
 {
-  local -a all_unit_files;
-  local -a really_all_units;
-  if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
-    ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
-  then
-    all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
-    _systemctl_all_units
-    really_all_units=($_sys_all_units $all_unit_files)
-    _sys_really_all_units=(${(u)really_all_units})
-    _store_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr _sys_really_all_units
-  fi
+    local -a all_unit_files;
+    local -a really_all_units;
+    if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
+           ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
+    then
+        all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
+        _systemctl_all_units
+        really_all_units=($_sys_all_units $all_unit_files)
+        _sys_really_all_units=(${(u)really_all_units})
+        _store_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr _sys_really_all_units
+    fi
 }
 
 (( $+functions[_filter_units_by_property] )) ||
-_filter_units_by_property() {
-  local property=$1 value=$2; shift 2
-  local -a units; units=("${(q-)@}")
-  local -A props
-  props=(${(f)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property=\"Id,$property\" -- ${units} 2>/dev/null")"})
-  echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
-}
+    _filter_units_by_property() {
+        local property=$1 value=$2; shift 2
+        local -a units; units=("${(q-)@}")
+        local -A props
+        props=(${(f)"$(_call_program units "$service $_sys_service_mgr show --no-pager --property=\"Id,$property\" -- ${units} 2>/dev/null")"})
+        echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
+    }
 
 (( $+functions[_systemctl_get_non_template_names] )) ||
-_systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
+    _systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
     __systemctl $mode list-unit-files "$PREFIX*"
     __systemctl $mode list-units --all "$PREFIX*"
   )"}:#*@.*}%%[[:space:]]*} }
 
 (( $+functions[_systemctl_get_template_names] )) ||
-_systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
+    _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 (( $+functions[_systemctl_active_units] )) ||
-_systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "$PREFIX*" )"}%% *} )}
+    _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "$PREFIX*" )"}%% *} )}
 
 (( $+functions[_systemctl_startable_units] )) ||
-_systemctl_startable_units(){
-  _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
-    _filter_units_by_property CanStart yes ${${${(f)"$(
+    _systemctl_startable_units(){
+        _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
+                                      _filter_units_by_property CanStart yes ${${${(f)"$(
       __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
       __systemctl $mode list-units --state inactive,failed "$PREFIX*"
     )"}:#*@.*}%%[[:space:]]*}
-  )) )
-}
+                                                            )) )
+    }
 
 (( $+functions[_systemctl_restartable_units] )) ||
-_systemctl_restartable_units(){
-  _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
+    _systemctl_restartable_units(){
+        _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
     __systemctl $mode list-unit-files --state enabled,disabled,static "$PREFIX*"
     __systemctl $mode list-units "$PREFIX*"
   )"}:#*@.*}%%[[:space:]]*} ) )
-}
+    }
 
 (( $+functions[_systemctl_failed_units] )) ||
-_systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
+    _systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
 
 (( $+functions[_systemctl_unit_state] )) ||
-_systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "$PREFIX*" ) ) }
+    _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "$PREFIX*" ) ) }
 
 local fun
 # Completion functions for ALL_UNITS
 for fun in cat mask ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    _systemctl_really_all_units
-    _wanted systemd-units expl unit \
-      compadd "$@" -a - _sys_really_all_units
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        _systemctl_really_all_units
+        _wanted systemd-units expl unit \
+                compadd "$@" -a - _sys_really_all_units
+    }
 done
 
 # Completion functions for NONTEMPLATE_UNITS
 for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires set-property; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    _wanted systemd-units expl unit \
-      compadd "$@" - $(_systemctl_get_non_template_names)
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        _wanted systemd-units expl unit \
+                compadd "$@" - $(_systemctl_get_non_template_names)
+    }
 done
 
 # Completion functions for ENABLED_UNITS
@@ -201,126 +202,126 @@ done
 {
     local _sys_unit_state; _systemctl_unit_state
     _wanted systemd-units expl 'enabled unit' \
-      compadd "$@" - ${(k)_sys_unit_state[(R)enabled]}
+            compadd "$@" - ${(k)_sys_unit_state[(R)enabled]}
 }
 
 (( $+functions[_systemctl_reenable] )) || _systemctl_reenable()
 {
     local _sys_unit_state; _systemctl_unit_state
     _wanted systemd-units expl 'enabled/disabled unit' \
-      compadd "$@" - ${(k)_sys_unit_state[(R)(enabled|disabled)]} $(_systemctl_get_template_names)
+            compadd "$@" - ${(k)_sys_unit_state[(R)(enabled|disabled)]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for DISABLED_UNITS
 (( $+functions[_systemctl_enable] )) || _systemctl_enable()
 {
-  local _sys_unit_state; _systemctl_unit_state
-  _wanted systemd-units expl 'disabled unit' \
-    compadd "$@" - ${(k)_sys_unit_state[(R)disabled]} $(_systemctl_get_template_names)
+    local _sys_unit_state; _systemctl_unit_state
+    _wanted systemd-units expl 'disabled unit' \
+            compadd "$@" - ${(k)_sys_unit_state[(R)disabled]} $(_systemctl_get_template_names)
 }
 
 # Completion functions for FAILED_UNITS
 (( $+functions[_systemctl_reset-failed] )) || _systemctl_reset-failed()
 {
-  local _sys_failed_units; _systemctl_failed_units
-  _wanted systemd-units expl 'failed unit' \
-    compadd "$@" -a - _sys_failed_units || _message "no failed unit found"
+    local _sys_failed_units; _systemctl_failed_units
+    _wanted systemd-units expl 'failed unit' \
+            compadd "$@" -a - _sys_failed_units || _message "no failed unit found"
 }
 
 # Completion functions for STARTABLE_UNITS
 (( $+functions[_systemctl_start] )) || _systemctl_start()
 {
-   local _sys_startable_units; _systemctl_startable_units
-   _wanted systemd-units expl 'startable unit' \
-     compadd "$@" - ${_sys_startable_units[*]}
+    local _sys_startable_units; _systemctl_startable_units
+    _wanted systemd-units expl 'startable unit' \
+            compadd "$@" - ${_sys_startable_units[*]}
 }
 
 # Completion functions for STOPPABLE_UNITS
 for fun in stop kill try-restart condrestart ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    local _sys_active_units; _systemctl_active_units
-    _wanted systemd-units expl 'stoppable unit' \
-      compadd "$@" - $( _filter_units_by_property CanStop yes \
-        ${_sys_active_units[*]} )
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        local _sys_active_units; _systemctl_active_units
+        _wanted systemd-units expl 'stoppable unit' \
+                compadd "$@" - $( _filter_units_by_property CanStop yes \
+                                                            ${_sys_active_units[*]} )
+    }
 done
 
 # Completion functions for ISOLATABLE_UNITS
 (( $+functions[_systemctl_isolate] )) || _systemctl_isolate()
 {
-  _systemctl_all_units
-  _wanted systemd-units expl 'isolatable unit' \
-    compadd "$@" - $( _filter_units_by_property AllowIsolate yes \
-      ${_sys_all_units[*]} )
+    _systemctl_all_units
+    _wanted systemd-units expl 'isolatable unit' \
+            compadd "$@" - $( _filter_units_by_property AllowIsolate yes \
+                                                        ${_sys_all_units[*]} )
 }
 
 # Completion functions for RELOADABLE_UNITS
 for fun in reload try-reload-or-restart force-reload ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    local _sys_active_units; _systemctl_active_units
-    _wanted systemd-units expl 'reloadable unit' \
-      compadd "$@" - $( _filter_units_by_property CanReload yes \
-        ${_sys_active_units[*]} )
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        local _sys_active_units; _systemctl_active_units
+        _wanted systemd-units expl 'reloadable unit' \
+                compadd "$@" - $( _filter_units_by_property CanReload yes \
+                                                            ${_sys_active_units[*]} )
+    }
 done
 
 # Completion functions for RESTARTABLE_UNITS
 for fun in restart reload-or-restart ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    local _sys_restartable_units; _systemctl_restartable_units
-    _wanted systemd-units expl 'restartable unit' \
-      compadd "$@" - ${_sys_restartable_units[*]}
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        local _sys_restartable_units; _systemctl_restartable_units
+        _wanted systemd-units expl 'restartable unit' \
+                compadd "$@" - ${_sys_restartable_units[*]}
+    }
 done
 
 # Completion functions for MASKED_UNITS
 (( $+functions[_systemctl_unmask] )) || _systemctl_unmask()
 {
-  local _sys_unit_state; _systemctl_unit_state
-  _wanted systemd-units expl 'masked unit' \
-    compadd "$@" - ${(k)_sys_unit_state[(R)masked]} || _message "no masked units found"
+    local _sys_unit_state; _systemctl_unit_state
+    _wanted systemd-units expl 'masked unit' \
+            compadd "$@" - ${(k)_sys_unit_state[(R)masked]} || _message "no masked units found"
 }
 
 # Completion functions for JOBS
 (( $+functions[_systemctl_cancel] )) || _systemctl_cancel()
 {
-  _wanted systemd-jobs expl job \
-    compadd "$@" - ${${(f)"$(__systemctl list-jobs)"}%% *} ||
-      _message "no jobs found"
+    _wanted systemd-jobs expl job \
+            compadd "$@" - ${${(f)"$(__systemctl list-jobs)"}%% *} ||
+        _message "no jobs found"
 }
 
 # Completion functions for TARGETS
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
-  _wanted systemd-targets expl target \
-    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
-      _message "no targets found"
+    _wanted systemd-targets expl target \
+            compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
+        _message "no targets found"
 }
 
 # Completion functions for ENVS
 for fun in set-environment unset-environment ; do
-  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
-  {
-    local fun=$0 ; fun=${fun##_systemctl_}
-    local suf
-    if [[ "${fun}" = "set-environment" ]]; then
-      suf='-S='
-    fi
-    _wanted systemd-environment expl 'environment variable' \
-      compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
-  }
+    (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+    {
+        local fun=$0 ; fun=${fun##_systemctl_}
+        local suf
+        if [[ "${fun}" = "set-environment" ]]; then
+            suf='-S='
+        fi
+        _wanted systemd-environment expl 'environment variable' \
+                compadd "$@" ${suf} - ${${(f)"$(systemctl show-environment)"}%%=*}
+    }
 done
 
 (( $+functions[_systemctl_link] )) || _systemctl_link() {
-   _sd_unit_files
-}
+        _sd_unit_files
+    }
 
 (( $+functions[_systemctl_switch-root] )) || _systemctl_switch-root() {
-   _files
-}
+        _files
+    }
 
 # no systemctl completion for:
 #    [STANDALONE]='daemon-reexec daemon-reload default
@@ -328,57 +329,57 @@ done
 #                  list-unit-files poweroff reboot rescue show-environment'
 
 (( $+functions[_systemctl_caching_policy] )) ||
-_systemctl_caching_policy()
+    _systemctl_caching_policy()
 {
-  local _sysunits
-  local -a oldcache
+    local _sysunits
+    local -a oldcache
 
-  # rebuild if cache is more than a day old
-  oldcache=( "$1"(mh+1) )
-  (( $#oldcache )) && return 0
+    # rebuild if cache is more than a day old
+    oldcache=( "$1"(mh+1) )
+    (( $#oldcache )) && return 0
 
-  _sysunits=(${${(f)"$(__systemctl --all)"}%% *})
+    _sysunits=(${${(f)"$(__systemctl --all)"}%% *})
 
-  if (( $#_sysunits )); then
-    for unit in $_sysunits; do
-      [[ "$unit" -nt "$1" ]] && return 0
-    done
-  fi
+    if (( $#_sysunits )); then
+        for unit in $_sysunits; do
+            [[ "$unit" -nt "$1" ]] && return 0
+        done
+    fi
 
-  return 1
+    return 1
 }
 
 (( $+functions[_systemctl_unit_states] )) ||
-_systemctl_unit_states() {
-    local -a _states
-    _states=("${(fo)$(__systemctl --state=help)}")
-    _values -s , "${_states[@]}"
-}
+    _systemctl_unit_states() {
+        local -a _states
+        _states=("${(fo)$(__systemctl --state=help)}")
+        _values -s , "${_states[@]}"
+    }
 
 (( $+functions[_systemctl_unit_types] )) ||
-_systemctl_unit_types() {
-    local -a _types
-    _types=("${(fo)$(__systemctl -t help)}")
-    _values -s , "${_types[@]}"
-}
+    _systemctl_unit_types() {
+        local -a _types
+        _types=("${(fo)$(__systemctl -t help)}")
+        _values -s , "${_types[@]}"
+    }
 
 (( $+functions[_systemctl_unit_properties] )) ||
-_systemctl_unit_properties() {
-  if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
-    ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
-  then
-    _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
-    _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
-  fi
-  _values -s , "${_sys_all_properties[@]}"
-}
+    _systemctl_unit_properties() {
+        if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
+               ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
+        then
+            _sys_all_properties=( ${${(M)${(f)"$(@rootlibexecdir@/systemd --dump-bus-properties)"}}} )
+            _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
+        fi
+        _values -s , "${_sys_all_properties[@]}"
+    }
 
 (( $+functions[_systemctl_job_modes] )) ||
-_systemctl_job_modes() {
-    local -a _modes
-    _modes=(fail replace replace-irreversibly isolate ignore-dependencies ignore-requirements flush)
-    _values -s , "${_modes[@]}"
-}
+    _systemctl_job_modes() {
+        local -a _modes
+        _modes=(fail replace replace-irreversibly isolate ignore-dependencies ignore-requirements flush)
+        _values -s , "${_modes[@]}"
+    }
 
 # Build arguments for "systemctl" to be used in completion.
 local -a _modes; _modes=("--user" "--system")

@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="journald.conf"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -50,7 +47,7 @@
     <para>All options are configured in the
     <literal>[Journal]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
 
       <varlistentry>
         <term><varname>Storage=</varname></term>
@@ -141,6 +138,51 @@
         <literal>h</literal>, <literal>ms</literal>,
         <literal>us</literal>. To turn off any kind of rate limiting,
         set either value to 0.</para>
+
+        <para>Note that the effective rate limit is multiplied with a
+        factor derived from the available free disk space for the journal.
+        Currently, this factor is calculated using the base 2 logarithm.</para>
+
+        <table>
+          <title>Example <varname>RateLimitBurst=</varname> rate
+            modifications by the available disk space</title>
+          <tgroup cols='2'>
+            <colspec colname='freespace' />
+            <colspec colname='multiplier' />
+            <thead>
+              <row>
+                <entry>Available Disk Space</entry>
+                <entry>Burst Multiplier</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>&lt;= 1MB</entry>
+                <entry>1</entry>
+              </row>
+              <row>
+                <entry>&lt;= 16MB</entry>
+                <entry>2</entry>
+              </row>
+              <row>
+                <entry>&lt;= 256MB</entry>
+                <entry>3</entry>
+              </row>
+              <row>
+                <entry>&lt;= 4GB</entry>
+                <entry>4</entry>
+              </row>
+              <row>
+                <entry>&lt;= 64GB</entry>
+                <entry>5</entry>
+              </row>
+              <row>
+                <entry>&lt;= 1TB</entry>
+                <entry>6</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>If a service provides rate limits for itself through
         <varname>LogRateLimitIntervalSec=</varname> and/or <varname>LogRateLimitBurst=</varname>
@@ -291,21 +333,25 @@
         <term><varname>ForwardToConsole=</varname></term>
         <term><varname>ForwardToWall=</varname></term>
 
-        <listitem><para>Control whether log messages received by the journal daemon shall
-        be forwarded to a traditional syslog daemon, to the kernel log buffer (kmsg), to
-        the system console, or sent as wall messages to all logged-in users.  These
-        options take boolean arguments. If forwarding to syslog is enabled but nothing
-        reads messages from the socket, forwarding to syslog has no effect. By default,
-        only forwarding to wall is enabled. These settings may be overridden at boot time
-        with the kernel command line options
-        <literal>systemd.journald.forward_to_syslog</literal>,
+        <listitem><para>Control whether log messages received by the journal daemon shall be forwarded to a
+        traditional syslog daemon, to the kernel log buffer (kmsg), to the system console, or sent as wall
+        messages to all logged-in users.  These options take boolean arguments. If forwarding to syslog is
+        enabled but nothing reads messages from the socket, forwarding to syslog has no effect. By default,
+        only forwarding to wall is enabled. These settings may be overridden at boot time with the kernel
+        command line options <literal>systemd.journald.forward_to_syslog</literal>,
         <literal>systemd.journald.forward_to_kmsg</literal>,
         <literal>systemd.journald.forward_to_console</literal>, and
-        <literal>systemd.journald.forward_to_wall</literal>. If the option name is
-        specified without <literal>=</literal> and the following argument, true is
-        assumed. Otherwise, the argument is parsed as a boolean. When forwarding to the
-        console, the TTY to log to can be changed with <varname>TTYPath=</varname>,
-        described below.</para></listitem>
+        <literal>systemd.journald.forward_to_wall</literal>. If the option name is specified without
+        <literal>=</literal> and the following argument, true is assumed. Otherwise, the argument is parsed
+        as a boolean.</para>
+
+        <para>When forwarding to the console, the TTY to log to can be changed with
+        <varname>TTYPath=</varname>, described below.</para>
+
+        <para>When forwarding to the kernel log buffer (kmsg), make sure to select a suitably large size for
+        the log buffer, and ensure the kernel's rate-limiting applied to userspace processes is turned
+        off. Specifically, add <literal>log_buf_len=8M</literal> and <literal>printk.devkmsg=on</literal> (or
+        similar) to the kernel command line.</para></listitem>
       </varlistentry>
 
       <varlistentry>

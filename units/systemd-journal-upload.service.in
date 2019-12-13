@@ -18,12 +18,13 @@ DynamicUser=yes
 ExecStart=@rootlibexecdir@/systemd-journal-upload --save-state
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-NoNewPrivileges=yes
 PrivateDevices=yes
 ProtectControlGroups=yes
 ProtectHome=yes
+ProtectHostname=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+ProtectKernelLogs=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
@@ -31,7 +32,7 @@ StateDirectory=systemd/journal-upload
 SupplementaryGroups=systemd-journal
 SystemCallArchitectures=native
 User=systemd-journal-upload
-WatchdogSec=3min
+@SERVICE_WATCHDOG@
 
 # If there are many split up journal files we need a lot of fds to access them
 # all in parallel.

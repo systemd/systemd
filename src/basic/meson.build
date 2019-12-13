@@ -39,12 +39,15 @@ basic_sources = files('''
         device-nodes.h
         dirent-util.c
         dirent-util.h
+        efivars.c
+        efivars.h
         env-file.c
         env-file.h
         env-util.c
         env-util.h
         errno-list.c
         errno-list.h
+        errno-util.h
         escape.c
         escape.h
         ether-addr-util.c
@@ -55,6 +58,7 @@ basic_sources = files('''
         fd-util.h
         fileio.c
         fileio.h
+        format-util.c
         format-util.h
         fs-util.c
         fs-util.h
@@ -75,10 +79,37 @@ basic_sources = files('''
         io-util.c
         io-util.h
         ioprio.h
+        kbd-util.c
+        kbd-util.h
         khash.c
         khash.h
         label.c
         label.h
+        limits-util.c
+        limits-util.h
+        linux/btrfs.h
+        linux/btrfs_tree.h
+        linux/can/vxcan.h
+        linux/fib_rules.h
+        linux/fou.h
+        linux/if.h
+        linux/if_addr.h
+        linux/if_arp.h
+        linux/if_bonding.h
+        linux/if_bridge.h
+        linux/if_ether.h
+        linux/if_link.h
+        linux/if_macsec.h
+        linux/if_tun.h
+        linux/if_tunnel.h
+        linux/in.h
+        linux/in6.h
+        linux/l2tp.h
+        linux/libc-compat.h
+        linux/netdevice.h
+        linux/netlink.h
+        linux/rtnetlink.h
+        linux/wireguard.h
         list.h
         locale-util.c
         locale-util.h
@@ -89,22 +120,15 @@ basic_sources = files('''
         macro.h
         memfd-util.c
         memfd-util.h
+        memory-util.c
+        memory-util.h
         mempool.c
         mempool.h
-        missing.h
         missing_audit.h
-        missing_btrfs.h
-        missing_btrfs_tree.h
         missing_capability.h
         missing_drm.h
-        missing_ethtool.h
         missing_fcntl.h
-        missing_fib_rules.h
-        missing_fou.h
         missing_fs.h
-        missing_if_bridge.h
-        missing_if_link.h
-        missing_if_tunnel.h
         missing_input.h
         missing_keyctl.h
         missing_magic.h
@@ -121,13 +145,16 @@ basic_sources = files('''
         missing_syscall.h
         missing_timerfd.h
         missing_type.h
-        missing_vxcan.h
         mkdir-label.c
         mkdir.c
         mkdir.h
         mountpoint-util.c
         mountpoint-util.h
+        namespace-util.c
+        namespace-util.h
         nss-util.h
+        nulstr-util.c
+        nulstr-util.h
         ordered-set.c
         ordered-set.h
         parse-util.c
@@ -148,7 +175,6 @@ basic_sources = files('''
         ratelimit.h
         raw-clone.h
         raw-reboot.h
-        refcnt.h
         replace-var.c
         replace-var.h
         rlimit-util.c
@@ -169,6 +195,8 @@ basic_sources = files('''
         socket-label.c
         socket-util.c
         socket-util.h
+        sort-util.c
+        sort-util.h
         sparse-endian.h
         special.h
         stat-util.c
@@ -213,7 +241,6 @@ basic_sources = files('''
 
 missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
-missing_network_h = files('missing_network.h')
 missing_socket_h = files('missing_socket.h')
 
 generate_af_list = find_program('generate-af-list.sh')
@@ -227,7 +254,7 @@ generate_arphrd_list = find_program('generate-arphrd-list.sh')
 arphrd_list_txt = custom_target(
         'arphrd-list.txt',
         output : 'arphrd-list.txt',
-        command : [generate_arphrd_list, cpp, config_h, missing_network_h],
+        command : [generate_arphrd_list, cpp, config_h],
         capture : true)
 
 generate_cap_list = find_program('generate-cap-list.sh')

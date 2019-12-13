@@ -5,15 +5,16 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
+#include "memory-util.h"
+#include "nulstr-util.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 char *strv_find(char **l, const char *name) {
         char **i;
@@ -77,9 +78,9 @@ char **strv_free_erase(char **l) {
         char **i;
 
         STRV_FOREACH(i, l)
-                string_erase(*i);
+                erase_and_freep(i);
 
-        return strv_free(l);
+        return mfree(l);
 }
 
 char **strv_copy(char * const *l) {
@@ -192,7 +193,10 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
         p = strv_length(*a);
         q = strv_length(b);
 
-        t = reallocarray(*a, p + q + 1, sizeof(char *));
+        if (p >= SIZE_MAX - q)
+                return -ENOMEM;
+
+        t = reallocarray(*a, GREEDY_ALLOC_ROUND_UP(p + q + 1), sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -231,7 +235,7 @@ int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
         STRV_FOREACH(s, b) {
                 char *v;
 
-                v = strappend(*s, suffix);
+                v = strjoin(*s, suffix);
                 if (!v)
                         return -ENOMEM;
 
@@ -382,19 +386,18 @@ char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
 
 int strv_push(char ***l, char *value) {
         char **c;
-        size_t n, m;
+        size_t n;
 
         if (!value)
                 return 0;
 
         n = strv_length(*l);
 
-        /* Increase and check for overflow */
-        m = n + 2;
-        if (m < n)
+        /* Check for overflow */
+        if (n > SIZE_MAX-2)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + 2), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -407,19 +410,19 @@ int strv_push(char ***l, char *value) {
 
 int strv_push_pair(char ***l, char *a, char *b) {
         char **c;
-        size_t n, m;
+        size_t n;
 
         if (!a && !b)
                 return 0;
 
         n = strv_length(*l);
 
-        /* increase and check for overflow */
-        m = n + !!a + !!b + 1;
-        if (m < n)
+        /* Check for overflow */
+        if (n > SIZE_MAX-3)
                 return -ENOMEM;
 
-        c = reallocarray(*l, m, sizeof(char*));
+        /* increase and check for overflow */
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(n + !!a + !!b + 1), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -845,8 +848,10 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
         /* Adds the value n times to l */
 
         k = strv_length(*l);
+        if (n >= SIZE_MAX - k)
+                return -ENOMEM;
 
-        nl = reallocarray(*l, k + n + 1, sizeof(char *));
+        nl = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(k + n + 1), sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 
@@ -887,3 +892,63 @@ int fputstrv(FILE *f, char **l, const char *separator, bool *space) {
 
         return 0;
 }
+
+static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const char *value) {
+        char **l;
+        int r;
+
+        l = hashmap_get(h, key);
+        if (l) {
+                /* A list for this key already exists, let's append to it if it is not listed yet */
+                if (strv_contains(l, value))
+                        return 0;
+
+                r = strv_extend(&l, value);
+                if (r < 0)
+                        return r;
+
+                assert_se(hashmap_update(h, key, l) >= 0);
+        } else {
+                /* No list for this key exists yet, create one */
+                _cleanup_strv_free_ char **l2 = NULL;
+                _cleanup_free_ char *t = NULL;
+
+                t = strdup(key);
+                if (!t)
+                        return -ENOMEM;
+
+                r = strv_extend(&l2, value);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(h, t, l2);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(t);
+                TAKE_PTR(l2);
+        }
+
+        return 1;
+}
+
+int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
+        int r;
+
+        r = hashmap_ensure_allocated(h, &string_strv_hash_ops);
+        if (r < 0)
+                return r;
+
+        return string_strv_hashmap_put_internal(*h, key, value);
+}
+
+int string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value) {
+        int r;
+
+        r = ordered_hashmap_ensure_allocated(h, &string_strv_hash_ops);
+        if (r < 0)
+                return r;
+
+        return string_strv_hashmap_put_internal(PLAIN_HASHMAP(*h), key, value);
+}
+
+DEFINE_HASH_OPS_FULL(string_strv_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);

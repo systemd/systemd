@@ -44,11 +44,43 @@ An absolute path may also be used in both cases.
 Configuration variables
 =======================
 
-TEST_NO_QEMU=1 can be used to disable qemu tests.
+TEST_NO_QEMU=1
+    Don't run tests under QEMU
 
-TEST_NO_NSPAWN=1 can be used to disable nspawn tests.
+TEST_NO_NSPAWN=1
+    Don't run tests under systemd-nspawn
 
-KERNEL_APPEND='...' can be used to add additional kernel parameters for the QEMU runs.
+TEST_NO_KVM=1
+    Disable QEMU KVM autodetection (may be necessary when you're trying to run the
+    *vanilla* QEMU and have both qemu and qemu-kvm installed)
+
+TEST_NESTED_KVM=1
+    Allow tests to run with nested KVM. By default, the testsuite disables
+    nested KVM if the host machine already runs under KVM. Setting this
+    variable disables such checks
+
+QEMU_MEM=512M
+    Configure amount of memory for QEMU VMs (defaults to 512M)
+
+QEMU_SMP=1
+    Configure number of CPUs for QEMU VMs (defaults to 1)
+
+KERNEL_APPEND='...'
+    Append additional parameters to the kernel command line
+
+NSPAWN_ARGUMENTS='...'
+    Specify additional arguments for systemd-nspawn
+
+QEMU_TIMEOUT=infinity
+    Set a timeout for tests under QEMU (defaults to infinity)
+
+NSPAWN_TIMEOUT=infinity
+    Set a timeout for tests under systemd-nspawn (defaults to infinity)
+
+INTERACTIVE_DEBUG=1
+    Configure the machine to be more *user-friendly* for interactive debuggung
+    (e.g. by setting a usable default terminal, suppressing the shutdown after
+    the test, etc.)
 
 The kernel and initramfs can be specified with $KERNEL_BIN and $INITRD.
 (Fedora's or Debian's default kernel path and initramfs are used by default)
@@ -65,3 +97,26 @@ kernel command line parameter with $KERNEL_APPEND and then log in as root.
 $ sudo make -C test/TEST-01-BASIC KERNEL_APPEND="systemd.unit=multi-user.target" run
 
 Root password is empty.
+
+Ubuntu CI
+=========
+
+New PR submitted to the project are run through regression tests, and one set
+of those is the 'autopkgtest' runs for several different architectures, called
+'Ubuntu CI'.  Part of that testing is to run all these tests.  Sometimes these
+tests are temporarily blacklisted from running in the 'autopkgtest' tests while
+debugging a flaky test; that is done by creating a file in the test directory
+named 'blacklist-ubuntu-ci', for example to prevent the TEST-01-BASIC test from
+running in the 'autopkgtest' runs, create the file
+'TEST-01-BASIC/blacklist-ubuntu-ci'.
+
+The tests may be disabled only for specific archs, by creating a blacklist file
+with the arch name at the end, e.g.
+'TEST-01-BASIC/blacklist-ubuntu-ci-arm64' to disable the TEST-01-BASIC test
+only on test runs for the 'arm64' architecture.
+
+Note the arch naming is not from 'uname -m', it is Debian arch names:
+https://wiki.debian.org/ArchitectureSpecificsMemo
+
+For PRs that fix a currently blacklisted test, the PR should include removal
+of the blacklist file.

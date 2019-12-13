@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.service">
   <refentryinfo>
@@ -62,6 +59,10 @@
     about the incompatibilities, see the <ulink
     url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities
     with SysV</ulink> document.</para>
+
+    <para>The <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    command allows creating <filename>.service</filename> and <filename>.scope</filename> units dynamically
+    and transiently from the command line.</para>
   </refsect1>
 
   <refsect1>
@@ -190,11 +191,17 @@
             main process of the service. systemd will proceed with starting follow-up units as soon as the parent
             process exits.</para></listitem>
 
-            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>; however, the
-            service manager will consider the unit started after the main process exits. It will then start follow-up
-            units. <varname>RemainAfterExit=</varname> is particularly useful for this type of
-            service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
-            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified.</para></listitem>
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
+            however, the service manager will consider the unit up after the main process exits. It will then
+            start follow-up units. <varname>RemainAfterExit=</varname> is particularly useful for this type
+            of service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
+            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified. Note that if this
+            option is used without <varname>RemainAfterExit=</varname> the service will never enter
+            <literal>active</literal> unit state, but directly transition from <literal>activating</literal>
+            to <literal>deactivating</literal> or <literal>dead</literal> since no process is configured that
+            shall run continously. In particular this means that after a service of this type ran (and which
+            has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
+            as dead.</para></listitem>
 
             <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
             expected that the service acquires a name on the D-Bus bus, as configured by
@@ -339,6 +346,11 @@
               </row>
 
               <row>
+                <entry><literal>:</literal></entry>
+                <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described by the "Command Lines" section below) is not applied.</entry>
+              </row>
+
+              <row>
                 <entry><literal>+</literal></entry>
                 <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines).</entry>
               </row>
@@ -358,7 +370,7 @@
           </tgroup>
         </table>
 
-        <para><literal>@</literal>, <literal>-</literal>, and one of
+        <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
         <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
         order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
         time. Note that these prefixes are also supported for the other command line settings,
@@ -416,6 +428,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ExecCondition=</varname></term>
+        <listitem><para>Optional commands that are executed before the command(s) in <varname>ExecStartPre=</varname>.
+        Syntax is the same as for <varname>ExecStart=</varname>, except that multiple command lines are allowed and the
+        commands are executed one after the other, serially.</para>
+
+        <para>The behavior is like an <varname>ExecStartPre=</varname> and condition check hybrid: when an
+        <varname>ExecCondition=</varname> command exits with exit code 1 through 254 (inclusive), the remaining
+        commands are skipped and the unit is <emphasis>not</emphasis> marked as failed. However, if an
+        <varname>ExecCondition=</varname> command exits with 255 or abnormally (e.g. timeout, killed by a
+        signal, etc.), the unit will be considered failed (and remaining commands will be skipped). Exit code of 0 or
+        those matching <varname>SuccessExitStatus=</varname> will continue execution to the next command(s).</para>
+
+        <para>The same recommendations about not running long-running processes in <varname>ExecStartPre=</varname>
+        also applies to <varname>ExecCondition=</varname>. <varname>ExecCondition=</varname> will also run the commands
+        in <varname>ExecStopPost=</varname>, as part of stopping the service, in the case of any non-zero or abnormal
+        exits, like the ones described above.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ExecReload=</varname></term>
         <listitem><para>Commands to execute to trigger a configuration
         reload in the service. This argument takes multiple command
@@ -445,40 +477,42 @@
 
       <varlistentry>
         <term><varname>ExecStop=</varname></term>
-        <listitem><para>Commands to execute to stop the service
-        started via <varname>ExecStart=</varname>. This argument takes
-        multiple command lines, following the same scheme as described
-        for <varname>ExecStart=</varname> above. Use of this setting
-        is optional. After the commands configured in this option are
-        run, it is implied that the service is stopped, and any processes
-        remaining for it are terminated
-        according to the <varname>KillMode=</varname> setting (see
+        <listitem><para>Commands to execute to stop the service started via
+        <varname>ExecStart=</varname>. This argument takes multiple command lines, following the same scheme
+        as described for <varname>ExecStart=</varname> above. Use of this setting is optional. After the
+        commands configured in this option are run, it is implied that the service is stopped, and any
+        processes remaining for it are terminated according to the <varname>KillMode=</varname> setting (see
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        If this option is not specified, the process is terminated by
-        sending the signal specified in <varname>KillSignal=</varname>
-        when service stop is requested. Specifier and environment
-        variable substitution is supported (including
+        If this option is not specified, the process is terminated by sending the signal specified in
+        <varname>KillSignal=</varname> or <varname>RestartKillSignal=</varname> when service stop is
+        requested. Specifier and environment variable substitution is supported (including
         <varname>$MAINPID</varname>, see above).</para>
 
-        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the service
-        to terminate (for example, by queuing some form of termination signal for it), but does not wait for it to do
-        so. Since the remaining processes of the services are killed according to <varname>KillMode=</varname> and
-        <varname>KillSignal=</varname> as described above immediately after the command exited, this may not result in
-        a clean stop. The specified command should hence be a synchronous operation, not an asynchronous one.</para>
+        <para>Note that it is usually not sufficient to specify a command for this setting that only asks the
+        service to terminate (for example, by sending some form of termination signal to it), but does not
+        wait for it to do so. Since the remaining processes of the services are killed according to
+        <varname>KillMode=</varname> and <varname>KillSignal=</varname> or
+        <varname>RestartKillSignal=</varname> as described above immediately after the command exited, this
+        may not result in a clean stop. The specified command should hence be a synchronous operation, not an
+        asynchronous one.</para>
 
         <para>Note that the commands specified in <varname>ExecStop=</varname> are only executed when the service
         started successfully first. They are not invoked if the service was never started at all, or in case its
         start-up failed, for example because any of the commands specified in <varname>ExecStart=</varname>,
         <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname> failed (and weren't prefixed with
         <literal>-</literal>, see above) or timed out. Use <varname>ExecStopPost=</varname> to invoke commands when a
-        service failed to start up correctly and is shut down again. Also note that, service restart requests are
-        implemented as stop operations followed by start operations. This means that <varname>ExecStop=</varname> and
-        <varname>ExecStopPost=</varname> are executed during a service restart operation.</para>
+        service failed to start up correctly and is shut down again. Also note that the stop operation is always
+        performed if the service started successfully, even if the processes in the service terminated on their
+        own or were killed. The stop commands must be prepared to deal with that case. <varname>$MAINPID</varname>
+        will be unset if systemd knows that the main process exited by the time the stop commands are called.</para>
 
-        <para>It is recommended to use this setting for commands that communicate with the service requesting clean
-        termination. When the commands specified with this option are executed it should be assumed that the service is
-        still fully up and is able to react correctly to all commands. For post-mortem clean-up steps use
-        <varname>ExecStopPost=</varname> instead.</para></listitem>
+        <para>Service restart requests are implemented as stop operations followed by start operations. This
+        means that <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname> are executed during a
+        service restart operation.</para>
+
+        <para>It is recommended to use this setting for commands that communicate with the service requesting
+        clean termination. For post-mortem clean-up steps use <varname>ExecStopPost=</varname> instead.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -540,8 +574,8 @@
       <varlistentry>
         <term><varname>TimeoutStopSec=</varname></term>
         <listitem><para>This option serves two purposes. First, it configures the time to wait for each
-        <constant>ExecStop=</constant> command. If any of them times out, subsequent <constant>ExecStop=</constant> commands
-        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <constant>ExecStop=</constant>
+        <varname>ExecStop=</varname> command. If any of them times out, subsequent <varname>ExecStop=</varname> commands
+        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <varname>ExecStop=</varname>
         commands are specified, the service gets the <constant>SIGTERM</constant> immediately. Second, it configures the time
         to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
         by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
@@ -558,6 +592,35 @@
         the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
         must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
         <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
+        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TimeoutAbortSec=</varname></term>
+        <listitem><para>This option configures the time to wait for the service to terminate when it was aborted due to a
+        watchdog timeout (see <varname>WatchdogSec=</varname>). If the service has a short <varname>TimeoutStopSec=</varname>
+        this option can be used to give the system more time to write a core dump of the service. Upon expiration the service
+        will be forcibly terminated by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
+        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>). The core file will
+        be truncated in this case. Use <varname>TimeoutAbortSec=</varname> to set a sensible timeout for the core dumping per
+        service that is large enough to write all expected data while also being short enough to handle the service failure
+        in due time.
+        </para>
+
+        <para>Takes a unit-less value in seconds, or a time span value such as "5min 20s". Pass an empty value to skip
+        the dedicated watchdog abort timeout handling and fall back <varname>TimeoutStopSec=</varname>. Pass
+        <literal>infinity</literal> to disable the timeout logic. Defaults to <varname>DefaultTimeoutAbortSec=</varname> from
+        the manager configuration file (see
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> handles <constant>SIGABRT</constant> itself (instead of relying
+        on the kernel to write a core dump) it can send <literal>EXTEND_TIMEOUT_USEC=…</literal> to
+        extended the abort time beyond <varname>TimeoutAbortSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has exended beyond
+        <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
         (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
@@ -777,49 +840,59 @@
 
       <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will be considered
-        successful termination, in addition to the normal successful
-        exit code 0 and the signals <constant>SIGHUP</constant>,
-        <constant>SIGINT</constant>, <constant>SIGTERM</constant>, and
-        <constant>SIGPIPE</constant>. Exit status definitions can
-        either be numeric exit codes or termination signal names,
-        separated by spaces. For example:
-
-        <programlisting>SuccessExitStatus=1 2 8 SIGKILL</programlisting>
-
-        ensures that exit codes 1, 2, 8 and
-        the termination signal <constant>SIGKILL</constant> are
-        considered clean service terminations.
-        </para>
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will be considered successful termination, in addition to the normal successful exit code 0
+        and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+        <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status definitions can be
+        numeric exit codes, termination code names, or termination signal names, separated by spaces. See the
+        Process Exit Codes section in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        a list of termination codes names (for this setting only the part without the
+        <literal>EXIT_</literal> or <literal>EX_</literal> prefix should be used). See
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        a list of signal names.</para>
 
         <para>This option may appear more than once, in which case the
         list of successful exit statuses is merged. If the empty
         string is assigned to this option, the list is reset, all
         prior assignments of this option will have no
-        effect.</para></listitem>
+        effect.</para>
+
+        <example>
+          <title>A service with with the <varname>SuccessExitStatus=</varname> setting</title>
+
+          <programlisting>SuccessExitStatus=TEMPFAIL 250 SIGUSR1</programlisting>
+
+          <para>Exit codes 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
+          <constant>SIGKILL</constant> are considered clean service terminations.</para>
+        </example>
+
+        <para>Note: <command>systemd-analyze exit-codes</command> may be used to list exit
+        codes and translate between numerical code values and names.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RestartPreventExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will prevent
-        automatic service restarts, regardless of the restart setting
-        configured with <varname>Restart=</varname>. Exit status
-        definitions can either be numeric exit codes or termination
-        signal names, and are separated by spaces. Defaults to the
-        empty list, so that, by default, no exit status is excluded
-        from the configured restart logic. For example:
+
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will prevent automatic service restarts, regardless of the restart setting configured with
+        <varname>Restart=</varname>. Exit status definitions can either be numeric exit codes or termination
+        signal names, and are separated by spaces. Defaults to the empty list, so that, by default, no exit
+        status is excluded from the configured restart logic. For example:
 
         <programlisting>RestartPreventExitStatus=1 6 SIGABRT</programlisting>
 
-        ensures that exit codes 1 and 6 and the termination signal
-        <constant>SIGABRT</constant> will not result in automatic
-        service restarting. This option may appear more than once, in
-        which case the list of restart-preventing statuses is
-        merged. If the empty string is assigned to this option, the
-        list is reset and all prior assignments of this option will
-        have no effect.</para></listitem>
+        ensures that exit codes 1 and 6 and the termination signal <constant>SIGABRT</constant> will not
+        result in automatic service restarting. This option may appear more than once, in which case the list
+        of restart-preventing statuses is merged. If the empty string is assigned to this option, the list is
+        reset and all prior assignments of this option will have no effect.</para>
+
+        <para>Note that this setting has no effect on processes configured via
+        <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecStop=</varname>,
+        <varname>ExecStopPost=</varname> or <varname>ExecReload=</varname>, but only on the main service
+        process, i.e. either the one invoked by <varname>ExecStart=</varname> or (depending on
+        <varname>Type=</varname>, <varname>PIDFile=</varname>, …) the otherwise configured main
+        process.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -904,11 +977,9 @@
         inverse of the <varname>Sockets=</varname> setting of the
         <filename>.service</filename> it refers to.</para>
 
-        <para>This option may appear more than once, in which case the
-        list of socket units is merged. If the empty string is
-        assigned to this option, the list of sockets is reset, and all
-        prior uses of this setting will have no
-        effect.</para></listitem>
+        <para>This option may appear more than once, in which case the list of socket units is merged. Note
+        that once set, clearing the list of sockets again (for example, by assigning the empty string to this
+        option) is not supported.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -949,6 +1020,29 @@
         USB FunctionFS strings.  Behavior is similar to
         <varname>USBFunctionDescriptors=</varname>
         above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OOMPolicy=</varname></term>
+
+        <listitem><para>Configure the Out-Of-Memory (OOM) killer policy. On Linux, when memory becomes scarce
+        the kernel might decide to kill a running process in order to free up memory and reduce memory
+        pressure. This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
+        <constant>kill</constant>. If set to <constant>continue</constant> and a process of the service is
+        killed by the kernel's OOM killer this is logged but the service continues running. If set to
+        <constant>stop</constant> the event is logged but the service is terminated cleanly by the service
+        manager. If set to <constant>kill</constant> and one of the service's processes is killed by the OOM
+        killer the kernel is instructed to kill all remaining processes of the service, too. Defaults to the
+        setting <varname>DefaultOOMPolicy=</varname> in
+        <citerefentry><refentrytitle>system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> is
+        set to, except for services where <varname>Delegate=</varname> is turned on, where it defaults to
+        <constant>continue</constant>.</para>
+
+        <para>Use the <varname>OOMScoreAdjust=</varname> setting to configure whether processes of the unit
+        shall be considered preferred or less preferred candidates for process termination by the Linux OOM
+        killer logic. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -1234,9 +1328,10 @@ WantedBy=multi-user.target</programlisting>
 
       <para><varname>Type=</varname><option>oneshot</option> are the
       only service units that may have more than one
-      <varname>ExecStart=</varname> specified. They will be executed
-      in order until either they are all successful or one of them
-      fails.</para>
+      <varname>ExecStart=</varname> specified. For units with multiple
+      commands (<varname index="false">Type=oneshot</varname>), all commands will be run again.</para>
+      <para> For <varname index="false">Type=oneshot</varname>, <varname>Restart=</varname><option>always</option>
+      and <varname>Restart=</varname><option>on-success</option> are <emphasis>not</emphasis> allowed.</para>
     </example>
 
     <example>
@@ -1416,11 +1511,13 @@ WantedBy=multi-user.target</programlisting>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
 

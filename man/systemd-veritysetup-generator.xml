@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-veritysetup-generator" conditional='HAVE_LIBCRYPTSETUP'>
 
   <refentryinfo>
@@ -29,12 +28,12 @@
     <title>Description</title>
 
     <para><filename>systemd-veritysetup-generator</filename> is a generator that translates kernel command line options
-    configuring integrity protected block devices (verity) into native systemd units early at boot and when
+    configuring integrity-protected block devices (verity) into native systemd units early at boot and when
     configuration of the system manager is reloaded. This will create
     <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     units as necessary.</para>
 
-    <para>Currently, only a single verity device may be se up with this generator, backing the root file system of the
+    <para>Currently, only a single verity device may be set up with this generator, backing the root file system of the
     OS.</para>
 
     <para><filename>systemd-veritysetup-generator</filename> implements
@@ -62,7 +61,7 @@
         <term><varname>roothash=</varname></term>
 
         <listitem><para>Takes a root hash value for the root file system. Expects a hash value formatted in hexadecimal
-        characters, of the appropriate length (i.e. most likely 256 bit/64 characters, or longer). If not specified via
+        characters of the appropriate length (i.e. most likely 256 bit/64 characters, or longer). If not specified via
         <varname>systemd.verity_root_data=</varname> and <varname>systemd.verity_root_hash=</varname>, the hash and
         data devices to use are automatically derived from the specified hash value. Specifically, the data partition
         device is looked for under a GPT partition UUID derived from the first 128bit of the root hash, the hash
@@ -76,8 +75,8 @@
         <term><varname>systemd.verity_root_data=</varname></term>
         <term><varname>systemd.verity_root_hash=</varname></term>
 
-        <listitem><para>These two settings take block device paths as arguments, and may be use to explicitly configure
-        the data partition and hash partition to use for setting up the integrity protection for the root file
+        <listitem><para>These two settings take block device paths as arguments and may be used to explicitly
+        configure the data partition and hash partition to use for setting up the integrity protection for the root file
         system. If not specified, these paths are automatically derived from the <varname>roothash=</varname> argument
         (see above).</para></listitem>
       </varlistentry>

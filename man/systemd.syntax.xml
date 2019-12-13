@@ -1,10 +1,9 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.syntax">
@@ -43,7 +42,9 @@
       <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry></para></listitem>
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      </para></listitem>
 
       <listitem><para>daemon config files, see
       <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -66,7 +67,7 @@
 
     <para>Each file is a plain text file divided into sections, with configuration entries in the
     style <replaceable>key</replaceable>=<replaceable>value</replaceable>.
-    Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
+    Whitespace immediately before or after the <literal>=</literal> is ignored. Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
     ignored, which may be used for commenting.</para>
 
     <para>Lines ending in a backslash are concatenated with the following line while reading and the

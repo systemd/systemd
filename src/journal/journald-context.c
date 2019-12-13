@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "audit-util.h"
 #include "cgroup-util.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -16,6 +17,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "unaligned.h"
@@ -47,7 +49,7 @@
  *    previously had trouble associating the log message with the service.
  *
  * NB: With and without the metadata cache: the implicitly added entry metadata in the journal (with the exception of
- *     UID/PID/GID and SELinux label) must be understood as possibly slightly out of sync (i.e. sometimes slighly older
+ *     UID/PID/GID and SELinux label) must be understood as possibly slightly out of sync (i.e. sometimes slightly older
  *     and sometimes slightly newer than what was current at the log event).
  */
 
@@ -60,7 +62,33 @@
 /* Keep at most 16K entries in the cache. (Note though that this limit may be violated if enough streams pin entries in
  * the cache, in which case we *do* permit this limit to be breached. That's safe however, as the number of stream
  * clients itself is limited.) */
-#define CACHE_MAX (16*1024)
+#define CACHE_MAX_FALLBACK 128U
+#define CACHE_MAX_MAX (16*1024U)
+#define CACHE_MAX_MIN 64U
+
+static size_t cache_max(void) {
+        static size_t cached = -1;
+
+        if (cached == (size_t) -1) {
+                uint64_t mem_total;
+                int r;
+
+                r = procfs_memory_get(&mem_total, NULL);
+                if (r < 0) {
+                        log_warning_errno(r, "Cannot query /proc/meminfo for MemTotal: %m");
+                        cached = CACHE_MAX_FALLBACK;
+                } else
+                        /* Cache entries are usually a few kB, but the process cmdline is controlled by the
+                         * user and can be up to _SC_ARG_MAX, usually 2MB. Let's say that approximately up to
+                         * 1/8th of memory may be used by the cache.
+                         *
+                         * In the common case, this formula gives 64 cache entries for each GB of RAM.
+                         */
+                        cached = CLAMP(mem_total / 8 / sc_arg_max(), CACHE_MAX_MIN, CACHE_MAX_MAX);
+        }
+
+        return cached;
+}
 
 static int client_context_compare(const void *a, const void *b) {
         const ClientContext *x = a, *y = b;
@@ -104,8 +132,8 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         c->timestamp = USEC_INFINITY;
         c->extra_fields_mtime = NSEC_INFINITY;
         c->log_level_max = -1;
-        c->log_rate_limit_interval = s->rate_limit_interval;
-        c->log_rate_limit_burst = s->rate_limit_burst;
+        c->log_ratelimit_interval = s->ratelimit_interval;
+        c->log_ratelimit_burst = s->ratelimit_burst;
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
@@ -154,8 +182,8 @@ static void client_context_reset(Server *s, ClientContext *c) {
 
         c->log_level_max = -1;
 
-        c->log_rate_limit_interval = s->rate_limit_interval;
-        c->log_rate_limit_burst = s->rate_limit_burst;
+        c->log_ratelimit_interval = s->ratelimit_interval;
+        c->log_ratelimit_burst = s->ratelimit_burst;
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
@@ -202,7 +230,7 @@ static void client_context_read_basic(ClientContext *c) {
         if (get_process_exe(c->pid, &t) >= 0)
                 free_and_replace(c->exe, t);
 
-        if (get_process_cmdline(c->pid, 0, false, &t) >= 0)
+        if (get_process_cmdline(c->pid, SIZE_MAX, 0, &t) >= 0)
                 free_and_replace(c->cmdline, t);
 
         if (get_process_capeff(c->pid, &t) >= 0)
@@ -431,7 +459,7 @@ static int client_context_read_extra_fields(
         return 0;
 }
 
-static int client_context_read_log_rate_limit_interval(ClientContext *c) {
+static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         _cleanup_free_ char *value = NULL;
         const char *p;
         int r;
@@ -446,10 +474,10 @@ static int client_context_read_log_rate_limit_interval(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou64(value, &c->log_rate_limit_interval);
+        return safe_atou64(value, &c->log_ratelimit_interval);
 }
 
-static int client_context_read_log_rate_limit_burst(ClientContext *c) {
+static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         _cleanup_free_ char *value = NULL;
         const char *p;
         int r;
@@ -464,7 +492,7 @@ static int client_context_read_log_rate_limit_burst(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou(value, &c->log_rate_limit_burst);
+        return safe_atou(value, &c->log_ratelimit_burst);
 }
 
 static void client_context_really_refresh(
@@ -493,8 +521,8 @@ static void client_context_really_refresh(
         (void) client_context_read_invocation_id(s, c);
         (void) client_context_read_log_level_max(s, c);
         (void) client_context_read_extra_fields(s, c);
-        (void) client_context_read_log_rate_limit_interval(c);
-        (void) client_context_read_log_rate_limit_burst(c);
+        (void) client_context_read_log_ratelimit_interval(c);
+        (void) client_context_read_log_ratelimit_burst(c);
 
         c->timestamp = timestamp;
 
@@ -550,15 +578,39 @@ refresh:
 }
 
 static void client_context_try_shrink_to(Server *s, size_t limit) {
+        ClientContext *c;
+        usec_t t;
+
         assert(s);
+
+        /* Flush any cache entries for PIDs that have already moved on. Don't do this
+         * too often, since it's a slow process. */
+        t = now(CLOCK_MONOTONIC);
+        if (s->last_cache_pid_flush + MAX_USEC < t) {
+                unsigned n = prioq_size(s->client_contexts_lru), idx = 0;
+
+                /* We do a number of iterations based on the initial size of the prioq.  When we remove an
+                 * item, a new item is moved into its places, and items to the right might be reshuffled.
+                 */
+                for (unsigned i = 0; i < n; i++) {
+                        c = prioq_peek_by_index(s->client_contexts_lru, idx);
+
+                        assert(c->n_ref == 0);
+
+                        if (!pid_is_unwaited(c->pid))
+                                client_context_free(s, c);
+                        else
+                                idx ++;
+                }
+
+                s->last_cache_pid_flush = t;
+        }
 
         /* Bring the number of cache entries below the indicated limit, so that we can create a new entry without
          * breaching the limit. Note that we only flush out entries that aren't pinned here. This means the number of
          * cache entries may very well grow beyond the limit, if all entries stored remain pinned. */
 
         while (hashmap_size(s->client_contexts) > limit) {
-                ClientContext *c;
-
                 c = prioq_pop(s->client_contexts_lru);
                 if (!c)
                         break; /* All remaining entries are pinned, give up */
@@ -627,7 +679,7 @@ static int client_context_get_internal(
                 return 0;
         }
 
-        client_context_try_shrink_to(s, CACHE_MAX-1);
+        client_context_try_shrink_to(s, cache_max()-1);
 
         r = client_context_new(s, pid, &c);
         if (r < 0)

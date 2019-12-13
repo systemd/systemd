@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_creds_new_from_pid" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -264,42 +261,40 @@
     not needed anymore, this reference should be destroyed with
     <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-ESRCH</constant></term>
+        <varlistentry>
+          <term><constant>-ESRCH</constant></term>
 
-        <listitem><para>Specified <parameter>pid</parameter> could not
-        be found.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified <parameter>pid</parameter> could not be found.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified parameter is invalid
-        (<constant>NULL</constant> in case of output
-        parameters).</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified parameter is invalid (<constant>NULL</constant> in case of output
+          parameters).</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EOPNOTSUPP</constant></term>
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
 
-        <listitem><para>One of the requested fields is unknown to the local system.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>One of the requested fields is unknown to the local system.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

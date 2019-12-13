@@ -2,14 +2,18 @@
 
 efi_headers = files('''
         console.h
+        crc32.h
         disk.h
         graphics.h
         linux.h
         measure.h
+        missing_efi.h
         pe.h
+        random-seed.h
+        sha256.h
+        shim.h
         splash.h
         util.h
-        shim.h
 '''.split())
 
 common_sources = '''
@@ -23,6 +27,9 @@ common_sources = '''
 systemd_boot_sources = '''
         boot.c
         console.c
+        crc32.c
+        random-seed.c
+        sha256.c
         shim.c
 '''.split()
 
@@ -106,7 +113,6 @@ if have_gnu_efi
                         '-Wextra',
                         '-std=gnu90',
                         '-nostdinc',
-                        '-ggdb', '-O0',
                         '-fpic',
                         '-fshort-wchar',
                         '-ffreestanding',
@@ -127,6 +133,16 @@ if have_gnu_efi
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
+        endif
+        if get_option('werror') == true
+                compile_args += ['-Werror']
+        endif
+        if get_option('buildtype') == 'debug'
+                compile_args += ['-ggdb', '-O0']
+        elif get_option('buildtype') == 'debugoptimized'
+                compile_args += ['-ggdb', '-Og']
+        else
+                compile_args += ['-O2']
         endif
 
         efi_ldflags = ['-T',
@@ -194,9 +210,7 @@ if have_gnu_efi
                                    '-j', '.data',
                                    '-j', '.dynamic',
                                    '-j', '.dynsym',
-                                   '-j', '.rel',
-                                   '-j', '.rela',
-                                   '-j', '.reloc']
+                                   '-j', '.rel*']
                                   + efi_format +
                                   ['@INPUT@', '@OUTPUT@'],
                         install : true,

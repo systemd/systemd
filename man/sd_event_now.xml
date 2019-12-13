@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_now" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -67,42 +64,37 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>If the first event loop iteration has not run yet
-    <function>sd_event_now()</function> writes current time to
-    <parameter>usec</parameter> and returns a positive return value.
-    Otherwise, it will write the requested timestamp to <parameter>usec</parameter>
-    and return 0. On failure, the call returns a negative errno-style
-    error code.</para>
-  </refsect1>
+    <para>If the first event loop iteration has not run yet <function>sd_event_now()</function> writes
+    current time to <parameter>usec</parameter> and returns a positive return value.  Otherwise, it will
+    write the requested timestamp to <parameter>usec</parameter> and return 0. On failure, the call returns a
+    negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned values may indicate the following problems:</para>
+      <para>Returned values may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An invalid parameter was
-        passed.</para></listitem>
+          <listitem><para>An invalid parameter was passed.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EOPNOTSUPP</constant></term>
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
 
-        <listitem><para>Unsupported clock type.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Unsupported clock type.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop object was created in a
-        different process.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The event loop object was created in a different process.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

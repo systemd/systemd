@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
+#include "time-util.h"
 
 typedef struct Manager Manager;
 
@@ -30,6 +31,7 @@ struct Manager {
         Hashmap *users;
         Hashmap *inhibitors;
         Hashmap *buttons;
+        Hashmap *brightness_writers;
 
         LIST_HEAD(Seat, seat_gc_queue);
         LIST_HEAD(Session, session_gc_queue);
@@ -117,7 +119,6 @@ struct Manager {
         sd_event_source *lid_switch_ignore_event_source;
 
         uint64_t runtime_dir_size;
-        uint64_t user_tasks_max;
         uint64_t sessions_max;
         uint64_t inhibitors_max;
 };
@@ -125,14 +126,14 @@ struct Manager {
 void manager_reset_config(Manager *m);
 int manager_parse_config_file(Manager *m);
 
-int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
-int manager_add_button(Manager *m, const char *name, Button **_button);
-int manager_add_seat(Manager *m, const char *id, Seat **_seat);
-int manager_add_session(Manager *m, const char *id, Session **_session);
-int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **_user);
-int manager_add_user_by_name(Manager *m, const char *name, User **_user);
-int manager_add_user_by_uid(Manager *m, uid_t uid, User **_user);
-int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **_inhibitor);
+int manager_add_device(Manager *m, const char *sysfs, bool master, Device **ret_device);
+int manager_add_button(Manager *m, const char *name, Button **ret_button);
+int manager_add_seat(Manager *m, const char *id, Seat **ret_seat);
+int manager_add_session(Manager *m, const char *id, Session **ret_session);
+int manager_add_user(Manager *m, uid_t uid, gid_t gid, const char *name, const char *home, User **ret_user);
+int manager_add_user_by_name(Manager *m, const char *name, User **ret_user);
+int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user);
+int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret_inhibitor);
 
 int manager_process_seat_device(Manager *m, sd_device *d);
 int manager_process_button_device(Manager *m, sd_device *d);
@@ -157,24 +158,6 @@ void manager_reconnect_utmp(Manager *m);
 
 extern const sd_bus_vtable manager_vtable[];
 
-int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
-int match_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error);
-
-int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name, InhibitWhat w, sd_bus_error *error);
-
-int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
-
-int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, char **wants, char **after, const char *requires_mounts_for, sd_bus_message *more_properties, sd_bus_error *error, char **job);
-int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
-int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
-int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error);
-int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
-int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *error);
-int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *error);
-
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
@@ -183,11 +166,5 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 CONFIG_PARSER_PROTOTYPE(config_parse_n_autovts);
 CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs_size);
 
-int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
-int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);
-int manager_get_seat_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Seat **ret);
-
 int manager_setup_wall_message_timer(Manager *m);
 bool logind_wall_tty_filter(const char *tty, void *userdata);
-
-int manager_dispatch_delayed(Manager *manager, bool timeout);

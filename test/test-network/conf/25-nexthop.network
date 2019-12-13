@@ -1,0 +1,11 @@
+[Match]
+Name=veth99
+
+[Network]
+IPv6AcceptRA=no
+Address=192.168.5.10/24
+Gateway=192.168.5.1
+
+[NextHop]
+Id=1
+Gateway=192.168.5.1

@@ -103,6 +103,7 @@ struct Socket {
         mode_t socket_mode;
 
         SocketResult result;
+        SocketResult clean_result;
 
         char **symlinks;
 

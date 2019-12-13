@@ -17,184 +17,191 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager 2>/dev/null |
-                { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
 }
 
 __get_busnames() {
-        local mode=$1
-        local a b
-        busctl $mode list --no-legend --no-pager 2>/dev/null |
-                { while read a b; do echo " $a"; done; };
+    local mode=$1
+    local a b
+    COLUMNS=65535 busctl $mode list --no-legend --no-pager 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
 }
 
 __get_objects() {
-        local mode=$1
-        local busname=$2
-        local a b
-        busctl $mode tree --list --no-legend --no-pager $busname 2>/dev/null |
-                { while read a b; do echo " $a"; done; };
+    local mode=$1
+    local busname=$2
+    local a b
+    busctl $mode tree --list --no-legend --no-pager $busname 2>/dev/null |
+        { while read a b; do echo " $a"; done; };
 }
 
 __get_interfaces() {
-        local mode=$1
-        local busname=$2
-        local path=$3
-        local a b c
-        busctl $mode introspect --list --no-legend --no-pager $busname $path 2>/dev/null |
-                { while read a b c; do [[ "$b" == "interface" ]] && echo " $a"; done; };
+    local mode=$1
+    local busname=$2
+    local path=$3
+    local a b c
+    busctl $mode introspect --list --no-legend --no-pager $busname $path 2>/dev/null |
+        { while read a b c; do [[ "$b" == "interface" ]] && echo " $a"; done; };
 }
 
 __get_members() {
-        local mode=$1
-        local busname=$2
-        local path=$3
-        local interface=$4
-        local type=$5
-        local flags=$6
-        local a b c d e
-        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface 2>/dev/null |
-                sed -e 's/^\.//' |
-                { while read a b c d e; do [[ "$b" == "$type" && ( -z $flags || "$e" == "$flags" ) ]] && echo " $a"; done; };
+    local mode=$1
+    local busname=$2
+    local path=$3
+    local interface=$4
+    local type=$5
+    local flags=$6
+    local a b c d e
+    busctl $mode introspect --list --no-legend --no-pager $busname $path $interface 2>/dev/null |
+        sed -e 's/^\.//' |
+        { while read a b c d e; do [[ "$b" == "$type" && ( -z $flags || "$e" == "$flags" ) ]] && echo " $a"; done; };
 }
 
 __get_signature() {
-        local mode=$1
-        local busname=$2
-        local path=$3
-        local interface=$4
-        local member=$5
-        local a b c d
-        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface 2>/dev/null |
-                sed -e 's/^\.//' | { while read a b c d; do [[ "$a" == "$member" && "$c" != '-' ]] && echo " \"$c\""; done; };
+    local mode=$1
+    local busname=$2
+    local path=$3
+    local interface=$4
+    local member=$5
+    local a b c d
+    busctl $mode introspect --list --no-legend --no-pager $busname $path $interface 2>/dev/null |
+        sed -e 's/^\.//' | { while read a b c d; do [[ "$a" == "$member" && "$c" != '-' ]] && echo " \"$c\""; done; };
 }
 
 _busctl() {
-        local i n verb comps mode
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
-                             --show-machine --unique --acquired --activatable --list
-                             -q --quiet --verbose --expect-reply=no --auto-start=no
-                             --allow-interactive-authorization=no --augment-creds=no
-                             --watch-bind=yes -j'
-                      [ARG]='--address -H --host -M --machine --match --timeout --size --json'
-        )
+    local i n verb comps mode
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
+                      --show-machine --unique --acquired --activatable --list
+                      -q --quiet --verbose --expect-reply=no --auto-start=no
+                      --allow-interactive-authorization=no --augment-creds=no
+                      --watch-bind=yes -j'
+        [ARG]='--address -H --host -M --machine --match --timeout --size --json
+                      --destination'
+    )
 
-        if __contains_word "--user" ${COMP_WORDS[*]}; then
-                mode=--user
-        else
-                mode=--system
-        fi
+    if __contains_word "--user" ${COMP_WORDS[*]}; then
+        mode=--user
+    else
+        mode=--system
+    fi
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                        --json)
-                                comps=$( busctl --json=help 2>/dev/null )
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        local -A VERBS=(
-                [STANDALONE]='list help'
-                [BUSNAME]='status monitor capture tree'
-                [OBJECT]='introspect'
-                [METHOD]='call'
-                [PROPERTY_GET]='get-property'
-                [PROPERTY_SET]='set-property'
-        )
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        n=$(($COMP_CWORD - $i))
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                comps=''
-        elif __contains_word "$verb" ${VERBS[BUSNAME]}; then
-                comps=$( __get_busnames $mode)
-        elif __contains_word "$verb" ${VERBS[OBJECT]}; then
-                if [[ $n -eq 1 ]] ; then
-                        comps=$( __get_busnames $mode)
-                elif [[ $n -eq 2 ]] ; then
-                        comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 3 ]] ; then
-                        comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                else
-                        comps=''
-                fi
-        elif __contains_word "$verb" ${VERBS[METHOD]}; then
-                if [[ $n -eq 1 ]] ; then
-                        comps=$( __get_busnames $mode)
-                elif [[ $n -eq 2 ]] ; then
-                        comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 3 ]] ; then
-                        comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 4 ]] ; then
-                        comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} method)
-                elif [[ $n -eq 5 ]] ; then
-                        comps=$( __get_signature $mode ${COMP_WORDS[COMP_CWORD-4]} ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                else
-                        comps=''
-                fi
-        elif __contains_word "$verb" ${VERBS[PROPERTY_GET]}; then
-                if [[ $n -eq 1 ]] ; then
-                        comps=$( __get_busnames $mode)
-                elif [[ $n -eq 2 ]] ; then
-                        comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 3 ]] ; then
-                        comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 4 ]] ; then
-                        comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property)
-                else
-                        comps=''
-                fi
-        elif __contains_word "$verb" ${VERBS[PROPERTY_SET]}; then
-                if [[ $n -eq 1 ]] ; then
-                        comps=$( __get_busnames $mode)
-                elif [[ $n -eq 2 ]] ; then
-                        comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 3 ]] ; then
-                        comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                elif [[ $n -eq 4 ]] ; then
-                        comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property writable)
-                elif [[ $n -eq 5 ]] ; then
-                        comps=$( __get_signature $mode ${COMP_WORDS[COMP_CWORD-4]} ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
-                else
-                        comps=''
-                fi
-        fi
-
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --json)
+                comps=$( busctl --json=help 2>/dev/null )
+                ;;
+            --destination)
+                comps=$( __get_busnames $mode )
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [STANDALONE]='list help'
+        [BUSNAME]='status monitor capture tree'
+        [OBJECT]='introspect'
+        [METHOD]='call'
+        [EMIT]='emit'
+        [PROPERTY_GET]='get-property'
+        [PROPERTY_SET]='set-property'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    n=$(($COMP_CWORD - $i))
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[BUSNAME]}; then
+        comps=$( __get_busnames $mode)
+    elif __contains_word "$verb" ${VERBS[OBJECT]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$( __get_busnames $mode)
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        else
+            comps=''
+        fi
+    elif __contains_word "$verb" ${VERBS[METHOD]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$( __get_busnames $mode)
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 4 ]] ; then
+            comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} method)
+        elif [[ $n -eq 5 ]] ; then
+            comps=$( __get_signature $mode ${COMP_WORDS[COMP_CWORD-4]} ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        else
+            comps=''
+        fi
+    elif __contains_word "$verb" ${VERBS[EMIT]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[PROPERTY_GET]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$( __get_busnames $mode)
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 4 ]] ; then
+            comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property)
+        else
+            comps=''
+        fi
+    elif __contains_word "$verb" ${VERBS[PROPERTY_SET]}; then
+        if [[ $n -eq 1 ]] ; then
+            comps=$( __get_busnames $mode)
+        elif [[ $n -eq 2 ]] ; then
+            comps=$( __get_objects $mode ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 3 ]] ; then
+            comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        elif [[ $n -eq 4 ]] ; then
+            comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property writable)
+        elif [[ $n -eq 5 ]] ; then
+            comps=$( __get_signature $mode ${COMP_WORDS[COMP_CWORD-4]} ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
+        else
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _busctl busctl

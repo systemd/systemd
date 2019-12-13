@@ -4,18 +4,19 @@
 #include <netdb.h>
 #include <nss.h>
 #include <stdlib.h>
-#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
+#include "errno-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
 #include "resolved-def.h"
-#include "string-util.h"
-#include "util.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
@@ -24,7 +25,9 @@ static bool bus_error_shall_fallback(sd_bus_error *e) {
         return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED);
+               sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED) ||
+               sd_bus_error_has_name(e, SD_BUS_ERROR_DISCONNECTED) ||
+               sd_bus_error_has_name(e, SD_BUS_ERROR_TIMEOUT);
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
@@ -116,7 +119,6 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         struct gaih_addrtuple *r_tuple, *r_tuple_first = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         const char *canonical = NULL;
         size_t l, ms, idx;
         char *r_name;
@@ -160,14 +162,13 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
                    allowing falling back to other nss modules. Treat all other error conditions as
                    NOTFOUND. This includes DNSSEC errors and suchlike. (We don't use UNAVAIL in this
-                   case so that the nsswitch.conf configuration can distuingish such executed but
+                   case so that the nsswitch.conf configuration can distinguish such executed but
                    negative replies from complete failure to talk to resolved). */
                 goto fail;
         }
@@ -186,6 +187,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         l = strlen(canonical);
         ms = ALIGN(l+1) + ALIGN(sizeof(struct gaih_addrtuple)) * c;
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -267,9 +269,10 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
@@ -289,7 +292,6 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         size_t l, idx, ms, alen;
         const char *canonical;
         int c, r, i = 0;
@@ -340,8 +342,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -364,6 +365,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         ms = ALIGN(l+1) + c * ALIGN(alen) + (c+2) * sizeof(char*);
 
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -455,9 +457,10 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
@@ -476,7 +479,6 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *r_name, *r_aliases, *r_addr, *r_addr_list;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        enum nss_status ret = NSS_STATUS_UNAVAIL;
         unsigned c = 0, i = 0;
         size_t ms = 0, idx;
         const char *n;
@@ -492,15 +494,15 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         assert(h_errnop);
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
+                UNPROTECT_ERRNO;
                 *errnop = EAFNOSUPPORT;
                 *h_errnop = NO_DATA;
                 return NSS_STATUS_UNAVAIL;
         }
 
         if (len != FAMILY_ADDRESS_SIZE(af)) {
-                *errnop = EINVAL;
-                *h_errnop = NO_RECOVERY;
-                return NSS_STATUS_UNAVAIL;
+                r = -EINVAL;
+                goto fail;
         }
 
         if (avoid_deadlock()) {
@@ -540,8 +542,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
-                    !bus_error_shall_fallback(&error))
+                if (!bus_error_shall_fallback(&error))
                         goto not_found;
 
                 goto fail;
@@ -566,7 +567,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_message_rewind(reply, false);
         if (r < 0)
-                return r;
+                goto fail;
 
         if (c <= 0)
                 goto not_found;
@@ -576,6 +577,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
               c * sizeof(char*);        /* pointers to aliases, plus trailing NULL */
 
         if (buflen < ms) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 *h_errnop = NETDB_INTERNAL;
                 return NSS_STATUS_TRYAGAIN;
@@ -636,9 +638,10 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
-        return ret;
+        return NSS_STATUS_UNAVAIL;
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;

@@ -29,6 +29,7 @@ enum  {
         PARTITION_HOME,
         PARTITION_SRV,
         PARTITION_ESP,
+        PARTITION_XBOOTLDR,
         PARTITION_SWAP,
         PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
@@ -56,7 +57,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 5,  /* Don't accept disks without root partition */
         DISSECT_IMAGE_MOUNT_ROOT_ONLY     = 1 << 6,  /* Mount only the root partition */
         DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7,  /* Mount only non-root partitions */
-        DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifyable as OS images */
+        DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
         DISSECT_IMAGE_NO_UDEV             = 1 << 9,  /* Don't wait for udev initializing things */
 } DissectImageFlags;
 

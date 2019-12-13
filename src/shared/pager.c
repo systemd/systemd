@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
@@ -24,6 +22,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "util.h"
 
 static pid_t pager_pid = 0;
 
@@ -173,7 +172,7 @@ int pager_open(PagerFlags flags) {
 
                         execvp(pager_args[0], pager_args);
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using fallback pagers: %m", pager_args[0]);
+                                       "Failed to execute '%s', using fallback pagers: %m", pager_args[0]);
                 }
 
                 /* Debian's alternatives command for pagers is
@@ -190,14 +189,16 @@ int pager_open(PagerFlags flags) {
                         }
                         execlp(exe, exe, NULL);
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                       "Failed execute %s, using next fallback pager: %m", exe);
+                                       "Failed to execute '%s', using next fallback pager: %m", exe);
                 }
 
-                r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in") + 1, false);
+                r = loop_write(exe_name_pipe[1], "(built-in)", strlen("(built-in)") + 1, false);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write pager name to socket: %m");
                         _exit(EXIT_FAILURE);
                 }
+                /* Close pipe to signal the parent to start sending data */
+                safe_close_pair(exe_name_pipe);
                 pager_fallback();
                 /* not reached */
         }

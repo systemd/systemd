@@ -18,40 +18,40 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word() {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 _systemd_cat() {
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps
 
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version'
-                      [ARG]='-t --identifier -p --priority --level-prefix'
-        )
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version'
+        [ARG]='-t --identifier -p --priority --level-prefix'
+    )
 
-        _init_completion || return
+    _init_completion || return
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --identifier|-t)
-                                comps=''
-                        ;;
-                        --priority|-p)
-                                comps='emerg alert crit err warning notice info debug'
-                        ;;
-                        --level-prefix)
-                                comps='yes no'
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --identifier|-t)
+                comps=''
+                ;;
+            --priority|-p)
+                comps='emerg alert crit err warning notice info debug'
+                ;;
+            --level-prefix)
+                comps='yes no'
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
 
-        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+    COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
 }
 
 complete -F _systemd_cat systemd-cat

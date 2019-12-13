@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -63,8 +64,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = tar_strip_suffixes(local, &ll);
@@ -150,8 +150,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                 local = l;
         }
 
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 r = raw_strip_suffixes(local, &ll);

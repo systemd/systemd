@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
-#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -19,7 +17,10 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "label.h"
+#include "limits-util.h"
+#include "logind-dbus.h"
 #include "logind-user.h"
+#include "logind-user-dbus.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -67,6 +68,8 @@ int user_new(User **ret,
         u->home = strdup(home);
         if (!u->home)
                 return -ENOMEM;
+
+        path_simplify(u->home, true);
 
         if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
                 return -ENOMEM;
@@ -159,7 +162,6 @@ static int user_save_internal(User *u) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -357,7 +359,8 @@ static void user_start_service(User *u) {
 
         r = manager_start_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
-                log_warning_errno(r, "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
 int user_start(User *u) {
@@ -367,7 +370,7 @@ int user_start(User *u) {
                 return 0;
 
         /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
-         * that flag before queing the start-jobs again. If they succeed, the user object can be re-used just fine
+         * that flag before queueing the start-jobs again. If they succeed, the user object can be re-used just fine
          * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
          * so possibly pending units are stopped. */
         u->stopping = false;
@@ -661,12 +664,12 @@ static bool elect_display_filter(Session *s) {
         /* Return true if the session is a candidate for the user’s ‘primary session’ or ‘display’. */
         assert(s);
 
-        return s->class == SESSION_USER && s->started && !s->stopping;
+        return IN_SET(s->class, SESSION_USER, SESSION_GREETER) && s->started && !s->stopping;
 }
 
 static int elect_display_compare(Session *s1, Session *s2) {
         /* Indexed by SessionType. Lower numbers mean more preferred. */
-        const int type_ranks[_SESSION_TYPE_MAX] = {
+        static const int type_ranks[_SESSION_TYPE_MAX] = {
                 [SESSION_UNSPECIFIED] = 0,
                 [SESSION_TTY] = -2,
                 [SESSION_X11] = -3,
@@ -752,7 +755,7 @@ void user_update_last_session_timer(User *u) {
 
         assert(!u->timer_event_source);
 
-        if (u->manager->user_stop_delay == 0 || u->manager->user_stop_delay == USEC_INFINITY)
+        if (IN_SET(u->manager->user_stop_delay, 0, USEC_INFINITY))
                 return;
 
         if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
@@ -846,7 +849,6 @@ int config_parse_compat_user_tasks_max(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         log_syntax(unit, LOG_NOTICE, filename, line, 0,
                    "Support for option %s= has been removed.",

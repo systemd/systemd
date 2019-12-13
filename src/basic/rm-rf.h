@@ -3,13 +3,14 @@
 
 #include <sys/stat.h>
 
-#include "util.h"
+#include "errno-util.h"
 
 typedef enum RemoveFlags {
-        REMOVE_ONLY_DIRECTORIES = 1 << 0,
-        REMOVE_ROOT             = 1 << 1,
-        REMOVE_PHYSICAL         = 1 << 2, /* if not set, only removes files on tmpfs, never physical file systems */
-        REMOVE_SUBVOLUME        = 1 << 3,
+        REMOVE_ONLY_DIRECTORIES = 1 << 0, /* Only remove empty directories, no files */
+        REMOVE_ROOT             = 1 << 1, /* Remove the specified directory itself too, not just the contents of it */
+        REMOVE_PHYSICAL         = 1 << 2, /* If not set, only removes files on tmpfs, never physical file systems */
+        REMOVE_SUBVOLUME        = 1 << 3, /* Drop btrfs subvolumes in the tree too */
+        REMOVE_MISSING_OK       = 1 << 4, /* If the top-level directory is missing, ignore the ENOENT for it */
 } RemoveFlags;
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);

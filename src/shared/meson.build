@@ -21,12 +21,20 @@ shared_sources = files('''
         bootspec.h
         bpf-program.c
         bpf-program.h
+        bus-unit-procs.c
+        bus-unit-procs.h
         bus-unit-util.c
         bus-unit-util.h
         bus-util.c
         bus-util.h
+        bus-wait-for-jobs.c
+        bus-wait-for-jobs.h
+        bus-wait-for-units.c
+        bus-wait-for-units.h
         calendarspec.c
         calendarspec.h
+        cgroup-setup.c
+        cgroup-setup.h
         cgroup-show.c
         cgroup-show.h
         clean-ipc.c
@@ -46,15 +54,19 @@ shared_sources = files('''
         dev-setup.h
         dissect-image.c
         dissect-image.h
+        dm-util.c
+        dm-util.h
         dns-domain.c
         dns-domain.h
         dropin.c
         dropin.h
-        efivars.c
-        efivars.h
+        efi-loader.c
+        efi-loader.h
         enable-mempool.c
         env-file-label.c
         env-file-label.h
+        ethtool-util.c
+        ethtool-util.h
         exec-util.c
         exec-util.h
         exit-status.c
@@ -66,6 +78,7 @@ shared_sources = files('''
         firewall-util.h
         format-table.c
         format-table.h
+        fsck-util.h
         fstab-util.c
         fstab-util.h
         generator.c
@@ -91,8 +104,18 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        libmount-util.h
+        linux/auto_dev-ioctl.h
+        linux/bpf.h
+        linux/bpf_common.h
+        linux/bpf_insn.h
+        linux/dm-ioctl.h
+        linux/ethtool.h
+        local-addresses.c
+        local-addresses.h
         lockfile-util.c
         lockfile-util.h
+        log-link.h
         logs-show.c
         logs-show.h
         loop-util.c
@@ -117,12 +140,15 @@ shared_sources = files('''
         pager.h
         path-lookup.c
         path-lookup.h
+        pe-header.h
         pretty-print.c
         pretty-print.h
         ptyfwd.c
         ptyfwd.h
         reboot-util.c
         reboot-util.h
+        resize-fs.c
+        resize-fs.h
         resolve-util.c
         resolve-util.h
         seccomp-util.h
@@ -150,7 +176,11 @@ shared_sources = files('''
         udev-util.h
         uid-range.c
         uid-range.h
+        unit-file.c
+        unit-file.h
         utmp-wtmp.h
+        varlink.c
+        varlink.h
         verbs.c
         verbs.h
         vlan-util.c
@@ -161,7 +191,8 @@ shared_sources = files('''
         watchdog.h
         web-util.c
         web-util.h
-        wireguard-netlink.h
+        wifi-util.c
+        wifi-util.h
         xml.c
         xml.h
 '''.split())
@@ -236,20 +267,20 @@ shared_sources += shared_generated_gperf_headers
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared_deps = [threads,
-                  librt,
-                  libcap,
                   libacl,
+                  libblkid,
+                  libcap,
                   libcryptsetup,
                   libgcrypt,
+                  libidn,
                   libiptc,
                   libkmod,
+                  liblz4,
                   libmount,
+                  librt,
                   libseccomp,
                   libselinux,
-                  libidn,
-                  libxz,
-                  liblz4,
-                  libblkid]
+                  libxz]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 

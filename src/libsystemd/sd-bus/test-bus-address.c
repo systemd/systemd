@@ -4,6 +4,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 static void test_one_address(sd_bus *b,
                              const char *host,
@@ -40,8 +41,8 @@ static void test_bus_set_address_system_remote(char **args) {
                                  -EINVAL, NULL);
         test_one_address(b, "user@host",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
-         test_one_address(b, "user@host@host",
-                                 -EINVAL, NULL);
+        test_one_address(b, "user@host@host",
+                         -EINVAL, NULL);
         test_one_address(b, "[::1]",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]",
@@ -59,9 +60,7 @@ static void test_bus_set_address_system_remote(char **args) {
 }
 
 int main(int argc, char *argv[]) {
-        log_set_max_level(LOG_INFO);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_bus_set_address_system_remote(argv + 1);
 

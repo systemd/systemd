@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_read"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -157,14 +154,12 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>
-      On success, <function>sd_bus_message_read()</function> and
-      <function>sd_bus_message_readv()</function> return 0 or a positive integer. On
-      failure, they return a negative errno-style error code.
-    </para>
-  </refsect1>
+    <para>On success, <function>sd_bus_message_read()</function> and
+    <function>sd_bus_message_readv()</function> return 0 or a positive integer. On failure, they return a
+    negative errno-style error code.</para>
 
-  <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors" />
+    <xi:include href="sd_bus_message_read_basic.xml" xpointer="errors" />
+  </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
 

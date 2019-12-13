@@ -15,7 +15,7 @@ char *unit_dbus_path_from_name(const char *name) {
         if (!e)
                 return NULL;
 
-        return strappend("/org/freedesktop/systemd1/unit/", e);
+        return strjoin("/org/freedesktop/systemd1/unit/", e);
 }
 
 int unit_name_from_dbus_path(const char *path, char **name) {
@@ -102,7 +102,8 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
         [UNIT_INACTIVE] = "inactive",
         [UNIT_FAILED] = "failed",
         [UNIT_ACTIVATING] = "activating",
-        [UNIT_DEACTIVATING] = "deactivating"
+        [UNIT_DEACTIVATING] = "deactivating",
+        [UNIT_MAINTENANCE] = "maintenance",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
@@ -135,7 +136,8 @@ static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
         [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
         [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
-        [MOUNT_FAILED] = "failed"
+        [MOUNT_FAILED] = "failed",
+        [MOUNT_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_state, MountState);
@@ -162,6 +164,7 @@ DEFINE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
 
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
+        [SERVICE_CONDITION] = "condition",
         [SERVICE_START_PRE] = "start-pre",
         [SERVICE_START] = "start",
         [SERVICE_START_POST] = "start-post",
@@ -177,6 +180,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FINAL_SIGKILL] = "final-sigkill",
         [SERVICE_FAILED] = "failed",
         [SERVICE_AUTO_RESTART] = "auto-restart",
+        [SERVICE_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
@@ -201,7 +205,8 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST] = "stop-post",
         [SOCKET_FINAL_SIGTERM] = "final-sigterm",
         [SOCKET_FINAL_SIGKILL] = "final-sigkill",
-        [SOCKET_FAILED] = "failed"
+        [SOCKET_FAILED] = "failed",
+        [SOCKET_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_state, SocketState);
@@ -214,7 +219,8 @@ static const char* const swap_state_table[_SWAP_STATE_MAX] = {
         [SWAP_DEACTIVATING] = "deactivating",
         [SWAP_DEACTIVATING_SIGTERM] = "deactivating-sigterm",
         [SWAP_DEACTIVATING_SIGKILL] = "deactivating-sigkill",
-        [SWAP_FAILED] = "failed"
+        [SWAP_FAILED] = "failed",
+        [SWAP_CLEANING] = "cleaning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(swap_state, SwapState);

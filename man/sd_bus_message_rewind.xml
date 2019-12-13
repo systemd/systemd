@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>sd_bus_message_rewind</refname>
 
-    <refpurpose>Return to begining of message or current container</refpurpose>
+    <refpurpose>Return to beginning of message or current container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -38,7 +38,7 @@
     <title>Description</title>
 
     <para><function>sd_bus_message_rewind()</function> moves the "read pointer" in the message
-    <parameter>m</parameter> to either the begining of the message (if
+    <parameter>m</parameter> to either the beginning of the message (if
     <parameter>complete</parameter> is true) or to the beginning of the currently open container. If
     no container is open, <parameter>complete</parameter> has no effect.</para>
   </refsect1>
@@ -51,29 +51,29 @@
       container or whole message in case no container is open is empty, and positive otherwise. On
       failure, it returns a negative errno-style error code.
     </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> has not been sealed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
-
-  <refsect1>
-    <title>Errors</title>
-
-    <para>Returned errors may indicate the following problems:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
-
-        <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
-
-        <listitem><para>The message <parameter>m</parameter> has not been sealed.</para></listitem>
-      </varlistentry>
-    </variablelist>
-  </refsect1>
 
   <refsect1>
     <title>See Also</title>

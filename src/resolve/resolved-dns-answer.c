@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-answer.h"
@@ -87,40 +89,33 @@ int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFl
                 if (a->items[i].ifindex != ifindex)
                         continue;
 
-                r = dns_resource_record_equal(a->items[i].rr, rr);
-                if (r < 0)
-                        return r;
-                if (r > 0) {
-                        /* Don't mix contradicting TTLs (see below) */
-                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
-                                return -EINVAL;
-
-                        /* Entry already exists, keep the entry with
-                         * the higher RR. */
-                        if (rr->ttl > a->items[i].rr->ttl) {
-                                dns_resource_record_ref(rr);
-                                dns_resource_record_unref(a->items[i].rr);
-                                a->items[i].rr = rr;
-                        }
-
-                        a->items[i].flags |= flags;
-                        return 0;
-                }
-
                 r = dns_resource_key_equal(a->items[i].rr->key, rr->key);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        /* There's already an RR of the same RRset in
-                         * place! Let's see if the TTLs more or less
-                         * match. We don't really care if they match
-                         * precisely, but we do care whether one is 0
-                         * and the other is not. See RFC 2181, Section
-                         * 5.2. */
+                if (r == 0)
+                        continue;
 
-                        if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
-                                return -EINVAL;
+                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or less
+                 * match. We don't really care if they match precisely, but we do care whether one is 0 and
+                 * the other is not. See RFC 2181, Section 5.2. */
+                if ((rr->ttl == 0) != (a->items[i].rr->ttl == 0))
+                        return -EINVAL;
+
+                r = dns_resource_record_payload_equal(a->items[i].rr, rr);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* Entry already exists, keep the entry with the higher RR. */
+                if (rr->ttl > a->items[i].rr->ttl) {
+                        dns_resource_record_ref(rr);
+                        dns_resource_record_unref(a->items[i].rr);
+                        a->items[i].rr = rr;
                 }
+
+                a->items[i].flags |= flags;
+                return 0;
         }
 
         return dns_answer_add_raw(a, rr, ifindex, flags);
@@ -166,7 +161,7 @@ int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex
         if (!soa->soa.mname)
                 return -ENOMEM;
 
-        soa->soa.rname = strappend("root.", name);
+        soa->soa.rname = strjoin("root.", name);
         if (!soa->soa.rname)
                 return -ENOMEM;
 

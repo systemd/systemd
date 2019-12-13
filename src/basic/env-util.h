@@ -4,9 +4,16 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "macro.h"
 #include "string.h"
+
+static inline size_t sc_arg_max(void) {
+        long l = sysconf(_SC_ARG_MAX);
+        assert(l > 0);
+        return (size_t) l;
+}
 
 bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);

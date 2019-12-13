@@ -2,8 +2,9 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #if HAVE_XZ
@@ -24,6 +25,7 @@
 #include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unaligned.h"
 #include "util.h"
 
 #if HAVE_LZ4
@@ -99,7 +101,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         if (r <= 0)
                 return -ENOBUFS;
 
-        *(le64_t*) dst = htole64(src_size);
+        unaligned_write_le64(dst, src_size);
         *dst_size = r + 8;
 
         return 0;
@@ -185,8 +187,8 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
         if (src_size <= 8)
                 return -EBADMSG;
 
-        size = le64toh( *(le64_t*)src );
-        if (size < 0 || (unsigned) size != le64toh(*(le64_t*)src))
+        size = unaligned_read_le64(src);
+        if (size < 0 || (unsigned) size != unaligned_read_le64(src))
                 return -EFBIG;
         if ((size_t) size > *dst_alloc_size) {
                 out = realloc(*dst, size);

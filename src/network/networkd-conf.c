@@ -4,6 +4,7 @@
  ***/
 
 #include <ctype.h>
+#include <netinet/ip.h>
 
 #include "conf-parser.h"
 #include "def.h"
@@ -11,17 +12,34 @@
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "networkd-conf.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-speed-meter.h"
+#include "networkd-dhcp4.h"
 #include "string-table.h"
 
 int manager_parse_config_file(Manager *m) {
+        int r;
+
         assert(m);
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
-                                        CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
-                                        "DHCP\0",
-                                        config_item_perf_lookup, networkd_gperf_lookup,
-                                        CONFIG_PARSE_WARN, m);
+        r = config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
+                                     CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
+                                     "Network\0DHCP\0",
+                                     config_item_perf_lookup, networkd_gperf_lookup,
+                                     CONFIG_PARSE_WARN, m);
+        if (r < 0)
+                return r;
+
+        if (m->use_speed_meter && m->speed_meter_interval_usec < SPEED_METER_MINIMUM_TIME_INTERVAL) {
+                char buf[FORMAT_TIMESPAN_MAX];
+
+                log_warning("SpeedMeterIntervalSec= is too small, using %s.",
+                            format_timespan(buf, sizeof buf, SPEED_METER_MINIMUM_TIME_INTERVAL, USEC_PER_SEC));
+                m->speed_meter_interval_usec = SPEED_METER_MINIMUM_TIME_INTERVAL;
+        }
+
+        return 0;
 }
 
 static const char* const duid_type_table[_DUID_TYPE_MAX] = {
@@ -162,5 +180,32 @@ int config_parse_duid_rawdata(
         assert_cc(sizeof(raw_data) == sizeof(ret->raw_data));
         memcpy(ret->raw_data, raw_data, count);
         ret->raw_data_len = count;
+        return 0;
+}
+
+int config_parse_ip_service_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(rvalue, "CS4"))
+                *((int *)data) = IPTOS_CLASS_CS4;
+        else if (streq(rvalue, "CS6"))
+                *((int *)data) = IPTOS_CLASS_CS6;
+        else
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
+
         return 0;
 }

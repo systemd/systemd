@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <alloca.h>
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -20,16 +18,17 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "main-func.h"
+#include "missing_sched.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "sort-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
-#include "util.h"
 #include "virt.h"
 
 typedef struct Group {
@@ -111,7 +110,7 @@ static bool is_root_cgroup(const char *path) {
          *
          * There's one extra complication in all of this, though 😣: if the path to the cgroup indicates we are in the
          * root cgroup this might actually not be the case, because cgroup namespacing might be in effect
-         * (CLONE_NEWCGROUP). Since there's no nice way to distuingish a real cgroup root from a fake namespaced one we
+         * (CLONE_NEWCGROUP). Since there's no nice way to distinguish a real cgroup root from a fake namespaced one we
          * do an explicit container check here, under the assumption that CLONE_NEWCGROUP is generally used when
          * container managers are used too.
          *
@@ -223,75 +222,10 @@ static int process(
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
 
-        } else if (STR_IN_SET(controller, "cpu", "cpuacct") || cpu_accounting_is_cheap()) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
-                uint64_t new_usage;
-                nsec_t timestamp;
-
-                if (is_root_cgroup(path)) {
-                        r = procfs_cpu_get_usage(&new_usage);
-                        if (r < 0)
-                                return r;
-                } else if (all_unified) {
-                        _cleanup_free_ char *val = NULL;
-
-                        if (!streq(controller, "cpu"))
-                                return 0;
-
-                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
-                        if (IN_SET(r, -ENOENT, -ENXIO))
-                                return 0;
-                        if (r < 0)
-                                return r;
-
-                        r = safe_atou64(val, &new_usage);
-                        if (r < 0)
-                                return r;
-
-                        new_usage *= NSEC_PER_USEC;
-                } else {
-                        if (!streq(controller, "cpuacct"))
-                                return 0;
-
-                        r = cg_get_path(controller, path, "cpuacct.usage", &p);
-                        if (r < 0)
-                                return r;
-
-                        r = read_one_line_file(p, &v);
-                        if (r == -ENOENT)
-                                return 0;
-                        if (r < 0)
-                                return r;
-
-                        r = safe_atou64(v, &new_usage);
-                        if (r < 0)
-                                return r;
-                }
-
-                timestamp = now_nsec(CLOCK_MONOTONIC);
-
-                if (g->cpu_iteration == iteration - 1 &&
-                    (nsec_t) new_usage > g->cpu_usage) {
-
-                        nsec_t x, y;
-
-                        x = timestamp - g->cpu_timestamp;
-                        if (x < 1)
-                                x = 1;
-
-                        y = (nsec_t) new_usage - g->cpu_usage;
-                        g->cpu_fraction = (double) y / (double) x;
-                        g->cpu_valid = true;
-                }
-
-                g->cpu_usage = (nsec_t) new_usage;
-                g->cpu_timestamp = timestamp;
-                g->cpu_iteration = iteration;
-
         } else if (streq(controller, "memory")) {
 
                 if (is_root_cgroup(path)) {
-                        r = procfs_memory_get_current(&g->memory);
+                        r = procfs_memory_get_used(&g->memory);
                         if (r < 0)
                                 return r;
                 } else {
@@ -411,6 +345,71 @@ static int process(
                 g->io_output = wr;
                 g->io_timestamp = timestamp;
                 g->io_iteration = iteration;
+        } else if (STR_IN_SET(controller, "cpu", "cpuacct") || cpu_accounting_is_cheap()) {
+                _cleanup_free_ char *p = NULL, *v = NULL;
+                uint64_t new_usage;
+                nsec_t timestamp;
+
+                if (is_root_cgroup(path)) {
+                        r = procfs_cpu_get_usage(&new_usage);
+                        if (r < 0)
+                                return r;
+                } else if (all_unified) {
+                        _cleanup_free_ char *val = NULL;
+
+                        if (!streq(controller, "cpu"))
+                                return 0;
+
+                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                        if (IN_SET(r, -ENOENT, -ENXIO))
+                                return 0;
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(val, &new_usage);
+                        if (r < 0)
+                                return r;
+
+                        new_usage *= NSEC_PER_USEC;
+                } else {
+                        if (!streq(controller, "cpuacct"))
+                                return 0;
+
+                        r = cg_get_path(controller, path, "cpuacct.usage", &p);
+                        if (r < 0)
+                                return r;
+
+                        r = read_one_line_file(p, &v);
+                        if (r == -ENOENT)
+                                return 0;
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(v, &new_usage);
+                        if (r < 0)
+                                return r;
+                }
+
+                timestamp = now_nsec(CLOCK_MONOTONIC);
+
+                if (g->cpu_iteration == iteration - 1 &&
+                    (nsec_t) new_usage > g->cpu_usage) {
+
+                        nsec_t x, y;
+
+                        x = timestamp - g->cpu_timestamp;
+                        if (x < 1)
+                                x = 1;
+
+                        y = (nsec_t) new_usage - g->cpu_usage;
+                        g->cpu_fraction = (double) y / (double) x;
+                        g->cpu_valid = true;
+                }
+
+                g->cpu_usage = (nsec_t) new_usage;
+                g->cpu_timestamp = timestamp;
+                g->cpu_iteration = iteration;
+
         }
 
         if (ret)
@@ -459,7 +458,7 @@ static int refresh_one(
                 if (r == 0)
                         break;
 
-                p = strjoin(path, "/", fn);
+                p = path_join(path, fn);
                 if (!p)
                         return -ENOMEM;
 
@@ -898,7 +897,7 @@ static const char* counting_what(void) {
                 return "userspace processes (excl. kernel)";
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare_func, Group, group_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(group_hash_ops, char, path_hash_func, path_compare, Group, group_free);
 
 static int run(int argc, char *argv[]) {
         _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
@@ -909,6 +908,7 @@ static int run(int argc, char *argv[]) {
         CGroupMask mask;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -922,15 +922,14 @@ static int run(int argc, char *argv[]) {
 
         arg_count = (mask & CGROUP_MASK_PIDS) ? COUNT_PIDS : COUNT_USERSPACE_PROCESSES;
 
-        if (arg_recursive_unset && arg_count == COUNT_PIDS) {
-                log_error("Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
-                return -EINVAL;
-        }
+        if (arg_recursive_unset && arg_count == COUNT_PIDS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Non-recursive counting is only supported when counting processes, not tasks. Use -P or -k.");
 
         r = show_cgroup_get_path_and_warn(arg_machine, arg_root, &root);
         if (r < 0)
                 return log_error_errno(r, "Failed to get root control group path: %m");
-        log_debug("Cgroup path: %s", root);
+        log_debug("CGroup path: %s", root);
 
         a = hashmap_new(&group_hash_ops);
         b = hashmap_new(&group_hash_ops);

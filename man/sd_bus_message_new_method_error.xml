@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_new_method_error"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -119,7 +116,7 @@
     project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format string <parameter>format</parameter> and corresponding arguments.
     <literal>%m</literal> may be used in the format string to refer to the error
-    string corresponding to the specified errno code. The error message is initalized
+    string corresponding to the specified errno code. The error message is initialized
     using the error identifier generated from <constant>error</constant> and the
     formatted string. (If <parameter>error</parameter> is zero, no error is actually
     set, and an error reply with no information is created.)</para>
@@ -130,50 +127,50 @@
 
     <para>These functions return 0 if the error reply was successfully created, and a
     negative errno-style error code otherwise.</para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2 id='errors'>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The call message <parameter>call</parameter> or the output
-        parameter <parameter>m</parameter> are <constant>NULL</constant>.</para>
+          <listitem><para>The call message <parameter>call</parameter> or the output
+          parameter <parameter>m</parameter> are <constant>NULL</constant>.</para>
 
-        <para>Message <parameter>call</parameter> is not a method call
-        message.</para>
+          <para>Message <parameter>call</parameter> is not a method call
+          message.</para>
 
-        <para>The error <parameter>error</parameter> parameter to
-        <function>sd_bus_message_new_method_error</function> is not set, see
-        <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        </para>
-        </listitem>
-      </varlistentry>
+          <para>The error <parameter>error</parameter> parameter to
+          <function>sd_bus_message_new_method_error</function> is not set, see
+          <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+          </para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>Message <parameter>call</parameter> has been sealed.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Message <parameter>call</parameter> has been sealed.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus to which message <parameter>call</parameter> is
-        attached is not connected.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus to which message <parameter>call</parameter> is
+          attached is not connected.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

@@ -55,7 +55,7 @@ Regarding the framing of dbus2, also see:
 https://wiki.gnome.org/Projects/GLib/GDBus/Version2
 
 The first four bytes of the header are defined the same way for dbus1
-and dbus2. The first bytes contain the endianess field and the
+and dbus2. The first bytes contain the endianness field and the
 protocol version, so that the remainder of the message can be safely
 made sense of just by looking at the first 32bit.
 

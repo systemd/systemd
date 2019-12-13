@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
 
 #include "fd-util.h"
+#include "memory-util.h"
 #include "sigbus.h"
 #include "tests.h"
-#include "util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int fd = -1;

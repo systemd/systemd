@@ -1,12 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
-
-<refentry id="systemd-networkd-wait-online.service" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd-networkd-wait-online.service" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-networkd-wait-online.service</title>
@@ -37,8 +35,9 @@
     configured. By default, it will wait for all links it is aware of
     and which are managed by
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    to be fully configured or failed, and for at least one link to
-    gain a carrier.</para>
+    to be fully configured or failed, and for at least one link to be online. Here, online means that
+    the link's operational state is equal or higher than <literal>degraded</literal>. The threshold
+    can be configured by <option>--operational-state=</option> option.</para>
   </refsect1>
 
   <refsect1>
@@ -48,30 +47,72 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>-i</option></term>
-        <term><option>--interface=</option></term>
+        <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
+        <term><option>--interface=</option><replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
 
-        <listitem><para>Network interface to wait for before deciding
-        if the system is online. This is useful when a system has
-        several interfaces which will be configured, but a particular
-        one is necessary to access some network resources. This option
-        may be used more than once to wait for multiple network
-        interfaces. When used, all other interfaces are ignored.
+        <listitem><para>Network interface to wait for before deciding if the system is online. This
+        is useful when a system has several interfaces which will be configured, but a particular
+        one is necessary to access some network resources. When used, all other interfaces are ignored.
+        This option may be used more than once to wait for multiple network interfaces. When this
+        option is specified multiple times, then <command>systemd-networkd-wait-online</command> waits
+        for all specified interfaces to be online. Optionally, required minimum operational state can be
+        specified after a colon <literal>:</literal>. Please see
+        <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for possible operational states. If the operational state is not specified here, then
+        the value from <varname>RequiredForOnline=</varname> in the corresponding
+        <filename>.network</filename> file is used if present, and <literal>degraded</literal> otherwise.
         </para></listitem>
       </varlistentry>
+
       <varlistentry>
-        <term><option>--ignore=</option></term>
+        <term><option>--ignore=</option><replaceable>INTERFACE</replaceable></term>
+
         <listitem><para>Network interfaces to be ignored when deciding
         if the system is online. By default, only the loopback
         interface is ignored. This option may be used more than once
         to ignore multiple network interfaces. </para></listitem>
       </varlistentry>
+
       <varlistentry>
-        <term><option>--timeout=</option></term>
+        <term><option>-o</option> <replaceable>OPERSTATE</replaceable></term>
+        <term><option>--operational-state=</option><replaceable>OPERSTATE</replaceable></term>
+
+        <listitem><para>Takes an operational state. Please see
+        <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for possible operational states. If set, the specified value overrides
+        <varname>RequiredForOnline=</varname> settings in <filename>.network</filename> files.
+        But this does not override operational states specified in <option>--interface=</option> option.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--any</option></term>
+
+        <listitem><para>Even if several interfaces are in configuring state,
+        <command>systemd-networkd-wait-online</command> exits with success when at least one interface
+        becomes online. When this option is specified with <option>--interface=</option>, then
+        <command>systemd-networkd-wait-online</command> waits for one of the specified interfaces to be
+        online. This option is useful when some interfaces may not have carrier on boot.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timeout=</option> <replaceable>SECS</replaceable></term>
+
         <listitem><para>Fail the service if the network is not online
         by the time the timeout elapses. A timeout of 0 disables the
         timeout. Defaults to 120 seconds. </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress log messages.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 
@@ -80,7 +121,8 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

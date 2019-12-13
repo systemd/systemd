@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="udevadm"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -178,6 +175,14 @@
             <para>Cleanup the udev database.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-w<optional>SECONDS</optional></option></term>
+          <term><option>--wait-for-initialization<optional>=SECONDS</optional></option></term>
+          <listitem>
+            <para>Wait for device to be initialized. If argument <replaceable>SECONDS</replaceable>
+            is not specified, the default is to wait forever.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
@@ -189,7 +194,7 @@
       </title>
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
 
-      <para>Takes a device specification as a positional argument. See the description of <command>info</command>
+      <para>Takes device specifications as positional arguments. See the description of <command>info</command>
       above.</para>
 
       <variablelist>
@@ -220,8 +225,12 @@
           <term><option>-c</option></term>
           <term><option>--action=<replaceable>ACTION</replaceable></option></term>
           <listitem>
-            <para>Type of event to be triggered. The default value is
-            <command>change</command>.</para>
+            <para>Type of event to be triggered. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
+            to list the possible actions. The default value is <literal>change</literal>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -298,7 +307,7 @@
           <term><option>--name-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices with a matching device path. When this option is specified more than once,
-            the last <replaceable>NAME</replaceable> is used.</para>
+            then each matching result is ORed, that is, all specified devices are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -306,7 +315,7 @@
           <term><option>--parent-match=<replaceable>SYSPATH</replaceable></option></term>
           <listitem>
             <para>Trigger events for all children of a given device. When this option is specified more than once,
-            the last <replaceable>NAME</replaceable> is used.</para>
+            then each matching result is ORed, that is, all children of each specified device are triggered.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -332,8 +341,8 @@
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
-      <para>In addition, an optional positional argument can be used
-      to specify device name or sys path. It must start with
+      <para>In addition, optional positional arguments can be used
+      to specify device names or sys paths. They must start with
       <filename>/dev</filename> or <filename>/sys</filename>
       respectively.</para>
     </refsect2>
@@ -363,6 +372,10 @@
 
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
+
+      <para>See
+      <citerefentry><refentrytitle>systemd-udev-settle.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for more information.</para>
     </refsect2>
 
     <refsect2><title>udevadm control <replaceable>option</replaceable></title>
@@ -372,8 +385,10 @@
           <term><option>-e</option></term>
           <term><option>--exit</option></term>
           <listitem>
-            <para>Signal and wait for systemd-udevd to exit. Note that <filename>systemd-udevd.service</filename>
-            contains <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
+            <para>Signal and wait for systemd-udevd to exit. No option except for
+            <option>--timeout</option> can be specified after this option.
+            Note that <filename>systemd-udevd.service</filename> contains
+            <option>Restart=always</option> and so as a result, this option restarts systemd-udevd.
             If you want to stop <filename>systemd-udevd.service</filename>, please use the following:
             <programlisting>systemctl stop systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udevd.service</programlisting>
             </para>
@@ -511,9 +526,13 @@
       <variablelist>
         <varlistentry>
           <term><option>-a</option></term>
-          <term><option>--action=<replaceable>string</replaceable></option></term>
+          <term><option>--action=<replaceable>ACTION</replaceable></option></term>
           <listitem>
-            <para>The action string.</para>
+            <para>Type of event to be simulated. Possible actions are <literal>add</literal>,
+            <literal>remove</literal>, <literal>change</literal>, <literal>move</literal>,
+            <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
+            and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
+            to list the possible actions. The default value is <literal>add</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

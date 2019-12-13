@@ -15,7 +15,10 @@ CONT_NAME="${CONT_NAME:-debian-$DEBIAN_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev python3-pyparsing clang)
+ADDITIONAL_DEPS=(python3-libevdev
+                 python3-pyparsing
+                 clang
+                 perl)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -32,9 +35,9 @@ for phase in "${PHASES[@]}"; do
             info "Using Debian $DEBIAN_RELEASE"
             printf "FROM debian:$DEBIAN_RELEASE\nRUN bash -c 'apt-get -y update && apt-get install -y systemd'\n" | docker build -t debian-with-systemd/latest -
             info "Starting container $CONT_NAME"
-            $DOCKER_RUN -v $REPO_ROOT:/build:rw \
+            $DOCKER_RUN -v $REPO_ROOT:/build:rw -e container=docker \
                         -w /build --privileged=true --name $CONT_NAME \
-                        -dit --net=host debian-with-systemd/latest /usr/bin/systemd
+                        -dit --net=host debian-with-systemd/latest /bin/systemd
             $DOCKER_EXEC bash -c "echo deb-src http://deb.debian.org/debian $DEBIAN_RELEASE main >>/etc/apt/sources.list"
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
@@ -44,10 +47,9 @@ for phase in "${PHASES[@]}"; do
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
             fi
-            docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true build
+            docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Dslow-tests=true -Dsplit-usr=true -Dman=true build
             $DOCKER_EXEC ninja -v -C build
             docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME ninja -C build test
-            $DOCKER_EXEC tools/check-directives.sh
             ;;
         RUN_ASAN|RUN_CLANG_ASAN)
             if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then

@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,79 +17,79 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_entry_ids() {
-        bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done }
+    bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done }
 }
 
 _bootctl() {
-        local i verb comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-                [STANDALONE]='-h --help --no-variables -p --print-path --version --no-pager'
-                       [ARG]='--path'
-        )
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --no-variables -p --print-esp-path -x --print-boot-path --version --no-pager'
+        [ARG]='--esp-path --boot-path'
+    )
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --path)
-                                if [[ -z $cur ]]; then
-                                        comps=$(compgen -A directory -- "/" )
-                                else
-                                        comps=$(compgen -A directory -- "$cur" )
-                                fi
-                                compopt -o filenames
-                                ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        local -A VERBS=(
-                [STANDALONE]='help install list remove status update'
-                [BOOTENTRY]='set-default set-oneshot'
-        )
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                comps=''
-        elif __contains_word "$verb" ${VERBS[BOOTENTRY]}; then
-                name=
-                for ((i++; i < COMP_CWORD; i++)); do
-                        if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
-                           ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                name=${COMP_WORDS[i]}
-                                break;
-                        fi
-                done
-
-                if [[ -z $name ]]; then
-                        comps=$( __get_entry_ids )
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --esp-path|--boot-path)
+                if [[ -z $cur ]]; then
+                    comps=$(compgen -A directory -- "/" )
                 else
-                        comps=''
+                    comps=$(compgen -A directory -- "$cur" )
                 fi
-        fi
-
+                compopt -o filenames
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [STANDALONE]='help install list remove status update'
+        [BOOTENTRY]='set-default set-oneshot'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[BOOTENTRY]}; then
+        name=
+        for ((i++; i < COMP_CWORD; i++)); do
+            if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
+                    ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                name=${COMP_WORDS[i]}
+                break;
+            fi
+        done
+
+        if [[ -z $name ]]; then
+            comps=$( __get_entry_ids )
+        else
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _bootctl bootctl

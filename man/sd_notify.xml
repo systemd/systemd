@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_notify"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -177,6 +174,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term>WATCHDOG=trigger</term>
+
+        <listitem><para>Tells the service manager that the service detected an internal error that should be handled by
+        the configured watchdog options. This will trigger the same behaviour as if <varname>WatchdogSec=</varname> is
+        enabled and the service did not send <literal>WATCHDOG=1</literal> in time. Note that
+        <varname>WatchdogSec=</varname> does not need to be enabled for <literal>WATCHDOG=trigger</literal> to trigger
+        the watchdog action. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        information about the watchdog behavior. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>WATCHDOG_USEC=…</term>
 
         <listitem><para>Reset <varname>watchdog_usec</varname> value during runtime.
@@ -191,7 +200,7 @@
         <listitem><para>Tells the service manager to extend the startup, runtime or shutdown service timeout
         corresponding the current state. The value specified is a time in microseconds during which the service must
         send a new message. A service timeout will occur if the message isn't received, but only if the runtime of the
-        current state is beyond the original maximium times of <varname>TimeoutStartSec=</varname>, <varname>RuntimeMaxSec=</varname>,
+        current state is beyond the original maximum times of <varname>TimeoutStartSec=</varname>, <varname>RuntimeMaxSec=</varname>,
         and <varname>TimeoutStopSec=</varname>.
         See <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for effects on the service timeouts.</para></listitem>

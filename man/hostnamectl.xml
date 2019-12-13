@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="hostnamectl" conditional='ENABLE_HOSTNAMED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -62,39 +59,6 @@
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     to initialize the system host name for mounted (but not booted)
     system images.</para>
-  </refsect1>
-
-  <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--static</option></term>
-        <term><option>--transient</option></term>
-        <term><option>--pretty</option></term>
-
-        <listitem><para>If <command>status</command> is invoked (or no explicit command is given) and one of these
-        switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
-
-        <para>If used with <command>set-hostname</command>, only the selected hostname(s) will be updated. When more
-        than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -201,6 +165,39 @@
         value.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--static</option></term>
+        <term><option>--transient</option></term>
+        <term><option>--pretty</option></term>
+
+        <listitem><para>If <command>status</command> is invoked (or no explicit command is given) and one of these
+        switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
+
+        <para>If used with <command>set-hostname</command>, only the selected hostname(s) will be updated. When more
+        than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
   </refsect1>
 

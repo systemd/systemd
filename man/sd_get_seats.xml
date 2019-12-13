@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_get_seats" conditional='HAVE_PAM'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -86,27 +83,24 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_get_seats()</function>,
-    <function>sd_get_sessions()</function>,
-    <function>sd_get_uids()</function> and
-    <function>sd_get_machine_names()</function> return the number of
-    entries in the arrays. On failure, these calls return a negative
-    errno-style error code.</para>
-  </refsect1>
+    <para>On success, <function>sd_get_seats()</function>, <function>sd_get_sessions()</function>,
+    <function>sd_get_uids()</function> and <function>sd_get_machine_names()</function> return the number of
+    entries in the arrays. On failure, these calls return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

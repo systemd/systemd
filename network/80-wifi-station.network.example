@@ -1,0 +1,6 @@
+[Match]
+Type=wifi
+WLANInterfaceType=station
+
+[Network]
+DHCP=yes

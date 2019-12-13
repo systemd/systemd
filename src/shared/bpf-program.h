@@ -31,6 +31,7 @@ BPFProgram *bpf_program_ref(BPFProgram *p);
 
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
+int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path);
 
 int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags);
 int bpf_program_cgroup_detach(BPFProgram *p);

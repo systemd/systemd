@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sched.h>
 #include <sys/utsname.h>
 
 #include "analyze-security.h"
@@ -12,7 +11,9 @@
 #include "in-addr-util.h"
 #include "locale-util.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_capability.h"
+#include "missing_sched.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -44,11 +45,15 @@ struct security_info {
         bool ip_address_allow_localhost;
         bool ip_address_allow_other;
 
+        bool ip_filters_custom_ingress;
+        bool ip_filters_custom_egress;
+
         char *keyring_mode;
         bool lock_personality;
         bool memory_deny_write_execute;
         bool no_new_privileges;
         char *notify_access;
+        bool protect_hostname;
 
         bool private_devices;
         bool private_mounts;
@@ -59,6 +64,7 @@ struct security_info {
         bool protect_control_groups;
         bool protect_kernel_modules;
         bool protect_kernel_tunables;
+        bool protect_kernel_logs;
 
         char *protect_home;
         char *protect_system;
@@ -73,6 +79,7 @@ struct security_info {
 
         uint64_t restrict_namespaces;
         bool restrict_realtime;
+        bool restrict_suid_sgid;
 
         char *root_directory;
         char *root_image;
@@ -97,7 +104,12 @@ struct security_assessor {
         const char *url;
         uint64_t weight;
         uint64_t range;
-        int (*assess)(const struct security_assessor *a, const struct security_info *info, const void *data, uint64_t *ret_badness, char **ret_description);
+        int (*assess)(
+                const struct security_assessor *a,
+                const struct security_info *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description);
         size_t offset;
         uint64_t parameter;
         bool default_dependencies_only;
@@ -294,10 +306,8 @@ static int assess_root_directory(
         assert(ret_description);
 
         *ret_badness =
-                (isempty(info->root_directory) ||
-                 path_equal(info->root_directory, "/")) &&
-                (isempty(info->root_image) ||
-                 path_equal(info->root_image, "/"));
+                empty_or_root(info->root_directory) ||
+                empty_or_root(info->root_image);
         *ret_description = NULL;
 
         return 0;
@@ -485,24 +495,24 @@ static bool syscall_names_in_filter(Set *s, bool whitelist, const SyscallFilterS
         const char *syscall;
 
         NULSTR_FOREACH(syscall, f->value) {
-                bool b;
+                int id;
 
                 if (syscall[0] == '@') {
                         const SyscallFilterSet *g;
+
                         assert_se(g = syscall_filter_set_find(syscall));
-                        b = syscall_names_in_filter(s, whitelist, g);
-                } else {
-                        int id;
+                        if (syscall_names_in_filter(s, whitelist, g))
+                                return true; /* bad! */
 
-                        /* Let's see if the system call actually exists on this platform, before complaining */
-                        id = seccomp_syscall_resolve_name(syscall);
-                        if (id < 0)
-                                continue;
-
-                        b = set_contains(s, syscall);
+                        continue;
                 }
 
-                if (whitelist == b) {
+                /* Let's see if the system call actually exists on this platform, before complaining */
+                id = seccomp_syscall_resolve_name(syscall);
+                if (id < 0)
+                        continue;
+
+                if (set_contains(s, syscall) == whitelist) {
                         log_debug("Offending syscall filter item: %s", syscall);
                         return true; /* bad! */
                 }
@@ -584,14 +594,17 @@ static int assess_ip_address_allow(
         assert(ret_badness);
         assert(ret_description);
 
-        if (!info->ip_address_deny_all) {
+        if (info->ip_filters_custom_ingress || info->ip_filters_custom_egress) {
+                d = strdup("Service defines custom ingress/egress IP filters with BPF programs");
+                b = 0;
+        } else if (!info->ip_address_deny_all) {
                 d = strdup("Service does not define an IP address whitelist");
                 b = 10;
         } else if (info->ip_address_allow_other) {
                 d = strdup("Service defines IP address whitelist with non-localhost entries");
                 b = 5;
         } else if (info->ip_address_allow_localhost) {
-                d = strdup("Service defines IP address whitelits with only localhost entries");
+                d = strdup("Service defines IP address whitelist with only localhost entries");
                 b = 2;
         } else {
                 d = strdup("Service blocks all IP address ranges");
@@ -761,12 +774,32 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(struct security_info, protect_kernel_tunables),
         },
         {
+                .id = "ProtectKernelLogs=",
+                .description_good = "Service cannot read from or write to the kernel log ring buffer",
+                .description_bad = "Service may read from or write to the kernel log ring buffer",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectKernelLogs=",
+                .weight = 1000,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, protect_kernel_logs),
+        },
+        {
                 .id = "ProtectHome=",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHome=",
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_protect_home,
                 .default_dependencies_only = true,
+        },
+        {
+                .id = "ProtectHostname=",
+                .description_good = "Service cannot change system host/domainname",
+                .description_bad = "Service may change system host/domainname",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectHostname=",
+                .weight = 50,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, protect_hostname),
         },
         {
                 .id = "ProtectSystem=",
@@ -1137,6 +1170,16 @@ static const struct security_assessor security_assessor_table[] = {
                 .offset = offsetof(struct security_info, restrict_realtime),
         },
         {
+                .id = "RestrictSUIDSGID=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictSUIDSGID=",
+                .description_good = "SUID/SGID file creation by service is restricted",
+                .description_bad = "Service may create SUID/SGID files",
+                .weight = 1000,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, restrict_suid_sgid),
+        },
+        {
                 .id = "RestrictNamespaces=~CLONE_NEWUSER",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#RestrictNamespaces=",
                 .description_good = "Service cannot create user namespaces",
@@ -1417,7 +1460,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                 uint64_t badness;
                 void *data;
 
-                data = (uint8_t*) info + a->offset;
+                data = (uint8_t *) info + a->offset;
 
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
@@ -1470,37 +1513,19 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (color)
                                 (void) table_set_color(details_table, cell, color);
 
-                        r = table_add_cell(details_table, &cell, TABLE_STRING, a->id);
+                        r = table_add_many(details_table,
+                                           TABLE_STRING, a->id, TABLE_SET_URL, a->url,
+                                           TABLE_STRING, description,
+                                           TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, badness, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
+                                           TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        if (a->url)
-                                (void) table_set_url(details_table, cell, a->url);
-
-                        r = table_add_cell(details_table, NULL, TABLE_STRING, description);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->weight);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &badness);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_UINT64, &a->range);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
-
-                        r = table_add_cell(details_table, &cell, TABLE_EMPTY, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        (void) table_set_align_percent(details_table, cell, 100);
+                                return log_error_errno(r, "Failed to add cells to table: %m");
                 }
         }
+
+        assert(weight_sum > 0);
 
         if (details_table) {
                 size_t row;
@@ -1533,7 +1558,6 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         return log_error_errno(r, "Failed to output table: %m");
         }
 
-        assert(weight_sum > 0);
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
 
         for (i = 0; i < ELEMENTSOF(badness_table); i++)
@@ -1798,6 +1822,33 @@ static int property_read_ip_address_allow(
         return sd_bus_message_exit_container(m);
 }
 
+static int property_read_ip_filters(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+
+        struct security_info *info = userdata;
+        _cleanup_(strv_freep) char **l = NULL;
+        int r;
+
+        assert(bus);
+        assert(member);
+        assert(m);
+
+        r = sd_bus_message_read_strv(m, &l);
+        if (r < 0)
+                return r;
+
+        if (streq(member, "IPIngressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+        else if (streq(member, "IPEgressFilterPath"))
+                info->ip_filters_custom_ingress = !strv_isempty(l);
+
+        return 0;
+}
+
 static int property_read_device_allow(
                 sd_bus *bus,
                 const char *member,
@@ -1847,6 +1898,8 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "FragmentPath",            "s",       NULL,                                    offsetof(struct security_info, fragment_path)             },
                 { "IPAddressAllow",          "a(iayu)", property_read_ip_address_allow,          0                                                         },
                 { "IPAddressDeny",           "a(iayu)", property_read_ip_address_allow,          0                                                         },
+                { "IPIngressFilterPath",     "as",      property_read_ip_filters,                0                                                         },
+                { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                         },
                 { "Id",                      "s",       NULL,                                    offsetof(struct security_info, id)                        },
                 { "KeyringMode",             "s",       NULL,                                    offsetof(struct security_info, keyring_mode)              },
                 { "LoadState",               "s",       NULL,                                    offsetof(struct security_info, load_state)                },
@@ -1861,13 +1914,16 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "PrivateUsers",            "b",       NULL,                                    offsetof(struct security_info, private_users)             },
                 { "ProtectControlGroups",    "b",       NULL,                                    offsetof(struct security_info, protect_control_groups)    },
                 { "ProtectHome",             "s",       NULL,                                    offsetof(struct security_info, protect_home)              },
+                { "ProtectHostname",         "b",       NULL,                                    offsetof(struct security_info, protect_hostname)          },
                 { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },
                 { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(struct security_info, protect_kernel_tunables)   },
+                { "ProtectKernelLogs",       "b",       NULL,                                    offsetof(struct security_info, protect_kernel_logs)       },
                 { "ProtectSystem",           "s",       NULL,                                    offsetof(struct security_info, protect_system)            },
                 { "RemoveIPC",               "b",       NULL,                                    offsetof(struct security_info, remove_ipc)                },
                 { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                         },
                 { "RestrictNamespaces",      "t",       NULL,                                    offsetof(struct security_info, restrict_namespaces)       },
                 { "RestrictRealtime",        "b",       NULL,                                    offsetof(struct security_info, restrict_realtime)         },
+                { "RestrictSUIDSGID",        "b",       NULL,                                    offsetof(struct security_info, restrict_suid_sgid)        },
                 { "RootDirectory",           "s",       NULL,                                    offsetof(struct security_info, root_directory)            },
                 { "RootImage",               "s",       NULL,                                    offsetof(struct security_info, root_image)                },
                 { "SupplementaryGroups",     "as",      NULL,                                    offsetof(struct security_info, supplementary_groups)      },
@@ -1893,14 +1949,15 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         if (!path)
                 return log_oom();
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   path,
-                                   security_map,
-                                   BUS_MAP_STRDUP|BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   NULL,
-                                   info);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        security_map,
+                        BUS_MAP_STRDUP | BUS_MAP_BOOLEAN_AS_BOOL,
+                        &error,
+                        NULL,
+                        info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit properties: %s", bus_error_message(&error, r));
 
@@ -1935,6 +1992,9 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         if (info->protect_kernel_modules)
                 info->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYS_MODULE);
 
+        if (info->protect_kernel_logs)
+                info->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
+
         if (info->private_devices)
                 info->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) |
                                                    (UINT64_C(1) << CAP_SYS_RAWIO));
@@ -1942,7 +2002,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
         return 0;
 }
 
-static int analyze_security_one(sd_bus *bus, const char *name, Table* overview_table, AnalyzeSecurityFlags flags) {
+static int analyze_security_one(sd_bus *bus, const char *name, Table *overview_table, AnalyzeSecurityFlags flags) {
         _cleanup_(security_info_free) struct security_info info = {
                 .default_dependencies = true,
                 .capability_bounding_set = UINT64_MAX,
@@ -1992,7 +2052,8 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "ListUnits",
-                                &error, &reply,
+                                &error,
+                                &reply,
                                 NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
@@ -2014,7 +2075,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (!endswith(info.id, ".service"))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, allocated, n+2))
+                        if (!GREEDY_REALLOC(list, allocated, n + 2))
                                 return log_oom();
 
                         copy = strdup(info.id);
@@ -2047,7 +2108,7 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                                 fflush(stdout);
                         }
 
-                        r = unit_name_mangle_with_suffix(*i, 0, ".service", &mangled);
+                        r = unit_name_mangle(*i, 0, &mangled);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 

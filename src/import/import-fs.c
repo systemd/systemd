@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <getopt.h>
+#include <locale.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "machine-image.h"
 #include "mkdir.h"
-#include "parse-util.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -116,15 +117,13 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         if (argc >= 2)
                 path = argv[1];
-        if (isempty(path) || streq(path, "-"))
-                path = NULL;
+        path = empty_or_dash_to_null(path);
 
         if (argc >= 3)
                 local = argv[2];
         else if (path)
                 local = basename(path);
-        if (isempty(local) || streq(local, "-"))
-                local = NULL;
+        local = empty_or_dash_to_null(local);
 
         if (local) {
                 if (!machine_name_is_valid(local)) {
@@ -162,7 +161,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 
-        final_path = strjoina(arg_image_root, "/", local);
+        final_path = prefix_roota(arg_image_root, local);
 
         r = tempfn_random(final_path, NULL, &temp_path);
         if (r < 0)
@@ -170,7 +169,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
         (void) mkdir_parents_label(temp_path, 0700);
 
-        RATELIMIT_INIT(progress.limit, 200*USEC_PER_MSEC, 1);
+        progress.limit = (RateLimit) { 200*USEC_PER_MSEC, 1 };
 
         /* Hook into SIGINT/SIGTERM, so that we can cancel things then */
         assert(sigaction(SIGINT, &sa, &old_sigint_sa) >= 0);

@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_append_basic" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -202,49 +199,49 @@
 
     <para>On success, this call returns 0 or a positive integer. On
     failure, it returns a negative errno-style error code.</para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2 id='errors'>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified parameter is invalid.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Specified parameter is invalid.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>Message has been sealed.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Message has been sealed.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>Message is in invalid state.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Message is in invalid state.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>Message cannot be appended to.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Message cannot be appended to.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

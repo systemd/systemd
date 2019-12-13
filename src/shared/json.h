@@ -4,14 +4,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "macro.h"
 #include "string-util.h"
-#include "util.h"
+#include "log.h"
 
 /*
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
-  benefits over various other implementatins:
+  benefits over various other implementations:
 
   - We need support for 64bit signed and unsigned integers, i.e. the full 64,5bit range of -9223372036854775808…18446744073709551615
   - All our variants are immutable after creation
@@ -64,7 +65,7 @@ int json_variant_new_object(JsonVariant **ret, JsonVariant **array, size_t n);
 int json_variant_new_null(JsonVariant **ret);
 
 static inline int json_variant_new_string(JsonVariant **ret, const char *s) {
-        return json_variant_new_stringn(ret, s, strlen_ptr(s));
+        return json_variant_new_stringn(ret, s, (size_t) -1);
 }
 
 JsonVariant *json_variant_ref(JsonVariant *v);
@@ -134,15 +135,17 @@ struct json_variant_foreach_state {
 
 #define JSON_VARIANT_ARRAY_FOREACH(i, v)                                \
         for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             _state.idx < json_variant_elements(_state.variant) &&      \
+             json_variant_is_array(_state.variant) &&                   \
+                     _state.idx < json_variant_elements(_state.variant) && \
                      ({ i = json_variant_by_index(_state.variant, _state.idx); \
                              true; });                                  \
              _state.idx++)
 
 #define JSON_VARIANT_OBJECT_FOREACH(k, e, v)                            \
         for (struct json_variant_foreach_state _state = { (v), 0 };     \
-             _state.idx < json_variant_elements(_state.variant) &&      \
-                     ({ k = json_variant_by_index(_state.variant, _state.idx); \
+             json_variant_is_object(_state.variant) &&                  \
+                     _state.idx < json_variant_elements(_state.variant) && \
+                     ({ k = json_variant_string(json_variant_by_index(_state.variant, _state.idx)); \
                              e = json_variant_by_index(_state.variant, _state.idx + 1); \
                              true; });                                  \
              _state.idx += 2)
@@ -208,7 +211,7 @@ int json_buildv(JsonVariant **ret, va_list ap);
 typedef enum JsonDispatchFlags {
         /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
         JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
-        JSON_MANDATORY  = 1 << 1, /* Should existance of this property be mandatory? */
+        JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
         JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
 
         /* The following two may be passed into log_json() in addition to the three above */
@@ -238,10 +241,10 @@ int json_dispatch_unsigned(const char *name, JsonVariant *variant, JsonDispatchF
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
-assert_cc(sizeof(uintmax_t) == sizeof(uint64_t))
+assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
 #define json_dispatch_uint64 json_dispatch_unsigned
 
-assert_cc(sizeof(intmax_t) == sizeof(int64_t))
+assert_cc(sizeof(intmax_t) == sizeof(int64_t));
 #define json_dispatch_int64 json_dispatch_integer
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
@@ -264,12 +267,12 @@ static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
 int json_log_internal(JsonVariant *variant, int level, int error, const char *file, int line, const char *func, const char *format, ...)  _printf_(7, 8);
 
-#define json_log(variant, flags, error, ...)                       \
+#define json_log(variant, flags, error, ...)                            \
         ({                                                              \
-                int _level = json_dispatch_level(flags), _e = (error);    \
+                int _level = json_dispatch_level(flags), _e = (error);  \
                 (log_get_max_level() >= LOG_PRI(_level))                \
-                        ? json_log_internal(variant, _level, _e, __FILE__, __LINE__, __func__, __VA_ARGS__) \
-                        : -abs(_e);                                     \
+                        ? json_log_internal(variant, _level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
+                        : -ERRNO_VALUE(_e);                             \
         })
 
 #define JSON_VARIANT_STRING_CONST(x) _JSON_VARIANT_STRING_CONST(UNIQ, (x))

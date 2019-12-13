@@ -169,10 +169,15 @@ static void test_config_parse_hwaddr(void) {
 }
 
 static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
-        _cleanup_(network_freep) Network *network = NULL;
+        _cleanup_(network_unrefp) Network *network = NULL;
 
         assert_se(network = new0(Network, 1));
+        network->n_ref = 1;
+        assert_se(network->filename = strdup("hogehoge.network"));
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
+        assert_se(network->n_static_addresses == 1);
+        assert_se(network_verify(network) >= 0);
         assert_se(network->n_static_addresses == n_addresses);
         if (n_addresses > 0) {
                 assert_se(network->static_addresses);
@@ -210,6 +215,34 @@ static void test_config_parse_address(void) {
         test_config_parse_address_one("::1/-1", AF_INET6, 0, NULL, 0);
 }
 
+static void test_config_parse_match_ifnames(void) {
+        _cleanup_strv_free_ char **names = NULL;
+
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "aaa bbb ccc", &names, NULL) == 0);
+
+        strv_equal(names, STRV_MAKE("!hoge", "!hogehoge", "!foo", "!baz", "aaa", "bbb", "ccc"));
+}
+
+static void test_config_parse_match_strv(void) {
+        _cleanup_strv_free_ char **names = NULL;
+
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
+        assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0,
+                                          "KEY=val \"KEY2=val with space\" \"KEY3=val with \\\"quotation\\\"\"", &names, NULL) == 0);
+
+        assert_se(strv_equal(names,
+                             STRV_MAKE("!hoge",
+                                       "!hogehoge",
+                                       "!foo",
+                                       "!baz",
+                                       "KEY=val",
+                                       "KEY2=val with space",
+                                       "KEY3=val with \\quotation\\")));
+}
+
 int main(int argc, char **argv) {
         log_parse_environment();
         log_open();
@@ -218,6 +251,8 @@ int main(int argc, char **argv) {
         test_config_parse_duid_rawdata();
         test_config_parse_hwaddr();
         test_config_parse_address();
+        test_config_parse_match_ifnames();
+        test_config_parse_match_strv();
 
         return 0;
 }

@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_exit" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -82,45 +79,44 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_exit()</function> and
-    <function>sd_event_get_exit_code()</function> return 0 or a positive
-    integer. On failure, they return a negative errno-style error
-    code.</para>
-  </refsect1>
+    <para>On success, <function>sd_event_exit()</function> and <function>sd_event_get_exit_code()</function>
+    return 0 or a positive integer. On failure, they return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The event loop object or error code pointer are invalid.</para></listitem>
+          <listitem><para>The event loop object or error code pointer are invalid.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop was created in a different process.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop was created in a different process.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>The event loop has exited already and all exit handlers are already processed.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop has exited already and all exit handlers are already processed.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>The event loop has not been requested to exit yet.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop has not been requested to exit yet.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

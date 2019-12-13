@@ -8,8 +8,11 @@
 #include <openssl/ssl.h>
 #include <stdbool.h>
 
-struct DnsTlsServerData {
+struct DnsTlsManagerData {
         SSL_CTX *ctx;
+};
+
+struct DnsTlsServerData {
         SSL_SESSION *session;
 };
 
@@ -18,4 +21,5 @@ struct DnsTlsStreamData {
         bool shutdown;
         SSL *ssl;
         BUF_MEM *write_buffer;
+        size_t buffer_offset;
 };

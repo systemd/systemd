@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_journal_seek_head" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -66,46 +63,38 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_journal_seek_head()</function> seeks to the
-    beginning of the journal, i.e. the oldest available entry.</para>
+    <para><function>sd_journal_seek_head()</function> seeks to the beginning of the journal, i.e. to the
+    position before the oldest available entry.</para>
 
-    <para>Similarly, <function>sd_journal_seek_tail()</function> may
-    be used to seek to the end of the journal, i.e. the most recent
-    available entry.</para>
+    <para>Similarly, <function>sd_journal_seek_tail()</function> may be used to seek to the end of the
+    journal, i.e. the position after the most recent available entry.</para>
 
-    <para><function>sd_journal_seek_monotonic_usec()</function> seeks
-    to the entry with the specified monotonic timestamp, i.e.
-    <constant>CLOCK_MONOTONIC</constant>. Since monotonic time
-    restarts on every reboot a boot ID needs to be specified as
-    well.</para>
+    <para><function>sd_journal_seek_monotonic_usec()</function> seeks to a position with the specified
+    monotonic timestamp, i.e.  <constant>CLOCK_MONOTONIC</constant>. Since monotonic time restarts on every
+    reboot a boot ID needs to be specified as well.</para>
 
-    <para><function>sd_journal_seek_realtime_usec()</function> seeks
-    to the entry with the specified realtime (wallclock) timestamp,
-    i.e. <constant>CLOCK_REALTIME</constant>. Note that the realtime
-    clock is not necessarily monotonic. If a realtime timestamp is
-    ambiguous, it is not defined which position is sought to.</para>
+    <para><function>sd_journal_seek_realtime_usec()</function> seeks to a position with the specified
+    realtime (wallclock) timestamp, i.e. <constant>CLOCK_REALTIME</constant>. Note that the realtime clock is
+    not necessarily monotonic. If a realtime timestamp is ambiguous, it is not defined which position is
+    sought to.</para>
 
-    <para><function>sd_journal_seek_cursor()</function> seeks to the
-    entry located at the specified cursor string. For details on
-    cursors, see
+    <para><function>sd_journal_seek_cursor()</function> seeks to the position at the specified cursor
+    string. For details on cursors, see
     <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If no entry matching the specified cursor is found the call will
-    seek to the next closest entry (in terms of time) instead. To
-    verify whether the newly selected entry actually matches the
-    cursor, use
+    If no entry matching the specified cursor is found the call will seek to the next closest entry (in terms
+    of time) instead. To verify whether the newly selected entry actually matches the cursor, use
     <citerefentry><refentrytitle>sd_journal_test_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>Note that these calls do not actually make any entry the new
-    current entry, this needs to be done in a separate step with a
-    subsequent
+    <para>Note that these calls do not actually make any entry the new current entry, this needs to be done
+    in a separate step with a subsequent
     <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    invocation (or a similar call). Only then, entry data may be
-    retrieved via
-    <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If no entry exists that matches exactly the specified seek
-    address, the next closest is sought to. If
-    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    is used, the closest following entry will be sought to, if
+    invocation (or a similar call). Only then, entry data may be retrieved via
+    <citerefentry><refentrytitle>sd_journal_get_data</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or an entry cursor be retrieved via
+    <citerefentry><refentrytitle>sd_journal_get_cursor</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If no entry exists that matches exactly the specified seek address, the next closest is sought to. If
+    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry> is
+    used, the closest following entry will be sought to, if
     <citerefentry><refentrytitle>sd_journal_previous</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     is used the closest preceding entry is sought to.</para>
   </refsect1>

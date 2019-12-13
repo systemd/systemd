@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
   <refentry id="journalctl"
             xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -464,8 +461,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-b <optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
-        <term><option>--boot=<optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional></option></term>
+        <term><option>-b <optional><optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional>|<constant>all</constant></optional></option></term>
+        <term><option>--boot<optional>=<optional><replaceable>ID</replaceable></optional><optional><replaceable>±offset</replaceable></optional>|<constant>all</constant></optional></option></term>
 
         <listitem><para>Show messages from a specific boot. This will
         add a match for <literal>_BOOT_ID=</literal>.</para>
@@ -497,6 +494,10 @@
         <replaceable>offset</replaceable> is not specified, a value of
         zero is assumed, and the logs for the boot given by
         <replaceable>ID</replaceable> are shown.</para>
+
+        <para>The special argument <constant>all</constant> can be
+        used to negate the effect of an earlier use of
+        <option>-b</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -543,7 +544,12 @@
         the unit
         (<literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal>),
         along with additional matches for messages from systemd and
-        messages about coredumps for the specified unit.</para>
+        messages about coredumps for the specified unit. A match
+        is also added for <literal>_SYSTEMD_SLICE=<replaceable>UNIT</replaceable></literal>,
+        such that if the provided <replaceable>UNIT</replaceable> is a
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        unit, all logs of the children of the slice will be logged.
+       </para>
 
         <para>This parameter can be specified multiple times.</para>
         </listitem>
@@ -557,7 +563,11 @@
         (<literal>_SYSTEMD_USER_UNIT=</literal> and
         <literal>_UID=</literal>) and additional matches for messages
         from session systemd and messages about coredumps for the
-        specified unit.</para>
+        specified unit. A match
+        is also added for <literal>_SYSTEMD_USER_SLICE=<replaceable>UNIT</replaceable></literal>,
+        such that if the provided <replaceable>UNIT</replaceable> is a
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        unit, all logs of the children of the unit will be logged.</para>
 
         <para>This parameter can be specified multiple times.</para>
         </listitem>
@@ -616,6 +626,17 @@
 
         <listitem><para>Start showing entries from the location in the
         journal specified by the passed cursor.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cursor-file=<replaceable>FILE</replaceable></option></term>
+
+        <listitem><para>If <replaceable>FILE</replaceable> exists and contains a
+        cursor, start showing entries <emphasis>after</emphasis> this location.
+        Otherwise the show entries according the other given options. At the end,
+        write the cursor of the last entry to <replaceable>FILE</replaceable>. Use
+        this option to continually read the journal by sequentially calling
+        <command>journalctl</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -875,18 +896,34 @@
       <varlistentry>
         <term><option>--flush</option></term>
 
-        <listitem><para>Asks the journal daemon to flush any log data
-        stored in <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename>, if persistent storage
-        is enabled. This call does not return until the operation is
-        complete. Note that this call is idempotent: the data is only
-        flushed from <filename>/run/log/journal</filename> into
-        <filename>/var/log/journal</filename> once during system
-        runtime, and this command exits cleanly without executing any
-        operation if this has already happened. This command
-        effectively guarantees that all data is flushed to
-        <filename>/var/log/journal</filename> at the time it
-        returns.</para></listitem>
+        <listitem><para>Asks the journal daemon to flush any log data stored in
+        <filename>/run/log/journal/</filename> into <filename>/var/log/journal/</filename>, if persistent
+        storage is enabled. This call does not return until the operation is complete. Note that this call is
+        idempotent: the data is only flushed from <filename>/run/log/journal/</filename> into
+        <filename>/var/log/journal</filename> once during system runtime (but see
+        <option>--relinquish-var</option> below), and this command exits cleanly without executing any
+        operation if this has already happened. This command effectively guarantees that all data is flushed
+        to <filename>/var/log/journal</filename> at the time it returns.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--relinquish-var</option></term>
+
+        <listitem><para>Asks the journal daemon for the reverse operation to <option>--flush</option>: if
+        requested the daemon will write further log data to <filename>/run/log/journal/</filename> and stops
+        writing to <filename>/var/log/journal/</filename>. A subsequent call to <option>--flush</option>
+        causes the log output to switch back to <filename>/var/log/journal/</filename>, see
+        above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--smart-relinquish-var</option></term>
+
+        <listitem><para>Similar to <option>--relinquish-var</option> but executes no operation if the root file
+        system and <filename>/var/lib/journal/</filename> reside on the same mount point. This operation is
+        used during system shutdown in order to make the journal daemon stop writing data to
+        <filename>/var/log/journal/</filename> in case that directory is located on a mount point that needs
+        to be unmounted.</para></listitem>
       </varlistentry>
 
       <varlistentry>

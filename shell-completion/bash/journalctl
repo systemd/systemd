@@ -19,112 +19,131 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
-		{ while read a b; do echo " $a"; done; } | sort -u;
+    local a b
+    (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
+        { while read a b; do echo " $a"; done; } | sort -u;
 }
 
 __syslog_priorities=(emerg alert crit err warning notice info debug)
 
 _journalctl() {
-        local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-                [STANDALONE]='-a --all --full --system --user
-                              --disk-usage -f --follow --header
-                              -h --help -l --local -m --merge --no-pager
-                              --no-tail -q --quiet --setup-keys --verify
-                              --version --list-catalog --update-catalog --list-boots
-                              --show-cursor --dmesg -k --pager-end -e -r --reverse
-                              --utc -x --catalog --no-full --force --dump-catalog
-                              --flush --rotate --sync --no-hostname -N --fields'
-                       [ARG]='-b --boot -D --directory --file -F --field -t --identifier
-                              -M --machine -o --output -u --unit --user-unit -p --priority
-                              --root --case-sensitive'
-                [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
-                              --after-cursor --verify-key -g --grep
-                              --vacuum-size --vacuum-time --vacuum-files --output-fields'
-        )
+    local field_vals= cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-a --all --full --system --user
+                      --disk-usage -f --follow --header
+                      -h --help -l --local -m --merge --no-pager
+                      --no-tail -q --quiet --setup-keys --verify
+                      --version --list-catalog --update-catalog --list-boots
+                      --show-cursor --dmesg -k --pager-end -e -r --reverse
+                      --utc -x --catalog --no-full --force --dump-catalog
+                      --flush --rotate --sync --no-hostname -N --fields'
+        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
+                      -M --machine -o --output -u --unit --user-unit -p --priority
+                      --root --case-sensitive'
+        [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
+                      --after-cursor --cursor-file --verify-key -g --grep
+                      --vacuum-size --vacuum-time --vacuum-files --output-fields'
+    )
 
-        if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
-                case $prev in
-                        --boot|-b)
-                                comps=$(journalctl -F '_BOOT_ID' 2>/dev/null)
-                        ;;
-                        --directory|-D|--root)
-                                comps=$(compgen -d -- "$cur")
-                                compopt -o filenames
-                        ;;
-                        --file)
-                                comps=$(compgen -f -- "$cur")
-                                compopt -o filenames
-                        ;;
-                        --output|-o)
-                                comps=$( journalctl --output=help 2>/dev/null )
-                        ;;
-                        --field|-F)
-                                comps=$(journalctl --fields | sort 2>/dev/null)
-			;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                        --priority|-p)
-                                comps=${__syslog_priorities[*]}
-                        ;;
-                        --unit|-u)
-                                comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
-                        ;;
-                        --user-unit)
-                                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
-                        ;;
-                        --identifier|-t)
-                                comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
-                        ;;
-                        --case-sensitive)
-                                comps='yes no'
-                        ;;
-                        *)
-                                return 0
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
+    # Use the default completion for shell redirect operators
+    if __contains_word "$prev" '>' '>>' '&>'; then
+        compopt -o filenames
+        COMPREPLY=( $(compgen -f -- "$cur") )
+        return 0;
+    fi
 
-        if [[ $cur = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        elif [[ $cur = *=* ]]; then
-                mapfile -t field_vals < <(journalctl -F "${prev%=}" 2>/dev/null)
-                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
-        elif [[ $cur = /dev* ]]; then
+    if __contains_word "$prev" ${OPTS[ARG]} ${OPTS[ARGUNKNOWN]}; then
+        case $prev in
+            --boot|-b)
+                comps=$(journalctl -F '_BOOT_ID' 2>/dev/null)
+                ;;
+            --directory|-D|--root)
+                comps=$(compgen -d -- "$cur")
                 compopt -o filenames
-                COMPREPLY=( $(compgen -f -- "${cur}") )
-        elif [[ $cur = /* ]]; then
-                # Append /dev/ to the list of completions, so that
-                # after typing /<TAB><TAB> the user sees /dev/ as one
-                # of the alternatives. Later on the rule above will
-                # take care of showing device files in /dev/.
-                mapfile -t field_vals < <(journalctl -F "_EXE" 2>/dev/null; echo '/dev/')
-                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur}") )
-                if [[ "${COMPREPLY[@]}" = '/dev/' ]]; then
-                    compopt -o filenames
-                    COMPREPLY=( $(compgen -f -- "${cur}") )
+                ;;
+            --file)
+                comps=$(compgen -f -- "$cur")
+                compopt -o filenames
+                ;;
+            --output|-o)
+                comps=$( journalctl --output=help 2>/dev/null )
+                ;;
+            --field|-F)
+                comps=$(journalctl --fields | sort 2>/dev/null)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --priority|-p)
+                comps=${__syslog_priorities[*]}
+                compopt -o nosort
+                ;;
+            --unit|-u)
+                comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                # Similarly to systemctl, we need to distinguish between
+                # escaped and unescaped names in order to be able to correctly
+                # complete them. In this particular case, if the name we're
+                # trying to complete is unescaped (i.e. foo\x2dbaz), escape
+                # it first, so the compgen below works as expected. For more
+                # information about these shenanigans see the systemctl
+                # completion file
+                if ! [[ $cur =~ '\\' ]]; then
+                    cur="$(printf '%q' $cur)"
                 fi
-        elif [[ $prev = '=' ]]; then
-                mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
-                COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
-        else
-                mapfile -t field_vals < <(journalctl --fields 2>/dev/null)
-                compopt -o nospace
-                COMPREPLY=( $(compgen -W '${field_vals[*]}' -S= -- "$cur") )
+                compopt -o filenames
+                ;;
+            --user-unit)
+                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                ;;
+            --identifier|-t)
+                comps=$(journalctl -F 'SYSLOG_IDENTIFIER' 2>/dev/null)
+                ;;
+            --case-sensitive)
+                comps='yes no'
+                ;;
+            *)
+                return 0
+                ;;
+        esac
+        COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur") )
+        return 0
+    fi
+
+    if [[ $cur = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    elif [[ $cur = *=* ]]; then
+        mapfile -t field_vals < <(journalctl -F "${prev%=}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur#=}") )
+    elif [[ $cur = /dev* ]]; then
+        compopt -o filenames
+        COMPREPLY=( $(compgen -f -- "${cur}") )
+    elif [[ $cur = /* ]]; then
+        # Append /dev/ to the list of completions, so that
+        # after typing /<TAB><TAB> the user sees /dev/ as one
+        # of the alternatives. Later on the rule above will
+        # take care of showing device files in /dev/.
+        mapfile -t field_vals < <(journalctl -F "_EXE" 2>/dev/null; echo '/dev/')
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "${cur}") )
+        if [[ "${COMPREPLY[@]}" = '/dev/' ]]; then
+            compopt -o filenames
+            COMPREPLY=( $(compgen -f -- "${cur}") )
         fi
+    elif [[ $prev = '=' ]]; then
+        mapfile -t field_vals < <(journalctl -F "${COMP_WORDS[COMP_CWORD-2]}" 2>/dev/null)
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -- "$cur") )
+    else
+        mapfile -t field_vals < <(journalctl --fields 2>/dev/null)
+        compopt -o nospace
+        COMPREPLY=( $(compgen -W '${field_vals[*]}' -S= -- "$cur") )
+    fi
 }
 
 complete -F _journalctl journalctl

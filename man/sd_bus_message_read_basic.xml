@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
@@ -190,34 +190,34 @@
       a positive integer. On failure, it returns a negative errno-style error
       code.
     </para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2 id='errors'>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified type string is invalid or the message parameter is
-        <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified type string is invalid or the message parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>The message does not contain the specified type at current
-        position.</para></listitem>
-      </varlistentry>
+          <listitem><para>The message does not contain the specified type at current position.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EBADMSG</constant></term>
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
 
-        <listitem><para>The message cannot be parsed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The message cannot be parsed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

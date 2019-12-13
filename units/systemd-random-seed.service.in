@@ -14,7 +14,7 @@ DefaultDependencies=no
 RequiresMountsFor=@RANDOM_SEED@
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
-Before=sysinit.target shutdown.target
+Before=shutdown.target
 ConditionVirtualization=!container
 
 [Service]
@@ -22,4 +22,9 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-random-seed load
 ExecStop=@rootlibexecdir@/systemd-random-seed save
-TimeoutSec=30s
+
+# This service waits until the kernel's entropy pool is initialized, and may be
+# used as ordering barrier for service that require an initialized entropy
+# pool. Since initialization can take a while on entropy-starved systems, let's
+# increase the time-out substantially here.
+TimeoutSec=10min

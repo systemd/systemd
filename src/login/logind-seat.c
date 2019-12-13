@@ -2,20 +2,23 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
-#include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "logind-acl.h"
+#include "logind-seat-dbus.h"
 #include "logind-seat.h"
+#include "logind-session-dbus.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -41,7 +44,7 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
                 .manager = m,
         };
 
-        s->state_file = strappend("/run/systemd/seats/", id);
+        s->state_file = path_join("/run/systemd/seats", id);
         if (!s->state_file)
                 return -ENOMEM;
 
@@ -96,7 +99,6 @@ int seat_save(Seat *s) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -188,13 +190,13 @@ int seat_preallocate_vts(Seat *s) {
         assert(s);
         assert(s->manager);
 
-        log_debug("Preallocating VTs...");
-
         if (s->manager->n_autovts <= 0)
                 return 0;
 
         if (!seat_has_vts(s))
                 return 0;
+
+        log_debug("Preallocating VTs...");
 
         for (i = 1; i <= s->manager->n_autovts; i++) {
                 int q;
@@ -376,7 +378,7 @@ int seat_read_active_vt(Seat *s) {
 
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
         if (k <= 0) {
-                log_error("Failed to read current console: %s", k < 0 ? strerror(errno) : "EOF");
+                log_error("Failed to read current console: %s", k < 0 ? strerror_safe(errno) : "EOF");
                 return k < 0 ? -errno : -EIO;
         }
 

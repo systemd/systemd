@@ -12,6 +12,7 @@
 #include "dirent-util.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "locale-util.h"
@@ -66,7 +67,7 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Operations on images by path not supported when connecting to remote systems.");
 
-        r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret);
+        r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, NULL);
         if (r < 0)
                 return log_error_errno(r, "Cannot normalize specified image path '%s': %m", image);
 
@@ -272,10 +273,9 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-
                 _cleanup_fclose_ FILE *f;
 
-                f = fmemopen((void*) data, sz, "re");
+                f = fmemopen_unlocked((void*) data, sz, "re");
                 if (!f)
                         return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
 
@@ -781,8 +781,20 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Attach or detach portable services from the local system.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sAttach or detach portable services from the local system.%s\n"
+               "\nCommands:\n"
+               "  list                        List available portable service images\n"
+               "  attach NAME|PATH [PREFIX...]\n"
+               "                              Attach the specified portable service image\n"
+               "  detach NAME|PATH            Detach the specified portable service image\n"
+               "  inspect NAME|PATH [PREFIX...]\n"
+               "                              Show details of specified portable service image\n"
+               "  is-attached NAME|PATH       Query if portable service image is attached\n"
+               "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
+               "  remove NAME|PATH...         Remove a portable service image\n"
+               "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
+               "\nOptions:\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
@@ -796,20 +808,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --runtime                Attach portable service until next reboot only\n"
                "     --no-reload              Don't reload the system and service manager\n"
                "     --cat                    When inspecting include unit and os-release file\n"
-               "                              contents\n\n"
-               "Commands:\n"
-               "  list                        List available portable service images\n"
-               "  attach NAME|PATH [PREFIX...]\n"
-               "                              Attach the specified portable service image\n"
-               "  detach NAME|PATH            Detach the specified portable service image\n"
-               "  inspect NAME|PATH [PREFIX...]\n"
-               "                              Show details of specified portable service image\n"
-               "  is-attached NAME|PATH       Query if portable service image is attached\n"
-               "  read-only NAME|PATH [BOOL]  Mark or unmark portable service image read-only\n"
-               "  remove NAME|PATH...         Remove a portable service image\n"
-               "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
+               "                              contents\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -956,6 +959,7 @@ static int run(int argc, char *argv[]) {
 
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

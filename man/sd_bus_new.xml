@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_new" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -120,7 +117,7 @@
     block is left:</para>
 
     <programlisting>{
-  __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
+  __attribute__((cleanup(sd_bus_unrefp))) sd_bus *bus = NULL;
   int r;
   …
   r = sd_bus_default(&amp;bus);
@@ -169,20 +166,20 @@
 
     <para><function>sd_bus_unref()</function> and <function>sd_bus_flush_close_unref()</function> always return
     <constant>NULL</constant>.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

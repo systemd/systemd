@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-fsck@.service">
 
   <refentryinfo>
@@ -52,7 +51,7 @@
     <para><filename>systemd-fsck</filename> does not know any details
     about specific filesystems, and simply executes file system
     checkers specific to each filesystem type
-    (<filename>/sbin/fsck.*</filename>). These checkers will decide if
+    (<filename>/sbin/fsck.<replaceable>type</replaceable></filename>). These checkers will decide if
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 

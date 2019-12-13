@@ -2,14 +2,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio_ext.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -265,7 +263,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
          * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
         if (flags & AT_SYMLINK_FOLLOW) {
-                r = chase_symlinks(t, root, CHASE_TRAIL_SLASH, &canonical);
+                r = chase_symlinks(t, root, CHASE_TRAIL_SLASH, &canonical, NULL);
                 if (r < 0)
                         return r;
 
@@ -298,7 +296,9 @@ bool fstype_is_network(const char *fstype) {
 
         return STR_IN_SET(fstype,
                           "afs",
+                          "ceph",
                           "cifs",
+                          "smb3",
                           "smbfs",
                           "sshfs",
                           "ncpfs",
@@ -360,6 +360,7 @@ bool fstype_can_uid_gid(const char *fstype) {
 
         return STR_IN_SET(fstype,
                           "adfs",
+                          "exfat",
                           "fat",
                           "hfs",
                           "hpfs",
@@ -378,11 +379,9 @@ int dev_is_devtmpfs(void) {
         if (r < 0)
                 return r;
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return -errno;
-
-        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+        r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;

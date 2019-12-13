@@ -24,16 +24,15 @@
 #include "unit-name.h"
 
 int drop_in_file(const char *dir, const char *unit, unsigned level,
-                 const char *name, char **_p, char **_q) {
+                 const char *name, char **ret_p, char **ret_q) {
 
         char prefix[DECIMAL_STR_MAX(unsigned)];
-        _cleanup_free_ char *b = NULL;
-        char *p, *q;
+        _cleanup_free_ char *b = NULL, *p = NULL, *q = NULL;
 
         assert(unit);
         assert(name);
-        assert(_p);
-        assert(_q);
+        assert(ret_p);
+        assert(ret_q);
 
         sprintf(prefix, "%u", level);
 
@@ -45,17 +44,12 @@ int drop_in_file(const char *dir, const char *unit, unsigned level,
                 return -EINVAL;
 
         p = strjoin(dir, "/", unit, ".d");
-        if (!p)
-                return -ENOMEM;
-
         q = strjoin(p, "/", prefix, "-", b, ".conf");
-        if (!q) {
-                free(p);
+        if (!p || !q)
                 return -ENOMEM;
-        }
 
-        *_p = p;
-        *_q = q;
+        *ret_p = TAKE_PTR(p);
+        *ret_q = TAKE_PTR(q);
         return 0;
 }
 
@@ -99,7 +93,7 @@ int write_drop_in_format(const char *dir, const char *unit, unsigned level,
         return write_drop_in(dir, unit, level, name, p);
 }
 
-static int unit_file_find_dir(
+static int unit_file_add_dir(
                 const char *original_root,
                 const char *path,
                 char ***dirs) {
@@ -109,7 +103,9 @@ static int unit_file_find_dir(
 
         assert(path);
 
-        r = chase_symlinks(path, original_root, 0, &chased);
+        /* This adds [original_root]/path to dirs, if it exists. */
+
+        r = chase_symlinks(path, original_root, 0, &chased, NULL);
         if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir. */
                 return 0;
         if (r == -ENAMETOOLONG) {
@@ -121,11 +117,9 @@ static int unit_file_find_dir(
         if (r < 0)
                 return log_warning_errno(r, "Failed to canonicalize path '%s': %m", path);
 
-        r = strv_push(dirs, chased);
-        if (r < 0)
+        if (strv_consume(dirs, TAKE_PTR(chased)) < 0)
                 return log_oom();
 
-        chased = NULL;
         return 0;
 }
 
@@ -151,7 +145,7 @@ static int unit_file_find_dirs(
 
         path = strjoina(unit_path, "/", name, suffix);
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
-                r = unit_file_find_dir(original_root, path, dirs);
+                r = unit_file_add_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
         }
@@ -168,6 +162,10 @@ static int unit_file_find_dirs(
                 if (r < 0)
                         return r;
         }
+
+        /* Return early for top level drop-ins. */
+        if (unit_type_from_string(name) >= 0)
+                return 0;
 
         /* Let's see if there's a "-" prefix for this unit name. If so, let's invoke ourselves for it. This will then
          * recursively do the same for all our prefixes. i.e. this means given "foo-bar-waldo.service" we'll also
@@ -228,19 +226,40 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                Set *names,
+                const Set *names,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        char *t, **p;
+        UnitType type = _UNIT_TYPE_INVALID;
+        char *name, **p;
         Iterator i;
         int r;
 
         assert(ret);
 
-        SET_FOREACH(t, names, i)
+        /* All the names in the unit are of the same type so just grab one. */
+        name = (char*) set_first(names);
+        if (name) {
+                type = unit_name_to_type(name);
+                if (type < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to to derive unit type from unit name: %s",
+                                               name);
+        }
+
+        /* Special top level drop in for "<unit type>.<suffix>". Add this first as it's the most generic
+         * and should be able to be overridden by more specific drop-ins. */
+        STRV_FOREACH(p, lookup_path)
+                (void) unit_file_find_dirs(original_root,
+                                           unit_path_cache,
+                                           *p,
+                                           unit_type_to_string(type),
+                                           dir_suffix,
+                                           &dirs);
+
+        SET_FOREACH(name, names, i)
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;

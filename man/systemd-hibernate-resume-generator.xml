@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'>
 
   <refentryinfo>
@@ -54,6 +53,13 @@
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
         specifiers like <literal>FOO=bar</literal> are
         supported.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>resumeflags=</varname></term>
+
+        <listitem><para>Takes the resume device mount options to
+        use. Defaults <varname>rootflags=</varname> if not specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -4,10 +4,12 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "json-internal.h"
 #include "json.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "util.h"
 
 static void test_tokenizer(const char *data, ...) {
@@ -87,6 +89,7 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, 0, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
 
         log_info("formatted normally: %s\n", s);
 
@@ -103,6 +106,7 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
 
         log_info("formatted prettily:\n%s", s);
 
@@ -118,12 +122,14 @@ static void test_variant(const char *data, Test test) {
         r = json_variant_format(v, JSON_FORMAT_COLOR, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
         printf("Normal with color: %s\n", s);
 
         s = mfree(s);
         r = json_variant_format(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, &s);
         assert_se(r >= 0);
         assert_se(s);
+        assert_se((size_t) r == strlen(s));
         printf("Pretty with color:\n%s\n", s);
 
         if (test)
@@ -282,6 +288,7 @@ static void test_build(void) {
         a = json_variant_unref(a);
         b = json_variant_unref(b);
 
+        const char* arr_1234[] = {"one", "two", "three", "four", NULL};
         assert_se(json_build(&a, JSON_BUILD_ARRAY(JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_BOOLEAN(true)),
                                                                     JSON_BUILD_PAIR("y", JSON_BUILD_OBJECT(JSON_BUILD_PAIR("this", JSON_BUILD_NULL)))),
                                                   JSON_BUILD_VARIANT(NULL),
@@ -289,8 +296,9 @@ static void test_build(void) {
                                                   JSON_BUILD_STRING(NULL),
                                                   JSON_BUILD_NULL,
                                                   JSON_BUILD_INTEGER(77),
-                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")), JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
-                                                  JSON_BUILD_STRV(STRV_MAKE("one", "two", "three", "four")))) >= 0);
+                                                  JSON_BUILD_ARRAY(JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("foobar")),
+                                                                   JSON_BUILD_VARIANT(JSON_VARIANT_STRING_CONST("zzz"))),
+                                                  JSON_BUILD_STRV((char**) arr_1234))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
@@ -355,7 +363,7 @@ static void test_source(void) {
                "%s"
                "--- original end ---\n", data);
 
-        assert_se(f = fmemopen((void*) data, strlen(data), "r"));
+        assert_se(f = fmemopen_unlocked((void*) data, strlen(data), "r"));
 
         assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
 
@@ -389,6 +397,13 @@ static void test_depth(void) {
                         log_info("max depth at %u", i);
                         break;
                 }
+#if HAS_FEATURE_MEMORY_SANITIZER
+                /* msan doesn't like the stack nesting to be too deep. Let's quit early. */
+                if (i >= 128) {
+                        log_info("quitting early at depth %u", i);
+                        break;
+                }
+#endif
 
                 assert_se(r >= 0);
 
@@ -401,10 +416,7 @@ static void test_depth(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         test_tokenizer("x", -EINVAL);
         test_tokenizer("", JSON_TOKEN_END);

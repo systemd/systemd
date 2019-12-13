@@ -1,5 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
@@ -523,7 +528,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
         SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
         SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMedatadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMetadata", "as", "saya{say}", bus_image_method_get_metadata, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetState", NULL, "s", bus_image_method_get_state, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Attach", "assbs", "a(sss)", bus_image_method_attach, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Detach", "b", "a(sss)", bus_image_method_detach, SD_BUS_VTABLE_UNPRIVILEGED),

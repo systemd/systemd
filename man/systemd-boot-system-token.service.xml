@@ -1,0 +1,76 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-boot-system-token.service" conditional='ENABLE_EFI'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-boot-system-token.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-boot-system-token.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-boot-system-token.service</refname>
+    <refpurpose>Generate an initial boot loader system token and random seed</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-boot-system-token.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-boot-system-token.service</filename> is a system service that automatically
+    generates a 'system token' to store in an EFI variable in the system's NVRAM and a random seed to store
+    on the EFI System Partition ESP on disk. The boot loader may then combine these two randomized data
+    fields by cryptographic hashing, and pass it to the OS it boots as initialization seed for its entropy
+    pool. The random seed stored in the ESP is refreshed on each reboot ensuring that multiple subsequent
+    boots will boot with different seeds. The 'system token' is generated randomly once, and then
+    persistently stored in the system's EFI variable storage.</para>
+
+    <para>The <filename>systemd-boot-system-token.service</filename> unit invokes the <command>bootctl
+    random-seed</command> command, which updates the random seed in the ESP, and initializes the 'system
+    token' if it's not initialized yet. The service is conditionalized so that it is run only when all of the
+    below apply:</para>
+
+    <itemizedlist>
+      <listitem><para>A boot loader is used that implements the <ulink
+      url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink> (which defines the 'system
+      token' concept).</para></listitem>
+
+      <listitem><para>Either a 'system token' was not set yet, or the boot loader has not passed the OS a
+      random seed yet (and thus most likely has been missing the random seed file in the
+      ESP).</para></listitem>
+
+      <listitem><para>The system is not running in a VM environment. This case is explicitly excluded since
+      on VM environments the ESP backing storage and EFI variable storage is typically not physically
+      separated and hence booting the same OS image in multiple instances would replicate both, thus reusing
+      the same random seed and 'system token' among all instances, which defeats its purpose. Note that it's
+      still possible to use boot loader random seed provisioning in this mode, but the automatic logic
+      implemented by this service has no effect then, and the user instead has to manually invoke the
+      <command>bootctl random-seed</command> acknowledging these restrictions.</para></listitem>
+    </itemizedlist>
+
+    <para>For further details see
+    <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, regarding
+    the command this service invokes.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

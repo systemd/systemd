@@ -6,6 +6,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 
 static void test_error(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, second = SD_BUS_ERROR_NULL;
@@ -88,7 +89,7 @@ static void test_error(void) {
         assert_se(!sd_bus_error_is_set(&error));
         assert_se(sd_bus_error_set_errno(&error, EBUSY) == -EBUSY);
         assert_se(streq(error.name, "System.Error.EBUSY"));
-        assert_se(streq(error.message, strerror(EBUSY)));
+        assert_se(streq(error.message, strerror_safe(EBUSY)));
         assert_se(sd_bus_error_has_name(&error, "System.Error.EBUSY"));
         assert_se(sd_bus_error_get_errno(&error) == EBUSY);
         assert_se(sd_bus_error_is_set(&error));

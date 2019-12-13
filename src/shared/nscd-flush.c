@@ -51,7 +51,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
         /* Note: connect() returns EINPROGRESS if O_NONBLOCK is set and establishing a connection takes time. The
          * kernel lets us know this way that the connection is now being established, and we should watch with poll()
          * to learn when it is fully established. That said, AF_UNIX on Linux never triggers this IRL (connect() is
-         * always instant on AF_UNIX), hence handling this is mostly just an excercise in defensive, protocol-agnostic
+         * always instant on AF_UNIX), hence handling this is mostly just an exercise in defensive, protocol-agnostic
          * programming.
          *
          * connect() returns EAGAIN if the socket's backlog limit has been reached. When we see this we give up right
@@ -113,7 +113,7 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
 
                 if (has_written >= req_size && has_read >= sizeof(resp)) { /* done? */
                         if (resp < 0)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "nscd sent us a negative error numer: %i", resp);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "nscd sent us a negative error number: %i", resp);
                         if (resp > 0)
                                 return log_debug_errno(resp, "nscd return failure code on invalidating '%s'.", database);
                         return 1;

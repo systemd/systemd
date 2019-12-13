@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
-#include <sys/socket.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-event.h"
@@ -17,7 +17,6 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "io-util.h"
-#include "missing.h"
 #include "mountpoint-util.h"
 #include "set.h"
 #include "socket-util.h"

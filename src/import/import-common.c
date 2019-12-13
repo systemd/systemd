@@ -15,6 +15,7 @@
 #include "import-common.h"
 #include "os-util.h"
 #include "process-util.h"
+#include "selinux-util.h"
 #include "signal-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
@@ -62,6 +63,7 @@ int import_make_read_only(const char *path) {
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        bool use_selinux;
         pid_t pid;
         int r;
 
@@ -70,6 +72,8 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
+
+        use_selinux = mac_selinux_use();
 
         r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
@@ -100,7 +104,8 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", "--xattrs", "--xattrs-include=*", NULL);
+                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", "--xattrs", "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -112,6 +117,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
+        bool use_selinux;
         pid_t pid;
         int r;
 
@@ -120,6 +126,8 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
 
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
+
+        use_selinux = mac_selinux_use();
 
         r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
@@ -144,7 +152,8 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "-C", path, "-c", "--xattrs", "--xattrs-include=*", ".", NULL);
+                execlp("tar", "tar", "-C", path, "-c", "--xattrs", "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux", ".", NULL);
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -204,7 +213,7 @@ int import_mangle_os_tree(const char *path) {
                 return 0;
         }
 
-        joined = strjoina(path, "/", child);
+        joined = prefix_roota(path, child);
         r = path_is_os_tree(joined);
         if (r == -ENOTDIR) {
                 log_debug("Directory '%s' does not look like a directory tree, and contains a single regular file only, leaving as it is.", path);

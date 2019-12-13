@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/wait.h>
 #include <sys/prctl.h>
@@ -9,7 +10,6 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing.h"
 #include "nspawn-stub-pid1.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -53,6 +53,12 @@ int stub_pid1(sd_id128_t uuid) {
         assert_se(sigfillset(&fullmask) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &fullmask, &oldmask) >= 0);
 
+        /* Surrender the terminal this stub may control so that child processes can have a controlling terminal
+         * without resorting to setsid hacks. */
+        r = ioctl(STDIN_FILENO, TIOCNOTTY);
+        if (r < 0 && errno != ENOTTY)
+                return log_error_errno(errno, "Failed to surrender controlling terminal: %m");
+
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork child pid: %m");
@@ -67,7 +73,7 @@ int stub_pid1(sd_id128_t uuid) {
         reset_all_signal_handlers();
 
         log_close();
-        close_all_fds(NULL, 0);
+        (void) close_all_fds(NULL, 0);
         log_open();
 
         /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,

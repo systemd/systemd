@@ -5,7 +5,7 @@ Name=veth99
 DHCP=ipv4
 IPv6AcceptRA=false
 
-[DHCP]
+[DHCPv4]
 UseMTU=true
 UseRoutes=true
 SendHostname=true
@@ -13,3 +13,4 @@ UseHostname=true
 Hostname=test-hostname
 ClientIdentifier=mac
 VendorClassIdentifier=SusantVendorTest
+RouteTable=211

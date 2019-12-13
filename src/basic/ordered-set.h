@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <stdio.h>
+
 #include "hashmap.h"
 
 typedef struct OrderedSet OrderedSet;
@@ -32,6 +34,10 @@ static inline int ordered_set_put(OrderedSet *s, void *p) {
         return ordered_hashmap_put((OrderedHashmap*) s, p, p);
 }
 
+static inline unsigned ordered_set_size(OrderedSet *s) {
+        return ordered_hashmap_size((OrderedHashmap*) s);
+}
+
 static inline bool ordered_set_isempty(OrderedSet *s) {
         return ordered_hashmap_isempty((OrderedHashmap*) s);
 }
@@ -44,13 +50,23 @@ static inline void* ordered_set_remove(OrderedSet *s, void *p) {
         return ordered_hashmap_remove((OrderedHashmap*) s, p);
 }
 
+static inline void* ordered_set_first(OrderedSet *s) {
+        return ordered_hashmap_first((OrderedHashmap*) s);
+}
+
 static inline void* ordered_set_steal_first(OrderedSet *s) {
         return ordered_hashmap_steal_first((OrderedHashmap*) s);
+}
+
+static inline char **ordered_set_get_strv(OrderedSet *s) {
+        return internal_hashmap_get_strv(HASHMAP_BASE((OrderedHashmap*) s));
 }
 
 int ordered_set_consume(OrderedSet *s, void *p);
 int ordered_set_put_strdup(OrderedSet *s, const char *p);
 int ordered_set_put_strdupv(OrderedSet *s, char **l);
+int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l);
+void ordered_set_print(FILE *f, const char *field, OrderedSet *s);
 
 #define ORDERED_SET_FOREACH(e, s, i)                                    \
         for ((i) = ITERATOR_FIRST; ordered_set_iterate((s), &(i), (void**)&(e)); )

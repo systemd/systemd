@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/utsname.h>
 
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "macro.h"

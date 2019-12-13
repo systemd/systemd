@@ -30,6 +30,7 @@ LICENSE:
         - except src/basic/siphash24.c which is CC0 Public Domain
         - except src/journal/lookup3.c which is Public Domain
         - except src/udev/* which is (currently still) GPLv2, GPLv2+
+        - except tools/chromiumos/* which is BSD-style
 
 REQUIREMENTS:
         Linux kernel >= 3.13
@@ -154,10 +155,11 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         libidn2 or libidn (optional)
-        gnutls >= 3.1.4 (optional, >= 3.5.3 is required to support DNS-over-TLS with gnutls)
+        gnutls >= 3.1.4 (optional, >= 3.6.0 is required to support DNS-over-TLS with gnutls)
         openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
         elfutils >= 158 (optional)
         polkit (optional)
+        tzdata >= 2014f (optional)
         pkg-config
         gperf
         docbook-xsl (optional, required for documentation)
@@ -172,16 +174,14 @@ REQUIREMENTS:
         dependencies:
 
         util-linux >= v2.27.1 required
-        dbus >= 1.4.0 (strictly speaking optional, but recommended)
-                NOTE: If using dbus < 1.9.18, you should override the default
-                policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
+        dbus >= 1.11.0 (strictly speaking optional, but recommended)
         dracut (optional)
         polkit (optional)
 
         To build in directory build/:
           meson build/ && ninja -C build
 
-        Any configuration options can be specfied as -Darg=value... arguments
+        Any configuration options can be specified as -Darg=value... arguments
         to meson. After the build directory is initially configured, meson will
         refuse to run again, and options must be changed with:
           mesonconf -Darg=value...
@@ -316,8 +316,7 @@ WARNINGS:
         that valgrind generates nice output only on exit(), hence on shutdown
         we don't execve() systemd-shutdown.
 
-STABLE BRANCHES AND BACKPORTS
-
+STABLE BRANCHES AND BACKPORTS:
        Stable branches with backported patches are available in the
        systemd-stable repo at https://github.com/systemd/systemd-stable.
 

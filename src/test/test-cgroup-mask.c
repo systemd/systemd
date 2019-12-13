@@ -8,7 +8,6 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "string-util.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
 
@@ -34,7 +33,7 @@ static int test_cgroup_mask(void) {
         int r;
         CGroupMask cpu_accounting_mask = get_cpu_accounting_mask();
 
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -57,9 +56,8 @@ static int test_cgroup_mask(void) {
                 m->default_blockio_accounting =
                 m->default_io_accounting =
                 m->default_tasks_accounting = false;
-        m->default_tasks_max = (uint64_t) -1;
+        m->default_tasks_max = TASKS_MAX_UNSET;
 
-        assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
@@ -130,9 +128,10 @@ static void test_cg_mask_to_string_one(CGroupMask mask, const char *t) {
 
 static void test_cg_mask_to_string(void) {
         test_cg_mask_to_string_one(0, NULL);
-        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct io blkio memory devices pids bpf-firewall bpf-devices");
+        test_cg_mask_to_string_one(_CGROUP_MASK_ALL, "cpu cpuacct cpuset io blkio memory devices pids bpf-firewall bpf-devices");
         test_cg_mask_to_string_one(CGROUP_MASK_CPU, "cpu");
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT, "cpuacct");
+        test_cg_mask_to_string_one(CGROUP_MASK_CPUSET, "cpuset");
         test_cg_mask_to_string_one(CGROUP_MASK_IO, "io");
         test_cg_mask_to_string_one(CGROUP_MASK_BLKIO, "blkio");
         test_cg_mask_to_string_one(CGROUP_MASK_MEMORY, "memory");

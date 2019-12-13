@@ -7,7 +7,7 @@ typedef enum ExtractFlags {
         EXTRACT_RELAX                    = 1 << 0,
         EXTRACT_CUNESCAPE                = 1 << 1,
         EXTRACT_CUNESCAPE_RELAX          = 1 << 2,
-        EXTRACT_QUOTES                   = 1 << 3,
+        EXTRACT_UNQUOTE                  = 1 << 3,
         EXTRACT_DONT_COALESCE_SEPARATORS = 1 << 4,
         EXTRACT_RETAIN_ESCAPE            = 1 << 5,
 } ExtractFlags;

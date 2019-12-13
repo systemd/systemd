@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-sysusers"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -98,7 +95,7 @@
           placing <filename>/etc/sysusers.d/radvd.conf</filename> or even
           <filename>/etc/sysusers.d/00-overrides.conf</filename>.</para>
 
-          <para>Note that this is the expanded from, and when used in a package, this
+          <para>Note that this is the expanded form, and when used in a package, this
           would be written using a macro with "radvd" and a file containing the
           configuration line as arguments.</para>
         </example>

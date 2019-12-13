@@ -1,0 +1,7 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=no
+Address=192.168.5.250

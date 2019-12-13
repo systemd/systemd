@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_new" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -161,44 +158,40 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_new()</function>,
-    <function>sd_event_default()</function> and
-    <function>sd_event_get_tid()</function> return 0 or a positive
-    integer. On failure, they return a negative errno-style error
-    code. <function>sd_event_ref()</function> always returns a pointer
-    to the event loop object passed
-    in. <function>sd_event_unref()</function> always returns
+    <para>On success, <function>sd_event_new()</function>, <function>sd_event_default()</function> and
+    <function>sd_event_get_tid()</function> return 0 or a positive integer. On failure, they return a
+    negative errno-style error code. <function>sd_event_ref()</function> always returns a pointer to the
+    event loop object passed in. <function>sd_event_unref()</function> always returns
     <constant>NULL</constant>.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory to allocate the object.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory to allocate the object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EMFILE</constant></term>
+        <varlistentry>
+          <term><constant>-EMFILE</constant></term>
 
-        <listitem><para>The maximum number of event loops has been allocated.</para></listitem>
+          <listitem><para>The maximum number of event loops has been allocated.</para></listitem>
 
-      </varlistentry>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para><function>sd_event_get_tid()</function> was
-        invoked on an event loop object that was not allocated with
-        <function>sd_event_default()</function>.</para></listitem>
-      </varlistentry>
+          <listitem><para><function>sd_event_get_tid()</function> was invoked on an event loop object that
+          was not allocated with <function>sd_event_default()</function>.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

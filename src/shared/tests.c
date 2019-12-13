@@ -3,6 +3,7 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <util.h>
@@ -14,11 +15,14 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
+#include "cgroup-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "strv.h"
 #include "tests.h"
 
@@ -148,4 +152,51 @@ bool have_namespaces(void) {
                 return false;
 
         assert_not_reached("unexpected exit code");
+}
+
+bool can_memlock(void) {
+        /* Let's see if we can mlock() a larger blob of memory. BPF programs are charged against
+         * RLIMIT_MEMLOCK, hence let's first make sure we can lock memory at all, and skip the test if we
+         * cannot. Why not check RLIMIT_MEMLOCK explicitly? Because in container environments the
+         * RLIMIT_MEMLOCK value we see might not match the RLIMIT_MEMLOCK value actually in effect. */
+
+        void *p = mmap(NULL, CAN_MEMLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0);
+        if (p == MAP_FAILED)
+                return false;
+
+        bool b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
+        if (b)
+                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+
+        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        return b;
+}
+
+int enter_cgroup_subroot(char **ret_cgroup) {
+        _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
+        CGroupMask supported;
+        int r;
+
+        r = cg_pid_get_path(NULL, 0, &cgroup_root);
+        if (r == -ENOMEDIUM)
+                return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
+        assert(r >= 0);
+
+        assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
+        assert_se(cg_mask_supported(&supported) >= 0);
+
+        /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
+         * we handle any errors at that point. */
+
+        r = cg_create_everywhere(supported, _CGROUP_MASK_ALL, cgroup_subroot);
+        if (r < 0)
+                return r;
+
+        r = cg_attach_everywhere(supported, cgroup_subroot, 0, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_cgroup)
+                *ret_cgroup = TAKE_PTR(cgroup_subroot);
+        return 0;
 }

@@ -32,12 +32,14 @@ ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+ProtectKernelLogs=yes
 ProtectSystem=strict
 Restart=always
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/resolve
 RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
@@ -45,7 +47,7 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
 User=systemd-resolve
-WatchdogSec=3min
+@SERVICE_WATCHDOG@
 
 [Install]
 WantedBy=multi-user.target

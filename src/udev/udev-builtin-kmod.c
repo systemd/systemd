@@ -6,7 +6,6 @@
  */
 
 #include <errno.h>
-#include <libkmod.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,7 +65,7 @@ static bool builtin_kmod_validate(void) {
         return (kmod_validate_resources(ctx) != KMOD_RESOURCES_OK);
 }
 
-const struct udev_builtin udev_builtin_kmod = {
+const UdevBuiltin udev_builtin_kmod = {
         .name = "kmod",
         .cmd = builtin_kmod,
         .init = builtin_kmod_init,

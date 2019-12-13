@@ -1,0 +1,118 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_event_source_set_floating" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_event_source_set_floating</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_event_source_set_floating</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_event_source_set_floating</refname>
+    <refname>sd_event_source_get_floating</refname>
+
+    <refpurpose>Set or retrieve 'floating' state of event sources</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-event.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_floating</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>int <parameter>floating</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_get_floating</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_event_source_set_floating()</function> takes a boolean and sets the 'floating' state
+    of the specified event source object. This is used to change the direction of reference counts for the
+    object and the event loop it is associated with. In non-floating mode, the event source object holds a
+    reference to the event loop object, but not vice versa. The creator of the event source object must hold
+    a reference to it as long as the source should exist. In floating mode, the event loop holds a reference
+    to the source object, and will decrease the reference count when being freed. This means that a reference
+    to the event loop should be held to prevent both from being destroyed.</para>
+
+    <para>Various calls that allocate event source objects (i.e.
+    <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    similar) will automatically set an event source object to 'floating' mode if the caller passed
+    <constant>NULL</constant> in the parameter used to return a reference to the event source object.
+    Nevertheless, it may be necessary to gain temporary access to the source object, for example to adjust
+    event source properties after allocation (e.g. its priority or description string). In those cases the
+    object may be created in non-floating mode, and the returned reference used to adjust the properties, and
+    the object marked as floating afterwards, and the reference in the caller dropped.</para>
+
+    <para><function>sd_event_source_get_floating()</function> may be used to query the current 'floating'
+    state of the event source object <parameter>source</parameter>. It returns zero if 'floating' mode is
+    off, positive if it is on.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_event_source_set_floating()</function> and
+    <function>sd_event_source_get_floating()</function> return a non-negative integer. On failure, they
+    return a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>source</parameter> is not a valid pointer to an
+          <structname>sd_event_source</structname> object.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_time</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_child</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

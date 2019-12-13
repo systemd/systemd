@@ -4,7 +4,6 @@
 #include <errno.h>
 #include <net/ethernet.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -15,6 +14,7 @@
 #include "lldp-network.h"
 #include "macro.h"
 #include "string-util.h"
+#include "tests.h"
 
 #define TEST_LLDP_PORT "em1"
 #define TEST_LLDP_TYPE_SYSTEM_NAME "systemd-lldp"
@@ -365,7 +365,7 @@ static void test_multiple_neighbors_sorted(sd_event *e) {
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        log_set_max_level(LOG_DEBUG);
+        test_setup_logging(LOG_DEBUG);
 
         /* LLDP reception tests */
         assert_se(sd_event_new(&e) == 0);

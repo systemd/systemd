@@ -8,10 +8,10 @@
 #include "dev-setup.h"
 #include "label.h"
 #include "log.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =
@@ -36,7 +36,7 @@ int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
                 }
 
                 if (prefix) {
-                        link_name = prefix_root(prefix, k);
+                        link_name = path_join(prefix, k);
                         if (!link_name)
                                 return -ENOMEM;
 
@@ -91,7 +91,7 @@ int make_inaccessible_nodes(const char *root, uid_t uid, gid_t gid) {
         for (i = 0; i < ELEMENTSOF(table); i++) {
                 _cleanup_free_ char *path = NULL;
 
-                path = prefix_root(root, table[i].name);
+                path = path_join(root, table[i].name);
                 if (!path)
                         return log_oom();
 

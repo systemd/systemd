@@ -1,27 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <mntent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
 #include "macro.h"
 #include "mount-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
-        f = setmntent("/etc/fstab", "re");
+        f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
 
@@ -41,7 +39,7 @@ int fstab_is_mount_point(const char *mount) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
-        f = setmntent("/etc/fstab", "re");
+        f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
 
@@ -121,7 +119,7 @@ int fstab_filter_options(const char *opts, const char *names,
                         t++;
                         continue;
                 found:
-                        /* Keep the last occurence found */
+                        /* Keep the last occurrence found */
                         n = name;
                         if (value) {
                                 free(v);
@@ -188,8 +186,7 @@ int fstab_extract_values(const char *opts, const char *name, char ***values) {
 
 int fstab_find_pri(const char *options, int *ret) {
         _cleanup_free_ char *opt = NULL;
-        int r;
-        unsigned pri;
+        int r, pri;
 
         assert(ret);
 
@@ -199,14 +196,11 @@ int fstab_find_pri(const char *options, int *ret) {
         if (r == 0 || !opt)
                 return 0;
 
-        r = safe_atou(opt, &pri);
+        r = safe_atoi(opt, &pri);
         if (r < 0)
                 return r;
 
-        if ((int) pri < 0)
-                return -ERANGE;
-
-        *ret = (int) pri;
+        *ret = pri;
         return 1;
 }
 

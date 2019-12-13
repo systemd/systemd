@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="kernel-command-line">
 
@@ -30,9 +27,12 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The kernel, the initial RAM disk (initrd) and
-    basic userspace functionality may be configured at boot via
-    kernel command line arguments.</para>
+    <para>The kernel, the initial RAM disk (initrd) and basic userspace functionality may be configured at
+    boot via kernel command line arguments. In addition, various systemd tools look at the EFI variable
+    <literal>SystemdOptions</literal> (if available). Both sources are combined, but the kernel command line
+    has higher priority. Please note that <emphasis>the EFI variable is only used by systemd tools, and is
+    ignored by the kernel and other user space tools</emphasis>, so it is not a replacement for the kernel
+    command line.</para>
 
     <para>For command line parameters understood by the kernel, please
     see
@@ -62,6 +62,7 @@
         <term><varname>systemd.confirm_spawn</varname></term>
         <term><varname>systemd.service_watchdogs</varname></term>
         <term><varname>systemd.show_status</varname></term>
+        <term><varname>systemd.status_unit_format=</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
@@ -137,10 +138,13 @@
           enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
           configuration and no stored state in effect, as <filename>/etc</filename> and <filename>/var</filename> (as
           well as all other resources shipped in the root file system) are reset at boot and lost on shutdown. If this
-          setting is set to <literal>state</literal> the root file system is mounted as usual, however
+          setting is set to <literal>state</literal> the root file system is mounted read-only, however
           <filename>/var</filename> is mounted as a volatile memory file system (<literal>tmpfs</literal>), so that the
-          system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. For details,
-          see
+          system boots up with the normal configuration applied, but all state reset at boot and lost at shutdown. If
+          this setting is set to <literal>overlay</literal> the root file system is set up as
+          <literal>overlayfs</literal> mount combining the read-only root directory with a writable
+          <literal>tmpfs</literal>, so that no modifications are made to disk, but the file system may be modified
+          nonetheless with all changes being lost at reboot. For details, see
           <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           and
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -329,7 +333,7 @@
         <listitem>
           <para>Configures the root file system and its file system
           type and mount options, as well as whether it shall be
-          mounted read-only or read-writable initially. For details,
+          mounted read-only or read-write initially. For details,
           see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
@@ -390,6 +394,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.cpu_affinity=</varname></term>
+
+        <listitem>
+          <para>Overrides the CPU affinity mask for the service manager and the default for all child
+          processes it forks. This takes precedence over <varname>CPUAffinity=</varname>, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>modules_load=</varname></term>
         <term><varname>rd.modules_load=</varname></term>
 
@@ -402,10 +417,11 @@
 
       <varlistentry>
         <term><varname>resume=</varname></term>
+        <term><varname>resumeflags=</varname></term>
 
         <listitem>
           <para>Enables resume from hibernation using the specified
-          device. All
+          device and mount options. All
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
@@ -428,6 +444,7 @@
       <title>See Also</title>
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
@@ -446,7 +463,8 @@
         <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
 

@@ -5,3 +5,4 @@ Kind=tun
 [Tun]
 MultiQueue=true
 PacketInfo=true
+VNetHeader=true

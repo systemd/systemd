@@ -13,7 +13,7 @@
 
 [Unit]
 Description=udev Wait for Complete Device Initialization
-Documentation=man:udev(7) man:systemd-udevd.service(8)
+Documentation=man:systemd-udev-settle.service(8)
 DefaultDependencies=no
 Wants=systemd-udevd.service
 After=systemd-udev-trigger.service

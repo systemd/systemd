@@ -31,7 +31,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
+#include "memory-util.h"
 
 void close_and_munmap(int fd, void *address, size_t size) {
         if (size > 0)

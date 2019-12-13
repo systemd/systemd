@@ -1,0 +1,8 @@
+[NetDev]
+Name=ipiptun98
+Kind=ipip
+MTUBytes=1480
+
+[Tunnel]
+Local=any
+Remote=192.169.224.239

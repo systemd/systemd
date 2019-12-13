@@ -1,0 +1,8 @@
+[Match]
+Name=bridge99
+
+[Network]
+IPv6AcceptRA=false
+
+[BridgeVLAN]
+VLAN=4060-4094

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
@@ -8,13 +7,12 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -36,7 +34,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "unit-name.h"
+#include "unit-file.h"
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
@@ -97,26 +95,7 @@ static void presets_freep(Presets *p) {
         p->n_rules = 0;
 }
 
-bool unit_type_may_alias(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_DEVICE,
-                      UNIT_TIMER,
-                      UNIT_PATH);
-}
-
-bool unit_type_may_template(UnitType type) {
-        return IN_SET(type,
-                      UNIT_SERVICE,
-                      UNIT_SOCKET,
-                      UNIT_TARGET,
-                      UNIT_TIMER,
-                      UNIT_PATH);
-}
-
-static const char *unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
+static const char *const unit_file_type_table[_UNIT_FILE_TYPE_MAX] = {
         [UNIT_FILE_TYPE_REGULAR] = "regular",
         [UNIT_FILE_TYPE_SYMLINK] = "symlink",
         [UNIT_FILE_TYPE_MASKED] = "masked",
@@ -793,7 +772,7 @@ static int find_symlinks_fd(
                         if (!path_is_absolute(dest)) {
                                 char *x;
 
-                                x = prefix_root(root_dir, dest);
+                                x = path_join(root_dir, dest);
                                 if (!x)
                                         return -ENOMEM;
 
@@ -887,7 +866,7 @@ static int find_symlinks_in_scope(
 
         /* As we iterate over the list of search paths in paths->search_path, we may encounter "same name"
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
-         * efectively masked, so we should ignore them. */
+         * effectively masked, so we should ignore them. */
 
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
@@ -1209,6 +1188,11 @@ static int config_parse_default_instance(
         if (r < 0)
                 return r;
 
+        if (isempty(printed)) {
+                i->default_instance = mfree(i->default_instance);
+                return 0;
+        }
+
         if (!unit_instance_is_valid(printed))
                 return -EINVAL;
 
@@ -1306,9 +1290,21 @@ static int unit_file_load(
         assert(c);
 
         r = config_parse(info->name, path, f,
-                         NULL,
+                         "Install\0"
+                         "-Unit\0"
+                         "-Automount\0"
+                         "-Device\0"
+                         "-Mount\0"
+                         "-Path\0"
+                         "-Scope\0"
+                         "-Service\0"
+                         "-Slice\0"
+                         "-Socket\0"
+                         "-Swap\0"
+                         "-Target\0"
+                         "-Timer\0",
                          config_item_table_lookup, items,
-                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_ALLOW_INCLUDE, info);
+                         CONFIG_PARSE_ALLOW_INCLUDE, info);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 
@@ -1376,7 +1372,7 @@ static int unit_file_load_or_readlink(
 
                 if (path_is_absolute(target))
                         /* This is an absolute path, prefix the root so that we always deal with fully qualified paths */
-                        info->symlink_target = prefix_root(root_dir, target);
+                        info->symlink_target = path_join(root_dir, target);
                 else
                         /* This is a relative path, take it relative to the dir the symlink is located in. */
                         info->symlink_target = file_in_same_dir(path, target);
@@ -1423,7 +1419,7 @@ static int unit_file_search(
         STRV_FOREACH(p, paths->search_path) {
                 _cleanup_free_ char *path = NULL;
 
-                path = strjoin(*p, "/", info->name);
+                path = path_join(*p, info->name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1446,7 +1442,7 @@ static int unit_file_search(
                 STRV_FOREACH(p, paths->search_path) {
                         _cleanup_free_ char *path = NULL;
 
-                        path = strjoin(*p, "/", template);
+                        path = path_join(*p, template);
                         if (!path)
                                 return -ENOMEM;
 
@@ -1839,7 +1835,7 @@ static int install_info_symlink_link(
         if (r > 0)
                 return 0;
 
-        path = strjoin(config_path, "/", i->name);
+        path = path_join(config_path, i->name);
         if (!path)
                 return -ENOMEM;
 
@@ -1915,7 +1911,7 @@ static int install_context_apply(
 
                 q = install_info_traverse(scope, c, paths, i, flags, NULL);
                 if (q < 0) {
-                        unit_file_changes_add(changes, n_changes, r, i->name, NULL);
+                        unit_file_changes_add(changes, n_changes, q, i->name, NULL);
                         return q;
                 }
 
@@ -2187,7 +2183,7 @@ int unit_file_link(
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                full = prefix_root(paths.root_dir, *i);
+                full = path_join(paths.root_dir, *i);
                 if (!full)
                         return -ENOMEM;
 
@@ -2307,7 +2303,7 @@ int unit_file_revert(
                                         has_vendor = true;
                         }
 
-                        dropin = strappend(path, ".d");
+                        dropin = strjoin(path, ".d");
                         if (!dropin)
                                 return -ENOMEM;
 
@@ -2378,7 +2374,7 @@ int unit_file_revert(
                 STRV_FOREACH(j, fs) {
                         _cleanup_free_ char *t = NULL;
 
-                        t = strjoin(*i, "/", *j);
+                        t = path_join(*i, *j);
                         if (!t)
                                 return -ENOMEM;
 
@@ -2741,7 +2737,7 @@ int unit_file_lookup_state(
                 break;
 
         default:
-                assert_not_reached("Unexpect unit file type.");
+                assert_not_reached("Unexpected unit file type.");
         }
 
         *ret = state;
@@ -2796,7 +2792,7 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         assert(out_instances);
         assert(out_unit_name);
 
-        r = extract_first_word(&pattern, &unit_name, NULL, 0);
+        r = extract_first_word(&pattern, &unit_name, NULL, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return r;
 
@@ -2820,6 +2816,24 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         return 0;
 }
 
+static int presets_find_config(UnitFileScope scope, const char *root_dir, char ***files) {
+        static const char* const system_dirs[] = {CONF_PATHS("systemd/system-preset"), NULL};
+        static const char* const user_dirs[] = {CONF_PATHS_USR("systemd/user-preset"), NULL};
+        const char* const* dirs;
+
+        assert(scope >= 0);
+        assert(scope < _UNIT_FILE_SCOPE_MAX);
+
+        if (scope == UNIT_FILE_SYSTEM)
+                dirs = system_dirs;
+        else if (IN_SET(scope, UNIT_FILE_GLOBAL, UNIT_FILE_USER))
+                dirs = user_dirs;
+        else
+                assert_not_reached("Invalid unit file scope");
+
+        return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
+}
+
 static int read_presets(UnitFileScope scope, const char *root_dir, Presets *presets) {
         _cleanup_(presets_freep) Presets ps = {};
         size_t n_allocated = 0;
@@ -2831,33 +2845,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(presets);
 
-        switch (scope) {
-        case UNIT_FILE_SYSTEM:
-                r = conf_files_list(&files, ".preset", root_dir, 0,
-                                    "/etc/systemd/system-preset",
-                                    "/run/systemd/system-preset",
-                                    "/usr/local/lib/systemd/system-preset",
-                                    "/usr/lib/systemd/system-preset",
-#if HAVE_SPLIT_USR
-                                    "/lib/systemd/system-preset",
-#endif
-                                    NULL);
-                break;
-
-        case UNIT_FILE_GLOBAL:
-        case UNIT_FILE_USER:
-                r = conf_files_list(&files, ".preset", root_dir, 0,
-                                    "/etc/systemd/user-preset",
-                                    "/run/systemd/user-preset",
-                                    "/usr/local/lib/systemd/user-preset",
-                                    "/usr/lib/systemd/user-preset",
-                                    NULL);
-                break;
-
-        default:
-                assert_not_reached("Invalid unit file scope");
-        }
-
+        r = presets_find_config(scope, root_dir, &files);
         if (r < 0)
                 return r;
 
@@ -2953,7 +2941,7 @@ static int pattern_match_multiple_instances(
         int r;
 
         /* If no ret is needed or the rule itself does not have instances
-         * initalized, we return not matching */
+         * initialized, we return not matching */
         if (!ret || !rule.instances)
                 return 0;
 

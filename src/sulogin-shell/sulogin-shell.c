@@ -6,14 +6,16 @@
 #include <errno.h>
 #include <sys/prctl.h>
 
+#include "sd-bus.h"
+
 #include "bus-util.h"
 #include "bus-error.h"
 #include "def.h"
 #include "env-util.h"
 #include "log.h"
 #include "process-util.h"
-#include "sd-bus.h"
 #include "signal-util.h"
+#include "special.h"
 
 static int reload_manager(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -57,7 +59,7 @@ static int start_default_target(sd_bus *bus) {
                                "StartUnit",
                                &error,
                                NULL,
-                               "ss", "default.target", "isolate");
+                               "ss", SPECIAL_DEFAULT_TARGET, "isolate");
 
         if (r < 0)
                 return log_error_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));

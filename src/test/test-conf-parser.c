@@ -227,7 +227,14 @@ static const char* const config_file[] = {
         "[Section]\n"
         "[Section]\n"
         "setting1=1\n"
-        "setting1=2\n"
+        "setting1=    2 \t\n"
+        "setting1=    1\n",  /* repeated settings */
+
+        "[Section]\n"
+        "[Section]\n"
+        "setting1=1\n"
+        "setting1=2\\\n"
+        "   \n"              /* empty line breaks continuation */
         "setting1=1\n",      /* repeated settings */
 
         "[Section]\n"
@@ -292,6 +299,15 @@ static const char* const config_file[] = {
         "[Section]\n"
         "setting1="          /* many continuation lines, together above the limit */
         x1000(x1000("x") x10("abcde") "\\\n") "xxx",
+
+        "[Section]\n"
+        "setting1=2\n"
+        "[NoWarnSection]\n"
+        "setting1=3\n"
+        "[WarnSection]\n"
+        "setting1=3\n"
+        "[X-Section]\n"
+        "setting1=3\n",
 };
 
 static void test_config_parse(unsigned i, const char *s) {
@@ -318,46 +334,49 @@ static void test_config_parse(unsigned i, const char *s) {
                          const char *sections,
                          ConfigItemLookup lookup,
                          const void *table,
-                         bool relaxed,
-                         bool allow_include,
-                         bool warn,
+                         ConfigParseFlags flags,
                          void *userdata)
         */
 
         r = config_parse(NULL, name, f,
-                         "Section\0",
+                         "Section\0-NoWarnSection\0",
                          config_item_table_lookup, items,
                          CONFIG_PARSE_WARN, NULL);
 
         switch (i) {
-        case 0 ... 3:
+        case 0 ... 4:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1"));
                 break;
 
-        case 4 ... 9:
+        case 5 ... 10:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
-        case 10:
+        case 11:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
-        case 11:
+        case 12:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
-        case 12 ... 13:
+        case 13 ... 14:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
-        case 14 ... 15:
+        case 15 ... 16:
                 assert_se(r == -ENOBUFS);
                 assert_se(setting1 == NULL);
+                break;
+
+        case 17:
+                assert_se(r == 0);
+                assert_se(streq(setting1, "2"));
                 break;
         }
 }

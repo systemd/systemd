@@ -1,0 +1,7 @@
+[Match]
+OriginalName=eth0
+Host=hogehoge
+Virtualization=qemu
+KernelCommandLine=aaa
+KernelVersion=4.20.3
+Architecture=x86-64

@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,9 +20,9 @@
 #include "initreq.h"
 #include "list.h"
 #include "log.h"
-#include "special.h"
-#include "util.h"
+#include "memory-util.h"
 #include "process-util.h"
+#include "special.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))

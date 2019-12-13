@@ -21,6 +21,7 @@ Wants=network.target
 [Service]
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_BROADCAST CAP_NET_RAW
+DeviceAllow=char-* rw
 ExecStart=!!@rootlibexecdir@/systemd-networkd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
@@ -28,20 +29,23 @@ NoNewPrivileges=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectSystem=strict
 Restart=on-failure
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
 RestrictNamespaces=yes
 RestrictRealtime=yes
+RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
+RestartKillSignal=SIGUSR2
 User=systemd-network
-WatchdogSec=3min
+@SERVICE_WATCHDOG@
 
 [Install]
 WantedBy=multi-user.target

@@ -5,10 +5,8 @@
 #include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <syslog.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -19,14 +17,17 @@
 #include "format-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "journal-internal.h"
 #include "json.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
+#include "namespace-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
@@ -153,6 +154,7 @@ static bool print_multiline(
                 unsigned n_columns,
                 OutputFlags flags,
                 int priority,
+                bool audit,
                 const char* message,
                 size_t message_len,
                 size_t highlight[2]) {
@@ -163,18 +165,11 @@ static bool print_multiline(
         int line = 0;
 
         if (flags & OUTPUT_COLOR) {
-                if (priority <= LOG_ERR) {
-                        color_on = ANSI_HIGHLIGHT_RED;
+                get_log_colors(priority, &color_on, &color_off, &highlight_on);
+
+                if (audit && strempty(color_on)) {
+                        color_on = ANSI_BLUE;
                         color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT;
-                } else if (priority <= LOG_NOTICE) {
-                        color_on = ANSI_HIGHLIGHT;
-                        color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT_RED;
-                } else if (priority >= LOG_DEBUG) {
-                        color_on = ANSI_GREY;
-                        color_off = ANSI_NORMAL;
-                        highlight_on = ANSI_HIGHLIGHT_RED;
                 }
         }
 
@@ -380,20 +375,22 @@ static int output_short(
         const void *data;
         size_t length;
         size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *unit = NULL, *user_unit = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, unit_len = 0, user_unit_len = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL, *config_file = NULL, *unit = NULL, *user_unit = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0, unit_len = 0, user_unit_len = 0;
         int p = LOG_INFO;
-        bool ellipsized = false;
+        bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
                 PARSE_FIELD_VEC_ENTRY("_PID=", &pid, &pid_len),
                 PARSE_FIELD_VEC_ENTRY("_COMM=", &comm, &comm_len),
                 PARSE_FIELD_VEC_ENTRY("MESSAGE=", &message, &message_len),
                 PARSE_FIELD_VEC_ENTRY("PRIORITY=", &priority, &priority_len),
+                PARSE_FIELD_VEC_ENTRY("_TRANSPORT=", &transport, &transport_len),
                 PARSE_FIELD_VEC_ENTRY("_HOSTNAME=", &hostname, &hostname_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=", &fake_pid, &fake_pid_len),
                 PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
+                PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=", &config_file, &config_file_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
         };
@@ -433,6 +430,8 @@ static int output_short(
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
 
+        audit = streq_ptr(transport, "audit");
+
         if (mode == OUTPUT_SHORT_MONOTONIC)
                 r = output_timestamp_monotonic(f, j, monotonic);
         else
@@ -452,7 +451,8 @@ static int output_short(
                 n += hostname_len + 1;
         }
 
-        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) || (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
+        if (mode == OUTPUT_WITH_UNIT && ((unit && shall_print(unit, unit_len, flags)) ||
+                                         (user_unit && shall_print(user_unit, user_unit_len, flags)))) {
                 if (unit) {
                         fprintf(f, " %.*s", (int) unit_len, unit);
                         n += unit_len + 1;
@@ -486,8 +486,36 @@ static int output_short(
                 fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else {
                 fputs(": ", f);
+
+                /* URLify config_file string in message, if the message starts with it.
+                 * Skip URLification if the highlighted pattern overlaps. */
+                if (config_file &&
+                    message_len >= config_file_len &&
+                    memcmp(message, config_file, config_file_len) == 0 &&
+                    IN_SET(message[config_file_len], ':', ' ', '\0') &&
+                    (!highlight || highlight_shifted[0] == 0 || highlight_shifted[0] > config_file_len)) {
+
+                        _cleanup_free_ char *t = NULL, *urlified = NULL;
+
+                        t = strndup(config_file, config_file_len);
+                        if (t && terminal_urlify_path(t, NULL, &urlified) >= 0) {
+                                size_t shift = strlen(urlified) - config_file_len;
+                                char *joined;
+
+                                joined = strjoin(urlified, message + config_file_len);
+                                if (joined) {
+                                        free_and_replace(message, joined);
+                                        message_len += shift;
+                                        if (highlight) {
+                                                highlight_shifted[0] += shift;
+                                                highlight_shifted[1] += shift;
+                                        }
+                                }
+                        }
+                }
+
                 ellipsized |=
-                        print_multiline(f, n + 2, n_columns, flags, p,
+                        print_multiline(f, n + 2, n_columns, flags, p, audit,
                                         message, message_len,
                                         highlight_shifted);
         }
@@ -557,9 +585,11 @@ static int output_verbose(
                 cursor);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-                const char *c;
+                const char *c, *p;
                 int fieldlen;
                 const char *on = "", *off = "";
+                _cleanup_free_ char *urlified = NULL;
+                size_t valuelen;
 
                 c = memchr(data, '=', length);
                 if (!c)
@@ -570,19 +600,29 @@ static int output_verbose(
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         continue;
 
-                if (flags & OUTPUT_COLOR && startswith(data, "MESSAGE=")) {
+                valuelen = length - 1 - fieldlen;
+
+                if ((flags & OUTPUT_COLOR) && (p = startswith(data, "MESSAGE="))) {
                         on = ANSI_HIGHLIGHT;
                         off = ANSI_NORMAL;
-                }
+                } else if ((p = startswith(data, "CONFIG_FILE="))) {
+                        if (terminal_urlify_path(p, NULL, &urlified) >= 0) {
+                                p = urlified;
+                                valuelen = strlen(urlified);
+                        }
+                } else
+                        p = c + 1;
 
                 if ((flags & OUTPUT_SHOW_ALL) ||
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
-                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1, NULL);
+                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, false,
+                                        p, valuelen,
+                                        NULL);
                         fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
@@ -615,7 +655,7 @@ static int output_export(
                 const size_t highlight[2]) {
 
         sd_id128_t boot_id;
-        char sid[33];
+        char sid[SD_ID128_STRING_MAX];
         int r;
         usec_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
@@ -1039,21 +1079,21 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 Set *output_fields,
                 const size_t highlight[2]) = {
 
-        [OUTPUT_SHORT] = output_short,
-        [OUTPUT_SHORT_ISO] = output_short,
+        [OUTPUT_SHORT]             = output_short,
+        [OUTPUT_SHORT_ISO]         = output_short,
         [OUTPUT_SHORT_ISO_PRECISE] = output_short,
-        [OUTPUT_SHORT_PRECISE] = output_short,
-        [OUTPUT_SHORT_MONOTONIC] = output_short,
-        [OUTPUT_SHORT_UNIX] = output_short,
-        [OUTPUT_SHORT_FULL] = output_short,
-        [OUTPUT_VERBOSE] = output_verbose,
-        [OUTPUT_EXPORT] = output_export,
-        [OUTPUT_JSON] = output_json,
-        [OUTPUT_JSON_PRETTY] = output_json,
-        [OUTPUT_JSON_SSE] = output_json,
-        [OUTPUT_JSON_SEQ] = output_json,
-        [OUTPUT_CAT] = output_cat,
-        [OUTPUT_WITH_UNIT] = output_short,
+        [OUTPUT_SHORT_PRECISE]     = output_short,
+        [OUTPUT_SHORT_MONOTONIC]   = output_short,
+        [OUTPUT_SHORT_UNIX]        = output_short,
+        [OUTPUT_SHORT_FULL]        = output_short,
+        [OUTPUT_VERBOSE]           = output_verbose,
+        [OUTPUT_EXPORT]            = output_export,
+        [OUTPUT_JSON]              = output_json,
+        [OUTPUT_JSON_PRETTY]       = output_json,
+        [OUTPUT_JSON_SSE]          = output_json,
+        [OUTPUT_JSON_SEQ]          = output_json,
+        [OUTPUT_CAT]               = output_cat,
+        [OUTPUT_WITH_UNIT]         = output_short,
 };
 
 int show_journal_entry(
@@ -1314,8 +1354,8 @@ int add_matches_for_user_unit(sd_journal *j, const char *unit, uid_t uid) {
 static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
+        char buf[ID128_UUID_STRING_MAX];
         pid_t pid, child;
-        char buf[37];
         ssize_t k;
         int r;
 

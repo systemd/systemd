@@ -4,6 +4,7 @@
 #include "serialize.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "time-util.h"
 
 static void test_parse_sec(void) {
@@ -83,6 +84,26 @@ static void test_parse_sec_fix_0(void) {
         assert_se(u == USEC_INFINITY);
         assert_se(parse_sec_fix_0(" 0", &u) >= 0);
         assert_se(u == USEC_INFINITY);
+}
+
+static void test_parse_sec_def_infinity(void) {
+        usec_t u;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(parse_sec_def_infinity("5s", &u) >= 0);
+        assert_se(u == 5 * USEC_PER_SEC);
+        assert_se(parse_sec_def_infinity("", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec_def_infinity("     ", &u) >= 0);
+        assert_se(u == USEC_INFINITY);
+        assert_se(parse_sec_def_infinity("0s", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity("0", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity(" 0", &u) >= 0);
+        assert_se(u == 0);
+        assert_se(parse_sec_def_infinity("-5s", &u) < 0);
 }
 
 static void test_parse_time(void) {
@@ -240,8 +261,10 @@ static void test_get_timezones(void) {
         r = get_timezones(&zones);
         assert_se(r == 0);
 
-        STRV_FOREACH(zone, zones)
+        STRV_FOREACH(zone, zones) {
+                log_info("zone: %s", *zone);
                 assert_se(timezone_is_valid(*zone, LOG_ERR));
+        }
 }
 
 static void test_usec_add(void) {
@@ -452,7 +475,7 @@ static void test_in_utc_timezone(void) {
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
-        assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
+        assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
         assert_se(streq(tzname[0], "CET"));
         assert_se(streq(tzname[1], "CEST"));
@@ -461,7 +484,7 @@ static void test_in_utc_timezone(void) {
 }
 
 int main(int argc, char *argv[]) {
-        uintmax_t x;
+        test_setup_logging(LOG_INFO);
 
         log_info("realtime=" USEC_FMT "\n"
                  "monotonic=" USEC_FMT "\n"
@@ -472,6 +495,7 @@ int main(int argc, char *argv[]) {
 
         test_parse_sec();
         test_parse_sec_fix_0();
+        test_parse_sec_def_infinity();
         test_parse_time();
         test_parse_nsec();
         test_format_timespan(1);
@@ -492,7 +516,7 @@ int main(int argc, char *argv[]) {
         assert_cc((time_t) -1 < (time_t) 1);
 
         /* Ensure TIME_T_MAX works correctly */
-        x = (uintmax_t) TIME_T_MAX;
+        uintmax_t x = TIME_T_MAX;
         x++;
         assert((time_t) x < 0);
 

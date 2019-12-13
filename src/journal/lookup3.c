@@ -319,7 +319,7 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
 
     switch(length)
     {
@@ -504,7 +504,7 @@ void jenkins_hashlittle2(
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
 
     switch(length)
     {
@@ -680,7 +680,7 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
      * still catch it and complain.  The masking trick does make the hash
      * noticeably faster for short strings (like English words).
      */
-#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER
+#if !VALGRIND && !HAS_FEATURE_ADDRESS_SANITIZER && !HAS_FEATURE_MEMORY_SANITIZER
 
     switch(length)
     {
@@ -811,7 +811,7 @@ void driver2()
     {
       for (j=0; j<8; ++j)   /*------------------------ for each input bit, */
       {
-        for (m=1; m<8; ++m) /*------------ for serveral possible initvals, */
+        for (m=1; m<8; ++m) /*------------- for several possible initvals, */
         {
           for (l=0; l<HASHSTATE; ++l)
             e[l]=f[l]=g[l]=h[l]=x[l]=y[l]=~((uint32_t)0);

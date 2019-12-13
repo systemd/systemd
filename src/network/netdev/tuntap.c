@@ -2,16 +2,16 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/if_tun.h>
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <linux/if_tun.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "netdev/tuntap.h"
+#include "tuntap.h"
 #include "user-util.h"
 
 #define TUN_DEV "/dev/net/tun"
@@ -33,9 +33,6 @@ static int netdev_fill_tuntap_message(NetDev *netdev, struct ifreq *ifr) {
 
         if (!t->packet_info)
                 ifr->ifr_flags |= IFF_NO_PI;
-
-        if (t->one_queue)
-                ifr->ifr_flags |= IFF_ONE_QUEUE;
 
         if (t->multi_queue)
                 ifr->ifr_flags |= IFF_MULTI_QUEUE;
@@ -134,17 +131,23 @@ static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
         if (netdev->mtu != 0)
-                log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MTUBytes= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         if (netdev->mac)
-                log_netdev_warning(netdev, "MAC configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
+                log_netdev_warning(netdev,
+                                   "MACAddress= configured for %s device in %s will be ignored.\n"
+                                   "Please set it in the corresponding .network file.",
+                                   netdev_kind_to_string(netdev->kind), filename);
 
         return 0;
 }
 
 const NetDevVTable tun_vtable = {
         .object_size = sizeof(TunTap),
-        .sections = "Match\0NetDev\0Tun\0",
+        .sections = NETDEV_COMMON_SECTIONS "Tun\0",
         .config_verify = tuntap_verify,
         .done = tuntap_done,
         .create = netdev_create_tuntap,
@@ -153,7 +156,7 @@ const NetDevVTable tun_vtable = {
 
 const NetDevVTable tap_vtable = {
         .object_size = sizeof(TunTap),
-        .sections = "Match\0NetDev\0Tap\0",
+        .sections = NETDEV_COMMON_SECTIONS "Tap\0",
         .config_verify = tuntap_verify,
         .done = tuntap_done,
         .create = netdev_create_tuntap,

@@ -9,11 +9,12 @@
 static inline int unit_find_dropin_paths(Unit *u, char ***paths) {
         assert(u);
 
-        return unit_file_find_dropin_conf_paths(NULL,
-                                                u->manager->lookup_paths.search_path,
-                                                u->manager->unit_path_cache,
-                                                u->names,
-                                                paths);
+        return unit_file_find_dropin_paths(NULL,
+                                           u->manager->lookup_paths.search_path,
+                                           u->manager->unit_path_cache,
+                                           ".d", ".conf",
+                                           u->names,
+                                           paths);
 }
 
 int unit_load_dropin(Unit *u);

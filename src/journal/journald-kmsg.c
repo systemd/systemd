@@ -217,7 +217,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         char *b;
 
                         if (sd_device_get_devname(d, &g) >= 0) {
-                                b = strappend("_UDEV_DEVNODE=", g);
+                                b = strjoin("_UDEV_DEVNODE=", g);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;
@@ -225,7 +225,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         }
 
                         if (sd_device_get_sysname(d, &g) >= 0) {
-                                b = strappend("_UDEV_SYSNAME=", g);
+                                b = strjoin("_UDEV_SYSNAME=", g);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;
@@ -238,7 +238,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                                 if (j >= N_IOVEC_UDEV_FIELDS)
                                         break;
 
-                                b = strappend("_UDEV_DEVLINK=", g);
+                                b = strjoin("_UDEV_DEVLINK=", g);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;
@@ -271,13 +271,13 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         goto finish;
 
                 if (identifier) {
-                        syslog_identifier = strappend("SYSLOG_IDENTIFIER=", identifier);
+                        syslog_identifier = strjoin("SYSLOG_IDENTIFIER=", identifier);
                         if (syslog_identifier)
                                 iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
                 }
 
                 if (pid) {
-                        syslog_pid = strappend("SYSLOG_PID=", pid);
+                        syslog_pid = strjoin("SYSLOG_PID=", pid);
                         if (syslog_pid)
                                 iovec[n++] = IOVEC_MAKE_STRING(syslog_pid);
                 }

@@ -2,9 +2,7 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <libkmod.h>
 #include <limits.h>
-#include <string.h>
 #include <sys/stat.h>
 
 #include "conf-files.h"
@@ -96,6 +94,8 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                         continue;
 
                 k = module_load_and_warn(ctx, l, true);
+                if (k == -ENOENT)
+                        continue;
                 if (k < 0 && r >= 0)
                         r = k;
         }
@@ -124,7 +124,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
         };
@@ -141,7 +140,6 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
                 switch (c) {
 
                 case 'h':
@@ -202,6 +200,8 @@ static int run(int argc, char *argv[]) {
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
                         k = module_load_and_warn(ctx, *i, true);
+                        if (k == -ENOENT)
+                                continue;
                         if (k < 0 && r == 0)
                                 r = k;
                 }

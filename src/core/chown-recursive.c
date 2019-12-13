@@ -8,24 +8,28 @@
 #include "chown-recursive.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"
 
-static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+static int chown_one(
+                int fd,
+                const struct stat *st,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         const char *n;
+        int r;
 
         assert(fd >= 0);
         assert(st);
 
-        if ((!uid_is_valid(uid) || st->st_uid == uid) &&
-            (!gid_is_valid(gid) || st->st_gid == gid))
-                return 0;
-
-        /* We change ownership through the /proc/self/fd/%i path, so that we have a stable reference that works with
-         * O_PATH. (Note: fchown() and fchmod() do not work with O_PATH, the kernel refuses that. */
+        /* We change ACLs through the /proc/self/fd/%i path, so that we have a stable reference that works
+         * with O_PATH. */
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         /* Drop any ACL if there is one */
@@ -34,21 +38,20 @@ static int chown_one(int fd, const struct stat *st, uid_t uid, gid_t gid) {
                         if (!IN_SET(errno, ENODATA, EOPNOTSUPP, ENOSYS, ENOTTY))
                                 return -errno;
 
-        if (chown(procfs_path, uid, gid) < 0)
-                return -errno;
-
-        /* The linux kernel alters the mode in some cases of chown(), as well when we change ACLs. Let's undo this. We
-         * do this only for non-symlinks however. That's because for symlinks the access mode is ignored anyway and
-         * because on some kernels/file systems trying to change the access mode will succeed but has no effect while
-         * on others it actively fails. */
-        if (!S_ISLNK(st->st_mode))
-                if (chmod(procfs_path, st->st_mode & 07777) < 0)
-                        return -errno;
+        r = fchmod_and_chown(fd, st->st_mode & mask, uid, gid);
+        if (r < 0)
+                return r;
 
         return 1;
 }
 
-static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gid_t gid) {
+static int chown_recursive_internal(
+                int fd,
+                const struct stat *st,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         _cleanup_closedir_ DIR *d = NULL;
         bool changed = false;
         struct dirent *de;
@@ -87,13 +90,13 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                         if (subdir_fd < 0)
                                 return subdir_fd;
 
-                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid); /* takes possession of subdir_fd even on failure */
+                        r = chown_recursive_internal(subdir_fd, &fst, uid, gid, mask); /* takes possession of subdir_fd even on failure */
                         if (r < 0)
                                 return r;
                         if (r > 0)
                                 changed = true;
                 } else {
-                        r = chown_one(path_fd, &fst, uid, gid);
+                        r = chown_one(path_fd, &fst, uid, gid, mask);
                         if (r < 0)
                                 return r;
                         if (r > 0)
@@ -101,14 +104,19 @@ static int chown_recursive_internal(int fd, const struct stat *st, uid_t uid, gi
                 }
         }
 
-        r = chown_one(dirfd(d), st, uid, gid);
+        r = chown_one(dirfd(d), st, uid, gid, mask);
         if (r < 0)
                 return r;
 
         return r > 0 || changed;
 }
 
-int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
+int path_chown_recursive(
+                const char *path,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -116,18 +124,18 @@ int path_chown_recursive(const char *path, uid_t uid, gid_t gid) {
         if (fd < 0)
                 return -errno;
 
-        if (!uid_is_valid(uid) && !gid_is_valid(gid))
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && (mask & 07777) == 07777)
                 return 0; /* nothing to do */
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the whole tree,
-         * under the assumption that all is OK anyway. */
-
+        /* Let's take a shortcut: if the top-level directory is properly owned, we don't descend into the
+         * whole tree, under the assumption that all is OK anyway. */
         if ((!uid_is_valid(uid) || st.st_uid == uid) &&
-            (!gid_is_valid(gid) || st.st_gid == gid))
+            (!gid_is_valid(gid) || st.st_gid == gid) &&
+            ((st.st_mode & ~mask & 07777) == 0))
                 return 0;
 
-        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid); /* we donate the fd to the call, regardless if it succeeded or failed */
+        return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid, mask); /* we donate the fd to the call, regardless if it succeeded or failed */
 }

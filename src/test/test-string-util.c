@@ -7,6 +7,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "utf8.h"
+#include "util.h"
 
 static void test_string_erase(void) {
         char *x;
@@ -272,22 +273,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-static void test_strappend(void) {
-        _cleanup_free_ char *t1, *t2, *t3, *t4;
-
-        t1 = strappend(NULL, NULL);
-        assert_se(streq(t1, ""));
-
-        t2 = strappend(NULL, "suf");
-        assert_se(streq(t2, "suf"));
-
-        t3 = strappend("pre", NULL);
-        assert_se(streq(t3, "pre"));
-
-        t4 = strappend("pre", "suf");
-        assert_se(streq(t4, "presuf"));
-}
-
 static void test_string_has_cc(void) {
         assert_se(string_has_cc("abc\1", NULL));
         assert_se(string_has_cc("abc\x7f", NULL));
@@ -379,7 +364,7 @@ static void check(const char *test, char** expected, bool trailing) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&test, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&test, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0) {
                         assert_se(!trailing);
                         break;
@@ -591,7 +576,6 @@ int main(int argc, char *argv[]) {
         test_strextend();
         test_strextend_with_separator();
         test_strrep();
-        test_strappend();
         test_string_has_cc();
         test_ascii_strlower();
         test_strshorten();

@@ -1,13 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-environment-d-generator" conditional='ENABLE_ENVIRONMENT_D'>
 
   <refentryinfo>
@@ -37,7 +34,7 @@
     <para><filename>systemd-environment-d-generator</filename> is a
     <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     that reads environment configuration specified by
-    <citerefentry><refentrytitle>environment.d</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>environment.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     configuration files and passes it to the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     user manager instance.</para>
@@ -49,7 +46,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -22,6 +22,7 @@
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -78,30 +79,34 @@ static int do_execute(
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 int output_fd,
                 char *argv[],
-                char *envp[]) {
+                char *envp[],
+                ExecDirFlags flags) {
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         char **path, **e;
         int r;
+        bool parallel_execution;
 
         /* We fork this all off from a child process so that we can somewhat cleanly make
          * use of SIGALRM to set a time limit.
          *
-         * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
+         * We attempt to perform parallel execution if configured by the user, however
+         * if `callbacks` is nonnull, execution must be serial.
          */
+        parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
 
         r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 
-        if (!callbacks) {
+        if (parallel_execution) {
                 pids = hashmap_new(NULL);
                 if (!pids)
                         return log_oom();
         }
 
-        /* Abort execution of this process after the timout. We simply rely on SIGALRM as
+        /* Abort execution of this process after the timeout. We simply rely on SIGALRM as
          * default action terminating the process, and turn on alarm(). */
 
         if (timeout != USEC_INFINITY)
@@ -130,23 +135,28 @@ static int do_execute(
                 if (r <= 0)
                         continue;
 
-                if (pids) {
+                if (parallel_execution) {
                         r = hashmap_put(pids, PID_TO_PTR(pid), t);
                         if (r < 0)
                                 return log_oom();
                         t = NULL;
                 } else {
                         r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
-                        if (r < 0)
-                                continue;
+                        if (FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS)) {
+                                if (r < 0)
+                                        continue;
+                        } else if (r > 0)
+                                return r;
 
-                        if (lseek(fd, 0, SEEK_SET) < 0)
-                                return log_error_errno(errno, "Failed to seek on serialization fd: %m");
+                        if (callbacks) {
+                                if (lseek(fd, 0, SEEK_SET) < 0)
+                                        return log_error_errno(errno, "Failed to seek on serialization fd: %m");
 
-                        r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
-                        fd = -1;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to process output from %s: %m", *path);
+                                r = callbacks[STDOUT_GENERATE](fd, callback_args[STDOUT_GENERATE]);
+                                fd = -1;
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to process output from %s: %m", *path);
+                        }
                 }
         }
 
@@ -166,7 +176,9 @@ static int do_execute(
                 t = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(t);
 
-                (void) wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                        return r;
         }
 
         return 0;
@@ -178,12 +190,14 @@ int execute_directories(
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[],
-                char *envp[]) {
+                char *envp[],
+                ExecDirFlags flags) {
 
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
         char *name;
         int r;
+        pid_t executor_pid;
 
         assert(!strv_isempty(dirs));
 
@@ -205,13 +219,19 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp);
-                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp, flags);
+                _exit(r < 0 ? EXIT_FAILURE : r);
         }
+
+        r = wait_for_terminate_and_check("(sd-executor)", executor_pid, 0);
+        if (r < 0)
+                return r;
+        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                return r;
 
         if (!callbacks)
                 return 0;
@@ -346,8 +366,81 @@ static int gather_environment_consume(int fd, void *arg) {
         return r;
 }
 
+int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
+        ExecCommandFlags ex_flag, ret_flags = 0;
+        char **opt;
+
+        assert(flags);
+
+        STRV_FOREACH(opt, ex_opts) {
+                ex_flag = exec_command_flags_from_string(*opt);
+                if (ex_flag >= 0)
+                        ret_flags |= ex_flag;
+                else
+                        return -EINVAL;
+        }
+
+        *flags = ret_flags;
+
+        return 0;
+}
+
+int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
+        _cleanup_strv_free_ char **ret_opts = NULL;
+        ExecCommandFlags it = flags;
+        const char *str;
+        int i, r;
+
+        assert(ex_opts);
+
+        for (i = 0; it != 0; it &= ~(1 << i), i++) {
+                if (FLAGS_SET(flags, (1 << i))) {
+                        str = exec_command_flags_to_string(1 << i);
+                        if (!str)
+                                return -EINVAL;
+
+                        r = strv_extend(&ret_opts, str);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ex_opts = TAKE_PTR(ret_opts);
+
+        return 0;
+}
+
 const gather_stdout_callback_t gather_environment[] = {
         gather_environment_generate,
         gather_environment_collect,
         gather_environment_consume,
 };
+
+static const char* const exec_command_strings[] = {
+        "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
+        "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
+        "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
+        "ambient",        /* EXEC_COMMAND_AMBIENT_MAGIC */
+        "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
+};
+
+const char* exec_command_flags_to_string(ExecCommandFlags i) {
+        size_t idx;
+
+        for (idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
+                if (i == (1 << idx))
+                        return exec_command_strings[idx];
+
+        return NULL;
+}
+
+ExecCommandFlags exec_command_flags_from_string(const char *s) {
+        ssize_t idx;
+
+        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
+
+        if (idx < 0)
+                return _EXEC_COMMAND_FLAGS_INVALID;
+        else
+                return 1 << idx;
+}

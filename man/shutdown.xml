@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="shutdown"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -122,7 +119,7 @@
         <term><option>-c</option></term>
 
         <listitem><para>Cancel a pending shutdown. This may be used
-        cancel the effect of an invocation of
+        to cancel the effect of an invocation of
         <command>shutdown</command> with a time argument that is not
         <literal>+0</literal> or
         <literal>now</literal>.</para></listitem>

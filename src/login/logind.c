@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -18,6 +17,10 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "logind-dbus.h"
+#include "logind-seat-dbus.h"
+#include "logind-session-dbus.h"
+#include "logind-user-dbus.h"
 #include "logind.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -26,6 +29,7 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "udev-util.h"
 
 static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
@@ -43,9 +47,8 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .console_active_fd = -1,
                 .reserve_vt_fd = -1,
+                .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
-
-        m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
         m->devices = hashmap_new(&string_hash_ops);
         m->seats = hashmap_new(&string_hash_ops);
@@ -117,6 +120,7 @@ static Manager* manager_unref(Manager *m) {
         hashmap_free(m->users);
         hashmap_free(m->inhibitors);
         hashmap_free(m->buttons);
+        hashmap_free(m->brightness_writers);
 
         hashmap_free(m->user_units);
         hashmap_free(m->session_units);
@@ -286,14 +290,13 @@ static int manager_enumerate_linger_users(Manager *m) {
         FOREACH_DIRENT(de, d, return -errno) {
                 int k;
 
+                dirent_ensure_type(d, de);
                 if (!dirent_is_file(de))
                         continue;
 
                 k = manager_add_user_by_name(m, de->d_name, NULL);
-                if (k < 0) {
-                        log_notice_errno(k, "Couldn't add lingering user %s: %m", de->d_name);
-                        r = k;
-                }
+                if (k < 0)
+                        r = log_warning_errno(k, "Couldn't add lingering user %s, ignoring: %m", de->d_name);
         }
 
         return r;
@@ -326,9 +329,7 @@ static int manager_enumerate_users(Manager *m) {
 
                 k = manager_add_user_by_name(m, de->d_name, &u);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to add user by file name %s: %m", de->d_name);
-
-                        r = k;
+                        r = log_warning_errno(k, "Failed to add user by file name %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -377,73 +378,75 @@ static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
         return 0;
 }
 
+static int deliver_fd(Manager *m, const char *fdname, int fd) {
+        _cleanup_free_ char *id = NULL;
+        SessionDevice *sd;
+        struct stat st;
+        Session *s;
+        dev_t dev;
+        int r;
+
+        assert(m);
+        assert(fd >= 0);
+
+        r = parse_fdname(fdname, &id, &dev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse fd name %s: %m", fdname);
+
+        s = hashmap_get(m->sessions, id);
+        if (!s)
+                /* If the session doesn't exist anymore, the associated session device attached to this fd
+                 * doesn't either. Let's simply close this fd. */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to attach fd for unknown session: %s", id);
+
+        if (fstat(fd, &st) < 0)
+                /* The device is allowed to go away at a random point, in which case fstat() failing is
+                 * expected. */
+                return log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
+
+        if (!S_ISCHR(st.st_mode) || st.st_rdev != dev)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "Device fd doesn't point to the expected character device node");
+
+        sd = hashmap_get(s->devices, &dev);
+        if (!sd)
+                /* Weird, we got an fd for a session device which wasn't recorded in the session state
+                 * file... */
+                return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "Got fd for missing session device [%u:%u] in session %s",
+                                         major(dev), minor(dev), s->id);
+
+        log_debug("Attaching fd to session device [%u:%u] for session %s",
+                  major(dev), minor(dev), s->id);
+
+        session_device_attach_fd(sd, fd, s->was_active);
+        return 0;
+}
+
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
-        int n, i, fd;
+        int n;
 
-        /* Upon restart, PID1 will send us back all fds of session devices
-         * that we previously opened. Each file descriptor is associated
-         * with a given session. The session ids are passed through FDNAMES. */
+        /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
+         * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
 
         n = sd_listen_fds_with_names(true, &fdnames);
-        if (n <= 0)
-                return n;
+        if (n < 0)
+                return log_warning_errno(n, "Failed to acquire passed fd list: %m");
+        if (n == 0)
+                return 0;
 
-        for (i = 0; i < n; i++) {
-                _cleanup_free_ char *id = NULL;
-                dev_t dev;
-                struct stat st;
-                SessionDevice *sd;
-                Session *s;
-                int r;
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
 
-                fd = SD_LISTEN_FDS_START + i;
-
-                r = parse_fdname(fdnames[i], &id, &dev);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse fd name %s: %m", fdnames[i]);
-                        close_nointr(fd);
+                if (deliver_fd(m, fdnames[i], fd) >= 0)
                         continue;
-                }
 
-                s = hashmap_get(m->sessions, id);
-                if (!s) {
-                        /* If the session doesn't exist anymore, the associated session
-                         * device attached to this fd doesn't either. Let's simply close
-                         * this fd. */
-                        log_debug("Failed to attach fd for unknown session: %s", id);
-                        close_nointr(fd);
-                        continue;
-                }
+                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd */
+                safe_close(fd);
 
-                if (fstat(fd, &st) < 0) {
-                        /* The device is allowed to go away at a random point, in which
-                         * case fstat failing is expected. */
-                        log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
-                        close_nointr(fd);
-                        continue;
-                }
-
-                if (!S_ISCHR(st.st_mode) || st.st_rdev != dev) {
-                        log_debug("Device fd doesn't point to the expected character device node");
-                        close_nointr(fd);
-                        continue;
-                }
-
-                sd = hashmap_get(s->devices, &dev);
-                if (!sd) {
-                        /* Weird, we got an fd for a session device which wasn't
-                         * recorded in the session state file... */
-                        log_warning("Got fd for missing session device [%u:%u] in session %s",
-                                    major(dev), minor(dev), s->id);
-                        close_nointr(fd);
-                        continue;
-                }
-
-                log_debug("Attaching fd to session device [%u:%u] for session %s",
-                          major(dev), minor(dev), s->id);
-
-                session_device_attach_fd(sd, fd, s->was_active);
+                /* Remove from fdstore as well */
+                (void) sd_notifyf(false,
+                                  "FDSTOREREMOVE=1\n"
+                                  "FDNAME=%s", fdnames[i]);
         }
 
         return 0;
@@ -471,16 +474,9 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (!dirent_is_file(de))
                         continue;
 
-                if (!session_id_valid(de->d_name)) {
-                        log_warning("Invalid session file name '%s', ignoring.", de->d_name);
-                        r = -EINVAL;
-                        continue;
-                }
-
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
-                        log_error_errno(k, "Failed to add session by file name %s: %m", de->d_name);
-                        r = k;
+                        r = log_warning_errno(k, "Failed to add session by file name %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -491,11 +487,9 @@ static int manager_enumerate_sessions(Manager *m) {
                         r = k;
         }
 
-        /* We might be restarted and PID1 could have sent us back the
-         * session device fds we previously saved. */
-        k = manager_attach_fds(m);
-        if (k < 0)
-                log_warning_errno(k, "Failed to reattach session device fds: %m");
+        /* We might be restarted and PID1 could have sent us back the session device fds we previously
+         * saved. */
+        (void) manager_attach_fds(m);
 
         return r;
 }
@@ -524,8 +518,7 @@ static int manager_enumerate_inhibitors(Manager *m) {
 
                 k = manager_add_inhibitor(m, de->d_name, &i);
                 if (k < 0) {
-                        log_notice_errno(k, "Couldn't add inhibitor %s: %m", de->d_name);
-                        r = k;
+                        r = log_warning_errno(k, "Couldn't add inhibitor %s, ignoring: %m", de->d_name);
                         continue;
                 }
 
@@ -559,7 +552,7 @@ static int manager_dispatch_device_udev(sd_device_monitor *monitor, sd_device *d
 
 static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = userdata;
-        const char *name, *action;
+        const char *name;
 
         assert(m);
         assert(device);
@@ -569,8 +562,7 @@ static int manager_dispatch_vcsa_udev(sd_device_monitor *monitor, sd_device *dev
 
         if (sd_device_get_sysname(device, &name) >= 0 &&
             startswith(name, "vcsa") &&
-            sd_device_get_property_value(device, "ACTION", &action) >= 0 &&
-            streq(action, "remove"))
+            device_for_action(device, DEVICE_ACTION_REMOVE))
                 seat_preallocate_vts(m->seat0);
 
         return 0;
@@ -1017,7 +1009,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
 
                 if (n >= since.monotonic + m->idle_action_usec &&
                     (m->idle_action_not_before_usec <= 0 || n >= m->idle_action_not_before_usec + m->idle_action_usec)) {
-                        log_info("System idle. Taking action.");
+                        log_info("System idle. Doing %s operation.", handle_action_to_string(m->idle_action));
 
                         manager_handle_action(m, 0, m->idle_action, false, false);
                         m->idle_action_not_before_usec = n;
@@ -1153,8 +1145,15 @@ static int manager_startup(Manager *m) {
         HASHMAP_FOREACH(session, m->sessions, i)
                 (void) session_start(session, NULL, NULL);
 
-        HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
-                inhibitor_start(inhibitor);
+        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+                (void) inhibitor_start(inhibitor);
+
+                /* Let's see if the inhibitor is dead now, then remove it */
+                if (inhibitor_is_orphan(inhibitor)) {
+                        inhibitor_stop(inhibitor);
+                        inhibitor_free(inhibitor);
+                }
+        }
 
         HASHMAP_FOREACH(button, m->buttons, i)
                 button_check_switches(button);
@@ -1215,7 +1214,7 @@ static int run(int argc, char *argv[]) {
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

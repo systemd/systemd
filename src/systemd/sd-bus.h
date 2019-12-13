@@ -33,6 +33,12 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_BUS_DEFAULT_USER ((sd_bus *) 2)
 #define SD_BUS_DEFAULT_SYSTEM ((sd_bus *) 3)
 
+/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-marshaling-signature */
+#define SD_BUS_MAXIMUM_SIGNATURE_LENGTH 255
+
+/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names */
+#define SD_BUS_MAXIMUM_NAME_LENGTH 255
+
 /* Types */
 
 typedef struct sd_bus sd_bus;
@@ -322,6 +328,7 @@ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char **content
 int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *contents);
 int sd_bus_message_at_end(sd_bus_message *m, int complete);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
+int sd_bus_message_sensitive(sd_bus_message *m);
 
 /* Bus management */
 

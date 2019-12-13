@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="nss-mymachines" conditional='ENABLE_NSS_MYMACHINES'>
 
@@ -101,8 +98,8 @@ MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
 rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
 
 $ getent passwd vu-rawhide-0 vu-rawhide-81
-vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/sbin/nologin
-vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/sbin/nologin
+vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/usr/sbin/nologin
+vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/usr/sbin/nologin
 
 $ getent group vg-rawhide-0 vg-rawhide-81
 vg-rawhide-0:*:20119552:

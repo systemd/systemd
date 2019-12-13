@@ -1,0 +1,6 @@
+[NetDev]
+Name=vxcan99
+Kind=vxcan
+
+[VXCAN]
+Peer=vxcan-peer

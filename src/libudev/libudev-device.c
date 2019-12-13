@@ -23,6 +23,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
+#include "libudev-list-internal.h"
 #include "parse-util.h"
 #include "time-util.h"
 
@@ -37,6 +38,36 @@
  */
 
 /**
+ * udev_device:
+ *
+ * Opaque object representing one kernel sys device.
+ */
+struct udev_device {
+        struct udev *udev;
+
+        /* real device object */
+        sd_device *device;
+
+        /* legacy */
+        unsigned n_ref;
+
+        struct udev_device *parent;
+        bool parent_set;
+
+        struct udev_list *properties;
+        uint64_t properties_generation;
+        struct udev_list *tags;
+        uint64_t tags_generation;
+        struct udev_list *devlinks;
+        uint64_t devlinks_generation;
+        bool properties_read:1;
+        bool tags_read:1;
+        bool devlinks_read:1;
+        struct udev_list *sysattrs;
+        bool sysattrs_read;
+};
+
+/**
  * udev_device_get_seqnum:
  * @udev_device: udev device
  *
@@ -45,24 +76,15 @@
  *
  * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
  **/
-_public_ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device) {
-        const char *seqnum;
-        unsigned long long ret;
-        int r;
+_public_ unsigned long long udev_device_get_seqnum(struct udev_device *udev_device) {
+        uint64_t seqnum;
 
         assert_return_errno(udev_device, 0, EINVAL);
 
-        r = sd_device_get_property_value(udev_device->device, "SEQNUM", &seqnum);
-        if (r == -ENOENT)
+        if (device_get_seqnum(udev_device->device, &seqnum) < 0)
                 return 0;
-        else if (r < 0)
-                return_with_errno(0, r);
 
-        r = safe_atollu(seqnum, &ret);
-        if (r < 0)
-                return_with_errno(0, r);
-
-        return ret;
+        return seqnum;
 }
 
 /**
@@ -177,9 +199,23 @@ _public_ const char *udev_device_get_property_value(struct udev_device *udev_dev
 }
 
 struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
+        _cleanup_(udev_list_freep) struct udev_list *properties = NULL, *tags = NULL, *sysattrs = NULL, *devlinks = NULL;
         struct udev_device *udev_device;
 
         assert(device);
+
+        properties = udev_list_new(true);
+        if (!properties)
+                return_with_errno(NULL, ENOMEM);
+        tags = udev_list_new(true);
+        if (!tags)
+                return_with_errno(NULL, ENOMEM);
+        sysattrs = udev_list_new(true);
+        if (!sysattrs)
+                return_with_errno(NULL, ENOMEM);
+        devlinks = udev_list_new(true);
+        if (!devlinks)
+                return_with_errno(NULL, ENOMEM);
 
         udev_device = new(struct udev_device, 1);
         if (!udev_device)
@@ -189,12 +225,11 @@ struct udev_device *udev_device_new(struct udev *udev, sd_device *device) {
                 .n_ref = 1,
                 .udev = udev,
                 .device = sd_device_ref(device),
+                .properties = TAKE_PTR(properties),
+                .tags = TAKE_PTR(tags),
+                .sysattrs = TAKE_PTR(sysattrs),
+                .devlinks = TAKE_PTR(devlinks),
         };
-
-        udev_list_init(&udev_device->properties, true);
-        udev_list_init(&udev_device->tags, true);
-        udev_list_init(&udev_device->sysattrs, true);
-        udev_list_init(&udev_device->devlinks, true);
 
         return udev_device;
 }
@@ -438,10 +473,10 @@ static struct udev_device *udev_device_free(struct udev_device *udev_device) {
         sd_device_unref(udev_device->device);
         udev_device_unref(udev_device->parent);
 
-        udev_list_cleanup(&udev_device->properties);
-        udev_list_cleanup(&udev_device->sysattrs);
-        udev_list_cleanup(&udev_device->tags);
-        udev_list_cleanup(&udev_device->devlinks);
+        udev_list_free(udev_device->properties);
+        udev_list_free(udev_device->sysattrs);
+        udev_list_free(udev_device->tags);
+        udev_list_free(udev_device->devlinks);
 
         return mfree(udev_device);
 }
@@ -596,17 +631,17 @@ _public_ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev
             !udev_device->devlinks_read) {
                 const char *devlink;
 
-                udev_list_cleanup(&udev_device->devlinks);
+                udev_list_cleanup(udev_device->devlinks);
 
                 FOREACH_DEVICE_DEVLINK(udev_device->device, devlink)
-                        if (!udev_list_entry_add(&udev_device->devlinks, devlink, NULL))
+                        if (!udev_list_entry_add(udev_device->devlinks, devlink, NULL))
                                 return_with_errno(NULL, ENOMEM);
 
                 udev_device->devlinks_read = true;
                 udev_device->devlinks_generation = device_get_devlinks_generation(udev_device->device);
         }
 
-        return udev_list_get_entry(&udev_device->devlinks);
+        return udev_list_get_entry(udev_device->devlinks);
 }
 
 /**
@@ -628,17 +663,17 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
             !udev_device->properties_read) {
                 const char *key, *value;
 
-                udev_list_cleanup(&udev_device->properties);
+                udev_list_cleanup(udev_device->properties);
 
                 FOREACH_DEVICE_PROPERTY(udev_device->device, key, value)
-                        if (!udev_list_entry_add(&udev_device->properties, key, value))
+                        if (!udev_list_entry_add(udev_device->properties, key, value))
                                 return_with_errno(NULL, ENOMEM);
 
                 udev_device->properties_read = true;
                 udev_device->properties_generation = device_get_properties_generation(udev_device->device);
         }
 
-        return udev_list_get_entry(&udev_device->properties);
+        return udev_list_get_entry(udev_device->properties);
 }
 
 /**
@@ -646,24 +681,20 @@ _public_ struct udev_list_entry *udev_device_get_properties_list_entry(struct ud
  * @udev_device: udev device
  *
  * This is only valid if the device was received through a monitor. Devices read from
- * sys do not have an action string. Usual actions are: add, remove, change, online,
- * offline.
+ * sys do not have an action string. Usual actions are: add, remove, change, move,
+ * online, offline.
  *
  * Returns: the kernel action value, or #NULL if there is no action value available.
  **/
 _public_ const char *udev_device_get_action(struct udev_device *udev_device) {
-        const char *action;
-        int r;
+        DeviceAction action;
 
         assert_return_errno(udev_device, NULL, EINVAL);
 
-        r = sd_device_get_property_value(udev_device->device, "ACTION", &action);
-        if (r == -ENOENT)
+        if (device_get_action(udev_device->device, &action) < 0)
                 return NULL;
-        if (r < 0)
-                return_with_errno(NULL, r);
 
-        return action;
+        return device_action_to_string(action);
 }
 
 /**
@@ -752,16 +783,16 @@ _public_ struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_
         if (!udev_device->sysattrs_read) {
                 const char *sysattr;
 
-                udev_list_cleanup(&udev_device->sysattrs);
+                udev_list_cleanup(udev_device->sysattrs);
 
                 FOREACH_DEVICE_SYSATTR(udev_device->device, sysattr)
-                        if (!udev_list_entry_add(&udev_device->sysattrs, sysattr, NULL))
+                        if (!udev_list_entry_add(udev_device->sysattrs, sysattr, NULL))
                                 return_with_errno(NULL, ENOMEM);
 
                 udev_device->sysattrs_read = true;
         }
 
-        return udev_list_get_entry(&udev_device->sysattrs);
+        return udev_list_get_entry(udev_device->sysattrs);
 }
 
 /**
@@ -807,17 +838,17 @@ _public_ struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_dev
             !udev_device->tags_read) {
                 const char *tag;
 
-                udev_list_cleanup(&udev_device->tags);
+                udev_list_cleanup(udev_device->tags);
 
                 FOREACH_DEVICE_TAG(udev_device->device, tag)
-                        if (!udev_list_entry_add(&udev_device->tags, tag, NULL))
+                        if (!udev_list_entry_add(udev_device->tags, tag, NULL))
                                 return_with_errno(NULL, ENOMEM);
 
                 udev_device->tags_read = true;
                 udev_device->tags_generation = device_get_tags_generation(udev_device->device);
         }
 
-        return udev_list_get_entry(&udev_device->tags);
+        return udev_list_get_entry(udev_device->tags);
 }
 
 /**
@@ -833,4 +864,10 @@ _public_ int udev_device_has_tag(struct udev_device *udev_device, const char *ta
         assert_return(udev_device, 0);
 
         return sd_device_has_tag(udev_device->device, tag) > 0;
+}
+
+sd_device *udev_device_get_sd_device(struct udev_device *udev_device) {
+        assert(udev_device);
+
+        return udev_device->device;
 }

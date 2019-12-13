@@ -212,7 +212,7 @@ EOF
 test -f /tmp/w/overwritten
 test "$(< /tmp/w/overwritten)" = "new content"
 
-### writing into an 'exotic' file sould be allowed.
+### writing into an 'exotic' file should be allowed.
 systemd-tmpfiles --create - <<EOF
 w     /dev/null    - - - - new content
 EOF

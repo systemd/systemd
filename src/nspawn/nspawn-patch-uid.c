@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
-#include <linux/magic.h>
-#if HAVE_ACL
-#include <sys/acl.h>
-#endif
-#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -14,7 +9,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "missing.h"
+#include "missing_magic.h"
 #include "nspawn-def.h"
 #include "nspawn-patch-uid.h"
 #include "stat-util.h"
@@ -103,7 +98,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
 
                 if (IN_SET(tag, ACL_USER, ACL_GROUP)) {
 
-                        /* We don't distuingish here between uid_t and gid_t, let's make sure the compiler checks that
+                        /* We don't distinguish here between uid_t and gid_t, let's make sure the compiler checks that
                          * this is actually OK */
                         assert_cc(sizeof(uid_t) == sizeof(gid_t));
 
@@ -402,7 +397,7 @@ read_only:
 
                 /* When we hit a ready-only subtree we simply skip it, but log about it. */
                 (void) fd_get_path(fd, &name);
-                log_debug("Skippping read-only file or directory %s.", strna(name));
+                log_debug("Skipping read-only file or directory %s.", strna(name));
                 r = changed;
         }
 

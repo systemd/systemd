@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -13,6 +14,7 @@
 #include "label.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "sort-util.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
@@ -432,7 +434,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
  error_fclose:
         r = -errno;
         fclose(t.f);
-        unlink(filename_tmp);
+        (void) unlink(filename_tmp);
         return r;
 }
 

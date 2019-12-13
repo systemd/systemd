@@ -6,8 +6,9 @@
 #include "sd-netlink.h"
 
 #include "loopback-setup.h"
-#include "missing.h"
+#include "missing_network.h"
 #include "netlink-util.h"
+#include "time-util.h"
 
 #define LOOPBACK_SETUP_TIMEOUT_USEC (5 * USEC_PER_SEC)
 

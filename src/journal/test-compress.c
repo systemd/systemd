@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/stat.h>
+
 #if HAVE_LZ4
 #include <lz4.h>
 #endif
@@ -9,11 +11,11 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 #if HAVE_XZ
 # define XZ_OK 0

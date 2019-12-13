@@ -11,7 +11,7 @@ int generator_open_unit_file(
         const char *name,
         FILE **file);
 
-int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src);
+int generator_add_symlink(const char *dir, const char *dst, const char *dep_type, const char *src);
 
 int generator_write_fsck_deps(
         FILE *f,
@@ -49,6 +49,8 @@ int generator_hook_up_growfs(
         const char *dir,
         const char *where,
         const char *target);
+
+int generator_enable_remount_fs_service(const char *dir);
 
 void log_setup_generator(void);
 

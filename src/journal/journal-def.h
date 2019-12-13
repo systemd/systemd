@@ -59,16 +59,20 @@ struct ObjectHeader {
         uint8_t payload[];
 } _packed_;
 
-struct DataObject {
-        ObjectHeader object;
-        le64_t hash;
-        le64_t next_hash_offset;
-        le64_t next_field_offset;
-        le64_t entry_offset; /* the first array entry we store inline */
-        le64_t entry_array_offset;
-        le64_t n_entries;
-        uint8_t payload[];
-} _packed_;
+#define DataObject__contents {                                          \
+        ObjectHeader object;                                            \
+        le64_t hash;                                                    \
+        le64_t next_hash_offset;                                        \
+        le64_t next_field_offset;                                       \
+        le64_t entry_offset; /* the first array entry we store inline */ \
+        le64_t entry_array_offset;                                      \
+        le64_t n_entries;                                               \
+        uint8_t payload[];                                              \
+        }
+
+struct DataObject DataObject__contents;
+struct DataObject__packed DataObject__contents _packed_;
+assert_cc(sizeof(struct DataObject) == sizeof(struct DataObject__packed));
 
 struct FieldObject {
         ObjectHeader object;
@@ -83,15 +87,19 @@ struct EntryItem {
         le64_t hash;
 } _packed_;
 
-struct EntryObject {
-        ObjectHeader object;
-        le64_t seqnum;
-        le64_t realtime;
-        le64_t monotonic;
-        sd_id128_t boot_id;
-        le64_t xor_hash;
-        EntryItem items[];
-} _packed_;
+#define EntryObject__contents { \
+        ObjectHeader object;    \
+        le64_t seqnum;          \
+        le64_t realtime;        \
+        le64_t monotonic;       \
+        sd_id128_t boot_id;     \
+        le64_t xor_hash;        \
+        EntryItem items[];      \
+        }
+
+struct EntryObject EntryObject__contents;
+struct EntryObject__packed EntryObject__contents _packed_;
+assert_cc(sizeof(struct EntryObject) == sizeof(struct EntryObject__packed));
 
 struct HashItem {
         le64_t head_hash_offset;
@@ -166,40 +174,43 @@ enum {
 
 #define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
-struct Header {
-        uint8_t signature[8]; /* "LPKSHHRH" */
-        le32_t compatible_flags;
-        le32_t incompatible_flags;
-        uint8_t state;
-        uint8_t reserved[7];
-        sd_id128_t file_id;
-        sd_id128_t machine_id;
-        sd_id128_t boot_id;    /* last writer */
-        sd_id128_t seqnum_id;
-        le64_t header_size;
-        le64_t arena_size;
-        le64_t data_hash_table_offset;
-        le64_t data_hash_table_size;
-        le64_t field_hash_table_offset;
-        le64_t field_hash_table_size;
-        le64_t tail_object_offset;
-        le64_t n_objects;
-        le64_t n_entries;
-        le64_t tail_entry_seqnum;
-        le64_t head_entry_seqnum;
-        le64_t entry_array_offset;
-        le64_t head_entry_realtime;
-        le64_t tail_entry_realtime;
-        le64_t tail_entry_monotonic;
-        /* Added in 187 */
-        le64_t n_data;
-        le64_t n_fields;
-        /* Added in 189 */
-        le64_t n_tags;
-        le64_t n_entry_arrays;
+#define struct_Header__contents {                       \
+        uint8_t signature[8]; /* "LPKSHHRH" */          \
+        le32_t compatible_flags;                        \
+        le32_t incompatible_flags;                      \
+        uint8_t state;                                  \
+        uint8_t reserved[7];                            \
+        sd_id128_t file_id;                             \
+        sd_id128_t machine_id;                          \
+        sd_id128_t boot_id;    /* last writer */        \
+        sd_id128_t seqnum_id;                           \
+        le64_t header_size;                             \
+        le64_t arena_size;                              \
+        le64_t data_hash_table_offset;                  \
+        le64_t data_hash_table_size;                    \
+        le64_t field_hash_table_offset;                 \
+        le64_t field_hash_table_size;                   \
+        le64_t tail_object_offset;                      \
+        le64_t n_objects;                               \
+        le64_t n_entries;                               \
+        le64_t tail_entry_seqnum;                       \
+        le64_t head_entry_seqnum;                       \
+        le64_t entry_array_offset;                      \
+        le64_t head_entry_realtime;                     \
+        le64_t tail_entry_realtime;                     \
+        le64_t tail_entry_monotonic;                    \
+        /* Added in 187 */                              \
+        le64_t n_data;                                  \
+        le64_t n_fields;                                \
+        /* Added in 189 */                              \
+        le64_t n_tags;                                  \
+        le64_t n_entry_arrays;                          \
+        }
 
-        /* Size: 240 */
-} _packed_;
+struct Header struct_Header__contents;
+struct Header__packed struct_Header__contents _packed_;
+assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
+assert_cc(sizeof(struct Header) == 240);
 
 #define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 

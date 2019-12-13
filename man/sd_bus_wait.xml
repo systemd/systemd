@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
@@ -66,33 +66,33 @@
 
     <para>If any I/O was seen, a positive value is returned, zero otherwise. If an error occurs, a negative
     <varname>errno</varname>-style error code is returned.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An invalid bus object was passed.</para></listitem>
-      </varlistentry>
+          <listitem><para>An invalid bus object was passed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection was allocated in a parent process and is being reused in a child process
-        after <function>fork()</function>.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus connection was allocated in a parent process and is being reused in a child
+          process after <function>fork()</function>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus connection has been terminated already.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The bus connection has been terminated already.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

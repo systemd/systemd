@@ -13,7 +13,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "test-helper.h"
 #include "tests.h"
 #include "user-util.h"
 #include "util.h"
@@ -333,64 +332,15 @@ static void test_fd_is_cgroup_fs(void) {
         fd = safe_close(fd);
 }
 
-static void test_is_wanted_print(bool header) {
-        _cleanup_free_ char *cmdline = NULL;
-
-        log_info("-- %s --", __func__);
-        assert_se(proc_cmdline(&cmdline) >= 0);
-        log_info("cmdline: %s", cmdline);
-        if (header) {
-
-                log_info(_CGROUP_HIEARCHY_);
-                (void) system("findmnt -n /sys/fs/cgroup");
-        }
-
-        log_info("is_unified_wanted() → %s", yes_no(cg_is_unified_wanted()));
-        log_info("is_hybrid_wanted() → %s", yes_no(cg_is_hybrid_wanted()));
-        log_info("is_legacy_wanted() → %s", yes_no(cg_is_legacy_wanted()));
-        log_info(" ");
-}
-
-static void test_is_wanted(void) {
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy", 1) >= 0);
-        test_is_wanted_print(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
-        test_is_wanted_print(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller", 1) >= 0);
-        test_is_wanted_print(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "systemd.unified_cgroup_hierarchy=0 "
-                         "systemd.legacy_systemd_cgroup_controller=0", 1) >= 0);
-        test_is_wanted_print(false);
-
-        /* cgroup_no_v1=all implies unified cgroup hierarchy, unless otherwise
-         * explicitly specified. */
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all", 1) >= 0);
-        test_is_wanted_print(false);
-
-        assert_se(setenv("SYSTEMD_PROC_CMDLINE",
-                         "cgroup_no_v1=all "
-                         "systemd.unified_cgroup_hierarchy=0", 1) >= 0);
-        test_is_wanted_print(false);
-}
-
 static void test_cg_tests(void) {
         int all, hybrid, systemd, r;
 
-        r = cg_unified_flush();
+        r = cg_unified();
         if (r == -ENOMEDIUM) {
                 log_notice_errno(r, "Skipping cg hierarchy tests: %m");
                 return;
         }
-        assert_se(r == 0);
+        assert_se(r >= 0);
 
         all = cg_all_unified();
         assert_se(IN_SET(all, 0, 1));
@@ -477,9 +427,6 @@ int main(void) {
         TEST_REQ_RUNNING_SYSTEMD(test_mask_supported());
         TEST_REQ_RUNNING_SYSTEMD(test_is_cgroup_fs());
         TEST_REQ_RUNNING_SYSTEMD(test_fd_is_cgroup_fs());
-        test_is_wanted_print(true);
-        test_is_wanted_print(false); /* run twice to test caching */
-        test_is_wanted();
         test_cg_tests();
         test_cg_get_keyed_attribute();
 

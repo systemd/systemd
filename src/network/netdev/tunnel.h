@@ -4,8 +4,8 @@
 #include "in-addr-util.h"
 
 #include "conf-parser.h"
-#include "netdev/netdev.h"
-#include "netdev/fou-tunnel.h"
+#include "fou-tunnel.h"
+#include "netdev.h"
 
 typedef enum Ip6TnlMode {
         NETDEV_IP6_TNL_MODE_IP6IP6,
@@ -29,7 +29,7 @@ typedef struct Tunnel {
         int family;
         int ipv6_flowlabel;
         int allow_localremote;
-        int erspan_sequence;
+        int gre_erspan_sequence;
         int isatap;
 
         unsigned ttl;
@@ -51,6 +51,7 @@ typedef struct Tunnel {
         bool copy_dscp;
         bool independent;
         bool fou_tunnel;
+        bool assign_to_loopback;
 
         uint16_t encap_src_port;
         uint16_t fou_destination_port;

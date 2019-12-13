@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
 
 #if HAVE_GNUTLS
 #include <gnutls/gnutls.h>

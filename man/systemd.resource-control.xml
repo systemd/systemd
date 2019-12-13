@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.resource-control">
   <refentryinfo>
@@ -94,7 +91,7 @@
       <variablelist>
 
         <varlistentry>
-          <term><option>CPU</option></term>
+          <term>CPU</term>
           <listitem>
             <para><varname>CPUWeight=</varname> and <varname>StartupCPUWeight=</varname> replace
             <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>, respectively.</para>
@@ -104,7 +101,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>Memory</option></term>
+          <term>Memory</term>
           <listitem>
             <para><varname>MemoryMax=</varname> replaces <varname>MemoryLimit=</varname>. <varname>MemoryLow=</varname>
             and <varname>MemoryHigh=</varname> are effective only on unified hierarchy.</para>
@@ -112,10 +109,11 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>IO</option></term>
+          <term>IO</term>
           <listitem>
-            <para><varname>IO</varname> prefixed settings are a superset of and replace <varname>BlockIO</varname>
-            prefixed ones. On unified hierarchy, IO resource control also applies to buffered writes.</para>
+            <para><literal>IO</literal>-prefixed settings are a superset of and replace
+            <literal>BlockIO</literal>-prefixed ones. On unified hierarchy, IO resource control also applies
+            to buffered writes.</para>
           </listitem>
         </varlistentry>
 
@@ -199,6 +197,55 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUQuotaPeriodSec=</varname></term>
+
+        <listitem>
+          <para>Assign the duration over which the CPU time quota specified by <varname>CPUQuota=</varname> is measured.
+          Takes a time duration value in seconds, with an optional suffix such as "ms" for milliseconds (or "s" for seconds.)
+          The default setting is 100ms. The period is clamped to the range supported by the kernel, which is [1ms, 1000ms].
+          Additionally, the period is adjusted up so that the quota interval is also at least 1ms.
+          Setting <varname>CPUQuotaPeriodSec=</varname> to an empty value resets it to the default.</para>
+
+          <para>This controls the second field of <literal>cpu.max</literal> attribute on the unified control group hierarchy
+          and <literal>cpu.cfs_period_us</literal> on legacy. For details about these control group attributes, see
+          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and
+          <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+
+          <para>Example: <varname>CPUQuotaPeriodSec=10ms</varname> to request that the CPU quota is measured in periods of 10ms.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AllowedCPUs=</varname></term>
+
+        <listitem>
+          <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
+          whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
+
+          <para>Setting <varname>AllowedCPUs=</varname> doesn't guarantee that all of the CPUs will be used by the processes
+          as it may be limited by parent units. The effective configuration is reported as <varname>EffectiveCPUs=</varname>.</para>
+
+          <para>This setting is supported only with the unified control group hierarchy.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AllowedMemoryNodes=</varname></term>
+
+        <listitem>
+          <para>Restrict processes to be executed on specific memory NUMA nodes. Takes a list of memory NUMA nodes indices
+          or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
+          CPU indices separated by a dash.</para>
+
+          <para>Setting <varname>AllowedMemoryNodes=</varname> doesn't guarantee that all of the memory NUMA nodes will
+          be used by the processes as it may be limited by parent units. The effective configuration is reported as
+          <varname>EffectiveMemoryNodes=</varname>.</para>
+
+          <para>This setting is supported only with the unified control group hierarchy.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>
@@ -223,12 +270,18 @@
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
-          system. This controls the <literal>memory.min</literal> control group attribute. For details about this
+          system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
+          useful in order to always inherit all of the protection afforded by ancestors.
+          This controls the <literal>memory.min</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
+
+          <para>Units may have their children use a default <literal>memory.min</literal> value by specifying
+          <varname>DefaultMemoryMin=</varname>, which has the same semantics as <varname>MemoryMin=</varname>. This setting
+          does not affect <literal>memory.min</literal> in the unit itself.</para>
         </listitem>
       </varlistentry>
 
@@ -243,12 +296,18 @@
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
-          system. This controls the <literal>memory.low</literal> control group attribute. For details about this
+          system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
+          useful in order to always inherit all of the protection afforded by ancestors.
+          This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
+
+          <para>Units may have their children use a default <literal>memory.low</literal> value by specifying
+          <varname>DefaultMemoryLow=</varname>, which has the same semantics as <varname>MemoryLow=</varname>. This setting
+          does not affect <literal>memory.low</literal> in the unit itself.</para>
         </listitem>
       </varlistentry>
 
@@ -256,7 +315,7 @@
         <term><varname>MemoryHigh=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the high limit on memory usage of the executed processes in this unit. Memory usage may go
+          <para>Specify the throttling limit on memory usage of the executed processes in this unit. Memory usage may go
           above the limit if unavoidable, but the processes are heavily slowed down and memory is taken away
           aggressively in such cases. This is the main mechanism to control memory usage of a unit.</para>
 
@@ -264,7 +323,7 @@
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
           system. If assigned the
-          special value <literal>infinity</literal>, no memory limit is applied. This controls the
+          special value <literal>infinity</literal>, no memory throttling is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
@@ -497,23 +556,27 @@
         <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
 
         <listitem>
-          <para>Turn on address range network traffic filtering for packets sent and received over AF_INET and AF_INET6
-          sockets.  Both directives take a space separated list of IPv4 or IPv6 addresses, each optionally suffixed
-          with an address prefix length (separated by a <literal>/</literal> character). If the latter is omitted, the
-          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128 for IPv6).
-          </para>
+          <para>Turn on address range network traffic filtering for IP packets sent and received over
+          <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.  Both directives take a
+          space separated list of IPv4 or IPv6 addresses, each optionally suffixed with an address prefix
+          length in bits (separated by a <literal>/</literal> character). If the latter is omitted, the
+          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128
+          for IPv6).</para>
 
-          <para>The access lists configured with this option are applied to all sockets created by processes of this
-          unit (or in the case of socket units, associated with it). The lists are implicitly combined with any lists
-          configured for any of the parent slice units this unit might be a member of. By default all access lists are
-          empty. When configured the lists are enforced as follows:</para>
+          <para>The access lists configured with this option are applied to all sockets created by processes
+          of this unit (or in the case of socket units, associated with it). The lists are implicitly
+          combined with any lists configured for any of the parent slice units this unit might be a member
+          of. By default all access lists are empty. Both ingress and egress traffic is filtered by these
+          settings. In case of ingress traffic the source IP address is checked against these access lists,
+          in case of egress traffic the destination IP address is checked. When configured the lists are
+          enforced as follows:</para>
 
           <itemizedlist>
-            <listitem><para>Access will be granted in case its destination/source address matches any entry in the
-            <varname>IPAddressAllow=</varname> setting.</para></listitem>
+            <listitem><para>Access will be granted in case an IP packet's destination/source address matches
+            any entry in the <varname>IPAddressAllow=</varname> setting.</para></listitem>
 
-            <listitem><para>Otherwise, access will be denied in case its destination/source address matches any entry
-            in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
+            <listitem><para>Otherwise, access will be denied in case its destination/source address matches
+            any entry in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
 
             <listitem><para>Otherwise, access will be granted.</para></listitem>
           </itemizedlist>
@@ -591,40 +654,80 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPIngressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
+        <term><varname>IPEgressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
+
+        <listitem>
+          <para>Add custom network traffic filters implemented as BPF programs, applying to all IP packets
+          sent and received over <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.
+          Takes an absolute path to a pinned BPF program in the BPF virtual filesystem (<filename>/sys/fs/bpf/</filename>).
+          </para>
+
+          <para>The filters configured with this option are applied to all sockets created by processes
+          of this unit (or in the case of socket units, associated with it). The filters are loaded in addition
+          to filters any of the parent slice units this unit might be a member of as well as any
+          <varname>IPAddressAllow=</varname> and <varname>IPAddressDeny=</varname> filters in any of these units.
+          By default there are no filters specified.</para>
+
+          <para>If these settings are used multiple times in the same unit all the specified programs are attached. If an
+          empty string is assigned to these settings the program list is reset and all previous specified programs ignored.</para>
+
+          <para>Note that for socket-activated services, the IP filter programs configured on the socket unit apply to
+          all sockets associated with it directly, but not to any sockets created by the ultimately activated services
+          for it. Conversely, the IP filter programs configured for the service are not applied to any sockets passed into
+          the service via socket activation. Thus, it is usually a good idea, to replicate the IP filter programs on both
+          the socket and the service unit, however it often makes sense to maintain one configuration more open and the other
+          one more restricted, depending on the usecase.</para>
+
+          <para>Note that these settings might not be supported on some systems (for example if eBPF control group
+          support is not enabled in the underlying kernel or container manager). These settings will fail the service in
+          that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
+          (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
-          <para>Control access to specific device nodes by the
-          executed processes. Takes two space-separated strings: a
-          device node specifier followed by a combination of
-          <constant>r</constant>, <constant>w</constant>,
-          <constant>m</constant> to control
-          <emphasis>r</emphasis>eading, <emphasis>w</emphasis>riting,
-          or creation of the specific device node(s) by the unit
-          (<emphasis>m</emphasis>knod), respectively. This controls
-          the <literal>devices.allow</literal> and
-          <literal>devices.deny</literal> control group
-          attributes. For details about these control group
-          attributes, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/devices.txt">devices.txt</ulink>.</para>
+          <para>Control access to specific device nodes by the executed processes. Takes two space-separated
+          strings: a device node specifier followed by a combination of <constant>r</constant>,
+          <constant>w</constant>, <constant>m</constant> to control <emphasis>r</emphasis>eading,
+          <emphasis>w</emphasis>riting, or creation of the specific device node(s) by the unit
+          (<emphasis>m</emphasis>knod), respectively. On cgroup-v1 this controls the
+          <literal>devices.allow</literal> control group attribute. For details about this control group
+          attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v1/devices.txt">devices.txt</ulink>. On
+          cgroup-v2 this functionality is implemented using eBPF filtering.</para>
 
-          <para>The device node specifier is either a path to a device
-          node in the file system, starting with
-          <filename>/dev/</filename>, or a string starting with either
-          <literal>char-</literal> or <literal>block-</literal>
-          followed by a device group name, as listed in
-          <filename>/proc/devices</filename>. The latter is useful to
-          whitelist all current and future devices belonging to a
-          specific device group at once. The device group is matched
-          according to filename globbing rules, you may hence use the
-          <literal>*</literal> and <literal>?</literal>
-          wildcards. Examples: <filename>/dev/sda5</filename> is a
-          path to a device node, referring to an ATA or SCSI block
-          device. <literal>char-pts</literal> and
-          <literal>char-alsa</literal> are specifiers for all pseudo
-          TTYs and all ALSA sound devices,
-          respectively. <literal>char-cpu/*</literal> is a specifier
-          matching all CPU related device groups.</para>
+          <para>The device node specifier is either a path to a device node in the file system, starting with
+          <filename>/dev/</filename>, or a string starting with either <literal>char-</literal> or
+          <literal>block-</literal> followed by a device group name, as listed in
+          <filename>/proc/devices</filename>. The latter is useful to whitelist all current and future
+          devices belonging to a specific device group at once. The device group is matched according to
+          filename globbing rules, you may hence use the <literal>*</literal> and <literal>?</literal>
+          wildcards. (Note that such globbing wildcards are not available for device node path
+          specifications!) In order to match device nodes by numeric major/minor, use device node paths in
+          the <filename>/dev/char/</filename> and <filename>/dev/block/</filename> directories. However,
+          matching devices by major/minor is generally not recommended as assignments are neither stable nor
+          portable between systems or different kernel versions.</para>
+
+          <para>Examples: <filename>/dev/sda5</filename> is a path to a device node, referring to an ATA or
+          SCSI block device. <literal>char-pts</literal> and <literal>char-alsa</literal> are specifiers for
+          all pseudo TTYs and all ALSA sound devices, respectively. <literal>char-cpu/*</literal> is a
+          specifier matching all CPU related device groups.</para>
+
+          <para>Note that whitelists defined this way should only reference device groups which are
+          resolvable at the time the unit is started. Any device groups not resolvable then are not added to
+          the device whitelist. In order to work around this limitation, consider extending service units
+          with an <command>ExecStartPre=/sbin/modprobe…</command> line that loads the necessary
+          kernel module implementing the device group if missing. Example: <programlisting>…
+[Service]
+ExecStartPre=-/sbin/modprobe -abq loop
+DeviceAllow=block-loop
+DeviceAllow=/dev/loop-control
+…</programlisting></para>
+
         </listitem>
       </varlistentry>
 
@@ -907,6 +1010,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

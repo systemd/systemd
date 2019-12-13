@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -141,33 +141,33 @@
     <constant>NULL</constant>.</para>
 
     <para><function>sd_bus_message_get_bus()</function> always returns the bus object.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified <parameter>type</parameter> is invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified <parameter>type</parameter> is invalid.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant> or
-        the bus is not connected.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant> or
+          the bus is not connected.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

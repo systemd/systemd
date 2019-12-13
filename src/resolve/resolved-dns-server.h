@@ -35,11 +35,9 @@ typedef enum DnsServerFeatureLevel {
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
 
+#include "resolved-dnstls.h"
 #include "resolved-link.h"
 #include "resolved-manager.h"
-#if ENABLE_DNS_OVER_TLS
-#include "resolved-dnstls.h"
-#endif
 
 struct DnsServer {
         Manager *manager;
@@ -54,6 +52,8 @@ struct DnsServer {
         int ifindex; /* for IPv6 link-local DNS servers */
 
         char *server_string;
+
+        char *server_name;
 
         /* The long-lived stream towards this server. */
         DnsStream *stream;
@@ -96,7 +96,8 @@ int dns_server_new(
                 Link *link,
                 int family,
                 const union in_addr_union *address,
-                int ifindex);
+                int ifindex,
+                const char *server_string);
 
 DnsServer* dns_server_ref(DnsServer *s);
 DnsServer* dns_server_unref(DnsServer *s);
@@ -133,8 +134,6 @@ DnsServer *manager_get_first_dns_server(Manager *m, DnsServerType t);
 DnsServer *manager_set_dns_server(Manager *m, DnsServer *s);
 DnsServer *manager_get_dns_server(Manager *m);
 void manager_next_dns_server(Manager *m);
-
-bool dns_server_address_valid(int family, const union in_addr_union *sa);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);

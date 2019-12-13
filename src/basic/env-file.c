@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "alloc-util.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -487,6 +485,8 @@ static int merge_env_file_push(
 
         free_and_replace(value, expanded_value);
 
+        log_debug("%s:%u: setting %s=%s", filename, line, key, value);
+
         return load_env_file_push(filename, line, key, value, env, n_pushed);
 }
 
@@ -545,7 +545,6 @@ int write_env_file(const char *fname, char **l) {
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod_umask(fileno(f), 0644);
 
         STRV_FOREACH(i, l)
@@ -559,6 +558,6 @@ int write_env_file(const char *fname, char **l) {
                 r = -errno;
         }
 
-        unlink(p);
+        (void) unlink(p);
         return r;
 }

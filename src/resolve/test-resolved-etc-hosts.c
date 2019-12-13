@@ -10,6 +10,7 @@
 #include "log.h"
 #include "resolved-etc-hosts.h"
 #include "strv.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 static void test_parse_etc_hosts_system(void) {
@@ -137,9 +138,7 @@ static void test_parse_file(const char *fname) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         if (argc == 1) {
                 test_parse_etc_hosts_system();

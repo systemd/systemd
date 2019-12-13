@@ -128,6 +128,7 @@ static int run(int argc, char *argv[]) {
          * to detect whether we are being run in a virtualized
          * environment or not */
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

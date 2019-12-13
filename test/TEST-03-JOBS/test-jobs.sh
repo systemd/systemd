@@ -26,6 +26,13 @@ grep 'sleep\.service.*running' /root/list-jobs.txt
 grep 'hello\.service' /root/list-jobs.txt && exit 1
 systemctl stop sleep.service hello-after-sleep.target
 
+# Some basic testing that --show-transaction does something useful
+! systemctl is-active systemd-importd
+systemctl -T start systemd-importd
+systemctl is-active systemd-importd
+systemctl --show-transaction stop systemd-importd
+! systemctl is-active systemd-importd
+
 # Test for a crash when enqueuing a JOB_NOP when other job already exists
 systemctl start --no-block hello-after-sleep.target
 # hello.service should still be waiting, so these try-restarts will collapse
@@ -76,5 +83,15 @@ START_SEC=$(date -u '+%s')
 END_SEC=$(date -u '+%s')
 ELAPSED=$(($END_SEC-$START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
+
+# Test time-limited scopes
+START_SEC=$(date -u '+%s')
+set +e
+systemd-run --scope --property=RuntimeMaxSec=3s sleep 10
+RESULT=$?
+END_SEC=$(date -u '+%s')
+ELAPSED=$(($END_SEC-$START_SEC))
+[[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
+[[ "$RESULT" -ne 0 ]] || exit 1
 
 touch /testok

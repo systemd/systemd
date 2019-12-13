@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
 
@@ -166,7 +163,7 @@
       <listitem><para>Otherwise the query is failed as no suitable DNS servers could be determined.</para></listitem>
     </itemizedlist>
 
-    <para>The "DNS default route" option is a boolean setting configureable with <command>resolvectl</command> or in
+    <para>The "DNS default route" option is a boolean setting configurable with <command>resolvectl</command> or in
     <filename>.network</filename> files. If not set, it is implicitly determined based on the configured DNS domains
     for a link: if there's any route-only domain (not matching <literal>~.</literal>) it defaults to false, otherwise
     to true.</para>
@@ -249,7 +246,7 @@
         <command>systemd-resolved</command> will flush all caches it maintains. Note that it should normally not be
         necessary to request this explicitly – except for debugging purposes – as <command>systemd-resolved</command>
         flushes the caches automatically anyway any time the host's network configuration changes. Sending this signal
-        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl --flush-caches</command>
+        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl flush-caches</command>
         command, however the latter is recommended since it operates in a synchronous way.</para></listitem>
       </varlistentry>
 
@@ -263,7 +260,7 @@
         should normally not be necessary to request this explicitly – except for debugging purposes – as
         <command>systemd-resolved</command> automatically forgets learnt information any time the DNS server
         configuration changes. Sending this signal to <command>systemd-resolved</command> is equivalent to the
-        <command>resolvectl --reset-server-features</command> command, however the latter is recommended since it
+        <command>resolvectl reset-server-features</command> command, however the latter is recommended since it
         operates in a synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>

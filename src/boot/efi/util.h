@@ -7,6 +7,10 @@
 #define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
 #define OFFSETOF(x,y) __builtin_offsetof(x,y)
 
+static inline UINTN ALIGN_TO(UINTN l, UINTN ali) {
+        return ((l + ali - 1) & ~(ali - 1));
+}
+
 static inline const CHAR16 *yes_no(BOOLEAN b) {
         return b ? L"yes" : L"no";
 }
@@ -55,3 +59,12 @@ const EFI_GUID loader_guid;
 
 #define UINTN_MAX (~(UINTN)0)
 #define INTN_MAX ((INTN)(UINTN_MAX>>1))
+
+#define TAKE_PTR(ptr)                           \
+        ({                                      \
+                typeof(ptr) _ptr_ = (ptr);      \
+                (ptr) = NULL;                   \
+                _ptr_;                          \
+        })
+
+EFI_STATUS log_oom(void);

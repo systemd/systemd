@@ -1,5 +1,9 @@
 [Unit]
 Description=Test for basic execution
+ConditionKernelVersion=">=3.0"
+ConditionKernelVersion=">=2.0" "<=60" "!=1.4"
+ConditionKernelVersion=" >= 2.0" " <= 60 " "!= 1.4"
+ConditionKernelVersion=" >= 2.0" " * " "*.*"
 
 [Service]
 ExecStart=touch /tmp/a ; /bin/sh -c 'touch /tmp/b' ; touch /tmp/c

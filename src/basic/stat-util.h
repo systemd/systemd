@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/stat.h>
@@ -49,8 +50,6 @@ bool is_network_fs(const struct statfs *s) _pure_;
 
 int fd_is_temporary_fs(int fd);
 int fd_is_network_fs(int fd);
-
-int fd_is_network_ns(int fd);
 
 int path_is_temporary_fs(const char *path);
 

@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
-#include <stdio_ext.h>
+#include <sys/stat.h>
 
 #include "sd-messages.h"
 
@@ -11,6 +10,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -21,6 +21,7 @@
 #include "machine.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
 #include "special.h"
@@ -52,7 +53,7 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
                 goto fail;
 
         if (class != MACHINE_HOST) {
-                m->state_file = strappend("/run/systemd/machines/", m->name);
+                m->state_file = path_join("/run/systemd/machines", m->name);
                 if (!m->state_file)
                         goto fail;
         }
@@ -125,7 +126,6 @@ int machine_save(Machine *m) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -330,35 +330,107 @@ int machine_load(Machine *m) {
         return r;
 }
 
-static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+static int machine_start_scope(
+                Machine *machine,
+                sd_bus_message *more_properties,
+                sd_bus_error *error) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free_ char *escaped = NULL, *unit = NULL;
+        const char *description;
+        int r;
+
+        assert(machine);
+        assert(machine->leader > 0);
+        assert(!machine->unit);
+
+        escaped = unit_name_escape(machine->name);
+        if (!escaped)
+                return log_oom();
+
+        unit = strjoin("machine-", escaped, ".scope");
+        if (!unit)
+                return log_oom();
+
+        r = sd_bus_message_new_method_call(
+                        machine->manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "StartTransientUnit");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "ss", unit, "fail");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)", "Slice", "s", SPECIAL_MACHINE_SLICE);
+        if (r < 0)
+                return r;
+
+        description = strjoina(machine->class == MACHINE_VM ? "Virtual Machine " : "Container ", machine->name);
+        r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
+                                  "PIDs", "au", 1, machine->leader,
+                                  "Delegate", "b", 1,
+                                  "CollectMode", "s", "inactive-or-failed",
+                                  "AddRef", "b", 1,
+                                  "TasksMax", "t", UINT64_C(16384));
+        if (r < 0)
+                return r;
+
+        if (more_properties) {
+                r = sd_bus_message_copy(m, more_properties, true);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(NULL, m, 0, error, &reply);
+        if (r < 0)
+                return r;
+
+        machine->unit = TAKE_PTR(unit);
+        machine->referenced = true;
+
+        const char *job;
+        r = sd_bus_message_read(reply, "o", &job);
+        if (r < 0)
+                return r;
+
+        return free_and_strdup(&machine->scope_job, job);
+}
+
+static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
+        int r;
+
         assert(m);
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                _cleanup_free_ char *escaped = NULL, *scope = NULL;
-                char *description, *job = NULL;
-                int r;
-
-                escaped = unit_name_escape(m->name);
-                if (!escaped)
-                        return log_oom();
-
-                scope = strjoin("machine-", escaped, ".scope");
-                if (!scope)
-                        return log_oom();
-
-                description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
-
-                r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
+                r = machine_start_scope(m, properties, error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
-
-                m->unit = TAKE_PTR(scope);
-                free_and_replace(m->scope_job, job);
         }
 
-        if (m->unit)
-                hashmap_put(m->manager->machine_units, m->unit, m);
+        assert(m->unit);
+        hashmap_put(m->manager->machine_units, m->unit, m);
 
         return 0;
 }
@@ -379,7 +451,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                 return r;
 
         /* Create cgroup */
-        r = machine_start_scope(m, properties, error);
+        r = machine_ensure_scope(m, properties, error);
         if (r < 0)
                 return r;
 
@@ -403,57 +475,45 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         return 0;
 }
 
-static int machine_stop_scope(Machine *m) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job = NULL;
-        int r, q;
-
-        assert(m);
-        assert(m->class != MACHINE_HOST);
-
-        if (!m->unit)
-                return 0;
-
-        r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
-                sd_bus_error_free(&error);
-        } else
-                free_and_replace(m->scope_job, job);
-
-        q = manager_unref_unit(m->manager, m->unit, &error);
-        if (q < 0)
-                log_warning_errno(q, "Failed to drop reference to machine scope, ignoring: %s", bus_error_message(&error, r));
-
-        return r;
-}
-
 int machine_stop(Machine *m) {
         int r;
+
         assert(m);
 
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
-        r = machine_stop_scope(m);
+        if (m->unit) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                char *job = NULL;
+
+                r = manager_stop_unit(m->manager, m->unit, &error, &job);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+
+                free_and_replace(m->scope_job, job);
+        }
 
         m->stopping = true;
 
         machine_save(m);
         (void) manager_enqueue_nscd_cache_flush(m->manager);
 
-        return r;
+        return 0;
 }
 
 int machine_finalize(Machine *m) {
         assert(m);
 
-        if (m->started)
+        if (m->started) {
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
                            LOG_MESSAGE("Machine %s terminated.", m->name));
+
+                m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */
+        }
 
         machine_unlink(m);
         machine_add_to_gc_queue(m);
@@ -531,29 +591,20 @@ int machine_kill(Machine *m, KillWho who, int signo) {
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
 }
 
-int machine_openpt(Machine *m, int flags) {
+int machine_openpt(Machine *m, int flags, char **ret_slave) {
         assert(m);
 
         switch (m->class) {
 
-        case MACHINE_HOST: {
-                int fd;
+        case MACHINE_HOST:
 
-                fd = posix_openpt(flags);
-                if (fd < 0)
-                        return -errno;
-
-                if (unlockpt(fd) < 0)
-                        return -errno;
-
-                return fd;
-        }
+                return openpt_allocate(flags, ret_slave);
 
         case MACHINE_CONTAINER:
                 if (m->leader <= 0)
                         return -EINVAL;
 
-                return openpt_in_namespace(m->leader, flags);
+                return openpt_allocate_in_namespace(m->leader, flags, ret_slave);
 
         default:
                 return -EOPNOTSUPP;
@@ -584,6 +635,18 @@ void machine_release_unit(Machine *m) {
 
         if (!m->unit)
                 return;
+
+        if (m->referenced) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int r;
+
+                r = manager_unref_unit(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to drop reference to machine scope, ignoring: %s",
+                                          bus_error_message(&error, r));
+
+                m->referenced = false;
+        }
 
         (void) hashmap_remove(m->manager->machine_units, m->unit);
         m->unit = mfree(m->unit);
@@ -630,7 +693,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }
@@ -661,7 +724,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
         if (k != 3) {
                 if (ferror(f))
-                        return -errno;
+                        return errno_or_else(EIO);
 
                 return -EBADMSG;
         }

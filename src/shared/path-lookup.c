@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "fs-util.h"
@@ -32,7 +31,7 @@ int xdg_user_runtime_dir(char **ret, const char *suffix) {
         if (!e)
                 return -ENXIO;
 
-        j = strappend(e, suffix);
+        j = strjoin(e, suffix);
         if (!j)
                 return -ENOMEM;
 
@@ -49,7 +48,7 @@ int xdg_user_config_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_CONFIG_HOME");
         if (e)
-                j = strappend(e, suffix);
+                j = strjoin(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -81,7 +80,7 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_DATA_HOME");
         if (e)
-                j = strappend(e, suffix);
+                j = strjoin(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -270,15 +269,15 @@ static int acquire_generator_dirs(
                 prefix = strjoina(e, "/systemd");
         }
 
-        x = strappend(prefix, "/generator");
+        x = path_join(prefix, "generator");
         if (!x)
                 return -ENOMEM;
 
-        y = strappend(prefix, "/generator.early");
+        y = path_join(prefix, "generator.early");
         if (!y)
                 return -ENOMEM;
 
-        z = strappend(prefix, "/generator.late");
+        z = path_join(prefix, "generator.late");
         if (!z)
                 return -ENOMEM;
 
@@ -303,7 +302,7 @@ static int acquire_transient_dir(
                 return -EOPNOTSUPP;
 
         if (tempdir)
-                transient = strjoin(tempdir, "/transient");
+                transient = path_join(tempdir, "transient");
         else if (scope == UNIT_FILE_SYSTEM)
                 transient = strdup("/run/systemd/transient");
         else
@@ -456,13 +455,11 @@ static int patch_root_prefix(char **p, const char *root_dir) {
         if (!*p)
                 return 0;
 
-        c = prefix_root(root_dir, *p);
+        c = path_join(root_dir, *p);
         if (!c)
                 return -ENOMEM;
 
-        free(*p);
-        *p = c;
-
+        free_and_replace(*p, c);
         return 0;
 }
 
@@ -706,7 +703,7 @@ int lookup_paths_init(
                 return -ENOMEM;
 
         *p = (LookupPaths) {
-                .search_path = strv_uniq(paths),
+                .search_path = strv_uniq(TAKE_PTR(paths)),
 
                 .persistent_config = TAKE_PTR(persistent_config),
                 .runtime_config = TAKE_PTR(runtime_config),
@@ -727,7 +724,6 @@ int lookup_paths_init(
                 .temporary_dir = TAKE_PTR(tempdir),
         };
 
-        paths = NULL;
         return 0;
 }
 
@@ -756,63 +752,8 @@ void lookup_paths_free(LookupPaths *p) {
         p->temporary_dir = mfree(p->temporary_dir);
 }
 
-int lookup_paths_reduce(LookupPaths *p) {
-        _cleanup_free_ struct stat *stats = NULL;
-        size_t n_stats = 0, allocated = 0;
-        size_t c = 0;
-        int r;
-
+void lookup_paths_log(LookupPaths *p) {
         assert(p);
-
-        /* Drop duplicates and non-existing directories from the search path. We figure out whether two directories are
-         * the same by comparing their device and inode numbers. */
-
-        if (!p->search_path)
-                return 0;
-
-        while (p->search_path[c]) {
-                struct stat st;
-                size_t k;
-
-                /* Never strip the transient and control directories from the path */
-                if (path_equal_ptr(p->search_path[c], p->transient) ||
-                    path_equal_ptr(p->search_path[c], p->persistent_control) ||
-                    path_equal_ptr(p->search_path[c], p->runtime_control)) {
-                        c++;
-                        continue;
-                }
-
-                r = chase_symlinks_and_stat(p->search_path[c], p->root_dir, 0, NULL, &st);
-                if (r == -ENOENT)
-                        goto remove_item;
-                if (r < 0) {
-                        /* If something we don't grok happened, let's better leave it in. */
-                        log_debug_errno(r, "Failed to chase and stat %s: %m", p->search_path[c]);
-                        c++;
-                        continue;
-                }
-
-                for (k = 0; k < n_stats; k++)
-                        if (stats[k].st_dev == st.st_dev &&
-                            stats[k].st_ino == st.st_ino)
-                                break;
-
-                if (k < n_stats) /* Is there already an entry with the same device/inode? */
-                        goto remove_item;
-
-                if (!GREEDY_REALLOC(stats, allocated, n_stats+1))
-                        return -ENOMEM;
-
-                stats[n_stats++] = st;
-                c++;
-                continue;
-
-        remove_item:
-                free(p->search_path[c]);
-                memmove(p->search_path + c,
-                        p->search_path + c + 1,
-                        (strv_length(p->search_path + c + 1) + 1) * sizeof(char*));
-        }
 
         if (strv_isempty(p->search_path)) {
                 log_debug("Ignoring unit files.");
@@ -821,13 +762,8 @@ int lookup_paths_reduce(LookupPaths *p) {
                 _cleanup_free_ char *t;
 
                 t = strv_join(p->search_path, "\n\t");
-                if (!t)
-                        return -ENOMEM;
-
-                log_debug("Looking for unit files in (higher priority first):\n\t%s", t);
+                log_debug("Looking for unit files in (higher priority first):\n\t%s", strna(t));
         }
-
-        return 0;
 }
 
 int lookup_paths_mkdir_generator(LookupPaths *p) {

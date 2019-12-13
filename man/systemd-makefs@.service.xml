@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-makefs@.service">
 
   <refentryinfo>
@@ -18,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-makefs@.service</refname>
-    <refname>systemd-makeswap@.service</refname>
+    <refname>systemd-mkswap@.service</refname>
     <refname>systemd-growfs@.service</refname>
     <refname>systemd-makefs</refname>
     <refname>systemd-growfs</refname>
@@ -27,7 +26,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-makefs@<replaceable>device</replaceable>.service</filename></para>
-    <para><filename>systemd-makeswap@<replaceable>device</replaceable>.service</filename></para>
+    <para><filename>systemd-mkswap@<replaceable>device</replaceable>.service</filename></para>
     <para><filename>systemd-growfs@<replaceable>mountpoint</replaceable>.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-makefs</filename></para>
     <para><filename>/usr/lib/systemd/systemd-growfs</filename></para>
@@ -37,7 +36,7 @@
     <title>Description</title>
 
     <para><filename>systemd-makefs@.service</filename>,
-    <filename>systemd-makeswap@.service</filename>, and
+    <filename>systemd-mkswap@.service</filename>, and
     <filename>systemd-growfs@.service</filename> are used to implement the
     <option>x-systemd.makefs</option> and <option>x-systemd.growfs</option> options
     in <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -52,7 +51,7 @@
     <para><filename>systemd-makefs</filename> knows very little about specific file
     systems and swap devices, and after checking that the block device does not already
     contain a file system or other content, it will execute binaries specific to
-    each filesystem type (<filename>/sbin/mkfs.*</filename>).</para>
+    each filesystem type (<filename>/sbin/mkfs.<replaceable>type</replaceable></filename>).</para>
 
     <para><filename>systemd-growfs</filename> knows very little about specific file
     systems and swap devices, and will instruct the kernel to grow the mounted

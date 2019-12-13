@@ -13,10 +13,11 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 typedef struct BaseFilesystem {
         const char *dir;
@@ -45,8 +46,8 @@ static const BaseFilesystem table[] = {
 
 int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
-        int r = 0;
         size_t i;
+        int r;
 
         fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (fd < 0)
@@ -68,7 +69,7 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                                 if (table[i].exists) {
                                         _cleanup_free_ char *p = NULL;
 
-                                        p = strjoin(s, "/", table[i].exists);
+                                        p = path_join(s, table[i].exists);
                                         if (!p)
                                                 return log_oom();
 
@@ -83,9 +84,15 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         if (!target)
                                 continue;
 
-                        r = symlinkat(target, fd, table[i].dir);
-                        if (r < 0 && errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+                        if (symlinkat(target, fd, table[i].dir) < 0) {
+                                log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
+                                               "Failed to create symlink at %s/%s: %m", root, table[i].dir);
+
+                                if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
+                                        continue;
+
+                                return -errno;
+                        }
 
                         if (uid_is_valid(uid) || gid_is_valid(gid)) {
                                 if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
@@ -97,14 +104,14 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
 
                 RUN_WITH_UMASK(0000)
                         r = mkdirat(fd, table[i].dir, table[i].mode);
-                if (r < 0 && errno != EEXIST) {
-                        log_full_errno(table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
+                if (r < 0) {
+                        log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
                                        "Failed to create directory at %s/%s: %m", root, table[i].dir);
 
-                        if (!table[i].ignore_failure)
-                                return -errno;
+                        if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
+                                continue;
 
-                        continue;
+                        return -errno;
                 }
 
                 if (uid != UID_INVALID || gid != UID_INVALID) {

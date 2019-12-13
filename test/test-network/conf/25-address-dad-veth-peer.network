@@ -1,0 +1,9 @@
+[Match]
+Name=veth-peer
+
+[Network]
+IPv6AcceptRA=no
+
+[Address]
+Address=192.168.100.10/24
+DuplicateAddressDetection=ipv4

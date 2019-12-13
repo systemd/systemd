@@ -1,5 +1,5 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -97,6 +97,16 @@
         printed. The <replaceable>app-id</replaceable> argument must be a valid sd-id128 string
         identifying the application.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>--uuid</option></term>
+
+        <listitem><para>Generate output as an UUID formatted in the "canonical representation", with five
+        groups of digits seperated by hyphens. See the
+        <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
+        for more discussion.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

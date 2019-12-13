@@ -49,7 +49,7 @@ static MonitorNetlinkGroup monitor_netlink_group_from_string(const char *name) {
  * source. Valid sources identifiers are "udev" and "kernel".
  *
  * Applications should usually not connect directly to the
- * "kernel" events, because the devices might not be useable
+ * "kernel" events, because the devices might not be usable
  * at that time, before udev has configured them, and created
  * device nodes. Accessing devices at the same time as udev,
  * might result in unpredictable behavior. The "udev" events

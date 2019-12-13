@@ -1,0 +1,1 @@
+root=/dev/nfs nfsroot=10.99.37.240:/srv/netroot,v3,tcp ip=10.99.37.44::10.99.10.1:255.255.0.0::enp3s0:off

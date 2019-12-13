@@ -3,6 +3,9 @@
 
 #include "sd-netlink.h"
 
+#include "log-link.h"
+#include "network-util.h"
+
 typedef struct Link Link;
 typedef struct Manager Manager;
 
@@ -14,7 +17,8 @@ struct Link {
         unsigned flags;
 
         bool required_for_online;
-        char *operational_state;
+        LinkOperationalState required_operstate;
+        LinkOperationalState operational_state;
         char *state;
 };
 

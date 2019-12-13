@@ -1,0 +1,87 @@
+#compdef resolvectl systemd-resolve         -*- shell-script -*-
+# SPDX-License-Identifier: LGPL-2.1+
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <http://www.gnu.org/licenses/>.
+
+(( $+functions[_resolvectl_protocols] )) ||
+    _resolvectl_protocols() {
+        local -a _protocol
+        _protocol=( $(_call_program protocol ${service} --legend=no --protocol help; echo help) )
+        _values 'protocol' "$_protocol[@]"
+    }
+
+(( $+functions[_resolvectl_types] )) ||
+    _resolvectl_types() {
+        local -a _type
+        _type=( $(_call_program type ${service} --legend=no --type help; echo help) )
+        _values 'type' "$_type[@]"
+    }
+
+(( $+functions[_resolvectl_classes] )) ||
+    _resolvectl_classes() {
+        local -a _class
+        _class=( $(_call_program class ${service} --legend=no --class help; echo help) )
+        _values 'class' "$_class[@]"
+    }
+
+(( $+functions[_resolvectl_commands] )) ||
+    _resolvectl_commands() {
+    local -a _resolvectl_cmds
+    _resolvectl_cmds=(
+        default-route:"Configure per-interface default-route setting"
+        dns:"Configure per-interface DNS configuration"
+        dnsovertls:"Configure per-interface dnsovertls enabled status"
+        dnssec:"Configure per-interface dnssec enabled status"
+        domain:"Configure per-interface search and route-only domains"
+        flush-caches:"Flushes all DNS resource record caches the service maintains locally"
+        llmnr:"Configure per-interface llmnr enabled status"
+        mdns:"Configure per-interface mdns enabled status"
+        nta:"Configure per-interface nta domains"
+        openpgp:"Retrieve openpgp keys for an email"
+        query:"Resolve domain names, IPv4 and IPv6 addresses"
+        reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
+        reset-statistics:"Resets the statistics counter show in statistics to zero"
+        revert:"Revert the per-interfce DNS configuration"
+        service:"Resolve DNS-SD and SRV services"
+        status:"Show the global and per-link DNS settings currently in effect"
+        tlsa:"Query tlsa public keys stored as TLSA resource records"
+    )
+
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'resolvectl commands' _resolvectl_cmds
+    fi
+}
+
+_arguments \
+    {-h,--help}'[Print a short help text and exit]' \
+    '--version[Print a short version string and exit]' \
+    '--legend=no[Do not show headers and footers]' \
+    '-4[Resolve IPv4 addresses]' \
+    '-6[Resolve IPv6 addresses]' \
+    {-i+,--interface=}'[Look on interface]:interface:_net_interfaces' \
+    {-p+,--protocol=}'[Look via protocol]:protocol:_resolvectl_protocols' \
+    {-t+,--type=}'[Query RR with DNS type]:type:_resolvectl_types' \
+    {-c+,--class=}'[Query RR with DNS class]:class:_resolvectl_classes' \
+    '--service[Resolve services]' \
+    '--service-address=no[Do not resolve address for services]' \
+    '--service-txt=no[Do not resolve TXT records for services]' \
+    '--openpgp[Query OpenPGP public key]' \
+    '--tlsa[Query TLS public key]' \
+    '--cname=no[Do not follow CNAME redirects]' \
+    '--search=no[Do not use search domains]' \
+    '--statistics[Show resolver statistics]' \
+    '--reset-statistics[Reset resolver statistics]' \
+    '*::default: _resolvectl_commands'

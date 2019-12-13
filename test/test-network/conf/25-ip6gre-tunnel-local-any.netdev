@@ -1,0 +1,7 @@
+[NetDev]
+Name=ip6gretun98
+Kind=ip6gre
+
+[Tunnel]
+Local=any
+Remote=2001:473:fece:cafe::5179

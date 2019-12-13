@@ -43,10 +43,24 @@ enum {
         SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE        = 1ULL << 5,
         SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION  = 1ULL << 6,
         SD_BUS_VTABLE_PROPERTY_EXPLICIT            = 1ULL << 7,
+        SD_BUS_VTABLE_SENSITIVE                    = 1ULL << 8, /* covers both directions: method call + reply */
         _SD_BUS_VTABLE_CAPABILITY_MASK             = 0xFFFFULL << 40
 };
 
 #define SD_BUS_VTABLE_CAPABILITY(x) ((uint64_t) (((x)+1) & 0xFFFF) << 40)
+
+enum {
+        _SD_BUS_VTABLE_PARAM_NAMES     = 1 << 0,
+};
+
+extern const unsigned sd_bus_object_vtable_format;
+
+/* Note: unused areas in the sd_bus_vtable[] array must be initialized to 0. The structure contains an embedded
+ * union, and the compiler is NOT required to initialize the unused areas of the union when the rest of the
+ * structure is initialized. Normally the array is defined as read-only data, in which case the linker places
+ * it in the BSS section, which is always fully initialized, so this is not a concern. But if the array is
+ * created on the stack or on the heap, care must be taken to initialize the unused areas, for examply by
+ * first memsetting the whole region to zero before filling the data in. */
 
 struct sd_bus_vtable {
         /* Please do not initialize this structure directly, use the
@@ -57,6 +71,8 @@ struct sd_bus_vtable {
         union {
                 struct {
                         size_t element_size;
+                        uint64_t features;
+                        const unsigned *vtable_format_reference;
                 } start;
                 struct {
                         const char *member;
@@ -64,10 +80,12 @@ struct sd_bus_vtable {
                         const char *result;
                         sd_bus_message_handler_t handler;
                         size_t offset;
+                        const char *names;
                 } method;
                 struct {
                         const char *member;
                         const char *signature;
+                        const char *names;
                 } signal;
                 struct {
                         const char *member;
@@ -85,12 +103,17 @@ struct sd_bus_vtable {
                 .flags = _flags,                                        \
                 .x = {                                                  \
                     .start = {                                          \
-                        .element_size = sizeof(sd_bus_vtable)           \
+                        .element_size = sizeof(sd_bus_vtable),          \
+                        .features = _SD_BUS_VTABLE_PARAM_NAMES,         \
+                        .vtable_format_reference = &sd_bus_object_vtable_format, \
                     },                                                  \
                 },                                                      \
         }
 
-#define SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, _offset, _flags)   \
+/* helper macro to format method and signal parameters, one at a time */
+#define SD_BUS_PARAM(x) #x "\0"
+
+#define SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, _in_names, _result, _out_names, _handler, _offset, _flags)  \
         {                                                               \
                 .type = _SD_BUS_VTABLE_METHOD,                          \
                 .flags = _flags,                                        \
@@ -101,13 +124,18 @@ struct sd_bus_vtable {
                         .result = _result,                              \
                         .handler = _handler,                            \
                         .offset = _offset,                              \
+                        .names = _in_names _out_names,                  \
                     },                                                  \
                 },                                                      \
         }
+#define SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, _offset, _flags)   \
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, "", _result, "", _handler, _offset, _flags)
+#define SD_BUS_METHOD_WITH_NAMES(_member, _signature, _in_names, _result, _out_names, _handler, _flags)   \
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, _in_names, _result, _out_names, _handler, 0, _flags)
 #define SD_BUS_METHOD(_member, _signature, _result, _handler, _flags)   \
-        SD_BUS_METHOD_WITH_OFFSET(_member, _signature, _result, _handler, 0, _flags)
+        SD_BUS_METHOD_WITH_NAMES_OFFSET(_member, _signature, "", _result, "", _handler, 0, _flags)
 
-#define SD_BUS_SIGNAL(_member, _signature, _flags)                      \
+#define SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, _out_names, _flags)                      \
         {                                                               \
                 .type = _SD_BUS_VTABLE_SIGNAL,                          \
                 .flags = _flags,                                        \
@@ -115,9 +143,12 @@ struct sd_bus_vtable {
                     .signal = {                                         \
                         .member = _member,                              \
                         .signature = _signature,                        \
+                        .names = _out_names,                            \
                     },                                                  \
                 },                                                      \
         }
+#define SD_BUS_SIGNAL(_member, _signature, _flags)   \
+        SD_BUS_SIGNAL_WITH_NAMES(_member, _signature, "", _flags)
 
 #define SD_BUS_PROPERTY(_member, _signature, _get, _offset, _flags)     \
         {                                                               \

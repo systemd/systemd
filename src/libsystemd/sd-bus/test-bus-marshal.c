@@ -20,6 +20,7 @@
 #include "bus-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "log.h"
 #include "tests.h"
 #include "util.h"
@@ -189,7 +190,7 @@ int main(int argc, char *argv[]) {
 
         bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
-        ms = open_memstream(&first, &first_size);
+        ms = open_memstream_unlocked(&first, &first_size);
         bus_message_dump(m, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));
@@ -202,6 +203,7 @@ int main(int argc, char *argv[]) {
         log_info("message size = %zu, contents =\n%s", sz, h);
 
 #if HAVE_GLIB
+        /* Work-around for asan bug. See c8d980a3e962aba2ea3a4cedf75fa94890a6d746. */
 #if !HAS_FEATURE_ADDRESS_SANITIZER
         {
                 GDBusMessage *g;
@@ -245,7 +247,7 @@ int main(int argc, char *argv[]) {
         bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
 
         fclose(ms);
-        ms = open_memstream(&second, &second_size);
+        ms = open_memstream_unlocked(&second, &second_size);
         bus_message_dump(m, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));
@@ -351,7 +353,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         fclose(ms);
-        ms = open_memstream(&third, &third_size);
+        ms = open_memstream_unlocked(&third, &third_size);
         bus_message_dump(copy, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));

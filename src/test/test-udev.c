@@ -16,13 +16,12 @@
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "udev.h"
+#include "udev-event.h"
 
 static int fake_filesystems(void) {
         static const struct fakefs {

@@ -5,7 +5,7 @@
 
 typedef struct LookupPaths LookupPaths;
 
-#include "install.h"
+#include "unit-file.h"
 #include "macro.h"
 
 typedef enum LookupPathsFlags {
@@ -63,7 +63,7 @@ int xdg_user_data_dir(char **ret, const char *suffix);
 bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
 
-int lookup_paths_reduce(LookupPaths *p);
+void lookup_paths_log(LookupPaths *p);
 
 int lookup_paths_mkdir_generator(LookupPaths *p);
 void lookup_paths_trim_generator(LookupPaths *p);

@@ -8,6 +8,7 @@
 
 #include "sd-id128.h"
 
+#include "io-util.h"
 #include "time-util.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.
@@ -23,14 +24,6 @@
 
 /* The maximum number of fields in an entry */
 #define ENTRY_FIELD_COUNT_MAX 1024
-
-struct iovec_wrapper {
-        struct iovec *iovec;
-        size_t size_bytes;
-        size_t count;
-};
-
-size_t iovw_size(struct iovec_wrapper *iovw);
 
 typedef struct JournalImporter {
         int fd;
@@ -52,6 +45,9 @@ typedef struct JournalImporter {
         dual_timestamp ts;
         sd_id128_t boot_id;
 } JournalImporter;
+
+#define JOURNAL_IMPORTER_INIT(_fd) { .fd = (_fd), .iovw = {} }
+#define JOURNAL_IMPORTER_MAKE(_fd) (JournalImporter) JOURNAL_IMPORTER_INIT(_fd)
 
 void journal_importer_cleanup(JournalImporter *);
 int journal_importer_process_data(JournalImporter *);

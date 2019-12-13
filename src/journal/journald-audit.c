@@ -6,7 +6,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "journald-audit.h"
-#include "missing.h"
+#include "missing_audit.h"
 #include "string-util.h"
 
 typedef struct MapField {
@@ -162,7 +162,7 @@ static int map_generic_field(const char *prefix, const char **p, struct iovec **
         if (e <= *p || e >= *p + 16)
                 return 0;
 
-        c = alloca(strlen(prefix) + (e - *p) + 2);
+        c = newa(char, strlen(prefix) + (e - *p) + 2);
 
         t = stpcpy(c, prefix);
         for (f = *p; f < e; f++) {
@@ -264,8 +264,8 @@ static int map_all_fields(
                 if (handle_msg) {
                         v = startswith(p, "msg='");
                         if (v) {
+                                _cleanup_free_ char *c = NULL;
                                 const char *e;
-                                char *c;
 
                                 /* Userspace message. It's enclosed in
                                    simple quotation marks, is not
@@ -279,7 +279,10 @@ static int map_all_fields(
                                 if (!e)
                                         return 0; /* don't continue splitting up if the final quotation mark is missing */
 
-                                c = strndupa(v, e - v);
+                                c = strndup(v, e - v);
+                                if (!c)
+                                        return -ENOMEM;
+
                                 return map_all_fields(c, map_fields_userspace, "AUDIT_FIELD_", false, iov, n_iov_allocated, n_iov);
                         }
                 }
@@ -445,7 +448,7 @@ void server_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Except AUDIT_USER, all messsages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
+        /* Except AUDIT_USER, all messages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
         if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 

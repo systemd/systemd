@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.time">
 
@@ -139,9 +136,8 @@
     evaluated relative to the UNIX time epoch 1st Jan, 1970,
     00:00.</para>
 
-    <para>Examples for valid timestamps and their normalized form
-    (assuming the current time was 2012-11-23 18:15:22 and the timezone
-    was UTC+8, for example TZ=Asia/Shanghai):</para>
+    <para>Examples for valid timestamps and their normalized form (assuming the current time was 2012-11-23
+    18:15:22 and the timezone was UTC+8, for example <literal>TZ=:Asia/Shanghai</literal>):</para>
 
     <programlisting>  Fri 2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
       2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
@@ -176,6 +172,10 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     <programlisting>2 months 5 days ago</programlisting>
 
     <para>Note that a relative timestamp is also accepted where a timestamp is expected (see above).</para>
+
+    <para>Use the <command>timestamp</command> command of
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    validate and normalize timestamps for testing purposes.</para>
   </refsect1>
 
   <refsect1>

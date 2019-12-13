@@ -17,7 +17,7 @@
  * @flags: Flags to pass to the clone system call
  *
  * Uses the clone system call to create a new process with the cloning flags and termination signal passed in the flags
- * parameter. Opposed to glibc's clone funtion, using this function does not set up a separate stack for the child, but
+ * parameter. Opposed to glibc's clone function, using this function does not set up a separate stack for the child, but
  * relies on copy-on-write semantics on the one stack at a common virtual address, just as fork does.
  *
  * To obtain copy-on-write semantics, flags must not contain CLONE_VM, and thus CLONE_THREAD and CLONE_SIGHAND (which

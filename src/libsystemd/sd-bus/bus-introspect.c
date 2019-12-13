@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "bus-internal.h"
 #include "bus-introspect.h"
+#include "bus-objects.h"
 #include "bus-protocol.h"
 #include "bus-signature.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "memory-util.h"
 #include "string-util.h"
-#include "util.h"
 
 int introspect_begin(struct introspect *i, bool trusted) {
         assert(i);
@@ -17,11 +16,9 @@ int introspect_begin(struct introspect *i, bool trusted) {
         zero(*i);
         i->trusted = trusted;
 
-        i->f = open_memstream(&i->introspection, &i->size);
+        i->f = open_memstream_unlocked(&i->introspection, &i->size);
         if (!i->f)
                 return -ENOMEM;
-
-        (void) __fsetlocking(i->f, FSETLOCKING_BYCALLER);
 
         fputs(BUS_INTROSPECT_DOCTYPE
               "<node>\n", i->f);
@@ -86,7 +83,9 @@ static void introspect_write_flags(struct introspect *i, int type, uint64_t flag
                 fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
-static int introspect_write_arguments(struct introspect *i, const char *signature, const char *direction) {
+/* Note that "names" is both an input and an output parameter. It initially points to the first argument name in a
+   NULL-separated list of strings, and is then advanced with each argument, and the resulting pointer is returned. */
+static int introspect_write_arguments(struct introspect *i, const char *signature, const char **names, const char *direction) {
         int r;
 
         for (;;) {
@@ -101,6 +100,11 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
 
                 fprintf(i->f, "   <arg type=\"%.*s\"", (int) l, signature);
 
+                if (**names != '\0') {
+                        fprintf(i->f, " name=\"%s\"", *names);
+                        *names += strlen(*names) + 1;
+                }
+
                 if (direction)
                         fprintf(i->f, " direction=\"%s\"/>\n", direction);
                 else
@@ -111,10 +115,13 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
 }
 
 int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
+        const sd_bus_vtable *vtable = v;
+        const char *names = "";
+
         assert(i);
         assert(v);
 
-        for (; v->type != _SD_BUS_VTABLE_END; v++) {
+        for (; v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
 
                 /* Ignore methods, signals and properties that are
                  * marked "hidden", but do show the interface
@@ -132,8 +139,10 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
                 case _SD_BUS_VTABLE_METHOD:
                         fprintf(i->f, "  <method name=\"%s\">\n", v->x.method.member);
-                        introspect_write_arguments(i, strempty(v->x.method.signature), "in");
-                        introspect_write_arguments(i, strempty(v->x.method.result), "out");
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.method.names);
+                        introspect_write_arguments(i, strempty(v->x.method.signature), &names, "in");
+                        introspect_write_arguments(i, strempty(v->x.method.result), &names, "out");
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </method>\n", i->f);
                         break;
@@ -150,7 +159,9 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
                 case _SD_BUS_VTABLE_SIGNAL:
                         fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
-                        introspect_write_arguments(i, strempty(v->x.signal.signature), NULL);
+                        if (bus_vtable_has_names(vtable))
+                                names = strempty(v->x.method.names);
+                        introspect_write_arguments(i, strempty(v->x.signal.signature), &names, NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->f);
                         break;
@@ -161,13 +172,10 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
         return 0;
 }
 
-int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_bus_message **reply) {
-        sd_bus_message *q;
+int introspect_finish(struct introspect *i, char **ret) {
         int r;
 
         assert(i);
-        assert(m);
-        assert(reply);
 
         fputs("</node>\n", i->f);
 
@@ -175,25 +183,17 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_return(m, &q);
-        if (r < 0)
-                return r;
+        i->f = safe_fclose(i->f);
+        *ret = TAKE_PTR(i->introspection);
 
-        r = sd_bus_message_append(q, "s", i->introspection);
-        if (r < 0) {
-                sd_bus_message_unref(q);
-                return r;
-        }
-
-        *reply = q;
         return 0;
 }
 
 void introspect_free(struct introspect *i) {
         assert(i);
 
-        safe_fclose(i->f);
+        /* Normally introspect_finish() does all the work, this is just a backup for error paths */
 
+        safe_fclose(i->f);
         free(i->introspection);
-        zero(*i);
 }

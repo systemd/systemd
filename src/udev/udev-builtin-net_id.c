@@ -7,87 +7,9 @@
  *  - physical/geographical location of the hardware
  *  - the interface's MAC address
  *
- * http://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames
+ * https://systemd.io/PREDICTABLE_INTERFACE_NAMES
  *
- * Two character prefixes based on the type of interface:
- *   en — Ethernet
- *   ib — InfiniBand
- *   sl — serial line IP (slip)
- *   wl — wlan
- *   ww — wwan
- *
- * Type of names:
- *   b<number>                             — BCMA bus core number
- *   c<bus_id>                             — bus id of a grouped CCW or CCW device,
- *                                           with all leading zeros stripped [s390]
- *   o<index>[n<phys_port_name>|d<dev_port>]
- *                                         — on-board device index number
- *   s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
- *                                         — hotplug slot index number
- *   x<MAC>                                — MAC address
- *   [P<domain>]p<bus>s<slot>[f<function>][n<phys_port_name>|d<dev_port>]
- *                                         — PCI geographical location
- *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
- *                                         — USB port number chain
- *   v<slot>                               - VIO slot number (IBM PowerVM)
- *   a<vendor><model>i<instance>           — Platform bus ACPI instance id
- *
- * All multi-function PCI devices will carry the [f<function>] number in the
- * device name, including the function 0 device.
- *
- * SR-IOV virtual devices are named based on the name of the parent interface,
- * with a suffix of "v<N>", where <N> is the virtual device number.
- *
- * When using PCI geography, The PCI domain is only prepended when it is not 0.
- *
- * For USB devices the full chain of port numbers of hubs is composed. If the
- * name gets longer than the maximum number of 15 characters, the name is not
- * exported.
- * The usual USB configuration == 1 and interface == 0 values are suppressed.
- *
- * PCI Ethernet card with firmware index "1":
- *   ID_NET_NAME_ONBOARD=eno1
- *   ID_NET_NAME_ONBOARD_LABEL=Ethernet Port 1
- *
- * PCI Ethernet card in hotplug slot with firmware index number:
- *   /sys/devices/pci0000:00/0000:00:1c.3/0000:05:00.0/net/ens1
- *   ID_NET_NAME_MAC=enx000000000466
- *   ID_NET_NAME_PATH=enp5s0
- *   ID_NET_NAME_SLOT=ens1
- *
- * PCI Ethernet multi-function card with 2 ports:
- *   /sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/net/enp2s0f0
- *   ID_NET_NAME_MAC=enx78e7d1ea46da
- *   ID_NET_NAME_PATH=enp2s0f0
- *   /sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.1/net/enp2s0f1
- *   ID_NET_NAME_MAC=enx78e7d1ea46dc
- *   ID_NET_NAME_PATH=enp2s0f1
- *
- * PCI wlan card:
- *   /sys/devices/pci0000:00/0000:00:1c.1/0000:03:00.0/net/wlp3s0
- *   ID_NET_NAME_MAC=wlx0024d7e31130
- *   ID_NET_NAME_PATH=wlp3s0
- *
- * PCI IB host adapter with 2 ports:
- *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.0/net/ibp21s0f0
- *   ID_NET_NAME_PATH=ibp21s0f0
- *   /sys/devices/pci0000:00/0000:00:03.0/0000:15:00.1/net/ibp21s0f1
- *   ID_NET_NAME_PATH=ibp21s0f1
- *
- * USB built-in 3G modem:
- *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.4/2-1.4:1.6/net/wwp0s29u1u4i6
- *   ID_NET_NAME_MAC=wwx028037ec0200
- *   ID_NET_NAME_PATH=wwp0s29u1u4i6
- *
- * USB Android phone:
- *   /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.2/2-1.2:1.0/net/enp0s29u1u2
- *   ID_NET_NAME_MAC=enxd626b3450fb5
- *   ID_NET_NAME_PATH=enp0s29u1u2
- *
- * s390 grouped CCW interface:
- *  /sys/devices/css0/0.0.0007/0.0.f5f0/group_device/net/encf5f0
- *  ID_NET_NAME_MAC=enx026d3c00000a
- *  ID_NET_NAME_PATH=encf5f0
+ * When the code here is changed, man/systemd.net-naming-scheme.xml must be updated too.
  */
 
 #include <errno.h>
@@ -95,9 +17,7 @@
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <linux/pci_regs.h>
 
@@ -126,6 +46,7 @@ enum netname_type{
         NET_CCW,
         NET_VIO,
         NET_PLATFORM,
+        NET_NETDEVSIM,
 };
 
 struct netnames {
@@ -145,6 +66,7 @@ struct netnames {
         char ccw_busid[IFNAMSIZ];
         char vio_slot[IFNAMSIZ];
         char platform_path[IFNAMSIZ];
+        char netdevsim_path[IFNAMSIZ];
 };
 
 struct virtfn_info {
@@ -195,7 +117,7 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
 
         /* Check if this is a virtual function. */
         physfn_link_file = strjoina(syspath, "/physfn");
-        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath);
+        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath, NULL);
         if (r < 0)
                 return r;
 
@@ -215,11 +137,11 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
                 if (!startswith(dent->d_name, "virtfn"))
                         continue;
 
-                virtfn_link_file = strjoin(physfn_pci_syspath, "/", dent->d_name);
+                virtfn_link_file = path_join(physfn_pci_syspath, dent->d_name);
                 if (!virtfn_link_file)
                         return -ENOMEM;
 
-                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath) < 0)
+                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath, NULL) < 0)
                         continue;
 
                 if (streq(syspath, virtfn_pci_syspath)) {
@@ -246,7 +168,7 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         char *s;
         int r;
 
-        /* ACPI _DSM  — device specific method for naming a PCI or PCI Express device */
+        /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
         if (sd_device_get_sysattr_value(names->pcidev, "acpi_index", &attr) < 0) {
                 /* SMBIOS type 41 — Onboard Devices Extended Information */
                 r = sd_device_get_sysattr_value(names->pcidev, "index", &attr);
@@ -260,10 +182,11 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return -EINVAL;
 
-        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to report for
-         * example). Let's define a cut-off where we don't consider the index reliable anymore. We pick some arbitrary
-         * cut-off, which is somewhere beyond the realistic number of physical network interface a system might
-         * have. Ideally the kernel would already filter his crap for us, but it doesn't currently. */
+        /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
+         * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
+         * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
+         * interface a system might have. Ideally the kernel would already filter his crap for us, but it
+         * doesn't currently. */
         if (idx > ONBOARD_INDEX_MAX)
                 return -ENOENT;
 
@@ -719,9 +642,8 @@ static int names_ccw(sd_device *dev, struct netnames *names) {
         if (r < 0)
                 return r;
 
-        /* Check the length of the bus-ID.  Rely on that the kernel provides
-         * a correct bus-ID; alternatively, improve this check and parse and
-         * verify each bus-ID part...
+        /* Check the length of the bus-ID. Rely on the fact that the kernel provides a correct bus-ID;
+         * alternatively, improve this check and parse and verify each bus-ID part...
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))
@@ -791,6 +713,43 @@ static int names_mac(sd_device *dev, struct netnames *names) {
         names->mac[4] = a5;
         names->mac[5] = a6;
         names->mac_valid = true;
+        return 0;
+}
+
+static int names_netdevsim(sd_device *dev, struct netnames *names) {
+        sd_device *netdevsimdev;
+        const char *sysname;
+        unsigned addr;
+        const char *port_name = NULL;
+        int r;
+        bool ok;
+
+        if (!naming_scheme_has(NAMING_NETDEVSIM))
+                return 0;
+
+        assert(dev);
+        assert(names);
+
+        r = sd_device_get_parent_with_subsystem_devtype(dev, "netdevsim", NULL, &netdevsimdev);
+        if (r < 0)
+                return r;
+        r = sd_device_get_sysname(netdevsimdev, &sysname);
+        if (r < 0)
+                return r;
+
+        if (sscanf(sysname, "netdevsim%u", &addr) != 1)
+                return -EINVAL;
+
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &port_name);
+        if (r < 0)
+                return r;
+
+        ok = snprintf_ok(names->netdevsim_path, sizeof(names->netdevsim_path), "i%un%s", addr, port_name);
+        if (!ok)
+                return -ENOBUFS;
+
+        names->type = NET_NETDEVSIM;
+
         return 0;
 }
 
@@ -897,6 +856,16 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                 return 0;
         }
 
+        /* get netdevsim path names */
+        if (names_netdevsim(dev, &names) >= 0 && names.type == NET_NETDEVSIM) {
+                char str[IFNAMSIZ];
+
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
+                return 0;
+        }
+
         /* get PCI based path names, we compose only PCI based paths */
         if (names_pci(dev, &names) < 0)
                 return 0;
@@ -910,7 +879,9 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
                 if (names.pci_onboard_label &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard_label))
+                    snprintf_ok(str, sizeof str, "%s%s",
+                                naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
+                                names.pci_onboard_label))
                         udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
                 if (names.pci_path[0] &&
@@ -954,7 +925,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_net_id = {
+const UdevBuiltin udev_builtin_net_id = {
         .name = "net_id",
         .cmd = builtin_net_id,
         .help = "Network device properties",

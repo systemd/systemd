@@ -23,6 +23,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_lldp_unrefp) sd_lldp *lldp = NULL;
 
+        if (size > 2048)
+                return 0;
+
         assert_se(sd_event_new(&e) == 0);
         assert_se(sd_lldp_new(&lldp) >= 0);
         assert_se(sd_lldp_set_ifindex(lldp, 42) >= 0);

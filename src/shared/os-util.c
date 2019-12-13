@@ -15,7 +15,7 @@ int path_is_os_tree(const char *path) {
         assert(path);
 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
-         * always results in -ENOENT, and we can properly distuingish the case where the whole root doesn't exist from
+         * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
          * the case where just the os-release file is missing. */
         if (laccess(path, F_OK) < 0)
                 return -errno;
@@ -33,22 +33,24 @@ int path_is_os_tree(const char *path) {
 int open_os_release(const char *root, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *q = NULL;
         const char *p;
-        int k;
+        int r, fd;
 
         FOREACH_STRING(p, "/etc/os-release", "/usr/lib/os-release") {
-                k = chase_symlinks(p, root, CHASE_PREFIX_ROOT|(ret_fd ? CHASE_OPEN : 0), (ret_path ? &q : NULL));
-                if (k != -ENOENT)
+                r = chase_symlinks(p, root, CHASE_PREFIX_ROOT,
+                                   ret_path ? &q : NULL,
+                                   ret_fd ? &fd : NULL);
+                if (r != -ENOENT)
                         break;
         }
-        if (k < 0)
-                return k;
+        if (r < 0)
+                return r;
 
         if (ret_fd) {
                 int real_fd;
 
                 /* Convert the O_PATH fd into a proper, readable one */
-                real_fd = fd_reopen(k, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                safe_close(k);
+                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                safe_close(fd);
                 if (real_fd < 0)
                         return real_fd;
 

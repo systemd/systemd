@@ -1,5 +1,7 @@
 ---
 title: Portable Services Introduction
+category: Concepts
+layout: default
 ---
 
 # Portable Services Introduction
@@ -89,8 +91,9 @@ If you have portable service image, maybe in a raw disk image called
 
 This command does the following:
 
-1. It dissects the image, checks and validates the `/etc/os-release` data of
-   the image, and looks for all included unit files.
+1. It dissects the image, checks and validates the `/etc/os-release`
+   (or `/usr/lib/os-release`, see below)  data of the image, and looks for
+   all included unit files.
 
 2. It copies out all unit files with a suffix of `.service`, `.socket`,
    `.target`, `.timer` and `.path`. whose name begins with the image's name
@@ -152,9 +155,9 @@ images should just work the way they are. Specifically, the following
 requirements are made for an image that can be attached/detached with
 `portablectl`.
 
-1. It must contain a binary (and its dependencies) that shall be invoked,
-   including all its dependencies. If binary code, the code needs to be
-   compiled for an architecture compatible with the host.
+1. It must contain an executable that shall be invoked, along with all its
+   dependencies. If binary code, the code needs to be compiled for an
+   architecture compatible with the host.
 
 2. The image must either be a plain sub-directory (or btrfs subvolume)
    containing the binaries and its dependencies in a classic Linux OS tree, or
@@ -170,18 +173,41 @@ requirements are made for an image that can be attached/detached with
    image. (The implementation will check a couple of other paths too, but it's
    recommended to use these two paths.)
 
-4. The image must contain an os-release file, either in /etc/os-release or
-   /usr/lib/os-release. The file should follow the standard format.
+4. The image must contain an os-release file, either in `/etc/os-release` or
+   `/usr/lib/os-release`. The file should follow the standard format.
 
-Note that generally images created by tools such as `debootstrap`, `dnf
---installroot=` or `mkosi` qualify for all of the above in one way or
-another. If you wonder what the most minimal image would be that complies with
-the requirements above, it could consist of this:
+5. The image must contain the files `/etc/resolv.conf` and `/etc/machine-id`
+   (empty files are ok), they will be bind mounted from the host at runtime.
+
+6. The image must contain directories `/proc/`, `/sys/`, `/dev/`, `/run/`,
+   `/tmp/`, `/var/tmp/` that can be mounted over with the corresponding version
+   from the host.
+
+7. The OS might require other files or directories to be in place. For example,
+   if the image is built based on glibc, the dynamic loader needs to be
+   available in `/lib/ld-linux.so.2` or `/lib64/ld-linux-x86-64.so.2` (or
+   similar, depending on architecture), and if the distribution implements a
+   merged `/usr/` tree, this means `/lib` and/or `/lib64` need to be symlinks
+   to their respective counterparts below `/usr/`. For details see your
+   distribution's documentation.
+
+Note that images created by tools such as `debootstrap`, `dnf --installroot=`
+or `mkosi` generally qualify for all of the above in one way or another. If you
+wonder what the most minimal image would be that complies with the requirements
+above, it could consist of this:
 
 ```
-/usr/bin/minimald                        # a statically compiled binary
-/usr/lib/systemd/minimal-test.service    # the unit file for the service, with ExecStart=/usr/bin/minimald
-/usr/lib/os-release                      # an os-release file explaining what this is
+/usr/bin/minimald                            # a statically compiled binary
+/usr/lib/systemd/system/minimal-test.service # the unit file for the service, with ExecStart=/usr/bin/minimald
+/usr/lib/os-release                          # an os-release file explaining what this is
+/etc/resolv.conf                             # empty file to mount over with host's version
+/etc/machine-id                              # ditto
+/proc/                                       # empty directory to use as mount point for host's API fs
+/sys/                                        # ditto
+/dev/                                        # ditto
+/run/                                        # ditto
+/tmp/                                        # ditto
+/var/tmp/                                    # ditto
 ```
 
 And that's it.
@@ -190,6 +216,11 @@ Note that qualifying images do not have to contain an init system of their
 own. If they do, it's fine, it will be ignored by the portable service logic,
 but they generally don't have to, and it might make sense to avoid any, to keep
 images minimal.
+
+If the image is writable, and some of the files or directories that are
+overmounted from the host do not exist yet they are automatically created. On
+read-only, immutable images (e.g. squashfs images) all files and directories to
+over-mount must exist already.
 
 Note that as no new image format or metadata is defined, it's very
 straight-forward to define images than can be made use of it a number of

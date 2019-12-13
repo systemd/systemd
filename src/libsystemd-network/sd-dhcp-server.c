@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 
 #include "sd-dhcp-server.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "dhcp-internal.h"
@@ -13,7 +14,6 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "io-util.h"
-#include "sd-id128.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -139,8 +139,11 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->timezone);
         free(server->dns);
         free(server->ntp);
+        free(server->sip);
 
         hashmap_free(server->leases_by_client_id);
+
+        ordered_hashmap_free(server->raw_option);
 
         free(server->bound_leases);
         return mfree(server);
@@ -243,7 +246,7 @@ static int dhcp_server_send_unicast_raw(sd_dhcp_server *server,
 
         dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
                                       packet->dhcp.yiaddr,
-                                      DHCP_PORT_CLIENT, len);
+                                      DHCP_PORT_CLIENT, len, -1);
 
         return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
 }
@@ -451,8 +454,8 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
 static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                            be32_t address) {
         _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t offset;
         be32_t lease_time;
+        size_t offset;
         int r;
 
         r = server_message_init(server, &packet, DHCP_ACK, &offset, req);
@@ -498,11 +501,29 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                         return r;
         }
 
+        if (server->n_sip > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_SIP_SERVER,
+                                sizeof(struct in_addr) * server->n_sip, server->sip);
+                if (r < 0)
+                        return r;
+        }
+
         if (server->timezone) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_NEW_TZDB_TIMEZONE,
                                 strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!ordered_hashmap_isempty(server->raw_option)) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                ordered_hashmap_size(server->raw_option), server->raw_option);
                 if (r < 0)
                         return r;
         }
@@ -984,7 +1005,7 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         }
         server->fd_raw = r;
 
-        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER);
+        r = dhcp_network_bind_udp_socket(server->ifindex, INADDR_ANY, DHCP_PORT_SERVER, -1);
         if (r < 0) {
                 sd_dhcp_server_stop(server);
                 return r;
@@ -1124,6 +1145,32 @@ int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], u
         return 1;
 }
 
+int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(sip || n <= 0, -EINVAL);
+
+        if (server->n_sip == n &&
+            memcmp(server->sip, sip, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->sip = mfree(server->sip);
+                server->n_sip = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, sip, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free(server->sip);
+                server->sip = c;
+                server->n_sip = n;
+        }
+
+        return 1;
+}
+
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
         assert_return(server, -EINVAL);
 
@@ -1131,6 +1178,25 @@ int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
                 return 0;
 
         server->emit_router = enabled;
+
+        return 1;
+}
+
+int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(v, -EINVAL);
+
+        r = ordered_hashmap_ensure_allocated(&server->raw_option, &dhcp_option_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = ordered_hashmap_put(server->raw_option, v, v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp_option_ref(v);
 
         return 1;
 }

@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <malloc.h>
 #include <stddef.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <syslog.h>
 
@@ -16,6 +18,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -23,7 +26,6 @@
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
@@ -102,6 +104,26 @@ void mac_selinux_finish(void) {
 
         selabel_close(label_hnd);
         label_hnd = NULL;
+#endif
+}
+
+void mac_selinux_reload(void) {
+
+#if HAVE_SELINUX
+        struct selabel_handle *backup_label_hnd;
+
+        if (!label_hnd)
+                return;
+
+        backup_label_hnd = TAKE_PTR(label_hnd);
+
+        /* try to initialize new handle
+         *    on success close backup
+         *    on failure restore backup */
+        if (mac_selinux_init() == 0)
+                selabel_close(backup_label_hnd);
+        else
+                label_hnd = backup_label_hnd;
 #endif
 }
 

@@ -1,0 +1,8 @@
+[NetDev]
+Name=fou99
+Kind=fou
+
+[FooOverUDP]
+Encapsulation=FooOverUDP
+Port=55555
+Protocol=ipip

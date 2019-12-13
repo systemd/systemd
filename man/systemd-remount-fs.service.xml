@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-remount-fs.service">
 
   <refentryinfo>
@@ -30,26 +29,31 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-remount-fs.service</filename> is an
-    early boot service that applies mount options listed in
-    <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    to the root file system, the <filename>/usr</filename> file system,
-    and the kernel API file systems. This is required so that the
-    mount options of these file systems — which are pre-mounted by
-    the kernel, the initial RAM disk, container environments or system
-    manager code — are updated to those listed in
-    <filename>/etc/fstab</filename>. This service ignores normal file
-    systems and only changes the root file system (i.e.
-    <filename>/</filename>), <filename>/usr</filename> and the virtual
-    kernel API file systems such as <filename>/proc</filename>,
-    <filename>/sys</filename> or <filename>/dev</filename>. This
-    service executes no operation if <filename>/etc/fstab</filename>
-    does not exist or lists no entries for the mentioned file
-    systems.</para>
+    <para><filename>systemd-remount-fs.service</filename> is an early boot service that applies mount options
+    listed in <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>, or
+    gathered from the partition table (when
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is active) to the root file system, the <filename>/usr</filename> file system, and the kernel API file
+    systems. This is required so that the mount options of these file systems — which are pre-mounted by the
+    kernel, the initial RAM disk, container environments or system manager code — are updated to those
+    configured in <filename>/etc/fstab</filename> and the other sources. This service ignores normal file
+    systems and only changes the root file system (i.e.  <filename>/</filename>), <filename>/usr</filename>,
+    and the virtual kernel API file systems such as <filename>/proc</filename>, <filename>/sys</filename> or
+    <filename>/dev</filename>. This service executes no operation if no configuration is found
+    (<filename>/etc/fstab</filename> does not exist or lists no entries for the mentioned file systems, or
+    the partition table does not contain relevant entries).</para>
 
     <para>For a longer discussion of kernel API file systems see
     <ulink url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
     File Systems</ulink>.</para>
+
+    <para>Note: <filename>systemd-remount-fs.service</filename> is usually pulled in by
+    <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    hence it is also affected by the kernel command line option <varname>fstab=</varname>, which may be used
+    to disable the generator. It may also pulled in by
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    which is affected by <varname>systemd.gpt_auto</varname> and other options.</para>
   </refsect1>
 
   <refsect1>
@@ -57,7 +61,9 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

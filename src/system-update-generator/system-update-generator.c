@@ -9,6 +9,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "unit-file.h"
 #include "util.h"
 
 /*
@@ -57,9 +58,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         assert_se(arg_dest = dest_early);
 
         r = generate_symlink();
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
+        /* We parse the command line only to emit warnings. */
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");

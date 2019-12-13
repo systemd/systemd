@@ -1,2 +1,2 @@
-u1:x:300:300::/:/sbin/nologin
-u2:x:SYSTEM_UID_MAX:SYSTEM_UID_MAX::/:/sbin/nologin
+u1:x:300:300::/:NOLOGIN
+u2:x:SYSTEM_UID_MAX:SYSTEM_UID_MAX::/:NOLOGIN

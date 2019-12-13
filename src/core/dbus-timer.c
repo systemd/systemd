@@ -123,6 +123,8 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_PROPERTY("OnClockChange", "b", bus_property_get_bool, offsetof(Timer, on_clock_change), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OnTimezoneChange", "b", bus_property_get_bool, offsetof(Timer, on_timezone_change), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NextElapseUSecMonotonic", "t", property_get_next_elapse_monotonic, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_PROPERTY_DUAL_TIMESTAMP("LastTriggerUSec", offsetof(Timer, last_trigger), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -133,6 +135,74 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterElapse", "b", bus_property_get_bool, offsetof(Timer, remain_after_elapse), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
+};
+
+static int timer_add_one_monotonic_spec(
+                Timer *t,
+                const char *name,
+                TimerBase base,
+                UnitWriteFlags flags,
+                usec_t usec,
+                sd_bus_error *error) {
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                char ts[FORMAT_TIMESPAN_MAX];
+                TimerValue *v;
+
+                unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                    "%s=%s",
+                                    timer_base_to_string(base),
+                                    format_timespan(ts, sizeof ts, usec, USEC_PER_MSEC));
+
+                v = new(TimerValue, 1);
+                if (!v)
+                        return -ENOMEM;
+
+                *v = (TimerValue) {
+                        .base = base,
+                        .value = usec,
+                };
+
+                LIST_PREPEND(value, t->values, v);
+        }
+
+        return 1;
+}
+
+static int timer_add_one_calendar_spec(
+                Timer *t,
+                const char *name,
+                TimerBase base,
+                UnitWriteFlags flags,
+                const char *str,
+                sd_bus_error *error) {
+
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        int r;
+
+        r = calendar_spec_from_string(str, &c);
+        if (r == -EINVAL)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                unit_write_settingf(UNIT(t), flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                    "%s=%s", timer_base_to_string(base), str);
+
+                TimerValue *v = new(TimerValue, 1);
+                if (!v)
+                        return -ENOMEM;
+
+                *v = (TimerValue) {
+                        .base = base,
+                        .calendar_spec = TAKE_PTR(c),
+                };
+
+                LIST_PREPEND(value, t->values, v);
+        }
+
+        return 1;
 };
 
 static int bus_timer_set_transient_property(
@@ -171,9 +241,15 @@ static int bus_timer_set_transient_property(
         if (streq(name, "RemainAfterElapse"))
                 return bus_set_transient_bool(u, name, &t->remain_after_elapse, message, flags, error);
 
+        if (streq(name, "OnTimezoneChange"))
+                return bus_set_transient_bool(u, name, &t->on_timezone_change, message, flags, error);
+
+        if (streq(name, "OnClockChange"))
+                return bus_set_transient_bool(u, name, &t->on_clock_change, message, flags, error);
+
         if (streq(name, "TimersMonotonic")) {
                 const char *base_name;
-                usec_t usec = 0;
+                usec_t usec;
                 bool empty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(st)");
@@ -185,24 +261,12 @@ static int bus_timer_set_transient_property(
 
                         b = timer_base_from_string(base_name);
                         if (b < 0 || b == TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid timer base: %s", base_name);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid timer base: %s", base_name);
 
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                char ts[FORMAT_TIMESPAN_MAX];
-                                TimerValue *v;
-
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name,
-                                                    format_timespan(ts, sizeof(ts), usec, USEC_PER_MSEC));
-
-                                v = new0(TimerValue, 1);
-                                if (!v)
-                                        return -ENOMEM;
-
-                                v->base = b;
-                                v->value = usec;
-
-                                LIST_PREPEND(value, t->values, v);
-                        }
+                        r = timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
+                        if (r < 0)
+                                return r;
 
                         empty = false;
                 }
@@ -229,33 +293,16 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &base_name, &str)) > 0) {
-                        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
                         TimerBase b;
 
                         b = timer_base_from_string(base_name);
                         if (b != TIMER_CALENDAR)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid timer base: %s", base_name);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Invalid timer base: %s", base_name);
 
-                        r = calendar_spec_from_string(str, &c);
-                        if (r == -EINVAL)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec: %s", str);
+                        r = timer_add_one_calendar_spec(t, name, b, flags, str, error);
                         if (r < 0)
                                 return r;
-
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                TimerValue *v;
-
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", base_name, str);
-
-                                v = new0(TimerValue, 1);
-                                if (!v)
-                                        return -ENOMEM;
-
-                                v->base = b;
-                                v->calendar_spec = TAKE_PTR(c);
-
-                                LIST_PREPEND(value, t->values, v);
-                        }
 
                         empty = false;
                 }
@@ -280,9 +327,8 @@ static int bus_timer_set_transient_property(
                        "OnUnitActiveSec",
                        "OnUnitInactiveSec")) {
 
-                TimerValue *v;
-                TimerBase b = _TIMER_BASE_INVALID;
-                usec_t usec = 0;
+                TimerBase b;
+                usec_t usec;
 
                 log_notice("Client is using obsolete %s= transient property, please use TimersMonotonic= instead.", name);
 
@@ -294,28 +340,10 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        char time[FORMAT_TIMESPAN_MAX];
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name,
-                                            format_timespan(time, sizeof(time), usec, USEC_PER_MSEC));
-
-                        v = new0(TimerValue, 1);
-                        if (!v)
-                                return -ENOMEM;
-
-                        v->base = b;
-                        v->value = usec;
-
-                        LIST_PREPEND(value, t->values, v);
-                }
-
-                return 1;
+                return timer_add_one_monotonic_spec(t, name, b, flags, usec, error);
 
         } else if (streq(name, "OnCalendar")) {
 
-                TimerValue *v;
-                _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
                 const char *str;
 
                 log_notice("Client is using obsolete %s= transient property, please use TimersCalendar= instead.", name);
@@ -324,26 +352,7 @@ static int bus_timer_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = calendar_spec_from_string(str, &c);
-                        if (r == -EINVAL)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
-
-                        v = new0(TimerValue, 1);
-                        if (!v)
-                                return -ENOMEM;
-
-                        v->base = TIMER_CALENDAR;
-                        v->calendar_spec = TAKE_PTR(c);
-
-                        LIST_PREPEND(value, t->values, v);
-                }
-
-                return 1;
+                return timer_add_one_calendar_spec(t, name, TIMER_CALENDAR, flags, str, error);
         }
 
         return 0;

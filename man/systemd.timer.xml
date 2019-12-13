@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.timer">
   <refentryinfo>
@@ -38,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The timer specific configuration options are
-    configured in the [Timer] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The timer specific configuration options are
+    configured in the <literal>[Timer]</literal> section.</para>
 
     <para>For each timer file, a matching unit file must exist,
     describing the unit to activate when the timer elapses. By
@@ -108,23 +105,49 @@
         <term><varname>OnUnitInactiveSec=</varname></term>
 
         <listitem><para>Defines monotonic timers relative to different
-        starting points: <varname>OnActiveSec=</varname> defines a
-        timer relative to the moment the timer itself is activated.
-        <varname>OnBootSec=</varname> defines a timer relative to when
-        the machine was booted up. <varname>OnStartupSec=</varname>
-        defines a timer relative to when systemd was first started.
-        <varname>OnUnitActiveSec=</varname> defines a timer relative
-        to when the unit the timer is activating was last activated.
-        <varname>OnUnitInactiveSec=</varname> defines a timer relative
-        to when the unit the timer is activating was last
-        deactivated.</para>
+        starting points:</para>
 
-        <para>Multiple directives may be combined of the same and of
-        different types. For example, by combining
-        <varname>OnBootSec=</varname> and
-        <varname>OnUnitActiveSec=</varname>, it is possible to define
-        a timer that elapses in regular intervals and activates a
-        specific service each time.</para>
+        <table>
+          <title>Settings and their starting points</title>
+
+          <tgroup cols='2'>
+            <thead>
+              <row>
+                <entry>Setting</entry>
+                <entry>Meaning</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><varname>OnActiveSec=</varname></entry>
+                <entry>Defines a timer relative to the moment the timer unit itself is activated.</entry>
+              </row>
+              <row>
+                <entry><varname>OnBootSec=</varname></entry>
+                <entry>Defines a timer relative to when the machine was booted up. In containers, for the system manager instance, this is mapped to <varname>OnStartupSec=</varname>, making both equivalent.</entry>
+              </row>
+              <row>
+                <entry><varname>OnStartupSec=</varname></entry>
+                <entry>Defines a timer relative to when the service manager was first started. For system timer units this is very similar to <varname>OnBootSec=</varname> as the system service manager is generally started very early at boot. It's primarily useful when configured in units running in the per-user service manager, as the user service manager is generally started on first login only, not already during boot.</entry>
+              </row>
+              <row>
+                <entry><varname>OnUnitActiveSec=</varname></entry>
+                <entry>Defines a timer relative to when the unit the timer unit is activating was last activated.</entry>
+              </row>
+              <row>
+                <entry><varname>OnUnitInactiveSec=</varname></entry>
+                <entry>Defines a timer relative to when the unit the timer unit is activating was last deactivated.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>Multiple directives may be combined of the same and of different types, in which case the timer
+        unit will trigger whenever any of the specified timer expressions elapse. For example, by combining
+        <varname>OnBootSec=</varname> and <varname>OnUnitActiveSec=</varname>, it is possible to define a
+        timer that elapses in regular intervals and activates a specific service each time. Moreover, both
+        monotonic time expressions and <varname>OnCalendar=</varname> calendar expressions may be combined in
+        the same timer unit.</para>
 
         <para>The arguments to the directives are time spans
         configured in seconds. Example: "OnBootSec=50" means 50s after
@@ -139,13 +162,12 @@
         and the configured unit is started. This is not the case for
         timers defined in the other directives.</para>
 
-        <para>These are monotonic timers, independent of wall-clock
-        time and timezones. If the computer is temporarily suspended,
-        the monotonic clock stops too.</para>
+        <para>These are monotonic timers, independent of wall-clock time and timezones. If the computer is
+        temporarily suspended, the monotonic clock pauses, too.</para>
 
-        <para>If the empty string is assigned to any of these options,
-        the list of timers is reset, and all prior assignments will
-        have no effect.</para>
+        <para>If the empty string is assigned to any of these options, the list of timers is reset (both
+        monotonic timers and <varname>OnCalendar=</varname> timers, see below), and all prior assignments
+        will have no effect.</para>
 
         <para>Note that timers do not necessarily expire at the
         precise time configured with these settings, as they are
@@ -169,7 +191,13 @@
         the <varname>AccuracySec=</varname> setting
         below.</para>
 
-       <para>May be specified more than once.</para></listitem>
+        <para>May be specified more than once, in which case the timer unit will trigger whenever any of the
+        specified expressions elapse. Moreover calendar timers and monotonic timers (see above) may be
+        combined within the same timer unit.</para>
+
+        <para>If the empty string is assigned to any of these options, the list of timers is reset (both
+        <varname>OnCalendar=</varname> timers and monotonic timers, see above), and all prior assignments
+        will have no effect.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -232,6 +260,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OnClockChange=</varname></term>
+        <term><varname>OnTimezoneChange=</varname></term>
+
+        <listitem><para>These options take boolean arguments. When true, the service unit will be triggered
+        when the system clock (<constant>CLOCK_REALTIME</constant>) jumps relative to the monotonic clock
+        (<constant>CLOCK_MONOTONIC</constant>), or when the local system timezone is modified. These options
+        can be used alone or in combination with other timer expressions (see above) within the same timer
+        unit. These options default to false.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Unit=</varname></term>
 
         <listitem><para>The unit to activate when this timer elapses.
@@ -247,35 +286,38 @@
       <varlistentry>
         <term><varname>Persistent=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, the time
-        when the service unit was last triggered is stored on disk.
-        When the timer is activated, the service unit is triggered
-        immediately if it would have been triggered at least once
-        during the time when the timer was inactive. This is useful to
-        catch up on missed runs of the service when the machine was
-        off. Note that this setting only has an effect on timers
-        configured with <varname>OnCalendar=</varname>. Defaults
-        to <varname>false</varname>.
-        </para></listitem>
+        <listitem><para>Takes a boolean argument. If true, the time when the service unit was last triggered
+        is stored on disk.  When the timer is activated, the service unit is triggered immediately if it
+        would have been triggered at least once during the time when the timer was inactive. This is useful
+        to catch up on missed runs of the service when the system was powered down. Note that this setting
+        only has an effect on timers configured with <varname>OnCalendar=</varname>. Defaults to
+        <varname>false</varname>.</para>
+
+        <para>Use <command>systemctl clean --what=state …</command> on the timer unit to remove the timestamp
+        file maintained by this option from disk. In particular, use this command before uninstalling a timer
+        unit. See
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>WakeSystem=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, an elapsing
-        timer will cause the system to resume from suspend, should it
-        be suspended and if the system supports this. Note that this
-        option will only make sure the system resumes on the
-        appropriate times, it will not take care of suspending it
-        again after any work that is to be done is finished. Defaults
-        to <varname>false</varname>.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, an elapsing timer will cause the system to resume
+        from suspend, should it be suspended and if the system supports this. Note that this option will only
+        make sure the system resumes on the appropriate times, it will not take care of suspending it again
+        after any work that is to be done is finished. Defaults to
+        <varname>false</varname>.</para>
+
+        <para>Note that this functionality requires privileges and is thus generally only available in the
+        system service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>RemainAfterElapse=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, an elapsed
-        timer will stay loaded, and its state remains queriable. If
+        timer will stay loaded, and its state remains queryable. If
         false, an elapsed timer unit that cannot elapse anymore is
         unloaded. Turning this off is particularly useful for
         transient timer units that shall disappear after they first

@@ -2,27 +2,26 @@
 
 #include <ftw.h>
 #include <getopt.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-bus.h"
 
 #include "bus-error.h"
 #include "bus-util.h"
-#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "kbd-util.h"
 #include "locale-util.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "pager.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "set.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
-#include "util.h"
+#include "terminal-util.h"
 #include "verbs.h"
 #include "virt.h"
 
@@ -385,15 +384,8 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system locale and keyboard settings.\n\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --no-convert          Don't convert keyboard mappings\n\n"
-               "Commands:\n"
+               "%sQuery or change system locale and keyboard settings.%s\n"
+               "\nCommands:\n"
                "  status                   Show current locale settings\n"
                "  set-locale LOCALE...     Set system locale\n"
                "  list-locales             Show known locales\n"
@@ -406,8 +398,18 @@ static int help(void) {
                "  list-x11-keymap-variants [LAYOUT]\n"
                "                           Show known X11 keyboard mapping variants\n"
                "  list-x11-keymap-options  Show known X11 keyboard mapping options\n"
+               "\nOptions:\n"
+               "  -h --help                Show this help\n"
+               "     --version             Show package version\n"
+               "     --no-pager            Do not pipe output into a pager\n"
+               "     --no-ask-password     Do not prompt for password\n"
+               "  -H --host=[USER@]HOST    Operate on remote host\n"
+               "  -M --machine=CONTAINER   Operate on local container\n"
+               "     --no-convert          Don't convert keyboard mappings\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -510,6 +512,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

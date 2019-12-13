@@ -1,0 +1,8 @@
+[Match]
+Name=test1
+
+[Network]
+BindCarrier=dummy99 dummy98
+Address=192.168.10.30/24
+Gateway=192.168.10.1
+IPv6AcceptRA=no

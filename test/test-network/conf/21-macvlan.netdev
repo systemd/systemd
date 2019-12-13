@@ -1,3 +1,4 @@
 [NetDev]
 Name=macvlan99
 Kind=macvlan
+MTUBytes=2000

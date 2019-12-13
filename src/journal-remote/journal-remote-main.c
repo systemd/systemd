@@ -123,7 +123,7 @@ static int spawn_getter(const char *getter) {
         _cleanup_strv_free_ char **words = NULL;
 
         assert(getter);
-        r = strv_split_extract(&words, getter, WHITESPACE, EXTRACT_QUOTES);
+        r = strv_split_extract(&words, getter, WHITESPACE, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_error_errno(r, "Failed to split getter option: %m");
 
@@ -265,7 +265,7 @@ static int request_handler(
         const char *header;
         int r, code, fd;
         _cleanup_free_ char *hostname = NULL;
-        size_t len;
+        bool chunked = false;
 
         assert(connection);
         assert(connection_cls);
@@ -290,21 +290,35 @@ static int request_handler(
                 return mhd_respond(connection, MHD_HTTP_UNSUPPORTED_MEDIA_TYPE,
                                    "Content-Type: application/vnd.fdo.journal is required.");
 
-        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
-        if (!header)
-                return mhd_respond(connection, MHD_HTTP_LENGTH_REQUIRED,
-                                   "Content-Length header is required.");
-        r = safe_atozu(header, &len);
-        if (r < 0)
-                return mhd_respondf(connection, r, MHD_HTTP_LENGTH_REQUIRED,
-                                    "Content-Length: %s cannot be parsed: %m", header);
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Transfer-Encoding");
+        if (header) {
+                if (!strcaseeq(header, "chunked"))
+                        return mhd_respondf(connection, 0, MHD_HTTP_BAD_REQUEST,
+                                            "Unsupported Transfer-Encoding type: %s", header);
 
-        if (len > ENTRY_SIZE_MAX)
-                /* When serialized, an entry of maximum size might be slightly larger,
-                 * so this does not correspond exactly to the limit in journald. Oh well.
-                 */
-                return mhd_respondf(connection, 0, MHD_HTTP_PAYLOAD_TOO_LARGE,
-                                    "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
+                chunked = true;
+        }
+
+        header = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Content-Length");
+        if (header) {
+                size_t len;
+
+                if (chunked)
+                        return mhd_respond(connection, MHD_HTTP_BAD_REQUEST,
+                                           "Content-Length must not specified when Transfer-Encoding type is 'chuncked'");
+
+                r = safe_atozu(header, &len);
+                if (r < 0)
+                        return mhd_respondf(connection, r, MHD_HTTP_LENGTH_REQUIRED,
+                                            "Content-Length: %s cannot be parsed: %m", header);
+
+                if (len > ENTRY_SIZE_MAX)
+                        /* When serialized, an entry of maximum size might be slightly larger,
+                         * so this does not correspond exactly to the limit in journald. Oh well.
+                         */
+                        return mhd_respondf(connection, 0, MHD_HTTP_PAYLOAD_TOO_LARGE,
+                                            "Payload larger than maximum size of %u bytes", ENTRY_SIZE_MAX);
+        }
 
         {
                 const union MHD_ConnectionInfo *ci;
@@ -515,7 +529,7 @@ static int dispatch_http_event(sd_event_source *event,
                                void *userdata) {
         MHDDaemonWrapper *d = userdata;
         int r;
-        MHD_UNSIGNED_LONG_LONG timeout = ULONG_LONG_MAX;
+        MHD_UNSIGNED_LONG_LONG timeout = ULLONG_MAX;
 
         assert(d);
 
@@ -525,7 +539,7 @@ static int dispatch_http_event(sd_event_source *event,
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "MHD_run failed!");
         if (MHD_get_timeout(d->daemon, &timeout) == MHD_NO)
-                timeout = ULONG_LONG_MAX;
+                timeout = ULLONG_MAX;
 
         r = sd_event_source_set_time(d->timer_event, timeout);
         if (r < 0) {

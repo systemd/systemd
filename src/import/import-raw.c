@@ -57,7 +57,7 @@ struct RawImport {
         struct stat st;
 
         unsigned last_percent;
-        RateLimit progress_rate_limit;
+        RateLimit progress_ratelimit;
 };
 
 RawImport* raw_import_unref(RawImport *i) {
@@ -111,9 +111,8 @@ int raw_import_new(
                 .userdata = userdata,
                 .last_percent = (unsigned) -1,
                 .image_root = TAKE_PTR(root),
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
-
-        RATELIMIT_INIT(i->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
 
         if (event)
                 i->event = sd_event_ref(event);
@@ -144,7 +143,7 @@ static void raw_import_report_progress(RawImport *i) {
         if (percent == i->last_percent)
                 return;
 
-        if (!ratelimit_below(&i->progress_rate_limit))
+        if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
@@ -183,7 +182,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
 
         r = qcow2_convert(i->output_fd, converted_fd);
         if (r < 0) {
-                unlink(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
@@ -215,7 +214,7 @@ static int raw_import_finish(RawImport *i) {
                 return r;
 
         if (S_ISREG(i->st.st_mode)) {
-                (void) copy_times(i->input_fd, i->output_fd);
+                (void) copy_times(i->input_fd, i->output_fd, COPY_CRTIME);
                 (void) copy_xattr(i->input_fd, i->output_fd);
         }
 

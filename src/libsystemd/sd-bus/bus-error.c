@@ -5,13 +5,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -179,7 +179,7 @@ static int errno_to_bus_error_name_new(int error, char **ret) {
         if (!name)
                 return 0;
 
-        n = strappend("System.Error.", name);
+        n = strjoin("System.Error.", name);
         if (!n)
                 return -ENOMEM;
 
@@ -576,7 +576,7 @@ const char *bus_error_message(const sd_bus_error *e, int error) {
         if (error < 0)
                 error = -error;
 
-        return strerror(error);
+        return strerror_safe(error);
 }
 
 static bool map_ok(const sd_bus_error_map *map) {

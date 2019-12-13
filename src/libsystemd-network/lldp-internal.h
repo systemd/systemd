@@ -32,7 +32,7 @@ struct sd_lldp {
         struct ether_addr filter_address;
 };
 
-#define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
+#define log_lldp_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "LLDP: " fmt, ##__VA_ARGS__)
 #define log_lldp(fmt, ...) log_lldp_errno(0, fmt, ##__VA_ARGS__)
 
 const char* lldp_event_to_string(sd_lldp_event e) _const_;

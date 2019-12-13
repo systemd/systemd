@@ -9,12 +9,14 @@
 #include "bus-util.h"
 #include "dbus-path.h"
 #include "dbus-unit.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path.h"
+#include "path-util.h"
 #include "serialize.h"
 #include "special.h"
 #include "stat-util.h"
@@ -27,19 +29,18 @@ static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
         [PATH_DEAD] = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_FAILED] = UNIT_FAILED
+        [PATH_FAILED] = UNIT_FAILED,
 };
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 
 int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
-
         static const int flags_table[_PATH_TYPE_MAX] = {
                 [PATH_EXISTS] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_EXISTS_GLOB] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB,
                 [PATH_CHANGED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO,
                 [PATH_MODIFIED] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CLOSE_WRITE|IN_CREATE|IN_DELETE|IN_MOVED_FROM|IN_MOVED_TO|IN_MODIFY,
-                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO
+                [PATH_DIRECTORY_NOT_EMPTY] = IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO,
         };
 
         bool exists = false;
@@ -89,24 +90,29 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                                 break;
                         }
 
-                        r = log_warning_errno(errno, "Failed to add watch on %s: %s", s->path, errno == ENOSPC ? "too many watches" : strerror(-r));
-                        if (cut)
-                                *cut = tmp;
-                        goto fail;
-                } else {
-                        exists = true;
-
-                        /* Path exists, we don't need to watch parent too closely. */
-                        if (oldslash) {
-                                char *cut2 = oldslash + (oldslash == s->path);
-                                char tmp2 = *cut2;
-                                *cut2 = '\0';
-
-                                (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
-                                /* Error is ignored, the worst can happen is we get spurious events. */
-
-                                *cut2 = tmp2;
+                        /* This second call to inotify_add_watch() should fail like the previous
+                         * one and is done for logging the error in a comprehensive way. */
+                        r = inotify_add_watch_and_warn(s->inotify_fd, s->path, flags);
+                        if (r < 0) {
+                                if (cut)
+                                        *cut = tmp;
+                                goto fail;
                         }
+
+                        /* Hmm, we succeeded in adding the watch this time... let's continue. */
+                }
+                exists = true;
+
+                /* Path exists, we don't need to watch parent too closely. */
+                if (oldslash) {
+                        char *cut2 = oldslash + (oldslash == s->path);
+                        char tmp2 = *cut2;
+                        *cut2 = '\0';
+
+                        (void) inotify_add_watch(s->inotify_fd, s->path, IN_MOVE_SELF);
+                        /* Error is ignored, the worst can happen is we get spurious events. */
+
+                        *cut2 = tmp2;
                 }
 
                 if (cut)
@@ -169,12 +175,14 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
 }
 
 static bool path_spec_check_good(PathSpec *s, bool initial) {
-        bool good = false;
+        bool b, good = false;
 
         switch (s->type) {
 
         case PATH_EXISTS:
-                good = access(s->path, F_OK) >= 0;
+                b = access(s->path, F_OK) >= 0;
+                good = b && !s->previous_exists;
+                s->previous_exists = b;
                 break;
 
         case PATH_EXISTS_GLOB:
@@ -190,14 +198,11 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
         }
 
         case PATH_CHANGED:
-        case PATH_MODIFIED: {
-                bool b;
-
+        case PATH_MODIFIED:
                 b = access(s->path, F_OK) >= 0;
                 good = !initial && b != s->previous_exists;
                 s->previous_exists = b;
                 break;
-        }
 
         default:
                 ;
@@ -279,9 +284,7 @@ static int path_add_mount_dependencies(Path *p) {
 
 static int path_verify(Path *p) {
         assert(p);
-
-        if (UNIT(p)->load_state != UNIT_LOADED)
-                return 0;
+        assert(UNIT(p)->load_state == UNIT_LOADED);
 
         if (!p->specs) {
                 log_unit_error(UNIT(p), "Path unit lacks path setting. Refusing.");
@@ -328,6 +331,20 @@ static int path_add_trigger_dependencies(Path *p) {
         return unit_add_two_dependencies(UNIT(p), UNIT_BEFORE, UNIT_TRIGGERS, x, true, UNIT_DEPENDENCY_IMPLICIT);
 }
 
+static int path_add_extras(Path *p) {
+        int r;
+
+        r = path_add_trigger_dependencies(p);
+        if (r < 0)
+                return r;
+
+        r = path_add_mount_dependencies(p);
+        if (r < 0)
+                return r;
+
+        return path_add_default_dependencies(p);
+}
+
 static int path_load(Unit *u) {
         Path *p = PATH(u);
         int r;
@@ -335,24 +352,16 @@ static int path_load(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        r = unit_load_fragment_and_dropin(u);
+        r = unit_load_fragment_and_dropin(u, true);
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_LOADED) {
+        if (u->load_state != UNIT_LOADED)
+                return 0;
 
-                r = path_add_trigger_dependencies(p);
-                if (r < 0)
-                        return r;
-
-                r = path_add_mount_dependencies(p);
-                if (r < 0)
-                        return r;
-
-                r = path_add_default_dependencies(p);
-                if (r < 0)
-                        return r;
-        }
+        r = path_add_extras(p);
+        if (r < 0)
+                return r;
 
         return path_verify(p);
 }
@@ -474,17 +483,15 @@ static void path_enter_running(Path *p) {
                 return;
         }
 
-        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, &error, NULL);
+        r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
 
         p->inotify_triggered = false;
 
-        r = path_watch(p);
-        if (r < 0)
-                goto fail;
-
         path_set_state(p, PATH_RUNNING);
+        path_unwatch(p);
+
         return;
 
 fail:
@@ -494,18 +501,14 @@ fail:
 
 static bool path_check_good(Path *p, bool initial) {
         PathSpec *s;
-        bool good = false;
 
         assert(p);
 
-        LIST_FOREACH(spec, s, p->specs) {
-                good = path_spec_check_good(s, initial);
+        LIST_FOREACH(spec, s, p->specs)
+                if (path_spec_check_good(s, initial))
+                        return true;
 
-                if (good)
-                        break;
-        }
-
-        return good;
+        return false;
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool recheck) {
@@ -555,19 +558,16 @@ static void path_mkdir(Path *p) {
 
 static int path_start(Unit *u) {
         Path *p = PATH(u);
-        Unit *trigger;
         int r;
 
         assert(p);
         assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
 
-        trigger = UNIT_TRIGGER(u);
-        if (!trigger || trigger->load_state != UNIT_LOADED) {
-                log_unit_error(u, "Refusing to start, unit to trigger not loaded.");
-                return -ENOENT;
-        }
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
-        r = unit_start_limit_test(u);
+        r = unit_test_start_limit(u);
         if (r < 0) {
                 path_enter_dead(p, PATH_FAILURE_START_LIMIT_HIT);
                 return r;
@@ -597,6 +597,7 @@ static int path_stop(Unit *u) {
 
 static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         Path *p = PATH(u);
+        PathSpec *s;
 
         assert(u);
         assert(f);
@@ -604,6 +605,19 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_item(f, "state", path_state_to_string(p->state));
         (void) serialize_item(f, "result", path_result_to_string(p->result));
+
+        LIST_FOREACH(spec, s, p->specs) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = cescape(s->path);
+                if (!escaped)
+                        return log_oom();
+
+                (void) serialize_item_format(f, "path-spec", "%s %i %s",
+                                             path_type_to_string(s->type),
+                                             s->previous_exists,
+                                             s->path);
+        }
 
         return 0;
 }
@@ -633,6 +647,38 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                         log_unit_debug(u, "Failed to parse result value: %s", value);
                 else if (f != PATH_SUCCESS)
                         p->result = f;
+
+        } else if (streq(key, "path-spec")) {
+                int previous_exists, skip = 0, r;
+                _cleanup_free_ char *type_str = NULL;
+
+                if (sscanf(value, "%ms %i %n", &type_str, &previous_exists, &skip) < 2)
+                        log_unit_debug(u, "Failed to parse path-spec value: %s", value);
+                else {
+                        _cleanup_free_ char *unescaped = NULL;
+                        PathType type;
+                        PathSpec *s;
+
+                        type = path_type_from_string(type_str);
+                        if (type < 0) {
+                                log_unit_warning(u, "Unknown path type \"%s\", ignoring.", type_str);
+                                return 0;
+                        }
+
+                        r = cunescape(value+skip, 0, &unescaped);
+                        if (r < 0) {
+                                log_unit_warning_errno(u, r, "Failed to unescape serialize path: %m");
+                                return 0;
+                        }
+
+                        LIST_FOREACH(spec, s, p->specs)
+                                if (s->type == type &&
+                                    path_equal(s->path, unescaped)) {
+
+                                        s->previous_exists = previous_exists;
+                                        break;
+                                }
+                }
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -666,7 +712,7 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         if (!IN_SET(p->state, PATH_WAITING, PATH_RUNNING))
                 return 0;
 
-        /* log_debug("inotify wakeup on %s.", u->id); */
+        /* log_debug("inotify wakeup on %s.", UNIT(p)->id); */
 
         LIST_FOREACH(spec, s, p->specs)
                 if (path_spec_owns_inotify_fd(s, fd))

@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-mount"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -58,13 +55,14 @@
     the service manager job queue, so that it may pull in further dependencies (such as parent mounts, or a file system
     checker to execute a priori), and may make use of the auto-mounting logic.</para>
 
-    <para>The command takes either one or two arguments. If only one argument is specified it should refer to a block
-    device or regular file containing a file system (e.g. <literal>/dev/sdb1</literal> or
-    <literal>/path/to/disk.img</literal>). If it is a block device, which is then probed for a label and other
-    metadata, and is mounted to a directory whose name is generated from the label. In this mode the block device must
-    exist at the time of invocation of the command, so that it may be probed. If the device is found to be a removable
-    block device (e.g. a USB stick) an automount point instead of a regular mount point is created (i.e. the
-    <option>--automount=</option> option is implied, see below).</para>
+    <para>The command takes either one or two arguments. If only one argument is specified it should refer to
+    a block device or regular file containing a file system (e.g. <literal>/dev/sdb1</literal> or
+    <literal>/path/to/disk.img</literal>). The block device or image file is then probed for a file system
+    label and other metadata, and is mounted to a directory below <filename>/run/media/system/</filename>
+    whose name is generated from the file system label. In this mode the block device or image file must
+    exist at the time of invocation of the command, so that it may be probed. If the device is found to be a
+    removable block device (e.g. a USB stick) an automount point instead of a regular mount point is created
+    (i.e. the <option>--automount=</option> option is implied, see below).</para>
 
     <para>If two arguments are specified the first indicates the mount source (the <replaceable>WHAT</replaceable>) and
     the second indicates the path to mount it on (the <replaceable>WHERE</replaceable>). In this mode no probing of the
@@ -213,11 +211,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--bind-device=</option></term>
+        <term><option>--bind-device</option></term>
 
-        <listitem><para>Takes a boolean argument, defaults to off. This option only has an effect in automount mode,
-        and controls whether the automount unit shall be bound to the backing device's lifetime. If enabled, the
-        automount point will be removed automatically when the backing device vanishes. If disabled the automount point
+        <listitem><para>This option only has an effect in automount mode,
+        and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
+        automount point will be removed automatically when the backing device vanishes. By default the automount point
         stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
         in case of non-device mounts, such as network or virtual file system mounts.</para>
 
@@ -301,6 +299,15 @@
         one.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Use a udev rule like the following to automatically mount all USB storage plugged in:</para>
+
+    <programlisting>ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", \
+        RUN{program}+="/usr/bin/systemd-mount --no-block --automount=yes --collect $devnode"</programlisting>
   </refsect1>
 
   <refsect1>

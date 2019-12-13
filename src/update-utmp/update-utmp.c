@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #if HAVE_AUDIT
@@ -16,8 +17,10 @@
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "special.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "unit-name.h"
 #include "util.h"
@@ -185,37 +188,36 @@ static int on_runlevel(Context *c) {
 
         /* Secondly, get new runlevel */
         runlevel = get_current_runlevel(c);
-
         if (runlevel < 0)
                 return runlevel;
+        if (runlevel == 0)
+                return log_warning("Failed to get new runlevel, utmp update skipped.");
 
         if (previous == runlevel)
                 return 0;
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0) {
-                _cleanup_free_ char *s = NULL;
+                char s[STRLEN("old-level=_ new-level=_") + 1];
 
-                if (asprintf(&s, "old-level=%c new-level=%c",
-                             previous > 0 ? previous : 'N',
-                             runlevel > 0 ? runlevel : 'N') < 0)
-                        return log_oom();
+                xsprintf(s, "old-level=%c new-level=%c",
+                         previous > 0 ? previous : 'N',
+                         runlevel);
 
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s, "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
+                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s,
+                                                "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
                         r = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
         q = utmp_put_runlevel(runlevel, previous);
-        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT)) {
-                log_error_errno(q, "Failed to write utmp record: %m");
-                r = q;
-        }
+        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT))
+                return log_error_errno(q, "Failed to write utmp record: %m");
 
         return r;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
                 .audit_fd = -1
@@ -223,47 +225,35 @@ int main(int argc, char *argv[]) {
         };
         int r;
 
-        if (getppid() != 1) {
-                log_error("This program should be invoked by init only.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc != 2) {
-                log_error("This program requires one argument.");
-                return EXIT_FAILURE;
-        }
+        if (getppid() != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program should be invoked by init only.");
+        if (argc != 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires one argument.");
 
         log_setup_service();
 
         umask(0022);
 
 #if HAVE_AUDIT
-        /* If the kernel lacks netlink or audit support,
-         * don't worry about it. */
+        /* If the kernel lacks netlink or audit support, don't worry about it. */
         c.audit_fd = audit_open();
-        if (c.audit_fd < 0 && !IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT))
-                log_error_errno(errno, "Failed to connect to audit log: %m");
+        if (c.audit_fd < 0)
+                log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_ERR,
+                               errno, "Failed to connect to audit log: %m");
 #endif
         r = bus_connect_system_systemd(&c.bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get D-Bus connection: %m");
-                return EXIT_FAILURE;
-        }
-
-        log_debug("systemd-update-utmp running as pid "PID_FMT, getpid_cached());
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         if (streq(argv[1], "reboot"))
-                r = on_reboot(&c);
-        else if (streq(argv[1], "shutdown"))
-                r = on_shutdown(&c);
-        else if (streq(argv[1], "runlevel"))
-                r = on_runlevel(&c);
-        else {
-                log_error("Unknown command %s", argv[1]);
-                return EXIT_FAILURE;
-        }
-
-        log_debug("systemd-update-utmp stopped as pid "PID_FMT, getpid_cached());
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+                return on_reboot(&c);
+        if (streq(argv[1], "shutdown"))
+                return on_shutdown(&c);
+        if (streq(argv[1], "runlevel"))
+                return on_runlevel(&c);
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command %s", argv[1]);
 }
+
+DEFINE_MAIN_FUNCTION(run);

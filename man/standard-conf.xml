@@ -11,18 +11,16 @@
   <refsection id='confd'>
     <title>Configuration Directories and Precedence</title>
 
-    <para>Configuration files are read from directories in
-    <filename>/etc/</filename>, <filename>/run/</filename>, and
-    <filename>/usr/lib/</filename>, in order of precedence.
-    Each configuration file in these configuration directories shall be named in
-    the style of <filename><replaceable>filename</replaceable>.conf</filename>.
-    Files in <filename>/etc/</filename> override files with the same name in
-    <filename>/run/</filename> and <filename>/usr/lib/</filename>. Files in
-    <filename>/run/</filename> override files with the same name in
-    <filename>/usr/lib/</filename>.</para>
+    <para>Configuration files are read from directories in <filename>/etc/</filename>, <filename>/run/</filename>,
+    <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>, in order of precedence.  Each
+    configuration file in these configuration directories shall be named in the style of
+    <filename><replaceable>filename</replaceable>.conf</filename>.  Files in <filename>/etc/</filename> override files
+    with the same name in <filename>/run/</filename>, <filename>/usr/local/lib/</filename>, and
+    <filename>/usr/lib/</filename>. Files in <filename>/run/</filename> override files with the same name under
+    <filename>/usr/</filename>.</para>
 
-    <para>Packages should install their configuration files in
-    <filename>/usr/lib/</filename>. Files in <filename>/etc/</filename> are
+    <para>Packages should install their configuration files in <filename>/usr/lib/</filename> (distribution packages)
+    or <filename>/usr/local/lib/</filename> (local installs). Files in <filename>/etc/</filename> are
     reserved for the local administrator, who may use this logic to override the
     configuration files installed by vendor packages. All configuration files
     are sorted by their filename in lexicographic order, regardless of which of
@@ -52,7 +50,8 @@
 
     <para>When packages need to customize the configuration, they can
     install configuration snippets in
-    <filename>/usr/lib/systemd/*.conf.d/</filename>. Files in
+    <filename>/usr/lib/systemd/*.conf.d/</filename> or
+    <filename>/usr/local/lib/systemd/*.conf.d/</filename>. Files in
     <filename>/etc/</filename> are reserved for the local
     administrator, who may use this logic to override the
     configuration files installed by vendor packages. The main

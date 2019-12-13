@@ -61,3 +61,7 @@
 #ifndef NS_GET_NSTYPE /* d95fa3c76a66b6d76b1e109ea505c55e66360f3c (4.11) */
 #define NS_GET_NSTYPE _IO(0xb7, 0x3)
 #endif
+
+#ifndef FS_PROJINHERIT_FL
+#define FS_PROJINHERIT_FL 0x20000000
+#endif

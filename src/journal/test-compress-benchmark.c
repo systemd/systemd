@@ -4,12 +4,13 @@
 #include "compress.h"
 #include "env-util.h"
 #include "macro.h"
+#include "memory-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
                          size_t dst_alloc_size, size_t *dst_size);

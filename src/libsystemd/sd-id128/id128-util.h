@@ -8,10 +8,9 @@
 #include "hash-funcs.h"
 #include "macro.h"
 
-char *id128_to_uuid_string(sd_id128_t id, char s[37]);
+#define ID128_UUID_STRING_MAX 37
 
-/* Like SD_ID128_FORMAT_STR, but formats as UUID, not in plain format */
-#define ID128_UUID_FORMAT_STR "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]);
 
 bool id128_is_valid(const char *s) _pure_;
 

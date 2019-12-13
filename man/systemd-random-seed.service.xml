@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-random-seed.service" conditional='ENABLE_RANDOMSEED'>
 
   <refentryinfo>
@@ -30,21 +29,63 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-random-seed.service</filename> is a
-    service that restores the random seed of the system at early boot
-    and saves it at shutdown. See
-    <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
-    for details. Saving/restoring the random seed across boots
-    increases the amount of available entropy early at boot. On disk
-    the random seed is stored in
-    <filename>/var/lib/systemd/random-seed</filename>.</para>
+    <para><filename>systemd-random-seed.service</filename> is a service that loads an on-disk random seed
+    into the kernel entropy pool during boot and saves it at shutdown. See
+    <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for
+    details. By default, no entropy is credited when the random seed is written into the kernel entropy pool,
+    but this may be changed with <varname>$SYSTEMD_RANDOM_SEED_CREDIT</varname>, see below.  On disk the random
+    seed is stored in <filename>/var/lib/systemd/random-seed</filename>.</para>
+
+    <para>Note that this service runs relatively late during the early boot phase, i.e. generally after the
+    initial RAM disk (initrd) completed its work, and the <filename>/var/</filename> file system has been
+    mounted writable. Many system services require entropy much earlier than this — this service is hence of
+    limited use for complex system. It is recommended to use a boot loader that can pass an initial random
+    seed to the kernel to ensure that entropy is available from earliest boot on, for example
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with
+    its <command>bootctl random-seed</command> functionality.</para>
+
+    <para>When loading the random seed from disk its file is immediately updated with a new seed retrieved
+    from the kernel, in order to ensure no two boots operate with the same random seed. This new seed is
+    retrieved synchronously from the kernel, which means the service will not complete start-up until the
+    random pool is fully initialized. On entropy-starved systems this may take a while. This functionality is
+    intended to be used as synchronization point for ordering services that require an initialized entropy
+    pool to function securely (i.e. services that access <filename>/dev/urandom</filename> without any
+    further precautions).</para>
+
+    <para>Care should be taken when creating OS images that are replicated to multiple systems: if the random
+    seed file is included unmodified each system will initialize its entropy pool with the same data, and
+    thus — if otherwise entropy-starved — generate the same or at least guessable random seed streams. As a
+    safety precaution crediting entropy is thus disabled by default. It is recommended to remove the random
+    seed from OS images intended for replication on multiple systems, in which case it is safe to enable
+    entropy crediting, see below.</para>
+
+    <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+    information.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_RANDOM_SEED_CREDIT</varname></term>
+        <listitem><para>By default, <filename>systemd-random-seed.service</filename> does not credit any
+        entropy when loading the random seed. With this option this behaviour may be changed: it either takes
+        a boolean parameter or the special string <literal>force</literal>. Defaults to false, in which case
+        no entropy is credited. If true, entropy is credited if the random seed file and system state pass
+        various superficial concisistency checks. If set to <literal>force</literal> entropy is credited,
+        regardless of these checks, as long as the random seed file exists.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>4</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -12,7 +12,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -138,13 +137,12 @@ static void set_scsi_type(char *to, const char *from, size_t len) {
 #define USB_DT_INTERFACE                0x04
 
 static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
-        _cleanup_free_ char *filename = NULL;
         _cleanup_close_ int fd = -1;
         ssize_t size;
         unsigned char buf[18 + 65535];
         size_t pos = 0;
         unsigned strpos = 0;
-        const char *syspath;
+        const char *filename, *syspath;
         int r;
         struct usb_interface_descriptor {
                 uint8_t bLength;
@@ -161,16 +159,17 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
-        if (asprintf(&filename, "%s/descriptors", syspath) < 0)
-                return log_oom();
 
+        filename = strjoina(syspath, "/descriptors");
         fd = open(filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return log_device_debug_errno(dev, errno, "Failed to open USB device 'descriptors' file: %m");
+                return log_device_debug_errno(dev, errno, "Failed to open \"%s\": %m", filename);
 
         size = read(fd, buf, sizeof(buf));
-        if (size < 18 || (size_t) size >= sizeof(buf))
-                return -EIO;
+        if (size < 18)
+                return log_device_warning_errno(dev, SYNTHETIC_ERRNO(EIO),
+                                                "Short read from \"%s\"", filename);
+        assert((size_t) size <= sizeof buf);
 
         ifs_str[0] = '\0';
         while (pos + sizeof(struct usb_interface_descriptor) < (size_t) size &&
@@ -179,9 +178,12 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                 struct usb_interface_descriptor *desc;
                 char if_str[8];
 
-                desc = (struct usb_interface_descriptor *) &buf[pos];
+                desc = (struct usb_interface_descriptor *) (buf + pos);
                 if (desc->bLength < 3)
                         break;
+                if (desc->bLength > size - sizeof(struct usb_interface_descriptor))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EIO),
+                                                      "Corrupt data read from \"%s\"", filename);
                 pos += desc->bLength;
 
                 if (desc->bDescriptorType != USB_DT_INTERFACE)
@@ -193,7 +195,7 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
                              desc->bInterfaceProtocol) != 7)
                         continue;
 
-                if (strstr(ifs_str, if_str) != NULL)
+                if (strstr(ifs_str, if_str))
                         continue;
 
                 memcpy(&ifs_str[strpos], if_str, 8),
@@ -452,7 +454,7 @@ fallback:
         return 0;
 }
 
-const struct udev_builtin udev_builtin_usb_id = {
+const UdevBuiltin udev_builtin_usb_id = {
         .name = "usb_id",
         .cmd = builtin_usb_id,
         .help = "USB device properties",

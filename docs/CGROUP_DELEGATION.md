@@ -1,5 +1,7 @@
 ---
 title: Control Group APIs and Delegation
+category: Interfaces
+layout: default
 ---
 
 # Control Group APIs and Delegation
@@ -230,7 +232,7 @@ guarantees:
 In unit files the `Delegate=` property is superficially exposed as
 boolean. However, since v236 it optionally takes a list of controller names
 instead. If so, delegation is requested for listed controllers
-specifically. Note hat this only encodes a request. Depending on various
+specifically. Note that this only encodes a request. Depending on various
 parameters it might happen that your service actually will get fewer
 controllers delegated (for example, because the controller is not available on
 the current kernel or was turned off) or more.  If no list is specified

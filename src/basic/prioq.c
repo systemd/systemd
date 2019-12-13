@@ -259,15 +259,14 @@ int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         return 1;
 }
 
-void *prioq_peek(Prioq *q) {
-
+void *prioq_peek_by_index(Prioq *q, unsigned idx) {
         if (!q)
                 return NULL;
 
-        if (q->n_items <= 0)
+        if (idx >= q->n_items)
                 return NULL;
 
-        return q->items[0].data;
+        return q->items[idx].data;
 }
 
 void *prioq_pop(Prioq *q) {

@@ -1,0 +1,6 @@
+[NetDev]
+Kind=xfrm
+Name=xfrm99
+
+[Xfrm]
+Independent=yes

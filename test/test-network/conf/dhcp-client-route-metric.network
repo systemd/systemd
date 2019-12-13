@@ -5,6 +5,6 @@ Name=veth99
 DHCP=ipv4
 IPv6AcceptRA=false
 
-[DHCP]
+[DHCPv4]
 UseRoutes=true
 RouteMetric=24

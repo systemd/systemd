@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <sys/stat.h>
-#include <sys/statfs.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
@@ -9,7 +8,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing.h"
+#include "missing_magic.h"
 #include "parse-util.h"
 #include "stat-util.h"
 
@@ -21,6 +20,9 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
 
         assert(ret);
 
+        if (major(d) == 0)
+                return -ENODEV;
+
         /* If it has a queue this is good enough for us */
         xsprintf_sys_block_path(p, "/queue", d);
         if (access(p, F_OK) >= 0) {
@@ -31,7 +33,7 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         /* If it is a partition find the originating device */
         xsprintf_sys_block_path(p, "/partition", d);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
         /* Get parent dev_t */
         xsprintf_sys_block_path(p, "/../dev", d);
@@ -46,10 +48,10 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         /* Only return this if it is really good enough for us. */
         xsprintf_sys_block_path(p, "/queue", devt);
         if (access(p, F_OK) < 0)
-                return -ENOENT;
+                return -errno;
 
         *ret = devt;
-        return 0;
+        return 1;
 }
 
 int get_block_device(const char *path, dev_t *dev) {
@@ -59,7 +61,7 @@ int get_block_device(const char *path, dev_t *dev) {
         assert(path);
         assert(dev);
 
-        /* Get's the block device directly backing a file system. If
+        /* Gets the block device directly backing a file system. If
          * the block device is encrypted, returns the device mapper
          * block device. */
 
@@ -115,11 +117,11 @@ int block_get_originating(dev_t dt, dev_t *ret) {
                          * setups, however, only if both partitions are on the same physical device. Hence, let's
                          * verify this. */
 
-                        u = strjoin(p, "/", de->d_name, "/../dev");
+                        u = path_join(p, de->d_name, "../dev");
                         if (!u)
                                 return -ENOMEM;
 
-                        v = strjoin(p, "/", found->d_name, "/../dev");
+                        v = path_join(p, found->d_name, "../dev");
                         if (!v)
                                 return -ENOMEM;
 

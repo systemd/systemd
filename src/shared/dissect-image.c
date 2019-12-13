@@ -1,5 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#if HAVE_VALGRIND_MEMCHECK_H
+#include <valgrind/memcheck.h>
+#endif
+
+#include <linux/dm-ioctl.h>
+#include <linux/loop.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -17,6 +23,7 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "dissect-image.h"
+#include "dm-util.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -25,10 +32,9 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
-#include "linux-3.13/dm-ioctl.h"
-#include "missing.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -46,7 +52,7 @@
 
 int probe_filesystem(const char *node, char **ret_fstype) {
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
-         * 0/NULL will be returned. -EUCLEAN will be returned for ambigous results, and an
+         * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
          * different error otherwise. */
 
 #if HAVE_BLKID
@@ -57,7 +63,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
         errno = 0;
         b = blkid_new_probe_from_filename(node);
         if (!b)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         blkid_probe_enable_superblocks(b, 1);
         blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
@@ -73,7 +79,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
                 return -EUCLEAN;
         }
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
 
@@ -179,7 +185,7 @@ static int wait_for_partitions_to_appear(
                         continue;
 
                 if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                        r = device_wait_for_initialization(q, "block", NULL);
+                        r = device_wait_for_initialization(q, "block", USEC_INFINITY, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -213,9 +219,15 @@ static int wait_for_partitions_to_appear(
                          * an explicit recognizable error about this, so that callers can generate a
                          * proper message explaining the situation. */
 
-                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0 && (info.lo_flags & LO_FLAGS_PARTSCAN) == 0) {
-                                log_debug("Device is a loop device and partition scanning is off!");
-                                return -EPROTONOSUPPORT;
+                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+#if HAVE_VALGRIND_MEMCHECK_H
+                                /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
+                                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+#endif
+
+                                if ((info.lo_flags & LO_FLAGS_PARTSCAN) == 0)
+                                        return log_debug_errno(EPROTONOSUPPORT,
+                                                               "Device is a loop device and partition scanning is off!");
                         }
                 }
                 if (r != -EBUSY)
@@ -249,7 +261,7 @@ static int loop_wait_for_partitions_to_appear(
         log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
 
         if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                r = device_wait_for_initialization(d, "block", &device);
+                r = device_wait_for_initialization(d, "block", USEC_INFINITY, &device);
                 if (r < 0)
                         return r;
         } else
@@ -330,7 +342,7 @@ int dissect_image(
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
@@ -343,12 +355,10 @@ int dissect_image(
 
         errno = 0;
         r = blkid_do_safeprobe(b);
-        if (IN_SET(r, -2, 1)) {
-                log_debug("Failed to identify any partition table.");
-                return -ENOPKG;
-        }
+        if (IN_SET(r, -2, 1))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to identify any partition table.");
         if (r != 0)
-                return -errno ?: -EIO;
+                return errno_or_else(EIO);
 
         m = new0(DissectedImage, 1);
         if (!m)
@@ -414,7 +424,7 @@ int dissect_image(
         errno = 0;
         pl = blkid_probe_get_partitions(b);
         if (!pl)
-                return -errno ?: -ENOMEM;
+                return errno_or_else(ENOMEM);
 
         r = loop_wait_for_partitions_to_appear(fd, d, blkid_partlist_numof_partitions(pl), flags, &e);
         if (r < 0)
@@ -497,6 +507,14 @@ int dissect_image(
 
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
+
+                        } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                designator = PARTITION_XBOOTLDR;
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
@@ -612,21 +630,53 @@ int dissect_image(
 
                 } else if (is_mbr) {
 
-                        if (pflags != 0x80) /* Bootable flag */
-                                continue;
+                        switch (blkid_partition_get_type(pp)) {
 
-                        if (blkid_partition_get_type(pp) != 0x83) /* Linux partition */
-                                continue;
+                        case 0x83: /* Linux partition */
 
-                        if (generic_node)
-                                multiple_generic = true;
-                        else {
-                                generic_nr = nr;
-                                generic_rw = true;
-                                generic_node = strdup(node);
-                                if (!generic_node)
+                                if (pflags != 0x80) /* Bootable flag */
+                                        continue;
+
+                                if (generic_node)
+                                        multiple_generic = true;
+                                else {
+                                        generic_nr = nr;
+                                        generic_rw = true;
+                                        generic_node = strdup(node);
+                                        if (!generic_node)
+                                                return -ENOMEM;
+                                }
+
+                                break;
+
+                        case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
+                                _cleanup_free_ char *n = NULL;
+                                sd_id128_t id = SD_ID128_NULL;
+                                const char *sid;
+
+                                /* First one wins */
+                                if (m->partitions[PARTITION_XBOOTLDR].found)
+                                        continue;
+
+                                sid = blkid_partition_get_uuid(pp);
+                                if (sid)
+                                        (void) sd_id128_from_string(sid, &id);
+
+                                n = strdup(node);
+                                if (!n)
                                         return -ENOMEM;
-                        }
+
+                                m->partitions[PARTITION_XBOOTLDR] = (DissectedPartition) {
+                                        .found = true,
+                                        .partno = nr,
+                                        .rw = true,
+                                        .architecture = _ARCHITECTURE_INVALID,
+                                        .node = TAKE_PTR(n),
+                                        .uuid = id,
+                                };
+
+                                break;
+                        }}
                 }
         }
 
@@ -792,7 +842,7 @@ static int mount_partition(
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
         if (directory) {
-                r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased);
+                r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
                         return r;
 
@@ -819,11 +869,15 @@ static int mount_partition(
                         return -ENOMEM;
         }
 
-        return mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
-        int r;
+        int r, boot_mounted;
 
         assert(m);
         assert(where);
@@ -856,21 +910,26 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         if (r < 0)
                 return r;
 
+        boot_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, flags);
+        if (boot_mounted < 0)
+                return boot_mounted;
+
         if (m->partitions[PARTITION_ESP].found) {
-                const char *mp;
+                /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
+                 * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
 
-                /* Mount the ESP to /efi if it exists and is empty. If it doesn't exist, use /boot instead. */
+                r = chase_symlinks("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r >= 0) {
+                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, flags);
+                        if (r < 0)
+                                return r;
 
-                FOREACH_STRING(mp, "/efi", "/boot") {
+                } else if (boot_mounted <= 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = chase_symlinks(mp, where, CHASE_PREFIX_ROOT, &p);
-                        if (r < 0)
-                                continue;
-
-                        r = dir_is_empty(p);
-                        if (r > 0) {
-                                r = mount_partition(m->partitions + PARTITION_ESP, where, mp, uid_shift, flags);
+                        r = chase_symlinks("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
+                        if (r >= 0 && dir_is_empty(p) > 0) {
+                                r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, flags);
                                 if (r < 0)
                                         return r;
                         }
@@ -945,7 +1004,7 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        node = strjoin(crypt_get_dir(), "/", name);
+        node = path_join(crypt_get_dir(), name);
         if (!node)
                 return -ENOMEM;
 
@@ -1176,38 +1235,6 @@ int dissected_image_decrypt_interactively(
         }
 }
 
-#if HAVE_LIBCRYPTSETUP
-static int deferred_remove(DecryptedPartition *p) {
-
-        struct dm_ioctl dm = {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
-                .data_size = sizeof(dm),
-                .flags = DM_DEFERRED_REMOVE,
-        };
-
-        _cleanup_close_ int fd = -1;
-
-        assert(p);
-
-        /* Unfortunately, libcryptsetup doesn't provide a proper API for this, hence call the ioctl() directly. */
-
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        strncpy(dm.name, p->name, sizeof(dm.name));
-
-        if (ioctl(fd, DM_DEV_REMOVE, &dm))
-                return -errno;
-
-        return 0;
-}
-#endif
-
 int decrypted_image_relinquish(DecryptedImage *d) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -1227,7 +1254,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = deferred_remove(p);
+                r = dm_deferred_remove(p->name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 
@@ -1497,6 +1524,7 @@ static const char *const partition_designator_table[] = {
         [PARTITION_HOME] = "home",
         [PARTITION_SRV] = "srv",
         [PARTITION_ESP] = "esp",
+        [PARTITION_XBOOTLDR] = "xbootldr",
         [PARTITION_SWAP] = "swap",
         [PARTITION_ROOT_VERITY] = "root-verity",
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",

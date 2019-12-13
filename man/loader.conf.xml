@@ -1,7 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="loader.conf" conditional='ENABLE_EFI'
@@ -153,6 +152,25 @@
 
         <listitem><para>Takes a boolean argument. Enable (the default) or disable
         the "Reboot into firmware" entry.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>random-seed-mode</term>
+
+        <listitem><para>Takes one of <literal>off</literal>, <literal>with-system-token</literal> and
+        <literal>always</literal>. If <literal>off</literal> no random seed data is read off the ESP, nor
+        passed to the OS. If <literal>with-system-token</literal> (the default)
+        <command>systemd-boot</command> will read a random seed from the ESP (from the file
+        <filename>/loader/random-seed</filename>) only if the <varname>LoaderSystemToken</varname> EFI
+        variable is set, and then derive the random seed to pass to the OS from the combination. If
+        <literal>always</literal> the boot loader will do so even if <varname>LoaderSystemToken</varname> is
+        not set. This mode is useful in environments where protection against OS image reuse is not a
+        concern, and the random seed shall be used even with no further setup in place. User <command>bootctl
+        random-seed</command> to initialize both the random seed file in the ESP and the system token EFI
+        variable.</para>
+
+        <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
+        information.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

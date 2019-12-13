@@ -16,6 +16,7 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static const char *arg_identifier = NULL;
@@ -31,8 +32,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Execute process with stdout/stderr connected to the journal.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sExecute process with stdout/stderr connected to the journal.%s\n\n"
                "  -h --help                      Show this help\n"
                "     --version                   Show package version\n"
                "  -t --identifier=STRING         Set syslog identifier\n"
@@ -41,6 +42,7 @@ static int help(void) {
                "     --level-prefix=BOOL         Control whether level prefix shall be parsed\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -127,6 +129,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int outfd = -1, errfd = -1, saved_stderr = -1;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -146,7 +149,7 @@ static int run(int argc, char *argv[]) {
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        r = rearrange_stdio(STDIN_FILENO, outfd, errfd < 0 ? outfd : errfd); /* Invalidates fd on succcess + error! */
+        r = rearrange_stdio(STDIN_FILENO, outfd, errfd < 0 ? outfd : errfd); /* Invalidates fd on success + error! */
         TAKE_FD(outfd);
         TAKE_FD(errfd);
         if (r < 0)

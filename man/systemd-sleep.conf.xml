@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-sleep.conf"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -112,7 +109,7 @@
     <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file:</para>
 
-    <variablelist class='systemd-directives'>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>AllowSuspend=</varname></term>
         <term><varname>AllowHibernation=</varname></term>
@@ -171,11 +168,10 @@
       <varlistentry>
         <term><varname>HibernateDelaySec=</varname></term>
 
-        <listitem><para>The amount of time in seconds
-        that will pass before the system is automatically
-        put into hibernate when using
-        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        <listitem><para>The amount of time the system spends in suspend mode before the system is
+        automatically put into hibernate mode, when using
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Defaults
+        to 2h.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

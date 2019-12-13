@@ -1,105 +1,105 @@
-#compdef machinectl
+#compdef machinectl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[__machinectl_get_machines] )) ||
-__machinectl_get_machines () {
-    machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
-}
+    __machinectl_get_machines () {
+        machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
+    }
 
 (( $+functions[_machinectl_machines] )) ||
-_machinectl_machines() {
-    local -a _machines
-    _machines=("${(fo)$(__machinectl_get_machines)}")
-    typeset -U _machines
-    if [[ -n "$_machines" ]]; then
-        _describe 'machines' _machines
-    else
-        _message 'no machines'
-    fi
-}
+    _machinectl_machines() {
+        local -a _machines
+        _machines=("${(fo)$(__machinectl_get_machines)}")
+        typeset -U _machines
+        if [[ -n "$_machines" ]]; then
+            _describe 'machines' _machines
+        else
+            _message 'no machines'
+        fi
+    }
 
 (( $+functions[_machinectl_commands] )) || _machinectl_commands()
 {
-  local -a _machinectl_cmds
-  _machinectl_cmds=(
-    "list:List currently running VMs/containers"
-    "status:Show VM/container status"
-    "show:Show properties of one or more VMs/containers"
-    "start:Start container as a service"
-    "stop:Stop container (equal to poweroff)"
-    "login:Get a login prompt on a VM/container"
-    "enable:Enable automatic container start at boot"
-    "disable:Disable automatic container start at boot"
-    "poweroff:Power off one or more VMs/containers"
-    "reboot:Reboot one or more VMs/containers"
-    "terminate:Terminate one or more VMs/containers"
-    "kill:Send signal to process or a VM/container"
-    "copy-to:Copy files from the host to a container"
-    "copy-from:Copy files from a container to the host"
-    "bind:Bind mount a path from the host into a container"
+    local -a _machinectl_cmds
+    _machinectl_cmds=(
+        "list:List currently running VMs/containers"
+        "status:Show VM/container status"
+        "show:Show properties of one or more VMs/containers"
+        "start:Start container as a service"
+        "stop:Stop container (equal to poweroff)"
+        "login:Get a login prompt on a VM/container"
+        "enable:Enable automatic container start at boot"
+        "disable:Disable automatic container start at boot"
+        "poweroff:Power off one or more VMs/containers"
+        "reboot:Reboot one or more VMs/containers"
+        "terminate:Terminate one or more VMs/containers"
+        "kill:Send signal to process or a VM/container"
+        "copy-to:Copy files from the host to a container"
+        "copy-from:Copy files from a container to the host"
+        "bind:Bind mount a path from the host into a container"
 
-    "list-images:Show available container and VM images"
-    "image-status:Show image details"
-    "show-image:Show properties of image"
-    "clone:Clone an image"
-    "rename:Rename an image"
-    "read-only:Mark or unmark image read-only"
-    "remove:Remove an image"
+        "list-images:Show available container and VM images"
+        "image-status:Show image details"
+        "show-image:Show properties of image"
+        "clone:Clone an image"
+        "rename:Rename an image"
+        "read-only:Mark or unmark image read-only"
+        "remove:Remove an image"
 
-    "pull-tar:Download a TAR container image"
-    "pull-raw:Download a RAW container or VM image"
-    "list-transfers:Show list of downloads in progress"
-    "cancel-transfer:Cancel a download"
-  )
+        "pull-tar:Download a TAR container image"
+        "pull-raw:Download a RAW container or VM image"
+        "list-transfers:Show list of downloads in progress"
+        "cancel-transfer:Cancel a download"
+    )
 
-  if (( CURRENT == 1 )); then
-    _describe -t commands 'machinectl command' _machinectl_cmds || compadd "$@"
-  else
-    local curcontext="$curcontext"
-    cmd="${${_machinectl_cmds[(r)$words[1]:*]%%:*}}"
-    if (( $#cmd )); then
-      if (( CURRENT == 2 )); then
-        case $cmd in
-          list*|cancel-transfer|pull-tar|pull-raw)
-            msg="no options" ;;
-          clone)
-            _machinectl_machines ;;
-          start)
-            _machinectl_machines ;;
-          *)
-            _sd_machines
-        esac
-      else
-        case $cmd in
-          copy-to|copy-from|bind)
-            _files ;;
-          *) msg="no options"
-        esac
-      fi
+    if (( CURRENT == 1 )); then
+        _describe -t commands 'machinectl command' _machinectl_cmds || compadd "$@"
     else
-      _message "no more options"
+        local curcontext="$curcontext"
+        cmd="${${_machinectl_cmds[(r)$words[1]:*]%%:*}}"
+        if (( $#cmd )); then
+            if (( CURRENT == 2 )); then
+                case $cmd in
+                    list*|cancel-transfer|pull-tar|pull-raw)
+                        msg="no options" ;;
+                    clone)
+                        _machinectl_machines ;;
+                    start)
+                        _machinectl_machines ;;
+                    *)
+                        _sd_machines
+                esac
+            else
+                case $cmd in
+                    copy-to|copy-from|bind)
+                        _files ;;
+                    *) msg="no options"
+                esac
+            fi
+        else
+            _message "no more options"
+        fi
     fi
-  fi
 }
 
 _arguments \
-  {-h,--help}'[Prints a short help text and exits.]' \
-  '--version[Prints a short version string and exits.]' \
-  '--no-pager[Do not pipe output into a pager.]' \
-  '--no-legend[Do not show the headers and footers.]' \
-  '--no-ask-password[Do not ask for system passwords.]' \
-  {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
-  {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
-  {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
-  {-a,--all}'[Show all properties.]' \
-  {-q,--quiet}'[Suppress output.]' \
-  {-l,--full}'[Do not ellipsize cgroup members.]' \
-  '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
-  {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
-  '--read-only[Create read-only bind mount.]' \
-  '--mkdir[Create directory before bind mounting, if missing.]' \
-  {-n+,--lines=}'[Number of journal entries to show.]:integer' \
-  {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
-  '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
-  '--force[Download image even if already exists.]' \
-  '*::machinectl command:_machinectl_commands'
+    {-h,--help}'[Prints a short help text and exits.]' \
+    '--version[Prints a short version string and exits.]' \
+    '--no-pager[Do not pipe output into a pager.]' \
+    '--no-legend[Do not show the headers and footers.]' \
+    '--no-ask-password[Do not ask for system passwords.]' \
+    {-H+,--host=}'[Operate on remote host.]:userathost:_sd_hosts_or_user_at_host' \
+    {-M+,--machine=}'[Operate on local container.]:machine:_sd_machines' \
+    {-p+,--property=}'[Limit output to specified property.]:property:(Name Id Timestamp TimestampMonotonic Service Scope Leader Class State RootDirectory)' \
+    {-a,--all}'[Show all properties.]' \
+    {-q,--quiet}'[Suppress output.]' \
+    {-l,--full}'[Do not ellipsize cgroup members.]' \
+    '--kill-who=[Who to send signal to.]:killwho:(leader all)' \
+    {-s+,--signal=}'[Which signal to send.]:signal:_signals' \
+    '--read-only[Create read-only bind mount.]' \
+    '--mkdir[Create directory before bind mounting, if missing.]' \
+    {-n+,--lines=}'[Number of journal entries to show.]:integer' \
+    {-o+,--output=}'[Change journal output mode.]:output modes:_sd_outputmodes' \
+    '--verify=[Verification mode for downloaded images.]:verify:(no checksum signature)' \
+    '--force[Download image even if already exists.]' \
+    '*::machinectl command:_machinectl_commands'

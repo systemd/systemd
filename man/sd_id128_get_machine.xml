@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_id128_get_machine" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -118,12 +115,53 @@
     <title>Return Value</title>
 
     <para>Those calls return 0 on success (in which case <parameter>ret</parameter> is filled in),
-    or a negative errno-style error code. In particular,
-    <function>sd_id128_get_machine()</function>,
-    <function>sd_id128_get_machine_app_specific()</function>, and
-    <function>sd_id128_get_boot_app_specific()</function> return <constant>-ENOENT</constant> if
-    <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if
-    <filename>/etc/machine-id</filename> is empty or all zeros.</para>
+    or a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOENT</constant></term>
+
+          <listitem><para>Returned by <function>sd_id128_get_machine()</function>,
+          <function>sd_id128_get_machine_app_specific()</function>, and
+          <function>sd_id128_get_boot_app_specific()</function> when <filename>/etc/machine-id</filename> is
+          missing.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEDIUM</constant></term>
+
+          <listitem><para>Returned by <function>sd_id128_get_machine()</function>,
+          <function>sd_id128_get_machine_app_specific()</function>, and
+          <function>sd_id128_get_boot_app_specific()</function> when <filename>/etc/machine-id</filename> is
+          empty or all zeros.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>Returned by <function>sd_id128_get_invocation()</function> if no invocation ID is
+          set.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EIO</constant></term>
+
+          <listitem><para>Returned by any of the functions described here when the configured value has
+          invalid format.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>Requested information could not be retrieved because of insufficient permissions.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

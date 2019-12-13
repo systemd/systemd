@@ -10,6 +10,7 @@ FwMark=1234
 [WireGuardPeer]
 PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
 AllowedIPs=fd31:bf08:57cb::/48,192.168.26.0/24
-Endpoint=wireguard.example.com:51820
+#Endpoint=wireguard.example.com:51820
+Endpoint=192.168.27.3:51820
 PresharedKey=IIWIV17wutHv7t4cR6pOT91z6NSz/T8Arh0yaywhw3M=
 PersistentKeepalive=20

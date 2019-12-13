@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/veth.h>
-#include <net/if.h>
 #include <sys/file.h>
 
 #include "sd-device.h"
@@ -14,11 +13,13 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
+#include "parse-util.h"
 #include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-util.h"
 #include "util.h"
 
 #define HOST_HASH_KEY SD_ID128_MAKE(1a,37,6f,c7,46,ec,45,0b,ad,a3,d5,31,06,60,5d,b1)
@@ -67,7 +68,7 @@ static int generate_mac(
         if (idx > 0)
                 sz += sizeof(idx);
 
-        v = alloca(sz);
+        v = newa(uint8_t, sz);
 
         /* fetch some persistent data unique to the host */
         r = sd_id128_get_machine((sd_id128_t*) v);
@@ -202,9 +203,9 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return r;
 
-        i = (int) if_nametoindex(iface_name);
-        if (i <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", iface_name);
+        r = parse_ifindex_or_ifname(iface_name, &i);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface %s: %m", iface_name);
 
         return i;
 }
@@ -258,9 +259,9 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        bridge_ifi = (int) if_nametoindex(bridge_name);
-        if (bridge_ifi <= 0)
-                return -errno;
+        r = parse_ifindex_or_ifname(bridge_name, &bridge_ifi);
+        if (r < 0)
+                return r;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0)
@@ -395,24 +396,33 @@ int remove_bridge(const char *bridge_name) {
 
 static int parse_interface(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        char ifi_str[2 + DECIMAL_STR_MAX(int)];
         int ifi, r;
 
-        ifi = (int) if_nametoindex(name);
-        if (ifi <= 0)
-                return log_error_errno(errno, "Failed to resolve interface %s: %m", name);
-
-        sprintf(ifi_str, "n%i", ifi);
-        r = sd_device_new_from_device_id(&d, ifi_str);
+        r = parse_ifindex_or_ifname(name, &ifi);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device for interface %s: %m", name);
+                return log_error_errno(r, "Failed to resolve interface %s: %m", name);
 
-        r = sd_device_get_is_initialized(d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether interface %s is initialized or not: %m", name);
-        if (r == 0) {
-                log_error("Network interface %s is not initialized yet.", name);
-                return -EBUSY;
+        if (path_is_read_only_fs("/sys") <= 0) {
+                char ifi_str[2 + DECIMAL_STR_MAX(int)];
+
+                /* udev should be around. */
+
+                sprintf(ifi_str, "n%i", ifi);
+                r = sd_device_new_from_device_id(&d, ifi_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get device %s: %m", name);
+
+                r = sd_device_get_is_initialized(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether interface %s is initialized: %m", name);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Network interface %s is not initialized yet.", name);
+
+                r = device_is_renaming(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine the interface %s is being renamed: %m", name);
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Interface %s is being renamed.", name);
         }
 
         return ifi;
@@ -489,7 +499,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("mv-", *i);
+                n = strjoin("mv-", *i);
                 if (!n)
                         return log_oom();
 
@@ -564,7 +574,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface index: %m");
 
-                n = strappend("iv-", *i);
+                n = strjoin("iv-", *i);
                 if (!n)
                         return log_oom();
 

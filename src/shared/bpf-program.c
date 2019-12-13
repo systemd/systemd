@@ -9,9 +9,9 @@
 #include "bpf-program.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing.h"
+#include "memory-util.h"
+#include "missing_syscall.h"
 #include "path-util.h"
-#include "util.h"
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
@@ -88,6 +88,25 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
         };
 
         p->kernel_fd = bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+        if (p->kernel_fd < 0)
+                return -errno;
+
+        return 0;
+}
+
+int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
+        union bpf_attr attr;
+
+        assert(p);
+
+        if (p->kernel_fd >= 0) /* don't overwrite an assembled or loaded program */
+                return -EBUSY;
+
+        attr = (union bpf_attr) {
+                .pathname = PTR_TO_UINT64(path),
+        };
+
+        p->kernel_fd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
                 return -errno;
 

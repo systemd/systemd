@@ -1,0 +1,22 @@
+[Match]
+Name=test1
+
+[RoutingPolicyRule]
+TypeOfService=0x08
+Table=7
+From= 192.168.100.18
+Priority=111
+IncomingInterface=test1
+OutgoingInterface=test1
+
+[RoutingPolicyRule]
+IncomingInterface=test1
+Table=8
+Priority=100
+Family=ipv6
+
+[RoutingPolicyRule]
+IncomingInterface=test1
+Table=9
+Priority=101
+Family=both

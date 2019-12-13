@@ -1,0 +1,8 @@
+[NetDev]
+Name=ip6tnl97
+Kind=ip6tnl
+
+[Tunnel]
+Mode=ip6ip6
+Local=2a00:ffde:4567:edde::4987
+Remote=any

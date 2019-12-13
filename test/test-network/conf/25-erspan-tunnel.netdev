@@ -1,9 +1,8 @@
 [NetDev]
-Name=erspan-test
+Name=erspan99
 Kind=erspan
 
 [Tunnel]
-Independent=true
 ERSPANIndex=123
 Local = 172.16.1.200
 Remote = 172.16.1.100

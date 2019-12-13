@@ -1,9 +1,11 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-debug-generator">
 
   <refentryinfo>
@@ -57,9 +59,10 @@
     <option>rd.systemd.debug_shell</option> option is
     specified, the debug shell service
     <literal>debug-shell.service</literal> is pulled into the boot
-    transaction. It will spawn a debug shell on tty9 during early
-    system startup. Note that the shell may also be turned on
-    persistently by enabling it with
+    transaction and a debug shell will be spawned during early boot.
+    By default, <filename>&DEBUGTTY;</filename> is used, but a specific tty can also be set,
+    either with or without the <filename>/dev/</filename> prefix.
+    Note that the shell may also be turned on persistently by enabling it with
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>enable</command> command.
     <option>rd.systemd.debug_shell=</option> is honored only by initial

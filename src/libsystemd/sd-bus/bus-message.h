@@ -48,7 +48,16 @@ struct bus_body_part {
 };
 
 struct sd_bus_message {
-        unsigned n_ref;
+        /* Caveat: a message can be referenced in two different ways: the main (user-facing) way will also
+         * pin the bus connection object the message is associated with. The secondary way ("queued") is used
+         * when a message is in the read or write queues of the bus connection object, which will not pin the
+         * bus connection object. This is necessary so that we don't have to have a pair of cyclic references
+         * between a message that is queued and its connection: as soon as a message is only referenced by
+         * the connection (by means of being queued) and the connection itself has no other references it
+         * will be freed. */
+
+        unsigned n_ref;     /* Counter of references that pin the connection */
+        unsigned n_queued;  /* Counter of references that do not pin the connection */
 
         sd_bus *bus;
 
@@ -76,6 +85,7 @@ struct sd_bus_message {
         bool free_header:1;
         bool free_fds:1;
         bool poisoned:1;
+        bool sensitive:1;
 
         /* The first and last bytes of the message */
         struct bus_header *header;
@@ -119,6 +129,8 @@ struct sd_bus_message {
 
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
         unsigned n_header_offsets;
+
+        uint64_t read_counter;
 };
 
 static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {
@@ -211,3 +223,6 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m);
 
 void bus_message_set_sender_driver(sd_bus *bus, sd_bus_message *m);
 void bus_message_set_sender_local(sd_bus *bus, sd_bus_message *m);
+
+sd_bus_message* bus_message_ref_queued(sd_bus_message *m, sd_bus *bus);
+sd_bus_message* bus_message_unref_queued(sd_bus_message *m, sd_bus *bus);

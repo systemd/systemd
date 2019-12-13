@@ -38,6 +38,10 @@
 #  define DEFAULT_PATH_NULSTR DEFAULT_PATH_NORMAL_NULSTR
 #endif
 
+#ifndef DEFAULT_USER_PATH
+#  define DEFAULT_USER_PATH DEFAULT_PATH
+#endif
+
 bool is_path(const char *p) _pure_;
 int path_split_and_make_absolute(const char *p, char ***ret);
 bool path_is_absolute(const char *p) _pure_;
@@ -53,6 +57,14 @@ char* path_join_internal(const char *first, ...);
 #define path_join(x, ...) path_join_internal(x, __VA_ARGS__, (const char*) -1)
 
 char* path_simplify(char *path, bool kill_dots);
+
+enum {
+        PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
+        PATH_CHECK_ABSOLUTE = 1 << 1,
+        PATH_CHECK_RELATIVE = 1 << 2,
+};
+
+int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue);
 
 static inline bool path_equal_ptr(const char *a, const char *b) {
         return !!a == !!b && (!a || path_equal(a, b));
@@ -71,17 +83,8 @@ static inline bool path_equal_ptr(const char *a, const char *b) {
                 _found;                                         \
         })
 
-#define PATH_STARTSWITH_SET(p, ...)                             \
-        ({                                                      \
-                const char *_p = (p);                           \
-                char *_found = NULL, **_i;                      \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
-                        _found = path_startswith(_p, *_i);      \
-                        if (_found)                             \
-                                break;                          \
-                }                                               \
-                _found;                                         \
-        })
+char* path_startswith_strv(const char *p, char **set);
+#define PATH_STARTSWITH_SET(p, ...) path_startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
 int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *root);
@@ -116,10 +119,8 @@ int mkfs_exists(const char *fstype);
              _slash && ((*_slash = 0), true);                           \
              _slash = strrchr((prefix), '/'))
 
-char *prefix_root(const char *root, const char *path);
-
-/* Similar to prefix_root(), but returns an alloca() buffer, or
- * possibly a const pointer into the path parameter */
+/* Similar to path_join(), but only works for two components, and only the first one may be NULL and returns
+ * an alloca() buffer, or possibly a const pointer into the path parameter. */
 #define prefix_roota(root, path)                                        \
         ({                                                              \
                 const char* _path = (path), *_root = (root), *_ret;     \
@@ -127,11 +128,11 @@ char *prefix_root(const char *root, const char *path);
                 size_t _l;                                              \
                 while (_path[0] == '/' && _path[1] == '/')              \
                         _path ++;                                       \
-                if (empty_or_root(_root))                               \
+                if (isempty(_root))                                     \
                         _ret = _path;                                   \
                 else {                                                  \
                         _l = strlen(_root) + 1 + strlen(_path) + 1;     \
-                        _n = alloca(_l);                                \
+                        _n = newa(char, _l);                            \
                         _p = stpcpy(_n, _root);                         \
                         while (_p > _n && _p[-1] == '/')                \
                                 _p--;                                   \
@@ -180,11 +181,3 @@ bool empty_or_root(const char *root);
 static inline const char *empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
-
-enum {
-        PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
-        PATH_CHECK_ABSOLUTE = 1 << 1,
-        PATH_CHECK_RELATIVE = 1 << 2,
-};
-
-int path_simplify_and_warn(char *path, unsigned flag, const char *unit, const char *filename, unsigned line, const char *lvalue);

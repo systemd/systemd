@@ -1,6 +1,4 @@
 #!/bin/bash
-# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
-# ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="/etc/machine-id testing"
 TEST_NO_NSPAWN=1
@@ -8,9 +6,7 @@ TEST_NO_NSPAWN=1
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
-    create_empty_image
-    mkdir -p $TESTDIR/root
-    mount ${LOOPDEV}p1 $TESTDIR/root
+    create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
@@ -18,6 +14,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
+        mask_supporting_services
         printf "556f48e837bc4424a710fa2e2c9d3e3c\ne3d\n" >$initdir/etc/machine-id
         dracut_install mount cmp
 
@@ -75,17 +72,7 @@ EOF
 chmod +x $initdir/test-machine-id-setup.sh
 
         setup_testsuite
-    ) || return 1
-
-    # mask some services that we do not want to run in these tests
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-journal-catalog-update.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.service
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-networkd.socket
-    ln -s /dev/null $initdir/etc/systemd/system/systemd-resolved.service
-
-    ddebug "umount $TESTDIR/root"
-    umount $TESTDIR/root
+    )
 }
 
 do_test "$@"

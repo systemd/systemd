@@ -359,6 +359,14 @@ Support: %SUPPORT_URL%
 
 The unit @UNIT@ has successfully entered the 'dead' state.
 
+-- 0e4284a0caca4bfc81c0bb6786972673
+Subject: Unit skipped
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The unit @UNIT@ was skipped due to an ExecCondition= command failure, and has
+entered the 'dead' state with result '@UNIT_RESULT@'.
+
 -- d9b373ed55a64feb8242e02dbe79a49c
 Subject: Unit failed
 Defined-By: systemd
@@ -384,10 +392,23 @@ The following "tags" are possible:
 - "split-usr" — /usr is a separate file system and was not mounted when systemd
   was booted
 - "cgroups-missing" — the kernel was compiled without cgroup support or access
-  to expected interface files is resticted
+  to expected interface files is restricted
 - "var-run-bad" — /var/run is not a symlink to /run
 - "overflowuid-not-65534" — the kernel user ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 - "overflowgid-not-65534" — the kernel group ID used for "unknown" users (with
   NFS or user namespaces) is not 65534
 Current system is tagged as @TAINT@.
+
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: A process of @UNIT@ unit has been killed by the OOM killer.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A process of unit @UNIT has been killed by the Linux kernel out-of-memory (OOM)
+killer logic. This usually indicates that the system is low on memory and that
+memory needed to be freed. A process associated with @UNIT@ has been determined
+as the best process to terminate and has been forcibly terminated by the
+kernel.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.

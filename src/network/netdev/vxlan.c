@@ -2,18 +2,23 @@
 
 #include <net/if.h>
 
-#include "sd-netlink.h"
-
 #include "conf-parser.h"
 #include "alloc-util.h"
 #include "extract-word.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "parse-util.h"
-#include "missing.h"
+#include "vxlan.h"
 
-#include "networkd-link.h"
-#include "netdev/vxlan.h"
+static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
+        [NETDEV_VXLAN_DF_NO] = "no",
+        [NETDEV_VXLAN_DF_YES] = "yes",
+        [NETDEV_VXLAN_DF_INHERIT] = "inherit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(df, VxLanDF, NETDEV_VXLAN_DF_YES);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_df, df, VxLanDF, "Failed to parse VXLAN IPDoNotFragment= setting");
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         VxLan *v;
@@ -27,30 +32,26 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 
         assert(v);
 
-        if (v->id <= VXLAN_VID_MAX) {
-                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->id);
+        if (v->vni <= VXLAN_VID_MAX) {
+                r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_ID attribute: %m");
         }
 
-        if (!in_addr_is_null(v->remote_family, &v->remote)) {
-
+        if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->remote.in6);
-
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
         }
 
-        if (!in_addr_is_null(v->local_family, &v->local)) {
-
+        if (in_addr_is_null(v->local_family, &v->local) == 0) {
                 if (v->local_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_LOCAL, &v->local.in);
                 else
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_LOCAL6, &v->local.in6);
-
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
         }
@@ -59,7 +60,11 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 
-        if (v->ttl != 0) {
+        if (v->inherit) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_TTL_INHERIT);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL_INHERIT attribute: %m");
+        } else {
                 r = sd_netlink_message_append_u8(m, IFLA_VXLAN_TTL, v->ttl);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_TTL attribute: %m");
@@ -148,6 +153,18 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GBP attribute: %m");
         }
 
+        if (v->generic_protocol_extension) {
+                r = sd_netlink_message_append_flag(m, IFLA_VXLAN_GPE);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GPE attribute: %m");
+        }
+
+        if (v->df != _NETDEV_VXLAN_DF_INVALID) {
+                r = sd_netlink_message_append_u8(m, IFLA_VXLAN_DF, v->df);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_DF attribute: %m");
+        }
+
         return r;
 }
 
@@ -184,7 +201,7 @@ int config_parse_vxlan_address(const char *unit,
                         return 0;
                 }
 
-                v->remote_family = f;
+                v->group_family = f;
         } else {
                 if (r > 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
@@ -270,6 +287,47 @@ int config_parse_flow_label(const char *unit,
         return 0;
 }
 
+int config_parse_vxlan_ttl(const char *unit,
+                           const char *filename,
+                           unsigned line,
+                           const char *section,
+                           unsigned section_line,
+                           const char *lvalue,
+                           int ltype,
+                           const char *rvalue,
+                            void *data,
+                           void *userdata) {
+        VxLan *v = userdata;
+        unsigned f;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "inherit"))
+                v->inherit = true;
+        else {
+                r = safe_atou(rvalue, &f);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse VXLAN TTL '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                if (f > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid VXLAN TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
+                        return 0;
+                }
+
+                v->ttl = f;
+        }
+
+        return 0;
+}
+
 static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         VxLan *v = VXLAN(netdev);
 
@@ -277,10 +335,18 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        if (v->id > VXLAN_VID_MAX) {
-                log_warning("VXLAN without valid Id configured in %s. Ignoring", filename);
-                return -EINVAL;
-        }
+        if (v->vni > VXLAN_VID_MAX)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN without valid VNI (or VXLAN Segment ID) configured. Ignoring.",
+                                                filename);
+
+        if (v->ttl > 255)
+                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                "%s: VXLAN TTL must be <= 255. Ignoring.",
+                                                filename);
+
+        if (!v->dest_port && v->generic_protocol_extension)
+                v->dest_port = 4790;
 
         return 0;
 }
@@ -294,7 +360,8 @@ static void vxlan_init(NetDev *netdev) {
 
         assert(v);
 
-        v->id = VXLAN_VID_MAX + 1;
+        v->vni = VXLAN_VID_MAX + 1;
+        v->df = _NETDEV_VXLAN_DF_INVALID;
         v->learning = true;
         v->udpcsum = false;
         v->udp6zerocsumtx = false;
@@ -304,8 +371,9 @@ static void vxlan_init(NetDev *netdev) {
 const NetDevVTable vxlan_vtable = {
         .object_size = sizeof(VxLan),
         .init = vxlan_init,
-        .sections = "Match\0NetDev\0VXLAN\0",
+        .sections = NETDEV_COMMON_SECTIONS "VXLAN\0",
         .fill_message_create = netdev_vxlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
         .config_verify = netdev_vxlan_verify,
+        .generate_mac = true,
 };

@@ -1,12 +1,10 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
-
-<refentry id="kernel-install">
+<refentry id="kernel-install"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>kernel-install</title>
@@ -27,6 +25,7 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="plain">COMMAND</arg>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
       <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
@@ -35,9 +34,9 @@
 
   <refsect1>
     <title>Description</title>
-    <para>
-      <command>kernel-install</command> is used to install and remove kernel and
-      initramfs images to and from <filename>/boot</filename>.
+    <para><command>kernel-install</command> is used to install and remove kernel and initramfs images to and
+    from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be one of
+    <filename>/boot</filename>, <filename>/efi</filename>, or <filename>/boot/efi</filename>, see below.
     </para>
 
     <para><command>kernel-install</command> will execute the files
@@ -65,17 +64,20 @@
         <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</command></term>
         <listitem>
           <para>This command expects a kernel version string and a path to a kernel image file as
-          arguments. <command>kernel-install</command> creates the directory
-          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-          and calls the executables from <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          arguments. <command>kernel-install</command> calls the executables from
+          <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
 
-          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
+          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
           </para>
 
-          <para>Two default plugins execute the following operations in this case:</para>
+          <para>Three default plugins execute the following operations in this case:</para>
 
           <itemizedlist>
+            <listitem><para><filename>00-entry-directory.install</filename> creates the directory
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+            if <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/</filename> already exists.
+            </para></listitem>
 
             <listitem><para><filename>50-depmod.install</filename> runs
             <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
@@ -83,16 +85,20 @@
 
             <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
             to
-            <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
             If an <replaceable>INITRD-FILE</replaceable> is provided, it also copies <replaceable>INITRD-FILE</replaceable>
             to
-            <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
             It also creates a boot loader entry according to the <ulink
             url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> in
-            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
+            <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
             The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
             <filename>/etc/os-release</filename> or <filename>/usr/lib/os-release</filename> (if the former is
-            missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.</para></listitem>
+            missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.</para>
+
+            <para>If the entry directory
+            <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+            does not exist, this plugin does nothing.</para></listitem>
           </itemizedlist>
         </listitem>
       </varlistentry>
@@ -103,11 +109,11 @@
           <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
 
-          <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
+          <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
           </para>
 
           <para>Afterwards, <command>kernel-install</command> removes the directory
-          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+          <filename>$BOOT/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
           and its contents.</para>
 
           <para>Two default plugins execute the following operations in this case:</para>
@@ -117,14 +123,46 @@
             <listitem><para><filename>50-depmod.install</filename> removes the files generated by <command>depmod</command> for this kernel again.</para></listitem>
 
             <listitem><para><filename>90-loaderentry.install</filename> removes the file
-            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.</para></listitem>
+            <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.</para></listitem>
           </itemizedlist>
 
         </listitem>
       </varlistentry>
 
     </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>The <varname>$BOOT</varname> partition</title>
+    <para>The partition where the kernels and <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
+    Loader Specification</ulink> snippets are located is called <varname>$BOOT</varname>.
+    <command>kernel-install</command> determines the location of this partition by checking
+    <filename>/efi/</filename>, <filename>/boot/</filename>, and <filename>/boot/efi</filename>
+    in turn. The first location where <filename>$BOOT/loader/entries/</filename> or
+    <filename>$BOOT/$MACHINE_ID/</filename> exists is used.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-v</option></term>
+        <term><option>--verbose</option></term>
+        <listitem>
+          <para>Output additional information about operations being performed.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment variables</title>
+    <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be set for
+    the plugins. They may output additional logs in this case.</para>
   </refsect1>
 
   <refsect1>
@@ -162,7 +200,7 @@
           <listitem>
             <para>Read by <filename>90-loaderentry.install</filename>. If this file exists a numeric value is read from
             it and the naming of the generated entry file is slightly altered to include it as
-            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>. This
+            <filename>$BOOT/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>. This
             is useful for boot loaders such as
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> which
             implement boot attempt counting with a counter embedded in the entry file name.</para>

@@ -5,16 +5,13 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <poll.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/inotify.h>
 #include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
@@ -24,6 +21,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "def.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -31,7 +29,8 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
+#include "memory-util.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -44,7 +43,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "utf8.h"
-#include "util.h"
 
 #define KEYRING_TIMEOUT_USEC ((5 * USEC_PER_MINUTE) / 2)
 
@@ -63,13 +61,16 @@ static int lookup_key(const char *keyname, key_serial_t *ret) {
 }
 
 static int retrieve_key(key_serial_t serial, char ***ret) {
-        _cleanup_free_ char *p = NULL;
-        long m = 100, n;
+        size_t nfinal, m = 100;
         char **l;
+        _cleanup_(erase_and_freep) char *pfinal = NULL;
 
         assert(ret);
 
         for (;;) {
+                _cleanup_(erase_and_freep) char *p = NULL;
+                long n;
+
                 p = new(char, m);
                 if (!p)
                         return -ENOMEM;
@@ -77,20 +78,20 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
                 n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
                 if (n < 0)
                         return -errno;
-
-                if (n < m)
+                if ((size_t) n <= m) {
+                        nfinal = (size_t) n;
+                        pfinal = TAKE_PTR(p);
                         break;
+                }
 
-                explicit_bzero_safe(p, n);
-                free(p);
+                if (m > LONG_MAX / 2) /* overflow check */
+                        return -ENOMEM;
                 m *= 2;
         }
 
-        l = strv_parse_nulstr(p, n);
+        l = strv_parse_nulstr(pfinal, nfinal);
         if (!l)
                 return -ENOMEM;
-
-        explicit_bzero_safe(p, n);
 
         *ret = l;
         return 0;
@@ -98,15 +99,16 @@ static int retrieve_key(key_serial_t serial, char ***ret) {
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
         _cleanup_strv_free_erase_ char **l = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_(erase_and_freep) char *p = NULL;
         key_serial_t serial;
         size_t n;
         int r;
 
         assert(keyname);
-        assert(passwords);
 
         if (!(flags & ASK_PASSWORD_PUSH_CACHE))
+                return 0;
+        if (strv_isempty(passwords))
                 return 0;
 
         r = lookup_key(keyname, &serial);
@@ -126,7 +128,6 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
                 return r;
 
         serial = add_key("user", keyname, p, n, KEY_SPEC_USER_KEYRING);
-        explicit_bzero_safe(p, n);
         if (serial == -1)
                 return -errno;
 
@@ -147,7 +148,6 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
         int r;
 
         assert(keyname);
-        assert(passwords);
 
         r = add_to_keyring(keyname, flags, passwords);
         if (r < 0)
@@ -168,7 +168,12 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
                 return -EUNATCH;
 
         r = lookup_key(keyname, &serial);
-        if (r == -ENOSYS) /* when retrieving the distinction doesn't matter */
+        if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM) /* when retrieving the distinction between "kernel or
+                                                       * container manager don't support or allow this" and
+                                                       * "no matching key known" doesn't matter. Note that we
+                                                       * propagate EACCESS here (even if EPERM not) since
+                                                       * that is used if the keyring is available but we lack
+                                                       * access to the key. */
                 return -ENOKEY;
         if (r < 0)
                 return r;
@@ -176,37 +181,217 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
         return retrieve_key(serial, ret);
 }
 
-static void backspace_chars(int ttyfd, size_t p) {
-
+static int backspace_chars(int ttyfd, size_t p) {
         if (ttyfd < 0)
-                return;
+                return 0;
 
-        while (p > 0) {
-                p--;
+        _cleanup_free_ char *buf = malloc_multiply(3, p);
+        if (!buf)
+                return log_oom();
 
-                loop_write(ttyfd, "\b \b", 3, false);
-        }
+        for (size_t i = 0; i < p; i++)
+                memcpy(buf + 3 * i, "\b \b", 3);
+
+        return loop_write(ttyfd, buf, 3*p, false);
 }
 
-static void backspace_string(int ttyfd, const char *str) {
-        size_t m;
-
+static int backspace_string(int ttyfd, const char *str) {
         assert(str);
-
-        if (ttyfd < 0)
-                return;
 
         /* Backspaces through enough characters to entirely undo printing of the specified string. */
 
-        m = utf8_n_codepoints(str);
-        if (m == (size_t) -1)
-                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes output. Most
-                                  * likely this happened because we are not in an UTF-8 locale, and in that case that
-                                  * is the correct thing to do. And even if it's not, terminals tend to stop
-                                  * backspacing at the leftmost column, hence backspacing too much should be mostly
-                                  * OK. */
+        if (ttyfd < 0)
+                return 0;
 
-        backspace_chars(ttyfd, m);
+        size_t m = utf8_n_codepoints(str);
+        if (m == (size_t) -1)
+                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes
+                                  * output. Most likely this happened because we are not in an UTF-8 locale,
+                                  * and in that case that is the correct thing to do. And even if it's not,
+                                  * terminals tend to stop backspacing at the leftmost column, hence
+                                  * backspacing too much should be mostly OK. */
+
+        return backspace_chars(ttyfd, m);
+}
+
+int ask_password_plymouth(
+                const char *message,
+                usec_t until,
+                AskPasswordFlags flags,
+                const char *flag_file,
+                char ***ret) {
+
+        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
+        _cleanup_close_ int fd = -1, notify = -1;
+        _cleanup_free_ char *packet = NULL;
+        ssize_t k;
+        int r, n;
+        struct pollfd pollfd[2] = {};
+        char buffer[LINE_MAX];
+        size_t p = 0;
+        enum {
+                POLL_SOCKET,
+                POLL_INOTIFY
+        };
+
+        assert(ret);
+
+        if (flag_file) {
+                notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
+                if (notify < 0)
+                        return -errno;
+
+                r = inotify_add_watch(notify, flag_file, IN_ATTRIB); /* for the link count */
+                if (r < 0)
+                        return -errno;
+        }
+
+        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (fd < 0)
+                return -errno;
+
+        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (r < 0)
+                return -errno;
+
+        if (flags & ASK_PASSWORD_ACCEPT_CACHED) {
+                packet = strdup("c");
+                n = 1;
+        } else if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0)
+                packet = NULL;
+        if (!packet)
+                return -ENOMEM;
+
+        r = loop_write(fd, packet, n + 1, true);
+        if (r < 0)
+                return r;
+
+        pollfd[POLL_SOCKET].fd = fd;
+        pollfd[POLL_SOCKET].events = POLLIN;
+        pollfd[POLL_INOTIFY].fd = notify;
+        pollfd[POLL_INOTIFY].events = POLLIN;
+
+        for (;;) {
+                int sleep_for = -1, j;
+
+                if (until > 0) {
+                        usec_t y;
+
+                        y = now(CLOCK_MONOTONIC);
+
+                        if (y > until) {
+                                r = -ETIME;
+                                goto finish;
+                        }
+
+                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                }
+
+                if (flag_file && access(flag_file, F_OK) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                j = poll(pollfd, notify >= 0 ? 2 : 1, sleep_for);
+                if (j < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (j == 0) {
+                        r = -ETIME;
+                        goto finish;
+                }
+
+                if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
+                        (void) flush_fd(notify);
+
+                if (pollfd[POLL_SOCKET].revents == 0)
+                        continue;
+
+                k = read(fd, buffer + p, sizeof(buffer) - p);
+                if (k < 0) {
+                        if (IN_SET(errno, EINTR, EAGAIN))
+                                continue;
+
+                        r = -errno;
+                        goto finish;
+                } else if (k == 0) {
+                        r = -EIO;
+                        goto finish;
+                }
+
+                p += k;
+
+                if (p < 1)
+                        continue;
+
+                if (buffer[0] == 5) {
+
+                        if (flags & ASK_PASSWORD_ACCEPT_CACHED) {
+                                /* Hmm, first try with cached
+                                 * passwords failed, so let's retry
+                                 * with a normal password request */
+                                packet = mfree(packet);
+
+                                if (asprintf(&packet, "*\002%c%s%n", (int) (strlen(message) + 1), message, &n) < 0) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                r = loop_write(fd, packet, n+1, true);
+                                if (r < 0)
+                                        goto finish;
+
+                                flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
+                                p = 0;
+                                continue;
+                        }
+
+                        /* No password, because UI not shown */
+                        r = -ENOENT;
+                        goto finish;
+
+                } else if (IN_SET(buffer[0], 2, 9)) {
+                        uint32_t size;
+                        char **l;
+
+                        /* One or more answers */
+                        if (p < 5)
+                                continue;
+
+                        memcpy(&size, buffer+1, sizeof(size));
+                        size = le32toh(size);
+                        if (size + 5 > sizeof(buffer)) {
+                                r = -EIO;
+                                goto finish;
+                        }
+
+                        if (p-5 < size)
+                                continue;
+
+                        l = strv_parse_nulstr(buffer + 5, size);
+                        if (!l) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        *ret = l;
+                        break;
+
+                } else {
+                        /* Unknown packet */
+                        r = -EIO;
+                        goto finish;
+                }
+        }
+
+        r = 0;
+
+finish:
+        explicit_bzero_safe(buffer, sizeof(buffer));
+        return r;
 }
 
 int ask_password_tty(
@@ -306,9 +491,9 @@ int ask_password_tty(
         };
 
         for (;;) {
+                _cleanup_(erase_char) char c;
                 int sleep_for = -1, k;
                 ssize_t n;
-                char c;
 
                 if (until > 0) {
                         usec_t y;
@@ -369,10 +554,17 @@ int ask_password_tty(
                 if (n == 0 || c == '\n' || c == 0)
                         break;
 
+                if (c == 4) { /* C-d also known as EOT */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "(skipped)", 9, false);
+
+                        goto skipped;
+                }
+
                 if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
-                                backspace_string(ttyfd, passphrase);
+                                (void) backspace_string(ttyfd, passphrase);
 
                         explicit_bzero_safe(passphrase, sizeof(passphrase));
                         p = codepoint = 0;
@@ -383,15 +575,15 @@ int ask_password_tty(
                                 size_t q;
 
                                 if (!(flags & ASK_PASSWORD_SILENT))
-                                        backspace_chars(ttyfd, 1);
+                                        (void) backspace_chars(ttyfd, 1);
 
-                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the last one
-                                 * begins */
+                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the
+                                 * last one begins */
                                 q = 0;
                                 for (;;) {
                                         size_t z;
 
-                                        z = utf8_encoded_valid_unichar(passphrase + q);
+                                        z = utf8_encoded_valid_unichar(passphrase + q, (size_t) -1);
                                         if (z == 0) {
                                                 q = (size_t) -1; /* Invalid UTF8! */
                                                 break;
@@ -410,8 +602,8 @@ int ask_password_tty(
 
                                 flags |= ASK_PASSWORD_SILENT;
 
-                                /* There are two ways to enter silent mode. Either by pressing backspace as first key
-                                 * (and only as first key), or ... */
+                                /* There are two ways to enter silent mode. Either by pressing backspace as
+                                 * first key (and only as first key), or ... */
 
                                 if (ttyfd >= 0)
                                         (void) loop_write(ttyfd, "(no echo) ", 10, false);
@@ -421,7 +613,7 @@ int ask_password_tty(
 
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
-                        backspace_string(ttyfd, passphrase);
+                        (void) backspace_string(ttyfd, passphrase);
                         flags |= ASK_PASSWORD_SILENT;
 
                         /* ... or by pressing TAB at any time. */
@@ -440,18 +632,18 @@ int ask_password_tty(
 
                         if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
                                 /* Check if we got a complete UTF-8 character now. If so, let's output one '*'. */
-                                n = utf8_encoded_valid_unichar(passphrase + codepoint);
+                                n = utf8_encoded_valid_unichar(passphrase + codepoint, (size_t) -1);
                                 if (n >= 0) {
+                                        if (flags & ASK_PASSWORD_ECHO)
+                                                (void) loop_write(ttyfd, passphrase + codepoint, n, false);
+                                        else
+                                                (void) loop_write(ttyfd, "*", 1, false);
                                         codepoint = p;
-                                        (void) loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
                                 }
                         }
 
                         dirty = true;
                 }
-
-                /* Let's forget this char, just to not keep needlessly copies of key material around */
-                c = 'x';
         }
 
         x = strndup(passphrase, p);
@@ -465,6 +657,7 @@ int ask_password_tty(
         if (r < 0)
                 goto finish;
 
+skipped:
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
 

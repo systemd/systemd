@@ -10,25 +10,26 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "conf-files.h"
+#include "cgroup-setup.h"
 #include "dev-setup.h"
 #include "dirent-util.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "label.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "set.h"
 #include "smack-util.h"
 #include "strv.h"
 #include "user-util.h"
-#include "util.h"
 #include "virt.h"
 
 typedef enum MountMode {
@@ -332,7 +333,7 @@ int mount_cgroup_controllers(void) {
                 if (!options)
                         options = TAKE_PTR(controller);
 
-                where = strappend("/sys/fs/cgroup/", options);
+                where = path_join("/sys/fs/cgroup", options);
                 if (!where)
                         return log_oom();
 
@@ -408,7 +409,8 @@ static int relabel_cgroup_filesystems(void) {
 }
 
 static int relabel_extra(void) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        char **file;
         int r, c = 0;
 
         /* Support for relabelling additional files or directories after loading the policy. For this, code in the
@@ -419,55 +421,27 @@ static int relabel_extra(void) {
          * possible.
          */
 
-        d = opendir("/run/systemd/relabel-extra.d/");
-        if (!d) {
-                if (errno == ENOENT)
-                        return 0;
+        r = conf_files_list(&files, ".relabel", NULL,
+                            CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR,
+                            "/run/systemd/relabel-extra.d/");
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate /run/systemd/relabel-extra.d/, ignoring: %m");
 
-                return log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/, ignoring: %m");
-        }
-
-        for (;;) {
+        STRV_FOREACH(file, files) {
                 _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_close_ int fd = -1;
-                struct dirent *de;
 
-                errno = 0;
-                de = readdir_no_dot(d);
-                if (!de) {
-                        if (errno != 0)
-                                return log_error_errno(errno, "Failed read directory /run/systemd/relabel-extra.d/, ignoring: %m");
-                        break;
-                }
-
-                if (hidden_or_backup_file(de->d_name))
-                        continue;
-
-                if (!endswith(de->d_name, ".relabel"))
-                        continue;
-
-                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
-                        continue;
-
-                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                if (fd < 0) {
-                        log_warning_errno(errno, "Failed to open /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
-                        continue;
-                }
-
-                f = fdopen(fd, "r");
+                f = fopen(*file, "re");
                 if (!f) {
-                        log_warning_errno(errno, "Failed to convert file descriptor into file object, ignoring: %m");
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", *file);
                         continue;
                 }
-                TAKE_FD(fd);
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
 
                         r = read_line(f, LONG_LINE_MAX, &line);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to read from /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                                log_warning_errno(r, "Failed to read %s, ignoring: %m", *file);
                                 break;
                         }
                         if (r == 0) /* EOF */
@@ -486,16 +460,18 @@ static int relabel_extra(void) {
                         }
 
                         log_debug("Relabelling additional file/directory '%s'.", line);
+                        (void) label_fix(line, 0);
                         (void) nftw(line, nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                         c++;
                 }
 
-                if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                        log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/%s, ignoring: %m", de->d_name);
+                if (unlink(*file) < 0)
+                        log_warning_errno(errno, "Failed to remove %s, ignoring: %m", *file);
         }
 
-        /* Remove when we completing things. */
-        if (rmdir("/run/systemd/relabel-extra.d") < 0)
+        /* Remove when we complete things. */
+        if (rmdir("/run/systemd/relabel-extra.d") < 0 &&
+            errno != ENOENT)
                 log_warning_errno(errno, "Failed to remove /run/systemd/relabel-extra.d/ directory: %m");
 
         return c;

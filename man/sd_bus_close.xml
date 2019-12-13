@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_close"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -47,7 +44,7 @@
 
     <para><function>sd_bus_close()</function> disconnects the specified bus connection. When this call is invoked and
     the specified bus object refers to an active connection it is immediately terminated. No further messages may be
-    sent or receieved on it. Any messages queued in the bus object (both incoming and outgoing) are released. If
+    sent or received on it. Any messages queued in the bus object (both incoming and outgoing) are released. If
     invoked on <constant>NULL</constant> bus object or when the bus connection is already closed this function executes
     no operation. This call does not free or unreference the bus object itself. Use
     <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> for that.</para>
@@ -69,20 +66,20 @@
 
     <para>On success, <function>sd_bus_flush()</function> returns 0 or a positive integer. On failure, it returns a
     negative errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection has been created in a different process.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The bus connection has been created in a different process.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

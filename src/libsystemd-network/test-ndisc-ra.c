@@ -5,6 +5,7 @@
 
 #include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #include "sd-radv.h"
 
@@ -59,7 +60,7 @@ static struct {
         unsigned char prefixlen;
         uint32_t valid;
         uint32_t preferred;
-        bool succesful;
+        bool successful;
 } prefix[] = {
         { { { { 0x20, 0x01, 0x0d, 0xb8, 0xde, 0xad, 0xbe, 0xef,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }, 64,
@@ -328,7 +329,7 @@ static void test_ra(void) {
                 if (prefix[i].preferred)
                         assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred) >= 0);
 
-                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].succesful);
+                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].successful);
                 assert_se(sd_radv_add_prefix(ra, p, false) < 0);
 
                 p = sd_radv_prefix_unref(p);

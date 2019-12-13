@@ -1,0 +1,7 @@
+[NetDev]
+Name=vlan6
+Kind=vlan
+MTUBytes=1500
+
+[VLAN]
+Id=6

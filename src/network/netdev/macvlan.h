@@ -3,7 +3,7 @@
 
 typedef struct MacVlan MacVlan;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 typedef enum MacVlanMode {
         NETDEV_MACVLAN_MODE_PRIVATE = MACVLAN_MODE_PRIVATE,

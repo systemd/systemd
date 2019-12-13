@@ -46,7 +46,7 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         for (i = 0; i < j; i++)
                 fputs("\xe2\x96\x88", stdout);
 
-        fputs(ANSI_NORMAL, stdout);
+        fputs(ansi_normal(), stdout);
 
         for (i = 0; i < k; i++)
                 fputs("\xe2\x96\x91", stdout);
@@ -65,7 +65,7 @@ static uint64_t scale_progress(uint64_t scale, uint64_t p, uint64_t m) {
          * Currently all callers use m >= 1, but we keep the check to be defensive.
          */
 
-        if (p >= m || m == 0) /* lgtm [cpp/constant-comparison] */
+        if (p >= m || m == 0) // lgtm[cpp/constant-comparison]
                 return scale;
 
         return scale * p / m;

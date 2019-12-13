@@ -17,16 +17,13 @@
 
 #include "strxcpyx.h"
 
-size_t strpcpy(char **dest, size_t size, const char *src) {
-        size_t len;
-
+size_t strnpcpy(char **dest, size_t size, const char *src, size_t len) {
         assert(dest);
         assert(src);
 
         if (size == 0)
                 return 0;
 
-        len = strlen(src);
         if (len >= size) {
                 if (size > 1)
                         *dest = mempcpy(*dest, src, size-1);
@@ -38,6 +35,13 @@ size_t strpcpy(char **dest, size_t size, const char *src) {
 
         *dest[0] = '\0';
         return size;
+}
+
+size_t strpcpy(char **dest, size_t size, const char *src) {
+        assert(dest);
+        assert(src);
+
+        return strnpcpy(dest, size, src, strlen(src));
 }
 
 size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
@@ -76,14 +80,21 @@ size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         return size;
 }
 
-size_t strscpy(char *dest, size_t size, const char *src) {
+size_t strnscpy(char *dest, size_t size, const char *src, size_t len) {
         char *s;
 
         assert(dest);
         assert(src);
 
         s = dest;
-        return strpcpy(&s, size, src);
+        return strnpcpy(&s, size, src, len);
+}
+
+size_t strscpy(char *dest, size_t size, const char *src) {
+        assert(dest);
+        assert(src);
+
+        return strnscpy(dest, size, src, strlen(src));
 }
 
 size_t strscpyl(char *dest, size_t size, const char *src, ...) {

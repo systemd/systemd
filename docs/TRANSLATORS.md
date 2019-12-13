@@ -1,5 +1,7 @@
 ---
 title: Notes for Translators
+category: Contributing
+layout: default
 ---
 
 # Notes for Translators

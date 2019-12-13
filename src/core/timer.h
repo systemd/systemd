@@ -57,6 +57,8 @@ struct Timer {
         bool persistent;
         bool wake_system;
         bool remain_after_elapse;
+        bool on_clock_change;
+        bool on_timezone_change;
 
         char *stamp_path;
 };

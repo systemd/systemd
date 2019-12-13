@@ -61,8 +61,8 @@ int pull_find_old_etags(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
+                _cleanup_free_ char *u = NULL;
                 const char *a, *b;
-                char *u;
 
                 if (de->d_type != DT_UNKNOWN &&
                     de->d_type != dt)
@@ -97,12 +97,10 @@ int pull_find_old_etags(
                 if (r < 0)
                         return r;
 
-                if (!http_etag_is_valid(u)) {
-                        free(u);
+                if (!http_etag_is_valid(u))
                         continue;
-                }
 
-                r = strv_consume(&l, u);
+                r = strv_consume(&l, TAKE_PTR(u));
                 if (r < 0)
                         return r;
         }
@@ -122,7 +120,7 @@ int pull_make_local_copy(const char *final, const char *image_root, const char *
         if (!image_root)
                 image_root = "/var/lib/machines";
 
-        p = strjoina(image_root, "/", local);
+        p = prefix_roota(image_root, local);
 
         if (force_local)
                 (void) rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
@@ -436,7 +434,7 @@ int pull_verify(PullJob *main_job,
         }
 
         if (!mkdtemp(gpg_home)) {
-                r = log_error_errno(errno, "Failed to create tempory home for gpg: %m");
+                r = log_error_errno(errno, "Failed to create temporary home for gpg: %m");
                 goto finish;
         }
 

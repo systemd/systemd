@@ -1,20 +1,19 @@
+#include "bond.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"
 #include "ethtool-util.h"
+#include "ipvlan.h"
 #include "lldp-internal.h"
+#include "macvlan.h"
 #include "ndisc-internal.h"
-#include "netdev/bond.h"
-#include "netdev/ipvlan.h"
-#include "netdev/macvlan.h"
-#include "netdev/tunnel.h"
 #include "netlink-internal.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
 #include "test-tables.h"
+#include "tunnel.h"
 
 int main(int argc, char **argv) {
-        test_table(address_family_boolean, ADDRESS_FAMILY_BOOLEAN);
         test_table(bond_ad_select, NETDEV_BOND_AD_SELECT);
         test_table(bond_arp_all_targets, NETDEV_BOND_ARP_ALL_TARGETS);
         test_table(bond_arp_validate, NETDEV_BOND_ARP_VALIDATE);
@@ -42,6 +41,7 @@ int main(int argc, char **argv) {
 
         test_table_sparse(ipvlan_mode, NETDEV_IPVLAN_MODE);
         test_table_sparse(macvlan_mode, NETDEV_MACVLAN_MODE);
+        test_table_sparse(address_family, ADDRESS_FAMILY);
 
         return EXIT_SUCCESS;
 }

@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,165 +17,165 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_interfaces(){
-        local name
-        for name in $(cd /sys/class/net && ls); do
-                [[ "$name" != "lo" ]] && echo "$name"
-        done
+    local name
+    for name in $(cd /sys/class/net && ls); do
+        [[ "$name" != "lo" ]] && echo "$name"
+    done
 }
 
 _resolvectl() {
-        local i comps verb name
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version --no-pager -4 -6
-                             --service-address=no --service-txt=no
-                             --cname=no --search=no --legend=no'
-                      [ARG]='-i --interface -p --protocol -t --type -c --class --raw'
-        )
-        local -A VERBS=(
-                   [DOMAIN]='query service openpgp'
-                   [FAMILY]='tlsa'
-                   [STATUS]='status'
-                     [LINK]='revert dns domain nta'
-                  [RESOLVE]='llmnr mdns'
-                   [DNSSEC]='dnssec'
-               [DNSOVERTLS]='dnsovertls'
-               [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
-        )
-        local -A ARGS=(
-                   [FAMILY]='tcp udp sctp'
-                  [RESOLVE]='yes no resolve'
-                   [DNSSEC]='yes no allow-downgrade'
-               [DNSOVERTLS]='no opportunistic'
-        )
-        local interfaces=$( __get_interfaces )
+    local i comps verb name
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager -4 -6
+                      --service-address=no --service-txt=no
+                      --cname=no --search=no --legend=no'
+        [ARG]='-i --interface -p --protocol -t --type -c --class --raw'
+    )
+    local -A VERBS=(
+        [DOMAIN]='query service openpgp'
+        [FAMILY]='tlsa'
+        [STATUS]='status'
+        [LINK]='revert dns domain nta'
+        [RESOLVE]='llmnr mdns'
+        [DNSSEC]='dnssec'
+        [DNSOVERTLS]='dnsovertls'
+        [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
+    )
+    local -A ARGS=(
+        [FAMILY]='tcp udp sctp'
+        [RESOLVE]='yes no resolve'
+        [DNSSEC]='yes no allow-downgrade'
+        [DNSOVERTLS]='yes no opportunistic'
+    )
+    local interfaces=$( __get_interfaces )
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --interface|-i)
-                                comps="$interfaces"
-                                ;;
-                        --protocol|-p|--type|-t|--class|-c)
-                                comps=$( resolvectl --legend=no "$prev" help; echo help )
-                                ;;
-                        --raw)
-                                comps="payload packet"
-                                ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if [[ -z $verb ]]; then
-                comps="${VERBS[*]}"
-
-        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[DOMAIN]}; then
-                comps=''
-
-        elif __contains_word "$verb" ${VERBS[STATUS]}; then
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --interface|-i)
                 comps="$interfaces"
-
-        elif __contains_word "$verb" ${VERBS[FAMILY]}; then
-                for ((i++; i < COMP_CWORD; i++)); do
-                        if __contains_word "${COMP_WORDS[i]}" ${ARGS[FAMILY]} &&
-                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                name=${COMP_WORDS[i]}
-                                break;
-                        fi
-                done
-                if [[ -z $name ]]; then
-                        comps=${ARGS[FAMILY]}
-                else
-                        comps=""
-                fi
-
-        elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]} ${VERBS[DNSOVERTLS]}; then
-                for ((i++; i < COMP_CWORD; i++)); do
-                        if __contains_word "${COMP_WORDS[i]}" $interfaces &&
-                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                name=${COMP_WORDS[i]}
-                                break;
-                        fi
-                done
-
-                if [[ -z $name ]]; then
-                        comps="$interfaces"
-
-                elif __contains_word "$verb" ${VERBS[RESOLVE]}; then
-                        name=
-                        for ((i++; i < COMP_CWORD; i++)); do
-                                if __contains_word "${COMP_WORDS[i]}" ${ARGS[RESOLVE]} &&
-                                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                        name=${COMP_WORDS[i]}
-                                        break;
-                                fi
-                        done
-
-                        if [[ -z $name ]]; then
-                                comps=${ARGS[RESOLVE]}
-                        else
-                                comps=''
-                        fi
-
-                elif __contains_word "$verb" ${VERBS[DNSSEC]}; then
-                        name=
-                        for ((i++; i < COMP_CWORD; i++)); do
-                                if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSSEC]} &&
-                                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                        name=${COMP_WORDS[i]}
-                                        break;
-                                fi
-                        done
-
-                        if [[ -z $name ]]; then
-                                comps=${ARGS[DNSSEC]}
-                        else
-                                comps=''
-                        fi
-
-                elif __contains_word "$verb" ${VERBS[DNSOVERTLS]}; then
-                        name=
-                        for ((i++; i < COMP_CWORD; i++)); do
-                                if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSOVERTLS]} &&
-                                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                        name=${COMP_WORDS[i]}
-                                        break;
-                                fi
-                        done
-
-                        if [[ -z $name ]]; then
-                                comps=${ARGS[DNSOVERTLS]}
-                        else
-                                comps=''
-                        fi
-
-                else
-                        comps=''
-                fi
-        fi
-
+                ;;
+            --protocol|-p|--type|-t|--class|-c)
+                comps=$( resolvectl --legend=no "$prev" help; echo help )
+                ;;
+            --raw)
+                comps="payload packet"
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z $verb ]]; then
+        comps="${VERBS[*]}"
+
+    elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[DOMAIN]}; then
+        comps=''
+
+    elif __contains_word "$verb" ${VERBS[STATUS]}; then
+        comps="$interfaces"
+
+    elif __contains_word "$verb" ${VERBS[FAMILY]}; then
+        for ((i++; i < COMP_CWORD; i++)); do
+            if __contains_word "${COMP_WORDS[i]}" ${ARGS[FAMILY]} &&
+                    ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                name=${COMP_WORDS[i]}
+                break;
+            fi
+        done
+        if [[ -z $name ]]; then
+            comps=${ARGS[FAMILY]}
+        else
+            comps=""
+        fi
+
+    elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]} ${VERBS[DNSOVERTLS]}; then
+        for ((i++; i < COMP_CWORD; i++)); do
+            if __contains_word "${COMP_WORDS[i]}" $interfaces &&
+                    ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                name=${COMP_WORDS[i]}
+                break;
+            fi
+        done
+
+        if [[ -z $name ]]; then
+            comps="$interfaces"
+
+        elif __contains_word "$verb" ${VERBS[RESOLVE]}; then
+            name=
+            for ((i++; i < COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${ARGS[RESOLVE]} &&
+                        ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                    name=${COMP_WORDS[i]}
+                    break;
+                fi
+            done
+
+            if [[ -z $name ]]; then
+                comps=${ARGS[RESOLVE]}
+            else
+                comps=''
+            fi
+
+        elif __contains_word "$verb" ${VERBS[DNSSEC]}; then
+            name=
+            for ((i++; i < COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSSEC]} &&
+                        ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                    name=${COMP_WORDS[i]}
+                    break;
+                fi
+            done
+
+            if [[ -z $name ]]; then
+                comps=${ARGS[DNSSEC]}
+            else
+                comps=''
+            fi
+
+        elif __contains_word "$verb" ${VERBS[DNSOVERTLS]}; then
+            name=
+            for ((i++; i < COMP_CWORD; i++)); do
+                if __contains_word "${COMP_WORDS[i]}" ${ARGS[DNSOVERTLS]} &&
+                        ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+                    name=${COMP_WORDS[i]}
+                    break;
+                fi
+            done
+
+            if [[ -z $name ]]; then
+                comps=${ARGS[DNSOVERTLS]}
+            else
+                comps=''
+            fi
+
+        else
+            comps=''
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _resolvectl resolvectl

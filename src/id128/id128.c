@@ -7,14 +7,15 @@
 #include "id128-print.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 
-static bool arg_pretty = false;
+static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
 static sd_id128_t arg_app = {};
 
 static int verb_new(int argc, char **argv, void *userdata) {
-        return id128_print_new(arg_pretty);
+        return id128_print_new(arg_mode);
 }
 
 static int verb_machine_id(int argc, char **argv, void *userdata) {
@@ -29,7 +30,7 @@ static int verb_machine_id(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to get %smachine-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_pretty);
+        return id128_pretty_print(id, arg_mode);
 }
 
 static int verb_boot_id(int argc, char **argv, void *userdata) {
@@ -44,7 +45,7 @@ static int verb_boot_id(int argc, char **argv, void *userdata) {
                 return log_error_errno(r, "Failed to get %sboot-ID: %m",
                                        sd_id128_is_null(arg_app) ? "" : "app-specific ");
 
-        return id128_pretty_print(id, arg_pretty);
+        return id128_pretty_print(id, arg_mode);
 }
 
 static int verb_invocation_id(int argc, char **argv, void *userdata) {
@@ -59,7 +60,7 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get invocation-ID: %m");
 
-        return id128_pretty_print(id, arg_pretty);
+        return id128_pretty_print(id, arg_mode);
 }
 
 static int help(void) {
@@ -70,19 +71,22 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Generate and print id128 strings.\n\n"
-               "  -h --help               Show this help\n"
-               "  -p --pretty             Generate samples of program code\n"
-               "  -a --app-specific=ID    Generate app-specific IDs\n"
+        printf("%s [OPTIONS...] COMMAND\n\n"
+               "%sGenerate and print 128bit identifiers.%s\n"
                "\nCommands:\n"
                "  new                     Generate a new id128 string\n"
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
                "  help                    Show this help\n"
+               "\nOptions:\n"
+               "  -h --help               Show this help\n"
+               "  -p --pretty             Generate samples of program code\n"
+               "  -a --app-specific=ID    Generate app-specific IDs\n"
+               "  -u --uuid               Output in UUID format\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -101,7 +105,9 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "pretty",       no_argument,       NULL, 'p'              },
                 { "app-specific", required_argument, NULL, 'a'              },
+                { "uuid",         no_argument,       NULL, 'u'              },
                 {},
         };
 
@@ -110,7 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpa:u", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -120,13 +126,17 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'p':
-                        arg_pretty = true;
+                        arg_mode = ID128_PRINT_PRETTY;
                         break;
 
                 case 'a':
                         r = sd_id128_from_string(optarg, &arg_app);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
+                        break;
+
+                case 'u':
+                        arg_mode = ID128_PRINT_UUID;
                         break;
 
                 case '?':
@@ -155,6 +165,7 @@ static int id128_main(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

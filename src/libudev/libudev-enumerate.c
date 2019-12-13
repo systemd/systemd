@@ -17,6 +17,7 @@
 #include "device-enumerator-private.h"
 #include "device-util.h"
 #include "libudev-device-internal.h"
+#include "libudev-list-internal.h"
 
 /**
  * SECTION:libudev-enumerate
@@ -34,7 +35,7 @@
 struct udev_enumerate {
         struct udev *udev;
         unsigned n_ref;
-        struct udev_list devices_list;
+        struct udev_list *devices_list;
         bool devices_uptodate:1;
 
         sd_device_enumerator *enumerator;
@@ -50,6 +51,7 @@ struct udev_enumerate {
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_(udev_list_freep) struct udev_list *list = NULL;
         struct udev_enumerate *udev_enumerate;
         int r;
 
@@ -61,6 +63,10 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         if (r < 0)
                 return_with_errno(NULL, r);
 
+        list = udev_list_new(false);
+        if (!list)
+                return_with_errno(NULL, ENOMEM);
+
         udev_enumerate = new(struct udev_enumerate, 1);
         if (!udev_enumerate)
                 return_with_errno(NULL, ENOMEM);
@@ -69,9 +75,8 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
                 .udev = udev,
                 .n_ref = 1,
                 .enumerator = TAKE_PTR(e),
+                .devices_list = TAKE_PTR(list),
         };
-
-        udev_list_init(&udev_enumerate->devices_list, false);
 
         return udev_enumerate;
 }
@@ -79,7 +84,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
 static struct udev_enumerate *udev_enumerate_free(struct udev_enumerate *udev_enumerate) {
         assert(udev_enumerate);
 
-        udev_list_cleanup(&udev_enumerate->devices_list);
+        udev_list_free(udev_enumerate->devices_list);
         sd_device_enumerator_unref(udev_enumerate->enumerator);
         return mfree(udev_enumerate);
 }
@@ -134,7 +139,7 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
         if (!udev_enumerate->devices_uptodate) {
                 sd_device *device;
 
-                udev_list_cleanup(&udev_enumerate->devices_list);
+                udev_list_cleanup(udev_enumerate->devices_list);
 
                 FOREACH_DEVICE_AND_SUBSYSTEM(udev_enumerate->enumerator, device) {
                         const char *syspath;
@@ -144,14 +149,14 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
                         if (r < 0)
                                 return_with_errno(NULL, r);
 
-                        if (!udev_list_entry_add(&udev_enumerate->devices_list, syspath, NULL))
+                        if (!udev_list_entry_add(udev_enumerate->devices_list, syspath, NULL))
                                 return_with_errno(NULL, ENOMEM);
                 }
 
                 udev_enumerate->devices_uptodate = true;
         }
 
-        e = udev_list_get_entry(&udev_enumerate->devices_list);
+        e = udev_list_get_entry(udev_enumerate->devices_list);
         if (!e)
                 return_with_errno(NULL, ENODATA);
 
@@ -168,12 +173,19 @@ _public_ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enume
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!subsystem)
                 return 0;
 
-        return sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, true);
+        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, true);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -186,12 +198,19 @@ _public_ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enum
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!subsystem)
                 return 0;
 
-        return sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, false);
+        r = sd_device_enumerator_add_match_subsystem(udev_enumerate->enumerator, subsystem, false);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -205,12 +224,19 @@ _public_ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_en
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!sysattr)
                 return 0;
 
-        return sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, true);
+        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, true);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -224,12 +250,19 @@ _public_ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumer
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!sysattr)
                 return 0;
 
-        return sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, false);
+        r = sd_device_enumerator_add_match_sysattr(udev_enumerate->enumerator, sysattr, value, false);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -243,12 +276,19 @@ _public_ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enum
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!property)
                 return 0;
 
-        return sd_device_enumerator_add_match_property(udev_enumerate->enumerator, property, value);
+        r = sd_device_enumerator_add_match_property(udev_enumerate->enumerator, property, value);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -261,12 +301,19 @@ _public_ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enume
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate, const char *tag) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!tag)
                 return 0;
 
-        return sd_device_enumerator_add_match_tag(udev_enumerate->enumerator, tag);
+        r = sd_device_enumerator_add_match_tag(udev_enumerate->enumerator, tag);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -277,18 +324,22 @@ _public_ int udev_enumerate_add_match_tag(struct udev_enumerate *udev_enumerate,
  * Return the devices on the subtree of one given device. The parent
  * itself is included in the list.
  *
- * A reference for the device is held until the udev_enumerate context
- * is cleaned up.
- *
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumerate, struct udev_device *parent) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!parent)
                 return 0;
 
-        return sd_device_enumerator_add_match_parent(udev_enumerate->enumerator, parent->device);
+        r = sd_device_enumerator_add_match_parent(udev_enumerate->enumerator, udev_device_get_sd_device(parent));
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -310,9 +361,16 @@ _public_ int udev_enumerate_add_match_parent(struct udev_enumerate *udev_enumera
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev_enumerate) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
-        return device_enumerator_add_match_is_initialized(udev_enumerate->enumerator);
+        r = device_enumerator_add_match_is_initialized(udev_enumerate->enumerator);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -325,12 +383,19 @@ _public_ int udev_enumerate_add_match_is_initialized(struct udev_enumerate *udev
  * Returns: 0 on success, otherwise a negative error value.
  */
 _public_ int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname) {
+        int r;
+
         assert_return(udev_enumerate, -EINVAL);
 
         if (!sysname)
                 return 0;
 
-        return sd_device_enumerator_add_match_sysname(udev_enumerate->enumerator, sysname);
+        r = sd_device_enumerator_add_match_sysname(udev_enumerate->enumerator, sysname);
+        if (r < 0)
+                return r;
+
+        udev_enumerate->devices_uptodate = false;
+        return 0;
 }
 
 /**
@@ -359,6 +424,7 @@ _public_ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, c
         if (r < 0)
                 return r;
 
+        udev_enumerate->devices_uptodate = false;
         return 0;
 }
 

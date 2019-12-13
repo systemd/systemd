@@ -10,6 +10,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "list.h"
 #include "macro.h"
@@ -23,7 +24,7 @@
 #define DYNAMIC_USER_GECOS       "Dynamic User"
 #define DYNAMIC_USER_PASSWD      "*" /* locked */
 #define DYNAMIC_USER_DIR         "/"
-#define DYNAMIC_USER_SHELL       "/sbin/nologin"
+#define DYNAMIC_USER_SHELL       NOLOGIN
 
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",
@@ -42,7 +43,7 @@ static const struct passwd nobody_passwd = {
         .pw_gid = GID_NOBODY,
         .pw_gecos = (char*) "User Nobody",
         .pw_dir = (char*) "/",
-        .pw_shell = (char*) "/sbin/nologin",
+        .pw_shell = (char*) NOLOGIN,
 };
 
 static const struct group root_group = {
@@ -210,6 +211,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         l = strlen(name);
         if (buflen < l+1) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -227,6 +229,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -310,6 +313,7 @@ enum nss_status _nss_systemd_getpwuid_r(
 
         l = strlen(translated) + 1;
         if (buflen < l) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -327,6 +331,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -408,6 +413,7 @@ enum nss_status _nss_systemd_getgrnam_r(
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -423,6 +429,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -506,6 +513,7 @@ enum nss_status _nss_systemd_getgrgid_r(
 
         l = sizeof(char*) + strlen(translated) + 1;
         if (buflen < l) {
+                UNPROTECT_ERRNO;
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -521,6 +529,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         return NSS_STATUS_SUCCESS;
 
 fail:
+        UNPROTECT_ERRNO;
         *errnop = -r;
         return NSS_STATUS_UNAVAIL;
 }
@@ -740,6 +749,7 @@ enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, siz
         LIST_FOREACH(entries, p, getpwent_data.position) {
                 len = strlen(p->name) + 1;
                 if (buflen < len) {
+                        UNPROTECT_ERRNO;
                         *errnop = ERANGE;
                         ret = NSS_STATUS_TRYAGAIN;
                         goto finalize;
@@ -791,6 +801,7 @@ enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size
         LIST_FOREACH(entries, p, getgrent_data.position) {
                 len = sizeof(char*) + strlen(p->name) + 1;
                 if (buflen < len) {
+                        UNPROTECT_ERRNO;
                         *errnop = ERANGE;
                         ret = NSS_STATUS_TRYAGAIN;
                         goto finalize;

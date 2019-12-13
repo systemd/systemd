@@ -3,6 +3,7 @@ Name=veth-peer
 
 [Network]
 Address=192.168.5.1/24
+IPv6AcceptRA=false
 DHCPServer=yes
 
 [DHCPServer]

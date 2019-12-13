@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-rc-local-generator">
 
   <refentryinfo>
@@ -18,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-rc-local-generator</refname>
-    <refpurpose>Compatibility generator for starting <filename>/etc/rc.local</filename> and <filename>/usr/sbin/halt.local</filename> during boot and shutdown</refpurpose>
+    <refpurpose>Compatibility generator for starting <filename>/etc/rc.local</filename> during boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -36,14 +35,10 @@
     script is run after <filename>network.target</filename>, but in parallel with most other regular system
     services.</para>
 
-    <para><filename>systemd-rc-local-generator</filename> also checks whether <filename>/usr/sbin/halt.local</filename>
-    exists and is executable, and if it is pulls the <filename>halt-local.service</filename> unit into the shutdown
-    process. This unit is responsible for running this script during later shutdown.</para>
-
-    <para>Support for both <filename>/etc/rc.local</filename> and <filename>/usr/sbin/halt.local</filename> is provided
+    <para>Support for <filename>/etc/rc.local</filename> is provided
     for compatibility with specific System V systems only. However, it is strongly recommended to avoid making use of
-    these scripts today, and instead provide proper unit files with appropriate dependencies for any scripts to run
-    during the boot or shutdown processes.</para>
+    this script today, and instead provide proper unit files with appropriate dependencies for any scripts to run
+    during the boot process.</para>
 
     <para><filename>systemd-rc-local-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>

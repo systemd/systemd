@@ -50,7 +50,7 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
         if (!strv_isempty(g)) {
                 _cleanup_free_ char *s = NULL;
 
-                /* Thre are groups in the ACL, let's list them */
+                /* There are groups in the ACL, let's list them */
                 r = strv_extend(&g, "systemd-journal");
                 if (r < 0)
                         return log_oom();

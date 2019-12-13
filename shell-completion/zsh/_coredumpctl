@@ -1,14 +1,14 @@
-#compdef coredumpctl
+#compdef coredumpctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_coredumpctl_commands] )) ||
 _coredumpctl_commands(){
     local -a _coredumpctl_cmds
     _coredumpctl_cmds=(
-            'list:List available coredumps'
-            'info:Show detailed information about one or more coredumps'
-            'dump:Print coredump to stdout'
-            'debug:Start debugger (gdb) on a coredump'
+        'list:List available coredumps'
+        'info:Show detailed information about one or more coredumps'
+        'dump:Print coredump to stdout'
+        'debug:Start debugger (gdb) on a coredump'
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'coredumpctl command' _coredumpctl_cmds

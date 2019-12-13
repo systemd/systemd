@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-gpt-auto-generator">
 
   <refentryinfo>
@@ -32,22 +31,18 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-gpt-auto-generator</filename> is a unit
-    generator that automatically discovers root,
-    <filename>/home</filename>, <filename>/srv</filename> and swap
-    partitions and creates mount and swap units for them, based on the
-    partition type GUIDs of GUID partition tables (GPT),
-    see <ulink url="http://www.uefi.org/specifications">UEFI Specification</ulink>, chapter 5.
-    It implements the <ulink
-    url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
-    Partitions Specification</ulink>. Note that this generator has no
-    effect on non-GPT systems, or where the directories under the
-    mount points are already non-empty. Also, on systems where the
-    units are explicitly configured (for example, listed in
-    <citerefentry
-    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
-    the units this generator creates are overridden, but additional
-    implicit dependencies might be created.</para>
+    <para><filename>systemd-gpt-auto-generator</filename> is a unit generator that automatically discovers
+    root, <filename>/home/</filename>, <filename>/srv/</filename>, the EFI System Partition, the Extended
+    Boot Loader Partition and swap partitions and creates mount and swap units for them, based on the
+    partition type GUIDs of GUID partition tables (GPT), see <ulink
+    url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5.  It implements the <ulink
+    url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
+    Specification</ulink>. Note that this generator has no effect on non-GPT systems, and on specific mount
+    points that are directories already containing files. Also, on systems where the units are explicitly
+    configured (for example, listed in <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>), the
+    units this generator creates are overridden, but additional implicit dependencies might be
+    created.</para>
 
     <para>This generator will only look for root partitions on the
     same physical disk the EFI System Partition (ESP) is located on.
@@ -70,11 +65,13 @@
       <tgroup cols='3' align='left' colsep='1' rowsep='1'>
         <colspec colname="guid" />
         <colspec colname="name" />
+        <colspec colname="where" />
         <colspec colname="explanation" />
         <thead>
           <row>
             <entry>Partition Type GUID</entry>
             <entry>Name</entry>
+            <entry>Mount Point</entry>
             <entry>Explanation</entry>
           </row>
         </thead>
@@ -82,47 +79,62 @@
           <row>
             <entry>44479540-f297-41b2-9af7-d131d5f0458a</entry>
             <entry><filename>Root Partition (x86)</filename></entry>
+            <entry><filename>/</filename></entry>
             <entry>On 32-bit x86 systems, the first x86 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</entry>
             <entry><filename>Root Partition (x86-64)</filename></entry>
+            <entry><filename>/</filename></entry>
             <entry>On 64-bit x86 systems, the first x86-64 root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>69dad710-2ce4-4e3c-b16c-21a1d49abed3</entry>
             <entry><filename>Root Partition (32-bit ARM)</filename></entry>
+            <entry><filename>/</filename></entry>
             <entry>On 32-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>b921b045-1df0-41c3-af44-4c6f280d3fae</entry>
             <entry><filename>Root Partition (64-bit ARM)</filename></entry>
+            <entry><filename>/</filename></entry>
             <entry>On 64-bit ARM systems, the first ARM root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>993d8d3d-f80e-4225-855a-9daf8ed7ea97</entry>
             <entry><filename>Root Partition (Itanium/IA-64)</filename></entry>
+            <entry><filename>/</filename></entry>
             <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
             <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
             <entry>Home Partition</entry>
+            <entry><filename>/home/</filename></entry>
             <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home</filename>.</entry>
           </row>
           <row>
             <entry>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</entry>
             <entry>Server Data Partition</entry>
+            <entry><filename>/srv/</filename></entry>
             <entry>The first server data partition on the disk the root partition is located on is mounted to <filename>/srv</filename>.</entry>
           </row>
           <row>
             <entry>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</entry>
             <entry>Swap</entry>
+            <entry>n/a</entry>
             <entry>All swap partitions located on the disk the root partition is located on are enabled.</entry>
           </row>
           <row>
             <entry>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</entry>
             <entry>EFI System Partition (ESP)</entry>
+            <entry><filename>/efi/</filename> or <filename>/boot/</filename></entry>
             <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot</filename> or <filename>/efi</filename>, see below.</entry>
+          </row>
+          <row>
+            <entry>bc13c2ff-59e6-4262-a352-b275fd6f7172</entry>
+            <entry>Extended Boot Loader Partition</entry>
+            <entry><filename>/boot/</filename></entry>
+            <entry>The first Extended Boot Loader Partition is mounted to <filename>/boot</filename>, see below.</entry>
           </row>
         </tbody>
       </tgroup>
@@ -149,44 +161,55 @@
           <row>
             <entry><constant>GPT_FLAG_READ_ONLY</constant></entry>
             <entry>0x1000000000000000</entry>
-            <entry><filename>/</filename>, <filename>/srv</filename>, <filename>/home</filename></entry>
+            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is mounted read-only</entry>
           </row>
 
           <row>
             <entry><constant>GPT_FLAG_NO_AUTO</constant></entry>
             <entry>0x8000000000000000</entry>
-            <entry><filename>/</filename>, <filename>/srv</filename>, <filename>/home</filename></entry>
+            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
 
           <row>
             <entry><constant>GPT_FLAG_NO_BLOCK_IO_PROTOCOL</constant></entry>
             <entry>0x0000000000000002</entry>
-            <entry>ESP</entry>
+            <entry>EFI System Partition (ESP)</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para>The <filename>/home</filename> and <filename>/srv</filename>
-    partitions may be encrypted in LUKS format. In this case, a device
-    mapper device is set up under the names
-    <filename>/dev/mapper/home</filename> and
-    <filename>/dev/mapper/srv</filename>. Note that this might create
-    conflicts if the same partition is listed in
-    <filename>/etc/crypttab</filename> with a different device mapper
-    device name.</para>
+    <para>The <filename>/home/</filename> and <filename>/srv/</filename> partitions may be encrypted in LUKS
+    format. In this case, a device mapper device is set up under the names
+    <filename>/dev/mapper/home</filename> and <filename>/dev/mapper/srv</filename>. Note that this might
+    create conflicts if the same partition is listed in <filename>/etc/crypttab</filename> with a different
+    device mapper device name.</para>
+    
+    <para>When systemd is running in the initrd the <filename>/</filename> partition may be encrypted in LUKS
+      format as well. In this case, a device mapper device is set up under the name <filename>/dev/mapper/root</filename>,
+      and a <filename>sysroot.mount</filename> is set up that mounts the device under <filename>/sysroot</filename>.
+      For more information, see <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
 
-    <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP is mounted
-    to <filename>/boot</filename>, unless a mount point directory <filename>/efi</filename> exists, in which case it is
-    mounted there. Since this generator creates an automount unit, the mount will only be activated on-demand, when
-    accessed. On systems where <filename>/boot</filename> (or <filename>/efi</filename> if it exists) is an explicitly
-    configured mount (for example, listed in <citerefentry
-    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where the
-    <filename>/boot</filename> (or <filename>/efi</filename>) mount point is non-empty, no mount units are
-    generated.</para>
+    <para>Mount and automount units for the EFI System Partition (ESP) are generated on EFI systems. The ESP
+    is mounted to <filename>/boot/</filename> (except if an Extended Boot Loader partition exists, see
+    below), unless a mount point directory <filename>/efi/</filename> exists, in which case it is mounted
+    there. Since this generator creates an automount unit, the mount will only be activated on-demand, when
+    accessed. On systems where <filename>/boot/</filename> (or <filename>/efi/</filename> if it exists) is an
+    explicitly configured mount (for example, listed in <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or where
+    the <filename>/boot/</filename> (or <filename>/efi/</filename>) mount point is non-empty, no mount units
+    are generated.</para>
+
+    <para>If the disk contains an Extended Boot Loader partition, as defined in the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, it is made
+    available at <filename>/boot</filename> (by means of an automount point, similar to the ESP, see
+    above). If both an EFI System Partition and an Extended Boot Loader partition exist the latter is
+    preferably mounted to <filename>/boot/</filename>. Make sure to create both <filename>/efi/</filename>
+    and <filename>/boot/</filename> to ensure both partitions are mounted.</para>
 
     <para>When using this generator in conjunction with btrfs file
     systems, make sure to set the correct default subvolumes on them,
@@ -194,6 +217,45 @@
 
     <para><filename>systemd-gpt-auto-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-gpt-auto-generator</filename> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+
+      <varlistentry>
+        <term><varname>systemd.gpt_auto</varname></term>
+        <term><varname>rd.systemd.gpt_auto</varname></term>
+
+        <listitem><para>Those options take an optional boolean argument, and default to yes.
+        The generator is enabled by default, and a negative value may be used to disable it.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>root=</varname></term>
+
+        <listitem><para>When used with the special value <literal>gpt-auto</literal>, automatic discovery of
+        the root partition based on the GPT partition type is enabled.  Any other value disables this
+        generator.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>rw</varname></term>
+        <term><varname>ro</varname></term>
+
+        <listitem><para>Mount the root partition read-write or read-only <emphasis>initially</emphasis>.</para>
+
+        <para>Note that unlike most kernel command line options these settings do not override configuration
+        in the file system, and the file system may be remounted later. See
+        <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>

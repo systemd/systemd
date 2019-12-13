@@ -6,7 +6,9 @@
 #include "set.h"
 #include "string-util.h"
 
-int address_pool_new(
+#define RANDOM_PREFIX_TRIAL_MAX  1024
+
+static int address_pool_new(
                 Manager *m,
                 AddressPool **ret,
                 int family,
@@ -104,7 +106,7 @@ static bool address_pool_prefix_is_taken(
         }
 
         /* And don't clash with configured but un-assigned addresses either */
-        LIST_FOREACH(networks, n, p->manager->networks) {
+        ORDERED_HASHMAP_FOREACH(n, p->manager->networks, i) {
                 Address *a;
 
                 LIST_FOREACH(addresses, a, n->static_addresses) {
@@ -121,35 +123,34 @@ static bool address_pool_prefix_is_taken(
 
 int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found) {
         union in_addr_union u;
+        unsigned i;
+        int r;
 
         assert(p);
         assert(prefixlen > 0);
         assert(found);
 
-        if (p->prefixlen > prefixlen)
+        if (p->prefixlen >= prefixlen)
                 return 0;
 
         u = p->in_addr;
-        for (;;) {
+
+        for (i = 0; i < RANDOM_PREFIX_TRIAL_MAX; i++) {
+                r = in_addr_random_prefix(p->family, &u, p->prefixlen, prefixlen);
+                if (r <= 0)
+                        return r;
+
                 if (!address_pool_prefix_is_taken(p, &u, prefixlen)) {
-                        _cleanup_free_ char *s = NULL;
-                        int r;
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *s = NULL;
 
-                        r = in_addr_to_string(p->family, &u, &s);
-                        if (r < 0)
-                                return r;
-
-                        log_debug("Found range %s/%u", strna(s), prefixlen);
+                                (void) in_addr_to_string(p->family, &u, &s);
+                                log_debug("Found range %s/%u", strna(s), prefixlen);
+                        }
 
                         *found = u;
                         return 1;
                 }
-
-                if (!in_addr_prefix_next(p->family, &u, prefixlen))
-                        return 0;
-
-                if (!in_addr_prefix_intersect(p->family, &p->in_addr, p->prefixlen, &u, prefixlen))
-                        return 0;
         }
 
         return 0;

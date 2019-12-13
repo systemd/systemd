@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <net/if.h>
-#include <stdio_ext.h>
+#include <linux/if.h>
+#include <unistd.h>
 
 #include "sd-network.h"
 
@@ -9,7 +9,7 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing.h"
+#include "log-link.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "resolved-link.h"
@@ -98,6 +98,7 @@ Link *link_free(Link *l) {
         dns_scope_free(l->mdns_ipv6_scope);
 
         free(l->state_file);
+        free(l->ifname);
 
         return mfree(l);
 }
@@ -239,8 +240,9 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         (void) sd_netlink_message_read_u8(m, IFLA_OPERSTATE, &l->operstate);
 
         if (sd_netlink_message_read_string(m, IFLA_IFNAME, &n) >= 0) {
-                strncpy(l->name, n, sizeof(l->name)-1);
-                char_array_0(l->name);
+                r = free_and_strdup(&l->ifname, n);
+                if (r < 0)
+                        return r;
         }
 
         link_allocate_scopes(l);
@@ -267,7 +269,7 @@ static int link_update_dns_server_one(Link *l, const char *name) {
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0);
+        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0, NULL);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -382,7 +384,7 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 
 #if ! ENABLE_DNS_OVER_TLS
         if (mode != DNS_OVER_TLS_NO)
-                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
+                log_warning("DNS-over-TLS option for the link cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
         return;
 #endif
 
@@ -596,7 +598,7 @@ static void link_read_settings(Link *l) {
 
         r = link_is_managed(l);
         if (r < 0) {
-                log_warning_errno(r, "Failed to determine whether interface %s is managed: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to determine whether the interface is managed: %m");
                 return;
         }
         if (r == 0) {
@@ -613,35 +615,35 @@ static void link_read_settings(Link *l) {
 
         r = link_update_dns_servers(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS servers for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNS servers for the interface, ignoring: %m");
 
         r = link_update_llmnr_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read LLMNR support for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read LLMNR support for the interface, ignoring: %m");
 
         r = link_update_mdns_support(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read mDNS support for the interface, ignoring: %m");
 
         r = link_update_dns_over_tls_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNS-over-TLS mode for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNS-over-TLS mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_mode(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC mode for the interface, ignoring: %m");
 
         r = link_update_dnssec_negative_trust_anchors(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read DNSSEC negative trust anchors for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read DNSSEC negative trust anchors for the interface, ignoring: %m");
 
         r = link_update_search_domains(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read search domains for interface %s, ignoring: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read search domains for the interface, ignoring: %m");
 
         r = link_update_default_route(l);
         if (r < 0)
-                log_warning_errno(r, "Failed to read default route setting for interface %s, proceeding anyway: %m", l->name);
+                log_link_warning_errno(l, r, "Failed to read default route setting for the interface, proceeding anyway: %m");
 }
 
 int link_update(Link *l) {
@@ -699,7 +701,7 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
                 return false;
 
         (void) sd_network_link_get_operational_state(l->ifindex, &state);
-        if (state && !STR_IN_SET(state, "unknown", "degraded", "routable"))
+        if (state && !STR_IN_SET(state, "unknown", "degraded", "degraded-carrier", "routable"))
                 return false;
 
         LIST_FOREACH(addresses, a, l->addresses)
@@ -728,7 +730,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->name);
+                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->ifname);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
@@ -1177,7 +1179,6 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# This is private data. Do not parse.\n", f);

@@ -4,8 +4,9 @@
 #include <fcntl.h>
 #include <locale.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -17,15 +18,16 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "sort-util.h"
 #include "sparse-endian.h"
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
@@ -33,7 +35,7 @@ const char * const catalog_file_dirs[] = {
         NULL
 };
 
-#define CATALOG_SIGNATURE (uint8_t[]) { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }
+#define CATALOG_SIGNATURE { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }
 
 typedef struct CatalogHeader {
         uint8_t signature[8];  /* "RHHHKSLP" */
@@ -46,7 +48,8 @@ typedef struct CatalogHeader {
 
 typedef struct CatalogItem {
         sd_id128_t id;
-        char language[32];
+        char language[32]; /* One byte is used for termination, so the maximum allowed
+                            * length of the string is actually 31 bytes. */
         le64_t offset;
 } CatalogItem;
 
@@ -139,7 +142,7 @@ static char *combine_entries(const char *one, const char *two) {
 }
 
 static int finish_item(
-                Hashmap *h,
+                OrderedHashmap *h,
                 sd_id128_t id,
                 const char *language,
                 char *payload, size_t payload_size) {
@@ -161,14 +164,14 @@ static int finish_item(
                 strcpy(i->language, language);
         }
 
-        prev = hashmap_get(h, i);
+        prev = ordered_hashmap_get(h, i);
         if (prev) {
                 /* Already have such an item, combine them */
                 combined = combine_entries(payload, prev);
                 if (!combined)
                         return log_oom();
 
-                if (hashmap_update(h, i, combined) < 0)
+                if (ordered_hashmap_update(h, i, combined) < 0)
                         return log_oom();
                 combined = NULL;
         } else {
@@ -177,7 +180,7 @@ static int finish_item(
                 if (!combined)
                         return log_oom();
 
-                if (hashmap_put(h, i, combined) < 0)
+                if (ordered_hashmap_put(h, i, combined) < 0)
                         return log_oom();
                 i = NULL;
                 combined = NULL;
@@ -208,38 +211,42 @@ int catalog_file_lang(const char* filename, char **lang) {
         return 1;
 }
 
-static int catalog_entry_lang(const char* filename, int line,
-                              const char* t, const char* deflang, char **lang) {
+static int catalog_entry_lang(
+                const char* filename,
+                unsigned line,
+                const char* t,
+                const char* deflang,
+                char **ret) {
+
         size_t c;
+        char *z;
 
         c = strlen(t);
         if (c < 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] Language too short.",
-                                       filename, line);
+                                       "[%s:%u] Language too short.", filename, line);
         if (c > 31)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "[%s:%u] language too long.", filename,
-                                       line);
+                                       "[%s:%u] language too long.", filename, line);
 
         if (deflang) {
                 if (streq(t, deflang)) {
-                        log_warning("[%s:%u] language specified unnecessarily",
-                                    filename, line);
+                        log_warning("[%s:%u] language specified unnecessarily", filename, line);
                         return 0;
-                } else
-                        log_warning("[%s:%u] language differs from default for file",
-                                    filename, line);
+                }
+
+                log_warning("[%s:%u] language differs from default for file", filename, line);
         }
 
-        *lang = strdup(t);
-        if (!*lang)
-                        return -ENOMEM;
+        z = strdup(t);
+        if (!z)
+                return -ENOMEM;
 
+        *ret = z;
         return 0;
 }
 
-int catalog_import_file(Hashmap *h, const char *path) {
+int catalog_import_file(OrderedHashmap *h, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         size_t payload_size = 0, payload_allocated = 0;
@@ -366,32 +373,33 @@ int catalog_import_file(Hashmap *h, const char *path) {
         return 0;
 }
 
-static int64_t write_catalog(const char *database, struct strbuf *sb,
-                             CatalogItem *items, size_t n) {
-        CatalogHeader header;
+static int64_t write_catalog(
+                const char *database,
+                struct strbuf *sb,
+                CatalogItem *items,
+                size_t n) {
+
         _cleanup_fclose_ FILE *w = NULL;
-        int r;
-        _cleanup_free_ char *d, *p = NULL;
+        _cleanup_free_ char *p = NULL;
+        CatalogHeader header;
         size_t k;
+        int r;
 
-        d = dirname_malloc(database);
-        if (!d)
-                return log_oom();
-
-        r = mkdir_p(d, 0775);
+        r = mkdir_parents(database, 0755);
         if (r < 0)
-                return log_error_errno(r, "Recursive mkdir %s: %m", d);
+                return log_error_errno(r, "Failed to create parent directories of %s: %m", database);
 
         r = fopen_temporary(database, &w, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to open database for writing: %s: %m",
                                        database);
 
-        zero(header);
-        memcpy(header.signature, CATALOG_SIGNATURE, sizeof(header.signature));
-        header.header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8));
-        header.catalog_item_size = htole64(sizeof(CatalogItem));
-        header.n_items = htole64(n);
+        header = (CatalogHeader) {
+                .signature = CATALOG_SIGNATURE,
+                .header_size = htole64(ALIGN_TO(sizeof(CatalogHeader), 8)),
+                .catalog_item_size = htole64(sizeof(CatalogItem)),
+                .n_items = htole64(n),
+        };
 
         r = -EIO;
 
@@ -419,7 +427,7 @@ static int64_t write_catalog(const char *database, struct strbuf *sb,
                 goto error;
         }
 
-        fchmod(fileno(w), 0644);
+        (void) fchmod(fileno(w), 0644);
 
         if (rename(p, database) < 0) {
                 r = log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
@@ -437,7 +445,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         _cleanup_(strbuf_cleanupp) struct strbuf *sb = NULL;
-        _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
+        _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         ssize_t offset;
         char *payload;
@@ -447,7 +455,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
         int r;
         int64_t sz;
 
-        h = hashmap_new(&catalog_hash_ops);
+        h = ordered_hashmap_new(&catalog_hash_ops);
         sb = strbuf_new();
         if (!h || !sb)
                 return log_oom();
@@ -463,18 +471,18 @@ int catalog_update(const char* database, const char* root, const char* const* di
                         return log_error_errno(r, "Failed to import file '%s': %m", *f);
         }
 
-        if (hashmap_size(h) <= 0) {
+        if (ordered_hashmap_size(h) <= 0) {
                 log_info("No items in catalog.");
                 return 0;
         } else
-                log_debug("Found %u items in catalog.", hashmap_size(h));
+                log_debug("Found %u items in catalog.", ordered_hashmap_size(h));
 
-        items = new(CatalogItem, hashmap_size(h));
+        items = new(CatalogItem, ordered_hashmap_size(h));
         if (!items)
                 return log_oom();
 
         n = 0;
-        HASHMAP_FOREACH_KEY(payload, i, h, j) {
+        ORDERED_HASHMAP_FOREACH_KEY(payload, i, h, j) {
                 log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
@@ -487,7 +495,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 items[n++] = *i;
         }
 
-        assert(n == hashmap_size(h));
+        assert(n == ordered_hashmap_size(h));
         typesafe_qsort(items, n, catalog_compare_func);
 
         strbuf_complete(sb);
@@ -502,10 +510,10 @@ int catalog_update(const char* database, const char* root, const char* const* di
 }
 
 static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
+        _cleanup_close_ int fd = -1;
         const CatalogHeader *h;
-        int fd;
-        void *p;
         struct stat st;
+        void *p;
 
         assert(_fd);
         assert(_st);
@@ -515,35 +523,28 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0) {
-                safe_close(fd);
+        if (fstat(fd, &st) < 0)
                 return -errno;
-        }
 
-        if (st.st_size < (off_t) sizeof(CatalogHeader)) {
-                safe_close(fd);
+        if (st.st_size < (off_t) sizeof(CatalogHeader))
                 return -EINVAL;
-        }
 
         p = mmap(NULL, PAGE_ALIGN(st.st_size), PROT_READ, MAP_SHARED, fd, 0);
-        if (p == MAP_FAILED) {
-                safe_close(fd);
+        if (p == MAP_FAILED)
                 return -errno;
-        }
 
         h = p;
-        if (memcmp(h->signature, CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
+        if (memcmp(h->signature, (const uint8_t[]) CATALOG_SIGNATURE, sizeof(h->signature)) != 0 ||
             le64toh(h->header_size) < sizeof(CatalogHeader) ||
             le64toh(h->catalog_item_size) < sizeof(CatalogItem) ||
             h->incompatible_flags != 0 ||
             le64toh(h->n_items) <= 0 ||
             st.st_size < (off_t) (le64toh(h->header_size) + le64toh(h->catalog_item_size) * le64toh(h->n_items))) {
-                safe_close(fd);
                 munmap(p, st.st_size);
                 return -EBADMSG;
         }
 
-        *_fd = fd;
+        *_fd = TAKE_FD(fd);
         *_st = st;
         *_p = p;
 
@@ -556,25 +557,44 @@ static const char *find_id(void *p, sd_id128_t id) {
         const char *loc;
 
         loc = setlocale(LC_MESSAGES, NULL);
-        if (loc && loc[0] && !streq(loc, "C") && !streq(loc, "POSIX")) {
-                strncpy(key.language, loc, sizeof(key.language));
-                key.language[strcspn(key.language, ".@")] = 0;
+        if (!isempty(loc) && !STR_IN_SET(loc, "C", "POSIX")) {
+                size_t len;
 
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
-                if (!f) {
-                        char *e;
+                len = strcspn(loc, ".@");
+                if (len > sizeof(key.language) - 1)
+                        log_debug("LC_MESSAGES value too long, ignoring: \"%.*s\"", (int) len, loc);
+                else {
+                        strncpy(key.language, loc, len);
+                        key.language[len] = '\0';
 
-                        e = strchr(key.language, '_');
-                        if (e) {
-                                *e = 0;
-                                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
+                        f = bsearch(&key,
+                                    (const uint8_t*) p + le64toh(h->header_size),
+                                    le64toh(h->n_items),
+                                    le64toh(h->catalog_item_size),
+                                    (comparison_fn_t) catalog_compare_func);
+                        if (!f) {
+                                char *e;
+
+                                e = strchr(key.language, '_');
+                                if (e) {
+                                        *e = 0;
+                                        f = bsearch(&key,
+                                                    (const uint8_t*) p + le64toh(h->header_size),
+                                                    le64toh(h->n_items),
+                                                    le64toh(h->catalog_item_size),
+                                                    (comparison_fn_t) catalog_compare_func);
+                                }
                         }
                 }
         }
 
         if (!f) {
                 zero(key.language);
-                f = bsearch(&key, (const uint8_t*) p + le64toh(h->header_size), le64toh(h->n_items), le64toh(h->catalog_item_size), (comparison_fn_t) catalog_compare_func);
+                f = bsearch(&key,
+                            (const uint8_t*) p + le64toh(h->header_size),
+                            le64toh(h->n_items),
+                            le64toh(h->catalog_item_size),
+                            (comparison_fn_t) catalog_compare_func);
         }
 
         if (!f)

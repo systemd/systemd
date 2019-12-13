@@ -1,14 +1,10 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="runlevel"
-    xmlns:xi="http://www.w3.org/2001/XInclude"
-    conditional="ENABLE_UTMP">
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>runlevel</title>

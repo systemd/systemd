@@ -105,6 +105,15 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
 
+#if HAVE_WSTRINGOP_TRUNCATION
+#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wstringop-truncation\"")
+#else
+#  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
+        _Pragma("GCC diagnostic push")
+#endif
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 
@@ -154,6 +163,11 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
+
+        /* Avoid subtraction overflow */
+        if (u == 0)
+                return 0;
+
         /* clz(0) is undefined */
         if (u == 1)
                 return 1;
@@ -163,6 +177,29 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 return 0;
 
         return 1UL << (sizeof(u) * 8 - __builtin_clzl(u - 1UL));
+}
+
+static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
+        size_t m;
+
+        /* Round up allocation sizes a bit to some reasonable, likely larger value. This is supposed to be
+         * used for cases which are likely called in an allocation loop of some form, i.e. that repetitively
+         * grow stuff, for example strv_extend() and suchlike.
+         *
+         * Note the difference to GREEDY_REALLOC() here, as this helper operates on a single size value only,
+         * and rounds up to next multiple of 2, needing no further counter.
+         *
+         * Note the benefits of direct ALIGN_POWER2() usage: type-safety for size_t, sane handling for very
+         * small (i.e. <= 2) and safe handling for very large (i.e. > SSIZE_MAX) values. */
+
+        if (l <= 2)
+                return 2; /* Never allocate less than 2 of something.  */
+
+        m = ALIGN_POWER2(l);
+        if (m == 0) /* overflow? */
+                return l;
+
+        return m;
 }
 
 #ifndef __COVERITY__
@@ -298,29 +335,30 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 extern void __coverity_panic__(void);
 
-static inline int __coverity_check__(int condition) {
+static inline void __coverity_check__(int condition) {
+        if (!condition)
+                __coverity_panic__();
+}
+
+static inline int __coverity_check_and_return__(int condition) {
         return condition;
 }
 
-#define assert_message_se(expr, message)                                \
-        do {                                                            \
-                if (__coverity_check__(!(expr)))                        \
-                        __coverity_panic__();                           \
-        } while (false)
+#define assert_message_se(expr, message) __coverity_check__(!!(expr))
 
-#define assert_log(expr, message) __coverity_check__(!!(expr))
+#define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
 
 #else  /* ! __COVERITY__ */
 
 #define assert_message_se(expr, message)                                \
         do {                                                            \
                 if (_unlikely_(!(expr)))                                \
-                        log_assert_failed(message, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        log_assert_failed(message, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__); \
         } while (false)
 
 #define assert_log(expr, message) ((_likely_(expr))                     \
         ? (true)                                                        \
-        : (log_assert_failed_return(message, __FILE__, __LINE__, __PRETTY_FUNCTION__), false))
+        : (log_assert_failed_return(message, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__), false))
 
 #endif  /* __COVERITY__ */
 
@@ -335,18 +373,16 @@ static inline int __coverity_check__(int condition) {
 #endif
 
 #define assert_not_reached(t)                                           \
-        do {                                                            \
-                log_assert_failed_unreachable(t, __FILE__, __LINE__, __PRETTY_FUNCTION__); \
-        } while (false)
+        log_assert_failed_unreachable(t, PROJECT_FILE, __LINE__, __PRETTY_FUNCTION__)
 
 #if defined(static_assert)
 #define assert_cc(expr)                                                 \
-        static_assert(expr, #expr);
+        static_assert(expr, #expr)
 #else
 #define assert_cc(expr)                                                 \
         struct CONCATENATE(_assert_struct_, __COUNTER__) {              \
                 char x[(expr) ? 0 : -1];                                \
-        };
+        }
 #endif
 
 #define assert_return(expr, r)                                          \
@@ -455,7 +491,8 @@ static inline int __coverity_check__(int condition) {
                  * type for the array, in the hope that checkers such as ubsan don't complain that the initializers for \
                  * the array are not representable by the base type. Ideally we'd use typeof(x) as base type, but that  \
                  * doesn't work, as we want to use this on bitfields and gcc refuses typeof() on bitfields.) */         \
-                assert_cc((sizeof((long double[]){__VA_ARGS__})/sizeof(long double)) <= 20); \
+                static const long double __assert_in_set[] _unused_ = { __VA_ARGS__ }; \
+                assert_cc(ELEMENTSOF(__assert_in_set) <= 20); \
                 switch(x) {                     \
                 FOR_EACH_MAKE_CASE(__VA_ARGS__) \
                         _found = true;          \

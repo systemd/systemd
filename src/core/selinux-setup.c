@@ -13,6 +13,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "util.h"
 
 #if HAVE_SELINUX

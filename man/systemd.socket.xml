@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.socket">
   <refentryinfo>
@@ -38,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The socket specific configuration options are
-    configured in the [Socket] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The socket specific configuration options are
+    configured in the <literal>[Socket]</literal> section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -54,11 +51,11 @@
     which configure resource control settings for the processes of the
     socket.</para>
 
-    <para>For each socket file, a matching service file must exist,
+    <para>For each socket unit, a matching service unit must exist,
     describing the service to start on incoming traffic on the socket
     (see
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information about .service files). The name of the
+    for more information about .service units). The name of the
     .service unit is by default the same as the name of the .socket
     unit, but can be altered with the <option>Service=</option> option
     described below. Depending on the setting of the
@@ -69,7 +66,7 @@
     socket file <filename>foo.socket</filename> needs a matching
     service <filename>foo.service</filename> if
     <option>Accept=no</option> is set. If
-    <option>Accept=yes</option> is set, a service template file
+    <option>Accept=yes</option> is set, a service template
     <filename>foo@.service</filename> must exist from which services
     are instantiated for each incoming connection.</para>
 
@@ -853,6 +850,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

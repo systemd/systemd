@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,11 +14,12 @@
 
 #pragma GCC diagnostic ignored "-Wtype-limits"
 
-#define info(t)                                                 \
-        printf("%s → %zu bits%s\n", STRINGIFY(t),               \
-               sizeof(t)*CHAR_BIT,                              \
-               strstr(STRINGIFY(t), "signed") ? "" :            \
-               ((t)-1 < (t)0 ? ", signed" : ", unsigned"));
+#define info(t)                                                         \
+        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \
+               sizeof(t)*CHAR_BIT,                                      \
+               strstr(STRINGIFY(t), "signed") ? "" :                    \
+               (t)-1 < (t)0 ? ", signed" : ", unsigned",                \
+               __alignof__(t))
 
 enum Enum {
         enum_value,
@@ -63,6 +65,8 @@ int main(void) {
         info(pid_t);
         info(uid_t);
         info(gid_t);
+
+        info(__cpu_mask);
 
         info(enum Enum);
         info(enum BigEnum);

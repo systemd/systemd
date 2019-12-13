@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <net/if.h>
-
 #include "in-addr-util.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
@@ -67,7 +65,7 @@ struct Link {
 
         bool is_managed;
 
-        char name[IF_NAMESIZE];
+        char *ifname;
         uint32_t mtu;
         uint8_t operstate;
 

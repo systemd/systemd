@@ -4,7 +4,6 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "service.h"
-#include "test-helper.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
@@ -17,7 +16,7 @@ int main(int argc, char *argv[]) {
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");
-        r = enter_cgroup_subroot();
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -42,25 +41,25 @@ int main(int argc, char *argv[]) {
         assert_se(hashmap_isempty(m->watch_pids));
         assert_se(manager_get_unit_by_pid(m, 4711) == NULL);
 
-        assert_se(unit_watch_pid(a, 4711) >= 0);
+        assert_se(unit_watch_pid(a, 4711, false) >= 0);
         assert_se(manager_get_unit_by_pid(m, 4711) == a);
 
-        assert_se(unit_watch_pid(a, 4711) >= 0);
+        assert_se(unit_watch_pid(a, 4711, false) >= 0);
         assert_se(manager_get_unit_by_pid(m, 4711) == a);
 
-        assert_se(unit_watch_pid(b, 4711) >= 0);
+        assert_se(unit_watch_pid(b, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(b, 4711) >= 0);
+        assert_se(unit_watch_pid(b, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b);
 
-        assert_se(unit_watch_pid(c, 4711) >= 0);
+        assert_se(unit_watch_pid(c, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b || u == c);
 
-        assert_se(unit_watch_pid(c, 4711) >= 0);
+        assert_se(unit_watch_pid(c, 4711, false) >= 0);
         u = manager_get_unit_by_pid(m, 4711);
         assert_se(u == a || u == b || u == c);
 

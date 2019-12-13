@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-cgtop"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -45,7 +42,7 @@
 
     <para>If <command>systemd-cgtop</command> is not connected to a
     tty, no column headers are printed and the default is to only run
-    one iteration.  The <varname>--iterations=</varname> argument, if
+    one iteration. The <option>--iterations=</option> argument, if
     given, is honored. This mode is suitable for scripting.</para>
 
     <para>Resource usage is only accounted for control groups in the

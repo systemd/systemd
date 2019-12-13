@@ -9,7 +9,8 @@
 
 [Unit]
 Description=Temporary Directory (/tmp)
-Documentation=man:hier(7)
+Documentation=https://systemd.io/TEMPORARY_DIRECTORIES
+Documentation=man:file-hierarchy(7)
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 ConditionPathIsSymbolicLink=!/tmp
 DefaultDependencies=no

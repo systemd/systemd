@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -13,7 +12,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "missing.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -52,7 +51,7 @@ int switch_root(const char *new_root,
         }
 
         /* Determine where we shall place the old root after the transition */
-        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after);
+        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
         if (r == 0) /* Doesn't exist yet. Let's create it */
@@ -68,7 +67,7 @@ int switch_root(const char *new_root,
         FOREACH_STRING(i, "/sys", "/dev", "/run", "/proc") {
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased);
+                r = chase_symlinks(i, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, i);
                 if (r > 0) {
@@ -120,10 +119,8 @@ int switch_root(const char *new_root,
 
                 if (fstat(old_root_fd, &rb) < 0)
                         log_warning_errno(errno, "Failed to stat old root directory, leaving: %m");
-                else {
-                        (void) rm_rf_children(old_root_fd, 0, &rb);
-                        old_root_fd = -1;
-                }
+                else
+                        (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
 
         return 0;

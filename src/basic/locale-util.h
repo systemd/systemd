@@ -68,9 +68,6 @@ const char *special_glyph(SpecialGlyph code) _const_;
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;
 
-int get_keymaps(char ***l);
-bool keymap_is_valid(const char *name);
-
 static inline void freelocalep(locale_t *p) {
         if (*p == (locale_t) 0)
                 return;

@@ -5,6 +5,9 @@
 ***/
 
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -12,7 +15,6 @@
 #include "fileio.h"
 #include "ima-setup.h"
 #include "log.h"
-#include "util.h"
 
 #define IMA_SECFS_DIR "/sys/kernel/security/ima"
 #define IMA_SECFS_POLICY IMA_SECFS_DIR "/policy"

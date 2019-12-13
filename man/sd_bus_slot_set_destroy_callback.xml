@@ -1,7 +1,6 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_slot_set_destroy_callback"
@@ -89,27 +88,27 @@
     <title>Return Value</title>
 
     <para>On success, <function>sd_bus_slot_set_destroy_callback()</function> and
-    <function>sd_bus_track_set_destroy_callback()</function> return 0 or a positive integer. On failure, they return a
-    negative errno-style error code.</para>
+    <function>sd_bus_track_set_destroy_callback()</function> return 0 or a positive integer. On failure, they
+    return a negative errno-style error code.</para>
 
     <para><function>sd_bus_slot_get_destroy_callback()</function> and
-    <function>sd_bus_track_get_destroy_callback()</function> return positive if the destroy callback function is set, 0
-    if not. On failure, they return a negative errno-style error code.</para>
-  </refsect1>
+    <function>sd_bus_track_get_destroy_callback()</function> return positive if the destroy callback function
+    is set, 0 if not. On failure, they return a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The <parameter>slot</parameter> or <parameter>track</parameter> parameter is
-        <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The <parameter>slot</parameter> or <parameter>track</parameter> parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

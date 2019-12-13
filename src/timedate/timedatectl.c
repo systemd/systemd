@@ -46,7 +46,7 @@ typedef struct StatusInfo {
 } StatusInfo;
 
 static void print_status_info(const StatusInfo *i) {
-        const char *old_tz = NULL, *tz;
+        const char *old_tz = NULL, *tz, *tz_colon;
         bool have_time = false;
         char a[LINE_MAX];
         struct tm tm;
@@ -62,7 +62,8 @@ static void print_status_info(const StatusInfo *i) {
                 old_tz = strdupa(tz);
 
         /* Set the new $TZ */
-        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, true) < 0)
+        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
+        if (setenv("TZ", tz_colon, true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
@@ -670,7 +671,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
                                 return r;
 
                         if (arg_all || !isempty(str))
-                                bus_print_property_value(name, expected_value, value, "%s", str);
+                                bus_print_property_value(name, expected_value, value, str);
 
                         return 1;
                 }
@@ -700,6 +701,107 @@ static int show_timesync(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int32_t i;
+        int r;
+
+        assert(bus);
+        assert(str);
+        assert(ret);
+
+        r = parse_ifindex(str, ret);
+        if (r >= 0)
+                return 0;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "GetLinkByName",
+                        &error,
+                        &reply,
+                        "s", str);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get ifindex of interfaces %s: %s", str, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "io", &i, NULL);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *ret = i;
+        return 0;
+}
+
+static int verb_ntp_servers(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &req,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "SetLinkNTP");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(req, "i", ifindex);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(req, argv + 2);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, req, 0, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set NTP servers: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verb_revert(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int ifindex, r;
+
+        assert(bus);
+
+        r = parse_ifindex_bus(bus, argv[1], &ifindex);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "RevertLinkNTP",
+                        &error,
+                        NULL,
+                        "i", ifindex);
+        if (r < 0)
+                return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -708,8 +810,20 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "Query or change system time and date settings.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n"
+               "\n%sQuery or change system time and date settings.%s\n"
+               "\nCommands:\n"
+               "  status                   Show current time settings\n"
+               "  show                     Show properties of systemd-timedated\n"
+               "  set-time TIME            Set system time\n"
+               "  set-timezone ZONE        Set system time zone\n"
+               "  list-timezones           Show known time zones\n"
+               "  set-local-rtc BOOL       Control whether RTC is in local time\n"
+               "  set-ntp BOOL             Enable or disable network time synchronization\n"
+               "\nsystemd-timesyncd Commands:\n"
+               "  timesync-status          Show status of systemd-timesyncd\n"
+               "  show-timesync            Show properties of systemd-timesyncd\n"
+               "\nOptions:\n"
                "  -h --help                Show this help message\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -721,21 +835,10 @@ static int help(void) {
                "  -p --property=NAME       Show only properties by this name\n"
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
-               "\n"
-               "Commands:\n"
-               "  status                   Show current time settings\n"
-               "  show                     Show properties of systemd-timedated\n"
-               "  set-time TIME            Set system time\n"
-               "  set-timezone ZONE        Set system time zone\n"
-               "  list-timezones           Show known time zones\n"
-               "  set-local-rtc BOOL       Control whether RTC is in local time\n"
-               "  set-ntp BOOL             Enable or disable network time synchronization\n"
-               "\n"
-               "systemd-timesyncd Commands:\n"
-               "  timesync-status          Show status of systemd-timesyncd\n"
-               "  show-timesync            Show properties of systemd-timesyncd\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -854,6 +957,8 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
                 { "set-ntp",         2,        2,        0,            set_ntp              },
                 { "timesync-status", VERB_ANY, 1,        0,            show_timesync_status },
                 { "show-timesync",   VERB_ANY, 1,        0,            show_timesync        },
+                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers     },
+                { "revert",          2,        2,        0,            verb_revert          },
                 { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            }, /* Not documented, but supported since it is created. */
                 {}
         };
@@ -866,6 +971,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

@@ -14,17 +14,20 @@
 #include "util.h"
 #include "shim.h"
 
-/* well known shim lock guid */
-#define SHIM_LOCK_GUID
+#if defined(__x86_64__) || defined(__i386__)
+#define __sysv_abi__ __attribute__((sysv_abi))
+#else
+#define __sysv_abi__
+#endif
 
 struct ShimLock {
-        EFI_STATUS __attribute__((sysv_abi)) (*shim_verify) (VOID *buffer, UINT32 size);
+        EFI_STATUS __sysv_abi__ (*shim_verify) (VOID *buffer, UINT32 size);
 
         /* context is actually a struct for the PE header, but it isn't needed so void is sufficient just do define the interface
          * see shim.c/shim.h and PeHeader.h in the github shim repo */
-        EFI_STATUS __attribute__((sysv_abi)) (*generate_hash) (VOID *data, UINT32 datasize, VOID *context, UINT8 *sha256hash, UINT8 *sha1hash);
+        EFI_STATUS __sysv_abi__ (*generate_hash) (VOID *data, UINT32 datasize, VOID *context, UINT8 *sha256hash, UINT8 *sha1hash);
 
-        EFI_STATUS __attribute__((sysv_abi)) (*read_header) (VOID *data, UINT32 datasize, VOID *context);
+        EFI_STATUS __sysv_abi__ (*read_header) (VOID *data, UINT32 datasize, VOID *context);
 };
 
 static const EFI_GUID simple_fs_guid = SIMPLE_FILE_SYSTEM_PROTOCOL;
@@ -158,7 +161,7 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         if (status != EFI_SUCCESS)
                 return status;
 
-        /* No need to check return value, this already happend in efi_main() */
+        /* No need to check return value, this already happened in efi_main() */
         root = LibOpenRoot(h);
         dev_path_str = DevicePathToStr(dev_path);
 

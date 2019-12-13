@@ -19,6 +19,7 @@
 #include "journald-syslog.h"
 #include "journald-wall.h"
 #include "memfd-util.h"
+#include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -62,7 +63,7 @@ static void server_process_entry_meta(
                  startswith(p, "SYSLOG_IDENTIFIER=")) {
                 char *t;
 
-                t = strndup(p + 18, l - 18);
+                t = memdup_suffix0(p + 18, l - 18);
                 if (t) {
                         free(*identifier);
                         *identifier = t;
@@ -72,7 +73,7 @@ static void server_process_entry_meta(
                    startswith(p, "MESSAGE=")) {
                 char *t;
 
-                t = strndup(p + 8, l - 8);
+                t = memdup_suffix0(p + 8, l - 8);
                 if (t) {
                         free(*message);
                         *message = t;

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <resolv.h>
-#include <stdio_ext.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -332,7 +334,6 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
 }
 
 int manager_write_resolv_conf(Manager *m) {
-
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_free_ char *temp_path_uplink = NULL, *temp_path_stub = NULL;
         _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;
@@ -356,14 +357,12 @@ int manager_write_resolv_conf(Manager *m) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
 
-        (void) __fsetlocking(f_uplink, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f_uplink), 0644);
 
         r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private stub-resolv.conf file for writing: %m");
 
-        (void) __fsetlocking(f_stub, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f_stub), 0644);
 
         r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);

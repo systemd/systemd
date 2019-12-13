@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "chattr-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
 #include "journal-file.h"
@@ -13,6 +14,15 @@
 
 static bool arg_keep = false;
 
+static void mkdtemp_chdir_chattr(char *path) {
+        assert_se(mkdtemp(path));
+        assert_se(chdir(path) >= 0);
+
+        /* Speed up things a bit on btrfs, ensuring that CoW is turned off for all files created in our
+         * directory during the test run */
+        (void) chattr_path(path, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+}
+
 static void test_non_empty(void) {
         dual_timestamp ts;
         JournalFile *f;
@@ -21,12 +31,11 @@ static void test_non_empty(void) {
         Object *o;
         uint64_t p;
         sd_id128_t fake_boot_id;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
 
@@ -109,12 +118,11 @@ static void test_non_empty(void) {
 
 static void test_empty(void) {
         JournalFile *f1, *f2, *f3, *f4;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, false, (uint64_t) -1, false, NULL, NULL, NULL, NULL, &f1) == 0);
 
@@ -156,7 +164,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         struct iovec iovec;
         Object *o;
         uint64_t p;
-        char t[] = "/tmp/journal-XXXXXX";
+        char t[] = "/var/tmp/journal-XXXXXX";
         char data[2048] = {0};
         bool is_compressed;
         int r;
@@ -165,8 +173,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(mkdtemp(t));
-        assert_se(chdir(t) >= 0);
+        mkdtemp_chdir_chattr(t);
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, compress_threshold, true, NULL, NULL, NULL, NULL, &f) == 0);
 

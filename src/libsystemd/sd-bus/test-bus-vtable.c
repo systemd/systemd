@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -5,71 +7,64 @@
 #undef NDEBUG
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 
 #include "sd-bus-vtable.h"
 
+#ifndef __cplusplus
+#  include "bus-objects.h"
+#endif
+
+#include "test-vtable-data.h"
+
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
 
-struct context {
-        bool quit;
-        char *something;
-        char *automatic_string_property;
-        uint32_t automatic_integer_property;
-};
+static struct context c = {};
+static int happy_finder_object = 0;
 
-static int handler(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        return 1;
+static int happy_finder(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        assert(userdata);
+        assert(userdata == &c);
+
+#ifndef __cplusplus
+        log_info("%s called", __func__);
+#endif
+
+        happy_finder_object++;
+        *found = &happy_finder_object;
+        return 1; /* found */
 }
-
-static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        return 1;
-}
-
-static int get_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        return 1;
-}
-
-static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
-        return 1;
-}
-
-static const sd_bus_vtable vtable[] = {
-        SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("AlterSomething", "s", "s", handler, 0),
-        SD_BUS_METHOD("Exit", "", "", handler, 0),
-        SD_BUS_METHOD_WITH_OFFSET("AlterSomething2", "s", "s", handler, 200, 0),
-        SD_BUS_METHOD_WITH_OFFSET("Exit2", "", "", handler, 200, 0),
-        SD_BUS_PROPERTY("Value", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Value2", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        SD_BUS_PROPERTY("Value3", "s", value_handler, 10, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Value4", "s", value_handler, 10, 0),
-        SD_BUS_PROPERTY("AnExplicitProperty", "s", NULL, offsetof(struct context, something),
-                        SD_BUS_VTABLE_PROPERTY_EXPLICIT|SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
-        SD_BUS_WRITABLE_PROPERTY("Something", "s", get_handler, set_handler, 0, 0),
-        SD_BUS_WRITABLE_PROPERTY("AutomaticStringProperty", "s", NULL, NULL,
-                                 offsetof(struct context, automatic_string_property), 0),
-        SD_BUS_WRITABLE_PROPERTY("AutomaticIntegerProperty", "u", NULL, NULL,
-                                 offsetof(struct context, automatic_integer_property), 0),
-        SD_BUS_METHOD("NoOperation", NULL, NULL, NULL, 0),
-        SD_BUS_SIGNAL("DummySignal", "b", 0),
-        SD_BUS_SIGNAL("DummySignal2", "so", 0),
-        SD_BUS_VTABLE_END
-};
 
 static void test_vtable(void) {
         sd_bus *bus = NULL;
-        struct context c = {};
         int r;
 
         assert(sd_bus_new(&bus) >= 0);
 
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", vtable, &c) >= 0);
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", vtable, &c) >= 0);
+        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", test_vtable_2, &c) >= 0);
+        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", test_vtable_2, &c) >= 0);
+        /* the cast on the line below is needed to test with the old version of the table */
+        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable221",
+                                        (const sd_bus_vtable *)vtable_format_221, &c) >= 0);
+
+        assert(sd_bus_add_fallback_vtable(bus, NULL, "/fallback", "org.freedesktop.systemd.testVtable2", test_vtable_2, happy_finder, &c) >= 0);
 
         assert(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
         r = sd_bus_start(bus);
         assert(r == 0 ||     /* success */
                r == -ENOENT  /* dbus is inactive */ );
+
+#ifndef __cplusplus
+        _cleanup_free_ char *s, *s2;
+
+        assert_se(introspect_path(bus, "/foo", NULL, false, true, NULL, &s, NULL) == 1);
+        fputs(s, stdout);
+
+        assert_se(introspect_path(bus, "/fallback", NULL, false, true, NULL, &s2, NULL) == 1);
+        fputs(s2, stdout);
+
+        assert_se(happy_finder_object == 1);
+#endif
 
         sd_bus_unref(bus);
 }

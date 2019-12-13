@@ -82,7 +82,7 @@ static int parse_search_domain(const char *string) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&string, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -172,7 +172,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                         log_debug("Switch -%c ignored.", c);
                         break;
 
-                /* Everybody else can agree on the existance of -u but we don't support it. */
+                /* Everybody else can agree on the existence of -u but we don't support it. */
                 case 'u':
 
                 /* The following options are openresolv inventions we don't support. */

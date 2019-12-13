@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-time-wait-sync.service" conditional='ENABLE_TIMESYNCD'>
 
@@ -38,7 +35,7 @@
 
     <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
     <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
-    but this detection is not reliable and is intended only as a fallback for other servies that can be used to
+    but this detection is not reliable and is intended only as a fallback for other services that can be used to
     synchronize time (e.g., ntpd, chronyd).</para>
 
   </refsect1>

@@ -44,7 +44,7 @@ struct TarExport {
         uint64_t quota_referenced;
 
         unsigned last_percent;
-        RateLimit progress_rate_limit;
+        RateLimit progress_ratelimit;
 
         bool eof;
         bool tried_splice;
@@ -99,9 +99,8 @@ int tar_export_new(
                 .userdata = userdata,
                 .quota_referenced = (uint64_t) -1,
                 .last_percent = (unsigned) -1,
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
-
-        RATELIMIT_INIT(e->progress_rate_limit, 100 * USEC_PER_MSEC, 1);
 
         if (event)
                 e->event = sd_event_ref(event);
@@ -132,7 +131,7 @@ static void tar_export_report_progress(TarExport *e) {
         if (percent == e->last_percent)
                 return;
 
-        if (!ratelimit_below(&e->progress_rate_limit))
+        if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);

@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-fstab-generator">
 
   <refentryinfo>
@@ -175,19 +174,25 @@
         lost at shutdown, as <filename>/etc</filename> and <filename>/var</filename> will be served from the (initially
         unpopulated) volatile memory file system.</para>
 
-        <para>If set to <option>state</option> the generator will leave the root
-        directory mount point unaltered, however will mount a <literal>tmpfs</literal> file system to
-        <filename>/var</filename>. In this mode the normal system configuration (i.e. the contents of
-        <literal>/etc</literal>) is in effect (and may be modified during system runtime), however the system state
-        (i.e. the contents of <literal>/var</literal>) is reset at boot and lost at shutdown.</para>
+        <para>If set to <option>state</option> the generator will leave the root directory mount point unaltered,
+        however will mount a <literal>tmpfs</literal> file system to <filename>/var</filename>. In this mode the normal
+        system configuration (i.e. the contents of <literal>/etc</literal>) is in effect (and may be modified during
+        system runtime), however the system state (i.e. the contents of <literal>/var</literal>) is reset at boot and
+        lost at shutdown.</para>
+
+        <para>If this setting is set to <literal>overlay</literal> the root file system is set up as
+        <literal>overlayfs</literal> mount combining the read-only root directory with a writable
+        <literal>tmpfs</literal>, so that no modifications are made to disk, but the file system may be modified
+        nonetheless with all changes being lost at reboot.</para>
 
         <para>Note that in none of these modes the root directory, <filename>/etc</filename>, <filename>/var</filename>
         or any other resources stored in the root file system are physically removed. It's thus safe to boot a system
         that is normally operated in non-volatile mode temporarily into volatile mode, without losing data.</para>
 
-        <para>Note that enabling this setting will only work correctly on operating systems that can boot up with only
-        <filename>/usr</filename> mounted, and are able to automatically populate <filename>/etc</filename>, and also
-        <filename>/var</filename> in case of <literal>systemd.volatile=yes</literal>.</para></listitem>
+        <para>Note that with the exception of <literal>overlay</literal> mode, enabling this setting will only work
+        correctly on operating systems that can boot up with only <filename>/usr</filename> mounted, and are able to
+        automatically populate <filename>/etc</filename>, and also <filename>/var</filename> in case of
+        <literal>systemd.volatile=yes</literal>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

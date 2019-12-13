@@ -11,12 +11,11 @@ test_hashmap_ordered_c = custom_target(
 
 test_include_dir = include_directories('.')
 
-path = run_command('sh', ['-c', 'echo "$PATH"']).stdout()
+path = run_command('sh', ['-c', 'echo "$PATH"']).stdout().strip()
 test_env = environment()
 test_env.set('SYSTEMD_KBD_MODEL_MAP', kbd_model_map)
 test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
-test_env.set('PATH', path)
-test_env.prepend('PATH', meson.build_root())
+test_env.set('PATH', '@0@:@1@'.format(meson.build_root(), path))
 
 ############################################################
 
@@ -51,8 +50,7 @@ tests += [
          [],
          []],
 
-        [['src/test/test-engine.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-engine.c'],
          [libcore,
           libudev,
           libshared],
@@ -137,8 +135,11 @@ tests += [
          [],
          'ENABLE_EFI'],
 
-        [['src/test/test-unit-name.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-unit-file.c'],
+         [],
+         []],
+
+        [['src/test/test-unit-name.c'],
          [libcore,
           libshared],
          [threads,
@@ -148,8 +149,7 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-unit-file.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-load-fragment.c'],
          [libcore,
           libshared],
          [threads,
@@ -216,6 +216,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-format-util.c'],
+         [],
+         []],
+
         [['src/test/test-ratelimit.c'],
          [],
          []],
@@ -227,6 +231,11 @@ tests += [
         [['src/test/test-json.c'],
          [],
          []],
+
+        [['src/test/test-libmount.c'],
+         [],
+         [threads,
+          libmount]],
 
         [['src/test/test-mount-util.c'],
          [],
@@ -264,6 +273,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-umask-util.c'],
+         [],
+         []],
+
         [['src/test/test-proc-cmdline.c'],
          [],
          []],
@@ -289,6 +302,10 @@ tests += [
          []],
 
         [['src/test/test-escape.c'],
+         [],
+         []],
+
+        [['src/test/test-exit-status.c'],
          [],
          []],
 
@@ -407,8 +424,7 @@ tests += [
          [libbasic],
          []],
 
-        [['src/test/test-bpf.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-bpf-devices.c'],
          [libcore,
           libshared],
          [libmount,
@@ -418,8 +434,17 @@ tests += [
           libselinux,
           libblkid]],
 
-        [['src/test/test-watch-pid.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-bpf-firewall.c'],
+         [libcore,
+          libshared],
+         [libmount,
+          threads,
+          librt,
+          libseccomp,
+          libselinux,
+          libblkid]],
+
+        [['src/test/test-watch-pid.c'],
          [libcore,
           libshared],
          [libmount,
@@ -437,6 +462,10 @@ tests += [
          '', 'timeout=90'],
 
         [['src/test/test-set.c'],
+         [],
+         []],
+
+        [['src/test/test-ordered-set.c'],
          [],
          []],
 
@@ -560,8 +589,17 @@ tests += [
          [],
          '', 'manual'],
 
-        [['src/test/test-cgroup-mask.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-cgroup-cpu.c'],
+         [libcore,
+          libshared],
+         []],
+
+        [['src/test/test-cgroup-unit-default.c'],
+         [libcore,
+          libshared],
+         []],
+
+        [['src/test/test-cgroup-mask.c'],
          [libcore,
           libshared],
          [threads,
@@ -571,7 +609,19 @@ tests += [
           libmount,
           libblkid]],
 
+        [['src/test/test-varlink.c'],
+         [],
+         [threads]],
+
         [['src/test/test-cgroup-util.c'],
+         [],
+         []],
+
+        [['src/test/test-cgroup-setup.c'],
+         [],
+         []],
+
+        [['src/test/test-env-file.c'],
          [],
          []],
 
@@ -591,8 +641,12 @@ tests += [
          [],
          []],
 
-        [['src/test/test-path.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-chase-symlinks.c'],
+         [],
+         [],
+         '', 'manual'],
+
+        [['src/test/test-path.c'],
          [libcore,
           libshared],
          [threads,
@@ -602,8 +656,7 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-execute.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-execute.c'],
          [libcore,
           libshared],
          [threads,
@@ -632,8 +685,7 @@ tests += [
          [],
          []],
 
-        [['src/test/test-sched-prio.c',
-          'src/test/test-helper.c'],
+        [['src/test/test-sched-prio.c'],
          [libcore,
           libshared],
          [threads,
@@ -705,11 +757,10 @@ tests += [
          'ENABLE_NSS', 'manual'],
 
         [['src/test/test-umount.c',
-          'src/core/mount-setup.c',
-          'src/core/mount-setup.h',
-          'src/core/umount.c',
-          'src/core/umount.h'],
-         [],
+          'src/shutdown/umount.c',
+          'src/shutdown/umount.h'],
+         [libcore_shared,
+          libshared],
          [libmount]],
 
         [['src/test/test-bus-util.c'],
@@ -717,6 +768,10 @@ tests += [
          []],
 
         [['src/test/test-sd-hwdb.c'],
+         [],
+         []],
+
+        [['src/test/test-local-addresses.c'],
          [],
          []],
 ]
@@ -858,6 +913,10 @@ tests += [
          [],
          [threads]],
 
+        [['src/libsystemd/sd-bus/test-bus-queue-ref-cycle.c'],
+         [],
+         [threads]],
+
         [['src/libsystemd/sd-bus/test-bus-watch-bind.c'],
          [],
          [threads], '', 'timeout=120'],
@@ -888,7 +947,8 @@ tests += [
          [],
          [threads]],
 
-        [['src/libsystemd/sd-bus/test-bus-vtable.c'],
+        [['src/libsystemd/sd-bus/test-bus-vtable.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 
@@ -911,7 +971,8 @@ tests += [
          [threads],
          '', 'manual'],
 
-        [['src/libsystemd/sd-bus/test-bus-introspect.c'],
+        [['src/libsystemd/sd-bus/test-bus-introspect.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h'],
          [],
          []],
 
@@ -923,13 +984,10 @@ tests += [
          [],
          []],
 
-        [['src/libsystemd/sd-netlink/test-local-addresses.c'],
-         [],
-         []],
-
         [['src/libsystemd/sd-resolve/test-resolve.c'],
          [],
-         [threads]],
+         [threads],
+         '', 'timeout=120'],
 
         [['src/libsystemd/sd-login/test-login.c'],
          [],
@@ -957,7 +1015,10 @@ tests += [
 
 ]
 
-if cxx_cmd != ''
+# test-bus-vtable-cc.cc is a symlink and symlinks get lost in containers on FuzzBuzz.
+# The issue has been reported to the developers of FuzzBuzz and hopefully will be fixed soon.
+# In the meantime, let's just skip the symlink there.
+if cxx_cmd != '' and not want_fuzzbuzz
         tests += [
                 [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc'],
                  [],

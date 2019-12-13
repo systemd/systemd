@@ -7,17 +7,15 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <linux/limits.h>
-#include <linux/input.h>
 
 #include "device-util.h"
 #include "fd-util.h"
-#include "missing.h"
+#include "missing_input.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
@@ -357,7 +355,7 @@ static int builtin_input_id(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_input_id = {
+const UdevBuiltin udev_builtin_input_id = {
         .name = "input_id",
         .cmd = builtin_input_id,
         .help = "Input device properties",

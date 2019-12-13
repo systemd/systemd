@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -11,6 +10,7 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -447,6 +447,10 @@ static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bu
         return method(message, machine, error);
 }
 
+static int method_unregister_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_unregister);
+}
+
 static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return redirect_method_to_machine(message, userdata, error, bus_machine_method_terminate);
 }
@@ -625,7 +629,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         errno = 0;
         n = fread(&success, 1, sizeof(success), f);
         if (n != sizeof(success))
-                return ret < 0 ? ret : (errno != 0 ? -errno : -EIO);
+                return ret < 0 ? ret : errno_or_else(EIO);
 
         if (ret < 0) {
                 _cleanup_free_ char *name = NULL;
@@ -669,7 +673,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
                 errno = 0;
                 n = fread(&size, 1, sizeof(size), f);
                 if (n != sizeof(size))
-                        return errno != 0 ? -errno : -EIO;
+                        return errno_or_else(EIO);
 
                 r = sd_bus_message_append(reply, "(st)", name, size);
                 if (r < 0)
@@ -914,8 +918,8 @@ static int method_map_from_machine_user(sd_bus_message *message, void *userdata,
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno > 0)
-                                return -errno;
+                        if (ferror(f))
+                                return errno_or_else(EIO);
 
                         return -EIO;
                 }
@@ -972,8 +976,8 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno > 0)
-                                        return -errno;
+                                if (ferror(f))
+                                        return errno_or_else(EIO);
 
                                 return -EIO;
                         }
@@ -1036,8 +1040,8 @@ static int method_map_from_machine_group(sd_bus_message *message, void *groupdat
                 if (k < 0 && feof(f))
                         break;
                 if (k != 3) {
-                        if (ferror(f) && errno > 0)
-                                return -errno;
+                        if (ferror(f))
+                                return errno_or_else(EIO);
 
                         return -EIO;
                 }
@@ -1094,8 +1098,8 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                         if (k < 0 && feof(f))
                                 break;
                         if (k != 3) {
-                                if (ferror(f) && errno > 0)
-                                        return -errno;
+                                if (ferror(f))
+                                        return errno_or_else(EIO);
 
                                 return -EIO;
                         }
@@ -1136,6 +1140,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("CreateMachineWithNetwork", "sayssusaia(sv)", "o", method_create_machine_with_network, 0),
         SD_BUS_METHOD("RegisterMachine", "sayssus", "o", method_register_machine, 0),
         SD_BUS_METHOD("RegisterMachineWithNetwork", "sayssusai", "o", method_register_machine_with_network, 0),
+        SD_BUS_METHOD("UnregisterMachine", "s", NULL, method_unregister_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("TerminateMachine", "s", NULL, method_terminate_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillMachine", "ssi", NULL, method_kill_machine, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetMachineAddresses", "s", "a(iay)", method_get_machine_addresses, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1287,98 +1292,6 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
                 machine_add_to_gc_queue(machine);
 
         return 0;
-}
-
-int manager_start_scope(
-                Manager *manager,
-                const char *scope,
-                pid_t pid,
-                const char *slice,
-                const char *description,
-                sd_bus_message *more_properties,
-                sd_bus_error *error,
-                char **job) {
-
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        int r;
-
-        assert(manager);
-        assert(scope);
-        assert(pid > 1);
-
-        r = sd_bus_message_new_method_call(
-                        manager->bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return r;
-
-        if (!isempty(slice)) {
-                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!isempty(description)) {
-                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, pid,
-                                  "Delegate", "b", 1,
-                                  "CollectMode", "s", "inactive-or-failed",
-                                  "AddRef", "b", 1,
-                                  "TasksMax", "t", UINT64_C(16384));
-        if (r < 0)
-                return r;
-
-        if (more_properties) {
-                r = sd_bus_message_copy(m, more_properties, true);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call(manager->bus, m, 0, error, &reply);
-        if (r < 0)
-                return r;
-
-        if (job) {
-                const char *j;
-                char *copy;
-
-                r = sd_bus_message_read(reply, "o", &j);
-                if (r < 0)
-                        return r;
-
-                copy = strdup(j);
-                if (!copy)
-                        return -ENOMEM;
-
-                *job = copy;
-        }
-
-        return 1;
 }
 
 int manager_unref_unit(

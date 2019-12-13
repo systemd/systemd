@@ -8,9 +8,9 @@
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
-#include "install.h"
 #include "list.h"
-#include "unit-name.h"
+#include "set.h"
+#include "unit-file.h"
 #include "cgroup.h"
 
 typedef struct UnitRef UnitRef;
@@ -18,6 +18,7 @@ typedef struct UnitRef UnitRef;
 typedef enum KillOperation {
         KILL_TERMINATE,
         KILL_TERMINATE_AND_LOG,
+        KILL_RESTART,
         KILL_KILL,
         KILL_WATCHDOG,
         _KILL_OPERATION_MAX,
@@ -51,7 +52,7 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
  * use this so that we can selectively flush out parts of dependencies again. Note that the same dependency might be
  * created as a result of multiple "reasons", hence the bitmask. */
 typedef enum UnitDependencyMask {
-        /* Configured directly by the unit file, .wants/.requries symlink or drop-in, or as an immediate result of a
+        /* Configured directly by the unit file, .wants/.requires symlink or drop-in, or as an immediate result of a
          * non-dependency option configured that way.  */
         UNIT_DEPENDENCY_FILE               = 1 << 0,
 
@@ -146,6 +147,7 @@ typedef struct Unit {
 
         /* The slot used for watching NameOwnerChanged signals */
         sd_bus_slot *match_bus_slot;
+        sd_bus_slot *get_name_owner_slot;
 
         /* References to this unit from clients */
         sd_bus_track *bus_track;
@@ -200,6 +202,9 @@ typedef struct Unit {
         /* cgroup empty queue */
         LIST_FIELDS(Unit, cgroup_empty_queue);
 
+        /* cgroup OOM queue */
+        LIST_FIELDS(Unit, cgroup_oom_queue);
+
         /* Target dependencies queue */
         LIST_FIELDS(Unit, target_deps_queue);
 
@@ -223,7 +228,7 @@ typedef struct Unit {
         int load_error;
 
         /* Put a ratelimit on unit starting */
-        RateLimit start_limit;
+        RateLimit start_ratelimit;
         EmergencyAction start_limit_action;
 
         /* What to do on failure or success */
@@ -246,13 +251,23 @@ typedef struct Unit {
         nsec_t cpu_usage_base;
         nsec_t cpu_usage_last; /* the most recently read value */
 
+        /* The  current counter of the oom_kill field in the memory.events cgroup attribute */
+        uint64_t oom_kill_last;
+
+        /* Where the io.stat data was at the time the unit was started */
+        uint64_t io_accounting_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
+        uint64_t io_accounting_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX]; /* the most recently read value */
+
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
         CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */
         CGroupMask cgroup_enabled_mask;            /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's cgroup? (only relevant on cgroup v2) */
-        CGroupMask cgroup_invalidated_mask;        /* A mask specifiying controllers which shall be considered invalidated, and require re-realization */
+        CGroupMask cgroup_invalidated_mask;        /* A mask specifying controllers which shall be considered invalidated, and require re-realization */
         CGroupMask cgroup_members_mask;            /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
-        int cgroup_inotify_wd;
+
+        /* Inotify watch descriptors for watching cgroup.events and memory.events on cgroupv2 */
+        int cgroup_control_inotify_wd;
+        int cgroup_memory_inotify_wd;
 
         /* Device Controller BPF program */
         BPFProgram *bpf_device_control_installed;
@@ -268,6 +283,10 @@ typedef struct Unit {
 
         BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
         BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
+        Set *ip_bpf_custom_ingress;
+        Set *ip_bpf_custom_ingress_installed;
+        Set *ip_bpf_custom_egress;
+        Set *ip_bpf_custom_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
@@ -320,6 +339,7 @@ typedef struct Unit {
         bool in_gc_queue:1;
         bool in_cgroup_realize_queue:1;
         bool in_cgroup_empty_queue:1;
+        bool in_cgroup_oom_queue:1;
         bool in_target_deps_queue:1;
         bool in_stop_when_unneeded_queue:1;
 
@@ -346,8 +366,11 @@ typedef struct Unit {
         bool exported_invocation_id:1;
         bool exported_log_level_max:1;
         bool exported_log_extra_fields:1;
-        bool exported_log_rate_limit_interval:1;
-        bool exported_log_rate_limit_burst:1;
+        bool exported_log_ratelimit_interval:1;
+        bool exported_log_ratelimit_burst:1;
+
+        /* Whether we warned about clamping the CPU quota period */
+        bool warned_clamping_cpu_quota_period:1;
 
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
@@ -453,6 +476,12 @@ typedef struct UnitVTable {
 
         int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
 
+        /* Clear out the various runtime/state/cache/logs/configuration data */
+        int (*clean)(Unit *u, ExecCleanMask m);
+
+        /* Return which kind of data can be cleaned */
+        int (*can_clean)(Unit *u, ExecCleanMask *ret);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -491,15 +520,17 @@ typedef struct UnitVTable {
         /* Reset failed state if we are in failed state */
         void (*reset_failed)(Unit *u);
 
-        /* Called whenever any of the cgroups this unit watches for
-         * ran empty */
+        /* Called whenever any of the cgroups this unit watches for ran empty */
         void (*notify_cgroup_empty)(Unit *u);
+
+        /* Called whenever an OOM kill event on this unit was seen */
+        void (*notify_cgroup_oom)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
         void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
-        void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
+        void (*bus_name_owner_change)(Unit *u, const char *old_owner, const char *new_owner);
 
         /* Called for each property that is being set */
         int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
@@ -639,14 +670,14 @@ int unit_merge_by_name(Unit *u, const char *other);
 
 Unit *unit_follow_merge(Unit *u) _pure_;
 
-int unit_load_fragment_and_dropin(Unit *u);
-int unit_load_fragment_and_dropin_optional(Unit *u);
+int unit_load_fragment_and_dropin(Unit *u, bool fragment_required);
 int unit_load(Unit *unit);
 
 int unit_set_slice(Unit *u, Unit *slice);
 int unit_set_default_slice(Unit *u);
 
 const char *unit_description(Unit *u) _pure_;
+const char *unit_status_string(Unit *u) _pure_;
 
 bool unit_has_name(const Unit *u, const char *name);
 
@@ -671,11 +702,12 @@ int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t cont
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
         UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
+        UNIT_NOTIFY_SKIP_CONDITION    = 1 << 2,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
 
-int unit_watch_pid(Unit *u, pid_t pid);
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 
@@ -701,7 +733,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 int unit_deserialize_skip(FILE *f);
 
-int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency d, UnitDependencyMask mask);
+int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
@@ -720,6 +752,7 @@ const char *unit_slice_name(Unit *u);
 bool unit_stop_pending(Unit *u) _pure_;
 bool unit_inactive_or_pending(Unit *u) _pure_;
 bool unit_active_or_pending(Unit *u);
+bool unit_will_restart_default(Unit *u);
 bool unit_will_restart(Unit *u);
 
 int unit_add_default_target_dependency(Unit *u, Unit *target);
@@ -768,14 +801,10 @@ bool unit_is_unneeded(Unit *u);
 pid_t unit_control_pid(Unit *u);
 pid_t unit_main_pid(Unit *u);
 
-static inline bool unit_supported(Unit *u) {
-        return unit_type_supported(u->type);
-}
-
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
 
-int unit_start_limit_test(Unit *u);
+int unit_test_start_limit(Unit *u);
 
 void unit_unref_uid(Unit *u, bool destroy_now);
 int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
@@ -796,6 +825,7 @@ bool unit_shall_confirm_spawn(Unit *u);
 int unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
+int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
@@ -804,7 +834,7 @@ void unit_unlink_state_files(Unit *u);
 
 int unit_prepare_exec(Unit *u);
 
-void unit_warn_leftover_processes(Unit *u);
+int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
@@ -812,6 +842,13 @@ const char *unit_label_path(Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
+static inline bool unit_has_job_type(Unit *u, JobType type) {
+        return u && u->job && u->job->type == type;
+}
+
+/* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
+ * after some execution, rather than succeeded or failed. */
+void unit_log_skip(Unit *u, const char *result);
 void unit_log_success(Unit *u);
 void unit_log_failure(Unit *u, const char *result);
 static inline void unit_log_result(Unit *u, bool success, const char *result) {
@@ -821,19 +858,25 @@ static inline void unit_log_result(Unit *u, bool success, const char *result) {
                 unit_log_failure(u, result);
 }
 
-void unit_log_process_exit(Unit *u, int level, const char *kind, const char *command, int code, int status);
+void unit_log_process_exit(Unit *u, const char *kind, const char *command, bool success, int code, int status);
 
 int unit_exit_status(Unit *u);
 int unit_success_action_exit_status(Unit *u);
 int unit_failure_action_exit_status(Unit *u);
+
+int unit_test_trigger_loaded(Unit *u);
+
+void unit_destroy_runtime_directory(Unit *u, const ExecContext *context);
+int unit_clean(Unit *u, ExecCleanMask mask);
+int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
         ({                                                              \
                 const Unit *_u = (unit);                                \
-                _u ? log_object_internal(level, error, __FILE__, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                        log_internal(level, error, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+                _u ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_debug(unit, ...)   log_unit_full(unit, LOG_DEBUG, 0, ##__VA_ARGS__)

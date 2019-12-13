@@ -19,68 +19,77 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
+__get_interfaces(){
+    local name
+    for name in $(cd /sys/class/net && ls); do
+        [[ "$name" != "lo" ]] && echo "$name"
+    done
+}
 _timedatectl() {
-        local i verb comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local OPTS='-h --help --version --adjust-system-clock --no-pager
-                    --no-ask-password -H --host -M --machine --monitor
-                    -p --property -a --all --value'
+    local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local OPTS='-h --help --version --adjust-system-clock --no-pager
+                --no-ask-password -H --host -M --machine --monitor
+                -p --property -a --all --value'
 
-        if __contains_word "$prev" $OPTS; then
-                case $prev in
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
-
-        if [[ $cur = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        local -A VERBS=(
-                  [BOOLEAN]='set-local-rtc set-ntp'
-               [STANDALONE]='status show list-timezones timesync-status show-timesync'
-                [TIMEZONES]='set-timezone'
-                     [TIME]='set-time'
-        )
-
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-        elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
-                comps='true false'
-        elif __contains_word "$verb" ${VERBS[TIMEZONES]}; then
-                comps=$(command timedatectl list-timezones)
-        elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[TIME]}; then
-                comps=''
-        fi
-
+    if __contains_word "$prev" $OPTS; then
+        case $prev in
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ $cur = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    local -A VERBS=(
+        [BOOLEAN]='set-local-rtc set-ntp'
+        [STANDALONE]='status show list-timezones timesync-status show-timesync'
+        [TIMEZONES]='set-timezone'
+        [TIME]='set-time'
+        [IFNAME]='ntp-servers revert'
+    )
+
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]}; then
+            verb=${COMP_WORDS[i]}
+            break
+        fi
+    done
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+    elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
+        comps='true false'
+    elif __contains_word "$verb" ${VERBS[TIMEZONES]}; then
+        comps=$(command timedatectl list-timezones)
+    elif __contains_word "$verb" ${VERBS[STANDALONE]} ${VERBS[TIME]}; then
+        comps=''
+    elif __contains_word "$verb" ${VERBS[TIMEZONES]}; then
+        comps=$( __get_interfaces )
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _timedatectl timedatectl

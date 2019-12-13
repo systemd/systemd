@@ -1,0 +1,6 @@
+[Match]
+Name=vlan6
+
+[Network]
+IPv6AcceptRA=false
+Address=100.100.100.2/24

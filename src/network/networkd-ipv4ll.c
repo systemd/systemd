@@ -1,22 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <netinet/ether.h>
+#include <netinet/in.h>
 #include <linux/if.h>
 
 #include "network-internal.h"
 #include "networkd-address.h"
-#include "networkd-manager.h"
+#include "networkd-ipv4ll.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
+#include "parse-util.h"
 
 static int ipv4ll_address_lost(Link *link) {
         _cleanup_(address_freep) Address *address = NULL;
-        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr addr;
         int r;
 
         assert(link);
 
-        link->ipv4ll_route = false;
         link->ipv4ll_address = false;
 
         r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
@@ -34,41 +34,13 @@ static int ipv4ll_address_lost(Link *link) {
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
 
-        address_remove(address, link, NULL);
-
-        r = route_new(&route);
+        r = address_remove(address, link, NULL);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate route: %m");
-
-        route->family = AF_INET;
-        route->scope = RT_SCOPE_LINK;
-        route->priority = IPV4LL_ROUTE_METRIC;
-
-        route_remove(route, link, NULL);
+                return r;
 
         link_check_ready(link);
 
         return 0;
-}
-
-static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(!link->ipv4ll_route);
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "could not set ipv4ll route: %m");
-                link_enter_failed(link);
-        }
-
-        link->ipv4ll_route = true;
-
-        if (link->ipv4ll_address == true)
-                link_check_ready(link);
-
-        return 1;
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -79,27 +51,27 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_error_errno(link, r, "could not set ipv4ll address: %m");
+                log_link_message_warning_errno(link, m, r, "could not set ipv4ll address");
                 link_enter_failed(link);
+                return 1;
         } else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         link->ipv4ll_address = true;
-
-        if (link->ipv4ll_route)
-                link_check_ready(link);
+        link_check_ready(link);
 
         return 1;
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         _cleanup_(address_freep) Address *ll_addr = NULL;
-        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address;
         int r;
 
         assert(ll);
         assert(link);
+
+        link->ipv4ll_address = false;
 
         r = sd_ipv4ll_get_address(ll, &address);
         if (r == -ENOENT)
@@ -123,23 +95,6 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         r = address_configure(ll_addr, link, ipv4ll_address_handler, false);
         if (r < 0)
                 return r;
-
-        link->ipv4ll_address = false;
-
-        r = route_new(&route);
-        if (r < 0)
-                return r;
-
-        route->family = AF_INET;
-        route->scope = RT_SCOPE_LINK;
-        route->protocol = RTPROT_STATIC;
-        route->priority = IPV4LL_ROUTE_METRIC;
-
-        r = route_configure(route, link, ipv4ll_route_handler);
-        if (r < 0)
-                return r;
-
-        link->ipv4ll_route = false;
 
         return 0;
 }
@@ -171,11 +126,12 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
 
                         r = sd_ipv4ll_restart(ll);
                         if (r < 0)
-                                log_link_warning(link, "Could not acquire IPv4 link-local address");
+                                log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
                         break;
                 case SD_IPV4LL_EVENT_BIND:
                         r = ipv4ll_address_claimed(ll, link);
                         if (r < 0) {
+                                log_link_error(link, "Failed to configure ipv4ll address: %m");
                                 link_enter_failed(link);
                                 return;
                         }
@@ -192,7 +148,7 @@ int ipv4ll_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->network->link_local & ADDRESS_FAMILY_IPV4);
+        assert(link->network->link_local & (ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4));
 
         if (!link->ipv4ll) {
                 r = sd_ipv4ll_new(&link->ipv4ll);
@@ -201,7 +157,7 @@ int ipv4ll_configure(Link *link) {
         }
 
         if (link->sd_device &&
-            net_get_unique_predictable_data(link->sd_device, &seed) >= 0) {
+            net_get_unique_predictable_data(link->sd_device, true, &seed) >= 0) {
                 r = sd_ipv4ll_set_address_seed(link->ipv4ll, seed);
                 if (r < 0)
                         return r;
@@ -222,6 +178,48 @@ int ipv4ll_configure(Link *link) {
         r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int config_parse_ipv4ll(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        AddressFamily *link_local = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* Note that this is mostly like
+         * config_parse_address_family(), except that it
+         * applies only to IPv4 */
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=%s, ignoring assignment. "
+                           "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
+                           lvalue, rvalue, lvalue);
+                return 0;
+        }
+
+        SET_FLAG(*link_local, ADDRESS_FAMILY_IPV4, r);
+
+        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                   "%s=%s is deprecated, please use LinkLocalAddressing=%s instead.",
+                   lvalue, rvalue, address_family_to_string(*link_local));
 
         return 0;
 }

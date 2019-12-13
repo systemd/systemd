@@ -13,13 +13,13 @@
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
+#include "memory-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-router.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "util.h"
 
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
@@ -365,7 +365,7 @@ _public_ int sd_ndisc_start(sd_ndisc *nd) {
 
         r = event_reset_time(nd->event, &nd->timeout_event_source,
                              clock_boottime_or_monotonic(),
-                             0, 0,
+                             time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
                              ndisc_timeout, nd,
                              nd->event_priority, "ndisc-timeout", true);
         if (r < 0)

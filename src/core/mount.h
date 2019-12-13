@@ -61,6 +61,7 @@ struct Mount {
 
         MountResult result;
         MountResult reload_result;
+        MountResult clean_result;
 
         mode_t directory_mode;
 

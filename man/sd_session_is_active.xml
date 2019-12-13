@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_session_is_active" conditional='HAVE_PAM'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -265,43 +262,42 @@
     <function>sd_session_get_tty()</function> return 0 or
     a positive integer. On failure, these calls return a
     negative errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>The specified session does not exist.</para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The specified session does not exist.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>The given field is not specified for the described
-        session.</para>
-        </listitem>
-      </varlistentry>
+          <listitem><para>The given field is not specified for the described session.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An input parameter was invalid (out of range,
-        or NULL, where that is not accepted).</para></listitem>
-      </varlistentry>
+          <listitem><para>An input parameter was invalid (out of range, or <constant>NULL</constant>, where
+          that is not accepted).</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

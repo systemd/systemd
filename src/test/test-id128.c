@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <string.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-id128.h"
@@ -19,7 +21,7 @@
 
 int main(int argc, char *argv[]) {
         sd_id128_t id, id2;
-        char t[33], q[37];
+        char t[SD_ID128_STRING_MAX], q[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
         _cleanup_close_ int fd = -1;
         int r;
@@ -49,7 +51,7 @@ int main(int argc, char *argv[]) {
         assert_se(streq(q, UUID_WALDI));
 
         b = mfree(b);
-        assert_se(asprintf(&b, ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 36);
+        assert_se(asprintf(&b, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(ID128_WALDI)) == 36);
         printf("waldi4: %s\n", b);
         assert_se(streq(q, b));
 

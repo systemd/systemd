@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <string.h>
+#include <stdio.h>
 
 #include "macro.h"
 #include "replace-var.h"
 #include "string-util.h"
-#include "util.h"
 
 static char *lookup(const char *variable, void *userdata) {
         return strjoin("<<<", variable, ">>>");

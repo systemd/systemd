@@ -1,10 +1,7 @@
 <?xml version="1.0"?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-          "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <variablelist>
   <varlistentry id='user'>
@@ -33,7 +30,7 @@
       <para>Execute the operation remotely. Specify a hostname, or a
       username and hostname separated by <literal>@</literal>, to
       connect to. The hostname may optionally be suffixed by a
-      port ssh is listening on, seperated by <literal>:</literal>, and then a
+      port ssh is listening on, separated by <literal>:</literal>, and then a
       container name, separated by <literal>/</literal>, which
       connects directly to a specific container on the specified
       host. This will use SSH to talk to the remote machine manager

@@ -19,7 +19,7 @@ RefuseManualStop=yes
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/systemd-tmpfiles --user --create --remove --boot
-SuccessExitStatus=65
+SuccessExitStatus=DATAERR
 
 [Install]
 WantedBy=basic.target

@@ -353,6 +353,15 @@ Support: %SUPPORT_URL%
 
 Jednostka @UNIT@ pomyślnie przeszła do stanu „dead” (martwego).
 
+-- 0e4284a0caca4bfc81c0bb6786972673
+Subject: Pominięto jednostkę
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Jednostka @UNIT@ została pominięta z powodu niepowodzenia
+polecenia ExecCondition=, i przeszła do stanu „dead” (martwego)
+z wynikiem „@UNIT_RESULT@”.
+
 -- d9b373ed55a64feb8242e02dbe79a49c
 Subject: Jednostka się nie powiodła
 Defined-By: systemd
@@ -388,3 +397,17 @@ Możliwe są następujące „etykiety”:
   użytkowników (przy wykorzystaniu przestrzeni nazw użytkowników lub NFS)
   nie wynosi 65534.
 Obecny system ma etykietę „@TAINT@”.
+
+-- fe6faa94e7774663a0da52717891d8ef
+Subject: Proces jednostki @UNIT@ został zakończony przez OOM Killer
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Proces jednostki @UNIT został zakończony przez mechanizm kończenia
+procesów przy braku pamięci (OOM) jądra Linux. Zwykle wskazuje to,
+że system ma mało pamięci i należało ją zwolnić. Proces powiązany
+z jednostką @UNIT@ został uznany za najlepszy do zakończenia
+i jądro wymusiło zakończenie jego działania.
+
+Proszę zauważyć, że brak pamięci mógł nie zostać spowodowany
+przez jednostkę @UNIT@.

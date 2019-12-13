@@ -5,14 +5,17 @@
 
 #include "macro.h"
 
+/* The enum order is used to order unit jobs in the job queue
+ * when other criteria (cpu weight, nice level) are identical.
+ * In this case service units have the hightest priority. */
 typedef enum UnitType {
         UNIT_SERVICE = 0,
+        UNIT_MOUNT,
+        UNIT_SWAP,
         UNIT_SOCKET,
         UNIT_TARGET,
         UNIT_DEVICE,
-        UNIT_MOUNT,
         UNIT_AUTOMOUNT,
-        UNIT_SWAP,
         UNIT_TIMER,
         UNIT_PATH,
         UNIT_SLICE,
@@ -40,6 +43,7 @@ typedef enum UnitActiveState {
         UNIT_FAILED,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
+        UNIT_MAINTENANCE,
         _UNIT_ACTIVE_STATE_MAX,
         _UNIT_ACTIVE_STATE_INVALID = -1
 } UnitActiveState;
@@ -75,6 +79,7 @@ typedef enum MountState {
         MOUNT_UNMOUNTING_SIGTERM,
         MOUNT_UNMOUNTING_SIGKILL,
         MOUNT_FAILED,
+        MOUNT_CLEANING,
         _MOUNT_STATE_MAX,
         _MOUNT_STATE_INVALID = -1
 } MountState;
@@ -101,6 +106,7 @@ typedef enum ScopeState {
 
 typedef enum ServiceState {
         SERVICE_DEAD,
+        SERVICE_CONDITION,
         SERVICE_START_PRE,
         SERVICE_START,
         SERVICE_START_POST,
@@ -116,6 +122,7 @@ typedef enum ServiceState {
         SERVICE_FINAL_SIGKILL,
         SERVICE_FAILED,
         SERVICE_AUTO_RESTART,
+        SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
         _SERVICE_STATE_INVALID = -1
 } ServiceState;
@@ -141,6 +148,7 @@ typedef enum SocketState {
         SOCKET_FINAL_SIGTERM,
         SOCKET_FINAL_SIGKILL,
         SOCKET_FAILED,
+        SOCKET_CLEANING,
         _SOCKET_STATE_MAX,
         _SOCKET_STATE_INVALID = -1
 } SocketState;
@@ -154,6 +162,7 @@ typedef enum SwapState {
         SWAP_DEACTIVATING_SIGTERM,
         SWAP_DEACTIVATING_SIGKILL,
         SWAP_FAILED,
+        SWAP_CLEANING,
         _SWAP_STATE_MAX,
         _SWAP_STATE_INVALID = -1
 } SwapState;

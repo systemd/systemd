@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_append"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -230,12 +227,11 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive
-    integer. On failure, these functions return a negative
+    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative
     errno-style error code.</para>
-  </refsect1>
 
-  <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
+    <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
+  </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
 

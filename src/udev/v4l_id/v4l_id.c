@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
                 }
 
         device = argv[optind];
-        if (device == NULL)
+        if (!device)
                 return 2;
 
         fd = open(device, O_RDONLY);
@@ -64,22 +64,27 @@ int main(int argc, char *argv[]) {
                 return 3;
 
         if (ioctl(fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
+                int capabilities;
                 printf("ID_V4L_VERSION=2\n");
                 printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
                 printf("ID_V4L_CAPABILITIES=:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 ||
-                    (v2cap.capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
+                if (v2cap.capabilities & V4L2_CAP_DEVICE_CAPS)
+                        capabilities = v2cap.device_caps;
+                else
+                        capabilities = v2cap.capabilities;
+                if ((capabilities & V4L2_CAP_VIDEO_CAPTURE) > 0 ||
+                    (capabilities & V4L2_CAP_VIDEO_CAPTURE_MPLANE) > 0)
                         printf("capture:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 ||
-                    (v2cap.capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
+                if ((capabilities & V4L2_CAP_VIDEO_OUTPUT) > 0 ||
+                    (capabilities & V4L2_CAP_VIDEO_OUTPUT_MPLANE) > 0)
                         printf("video_output:");
-                if ((v2cap.capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
+                if ((capabilities & V4L2_CAP_VIDEO_OVERLAY) > 0)
                         printf("video_overlay:");
-                if ((v2cap.capabilities & V4L2_CAP_AUDIO) > 0)
+                if ((capabilities & V4L2_CAP_AUDIO) > 0)
                         printf("audio:");
-                if ((v2cap.capabilities & V4L2_CAP_TUNER) > 0)
+                if ((capabilities & V4L2_CAP_TUNER) > 0)
                         printf("tuner:");
-                if ((v2cap.capabilities & V4L2_CAP_RADIO) > 0)
+                if ((capabilities & V4L2_CAP_RADIO) > 0)
                         printf("radio:");
                 printf("\n");
         }

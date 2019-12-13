@@ -3,6 +3,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "resolved-bus.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
 #include "resolved-resolv-conf.h"
@@ -24,8 +25,10 @@ int dns_server_new(
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr,
-                int ifindex) {
+                int ifindex,
+                const char *server_name) {
 
+        _cleanup_free_ char *name = NULL;
         DnsServer *s;
 
         assert(m);
@@ -43,6 +46,12 @@ int dns_server_new(
                         return -E2BIG;
         }
 
+        if (server_name) {
+                name = strdup(server_name);
+                if (!name)
+                        return -ENOMEM;
+        }
+
         s = new(DnsServer, 1);
         if (!s)
                 return -ENOMEM;
@@ -54,6 +63,7 @@ int dns_server_new(
                 .family = family,
                 .address = *in_addr,
                 .ifindex = ifindex,
+                .server_name = TAKE_PTR(name),
         };
 
         dns_server_reset_features(s);
@@ -82,10 +92,6 @@ int dns_server_new(
 
         s->linked = true;
 
-#if ENABLE_DNS_OVER_TLS
-        dnstls_server_init(s);
-#endif
-
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
@@ -110,6 +116,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
 #endif
 
         free(s->server_string);
+        free(s->server_name);
         return mfree(s);
 }
 
@@ -239,7 +246,7 @@ static void dns_server_reset_counters(DnsServer *s) {
          *
          * This is particularly important to deal with certain Belkin routers which break OPT for certain lookups (A),
          * but pass traffic through for others (AAAA). If we detect the broken behaviour on one lookup we should not
-         * reenable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
+         * re-enable it for another, because we cannot validate things anyway, given that the RRSIG/OPT data will be
          * incomplete. */
 }
 
@@ -423,7 +430,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
@@ -685,6 +692,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (m->unicast_scope)
                 dns_cache_flush(&m->unicast_scope->cache);
 
+        (void) manager_send_changed(m, "CurrentDNSServer");
+
         return s;
 }
 
@@ -741,19 +750,6 @@ void manager_next_dns_server(Manager *m) {
                 manager_set_dns_server(m, m->fallback_dns_servers);
         else
                 manager_set_dns_server(m, m->dns_servers);
-}
-
-bool dns_server_address_valid(int family, const union in_addr_union *sa) {
-
-        /* Refuses the 0 IP addresses as well as 127.0.0.53 (which is our own DNS stub) */
-
-        if (in_addr_is_null(family, sa))
-                return false;
-
-        if (family == AF_INET && sa->in.s_addr == htobe32(INADDR_DNS_STUB))
-                return false;
-
-        return true;
 }
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
@@ -836,7 +832,7 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 assert(s->link);
 
                 fputs(" interface=", f);
-                fputs(s->link->name, f);
+                fputs(s->link->ifname, f);
         }
 
         fputs("]\n", f);
@@ -879,7 +875,7 @@ void dns_server_unref_stream(DnsServer *s) {
 
         /* Detaches the default stream of this server. Some special care needs to be taken here, as that stream and
          * this server reference each other. First, take the stream out of the server. It's destructor will check if it
-         * is registered with us, hence let's invalidate this separatly, so that it is already unregistered. */
+         * is registered with us, hence let's invalidate this separately, so that it is already unregistered. */
         ref = TAKE_PTR(s->stream);
 
         /* And then, unref it */

@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "in-addr-util.h"
-#include "list.h"
+#include <netinet/in.h>
+#include <linux/if_bonding.h>
 
-#include "netdev/netdev.h"
+#include "in-addr-util.h"
+#include "netdev.h"
+#include "ordered-set.h"
 
 /*
  * Maximum number of targets supported by the kernel for a single
@@ -13,23 +15,23 @@
 #define NETDEV_BOND_ARP_TARGETS_MAX 16
 
 typedef enum BondMode {
-        NETDEV_BOND_MODE_BALANCE_RR,
-        NETDEV_BOND_MODE_ACTIVE_BACKUP,
-        NETDEV_BOND_MODE_BALANCE_XOR,
-        NETDEV_BOND_MODE_BROADCAST,
-        NETDEV_BOND_MODE_802_3AD,
-        NETDEV_BOND_MODE_BALANCE_TLB,
-        NETDEV_BOND_MODE_BALANCE_ALB,
+        NETDEV_BOND_MODE_BALANCE_RR    = BOND_MODE_ROUNDROBIN,
+        NETDEV_BOND_MODE_ACTIVE_BACKUP = BOND_MODE_ACTIVEBACKUP,
+        NETDEV_BOND_MODE_BALANCE_XOR   = BOND_MODE_XOR,
+        NETDEV_BOND_MODE_BROADCAST     = BOND_MODE_BROADCAST,
+        NETDEV_BOND_MODE_802_3AD       = BOND_MODE_8023AD,
+        NETDEV_BOND_MODE_BALANCE_TLB   = BOND_MODE_TLB,
+        NETDEV_BOND_MODE_BALANCE_ALB   = BOND_MODE_ALB,
         _NETDEV_BOND_MODE_MAX,
-        _NETDEV_BOND_MODE_INVALID = -1
+        _NETDEV_BOND_MODE_INVALID      = -1
 } BondMode;
 
 typedef enum BondXmitHashPolicy {
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER2,
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER34,
-        NETDEV_BOND_XMIT_HASH_POLICY_LAYER23,
-        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23,
-        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER2   = BOND_XMIT_POLICY_LAYER2,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER34  = BOND_XMIT_POLICY_LAYER34,
+        NETDEV_BOND_XMIT_HASH_POLICY_LAYER23  = BOND_XMIT_POLICY_LAYER23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23  = BOND_XMIT_POLICY_ENCAP23,
+        NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34  = BOND_XMIT_POLICY_ENCAP34,
         _NETDEV_BOND_XMIT_HASH_POLICY_MAX,
         _NETDEV_BOND_XMIT_HASH_POLICY_INVALID = -1
 } BondXmitHashPolicy;
@@ -81,12 +83,6 @@ typedef enum BondPrimaryReselect {
         _NETDEV_BOND_PRIMARY_RESELECT_INVALID = -1,
 } BondPrimaryReselect;
 
-typedef struct ArpIpTarget {
-        union in_addr_union ip;
-
-        LIST_FIELDS(struct ArpIpTarget, arp_ip_target);
-} ArpIpTarget;
-
 typedef struct Bond {
         NetDev meta;
 
@@ -110,7 +106,7 @@ typedef struct Bond {
 
         uint16_t ad_actor_sys_prio;
         uint16_t ad_user_port_key;
-        struct ether_addr *ad_actor_system;
+        struct ether_addr ad_actor_system;
 
         usec_t miimon;
         usec_t updelay;
@@ -118,12 +114,13 @@ typedef struct Bond {
         usec_t arp_interval;
         usec_t lp_interval;
 
-        int n_arp_ip_targets;
-        ArpIpTarget *arp_ip_targets;
+        OrderedSet *arp_ip_targets;
 } Bond;
 
 DEFINE_NETDEV_CAST(BOND, Bond);
 extern const NetDevVTable bond_vtable;
+
+int link_set_bond(Link *link);
 
 const char *bond_mode_to_string(BondMode d) _const_;
 BondMode bond_mode_from_string(const char *d) _pure_;

@@ -19,6 +19,10 @@ charset = utf-8
 indent_style = space
 indent_size = 8
 
+[*.sh]
+indent_style = space
+indent_size = 4
+
 [meson.build]
 indent_style = space
 indent_size = 8

@@ -1,12 +1,19 @@
 # This file is part of systemd.
 
+# You really want to adjust this to your local distribution. If you use this
+# unmodified you are not building systems safely and securely.
+
 auth     sufficient pam_unix.so nullok try_first_pass
+auth     required   pam_deny.so
 
 account  required   pam_nologin.so
 account  sufficient pam_unix.so
+account  required   pam_permit.so
 
 password sufficient pam_unix.so nullok sha512 shadow try_first_pass try_authtok
+password required   pam_deny.so
 
+-session optional   pam_keyinit.so revoke
 -session optional   pam_loginuid.so
 -session optional   pam_systemd.so
 session  sufficient pam_unix.so

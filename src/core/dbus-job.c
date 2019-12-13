@@ -10,6 +10,7 @@
 #include "log.h"
 #include "selinux-access.h"
 #include "string-util.h"
+#include "strv.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, job_type, JobType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_state, job_state, JobState);

@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-tmpfiles"
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -68,6 +65,22 @@
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     are searched for a matching file and the file found that has the highest priority is
     executed.</para>
+
+    <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-setup-dev.service</filename>,
+    <filename>systemd-tmpfiles-clean.service</filename>) invoke <command>systemd-tmpfiles</command> to create
+    system files and to perform system wide cleanup. Those services read administrator-controlled
+    configuration files in <filename>tmpfiles.d/</filename> directories. User services
+    (<filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-clean.service</filename>) also invoke <command>systemd-tmpfiles</command>, but
+    it reads a separate set of files, which includes user-controlled files under
+    <filename>~/.config/user-tmpfiles.d/</filename> and <filename>~/.local/share/user-tmpfiles.d/</filename>,
+    and administrator-controller files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
+    this to create and clean up files under their control, but the system instance performs global cleanup
+    and is not influenced by user configuration. Note that this means a time-based cleanup configured in the
+    system instance, such as the one typically configured for <filename>/tmp</filename>, will thus also
+    affect files created by the user instance if they are placed in <filename>/tmp</filename>, even if the
+    user instance's time-based cleanup is turned off.</para>
   </refsect1>
 
   <refsect1>
@@ -177,7 +190,7 @@
     </variablelist>
 
     <para>It is possible to combine <option>--create</option>, <option>--clean</option>, and <option>--remove</option>
-    in one invocation (in which case removal and clean-up are executed before creation of new files). For example,
+    in one invocation (in which case removal and cleanup are executed before creation of new files). For example,
     during boot the following command line is executed to ensure that all temporary and volatile directories are
     removed and created according to the configuration file:</para>
 

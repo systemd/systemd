@@ -4,8 +4,9 @@ enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
 tmpfiles = [['home.conf',            ''],
             ['journal-nocow.conf',   ''],
-            ['systemd-nologin.conf', ''],
+            ['systemd-nologin.conf', 'HAVE_PAM'],
             ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
+            ['systemd-tmp.conf',     ''],
             ['portables.conf',       'ENABLE_PORTABLED'],
             ['tmp.conf',             ''],
             ['x11.conf',             ''],
@@ -23,26 +24,33 @@ foreach pair : tmpfiles
         endif
 endforeach
 
-m4_files = [['etc.conf',             ''],
-            ['systemd.conf',         ''],
-            ['var.conf',             ''],
-           ]
+in_files = ['static-nodes-permissions.conf']
 
-foreach pair : m4_files
-        if not enable_tmpfiles
-                # do nothing
-        elif pair[1] == '' or conf.get(pair[1]) == 1
+foreach file : in_files
+        gen = configure_file(
+                input : file + '.in',
+                output : file,
+                configuration : substs)
+        if enable_tmpfiles
+                install_data(gen,
+                             install_dir : tmpfilesdir)
+        endif
+endforeach
+
+m4_files = ['etc.conf',
+            'systemd.conf',
+            'var.conf']
+
+foreach file : m4_files
+        if enable_tmpfiles
                 custom_target(
-                        'tmpfiles.d_' + pair[0],
-                         input : pair[0] + '.m4',
-                         output: pair[0],
+                        'tmpfiles.d_' + file,
+                         input : file + '.m4',
+                         output: file,
                          command : [meson_apply_m4, config_h, '@INPUT@'],
                          capture : true,
                          install : true,
                          install_dir : tmpfilesdir)
-        else
-                message('Not installing tmpfiles.d/@0@.m4 because @1@ is @2@'
-                        .format(pair[0], pair[1], conf.get(pair[1], 0)))
         endif
 endforeach
 

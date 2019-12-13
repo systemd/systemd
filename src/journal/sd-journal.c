@@ -31,7 +31,7 @@
 #include "journal-internal.h"
 #include "list.h"
 #include "lookup3.h"
-#include "missing.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "replace-var.h"
@@ -908,7 +908,7 @@ _public_ int sd_journal_previous_skip(sd_journal *j, uint64_t skip) {
 _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         Object *o;
         int r;
-        char bid[33], sid[33];
+        char bid[SD_ID128_STRING_MAX], sid[SD_ID128_STRING_MAX];
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -1375,7 +1375,7 @@ static int add_file_by_name(
         if (!file_type_wanted(j->flags, filename))
                 return 0;
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         return add_any_file(j, -1, path);
 }
 
@@ -1391,7 +1391,7 @@ static void remove_file_by_name(
         assert(prefix);
         assert(filename);
 
-        path = strjoina(prefix, "/", filename);
+        path = prefix_roota(prefix, filename);
         f = ordered_hashmap_get(j->files, path);
         if (!f)
                 return;
@@ -1552,10 +1552,7 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
         /* Adds a journal file directory to watch. If the directory is already tracked this updates the inotify watch
          * and reenumerates directory contents */
 
-        if (dirname)
-                path = strjoin(prefix, "/", dirname);
-        else
-                path = strdup(prefix);
+        path = path_join(prefix, dirname);
         if (!path) {
                 r = -ENOMEM;
                 goto fail;
@@ -1733,7 +1730,7 @@ static void remove_directory(sd_journal *j, Directory *d) {
                 hashmap_remove(j->directories_by_wd, INT_TO_PTR(d->wd));
 
                 if (j->inotify_fd >= 0)
-                        inotify_rm_watch(j->inotify_fd, d->wd);
+                        (void) inotify_rm_watch(j->inotify_fd, d->wd);
         }
 
         hashmap_remove(j->directories_by_path, d->path);

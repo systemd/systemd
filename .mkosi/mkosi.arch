@@ -13,7 +13,7 @@ Format=raw_btrfs
 Bootable=yes
 
 [Partitions]
-RootSize=2G
+RootSize=3G
 
 [Packages]
 Cache=/var/cache/pacman/pkg/
@@ -23,14 +23,15 @@ BuildPackages=
         cryptsetup
         curl
         dbus
+        diffutils
         docbook-xsl
         elfutils
         gcc
-        gettext
         git
         gnu-efi-libs
         gnutls
         gperf
+        inetutils
         iptables
         kmod
         libcap

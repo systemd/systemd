@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="file-hierarchy">
 
@@ -128,24 +125,22 @@
 
       <varlistentry>
         <term><filename>/tmp/</filename></term>
-        <listitem><para>The place for small temporary files. This
-        directory is usually mounted as a <literal>tmpfs</literal>
-        instance, and should hence not be used for larger files. (Use
-        <filename>/var/tmp/</filename> for larger files.) Since the
-        directory is accessible to other users of the system, it is
-        essential that this directory is only written to with the
-        <citerefentry project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        and related calls. This directory is usually flushed at
-        boot-up. Also, files that are not accessed within a certain
-        time are usually automatically deleted. If applications find
-        the environment variable <varname>$TMPDIR</varname> set, they
-        should prefer using the directory specified in it over
-        directly referencing <filename>/tmp/</filename> (see
-        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        and
+        <listitem><para>The place for small temporary files. This directory is usually mounted as a
+        <literal>tmpfs</literal> instance, and should hence not be used for larger files. (Use
+        <filename>/var/tmp/</filename> for larger files.) Since the directory is accessible to other users of
+        the system, it is essential that this directory is only written to with the <citerefentry
+        project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry
+        project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+        related calls. This directory is usually flushed at boot-up. Also, files that are not accessed within
+        a certain time are usually automatically deleted. If applications find the environment variable
+        <varname>$TMPDIR</varname> set, they should prefer using the directory specified in it over directly
+        referencing <filename>/tmp/</filename> (see <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
         <ulink url="http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03">IEEE
-        Std 1003.1</ulink> for details).</para></listitem>
+        Std 1003.1</ulink> for details). For further details about this directory, see <ulink
+        url="https://systemd.io/TEMPORARY_DIRECTORIES">Using /tmp/ And /var/tmp/
+        Safely</ulink>.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -337,24 +332,22 @@
 
       <varlistentry>
         <term><filename>/var/tmp/</filename></term>
-        <listitem><para>The place for larger and persistent temporary
-        files. In contrast to <filename>/tmp/</filename>, this directory
-        is usually mounted from a persistent physical file system and
-        can thus accept larger files. (Use <filename>/tmp/</filename>
-        for smaller files.) This directory is generally not flushed at
-        boot-up, but time-based cleanup of files that have not been
-        accessed for a certain time is applied. The same security
-        restrictions as with <filename>/tmp/</filename> apply, and
-        hence only
-        <citerefentry project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        or similar calls should be used to make use of this directory.
-        If applications find the environment variable
-        <varname>$TMPDIR</varname> set, they should prefer using the
-        directory specified in it over directly referencing
-        <filename>/var/tmp/</filename> (see
-        <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details). </para></listitem>
+        <listitem><para>The place for larger and persistent temporary files. In contrast to
+        <filename>/tmp/</filename>, this directory is usually mounted from a persistent physical file system
+        and can thus accept larger files. (Use <filename>/tmp/</filename> for smaller files.) This directory
+        is generally not flushed at boot-up, but time-based cleanup of files that have not been accessed for
+        a certain time is applied. The same security restrictions as with <filename>/tmp/</filename> apply,
+        and hence only <citerefentry
+        project='man-pages'><refentrytitle>mkstemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry
+        project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
+        similar calls should be used to make use of this directory.  If applications find the environment
+        variable <varname>$TMPDIR</varname> set, they should prefer using the directory specified in it over
+        directly referencing <filename>/var/tmp/</filename> (see <citerefentry
+        project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details). For further details about this directory, see <ulink
+        url="https://systemd.io/TEMPORARY_DIRECTORIES">Using /tmp/ And /var/tmp/
+        Safely</ulink>.</para></listitem>
       </varlistentry>
 
     </variablelist>

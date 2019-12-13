@@ -1,4 +1,4 @@
-#compdef localectl
+#compdef localectl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_localectl_set-locale] )) ||

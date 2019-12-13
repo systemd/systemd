@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -117,9 +116,9 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(chmod(mask2e, 0755) == 0);
 
         if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL);
+                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(template_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -184,7 +183,7 @@ static void test_execution_order(void) {
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL);
+        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         assert_se(streq(contents, "30-override\n80-foo\n90-bar\nlast\n"));
@@ -266,7 +265,7 @@ static void test_stdout_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         log_info("got: %s", output);
@@ -324,7 +323,7 @@ static void test_environment_gathering(void) {
         assert_se(chmod(name3, 0755) == 0);
 
         /* When booting in containers or without initramfs there might not be
-         * any PATH in the environ and if there is no PATH /bin/sh built-in
+         * any PATH in the environment and if there is no PATH /bin/sh built-in
          * PATH may leak and override systemd's DEFAULT_PATH which is not
          * good. Force our own PATH in environment, to prevent expansion of sh
          * built-in $PATH */
@@ -332,7 +331,7 @@ static void test_environment_gathering(void) {
         r = setenv("PATH", "no-sh-built-in-path", 1);
         assert_se(r >= 0);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -349,7 +348,7 @@ static void test_environment_gathering(void) {
         env = strv_new("PATH=" DEFAULT_PATH);
         assert_se(env);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env);
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -361,7 +360,89 @@ static void test_environment_gathering(void) {
         assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
 
         /* reset environ PATH */
-        (void) setenv("PATH", old, 1);
+        if (old)
+                (void) setenv("PATH", old, 1);
+        else
+                (void) unsetenv("PATH");
+}
+
+static void test_error_catching(void) {
+        char template[] = "/tmp/test-exec-util.XXXXXXX";
+        const char *dirs[] = {template, NULL};
+        const char *name, *name2, *name3;
+        int r;
+
+        assert_se(mkdtemp(template));
+
+        log_info("/* %s */", __func__);
+
+        /* write files */
+        name = strjoina(template, "/10-foo");
+        name2 = strjoina(template, "/20-bar");
+        name3 = strjoina(template, "/30-last");
+
+        assert_se(write_string_file(name,
+                                    "#!/bin/sh\necho a\necho b\necho c\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name2,
+                                    "#!/bin/sh\nexit 42\n",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(write_string_file(name3,
+                                    "#!/bin/sh\nexit 12",
+                                    WRITE_STRING_FILE_CREATE) == 0);
+
+        assert_se(chmod(name, 0755) == 0);
+        assert_se(chmod(name2, 0755) == 0);
+        assert_se(chmod(name3, 0755) == 0);
+
+        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
+
+        /* we should exit with the error code of the first script that failed */
+        assert_se(r == 42);
+}
+
+static void test_exec_command_flags_from_strv(void) {
+        ExecCommandFlags flags = 0;
+        char **valid_strv = STRV_MAKE("no-env-expand", "no-setuid", "ignore-failure");
+        char **invalid_strv = STRV_MAKE("no-env-expand", "no-setuid", "nonexistent-option", "ignore-failure");
+        int r;
+
+        r = exec_command_flags_from_strv(valid_strv, &flags);
+
+        assert_se(r == 0);
+        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_ENV_EXPAND));
+        assert_se(FLAGS_SET(flags, EXEC_COMMAND_NO_SETUID));
+        assert_se(FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE));
+        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_AMBIENT_MAGIC));
+        assert_se(!FLAGS_SET(flags, EXEC_COMMAND_FULLY_PRIVILEGED));
+
+        r = exec_command_flags_from_strv(invalid_strv, &flags);
+
+        assert_se(r == -EINVAL);
+}
+
+static void test_exec_command_flags_to_strv(void) {
+        _cleanup_strv_free_ char **opts = NULL, **empty_opts = NULL, **invalid_opts = NULL;
+        ExecCommandFlags flags = 0;
+        int r;
+
+        flags |= (EXEC_COMMAND_AMBIENT_MAGIC|EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_IGNORE_FAILURE);
+
+        r = exec_command_flags_to_strv(flags, &opts);
+
+        assert_se(r == 0);
+        assert_se(strv_equal(opts, STRV_MAKE("ignore-failure", "ambient", "no-env-expand")));
+
+        r = exec_command_flags_to_strv(0, &empty_opts);
+
+        assert_se(r == 0);
+        assert_se(strv_equal(empty_opts, STRV_MAKE_EMPTY));
+
+        flags = _EXEC_COMMAND_FLAGS_INVALID;
+
+        r = exec_command_flags_to_strv(flags, &invalid_opts);
+
+        assert_se(r == -EINVAL);
 }
 
 int main(int argc, char *argv[]) {
@@ -372,6 +453,9 @@ int main(int argc, char *argv[]) {
         test_execution_order();
         test_stdout_gathering();
         test_environment_gathering();
+        test_error_catching();
+        test_exec_command_flags_from_strv();
+        test_exec_command_flags_to_strv();
 
         return 0;
 }

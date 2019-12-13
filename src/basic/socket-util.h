@@ -3,12 +3,13 @@
 
 #include <inttypes.h>
 #include <linux/netlink.h>
+#include <linux/if_ether.h>
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
-#include <netinet/ether.h>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
@@ -198,3 +199,6 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
 
         return 0;
 }
+
+int socket_bind_to_ifname(int fd, const char *ifname);
+int socket_bind_to_ifindex(int fd, int ifindex);

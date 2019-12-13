@@ -208,7 +208,7 @@ static bool builtin_hwdb_validate(void) {
         return hwdb_validate(hwdb);
 }
 
-const struct udev_builtin udev_builtin_hwdb = {
+const UdevBuiltin udev_builtin_hwdb = {
         .name = "hwdb",
         .cmd = builtin_hwdb,
         .init = builtin_hwdb_init,

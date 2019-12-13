@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_request_name"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -68,29 +65,30 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_request_name()</function> requests a well-known service name on a bus. It takes a bus
-    connection, a valid bus name and a flags parameter. The flags parameter is a combination of the following
-    flags:</para>
+    <para><function>sd_bus_request_name()</function> requests a well-known service name on a bus. It takes a
+    bus connection, a valid bus name, and a flags parameter. The flags parameter is a combination of zero or
+    more of the following flags:</para>
 
     <variablelist>
       <varlistentry>
-        <term><varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname></term>
+        <term><constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant></term>
 
         <listitem><para>After acquiring the name successfully, permit other peers to take over the name when they try
-        to acquire it with the <varname>SD_BUS_NAME_REPLACE_EXISTING</varname> flag set. If
-        <varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname> is not set on the original request, such a request by other
+        to acquire it with the <constant>SD_BUS_NAME_REPLACE_EXISTING</constant> flag set. If
+        <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> is not set on the original request, such a request by other
         peers will be denied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_NAME_REPLACE_EXISTING</varname></term>
+        <term><constant>SD_BUS_NAME_REPLACE_EXISTING</constant></term>
 
-        <listitem><para>Take over the name if it is already acquired by another peer, and that other peer has permitted
-        takeover by setting <varname>SD_BUS_NAME_ALLOW_REPLACEMENT</varname> while acquiring it.</para></listitem>
+        <listitem><para>Take over the name if it was already acquired by another peer, and that other peer
+        has permitted takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring
+        it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_NAME_QUEUE</varname></term>
+        <term><constant>SD_BUS_NAME_QUEUE</constant></term>
 
         <listitem><para>Queue the acquisition of the name when the name is already taken.</para></listitem>
       </varlistentry>
@@ -130,68 +128,68 @@
     <para>On success, these calls return 0 or a positive integer. On failure, these calls return a negative errno-style
     error code.</para>
 
-    <para>If <varname>SD_BUS_NAME_QUEUE</varname> is specified, <function>sd_bus_request_name()</function> will return
+    <para>If <constant>SD_BUS_NAME_QUEUE</constant> is specified, <function>sd_bus_request_name()</function> will return
     0 when the name is already taken by another peer and the client has been added to the queue for the name. In that
     case, the caller can subscribe to <literal>NameOwnerChanged</literal> signals to be notified when the name is
     successfully acquired.  <function>sd_bus_request_name()</function> returns &gt; 0 when the name has immediately
     been acquired successfully.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EALREADY</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EALREADY</constant></term>
 
-        <listitem><para>The caller already is the owner of the specified name.</para></listitem>
-      </varlistentry>
+          <listitem><para>The caller already is the owner of the specified name.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EEXIST</constant></term>
+        <varlistentry>
+          <term><constant>-EEXIST</constant></term>
 
-        <listitem><para>The name has already been acquired by a different peer, and SD_BUS_NAME_REPLACE_EXISTING was
-        not specified or the other peer did not specify SD_BUS_NAME_ALLOW_REPLACEMENT while acquiring the
-        name.</para></listitem>
-      </varlistentry>
+          <listitem><para>The name has already been acquired by a different peer, and SD_BUS_NAME_REPLACE_EXISTING was
+          not specified or the other peer did not specify SD_BUS_NAME_ALLOW_REPLACEMENT while acquiring the
+          name.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESRCH</constant></term>
+        <varlistentry>
+          <term><constant>-ESRCH</constant></term>
 
-        <listitem><para>It was attempted to release a name that is currently not registered on the
-        bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>It was attempted to release a name that is currently not registered on the
+          bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EADDRINUSE</constant></term>
+        <varlistentry>
+          <term><constant>-EADDRINUSE</constant></term>
 
-        <listitem><para>It was attempted to release a name that is owned by a different peer on the
-        bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>It was attempted to release a name that is owned by a different peer on the
+          bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>A specified parameter is invalid. This is also generated when the requested name is a special
-        service name reserved by the D-Bus specification, or when the operation is requested on a connection that does
-        not refer to a bus.</para></listitem>
-      </varlistentry>
+          <listitem><para>A specified parameter is invalid. This is also generated when the requested name is
+          a special service name reserved by the D-Bus specification, or when the operation is requested on a
+          connection that does not refer to a bus.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus connection has been disconnected.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus connection has been disconnected.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection has been created in a different process than the current
-        one.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The bus connection has been created in a different process than the current
+          one.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

@@ -1,0 +1,51 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-udev-settle.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-udev-settle.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-udev-settle.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-udev-settle.service</refname>
+    <refpurpose>Wait for all pending udev events to be handled</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-udev-settle.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1><title>Description</title>
+  <para>This service calls <command>udevadm settle</command> to wait until all events that have been queued
+  by <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry> have been
+  processed. It is a crude way to wait until "all" hardware has been discovered. Services may pull in this
+  service and order themselves after it to wait for the udev queue to be empty.</para>
+
+  <para><emphasis>Using this service is not recommended.</emphasis> There can be no guarantee that hardware
+  is fully discovered at any specific time, because the kernel does hardware detection asynchronously, and
+  certain buses and devices take a very long time to become ready, and also additional hardware may be
+  plugged in at any time. Instead, services should subscribe to udev events and react to any new hardware as
+  it is discovered. Services that, based on configuration, expect certain devices to appear, may warn or
+  report failure after a timeout. This timeout should be tailored to the hardware type. Waiting for
+  <filename>systemd-udev-settle.service</filename> usually slows boot significantly, because it means waiting
+  for all unrelated events too.</para>
+ </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

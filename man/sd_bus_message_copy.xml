@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_copy" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -54,50 +51,49 @@
     <para>On success, this call returns true if anything was copied, and false if
     there was nothing to copy. On failure, it returns a negative errno-style error
     code.</para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2 id='errors'>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para><parameter>source</parameter> or <parameter>m</parameter> are
-        <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
+          <listitem><para><parameter>source</parameter> or <parameter>m</parameter> are
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>Message <parameter>m</parameter> has been sealed or
-        <parameter>source</parameter> has <emphasis>not</emphasis> been sealed.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Message <parameter>m</parameter> has been sealed or <parameter>source</parameter>
+          has <emphasis>not</emphasis> been sealed.  </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>Destination message is in invalid state.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Destination message is in invalid state.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>Destination message cannot be appended to.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Destination message cannot be appended to.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

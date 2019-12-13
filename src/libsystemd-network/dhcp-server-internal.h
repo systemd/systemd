@@ -11,7 +11,17 @@
 #include "dhcp-internal.h"
 #include "hashmap.h"
 #include "log.h"
-#include "util.h"
+#include "time-util.h"
+
+typedef enum DHCPRawOption {
+        DHCP_RAW_OPTION_DATA_UINT8,
+        DHCP_RAW_OPTION_DATA_UINT16,
+        DHCP_RAW_OPTION_DATA_UINT32,
+        DHCP_RAW_OPTION_DATA_STRING,
+        DHCP_RAW_OPTION_DATA_IPV4ADDRESS,
+        _DHCP_RAW_OPTION_DATA_MAX,
+        _DHCP_RAW_OPTION_DATA_INVALID,
+} DHCPRawOption;
 
 typedef struct DHCPClientId {
         size_t length;
@@ -45,8 +55,10 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        struct in_addr *ntp, *dns;
-        unsigned n_ntp, n_dns;
+        struct in_addr *ntp, *dns, *sip;
+        unsigned n_ntp, n_dns, n_sip;
+
+        OrderedHashmap *raw_option;
 
         bool emit_router;
 
@@ -69,8 +81,8 @@ typedef struct DHCPRequest {
         uint32_t lifetime;
 } DHCPRequest;
 
-#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
-#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);

@@ -6,7 +6,7 @@
 #include "prioq.h"
 #include "set.h"
 #include "siphash24.h"
-#include "util.h"
+#include "sort-util.h"
 
 #define SET_SIZE 1024*4
 
@@ -69,6 +69,11 @@ static void test_struct(void) {
         assert_se(q = prioq_new((compare_func_t) test_compare));
         assert_se(s = set_new(&test_hash_ops));
 
+        assert_se(prioq_peek(q) == NULL);
+        assert_se(prioq_peek_by_index(q, 0) == NULL);
+        assert_se(prioq_peek_by_index(q, 1) == NULL);
+        assert_se(prioq_peek_by_index(q, (unsigned) -1) == NULL);
+
         for (i = 0; i < SET_SIZE; i++) {
                 assert_se(t = new0(struct test, 1));
                 t->value = (unsigned) rand();
@@ -78,6 +83,17 @@ static void test_struct(void) {
                 if (i % 4 == 0)
                         assert_se(set_consume(s, t) >= 0);
         }
+
+        for (i = 0; i < SET_SIZE; i++)
+                assert_se(prioq_peek_by_index(q, i));
+        assert_se(prioq_peek_by_index(q, SET_SIZE) == NULL);
+
+        unsigned count = 0;
+        PRIOQ_FOREACH_ITEM(q, t) {
+                assert_se(t);
+                count++;
+        }
+        assert_se(count == SET_SIZE);
 
         while ((t = set_steal_first(s))) {
                 assert_se(prioq_remove(q, t, &t->idx) == 1);

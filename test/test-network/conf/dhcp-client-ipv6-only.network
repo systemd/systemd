@@ -3,3 +3,4 @@ Name=veth99
 
 [Network]
 DHCP=ipv6
+IPv6Token=::1a:2b:3c:4d

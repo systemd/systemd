@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -50,46 +50,46 @@
 
     <para>On success, <function>sd_bus_message_skip()</function> returns 0 or a positive integer. On
     failure, it returns a negative errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The <parameter>m</parameter> parameter is
-        <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
+          <listitem><para>The <parameter>m</parameter> parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EBADMSG</constant></term>
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
 
-        <listitem><para>The message cannot be parsed.</para></listitem>
-      </varlistentry>
+          <listitem><para>The message cannot be parsed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>The message is not sealed.</para></listitem>
-      </varlistentry>
+          <listitem><para>The message is not sealed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENXIO</constant></term>
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
 
-        <listitem><para>The message end has been reached and the requested elements cannot be read.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>The message end has been reached and the requested elements cannot be read.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

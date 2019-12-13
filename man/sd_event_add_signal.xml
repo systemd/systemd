@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_add_signal" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -78,14 +75,13 @@
     project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for further information.</para>
 
-    <para>Only a single handler may be installed for a specific
-    signal. The signal will be unblocked by this call, and must be
-    blocked before this function is called in all threads (using
+    <para>Only a single handler may be installed for a specific signal. The signal must be blocked in all
+    threads before this function is called (using <citerefentry
+    project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
     <citerefentry
-    project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry>). If
-    the handler is not specified (<parameter>handler</parameter> is
-    <constant>NULL</constant>), a default handler which causes the
-    program to exit cleanly will be used.</para>
+    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>). If
+    the handler is not specified (<parameter>handler</parameter> is <constant>NULL</constant>), a default
+    handler which causes the program to exit cleanly will be used.</para>
 
     <para>By default, the event source is enabled permanently
     (<constant>SD_EVENT_ON</constant>), but this may be changed with
@@ -124,52 +120,52 @@
     <para>On success, these functions return 0 or a positive
     integer. On failure, they return a negative errno-style error
     code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Not enough memory to allocate an object.</para></listitem>
-      </varlistentry>
+          <listitem><para>Not enough memory to allocate an object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>An invalid argument has been passed.</para></listitem>
-      </varlistentry>
+          <listitem><para>An invalid argument has been passed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EBUSY</constant></term>
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
 
-        <listitem><para>A handler is already installed for this
-        signal or the signal was not blocked previously.</para></listitem>
-      </varlistentry>
+          <listitem><para>A handler is already installed for this
+          signal or the signal was not blocked previously.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESTALE</constant></term>
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
 
-        <listitem><para>The event loop is already terminated.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop is already terminated.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
-      </varlistentry>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EDOM</constant></term>
+        <varlistentry>
+          <term><constant>-EDOM</constant></term>
 
-        <listitem><para>The passed event source is not a signal event source.</para></listitem>
-      </varlistentry>
+          <listitem><para>The passed event source is not a signal event source.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
@@ -190,8 +186,11 @@
       <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_event_source_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_source_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>signalfd</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

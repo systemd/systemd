@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_event_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -61,32 +58,30 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_event_get_fd()</function> returns a
-    non-negative file descriptor. On failure, it returns a negative
-    errno-style error code.</para>
-  </refsect1>
+    <para>On success, <function>sd_event_get_fd()</function> returns a non-negative file descriptor. On
+    failure, it returns a negative errno-style error code.</para>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para><parameter>event</parameter> is not a valid
-        pointer to an <structname>sd_event</structname> structure.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para><parameter>event</parameter> is not a valid pointer to an
+          <structname>sd_event</structname> structure.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ECHILD</constant></term>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The event loop has been created in a different process.</para></listitem>
+          <listitem><para>The event loop has been created in a different process.</para></listitem>
 
-      </varlistentry>
-    </variablelist>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

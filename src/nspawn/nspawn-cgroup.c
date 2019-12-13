@@ -3,8 +3,10 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -120,10 +122,9 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
         (void) rm_rf(fn, REMOVE_ROOT|REMOVE_ONLY_DIRECTORIES);
 
         fn = strjoina(tree, cgroup, "/cgroup.procs");
-        (void) mkdir_parents(fn, 0755);
 
         sprintf(pid_string, PID_FMT, pid);
-        r = write_string_file(fn, pid_string, WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(fn, pid_string, WRITE_STRING_FILE_DISABLE_BUFFER|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0) {
                 log_error_errno(r, "Failed to move process: %m");
                 goto finish;
@@ -160,7 +161,7 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
          * attributes. Hence, let's insert an intermediary cgroup to cover that case too.
          *
          * Note that we only bother with the main hierarchy here, not with any secondary ones. On the unified setup
-         * that's fine because there's only one hiearchy anyway and controllers are enabled directly on it. On the
+         * that's fine because there's only one hierarchy anyway and controllers are enabled directly on it. On the
          * legacy setup, this is fine too, since delegation of controllers is generally not safe there, hence we won't
          * do it. */
 
@@ -263,7 +264,7 @@ static int mount_legacy_cgroup_hierarchy(
         if (r > 0)
                 return 0;
 
-        mkdir_p(to, 0755);
+        (void) mkdir_p(to, 0755);
 
         /* The superblock mount options of the mount point need to be
          * identical to the hosts', and hence writable... */
@@ -370,7 +371,7 @@ static int mount_legacy_cgns_supported(
                         if (streq(controller, tok))
                                 break;
 
-                        target = prefix_root("/sys/fs/cgroup/", tok);
+                        target = path_join("/sys/fs/cgroup/", tok);
                         if (!target)
                                 return log_oom();
 
@@ -451,7 +452,7 @@ static int mount_legacy_cgns_unsupported(
                 if (!controller)
                         break;
 
-                origin = prefix_root("/sys/fs/cgroup/", controller);
+                origin = path_join("/sys/fs/cgroup/", controller);
                 if (!origin)
                         return log_oom();
 
@@ -468,7 +469,7 @@ static int mount_legacy_cgns_unsupported(
                 else {
                         _cleanup_free_ char *target = NULL;
 
-                        target = prefix_root(dest, origin);
+                        target = path_join(dest, origin);
                         if (!target)
                                 return log_oom();
 

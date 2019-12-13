@@ -1,22 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <stdio_ext.h>
-#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "bus-util.h"
-#include "def.h"
-#include "env-file.h"
 #include "env-file-label.h"
+#include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
+#include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -27,10 +28,6 @@ static bool startswith_comma(const char *s, const char *prefix) {
                 return false;
 
         return IN_SET(*s, ',', '\0');
-}
-
-static const char* strnulldash(const char *s) {
-        return isempty(s) || streq(s, "-") ? NULL : s;
 }
 
 static const char* systemd_kbd_model_map(void) {
@@ -254,7 +251,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 if (in_section && first_word(l, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
+                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return r;
 
@@ -278,7 +275,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 } else if (!in_section && first_word(l, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_QUOTES);
+                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -355,7 +352,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP=", c->vc_keymap);
+                s = strjoin("KEYMAP=", c->vc_keymap);
                 if (!s)
                         return -ENOMEM;
 
@@ -372,7 +369,7 @@ int vconsole_write_data(Context *c) {
                 _cleanup_free_ char *s = NULL;
                 char **u;
 
-                s = strappend("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
+                s = strjoin("KEYMAP_TOGGLE=", c->vc_keymap_toggle);
                 if (!s)
                         return -ENOMEM;
 
@@ -419,13 +416,11 @@ int x11_write_data(Context *c) {
                 return 0;
         }
 
-        mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
-
+        (void) mkdir_p_label("/etc/X11/xorg.conf.d", 0755);
         r = fopen_temporary("/etc/X11/xorg.conf.d/00-keyboard.conf", &f, &temp_path);
         if (r < 0)
                 return r;
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
@@ -495,7 +490,7 @@ static int read_next_mapping(const char* filename,
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
-                r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_QUOTES);
+                r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
 
@@ -549,15 +544,15 @@ int vconsole_convert_to_x11(Context *c) {
                         if (!streq(c->vc_keymap, a[0]))
                                 continue;
 
-                        if (!streq_ptr(c->x11_layout, strnulldash(a[1])) ||
-                            !streq_ptr(c->x11_model, strnulldash(a[2])) ||
-                            !streq_ptr(c->x11_variant, strnulldash(a[3])) ||
-                            !streq_ptr(c->x11_options, strnulldash(a[4]))) {
+                        if (!streq_ptr(c->x11_layout, empty_or_dash_to_null(a[1])) ||
+                            !streq_ptr(c->x11_model, empty_or_dash_to_null(a[2])) ||
+                            !streq_ptr(c->x11_variant, empty_or_dash_to_null(a[3])) ||
+                            !streq_ptr(c->x11_options, empty_or_dash_to_null(a[4]))) {
 
-                                if (free_and_strdup(&c->x11_layout, strnulldash(a[1])) < 0 ||
-                                    free_and_strdup(&c->x11_model, strnulldash(a[2])) < 0 ||
-                                    free_and_strdup(&c->x11_variant, strnulldash(a[3])) < 0 ||
-                                    free_and_strdup(&c->x11_options, strnulldash(a[4])) < 0)
+                                if (free_and_strdup(&c->x11_layout, empty_or_dash_to_null(a[1])) < 0 ||
+                                    free_and_strdup(&c->x11_model, empty_or_dash_to_null(a[2])) < 0 ||
+                                    free_and_strdup(&c->x11_variant, empty_or_dash_to_null(a[3])) < 0 ||
+                                    free_and_strdup(&c->x11_options, empty_or_dash_to_null(a[4])) < 0)
                                         return -ENOMEM;
 
                                 modified = true;
@@ -652,11 +647,11 @@ int find_legacy_keymap(Context *c, char **ret) {
                         if (startswith_comma(c->x11_layout, a[1]))
                                 matching = 5;
                         else  {
-                                char *x;
+                                _cleanup_free_ char *x = NULL;
 
                                 /* If that didn't work, strip off the
                                  * other layouts from the entry, too */
-                                x = strndupa(a[1], strcspn(a[1], ","));
+                                x = strndup(a[1], strcspn(a[1], ","));
                                 if (startswith_comma(c->x11_layout, x))
                                         matching = 1;
                         }

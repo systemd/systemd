@@ -201,12 +201,10 @@ int procfs_cpu_get_usage(nsec_t *ret) {
         return 0;
 }
 
-int procfs_memory_get_current(uint64_t *ret) {
+int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         uint64_t mem_total = UINT64_MAX, mem_free = UINT64_MAX;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
-
-        assert(ret);
 
         f = fopen("/proc/meminfo", "re");
         if (!f)
@@ -262,6 +260,9 @@ int procfs_memory_get_current(uint64_t *ret) {
         if (mem_free > mem_total)
                 return -EINVAL;
 
-        *ret = (mem_total - mem_free) * 1024U;
+        if (ret_total)
+                *ret_total = mem_total * 1024U;
+        if (ret_used)
+                *ret_used = (mem_total - mem_free) * 1024U;
         return 0;
 }

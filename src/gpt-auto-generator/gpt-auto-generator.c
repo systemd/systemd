@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <blkid.h>
 #include <stdlib.h>
-#include <sys/statfs.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -15,13 +13,13 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
-#include "efivars.h"
+#include "efi-loader.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
@@ -70,7 +68,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (!what_escaped)
                 return log_oom();
 
-        p = strjoina(arg_dest, "/", n);
+        p = prefix_roota(arg_dest, n);
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", p);
@@ -131,7 +129,7 @@ static int add_cryptsetup(const char *id, const char *what, bool rw, bool requir
         if (device) {
                 char *ret;
 
-                ret = strappend("/dev/mapper/", id);
+                ret = path_join("/dev/mapper", id);
                 if (!ret)
                         return log_oom();
 
@@ -180,7 +178,7 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = strjoin(arg_dest, "/", unit);
+        p = path_join(empty_to_root(arg_dest), unit);
         if (!p)
                 return log_oom();
 
@@ -298,7 +296,7 @@ static int add_swap(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        unit = strjoin(arg_dest, "/", name);
+        unit = path_join(empty_to_root(arg_dest), name);
         if (!unit)
                 return log_oom();
 
@@ -322,7 +320,6 @@ static int add_swap(const char *path) {
         return generator_add_symlink(arg_dest, SPECIAL_SWAP_TARGET, "wants", name);
 }
 
-#if ENABLE_EFI
 static int add_automount(
                 const char *id,
                 const char *what,
@@ -360,7 +357,7 @@ static int add_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        p = strjoina(arg_dest, "/", unit);
+        p = prefix_roota(arg_dest, unit);
         f = fopen(p, "wxe");
         if (!f)
                 return log_error_errno(errno, "Failed to create unit file %s: %m", unit);
@@ -384,8 +381,43 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
-static int add_esp(DissectedPartition *p) {
-        const char *esp;
+static int add_xbootldr(DissectedPartition *p) {
+        int r;
+
+        assert(p);
+
+        if (in_initrd()) {
+                log_debug("In initrd, ignoring the XBOOTLDR partition.");
+                return 0;
+        }
+
+        r = fstab_is_mount_point("/boot");
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse fstab: %m");
+        if (r > 0) {
+                log_debug("/boot specified in fstab, ignoring XBOOTLDR partition.");
+                return 0;
+        }
+
+        r = path_is_busy("/boot");
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        return add_automount("boot",
+                             p->node,
+                             "/boot",
+                             p->fstype,
+                             true,
+                             "umask=0077",
+                             "Boot Loader Partition",
+                             120 * USEC_PER_SEC);
+}
+
+#if ENABLE_EFI
+static int add_esp(DissectedPartition *p, bool has_xbootldr) {
+        const char *esp_path = NULL, *id = NULL;
         int r;
 
         assert(p);
@@ -395,21 +427,37 @@ static int add_esp(DissectedPartition *p) {
                 return 0;
         }
 
-        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice */
-        esp = access("/efi/", F_OK) >= 0 ? "/efi" : "/boot";
+        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice, but
+         * only if there's no explicit XBOOTLDR partition around. */
+        if (access("/efi", F_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to determine whether /efi exists: %m");
+
+                /* Use /boot as fallback, but only if there's no XBOOTLDR partition */
+                if (!has_xbootldr) {
+                        esp_path = "/boot";
+                        id = "boot";
+                }
+        }
+        if (!esp_path)
+                esp_path = "/efi";
+        if (!id)
+                id = "efi";
 
         /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        r = fstab_is_mount_point(esp);
+        r = fstab_is_mount_point(esp_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse fstab: %m");
         if (r > 0) {
-                log_debug("%s specified in fstab, ignoring.", esp);
+                log_debug("%s specified in fstab, ignoring.", esp_path);
                 return 0;
         }
 
-        r = path_is_busy(esp);
-        if (r != 0)
-                return r < 0 ? r : 0;
+        r = path_is_busy(esp_path);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
 
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
@@ -425,15 +473,15 @@ static int add_esp(DissectedPartition *p) {
                         return log_error_errno(r, "Failed to read ESP partition UUID: %m");
 
                 if (!sd_id128_equal(p->uuid, loader_uuid)) {
-                        log_debug("Partition for %s does not appear to be the partition we are booted from.", esp);
+                        log_debug("Partition for %s does not appear to be the partition we are booted from.", p->node);
                         return 0;
                 }
         } else
                 log_debug("Not an EFI boot, skipping ESP check.");
 
-        return add_automount("boot",
+        return add_automount(id,
                              p->node,
-                             esp,
+                             esp_path,
                              p->fstype,
                              true,
                              "umask=0077",
@@ -441,7 +489,7 @@ static int add_esp(DissectedPartition *p) {
                              120 * USEC_PER_SEC);
 }
 #else
-static int add_esp(DissectedPartition *p) {
+static int add_esp(DissectedPartition *p, bool has_xbootldr) {
         return 0;
 }
 #endif
@@ -467,23 +515,22 @@ static int add_root_rw(DissectedPartition *p) {
                 return 0;
         }
 
+        (void) generator_enable_remount_fs_service(arg_dest);
+
         path = strjoina(arg_dest, "/systemd-remount-fs.service.d/50-remount-rw.conf");
-        (void) mkdir_parents(path, 0755);
 
         r = write_string_file(path,
                               "# Automatically generated by systemd-gpt-generator\n\n"
-                              "[Unit]\n"
-                              "ConditionPathExists=\n\n" /* We need to turn off the ConditionPathExist= in the main unit file */
                               "[Service]\n"
                               "Environment=SYSTEMD_REMOUNT_ROOT_RW=1\n",
-                              WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_NOFOLLOW);
+                              WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_NOFOLLOW|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write drop-in file %s: %m", path);
 
         return 0;
 }
 
-static int open_parent(dev_t devnum, int *ret) {
+static int open_parent_devno(dev_t devnum, int *ret) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         const char *name, *devtype, *node;
         sd_device *parent;
@@ -551,7 +598,7 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         int r, k;
 
-        r = open_parent(devnum, &fd);
+        r = open_parent_devno(devnum, &fd);
         if (r <= 0)
                 return r;
 
@@ -569,8 +616,14 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
+        if (m->partitions[PARTITION_XBOOTLDR].found) {
+                k = add_xbootldr(m->partitions + PARTITION_XBOOTLDR);
+                if (k < 0)
+                        r = k;
+        }
+
         if (m->partitions[PARTITION_ESP].found) {
-                k = add_esp(m->partitions + PARTITION_ESP);
+                k = add_esp(m->partitions + PARTITION_ESP, m->partitions[PARTITION_XBOOTLDR].found);
                 if (k < 0)
                         r = k;
         }
@@ -678,6 +731,9 @@ static int add_root_mount(void) {
                         return r;
         }
 
+        /* Note that we do not need to enable systemd-remount-fs.service here. If
+         * /etc/fstab exists, systemd-fstab-generator will pull it in for us. */
+
         return add_mount(
                         "root",
                         "/dev/gpt-auto-root",
@@ -704,8 +760,25 @@ static int add_mounts(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
                 if (r == 0) {
-                        log_debug("Neither root nor /usr file system are on a (single) block device.");
-                        return 0;
+                        _cleanup_free_ char *p = NULL;
+                        mode_t m;
+
+                        /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
+                         * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
+                         * here. */
+                        r = readlink_malloc("/run/systemd/volatile-root", &p);
+                        if (r == -ENOENT) {
+                                log_debug("Neither root nor /usr file system are on a (single) block device.");
+                                return 0;
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
+
+                        r = device_path_parse_major_minor(p, &m, &devno);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse major/minor device node: %m");
+                        if (!S_ISBLK(m))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Volatile root device is of wrong type.");
                 }
         }
 

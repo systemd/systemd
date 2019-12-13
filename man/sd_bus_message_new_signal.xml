@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_new_signal"
@@ -56,40 +56,40 @@
 
     <para>This function returns 0 if the message object was successfully created, and a negative
     errno-style error code otherwise.</para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The output parameter <parameter>m</parameter> is
-        <constant>NULL</constant>.</para>
+          <listitem><para>The output parameter <parameter>m</parameter> is
+          <constant>NULL</constant>.</para>
 
-        <para>The <parameter>path</parameter> parameter is not a valid D-Bus path
-        (<literal>/an/object/path</literal>), the <parameter>interface</parameter> parameter is not
-        a valid D-Bus interface name (<literal>an.interface.name</literal>), or the
-        <parameter>member</parameter> parameter is not a valid D-Bus member
-        (<literal>Name</literal>).</para></listitem>
-      </varlistentry>
+          <para>The <parameter>path</parameter> parameter is not a valid D-Bus path
+          (<literal>/an/object/path</literal>), the <parameter>interface</parameter> parameter is not
+          a valid D-Bus interface name (<literal>an.interface.name</literal>), or the
+          <parameter>member</parameter> parameter is not a valid D-Bus member
+          (<literal>Name</literal>).</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOTCONN</constant></term>
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
 
-        <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant> or
-        the bus is not connected.</para></listitem>
-      </varlistentry>
+          <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant> or
+          the bus is not connected.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

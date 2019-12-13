@@ -244,7 +244,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
                 local_settings = strjoina(i->image_root, "/", i->local, ".nspawn");
 
-                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+                r = copy_file_atomic(i->settings_path, local_settings, 0664, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)

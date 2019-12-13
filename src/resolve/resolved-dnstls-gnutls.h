@@ -8,13 +8,17 @@
 #include <gnutls/gnutls.h>
 #include <stdbool.h>
 
-struct DnsTlsServerData {
+struct DnsTlsManagerData {
         gnutls_certificate_credentials_t cert_cred;
+};
+
+struct DnsTlsServerData {
         gnutls_datum_t session_data;
 };
 
 struct DnsTlsStreamData {
         gnutls_session_t session;
+        gnutls_typed_vdata_st validation;
         int handshake;
         bool shutdown;
 };

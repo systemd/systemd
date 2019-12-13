@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="journal-upload.conf" conditional='HAVE_MICROHTTPD'
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -48,12 +45,12 @@
 
     <para>All options are configured in the <literal>[Upload]</literal> section:</para>
 
-    <variablelist>
+    <variablelist class='config-directives'>
       <varlistentry>
         <term><varname>URL=</varname></term>
 
         <listitem><para>The URL to upload the journal entries to. See the description
-        of <varname>--url=</varname> option in
+        of <option>--url=</option> option in
         <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for the description of possible values. There is no default value, so either this
         option or the command-line option must be always present to make an upload.</para></listitem>

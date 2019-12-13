@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "netdev/vcan.h"
+#include "vcan.h"
 
 const NetDevVTable vcan_vtable = {
         .object_size = sizeof(VCan),
-        .sections = "Match\0NetDev\0",
+        .sections = NETDEV_COMMON_SECTIONS,
         .create_type = NETDEV_CREATE_INDEPENDENT,
+        .generate_mac = true,
 };

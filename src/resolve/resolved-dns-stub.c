@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
 #include "resolved-dns-stub.h"
@@ -91,7 +92,14 @@ static int dns_stub_finish_reply_packet(
 
         assert(p);
 
-        if (!add_opt) {
+        if (add_opt) {
+                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
+                if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
+                        tc = true;
+                else if (r < 0)
+                        return r;
+
+        } else {
                 /* If the client can't to EDNS0, don't do DO either */
                 edns0_do = false;
 
@@ -117,21 +125,7 @@ static int dns_stub_finish_reply_packet(
                                                               0  /* cd */,
                                                               rcode));
 
-        if (add_opt) {
-                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
-                if (r < 0)
-                        return r;
-        }
-
         return 0;
-}
-
-static void dns_stub_detach_stream(DnsStream *s) {
-        assert(s);
-
-        s->complete = NULL;
-        s->on_packet = NULL;
-        s->query = NULL;
 }
 
 static int dns_stub_send(Manager *m, DnsStream *s, DnsPacket *p, DnsPacket *reply) {
@@ -197,17 +191,19 @@ static void dns_stub_query_complete(DnsQuery *q) {
                         break;
                 }
 
-                r = dns_query_process_cname(q);
-                if (r == -ELOOP) {
-                        (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
-                        break;
+                if (!truncated) {
+                        r = dns_query_process_cname(q);
+                        if (r == -ELOOP) {
+                                (void) dns_stub_send_failure(q->manager, q->request_dns_stream, q->request_dns_packet, DNS_RCODE_SERVFAIL, false);
+                                break;
+                        }
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to process CNAME: %m");
+                                break;
+                        }
+                        if (r == DNS_QUERY_RESTARTED)
+                                return;
                 }
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to process CNAME: %m");
-                        break;
-                }
-                if (r == DNS_QUERY_RESTARTED)
-                        return;
 
                 r = dns_stub_finish_reply_packet(
                                 q->reply_dns_packet,
@@ -257,27 +253,27 @@ static void dns_stub_query_complete(DnsQuery *q) {
                 assert_not_reached("Impossible state");
         }
 
-        /* If there's a packet to write set, let's leave the stream around */
-        if (q->request_dns_stream && DNS_STREAM_QUEUED(q->request_dns_stream)) {
-
-                /* Detach the stream from our query (make it an orphan), but do not drop the reference to it. The
-                 * default completion action of the stream will drop the reference. */
-
-                dns_stub_detach_stream(q->request_dns_stream);
-                q->request_dns_stream = NULL;
-        }
-
         dns_query_free(q);
 }
 
 static int dns_stub_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        log_debug_errno(error, "DNS TCP connection terminated, destroying query: %m");
+        log_debug_errno(error, "DNS TCP connection terminated, destroying queries: %m");
 
-        assert(s->query);
-        dns_query_free(s->query);
+        for (;;) {
+                DnsQuery *q;
 
+                q = set_first(s->queries);
+                if (!q)
+                        break;
+
+                dns_query_free(q);
+        }
+
+        /* This drops the implicit ref we keep around since it was allocated, as incoming stub connections
+         * should be kept as long as the client wants to. */
+        dns_stream_unref(s);
         return 0;
 }
 
@@ -288,8 +284,6 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         assert(m);
         assert(p);
         assert(p->protocol == DNS_PROTOCOL_DNS);
-
-        /* Takes ownership of the *s stream object */
 
         if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
             in_addr_is_localhost(p->family, &p->destination) <= 0) {
@@ -351,9 +345,19 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         q->complete = dns_stub_query_complete;
 
         if (s) {
-                s->on_packet = NULL;
-                s->complete = dns_stub_stream_complete;
-                s->query = q;
+                /* Remember which queries belong to this stream, so that we can cancel them when the stream
+                 * is disconnected early */
+
+                r = set_ensure_allocated(&s->queries, &trivial_hash_ops);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+
+                if (set_put(s->queries, q) < 0) {
+                        log_oom();
+                        goto fail;
+                }
         }
 
         r = dns_query_go(q);
@@ -367,9 +371,6 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         return;
 
 fail:
-        if (s && DNS_STREAM_QUEUED(s))
-                dns_stub_detach_stream(s);
-
         dns_query_free(q);
 }
 
@@ -421,8 +422,9 @@ static int manager_dns_stub_udp_fd(Manager *m) {
                 return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
-                return -errno;
+        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
+        if (r < 0)
+                return r;
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
                 return -errno;
@@ -451,10 +453,6 @@ static int on_dns_stub_stream_packet(DnsStream *s) {
         } else
                 log_debug("Invalid DNS stub TCP packet, ignoring.");
 
-        /* Drop the reference to the stream. Either a query was created and added its own reference to the stream now,
-         * or that didn't happen in which case we want to free the stream */
-        dns_stream_unref(s);
-
         return 0;
 }
 
@@ -465,22 +463,22 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (cfd < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
                         return 0;
 
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_PROTOCOL_DNS, cfd, NULL);
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
         }
 
         stream->on_packet = on_dns_stub_stream_packet;
+        stream->complete = dns_stub_stream_complete;
 
-        /* We let the reference to the stream dangling here, it will either be dropped by the default "complete" action
-         * of the stream, or by our packet callback, or when the manager is shut down. */
+        /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
 
         return 0;
 }
@@ -518,8 +516,9 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
                 return r;
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, "lo", 3) < 0)
-                return -errno;
+        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
+        if (r < 0)
+                return r;
 
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
                 return -errno;

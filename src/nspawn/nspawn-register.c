@@ -5,6 +5,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "nspawn-register.h"
 #include "special.h"
 #include "stat-util.h"
@@ -111,6 +112,7 @@ int register_machine(
                 unsigned n_mounts,
                 int kill_signal,
                 char **properties,
+                sd_bus_message *properties_message,
                 bool keep_unit,
                 const char *service) {
 
@@ -184,6 +186,12 @@ int register_machine(
                 if (r < 0)
                         return r;
 
+                if (properties_message) {
+                        r = sd_bus_message_copy(m, properties_message, true);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
                 r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
                 if (r < 0)
                         return r;
@@ -201,7 +209,7 @@ int register_machine(
         return 0;
 }
 
-int terminate_machine(
+int unregister_machine(
                 sd_bus *bus,
                 const char *machine_name) {
 
@@ -215,13 +223,13 @@ int terminate_machine(
                         "org.freedesktop.machine1",
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        "TerminateMachine",
+                        "UnregisterMachine",
                         &error,
                         NULL,
                         "s",
                         machine_name);
         if (r < 0)
-                log_debug("Failed to terminate machine: %s", bus_error_message(&error, r));
+                log_debug("Failed to unregister machine: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -234,7 +242,8 @@ int allocate_scope(
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
-                char **properties) {
+                char **properties,
+                sd_bus_message *properties_message) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -249,7 +258,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "as machine name", 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
@@ -287,6 +296,12 @@ int allocate_scope(
         r = append_controller_property(bus, m);
         if (r < 0)
                 return r;
+
+        if (properties_message) {
+                r = sd_bus_message_copy(m, properties_message, true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = append_machine_properties(
                         m,
@@ -335,7 +350,7 @@ int terminate_scope(
         _cleanup_free_ char *scope = NULL;
         int r;
 
-        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, "to terminate", 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 

@@ -33,7 +33,7 @@ if zshcompletiondir != 'no'
                  ['_machinectl',               'ENABLE_MACHINED'],
                  ['_networkctl',               'ENABLE_NETWORKD'],
                  ['_systemd-inhibit',          'ENABLE_LOGIND'],
-                 ['_systemd-resolve',          'ENABLE_RESOLVE'],
+                 ['_resolvectl',               'ENABLE_RESOLVE'],
                  ['_systemd-tmpfiles',         'ENABLE_TMPFILES'],
                  ['_timedatectl',              'ENABLE_TIMEDATED'],
                 ]

@@ -17,6 +17,7 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -35,8 +36,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n\n"
-               "Notify the init system about service status updates.\n\n"
+        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n"
+               "\n%sNotify the init system about service status updates.%s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
                "     --ready           Inform the init system about service start-up completion\n"
@@ -46,6 +47,7 @@ static int help(void) {
                "     --booted          Check if the system was booted up with systemd\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -151,6 +153,7 @@ static int run(int argc, char* argv[]) {
         unsigned i = 0;
         int r;
 
+        log_show_color(true);
         log_parse_environment();
         log_open();
 
@@ -165,7 +168,7 @@ static int run(int argc, char* argv[]) {
                 our_env[i++] = (char*) "READY=1";
 
         if (arg_status) {
-                status = strappend("STATUS=", arg_status);
+                status = strjoin("STATUS=", arg_status);
                 if (!status)
                         return log_oom();
 
@@ -192,7 +195,7 @@ static int run(int argc, char* argv[]) {
         if (!n)
                 return log_oom();
 
-        /* If this is requested change to the requested UID/GID. Note thta we only change the real UID here, and leave
+        /* If this is requested change to the requested UID/GID. Note that we only change the real UID here, and leave
            the effective UID in effect (which is 0 for this to work). That's because we want the privileges to fake the
            ucred data, and sd_pid_notify() uses the real UID for filling in ucred. */
 

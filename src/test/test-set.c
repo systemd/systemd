@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "set.h"
+#include "strv.h"
 
 static void test_set_steal_first(void) {
         _cleanup_set_free_ Set *m = NULL;
@@ -77,6 +78,12 @@ static void test_set_put(void) {
         assert_se(set_put(m, (void*) "333") == 1);
         assert_se(set_put(m, (void*) "333") == 0);
         assert_se(set_put(m, (void*) "22") == 0);
+
+        _cleanup_free_ char **t = set_get_strv(m);
+        assert_se(strv_contains(t, "1"));
+        assert_se(strv_contains(t, "22"));
+        assert_se(strv_contains(t, "333"));
+        assert_se(strv_length(t) == 3);
 }
 
 int main(int argc, const char *argv[]) {

@@ -3,7 +3,7 @@
 #include <net/if.h>
 
 #include "conf-parser.h"
-#include "netdev/macvlan.h"
+#include "macvlan.h"
 #include "string-table.h"
 
 static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
@@ -58,15 +58,17 @@ static void macvlan_init(NetDev *n) {
 const NetDevVTable macvtap_vtable = {
         .object_size = sizeof(MacVlan),
         .init = macvlan_init,
-        .sections = "Match\0NetDev\0MACVTAP\0",
+        .sections = NETDEV_COMMON_SECTIONS "MACVTAP\0",
         .fill_message_create = netdev_macvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };
 
 const NetDevVTable macvlan_vtable = {
         .object_size = sizeof(MacVlan),
         .init = macvlan_init,
-        .sections = "Match\0NetDev\0MACVLAN\0",
+        .sections = NETDEV_COMMON_SECTIONS "MACVLAN\0",
         .fill_message_create = netdev_macvlan_fill_message_create,
         .create_type = NETDEV_CREATE_STACKED,
+        .generate_mac = true,
 };

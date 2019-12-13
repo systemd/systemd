@@ -40,41 +40,48 @@ OrderWithRequires(preun): systemd \
 OrderWithRequires(postun): systemd \
 %{nil}
 
+%__systemd_someargs_0() %{error:This macro requires some arguments}
+%__systemd_twoargs_2() %{nil}
+
 %systemd_post() \
-if [ $1 -eq 1 ] ; then \
+%{expand:%%{?__systemd_someargs_%#}} \
+if [ $1 -eq 1 ] && [ -x @bindir@/systemctl ] ; then \
         # Initial installation \
-        systemctl --no-reload preset %{?*} &>/dev/null || : \
+        @bindir@/systemctl --no-reload preset %{?*} || : \
 fi \
 %{nil}
 
 %systemd_user_post() %{expand:%systemd_post \\--global %%{?*}}
 
 %systemd_preun() \
-if [ $1 -eq 0 ] ; then \
+%{expand:%%{?__systemd_someargs_%#}} \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
         # Package removal, not upgrade \
-        systemctl --no-reload disable --now %{?*} &>/dev/null || : \
+        @bindir@/systemctl --no-reload disable --now %{?*} || : \
 fi \
 %{nil}
 
 %systemd_user_preun() \
-if [ $1 -eq 0 ] ; then \
+%{expand:%%{?__systemd_someargs_%#}} \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
         # Package removal, not upgrade \
-        systemctl --global disable %{?*} &>/dev/null || : \
+        @bindir@/systemctl --global disable %{?*} || : \
 fi \
 %{nil}
 
-%systemd_postun() %{nil}
+%systemd_postun() %{expand:%%{?__systemd_someargs_%#}}%{nil}
 
-%systemd_user_postun() %{nil}
+%systemd_user_postun() %{expand:%%{?__systemd_someargs_%#}}%{nil}
 
 %systemd_postun_with_restart() \
-if [ $1 -ge 1 ] ; then \
+%{expand:%%{?__systemd_someargs_%#}} \
+if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ] ; then \
         # Package upgrade, not uninstall \
-        systemctl try-restart %{?*} &>/dev/null || : \
+        @bindir@/systemctl try-restart %{?*} || : \
 fi \
 %{nil}
 
-%systemd_user_postun_with_restart() %{nil}
+%systemd_user_postun_with_restart() %{expand:%%{?__systemd_someargs_%#}}%{nil}
 
 %udev_hwdb_update() %{nil}
 
@@ -84,16 +91,18 @@ fi \
 
 # Deprecated. Use %tmpfiles_create_package instead
 %tmpfiles_create() \
-systemd-tmpfiles --create %{?*} &>/dev/null || : \
+%{expand:%%{?__systemd_someargs_%#}} \
+[ -x @bindir@/systemd-tmpfiles ] && @bindir@/systemd-tmpfiles --create %{?*} || : \
 %{nil}
 
 # Deprecated. Use %sysusers_create_package instead
 %sysusers_create() \
-systemd-sysusers %{?*} &>/dev/null || : \
+%{expand:%%{?__systemd_someargs_%#}} \
+[ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers %{?*} || : \
 %{nil}
 
 %sysusers_create_inline() \
-systemd-sysusers - <<SYSTEMD_INLINE_EOF &>/dev/null || : \
+[ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers - <<SYSTEMD_INLINE_EOF || : \
 %{?*} \
 SYSTEMD_INLINE_EOF \
 %{nil}
@@ -112,7 +121,8 @@ SYSTEMD_INLINE_EOF \
 #   %files
 #   %{_sysusersdir}/%{name}.conf
 %sysusers_create_package() \
-systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF &>/dev/null || : \
+%{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
+systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
 %(cat %2) \
 SYSTEMD_INLINE_EOF \
 %{nil}
@@ -131,15 +141,18 @@ SYSTEMD_INLINE_EOF \
 #   %files
 #   %{_tmpfilesdir}/%{name}.conf
 %tmpfiles_create_package() \
-systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF &>/dev/null || : \
+%{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
+systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
 %(cat %2) \
 SYSTEMD_INLINE_EOF \
 %{nil}
 
 %sysctl_apply() \
-@rootlibexecdir@/systemd-sysctl %{?*} &>/dev/null || : \
+%{expand:%%{?__systemd_someargs_%#}} \
+[ -x @rootlibexecdir@/systemd-sysctl ] && @rootlibexecdir@/systemd-sysctl %{?*} || : \
 %{nil}
 
 %binfmt_apply() \
-@rootlibexecdir@/systemd-binfmt %{?*} &>/dev/null || : \
+%{expand:%%{?__systemd_someargs_%#}} \
+[ -x @rootlibexecdir@/systemd-binfmt ] && @rootlibexecdir@/systemd-binfmt %{?*} || : \
 %{nil}

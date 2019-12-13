@@ -6,6 +6,7 @@
 ***/
 
 #include "log.h"
+#include "time-util.h"
 
 #include "sd-ndisc.h"
 
@@ -36,7 +37,7 @@ struct sd_ndisc {
         void *userdata;
 };
 
-#define log_ndisc_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, __FILE__, __LINE__, __func__, "NDISC: " fmt, ##__VA_ARGS__)
+#define log_ndisc_errno(error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "NDISC: " fmt, ##__VA_ARGS__)
 #define log_ndisc(fmt, ...) log_ndisc_errno(0, fmt, ##__VA_ARGS__)
 
 const char* ndisc_event_to_string(sd_ndisc_event e) _const_;

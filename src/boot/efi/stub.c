@@ -62,8 +62,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         cmdline_len = szs[0];
 
-        /* if we are not in secure boot mode, accept a custom command line and replace the built-in one */
-        if (!secure && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
+        /* if we are not in secure boot mode, or none was provided, accept a custom command line and replace the built-in one */
+        if ((!secure || cmdline_len == 0) && loaded_image->LoadOptionsSize > 0 && *(CHAR16 *)loaded_image->LoadOptions > 0x1F) {
                 CHAR16 *options;
                 CHAR8 *line;
                 UINTN i;
@@ -87,12 +87,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 #endif
         }
 
-        /* export the device path this image is started from */
-        if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
-                efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
+        /* Export the device path this image is started from, if it's not set yet */
+        if (efivar_get_raw(&loader_guid, L"LoaderDevicePartUUID", NULL, NULL) != EFI_SUCCESS)
+                if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
+                        efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
         /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
-        if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderImageIdentifier", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = DevicePathToStr(loaded_image->FilePath);
@@ -100,7 +101,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
-        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareInfo", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
@@ -108,7 +109,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* ditto for LoaderFirmwareType */
-        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+        if (efivar_get_raw(&loader_guid, L"LoaderFirmwareType", NULL, NULL) != EFI_SUCCESS) {
                 _cleanup_freepool_ CHAR16 *s;
 
                 s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
@@ -116,7 +117,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         }
 
         /* add StubInfo */
-        if (efivar_get_raw(&global_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
+        if (efivar_get_raw(&loader_guid, L"StubInfo", NULL, NULL) != EFI_SUCCESS)
                 efivar_set(L"StubInfo", L"systemd-stub " GIT_VERSION, FALSE);
 
         if (szs[3] > 0)
@@ -124,7 +125,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         err = linux_exec(image, cmdline, cmdline_len,
                          (UINTN)loaded_image->ImageBase + addrs[1],
-                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2], secure);
+                         (UINTN)loaded_image->ImageBase + addrs[2], szs[2]);
 
         graphics_mode(FALSE);
         Print(L"Execution of embedded linux image failed: %r\n", err);

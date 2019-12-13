@@ -1,5 +1,18 @@
 [Match]
-Name=test1
+Name=vxlan99
 
 [Network]
-VXLAN=vxlan99
+IPv6AcceptRA=no
+LinkLocalAddressing=yes
+
+[BridgeFDB]
+MACAddress=00:11:22:33:44:55
+Destination=10.0.0.5
+
+[BridgeFDB]
+MACAddress=00:11:22:33:44:66
+Destination=10.0.0.6
+
+[BridgeFDB]
+MACAddress=00:11:22:33:44:77
+Destination=10.0.0.7

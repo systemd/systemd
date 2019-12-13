@@ -6,8 +6,6 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -16,6 +14,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -29,8 +28,8 @@
 #include "util.h"
 
 #define BUFFER_SIZE (256 * 1024)
-static unsigned arg_connections_max = 256;
 
+static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 
 typedef struct Context {
@@ -141,7 +140,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full += z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *from_source = sd_event_source_unref(*from_source);
                                 *from = safe_close(*from);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))
@@ -153,7 +152,7 @@ static int connection_shovel(
                         if (z > 0) {
                                 *full -= z;
                                 shoveled = true;
-                        } else if (z == 0 || IN_SET(errno, EPIPE, ECONNRESET)) {
+                        } else if (z == 0 || ERRNO_IS_DISCONNECT(errno)) {
                                 *to_source = sd_event_source_unref(*to_source);
                                 *to = safe_close(*to);
                         } else if (!IN_SET(errno, EAGAIN, EINTR))
@@ -466,10 +465,10 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
-                if (errno != -EAGAIN)
+                if (!ERRNO_IS_ACCEPT_AGAIN(errno))
                         log_warning_errno(errno, "Failed to accept() socket: %m");
         } else {
-                getpeername_pretty(nfd, true, &peer);
+                (void) getpeername_pretty(nfd, true, &peer);
                 log_debug("New connection from %s", strna(peer));
 
                 r = add_connection_socket(context, nfd);

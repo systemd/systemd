@@ -3,14 +3,13 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
-#include "bus-unit-util.h"
+#include "bus-unit-procs.h"
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
@@ -19,6 +18,7 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -33,7 +33,6 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
 #include "verbs.h"
 
 static char **arg_property = NULL;
@@ -94,7 +93,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (table_get_rows(table) > 1 || OUTPUT_MODE_IS_JSON(arg_output)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sort table: %m");
@@ -185,7 +184,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, id,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
                                    TABLE_STRING, strna(tty));
@@ -244,7 +243,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                         break;
 
                 r = table_add_many(table,
-                                   TABLE_UINT32, uid,
+                                   TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add row to table: %m");
@@ -755,7 +754,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, "%s", s);
+                                bus_print_property_value(name, expected_value, value, s);
 
                         return 1;
 
@@ -771,7 +770,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                        "Invalid user ID: " UID_FMT,
                                                        uid);
 
-                        bus_print_property_value(name, expected_value, value, UID_FMT, uid);
+                        bus_print_property_valuef(name, expected_value, value, UID_FMT, uid);
                         return 1;
                 }
                 break;
@@ -846,23 +845,11 @@ static int show_session(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                const char *session, *p = "/org/freedesktop/login1/session/self";
-
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        /* If no argument is specified inspect the manager itself */
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                /* And in the pretty case, show data of the calling session */
-                session = getenv("XDG_SESSION_ID");
-                if (session) {
-                        r = get_session_path(bus, session, &error, &path);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
-
-                        p = path;
-                }
-
-                return print_session_status_info(bus, p, &new_line);
+                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -895,8 +882,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
@@ -953,12 +939,11 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (argc <= 1) {
-                /* If not argument is specified inspect the manager
-                 * itself */
+                /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1", &new_line);
 
-                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/self", &new_line);
+                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto", &new_line);
         }
 
         for (i = 1; i < argc; i++) {
@@ -1005,11 +990,8 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
-                /* No argument? Let's either use $XDG_SESSION_ID (if specified), or an empty
-                 * session name, in which case logind will try to guess our session. */
-
                 short_argv[0] = argv[0];
-                short_argv[1] = getenv("XDG_SESSION_ID") ?: (char*) "";
+                short_argv[1] = (char*) "";
                 short_argv[2] = NULL;
 
                 argv = short_argv;
@@ -1030,7 +1012,7 @@ static int activate(int argc, char *argv[], void *userdata) {
                                 &error, NULL,
                                 "s", argv[i]);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1297,8 +1279,35 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Send control commands to or query the login manager.\n\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sSend control commands to or query the login manager.%s\n"
+               "\nSession Commands:\n"
+               "  list-sessions            List sessions\n"
+               "  session-status [ID...]   Show session status\n"
+               "  show-session [ID...]     Show properties of sessions or the manager\n"
+               "  activate [ID]            Activate a session\n"
+               "  lock-session [ID...]     Screen lock one or more sessions\n"
+               "  unlock-session [ID...]   Screen unlock one or more sessions\n"
+               "  lock-sessions            Screen lock all current sessions\n"
+               "  unlock-sessions          Screen unlock all current sessions\n"
+               "  terminate-session ID...  Terminate one or more sessions\n"
+               "  kill-session ID...       Send signal to processes of a session\n"
+               "\nUser Commands:\n"
+               "  list-users               List users\n"
+               "  user-status [USER...]    Show user status\n"
+               "  show-user [USER...]      Show properties of users or the manager\n"
+               "  enable-linger [USER...]  Enable linger state of one or more users\n"
+               "  disable-linger [USER...] Disable linger state of one or more users\n"
+               "  terminate-user USER...   Terminate all sessions of one or more users\n"
+               "  kill-user USER...        Send signal to processes of a user\n"
+               "\nSeat Commands:\n"
+               "  list-seats               List seats\n"
+               "  seat-status [NAME...]    Show seat status\n"
+               "  show-seat [NAME...]      Show properties of seats or the manager\n"
+               "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
+               "  flush-devices            Flush all device associations\n"
+               "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
+               "\nOptions:\n"
                "  -h --help                Show this help\n"
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
@@ -1318,34 +1327,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             short-monotonic, short-unix, verbose, export,\n"
                "                             json, json-pretty, json-sse, json-seq, cat,\n"
                "                             with-unit)\n"
-               "Session Commands:\n"
-               "  list-sessions            List sessions\n"
-               "  session-status [ID...]   Show session status\n"
-               "  show-session [ID...]     Show properties of sessions or the manager\n"
-               "  activate [ID]            Activate a session\n"
-               "  lock-session [ID...]     Screen lock one or more sessions\n"
-               "  unlock-session [ID...]   Screen unlock one or more sessions\n"
-               "  lock-sessions            Screen lock all current sessions\n"
-               "  unlock-sessions          Screen unlock all current sessions\n"
-               "  terminate-session ID...  Terminate one or more sessions\n"
-               "  kill-session ID...       Send signal to processes of a session\n\n"
-               "User Commands:\n"
-               "  list-users               List users\n"
-               "  user-status [USER...]    Show user status\n"
-               "  show-user [USER...]      Show properties of users or the manager\n"
-               "  enable-linger [USER...]  Enable linger state of one or more users\n"
-               "  disable-linger [USER...] Disable linger state of one or more users\n"
-               "  terminate-user USER...   Terminate all sessions of one or more users\n"
-               "  kill-user USER...        Send signal to processes of a user\n\n"
-               "Seat Commands:\n"
-               "  list-seats               List seats\n"
-               "  seat-status [NAME...]    Show seat status\n"
-               "  show-seat [NAME...]      Show properties of seats or the manager\n"
-               "  attach NAME DEVICE...    Attach one or more devices to a seat\n"
-               "  flush-devices            Flush all device associations\n"
-               "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -1529,6 +1514,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

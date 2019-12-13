@@ -1,1 +1,1 @@
-username:x:SYSTEM_UID_MAX:300::/:/sbin/nologin
+username:x:SYSTEM_UID_MAX:300::/:NOLOGIN

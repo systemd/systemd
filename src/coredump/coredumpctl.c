@@ -4,7 +4,6 @@
 #include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -146,9 +145,14 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "List or retrieve coredumps from the journal.\n\n"
-               "Flags:\n"
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sList or retrieve coredumps from the journal.%s\n"
+               "\nCommands:\n"
+               "  list [MATCHES...]  List available coredumps (default)\n"
+               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
+               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
+               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
+               "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Print version string\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -162,13 +166,10 @@ static int help(void) {
                "  -o --output=FILE       Write output to FILE\n"
                "  -D --directory=DIR     Use journal files from directory\n\n"
                "  -q --quiet             Do not show info messages and privilege warning\n"
-               "Commands:\n"
-               "  list [MATCHES...]  List available coredumps (default)\n"
-               "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
-               "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight()
+               , ansi_normal()
                , link
         );
 
@@ -305,9 +306,7 @@ static int retrieve(const void *data,
         if (!v)
                 return log_oom();
 
-        free(*var);
-        *var = v;
-
+        free_and_replace(*var, v);
         return 1;
 }
 
@@ -321,7 +320,7 @@ static int print_field(FILE* file, sd_journal *j) {
         assert(arg_field);
 
         /* A (user-specified) field may appear more than once for a given entry.
-         * We will print all of the occurences.
+         * We will print all of the occurrences.
          * This is different below for fields that systemd-coredump uses,
          * because they cannot meaningfully appear more than once.
          */
@@ -740,9 +739,22 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
         /* Look for a coredump on disk first. */
         r = sd_journal_get_data(j, "COREDUMP_FILENAME", (const void**) &data, &len);
-        if (r == 0)
-                retrieve(data, len, "COREDUMP_FILENAME", &filename);
-        else {
+        if (r == 0) {
+                r = retrieve(data, len, "COREDUMP_FILENAME", &filename);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                if (access(filename, R_OK) < 0)
+                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
+
+                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
+                        *path = TAKE_PTR(filename);
+
+                        return 0;
+                }
+
+        } else {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to retrieve COREDUMP_FILENAME field: %m");
                 /* Check that we can have a COREDUMP field. We still haven't set a high
@@ -756,17 +768,6 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return log_error_errno(r, "Failed to retrieve COREDUMP field: %m");
         }
 
-        if (filename) {
-                if (access(filename, R_OK) < 0)
-                        return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
-
-                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                        *path = TAKE_PTR(filename);
-
-                        return 0;
-                }
-        }
-
         if (path) {
                 const char *vt;
 
@@ -776,7 +777,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire temporary directory path: %m");
 
-                temp = strjoin(vt, "/coredump-XXXXXX");
+                temp = path_join(vt, "coredump-XXXXXX");
                 if (!temp)
                         return log_oom();
 
@@ -790,7 +791,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 /* If neither path or file are specified, we will write to stdout. Let's now check
                  * if stdout is connected to a tty. We checked that the file exists, or that the
                  * core might be stored in the journal. In this second case, if we found the entry,
-                 * in all likelyhood we will be able to access the COREDUMP= field.  In either case,
+                 * in all likelihood we will be able to access the COREDUMP= field.  In either case,
                  * we stop before doing any "real" work, i.e. before starting decompression or
                  * reading from the file or creating temporary files.
                  */
@@ -859,7 +860,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
 
 error:
         if (temp) {
-                unlink(temp);
+                (void) unlink(temp);
                 log_debug("Removed temporary file %s", temp);
         }
         return r;
@@ -904,7 +905,7 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL, *debugger = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -920,6 +921,10 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 else
                         arg_debugger = "gdb";
         }
+
+        debugger = strdup(arg_debugger);
+        if (!debugger)
+                return -ENOMEM;
 
         if (arg_field) {
                 log_error("Option --field/-F only makes sense with list");
@@ -966,26 +971,26 @@ static int run_debug(int argc, char **argv, void *userdata) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        fork_name = strjoina("(", arg_debugger, ")");
+        fork_name = strjoina("(", debugger, ")");
 
         r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp(arg_debugger, arg_debugger, exe, "-c", path, NULL);
+                execlp(debugger, debugger, exe, "-c", path, NULL);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", arg_debugger);
+                log_error_errno(errno, "Failed to invoke %s: %m", debugger);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(arg_debugger, pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(debugger, pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
 
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);
-                unlink(path);
+                (void) unlink(path);
         }
 
         return r;
@@ -1069,6 +1074,7 @@ static int run(int argc, char *argv[]) {
         int r, units_active;
 
         setlocale(LC_ALL, "");
+        log_show_color(true);
         log_parse_environment();
         log_open();
 

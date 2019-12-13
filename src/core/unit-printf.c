@@ -171,7 +171,7 @@ static int specifier_special_directory(char specifier, const void *data, const v
         return 0;
 }
 
-int unit_name_printf(Unit *u, const char* format, char **ret) {
+int unit_name_printf(const Unit *u, const char* format, char **ret) {
 
         /*
          * This will use the passed string as format string and replace the following specifiers (which should all be
@@ -215,8 +215,7 @@ int unit_name_printf(Unit *u, const char* format, char **ret) {
         return specifier_printf(format, table, u, ret);
 }
 
-int unit_full_printf(Unit *u, const char *format, char **ret) {
-
+int unit_full_printf(const Unit *u, const char *format, char **ret) {
         /* This is similar to unit_name_printf() but also supports unescaping. Also, adds a couple of additional codes
          * (which are likely not suitable for unescaped inclusion in unit names):
          *
@@ -243,6 +242,10 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * file itself are broken by design, as they would resolve differently depending on whether they are used
          * before or after the relevant configuration setting. Hence: don't add them.
          */
+
+        assert(u);
+        assert(format);
+        assert(ret);
 
         const Specifier table[] = {
                 { 'n', specifier_string,                   u->id },
@@ -280,10 +283,6 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
                 { 'v', specifier_kernel_release,           NULL },
                 {}
         };
-
-        assert(u);
-        assert(format);
-        assert(ret);
 
         return specifier_printf(format, table, u, ret);
 }

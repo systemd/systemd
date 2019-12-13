@@ -19,168 +19,168 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 __get_services() {
-        systemctl list-units --no-legend --no-pager -t service --all $1 | \
-                { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
+    systemctl list-units --no-legend --no-pager -t service --all $1 | \
+        { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
 }
 
 __get_syscall_sets() {
-        local line
-        systemd-analyze syscall-filter --no-pager | while IFS= read -r line; do
-                if [[ $line == @* ]]; then
-                        printf '%s\n' "$line"
-                fi
-        done
+    local line
+    systemd-analyze syscall-filter --no-pager | while IFS= read -r line; do
+        if [[ $line == @* ]]; then
+            printf '%s\n' "$line"
+        fi
+    done
 }
 
 _systemd_analyze() {
-        local i verb comps mode
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps mode
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
 
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
                              --man=no --generators=yes'
-                      [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
-        )
+        [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
+    )
 
-        local -A VERBS=(
-                [STANDALONE]='time blame plot dump unit-paths calendar timespan'
-                [CRITICAL_CHAIN]='critical-chain'
-                [DOT]='dot'
-                [LOG_LEVEL]='log-level'
-                [LOG_TARGET]='log-target'
-                [VERIFY]='verify'
-                [SECCOMP_FILTER]='syscall-filter'
-                [SERVICE_WATCHDOGS]='service-watchdogs'
-                [CAT_CONFIG]='cat-config'
-                [SECURITY]='security'
-        )
+    local -A VERBS=(
+        [STANDALONE]='time blame plot dump unit-paths exit-status condition calendar timestamp timespan'
+        [CRITICAL_CHAIN]='critical-chain'
+        [DOT]='dot'
+        [LOG_LEVEL]='log-level'
+        [LOG_TARGET]='log-target'
+        [VERIFY]='verify'
+        [SECCOMP_FILTER]='syscall-filter'
+        [SERVICE_WATCHDOGS]='service-watchdogs'
+        [CAT_CONFIG]='cat-config'
+        [SECURITY]='security'
+    )
 
-        local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
+    local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
                        systemd/journal-remote.conf systemd/journal-upload.conf systemd/logind.conf
                        systemd/resolved.conf systemd/networkd.conf systemd/resolved.conf
                        systemd/sleep.conf systemd/system.conf systemd/timedated.conf
                        systemd/timesyncd.conf systemd/user.conf udev/udev.conf'
 
-        _init_completion || return
+    _init_completion || return
 
-        for ((i=0; i < COMP_CWORD; i++)); do
-                if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
-                 ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                        verb=${COMP_WORDS[i]}
-                        break
-                fi
-        done
-
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --host|-H)
-                                comps=$(compgen -A hostname)
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
+    for ((i=0; i < COMP_CWORD; i++)); do
+        if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
+                ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
+            verb=${COMP_WORDS[i]}
+            break
         fi
+    done
 
-        if [[ -z $verb  && $cur = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
-
-        if [[ -z $verb ]]; then
-                comps=${VERBS[*]}
-
-        elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --global --no-pager'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --fuzz --no-pager'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[DOT]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user'
-                else
-                        comps='debug info notice warning err crit alert emerg'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user'
-                else
-                        comps='console journal kmsg journal-or-kmsg null'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --no-pager'
-                else
-                        comps=$( __get_syscall_sets )
-                fi
-
-        elif __contains_word "$verb" ${VERBS[VERIFY]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --global --man=no --generators=yes'
-                else
-                        comps=$( compgen -A file -- "$cur" )
-                        compopt -o filenames
-                fi
-
-        elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user'
-                else
-                        comps='on off'
-                fi
-
-        elif __contains_word "$verb" ${VERBS[CAT_CONFIG]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --root --no-pager'
-                elif [[ -z $cur ]]; then
-                        comps="$CONFIGS"
-                        compopt -o filenames
-                else
-                        comps="$CONFIGS $( compgen -A file -- "$cur" )"
-                        compopt -o filenames
-                fi
-
-        elif __contains_word "$verb" ${VERBS[SECURITY]}; then
-                if [[ $cur = -* ]]; then
-                        comps='--help --version --no-pager --system --user -H --host -M --machine'
-                else
-                        if __contains_word "--user" ${COMP_WORDS[*]}; then
-                                mode=--user
-                        else
-                                mode=--system
-                        fi
-                        comps=$( __get_services $mode )
-                fi
-        fi
-
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --host|-H)
+                comps=$(compgen -A hostname)
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+        esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
         return 0
+    fi
+
+    if [[ -z $verb  && $cur = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
+    if [[ -z $verb ]]; then
+        comps=${VERBS[*]}
+
+    elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --no-pager'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --fuzz --no-pager'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[DOT]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user'
+        else
+            comps='debug info notice warning err crit alert emerg'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user'
+        else
+            comps='console journal kmsg journal-or-kmsg null'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager'
+        else
+            comps=$( __get_syscall_sets )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[VERIFY]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user --global --man=no --generators=yes'
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+
+    elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --system --user'
+        else
+            comps='on off'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CAT_CONFIG]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --root --no-pager'
+        elif [[ -z $cur ]]; then
+            comps="$CONFIGS"
+            compopt -o filenames
+        else
+            comps="$CONFIGS $( compgen -A file -- "$cur" )"
+            compopt -o filenames
+        fi
+
+    elif __contains_word "$verb" ${VERBS[SECURITY]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager --system --user -H --host -M --machine'
+        else
+            if __contains_word "--user" ${COMP_WORDS[*]}; then
+                mode=--user
+            else
+                mode=--system
+            fi
+            comps=$( __get_services $mode )
+        fi
+    fi
+
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _systemd_analyze systemd-analyze

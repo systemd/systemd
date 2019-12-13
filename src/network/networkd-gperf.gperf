@@ -18,5 +18,7 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-DHCP.DUIDType,              config_parse_duid_type,                 0,          offsetof(Manager, duid)
-DHCP.DUIDRawData,           config_parse_duid_rawdata,              0,          offsetof(Manager, duid)
+Network.SpeedMeter,            config_parse_bool,                      0,          offsetof(Manager, use_speed_meter)
+Network.SpeedMeterIntervalSec, config_parse_sec,                       0,          offsetof(Manager, speed_meter_interval_usec)
+DHCP.DUIDType,                 config_parse_duid_type,                 0,          offsetof(Manager, duid)
+DHCP.DUIDRawData,              config_parse_duid_rawdata,              0,          offsetof(Manager, duid)

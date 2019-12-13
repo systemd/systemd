@@ -4,6 +4,7 @@
 #include "keymap-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_find_language_fallback(void) {
         _cleanup_free_ char *ans = NULL, *ans2 = NULL;
@@ -189,8 +190,7 @@ static void test_x11_convert_to_vconsole(void) {
 }
 
 int main(int argc, char **argv) {
-        log_set_max_level(LOG_DEBUG);
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         test_find_language_fallback();
         test_find_converted_keymap();

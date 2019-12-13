@@ -11,3 +11,4 @@ Priority=9
 MulticastQuerier= true
 MulticastSnooping=true
 STP=true
+MulticastIGMPVersion=3

@@ -6,14 +6,13 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "random-util.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-llmnr.h"
-#if ENABLE_DNS_OVER_TLS
 #include "resolved-dnstls.h"
-#endif
+#include "resolved-llmnr.h"
 #include "string-table.h"
 
 #define TRANSACTIONS_MAX 4096
@@ -267,7 +266,7 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
                   strnull(pretty));
 
@@ -332,7 +331,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
@@ -540,12 +539,8 @@ static int on_stream_packet(DnsStream *s) {
         if (t)
                 return dns_transaction_on_stream_packet(t, p);
 
-        /* Ignore incorrect transaction id as transaction can have been canceled */
-        if (dns_packet_validate_reply(p) <= 0) {
-                log_debug("Invalid TCP reply packet.");
-                on_stream_complete(s, 0);
-        }
-
+        /* Ignore incorrect transaction id as an old transaction can have been canceled. */
+        log_debug("Received unexpected TCP reply packet with id %" PRIu16 ", ignoring.", DNS_PACKET_ID(p));
         return 0;
 }
 
@@ -554,9 +549,10 @@ static uint16_t dns_port_for_feature_level(DnsServerFeatureLevel level) {
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
-        _cleanup_close_ int fd = -1;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
+        DnsStreamType type;
         int r;
 
         assert(t);
@@ -582,6 +578,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
 
+                type = DNS_STREAM_LOOKUP;
                 break;
 
         case DNS_PROTOCOL_LLMNR:
@@ -607,6 +604,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, &sa);
                 }
 
+                type = DNS_STREAM_LLMNR_SEND;
                 break;
 
         default:
@@ -617,7 +615,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd, &sa);
+                r = dns_stream_new(t->scope->manager, &s, type, t->scope->protocol, fd, &sa);
                 if (r < 0)
                         return r;
 
@@ -636,8 +634,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                 if (t->server) {
                         dns_server_unref_stream(t->server);
-                        t->server->stream = dns_stream_ref(s);
                         s->server = dns_server_ref(t->server);
+                        t->server->stream = dns_stream_ref(s);
                 }
 
                 s->complete = on_stream_complete;
@@ -674,7 +672,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                 return;
 
         /* Caching disabled? */
-        if (!t->scope->manager->enable_cache)
+        if (t->scope->manager->enable_cache == DNS_CACHE_MODE_NO)
                 return;
 
         /* We never cache if this packet is from the local host, under
@@ -685,6 +683,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                 return;
 
         dns_cache_put(&t->scope->cache,
+                      t->scope->manager->enable_cache,
                       t->key,
                       t->answer_rcode,
                       t->answer,
@@ -734,7 +733,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         }
 
                         /* Fall-through: NXDOMAIN/SERVFAIL is good enough for us. This is because some DNS servers
-                         * erronously return NXDOMAIN/SERVFAIL for empty non-terminals (Akamai...) or missing DS
+                         * erroneously return NXDOMAIN/SERVFAIL for empty non-terminals (Akamai...) or missing DS
                          * records (Facebook), and we need to handle that nicely, when asking for parent SOA or similar
                          * RRs to make unsigned proofs. */
 
@@ -1184,8 +1183,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         if (ERRNO_IS_DISCONNECT(-r)) {
                 usec_t usec;
 
-                /* UDP connection failure get reported via ICMP and then are possible delivered to us on the next
-                 * recvmsg(). Treat this like a lost packet. */
+                /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
+                 * next recvmsg(). Treat this like a lost packet. */
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
@@ -1199,6 +1198,9 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 t->answer_errno = -r;
                 return 0;
         }
+        if (r == 0)
+                /* Spurious wakeup without any data */
+                return 0;
 
         r = dns_packet_validate_reply(p);
         if (r < 0) {
@@ -1502,7 +1504,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         /*
          * For mDNS, we want to coalesce as many open queries in pending transactions into one single
          * query packet on the wire as possible. To achieve that, we iterate through all pending transactions
-         * in our current scope, and see whether their timing contraints allow them to be sent.
+         * in our current scope, and see whether their timing constraints allow them to be sent.
          */
 
         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
@@ -1648,7 +1650,7 @@ int dns_transaction_go(DnsTransaction *t) {
                   t->id,
                   dns_resource_key_to_string(t->key, key_str, sizeof key_str),
                   dns_protocol_to_string(t->scope->protocol),
-                  t->scope->link ? t->scope->link->name : "*",
+                  t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family));
 
         if (!t->initial_jitter_scheduled &&
@@ -2026,7 +2028,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0; /* We only need to validate stuff from the network */
         if (!dns_transaction_dnssec_supported(t))
-                return 0; /* If we can't do DNSSEC anyway there's no point in geting the auxiliary RRs */
+                return 0; /* If we can't do DNSSEC anyway there's no point in getting the auxiliary RRs */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
 
@@ -2066,7 +2068,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * RRs for stuff we didn't really ask for, and
                          * also to avoid request loops, where
                          * additional RRs from one transaction result
-                         * in another transaction whose additonal RRs
+                         * in another transaction whose additional RRs
                          * point back to the original transaction, and
                          * we deadlock. */
                         r = dns_name_endswith(dns_resource_key_name(t->key), rr->rrsig.signer);

@@ -5,6 +5,8 @@
 #include <microhttpd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -13,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
@@ -250,7 +253,7 @@ static ssize_t request_reader_entries(
         errno = 0;
         k = fread(buf, 1, n, m->tmp);
         if (k != n) {
-                log_error("Failed to read from file: %s", errno ? strerror(errno) : "Premature EOF");
+                log_error("Failed to read from file: %s", errno != 0 ? strerror_safe(errno) : "Premature EOF");
                 return MHD_CONTENT_READER_END_WITH_ERROR;
         }
 
@@ -603,7 +606,7 @@ static ssize_t request_reader_fields(
         errno = 0;
         k = fread(buf, 1, n, m->tmp);
         if (k != n) {
-                log_error("Failed to read from file: %s", errno ? strerror(errno) : "Premature EOF");
+                log_error("Failed to read from file: %s", errno != 0 ? strerror_safe(errno) : "Premature EOF");
                 return MHD_CONTENT_READER_END_WITH_ERROR;
         }
 

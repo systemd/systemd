@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <sys/statvfs.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "coredump-vacuum.h"
@@ -9,10 +12,10 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "user-util.h"
-#include "util.h"
 
 #define DEFAULT_MAX_USE_LOWER (uint64_t) (1ULL*1024ULL*1024ULL)           /* 1 MiB */
 #define DEFAULT_MAX_USE_UPPER (uint64_t) (4ULL*1024ULL*1024ULL*1024ULL)   /* 4 GiB */

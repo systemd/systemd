@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,32 +17,32 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 _kernel_install() {
-        local comps
-        local MACHINE_ID
-        local cur=${COMP_WORDS[COMP_CWORD]}
+    local comps
+    local MACHINE_ID
+    local cur=${COMP_WORDS[COMP_CWORD]}
 
-        case $COMP_CWORD in
-            1)
-                comps="add remove"
-                ;;
-            2)
-                comps=$(cd /lib/modules; echo [0-9]*)
-                if [[ ${COMP_WORDS[1]} == "remove" ]] && [[ -f /etc/machine-id ]]; then
-                    read MACHINE_ID < /etc/machine-id
-                    if [[ $MACHINE_ID ]] && ( [[ -d /boot/$MACHINE_ID ]] || [[ -L /boot/$MACHINE_ID ]] ); then
-                        comps=$(cd "/boot/$MACHINE_ID"; echo [0-9]*)
-                    fi
+    case $COMP_CWORD in
+        1)
+            comps="add remove"
+            ;;
+        2)
+            comps=$(cd /lib/modules; echo [0-9]*)
+            if [[ ${COMP_WORDS[1]} == "remove" ]] && [[ -f /etc/machine-id ]]; then
+                read MACHINE_ID < /etc/machine-id
+                if [[ $MACHINE_ID ]] && ( [[ -d /boot/$MACHINE_ID ]] || [[ -L /boot/$MACHINE_ID ]] ); then
+                    comps=$(cd "/boot/$MACHINE_ID"; echo [0-9]*)
                 fi
-                ;;
-            3)
-                [[ "$cur" ]] || cur=/lib/modules/${COMP_WORDS[2]}/vmlinuz
-                comps=$(compgen -f -- "$cur")
-                compopt -o filenames
-                ;;
-        esac
+            fi
+            ;;
+        3)
+            [[ "$cur" ]] || cur=/lib/modules/${COMP_WORDS[2]}/vmlinuz
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+            ;;
+    esac
 
-        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-        return 0
+    COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+    return 0
 }
 
 complete -F _kernel_install kernel-install

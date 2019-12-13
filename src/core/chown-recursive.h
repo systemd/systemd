@@ -3,4 +3,4 @@
 
 #include <sys/types.h>
 
-int path_chown_recursive(const char *path, uid_t uid, gid_t gid);
+int path_chown_recursive(const char *path, uid_t uid, gid_t gid, mode_t mask);

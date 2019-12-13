@@ -6,7 +6,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -20,7 +21,6 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 static bool arg_cat_config = false;
 static PagerFlags arg_pager_flags = 0;
@@ -43,7 +43,7 @@ static int delete_rule(const char *rule) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Rule file name '%s' is not valid, refusing.", x + 1);
 
-        fn = strappend("/proc/sys/fs/binfmt_misc/", x+1);
+        fn = path_join("/proc/sys/fs/binfmt_misc", x+1);
         if (!fn)
                 return log_oom();
 
@@ -212,7 +212,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 /* Flush out all rules */
-                write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
+                (void) write_string_file("/proc/sys/fs/binfmt_misc/status", "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
 
                 STRV_FOREACH(f, files) {
                         k = apply_file(*f, true);

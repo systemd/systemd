@@ -4,13 +4,16 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "dns-domain.h"
+#include "memory-util.h"
 #include "missing_capability.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
 #include "resolved-dns-synthesize.h"
-#include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
+#include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "stdio-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -67,7 +70,7 @@ static int reply_query_state(DnsQuery *q) {
 
                         rc = dns_rcode_to_string(q->answer_rcode);
                         if (!rc) {
-                                sprintf(p, "%i", q->answer_rcode);
+                                xsprintf(p, "%i", q->answer_rcode);
                                 rc = p;
                         }
 
@@ -1272,13 +1275,12 @@ static int bus_property_get_dns_servers(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links, i)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
                 }
-        }
 
         return sd_bus_message_close_container(reply);
 }
@@ -1637,15 +1639,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.register-service",
-                                    NULL, false, UID_INVALID,
-                                    &m->polkit_registry, error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
-
         service = new0(DnssdService, 1);
         if (!service)
                 return log_oom();
@@ -1770,6 +1763,15 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
+                                    "org.freedesktop.resolve1.register-service",
+                                    NULL, false, UID_INVALID,
+                                    &m->polkit_registry, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Polkit will call us back */
+
         r = hashmap_ensure_allocated(&m->dnssd_services, &string_hash_ops);
         if (r < 0)
                 return r;
@@ -1833,13 +1835,13 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
 
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
-        SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
@@ -1853,19 +1855,19 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("ResolveAddress", "iiayt", "a(is)t", bus_method_resolve_address, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveRecord", "isqqt", "a(iqqay)t", bus_method_resolve_record, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResolveService", "isssit", "a(qqqsa(iiay)s)aayssst", bus_method_resolve_service, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, 0),
-        SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, 0),
-        SD_BUS_METHOD("ResetServerFeatures", NULL, NULL, bus_method_reset_server_features, 0),
+        SD_BUS_METHOD("ResetStatistics", NULL, NULL, bus_method_reset_statistics, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("FlushCaches", NULL, NULL, bus_method_flush_caches, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResetServerFeatures", NULL, NULL, bus_method_reset_server_features, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetLink", "i", "o", bus_method_get_link, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, 0),
-        SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),
-        SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, 0),
-        SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, 0),
-        SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, 0),
-        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, 0),
-        SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, 0),
-        SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
-        SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),
+        SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_METHOD("RegisterService", "sssqqqaa{say}", "o", bus_method_register_service, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("UnregisterService", "o", NULL, bus_method_unregister_service, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -1948,4 +1950,19 @@ int manager_connect_bus(Manager *m) {
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
+}
+
+int _manager_send_changed(Manager *manager, const char *property, ...) {
+        assert(manager);
+
+        char **l = strv_from_stdarg_alloca(property);
+
+        int r = sd_bus_emit_properties_changed_strv(
+                        manager->bus,
+                        "/org/freedesktop/resolve1",
+                        "org.freedesktop.resolve1.Manager",
+                        l);
+        if (r < 0)
+                log_notice_errno(r, "Failed to emit notification about changed property %s: %m", property);
+        return r;
 }

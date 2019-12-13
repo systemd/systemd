@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.special">
 
@@ -41,6 +38,7 @@
     <filename>hibernate.target</filename>,
     <filename>hybrid-sleep.target</filename>,
     <filename>suspend-then-hibernate.target</filename>,
+    <filename>initrd.target</filename>,
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
@@ -80,9 +78,11 @@
     <filename>sysinit.target</filename>,
     <filename>system-update.target</filename>,
     <filename>system-update-pre.target</filename>,
+    <filename>time-set.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
+    <filename>usb-gadget.target</filename>,
     <!-- slices --><filename>-.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
@@ -203,14 +203,16 @@
         <varlistentry>
           <term><filename>default.target</filename></term>
           <listitem>
-            <para>The default unit systemd starts at bootup. Usually,
-            this should be aliased (symlinked) to
-            <filename>multi-user.target</filename> or
-            <filename>graphical.target</filename>.</para>
+            <para>The default unit systemd starts at bootup. Usually, this should be aliased (symlinked) to
+            <filename>multi-user.target</filename> or <filename>graphical.target</filename>. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
 
-            <para>The default unit systemd starts at bootup can be
-            overridden with the <varname>systemd.unit=</varname> kernel
-            command line option.</para>
+            <para>The default unit systemd starts at bootup can be overridden with the
+            <varname>systemd.unit=</varname> kernel command line option, or more conveniently, with the short
+            names like <varname>single</varname>, <varname>rescue</varname>, <varname>1</varname>,
+            <varname>3</varname>, <varname>5</varname>, …; see
+            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -340,6 +342,15 @@
           <listitem>
             <para>This scope unit is where the system and service manager (PID 1) itself resides. It
             is active as long as the system is running.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd.target</filename></term>
+          <listitem>
+            <para>This is the default target in the initramfs, similar to <filename>default.target</filename>
+            in the main system. It is used to mount the real root and transition to it. See
+            <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+            more discussion.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -799,6 +810,16 @@
             dynamically when audio hardware is found.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><filename>usb-gadget.target</filename></term>
+          <listitem>
+            <para>This target is started automatically as soon as a
+            USB Device Controller becomes available at boot.</para>
+
+            <para>This may be used to pull in usb gadget
+            dynamically when UDC hardware is found.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -943,6 +964,18 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><filename>time-set.target</filename></term>
+          <listitem>
+            <para>Services responsible for setting the system clock from
+            a local source (such as a maintained timestamp file or
+            imprecise real-time clock) should pull in this target and
+            order themselves before it.  Services where approximate time
+            is desired should be ordered after this unit, but not pull
+            it in.  This target does not provide the accuracy guarantees
+            of <filename>time-sync.target</filename>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><filename>time-sync.target</filename></term>
           <listitem>
             <para>Services responsible for synchronizing the system
@@ -1014,10 +1047,23 @@
       <title>Special User Units</title>
 
       <para>When systemd runs as a user instance, the following special
-      units are available, which have similar definitions as their
+      units are available:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>default.target</filename></term>
+          <listitem>
+            <para>This is the main target of the user session, started by default. Various services that
+            compose the normal user session should be pulled into this target. In this regard,
+            <filename>default.target</filename> is similar to <filename>multi-user.target</filename> in the
+            system instance, but it is a real unit, not an alias.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, the following units are available which have definitions similar to their
       system counterparts:
       <filename>exit.target</filename>,
-      <filename>default.target</filename>,
       <filename>shutdown.target</filename>,
       <filename>sockets.target</filename>,
       <filename>timers.target</filename>,

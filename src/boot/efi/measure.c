@@ -108,9 +108,6 @@ typedef UINT32 EFI_TCG2_EVENT_LOG_BITMAP;
 typedef UINT32 EFI_TCG2_EVENT_LOG_FORMAT;
 typedef UINT32 EFI_TCG2_EVENT_ALGORITHM_BITMAP;
 
-#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2       0x00000001
-#define EFI_TCG2_EVENT_LOG_FORMAT_TCG_2         0x00000002
-
 typedef struct tdEFI_TCG2_BOOT_SERVICE_CAPABILITY {
         UINT8 Size;
         EFI_TCG2_VERSION StructureVersion;
@@ -209,37 +206,11 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
         return EFI_SUCCESS;
 }
 
-/*
- * According to TCG EFI Protocol Specification for TPM 2.0 family,
- * all events generated after the invocation of EFI_TCG2_GET_EVENT_LOG
- * shall be stored in an instance of an EFI_CONFIGURATION_TABLE aka
- * EFI TCG 2.0 final events table. Hence, it is necessary to trigger the
- * internal switch through calling get_event_log() in order to allow
- * to retrieve the logs from OS runtime.
- */
-static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg, EFI_TCG2_EVENT_LOG_FORMAT log_fmt)
-{
-        EFI_PHYSICAL_ADDRESS loc;
-        EFI_PHYSICAL_ADDRESS last_loc;
-        BOOLEAN truncated;
-        return uefi_call_wrapper(tcg->GetEventLog, 5, (EFI_TCG2 *) tcg,
-                                 log_fmt, &loc, &last_loc, &truncated);
-}
-
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
-                                                    UINT64 buffer_size, const CHAR16 *description, EFI_TCG2_EVENT_LOG_FORMAT log_fmt) {
+                                                    UINT64 buffer_size, const CHAR16 *description) {
         EFI_STATUS status;
         EFI_TCG2_EVENT *tcg_event;
         UINTN desc_len;
-        static BOOLEAN triggered = FALSE;
-
-        if (triggered == FALSE) {
-                status = trigger_tcg2_final_events_table(tcg, log_fmt);
-                if (EFI_ERROR(status))
-                        return status;
-
-                triggered = TRUE;
-        }
 
         desc_len = StrLen(description) * sizeof(CHAR16);
 
@@ -295,31 +266,32 @@ static EFI_TCG * tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *caps) {
+static EFI_TCG2 * tcg2_interface_check() {
         EFI_GUID tpm2_guid = EFI_TCG2_PROTOCOL_GUID;
         EFI_STATUS status;
         EFI_TCG2 *tcg;
+        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability;
 
         status = LibLocateProtocol(&tpm2_guid, (void **) &tcg);
 
         if (EFI_ERROR(status))
                 return NULL;
 
-        caps->Size = (UINT8) sizeof(EFI_TCG2_BOOT_SERVICE_CAPABILITY);
-        status = uefi_call_wrapper(tcg->GetCapability, 2, tcg, caps);
+        capability.Size = (UINT8) sizeof(EFI_TCG2_BOOT_SERVICE_CAPABILITY);
+        status = uefi_call_wrapper(tcg->GetCapability, 2, tcg, &capability);
 
         if (EFI_ERROR(status))
                 return NULL;
 
-        if (caps->StructureVersion.Major == 1 &&
-            caps->StructureVersion.Minor == 0) {
+        if (capability.StructureVersion.Major == 1 &&
+            capability.StructureVersion.Minor == 0) {
                 TCG_BOOT_SERVICE_CAPABILITY *caps_1_0;
-                caps_1_0 = (TCG_BOOT_SERVICE_CAPABILITY *)caps;
+                caps_1_0 = (TCG_BOOT_SERVICE_CAPABILITY *)&capability;
                 if (caps_1_0->TPMPresentFlag)
                         return tcg;
         }
 
-        if (!caps->TPMPresentFlag)
+        if (!capability.TPMPresentFlag)
                 return NULL;
 
         return tcg;
@@ -328,25 +300,10 @@ static EFI_TCG2 * tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *caps) {
 EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UINTN buffer_size, const CHAR16 *description) {
         EFI_TCG *tpm1;
         EFI_TCG2 *tpm2;
-        EFI_TCG2_BOOT_SERVICE_CAPABILITY caps;
 
-        tpm2 = tcg2_interface_check(&caps);
+        tpm2 = tcg2_interface_check();
         if (tpm2) {
-                EFI_TCG2_EVENT_LOG_BITMAP supported_logs;
-                EFI_TCG2_EVENT_LOG_FORMAT log_fmt;
-
-                if (caps.StructureVersion.Major == 1 &&
-                    caps.StructureVersion.Minor == 0)
-                        supported_logs = ((TREE_BOOT_SERVICE_CAPABILITY *)&caps)->SupportedEventLogs;
-                else
-                        supported_logs = caps.SupportedEventLogs;
-
-                if (supported_logs & EFI_TCG2_EVENT_LOG_FORMAT_TCG_2)
-                        log_fmt = EFI_TCG2_EVENT_LOG_FORMAT_TCG_2;
-                else
-                        log_fmt = EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2;
-
-                return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description, log_fmt);
+                return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
         }
 
         tpm1 = tcg1_interface_check();

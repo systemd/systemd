@@ -16,6 +16,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -64,6 +65,11 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                          * via -uuid on the qemu/kvm command line */
 
                         if (id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, ret) >= 0) {
+                                log_info("Initializing machine ID from KVM UUID.");
+                                return 0;
+                        }
+                        /* on POWER, it's exported here instead */
+                        if (id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, ret) >= 0) {
                                 log_info("Initializing machine ID from KVM UUID.");
                                 return 0;
                         }

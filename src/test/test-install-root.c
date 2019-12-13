@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "fileio.h"
 #include "install.h"
@@ -110,7 +112,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        /* Disabling a disabled unit must suceed but be a NOP */
+        /* Disabling a disabled unit must succeed but be a NOP */
         assert_se(unit_file_disable(UNIT_FILE_SYSTEM, 0, root, STRV_MAKE("a.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
         unit_file_changes_free(changes, n_changes);

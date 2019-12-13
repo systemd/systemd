@@ -66,6 +66,7 @@ enum {
         SD_DHCP6_OPTION_IA_PD_PREFIX               = 26,  /* RFC 3633, prefix delegation */
 
         SD_DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075, deprecated */
+        SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME   = 32,  /* RFC 8415, sec. 21.23 */
 
         /* option code 35 is unassigned */
 
@@ -119,6 +120,10 @@ int sd_dhcp6_client_get_information_request(
 int sd_dhcp6_client_set_request_option(
                 sd_dhcp6_client *client,
                 uint16_t option);
+int sd_dhcp6_client_set_prefix_delegation_hint(
+                sd_dhcp6_client *client,
+                uint8_t prefixlen,
+                const struct in6_addr *pd_address);
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client,
                                           int *delegation);
 int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client,

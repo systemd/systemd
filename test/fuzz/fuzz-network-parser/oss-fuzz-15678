@@ -1,0 +1,2 @@
+[IPv6AcceptRA]
+BlackList=70:: 70::

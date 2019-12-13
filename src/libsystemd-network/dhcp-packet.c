@@ -75,12 +75,15 @@ uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len) {
 
 void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t source_port, be32_t destination_addr,
-                                   uint16_t destination_port, uint16_t len) {
+                                   uint16_t destination_port, uint16_t len, int ip_service_type) {
         packet->ip.version = IPVERSION;
         packet->ip.ihl = DHCP_IP_SIZE / 4;
         packet->ip.tot_len = htobe16(len);
 
-        packet->ip.tos = IPTOS_CLASS_CS6;
+        if (ip_service_type >= 0)
+                packet->ip.tos = ip_service_type;
+        else
+                packet->ip.tos = IPTOS_CLASS_CS6;
 
         packet->ip.protocol = IPPROTO_UDP;
         packet->ip.saddr = source_addr;

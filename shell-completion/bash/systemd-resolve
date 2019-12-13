@@ -17,64 +17,64 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word () {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_interfaces(){
-        local name
-        for name in $(cd /sys/class/net && ls); do
-                [[ "$name" != "lo" ]] && echo "$name"
-        done
+    local name
+    for name in $(cd /sys/class/net && ls); do
+        [[ "$name" != "lo" ]] && echo "$name"
+    done
 }
 
 _systemd-resolve() {
-        local i comps
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local -A OPTS=(
-               [STANDALONE]='-h --help --version --no-pager -4 -6
-                             --service --openpgp --tlsa --status --statistics
-                             --reset-statistics --service-address=no --service-txt=no
-                             --cname=no --search=no --legend=no --flush-caches
-                             --reset-server-features --revert'
-                      [ARG]='-i --interface -p --protocol -t --type -c --class --raw
-                             --set-dns --set-domain --set-llmnr --set-mdns --set-dnssec --set-nta'
-        )
+    local i comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --no-pager -4 -6
+                      --service --openpgp --tlsa --status --statistics
+                      --reset-statistics --service-address=no --service-txt=no
+                      --cname=no --search=no --legend=no --flush-caches
+                      --reset-server-features --revert'
+        [ARG]='-i --interface -p --protocol -t --type -c --class --raw
+                      --set-dns --set-domain --set-llmnr --set-mdns --set-dnssec --set-nta'
+    )
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --interface|-i)
-                                comps=$( __get_interfaces )
-                                ;;
-                        --protocol|-p|--type|-t|--class|-c)
-                                comps=$( systemd-resolve --legend=no "$prev" help; echo help )
-                                ;;
-                        --raw)
-                                comps="payload packet"
-                                ;;
-                        --set-dns|--set-domain|--set-nta)
-                                comps=""
-                                ;;
-                        --set-llmnr|--set-mdns)
-                                comps="yes no resolve"
-                                ;;
-                        --set-dnssec)
-                                comps="yes no allow-downgrade"
-                                ;;
-                        --set-dnsovertls)
-                                comps="no opportunistic"
-                                ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --interface|-i)
+                comps=$( __get_interfaces )
+                ;;
+            --protocol|-p|--type|-t|--class|-c)
+                comps=$( systemd-resolve --legend=no "$prev" help; echo help )
+                ;;
+            --raw)
+                comps="payload packet"
+                ;;
+            --set-dns|--set-domain|--set-nta)
+                comps=""
+                ;;
+            --set-llmnr|--set-mdns)
+                comps="yes no resolve"
+                ;;
+            --set-dnssec)
+                comps="yes no allow-downgrade"
+                ;;
+            --set-dnsovertls)
+                comps="yes no opportunistic"
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
 
-        if [[ "$cur" = -* ]]; then
-                COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
-                return 0
-        fi
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
 }
 
 complete -F _systemd-resolve systemd-resolve

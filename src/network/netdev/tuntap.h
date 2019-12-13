@@ -3,14 +3,13 @@
 
 typedef struct TunTap TunTap;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct TunTap {
         NetDev meta;
 
         char *user_name;
         char *group_name;
-        bool one_queue;
         bool multi_queue;
         bool packet_info;
         bool vnet_hdr;

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <stdio_ext.h>
-
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
@@ -10,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -288,8 +287,16 @@ int bus_match_run(
         case BUS_MATCH_LEAF:
 
                 if (bus) {
-                        if (node->leaf.callback->last_iteration == bus->iteration_counter)
-                                return 0;
+                        /* Don't run this match as long as the AddMatch() call is not complete yet.
+                         *
+                         * Don't run this match unless the 'after' counter has been reached.
+                         *
+                         * Don't run this match more than once per iteration */
+
+                        if (node->leaf.callback->install_slot ||
+                            m->read_counter <= node->leaf.callback->after ||
+                            node->leaf.callback->last_iteration == bus->iteration_counter)
+                                return bus_match_run(bus, node->next, m);
 
                         node->leaf.callback->last_iteration = bus->iteration_counter;
                 }
@@ -860,11 +867,9 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
 
         assert(components);
 
-        f = open_memstream(&buffer, &size);
+        f = open_memstream_unlocked(&buffer, &size);
         if (!f)
                 return NULL;
-
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         for (i = 0; i < n_components; i++) {
                 char buf[32];

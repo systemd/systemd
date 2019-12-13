@@ -1,5 +1,7 @@
 ---
 title: Known Environment Variables
+category: Interfaces
+layout: default
 ---
 
 # Known Environment Variables
@@ -36,10 +38,19 @@ All tools:
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
 
-* `$SYSTEMD_PROC_CMDLINE` — if set, may contain a string that is used as kernel
-  command line instead of the actual one readable from /proc/cmdline. This is
-  useful for debugging, in order to test generators and other code against
-  specific kernel command lines.
+* `$SYSTEMD_PROC_CMDLINE` — if set, the contents are used as the kernel command
+  line instead of the actual one in /proc/cmdline. This is useful for
+  debugging, in order to test generators and other code against specific kernel
+  command lines.
+
+* `$SYSTEMD_FSTAB` — if set, use this path instead of /etc/fstab. Only useful
+  for debugging.
+
+* `$SYSTEMD_CRYPTTAB` — if set, use this path instead of /etc/crypttab. Only
+  useful for debugging. Currently only supported by systemd-cryptsetup-generator.
+
+* `$SYSTEMD_EFI_OPTIONS` — if set, used instead of the string in the
+  SystemdOptions EFI variable. Analogous to `$SYSTEMD_PROC_CMDLINE`.
 
 * `$SYSTEMD_IN_INITRD` — takes a boolean. If set, overrides initrd detection.
   This is useful for debugging and testing initrd-only programs in the main
@@ -58,6 +69,10 @@ All tools:
   this only controls use of Unicode emoji glyphs, and has no effect on other
   Unicode glyphs.
 
+* `$RUNTIME_DIRECTORY` — various tools use this variable to locate the
+  appropriate path under /run. This variable is also set by the manager when
+  RuntimeDirectory= is used, see systemd.exec(5).
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
@@ -70,8 +85,8 @@ systemctl:
 
 systemd-nspawn:
 
-* `$UNIFIED_CGROUP_HIERARCHY=1` — if set, force nspawn into unified cgroup
-  hierarchy mode.
+* `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force nspawn into unified
+  cgroup hierarchy mode.
 
 * `$SYSTEMD_NSPAWN_API_VFS_WRITABLE=1` — if set, make /sys and /proc/sys and
   friends writable in the container. If set to "network", leave only
@@ -106,6 +121,51 @@ systemd-udevd:
   command line option `net.naming-scheme=`, except if the value is prefixed
   with `:` in which case the kernel command line option takes precedence, if it
   is specified as well.
+
+* `$SYSTEMD_REBOOT_TO_FIRMWARE_SETUP` — if set overrides systemd-logind's
+  built-in EFI logic of requesting a reboot into the firmware. Takes a
+  boolean. If set to false the functionality is turned off entirely. If set to
+  true instead of requesting a reboot into the firmware setup UI through EFI a
+  file `/run/systemd/reboot-to-firmware-setup` is created whenever this is
+  requested. This file may be checked for by services run during system
+  shutdown in order to request the appropriate operation from the firmware in
+  an alternative fashion.
+
+* `$SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU` — similar to the above, allows
+  overriding of systemd-logind's built-in EFI logic of requesting a reboot into
+  the boot loader menu. Takes a boolean. If set to false the functionality is
+  turned off entirely. If set to true instead of requesting a reboot into the
+  boot loader menu through EFI a file `/run/systemd/reboot-to-boot-loader-menu`
+  is created whenever this is requested. The file contains the requested boot
+  loader menu timeout in µs, formatted in ASCII decimals, or zero in case no
+  time-out is requested. This file may be checked for by services run during
+  system shutdown in order to request the appropriate operation from the boot
+  loader in an alternative fashion.
+
+* `$SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY` — similar to the above, allows
+  overriding of systemd-logind's built-in EFI logic of requesting a reboot into
+  a specific boot loader entry. Takes a boolean. If set to false the
+  functionality is turned off entirely. If set to true instead of requesting a
+  reboot into a specific boot loader entry through EFI a file
+  `/run/systemd/reboot-to-boot-loader-entry` is created whenever this is
+  requested. The file contains the requested boot loader entry identifier. This
+  file may be checked for by services run during system shutdown in order to
+  request the appropriate operation from the boot loader in an alternative
+  fashion. Note that by default only boot loader entries which follow the [Boot
+  Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION) and are
+  placed in the ESP or the Extended Boot Loader partition may be selected this
+  way. However, if a directory `/run/boot-loader-entries/` exists, the entries
+  are loaded from there instead. The directory should contain the usual
+  directory hierarchy mandated by the Boot Loader Specification, i.e. the entry
+  drop-ins should be placed in
+  `/run/boot-loader-entries/loader/entries/*.conf`, and the files referenced by
+  the drop-ins (including the kernels and initrds) somewhere else below
+  `/run/boot-loader-entries/`. Note that all these files may be (and are
+  supposed to be) symlinks. systemd-logind will load these files on-demand,
+  these files can hence be updated (ideally atomically) whenever the boot
+  loader configuration changes. A foreign boot loader installer script should
+  hence synthesize drop-in snippets and symlinks for all boot entries at boot
+  or whenever they change if it wants to integrate with systemd-logind's APIs.
 
 installed systemd tests:
 
@@ -172,8 +232,14 @@ systemd itself:
 
 systemd-remount-fs:
 
-* `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and and no entry for the root directory
+* `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
   exists in /etc/fstab (this file always takes precedence), then the root
   directory is remounted writable. This is primarily used by
   systemd-gpt-auto-generator to ensure the root partition is mounted writable
   in accordance to the GPT partition flags.
+
+systemd-firstboot and localectl:
+
+* `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set non-UTF-8 locales are listed among
+  the installed ones. By default non-UTF-8 locales are suppressed from the
+  selection, since we are living in the 21st century.

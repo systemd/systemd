@@ -3,7 +3,7 @@
 
 typedef struct VxCan VxCan;
 
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 struct VxCan {
         NetDev meta;

@@ -2,6 +2,6 @@
 Name=dummy98
 
 [Network]
-Address=192.168.42.100
+Address=192.168.42.100/24
 DNS=192.168.42.1
 Domains= one two three four five six seven eight nine ten

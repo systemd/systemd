@@ -3,14 +3,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <locale.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -23,15 +21,22 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-message.h"
+#include "bus-unit-procs.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
+#include "bus-wait-for-units.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
+#include "dirent-util.h"
 #include "dropin.h"
+#include "efi-loader.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "escape.h"
+#include "exec-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -39,15 +44,18 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "in-addr-util.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
+#include "journal-util.h"
 #include "list.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mkdir.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -62,40 +70,24 @@
 #include "sigbus.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "sysv-compat.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-def.h"
+#include "unit-file.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "util.h"
+#include "utf8.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
 #include "virt.h"
-
-/* The init script exit status codes
-   0       program is running or service is OK
-   1       program is dead and /var/run pid file exists
-   2       program is dead and /var/lock lock file exists
-   3       program is not running
-   4       program or service status is unknown
-   5-99    reserved for future LSB use
-   100-149 reserved for distribution use
-   150-199 reserved for application use
-   200-254 reserved
-*/
-enum {
-        EXIT_PROGRAM_RUNNING_OR_SERVICE_OK        = 0,
-        EXIT_PROGRAM_DEAD_AND_PID_EXISTS          = 1,
-        EXIT_PROGRAM_DEAD_AND_LOCK_FILE_EXISTS    = 2,
-        EXIT_PROGRAM_NOT_RUNNING                  = 3,
-        EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
-};
 
 static char **arg_types = NULL;
 static char **arg_states = NULL;
@@ -125,6 +117,7 @@ static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
+static bool arg_show_transaction = false;
 static int arg_force = 0;
 static bool arg_ask_password = false;
 static bool arg_runtime = false;
@@ -134,8 +127,6 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
-static char *arg_esp_path = NULL;
-static char *argv_cmdline = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
         ACTION_HALT,
@@ -167,9 +158,25 @@ static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_plain = false;
 static bool arg_firmware_setup = false;
+static usec_t arg_boot_loader_menu = USEC_INFINITY;
+static const char *arg_boot_loader_entry = NULL;
 static bool arg_now = false;
 static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
+static char **arg_clean_what = NULL;
+
+/* This is a global cache that will be constructed on first use. */
+static Hashmap *cached_id_map = NULL;
+static Hashmap *cached_name_map = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(cached_id_map, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(cached_name_map, hashmap_freep);
 
 static int daemon_reload(int argc, char *argv[], void* userdata);
 static int trivial_method(int argc, char *argv[], void *userdata);
@@ -184,7 +191,7 @@ typedef enum BusFocus {
         _BUS_FOCUS_MAX
 } BusFocus;
 
-static sd_bus *busses[_BUS_FOCUS_MAX] = {};
+static sd_bus *buses[_BUS_FOCUS_MAX] = {};
 
 static UnitFileFlags args_to_flags(void) {
         return (arg_runtime ? UNIT_FILE_RUNTIME : 0) |
@@ -204,22 +211,22 @@ static int acquire_bus(BusFocus focus, sd_bus **ret) {
         if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
                 focus = BUS_FULL;
 
-        if (!busses[focus]) {
+        if (!buses[focus]) {
                 bool user;
 
                 user = arg_scope != UNIT_FILE_SYSTEM;
 
                 if (focus == BUS_MANAGER)
-                        r = bus_connect_transport_systemd(arg_transport, arg_host, user, &busses[focus]);
+                        r = bus_connect_transport_systemd(arg_transport, arg_host, user, &buses[focus]);
                 else
-                        r = bus_connect_transport(arg_transport, arg_host, user, &busses[focus]);
+                        r = bus_connect_transport(arg_transport, arg_host, user, &buses[focus]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to bus: %m");
 
-                (void) sd_bus_set_allow_interactive_authorization(busses[focus], arg_ask_password);
+                (void) sd_bus_set_allow_interactive_authorization(buses[focus], arg_ask_password);
         }
 
-        *ret = busses[focus];
+        *ret = buses[focus];
         return 0;
 }
 
@@ -227,25 +234,19 @@ static void release_busses(void) {
         BusFocus w;
 
         for (w = 0; w < _BUS_FOCUS_MAX; w++)
-                busses[w] = sd_bus_flush_close_unref(busses[w]);
+                buses[w] = sd_bus_flush_close_unref(buses[w]);
 }
 
-static void ask_password_agent_open_if_enabled(void) {
+static void ask_password_agent_open_maybe(void) {
         /* Open the password agent as a child process if necessary */
 
         if (arg_dry_run)
                 return;
 
-        if (!arg_ask_password)
-                return;
-
         if (arg_scope != UNIT_FILE_SYSTEM)
                 return;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
-                return;
-
-        ask_password_agent_open();
+        ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 }
 
 static void polkit_agent_open_maybe(void) {
@@ -556,14 +557,16 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         off = ansi_normal();
                 }
 
-                if (arg_all)
+                if (arg_all || strv_contains(arg_states, "inactive"))
                         printf("%s%u loaded units listed.%s\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
-                else
+                else if (!arg_states)
                         printf("%s%u loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
                                "To show all installed unit files use 'systemctl list-unit-files'.\n",
                                on, n_shown, off);
+                else
+                        printf("%u loaded units listed.\n", n_shown);
         }
 
         return 0;
@@ -733,10 +736,67 @@ static int get_unit_list_recursive(
                 *_machines = NULL;
 
         *_unit_infos = TAKE_PTR(unit_infos);
-
         *_replies = TAKE_PTR(replies);
 
         return c;
+}
+
+static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
+        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
+        char **name;
+        int r, i;
+
+        assert(bus);
+        assert(ret);
+
+        STRV_FOREACH(name, names) {
+                char *t;
+                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
+
+                r = unit_name_mangle_with_suffix(*name, NULL, options, suffix ?: ".service", &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mangle name: %m");
+
+                if (string_is_glob(t))
+                        r = strv_consume(&globs, t);
+                else
+                        r = strv_consume(&mangled, t);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        /* Query the manager only if any of the names are a glob, since
+         * this is fairly expensive */
+        bool expanded = !strv_isempty(globs);
+        if (expanded) {
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_free_ UnitInfo *unit_infos = NULL;
+                size_t allocated, n;
+
+                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
+                if (r < 0)
+                        return r;
+
+                n = strv_length(mangled);
+                allocated = n + 1;
+
+                for (i = 0; i < r; i++) {
+                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
+                                return log_oom();
+
+                        mangled[n] = strdup(unit_infos[i].id);
+                        if (!mangled[n])
+                                return log_oom();
+
+                        mangled[++n] = NULL;
+                }
+        }
+
+        if (ret_expanded)
+                *ret_expanded = expanded;
+
+        *ret = TAKE_PTR(mangled);
+        return 0;
 }
 
 static int list_units(int argc, char *argv[], void *userdata) {
@@ -949,6 +1009,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 static int list_sockets(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
+        _cleanup_strv_free_ char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_free_ struct socket_info *socket_infos = NULL;
         const UnitInfo *u;
@@ -964,49 +1025,55 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
-        if (n < 0)
-                return n;
+        r = expand_names(bus, strv_skip(argv, 1), ".socket", &sockets_with_suffix, NULL);
+        if (r < 0)
+                return r;
 
-        for (u = unit_infos; u < unit_infos + n; u++) {
-                _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
-                int i, c;
+        if (argc == 1 || sockets_with_suffix) {
+                n = get_unit_list_recursive(bus, sockets_with_suffix, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
 
-                if (!endswith(u->id, ".socket"))
-                        continue;
+                for (u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **listening = NULL, **triggered = NULL;
+                        int i, c;
 
-                r = get_triggered_units(bus, u->unit_path, &triggered);
-                if (r < 0)
-                        goto cleanup;
+                        if (!endswith(u->id, ".socket"))
+                                continue;
 
-                c = get_listening(bus, u->unit_path, &listening);
-                if (c < 0) {
-                        r = c;
-                        goto cleanup;
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                goto cleanup;
+
+                        c = get_listening(bus, u->unit_path, &listening);
+                        if (c < 0) {
+                                r = c;
+                                goto cleanup;
+                        }
+
+                        if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
+                                r = log_oom();
+                                goto cleanup;
+                        }
+
+                        for (i = 0; i < c; i++)
+                                socket_infos[cs + i] = (struct socket_info) {
+                                        .machine = u->machine,
+                                        .id = u->id,
+                                        .type = listening[i*2],
+                                        .path = listening[i*2 + 1],
+                                        .triggered = triggered,
+                                        .own_triggered = i==0,
+                                };
+
+                        /* from this point on we will cleanup those socket_infos */
+                        cs += c;
+                        free(listening);
+                        listening = triggered = NULL; /* avoid cleanup */
                 }
 
-                if (!GREEDY_REALLOC(socket_infos, size, cs + c)) {
-                        r = log_oom();
-                        goto cleanup;
-                }
-
-                for (i = 0; i < c; i++)
-                        socket_infos[cs + i] = (struct socket_info) {
-                                .machine = u->machine,
-                                .id = u->id,
-                                .type = listening[i*2],
-                                .path = listening[i*2 + 1],
-                                .triggered = triggered,
-                                .own_triggered = i==0,
-                        };
-
-                /* from this point on we will cleanup those socket_infos */
-                cs += c;
-                free(listening);
-                listening = triggered = NULL; /* avoid cleanup */
+                typesafe_qsort(socket_infos, cs, socket_info_compare);
         }
-
-        typesafe_qsort(socket_infos, cs, socket_info_compare);
 
         output_sockets_list(socket_infos, cs);
 
@@ -1231,7 +1298,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
         assert(nw);
         assert(next);
 
-        if (next->monotonic != USEC_INFINITY && next->monotonic > 0) {
+        if (timestamp_is_set(next->monotonic)) {
                 usec_t converted;
 
                 if (next->monotonic > nw->monotonic)
@@ -1239,7 +1306,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
                 else
                         converted = nw->realtime - (nw->monotonic - next->monotonic);
 
-                if (next->realtime != USEC_INFINITY && next->realtime > 0)
+                if (timestamp_is_set(next->realtime))
                         next_elapse = MIN(converted, next->realtime);
                 else
                         next_elapse = converted;
@@ -1253,6 +1320,7 @@ static usec_t calc_next_elapse(dual_timestamp *nw, dual_timestamp *next) {
 static int list_timers(int argc, char *argv[], void *userdata) {
         _cleanup_(message_set_freep) Set *replies = NULL;
         _cleanup_strv_free_ char **machines = NULL;
+        _cleanup_strv_free_ char **timers_with_suffix = NULL;
         _cleanup_free_ struct timer_info *timer_infos = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         struct timer_info *t;
@@ -1269,47 +1337,53 @@ static int list_timers(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
-        if (n < 0)
-                return n;
+        r = expand_names(bus, strv_skip(argv, 1), ".timer", &timers_with_suffix, NULL);
+        if (r < 0)
+                return r;
 
-        dual_timestamp_get(&nw);
+        if (argc == 1 || timers_with_suffix) {
+                n = get_unit_list_recursive(bus, timers_with_suffix, &unit_infos, &replies, &machines);
+                if (n < 0)
+                        return n;
 
-        for (u = unit_infos; u < unit_infos + n; u++) {
-                _cleanup_strv_free_ char **triggered = NULL;
-                dual_timestamp next = DUAL_TIMESTAMP_NULL;
-                usec_t m, last = 0;
+                dual_timestamp_get(&nw);
 
-                if (!endswith(u->id, ".timer"))
-                        continue;
+                for (u = unit_infos; u < unit_infos + n; u++) {
+                        _cleanup_strv_free_ char **triggered = NULL;
+                        dual_timestamp next = DUAL_TIMESTAMP_NULL;
+                        usec_t m, last = 0;
 
-                r = get_triggered_units(bus, u->unit_path, &triggered);
-                if (r < 0)
-                        goto cleanup;
+                        if (!endswith(u->id, ".timer"))
+                                continue;
 
-                r = get_next_elapse(bus, u->unit_path, &next);
-                if (r < 0)
-                        goto cleanup;
+                        r = get_triggered_units(bus, u->unit_path, &triggered);
+                        if (r < 0)
+                                goto cleanup;
 
-                get_last_trigger(bus, u->unit_path, &last);
+                        r = get_next_elapse(bus, u->unit_path, &next);
+                        if (r < 0)
+                                goto cleanup;
 
-                if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
-                        r = log_oom();
-                        goto cleanup;
+                        get_last_trigger(bus, u->unit_path, &last);
+
+                        if (!GREEDY_REALLOC(timer_infos, size, c+1)) {
+                                r = log_oom();
+                                goto cleanup;
+                        }
+
+                        m = calc_next_elapse(&nw, &next);
+
+                        timer_infos[c++] = (struct timer_info) {
+                                .machine = u->machine,
+                                .id = u->id,
+                                .next_elapse = m,
+                                .last_trigger = last,
+                                .triggered = TAKE_PTR(triggered),
+                        };
                 }
 
-                m = calc_next_elapse(&nw, &next);
-
-                timer_infos[c++] = (struct timer_info) {
-                        .machine = u->machine,
-                        .id = u->id,
-                        .next_elapse = m,
-                        .last_trigger = last,
-                        .triggered = TAKE_PTR(triggered),
-                };
+                typesafe_qsort(timer_infos, c, timer_info_compare);
         }
-
-        typesafe_qsort(timer_infos, c, timer_info_compare);
 
         output_timers_list(timer_infos, c);
 
@@ -1637,20 +1711,20 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **ret = NULL;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *dbus_path = NULL;
         int i, r;
 
         assert(bus);
         assert(name);
         assert(deps);
 
-        path = unit_dbus_path_from_name(name);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
                 return log_oom();
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
-                                   path,
+                                   dbus_path,
                                    map[arg_dependency],
                                    BUS_MAP_STRDUP,
                                    &error,
@@ -1945,6 +2019,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 statelen = STRLEN("STATE"),
                 failedlen = STRLEN("FAILED"),
                 jobslen = STRLEN("JOBS");
+        bool state_missing = false;
 
         assert(machine_infos || n == 0);
 
@@ -1955,7 +2030,7 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
 
-                if (!arg_plain && !streq_ptr(m->state, "running"))
+                if (!arg_plain && m->state && !streq(m->state, "running"))
                         circle_len = 2;
         }
 
@@ -1994,9 +2069,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                 if (circle_len > 0)
                         printf("%s%s%s ", on_state, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ", off_state);
 
+                if (!m->state)
+                        state_missing = true;
+
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
-                               (int) (namelen - (STRLEN(" (host)"))),
+                               (int) (namelen - strlen(" (host)")),
                                strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
@@ -2009,8 +2087,12 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
                                jobslen, m->n_jobs);
         }
 
-        if (!arg_no_legend)
-                printf("\n%u machines listed.\n", n);
+        if (!arg_no_legend) {
+                printf("\n");
+                if (state_missing && geteuid() != 0)
+                        printf("Notice: some information only available to privileged users was not shown.\n");
+                printf("%u machines listed.\n", n);
+        }
 }
 
 static int list_machines(int argc, char *argv[], void *userdata) {
@@ -2088,7 +2170,9 @@ static int set_default(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
-        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &unit);
+        r = unit_name_mangle_with_suffix(argv[1], "set-default",
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".target", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -2426,7 +2510,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **re
                 if (!path)
                         return log_oom();
 
-                r = chase_symlinks(path, arg_root, 0, &lpath);
+                r = chase_symlinks(path, arg_root, 0, &lpath, NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r == -ENOMEM)
@@ -2503,13 +2587,14 @@ static int unit_find_paths(
         int r;
 
         /**
-         * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is found, and
-         * sets:
+         * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is
+         * found, and sets:
          * - the path to the unit in *ret_frament_path, if it exists on disk,
-         * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins were found.
+         * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins
+         *   were found.
          *
-         * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for some
-         * reason (the latter only applies if we are going through the service manager)
+         * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for
+         * some reason (the latter only applies if we are going through the service manager).
          */
 
         assert(unit_name);
@@ -2521,16 +2606,16 @@ static int unit_find_paths(
             !install_client_side() &&
             !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *load_state = NULL, *unit = NULL;
+                _cleanup_free_ char *load_state = NULL, *dbus_path = NULL;
 
-                unit = unit_dbus_path_from_name(unit_name);
-                if (!unit)
+                dbus_path = unit_dbus_path_from_name(unit_name);
+                if (!dbus_path)
                         return log_oom();
 
                 r = sd_bus_get_property_string(
                                 bus,
                                 "org.freedesktop.systemd1",
-                                unit,
+                                dbus_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "LoadState",
                                 &error,
@@ -2544,13 +2629,13 @@ static int unit_find_paths(
                         r = 0;
                         goto not_found;
                 }
-                if (!streq(load_state, "loaded"))
+                if (!STR_IN_SET(load_state, "loaded", "bad-setting"))
                         return -EKEYREJECTED;
 
                 r = sd_bus_get_property_string(
                                 bus,
                                 "org.freedesktop.systemd1",
-                                unit,
+                                dbus_path,
                                 "org.freedesktop.systemd1.Unit",
                                 "FragmentPath",
                                 &error,
@@ -2562,7 +2647,7 @@ static int unit_find_paths(
                         r = sd_bus_get_property_strv(
                                         bus,
                                         "org.freedesktop.systemd1",
-                                        unit,
+                                        dbus_path,
                                         "org.freedesktop.systemd1.Unit",
                                         "DropInPaths",
                                         &error,
@@ -2571,53 +2656,41 @@ static int unit_find_paths(
                                 return log_error_errno(r, "Failed to get DropInPaths: %s", bus_error_message(&error, r));
                 }
         } else {
-                _cleanup_set_free_ Set *names = NULL;
-                _cleanup_free_ char *template = NULL;
+                const char *_path;
+                _cleanup_set_free_free_ Set *names = NULL;
 
-                names = set_new(NULL);
-                if (!names)
-                        return log_oom();
+                if (!cached_name_map) {
+                        r = unit_file_build_name_map(lp, NULL, &cached_id_map, &cached_name_map, NULL);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = unit_find_template_path(unit_name, lp, &path, &template);
+                r = unit_file_find_fragment(cached_id_map, cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        if (null_or_empty_path(path))
-                                /* The template is masked. Let's cut the process short. */
-                                return -ERFKILL;
 
-                        /* We found the unit file. If we followed symlinks, this name might be
-                         * different then the unit_name with started with. Look for dropins matching
-                         * that "final" name. */
-                        r = set_put(names, basename(path));
-                } else if (!template)
-                        /* No unit file, let's look for dropins matching the original name.
-                         * systemd has fairly complicated rules (based on unit type and provenience),
-                         * which units are allowed not to have the main unit file. We err on the
-                         * side of including too many files, and always try to load dropins. */
-                        r = set_put(names, unit_name);
-                else
-                        /* The cases where we allow a unit to exist without the main file are
-                         * never valid for templates. Don't try to load dropins in this case. */
-                        goto not_found;
-
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add unit name: %m");
+                if (_path) {
+                        path = strdup(_path);
+                        if (!path)
+                                return log_oom();
+                }
 
                 if (ret_dropin_paths) {
-                        r = unit_file_find_dropin_conf_paths(arg_root, lp->search_path, NULL, names, &dropins);
+                        r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,
+                                                        ".d", ".conf",
+                                                        names, &dropins);
                         if (r < 0)
                                 return r;
                 }
         }
 
+        if (isempty(path)) {
+                *ret_fragment_path = NULL;
                 r = 0;
-
-        if (!isempty(path)) {
+        } else {
                 *ret_fragment_path = TAKE_PTR(path);
                 r = 1;
-        } else
-                *ret_fragment_path = NULL;
+        }
 
         if (ret_dropin_paths) {
                 if (!strv_isempty(dropins)) {
@@ -2636,21 +2709,21 @@ static int unit_find_paths(
 
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *buf = NULL, *path = NULL;
+        _cleanup_free_ char *buf = NULL, *dbus_path = NULL;
         UnitActiveState state;
         int r;
 
         assert(name);
         assert(active_state);
 
-        path = unit_dbus_path_from_name(name);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
                 return log_oom();
 
         r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
-                        path,
+                        dbus_path,
                         "org.freedesktop.systemd1.Unit",
                         "ActiveState",
                         &error,
@@ -2659,10 +2732,8 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
                 return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
         state = unit_active_state_from_string(buf);
-        if (state == _UNIT_ACTIVE_STATE_INVALID) {
-                log_error("Invalid unit state '%s' for: %s", buf, name);
-                return -EINVAL;
-        }
+        if (state < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit state '%s' for: %s", buf, name);
 
         *active_state = state;
         return 0;
@@ -2695,7 +2766,7 @@ static int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
 
 static int check_triggering_units(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *n = NULL, *path = NULL, *load_state = NULL;
+        _cleanup_free_ char *n = NULL, *dbus_path = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
         UnitActiveState active_state;
@@ -2713,14 +2784,14 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
         if (streq(load_state, "masked"))
                 return 0;
 
-        path = unit_dbus_path_from_name(n);
-        if (!path)
+        dbus_path = unit_dbus_path_from_name(n);
+        if (!dbus_path)
                 return log_oom();
 
         r = sd_bus_get_property_strv(
                         bus,
                         "org.freedesktop.systemd1",
-                        path,
+                        dbus_path,
                         "org.freedesktop.systemd1.Unit",
                         "TriggeredBy",
                         &error,
@@ -2748,25 +2819,26 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
 }
 
 static const struct {
-        const char *verb;
-        const char *method;
+        const char *verb;      /* systemctl verb */
+        const char *method;    /* Name of the specific D-Bus method */
+        const char *job_type;  /* Job type when passing to the generic EnqueueUnitJob() method */
 } unit_actions[] = {
-        { "start",                 "StartUnit" },
-        { "stop",                  "StopUnit" },
-        { "condstop",              "StopUnit" },
-        { "reload",                "ReloadUnit" },
-        { "restart",               "RestartUnit" },
-        { "try-restart",           "TryRestartUnit" },
-        { "condrestart",           "TryRestartUnit" },
-        { "reload-or-restart",     "ReloadOrRestartUnit" },
-        { "try-reload-or-restart", "ReloadOrTryRestartUnit" },
-        { "reload-or-try-restart", "ReloadOrTryRestartUnit" },
-        { "condreload",            "ReloadOrTryRestartUnit" },
-        { "force-reload",          "ReloadOrTryRestartUnit" }
+        { "start",                 "StartUnit",              "start"                 },
+        { "stop",                  "StopUnit",               "stop"                  },
+        { "condstop",              "StopUnit",               "stop"                  }, /* legacy alias */
+        { "reload",                "ReloadUnit",             "reload"                },
+        { "restart",               "RestartUnit",            "restart"               },
+        { "try-restart",           "TryRestartUnit",         "try-restart"           },
+        { "condrestart",           "TryRestartUnit",         "try-restart"           }, /* legacy alias */
+        { "reload-or-restart",     "ReloadOrRestartUnit",    "reload-or-restart"     },
+        { "try-reload-or-restart", "ReloadOrTryRestartUnit", "reload-or-try-restart" },
+        { "reload-or-try-restart", "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
+        { "condreload",            "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
+        { "force-reload",          "ReloadOrTryRestartUnit", "reload-or-try-restart" }, /* legacy alias */
 };
 
 static const char *verb_to_method(const char *verb) {
-       uint i;
+       size_t i;
 
        for (i = 0; i < ELEMENTSOF(unit_actions); i++)
                 if (streq_ptr(unit_actions[i].verb, verb))
@@ -2775,129 +2847,29 @@ static const char *verb_to_method(const char *verb) {
        return "StartUnit";
 }
 
-static const char *method_to_verb(const char *method) {
-       uint i;
+static const char *verb_to_job_type(const char *verb) {
+       size_t i;
 
        for (i = 0; i < ELEMENTSOF(unit_actions); i++)
-                if (streq_ptr(unit_actions[i].method, method))
-                        return unit_actions[i].verb;
+                if (streq_ptr(unit_actions[i].verb, verb))
+                        return unit_actions[i].job_type;
 
-       return "n/a";
-}
-
-typedef struct {
-        sd_bus_slot *match;
-        sd_event *event;
-        Set *unit_paths;
-        bool any_failed;
-} WaitContext;
-
-static void wait_context_free(WaitContext *c) {
-        c->match = sd_bus_slot_unref(c->match);
-        c->event = sd_event_unref(c->event);
-        c->unit_paths = set_free_free(c->unit_paths);
-}
-
-static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char *path, *interface, *active_state = NULL, *job_path = NULL;
-        WaitContext *c = userdata;
-        bool is_failed;
-        int r;
-
-        /* Called whenever we get a PropertiesChanged signal. Checks if ActiveState changed to inactive/failed.
-         *
-         * Signal parameters: (s interface, a{sv} changed_properties, as invalidated_properties) */
-
-        path = sd_bus_message_get_path(m);
-        if (!set_contains(c->unit_paths, path))
-                return 0;
-
-        r = sd_bus_message_read(m, "s", &interface);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (!streq(interface, "org.freedesktop.systemd1.Unit")) /* ActiveState is on the Unit interface */
-                return 0;
-
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        for (;;) {
-                const char *s;
-
-                r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv");
-                if (r < 0)
-                        return bus_log_parse_error(r);
-                if (r == 0) /* end of array */
-                        break;
-
-                r = sd_bus_message_read(m, "s", &s); /* Property name */
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(s, "ActiveState")) {
-                        r = sd_bus_message_read(m, "v", "s", &active_state);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (job_path) /* Found everything we need */
-                                break;
-
-                } else if (streq(s, "Job")) {
-                        uint32_t job_id;
-
-                        r = sd_bus_message_read(m, "v", "(uo)", &job_id, &job_path);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        /* There's still a job pending for this unit, let's ignore this for now, and return right-away. */
-                        if (job_id != 0)
-                                return 0;
-
-                        if (active_state) /* Found everything we need */
-                                break;
-
-                } else {
-                        r = sd_bus_message_skip(m, "v"); /* Other property */
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
-
-                r = sd_bus_message_exit_container(m);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-
-        /* If this didn't contain the ActiveState property we can't do anything */
-        if (!active_state)
-                return 0;
-
-        is_failed = streq(active_state, "failed");
-        if (streq(active_state, "inactive") || is_failed) {
-                log_debug("%s became %s, dropping from --wait tracking", path, active_state);
-                free(set_remove(c->unit_paths, path));
-                c->any_failed = c->any_failed || is_failed;
-        } else
-                log_debug("ActiveState on %s changed to %s", path, active_state);
-
-        if (set_isempty(c->unit_paths))
-                sd_event_exit(c->event, EXIT_SUCCESS);
-
-        return 0;
+       return "start";
 }
 
 static int start_unit_one(
                 sd_bus *bus,
-                const char *method,
+                const char *method,    /* When using classic per-job bus methods */
+                const char *job_type,  /* When using new-style EnqueueUnitJob() */
                 const char *name,
                 const char *mode,
                 sd_bus_error *error,
                 BusWaitForJobs *w,
-                WaitContext *wait_context) {
+                BusWaitForUnits *wu) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *path;
+        bool done = false;
         int r;
 
         assert(method);
@@ -2905,82 +2877,83 @@ static int start_unit_one(
         assert(mode);
         assert(error);
 
-        if (wait_context) {
-                _cleanup_free_ char *unit_path = NULL;
+        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
+                  arg_dry_run ? "Would execute" : "Executing",
+                  method, name, mode);
 
-                log_debug("Watching for property changes of %s", name);
+        if (arg_dry_run)
+                return 0;
+
+        if (arg_show_transaction) {
+                _cleanup_(sd_bus_error_free) sd_bus_error enqueue_error = SD_BUS_ERROR_NULL;
+
+                /* Use the new, fancy EnqueueUnitJob() API if the user wants us to print the transaction */
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "RefUnit",
+                                "EnqueueUnitJob",
+                                &enqueue_error,
+                                &reply,
+                                "sss",
+                                name, job_type, mode);
+                if (r < 0) {
+                        if (!sd_bus_error_has_name(&enqueue_error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                                (void) sd_bus_error_move(error, &enqueue_error);
+                                goto fail;
+                        }
+
+                        /* Hmm, the API is not yet available. Let's use the classic API instead (see below). */
+                        log_notice("--show-transaction not supported by this service manager, proceeding without.");
+                } else {
+                        const char *u, *jt;
+                        uint32_t id;
+
+                        r = sd_bus_message_read(reply, "uosos", &id, &path, &u, NULL, &jt);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        log_info("Enqueued anchor job %" PRIu32 " %s/%s.", id, u, jt);
+
+                        r = sd_bus_message_enter_container(reply, 'a', "(uosos)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                        for (;;) {
+                                r = sd_bus_message_read(reply, "(uosos)", &id, NULL, &u, NULL, &jt);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                log_info("Enqueued auxiliary job %" PRIu32 " %s/%s.", id, u, jt);
+                        }
+
+                        r = sd_bus_message_exit_container(reply);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        done = true;
+                }
+        }
+
+        if (!done) {
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                method,
                                 error,
-                                NULL,
-                                "s", name);
+                                &reply,
+                                "ss", name, mode);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to RefUnit %s: %s", name, bus_error_message(error, r));
+                        goto fail;
 
-                unit_path = unit_dbus_path_from_name(name);
-                if (!unit_path)
-                        return log_oom();
-
-                r = set_put_strdup(wait_context->unit_paths, unit_path);
+                r = sd_bus_message_read(reply, "o", &path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
-
-                r = sd_bus_match_signal_async(bus,
-                                              &wait_context->match,
-                                              NULL,
-                                              unit_path,
-                                              "org.freedesktop.DBus.Properties",
-                                              "PropertiesChanged",
-                                              on_properties_changed, NULL, wait_context);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
+                        return bus_log_parse_error(r);
         }
-
-        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
-                  arg_dry_run ? "Would execute" : "Executing",
-                  method, name, mode);
-        if (arg_dry_run)
-                return 0;
-
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method,
-                        error,
-                        &reply,
-                        "ss", name, mode);
-        if (r < 0) {
-                const char *verb;
-
-                /* There's always a fallback possible for legacy actions. */
-                if (arg_action != ACTION_SYSTEMCTL)
-                        return r;
-
-                verb = method_to_verb(method);
-
-                log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
-
-                if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
-                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
-                    !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
-                        log_error("See %s logs and 'systemctl%s status%s %s' for details.",
-                                   arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
-                                   arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
-                                   name[0] == '-' ? " --" : "",
-                                   name);
-
-                return r;
-        }
-
-        r = sd_bus_message_read(reply, "o", &path);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (need_daemon_reload(bus, name) > 0)
                 warn_unit_file_changed(name);
@@ -2989,68 +2962,34 @@ static int start_unit_one(
                 log_debug("Adding %s to the set", path);
                 r = bus_wait_for_jobs_add(w, path);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to watch job for %s: %m", name);
+        }
+
+        if (wu) {
+                r = bus_wait_for_units_add_unit(wu, name, BUS_WAIT_FOR_INACTIVE|BUS_WAIT_NO_JOB, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch unit %s: %m", name);
         }
 
         return 0;
-}
 
-static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***ret) {
-        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
-        char **name;
-        int r, i;
+fail:
+        /* There's always a fallback possible for legacy actions. */
+        if (arg_action != ACTION_SYSTEMCTL)
+                return r;
 
-        assert(bus);
-        assert(ret);
+        log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
 
-        STRV_FOREACH(name, names) {
-                char *t;
-                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
+        if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
+            !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
+            !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
+                log_error("See %s logs and 'systemctl%s status%s %s' for details.",
+                          arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
+                          arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                          name[0] == '-' ? " --" : "",
+                          name);
 
-                if (suffix)
-                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
-                else
-                        r = unit_name_mangle(*name, options, &t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mangle name: %m");
-
-                if (string_is_glob(t))
-                        r = strv_consume(&globs, t);
-                else
-                        r = strv_consume(&mangled, t);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        /* Query the manager only if any of the names are a glob, since
-         * this is fairly expensive */
-        if (!strv_isempty(globs)) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t allocated, n;
-
-                r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
-                if (r < 0)
-                        return r;
-
-                n = strv_length(mangled);
-                allocated = n + 1;
-
-                for (i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, allocated, n+2))
-                                return log_oom();
-
-                        mangled[n] = strdup(unit_infos[i].id);
-                        if (!mangled[n])
-                                return log_oom();
-
-                        mangled[++n] = NULL;
-                }
-        }
-
-        *ret = TAKE_PTR(mangled);
-
-        return 0;
+        return r;
 }
 
 static const struct {
@@ -3058,21 +2997,21 @@ static const struct {
         const char *verb;
         const char *mode;
 } action_table[_ACTION_MAX] = {
-        [ACTION_HALT]                 = { SPECIAL_HALT_TARGET,                     "halt",                   "replace-irreversibly" },
-        [ACTION_POWEROFF]             = { SPECIAL_POWEROFF_TARGET,                 "poweroff",               "replace-irreversibly" },
-        [ACTION_REBOOT]               = { SPECIAL_REBOOT_TARGET,                   "reboot",                 "replace-irreversibly" },
-        [ACTION_KEXEC]                = { SPECIAL_KEXEC_TARGET,                    "kexec",                  "replace-irreversibly" },
-        [ACTION_RUNLEVEL2]            = { SPECIAL_MULTI_USER_TARGET,               NULL,                     "isolate" },
-        [ACTION_RUNLEVEL3]            = { SPECIAL_MULTI_USER_TARGET,               NULL,                     "isolate" },
-        [ACTION_RUNLEVEL4]            = { SPECIAL_MULTI_USER_TARGET,               NULL,                     "isolate" },
-        [ACTION_RUNLEVEL5]            = { SPECIAL_GRAPHICAL_TARGET,                NULL,                     "isolate" },
-        [ACTION_RESCUE]               = { SPECIAL_RESCUE_TARGET,                   "rescue",                 "isolate" },
-        [ACTION_EMERGENCY]            = { SPECIAL_EMERGENCY_TARGET,                "emergency",              "isolate" },
-        [ACTION_DEFAULT]              = { SPECIAL_DEFAULT_TARGET,                  "default",                "isolate" },
-        [ACTION_EXIT]                 = { SPECIAL_EXIT_TARGET,                     "exit",                   "replace-irreversibly" },
-        [ACTION_SUSPEND]              = { SPECIAL_SUSPEND_TARGET,                  "suspend",                "replace-irreversibly" },
-        [ACTION_HIBERNATE]            = { SPECIAL_HIBERNATE_TARGET,                "hibernate",              "replace-irreversibly" },
-        [ACTION_HYBRID_SLEEP]         = { SPECIAL_HYBRID_SLEEP_TARGET,             "hybrid-sleep",           "replace-irreversibly" },
+        [ACTION_HALT]                   = { SPECIAL_HALT_TARGET,                   "halt",                   "replace-irreversibly" },
+        [ACTION_POWEROFF]               = { SPECIAL_POWEROFF_TARGET,               "poweroff",               "replace-irreversibly" },
+        [ACTION_REBOOT]                 = { SPECIAL_REBOOT_TARGET,                 "reboot",                 "replace-irreversibly" },
+        [ACTION_KEXEC]                  = { SPECIAL_KEXEC_TARGET,                  "kexec",                  "replace-irreversibly" },
+        [ACTION_RUNLEVEL2]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
+        [ACTION_RUNLEVEL3]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
+        [ACTION_RUNLEVEL4]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
+        [ACTION_RUNLEVEL5]              = { SPECIAL_GRAPHICAL_TARGET,              NULL,                     "isolate"              },
+        [ACTION_RESCUE]                 = { SPECIAL_RESCUE_TARGET,                 "rescue",                 "isolate"              },
+        [ACTION_EMERGENCY]              = { SPECIAL_EMERGENCY_TARGET,              "emergency",              "isolate"              },
+        [ACTION_DEFAULT]                = { SPECIAL_DEFAULT_TARGET,                "default",                "isolate"              },
+        [ACTION_EXIT]                   = { SPECIAL_EXIT_TARGET,                   "exit",                   "replace-irreversibly" },
+        [ACTION_SUSPEND]                = { SPECIAL_SUSPEND_TARGET,                "suspend",                "replace-irreversibly" },
+        [ACTION_HIBERNATE]              = { SPECIAL_HIBERNATE_TARGET,              "hibernate",              "replace-irreversibly" },
+        [ACTION_HYBRID_SLEEP]           = { SPECIAL_HYBRID_SLEEP_TARGET,           "hybrid-sleep",           "replace-irreversibly" },
         [ACTION_SUSPEND_THEN_HIBERNATE] = { SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET, "suspend-then-hibernate", "replace-irreversibly" },
 };
 
@@ -3086,20 +3025,40 @@ static enum action verb_to_action(const char *verb) {
         return _ACTION_INVALID;
 }
 
+static const char** make_extra_args(const char *extra_args[static 4]) {
+        size_t n = 0;
+
+        assert(extra_args);
+
+        if (arg_scope != UNIT_FILE_SYSTEM)
+                extra_args[n++] = "--user";
+
+        if (arg_transport == BUS_TRANSPORT_REMOTE) {
+                extra_args[n++] = "-H";
+                extra_args[n++] = arg_host;
+        } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                extra_args[n++] = "-M";
+                extra_args[n++] = arg_host;
+        } else
+                assert(arg_transport == BUS_TRANSPORT_LOCAL);
+
+        extra_args[n] = NULL;
+        return extra_args;
+}
+
 static int start_unit(int argc, char *argv[], void *userdata) {
+        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_(wait_context_free) WaitContext wait_context = {};
-        const char *method, *mode, *one_name, *suffix = NULL;
+        const char *method, *job_type, *mode, *one_name, *suffix = NULL;
         _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
         char **name;
 
-        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart")) {
-                log_error("--wait may only be used with the 'start' or 'restart' commands.");
-                return -EINVAL;
-        }
+        if (arg_wait && !STR_IN_SET(argv[0], "start", "restart"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--wait may only be used with the 'start' or 'restart' commands.");
 
         /* we cannot do sender tracking on the private bus, so we need the full
          * one for RefUnit to implement --wait */
@@ -3107,7 +3066,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        ask_password_agent_open_if_enabled();
+        ask_password_agent_open_maybe();
         polkit_agent_open_maybe();
 
         if (arg_action == ACTION_SYSTEMCTL) {
@@ -3116,27 +3075,34 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 action = verb_to_action(argv[0]);
 
                 if (action != _ACTION_INVALID) {
+                        /* A command in style "systemctl reboot", "systemctl poweroff", … */
                         method = "StartUnit";
+                        job_type = "start";
                         mode = action_table[action].mode;
                         one_name = action_table[action].target;
                 } else {
                         if (streq(argv[0], "isolate")) {
+                                /* A "systemctl isolate <unit1> <unit2> …" command */
                                 method = "StartUnit";
+                                job_type = "start";
                                 mode = "isolate";
-
                                 suffix = ".target";
                         } else {
+                                /* A command in style of "systemctl start <unit1> <unit2> …", "sysemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
+                                job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode;
                         }
                         one_name = NULL;
                 }
         } else {
+                /* A SysV legacy command such as "halt", "reboot", "poweroff", … */
                 assert(arg_action >= 0 && arg_action < _ACTION_MAX);
                 assert(action_table[arg_action].target);
                 assert(action_table[arg_action].mode);
 
                 method = "StartUnit";
+                job_type = "start";
                 mode = action_table[arg_action].mode;
                 one_name = action_table[arg_action].target;
         }
@@ -3146,9 +3112,20 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                 if (!names)
                         return log_oom();
         } else {
-                r = expand_names(bus, strv_skip(argv, 1), suffix, &names);
+                bool expanded;
+
+                r = expand_names(bus, strv_skip(argv, 1), suffix, &names, &expanded);
                 if (r < 0)
                         return log_error_errno(r, "Failed to expand names: %m");
+
+                if (!arg_all && expanded && streq(job_type, "start") && !arg_quiet) {
+                        log_warning("Warning: %ssystemctl start called with a glob pattern.%s",
+                                    ansi_highlight_red(),
+                                    ansi_normal());
+                        log_notice("Hint: unit globs expand to loaded units, so start will usually have no effect.\n"
+                                   "      Passing --all will also load units which are pulled in by other units.\n"
+                                   "      See systemctl(1) for more details.");
+                }
         }
 
         if (!arg_no_block) {
@@ -3158,10 +3135,6 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                wait_context.unit_paths = set_new(&string_hash_ops);
-                if (!wait_context.unit_paths)
-                        return log_oom();
-
                 r = sd_bus_call_method_async(
                                 bus,
                                 NULL,
@@ -3173,18 +3146,16 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
-                r = sd_event_default(&wait_context.event);
+
+                r = bus_wait_for_units_new(bus, &wu);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate event loop: %m");
-                r = sd_bus_attach_event(bus, wait_context.event, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
+                        return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = start_unit_one(bus, method, *name, mode, &error, w, arg_wait ? &wait_context : NULL);
+                r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
                 if (ret == EXIT_SUCCESS && r < 0)
                         ret = translate_bus_error_to_exit_status(r, &error);
 
@@ -3196,22 +3167,9 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (!arg_no_block) {
-                const char* extra_args[4] = {};
-                int arg_count = 0;
+                const char* extra_args[4];
 
-                if (arg_scope != UNIT_FILE_SYSTEM)
-                        extra_args[arg_count++] = "--user";
-
-                assert(IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_REMOTE, BUS_TRANSPORT_MACHINE));
-                if (arg_transport == BUS_TRANSPORT_REMOTE) {
-                        extra_args[arg_count++] = "-H";
-                        extra_args[arg_count++] = arg_host;
-                } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        extra_args[arg_count++] = "-M";
-                        extra_args[arg_count++] = arg_host;
-                }
-
-                r = bus_wait_for_jobs(w, arg_quiet, extra_args);
+                r = bus_wait_for_jobs(w, arg_quiet, make_extra_args(extra_args));
                 if (r < 0)
                         return r;
 
@@ -3222,11 +3180,11 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 (void) check_triggering_units(bus, *name);
         }
 
-        if (ret == EXIT_SUCCESS && arg_wait && !set_isempty(wait_context.unit_paths)) {
-                r = sd_event_loop(wait_context.event);
+        if (arg_wait) {
+                r = bus_wait_for_units_run(wu);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to run event loop: %m");
-                if (wait_context.any_failed)
+                        return log_error_errno(r, "Failed to wait for units: %m");
+                if (r == BUS_WAIT_FAILURE && ret == EXIT_SUCCESS)
                         ret = EXIT_FAILURE;
         }
 
@@ -3270,64 +3228,38 @@ static int logind_set_wall_message(void) {
 }
 #endif
 
-/* Ask systemd-logind, which might grant access to unprivileged users
- * through polkit */
+/* Ask systemd-logind, which might grant access to unprivileged users through polkit */
 static int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
+        static const struct {
+                const char *method;
+                const char *description;
+        } actions[_ACTION_MAX] = {
+                [ACTION_POWEROFF]               = { "PowerOff",             "power off system"                },
+                [ACTION_REBOOT]                 = { "Reboot",               "reboot system"                   },
+                [ACTION_HALT]                   = { "Halt",                 "halt system"                     },
+                [ACTION_SUSPEND]                = { "Suspend",              "suspend system"                  },
+                [ACTION_HIBERNATE]              = { "Hibernate",            "hibernate system"                },
+                [ACTION_HYBRID_SLEEP]           = { "HybridSleep",          "put system into hybrid sleep"    },
+                [ACTION_SUSPEND_THEN_HIBERNATE] = { "SuspendThenHibernate", "suspend system, hibernate later" },
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *method, *description;
         sd_bus *bus;
         int r;
+
+        if (a < 0 || a >= _ACTION_MAX || !actions[a].method)
+                return -EINVAL;
 
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
 
-        switch (a) {
-
-        case ACTION_POWEROFF:
-                method = "PowerOff";
-                description = "power off system";
-                break;
-
-        case ACTION_REBOOT:
-                method = "Reboot";
-                description = "reboot system";
-                break;
-
-        case ACTION_HALT:
-                method = "Halt";
-                description = "halt system";
-                break;
-
-        case ACTION_SUSPEND:
-                method = "Suspend";
-                description = "suspend system";
-                break;
-
-        case ACTION_HIBERNATE:
-                method = "Hibernate";
-                description = "hibernate system";
-                break;
-
-        case ACTION_HYBRID_SLEEP:
-                method = "HybridSleep";
-                description = "put system into hybrid sleep";
-                break;
-
-        case ACTION_SUSPEND_THEN_HIBERNATE:
-                method = "SuspendThenHibernate";
-                description = "put system into suspend followed by hibernate";
-                break;
-
-        default:
-                return -EINVAL;
-        }
-
         polkit_agent_open_maybe();
         (void) logind_set_wall_message();
 
-        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", method);
+        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", actions[a].method);
+
         if (arg_dry_run)
                 return 0;
 
@@ -3336,12 +3268,12 @@ static int logind_reboot(enum action a) {
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
-                        method,
+                        actions[a].method,
                         &error,
                         NULL,
                         "b", arg_ask_password);
         if (r < 0)
-                return log_error_errno(r, "Failed to %s via logind: %s", description, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
 
         return 0;
 #else
@@ -3407,10 +3339,8 @@ static int logind_check_inhibitors(enum action a) {
                 if (!sv)
                         return log_oom();
 
-                if (!pid_is_valid((pid_t) pid)) {
-                        log_error("Invalid PID "PID_FMT".", (pid_t) pid);
-                        return -ERANGE;
-                }
+                if (!pid_is_valid((pid_t) pid))
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid PID "PID_FMT".", (pid_t) pid);
 
                 if (!strv_contains(sv,
                                    IN_SET(a,
@@ -3470,7 +3400,11 @@ static int logind_check_inhibitors(enum action a) {
 #endif
 }
 
-static int logind_prepare_firmware_setup(void) {
+static int prepare_firmware_setup(void) {
+
+        if (!arg_firmware_setup)
+                return 0;
+
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
@@ -3494,32 +3428,80 @@ static int logind_prepare_firmware_setup(void) {
 
         return 0;
 #else
-        log_error("Cannot remotely indicate to EFI to boot into setup mode.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into firmware setup not supported.");
 #endif
 }
 
-static int prepare_firmware_setup(void) {
-        int r;
+static int prepare_boot_loader_menu(void) {
 
-        if (!arg_firmware_setup)
+        if (arg_boot_loader_menu == USEC_INFINITY)
                 return 0;
 
-        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
 
-                r = efi_set_reboot_to_firmware(true);
-                if (r < 0)
-                        log_debug_errno(r, "Cannot indicate to EFI to boot into setup mode, will retry via logind: %m");
-                else
-                        return r;
-        }
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
 
-        return logind_prepare_firmware_setup();
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToBootLoaderMenu",
+                        &error,
+                        NULL,
+                        "t", arg_boot_loader_menu);
+        if (r < 0)
+                return log_error_errno(r, "Cannot indicate to boot loader to enter boot loader entry menu: %s", bus_error_message(&error, r));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into boot loader menu not supported.");
+#endif
+}
+
+static int prepare_boot_loader_entry(void) {
+
+        if (!arg_boot_loader_entry)
+                return 0;
+
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SetRebootToBootLoaderEntry",
+                        &error,
+                        NULL,
+                        "s", arg_boot_loader_entry);
+        if (r < 0)
+                return log_error_errno(r, "Cannot set boot into loader entry '%s': %s", arg_boot_loader_entry, bus_error_message(&error, r));
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Booting into boot loader entry not supported.");
+#endif
 }
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char *where = NULL, *kernel = NULL, *initrd = NULL, *options = NULL;
+        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
         int r;
@@ -3532,21 +3514,41 @@ static int load_kexec_kernel(void) {
         if (access(KEXEC, X_OK) < 0)
                 return log_error_errno(errno, KEXEC" is not available: %m");
 
-        r = find_default_boot_entry(arg_esp_path, &where, &config, &e);
-        if (r == -ENOKEY) /* find_default_boot_entry() doesn't warn about this case */
-                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        r = boot_entries_load_config_auto(NULL, NULL, &config);
+        if (r == -ENOKEY)
+                /* The call doesn't log about ENOKEY, let's do so here. */
+                return log_error_errno(r,
+                                       "No kexec kernel loaded and autodetection failed.\n%s",
+                                       is_efi_boot()
+                                       ? "Cannot automatically load kernel: ESP partition mount point not found."
+                                       : "Automatic loading works only on systems booted with EFI.");
         if (r < 0)
-                /* But it logs about all these cases, hence don't log here again */
                 return r;
 
-        if (strv_length(e->initrd) > 1) {
-                log_error("Boot entry specifies multiple initrds, which is not supported currently.");
-                return -EINVAL;
+        e = boot_config_default_entry(&config);
+        if (!e)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "No boot loader entry suitable as default, refusing to guess.");
+
+        log_debug("Found default boot loader entry in file \"%s\"", e->path);
+
+        if (!e->kernel)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Boot entry does not refer to Linux kernel, which is not supported currently.");
+        if (strv_length(e->initrd) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Boot entry specifies multiple initrds, which is not supported currently.");
+
+        kernel = path_join(e->root, e->kernel);
+        if (!kernel)
+                return log_oom();
+
+        if (!strv_isempty(e->initrd)) {
+                initrd = path_join(e->root, e->initrd[0]);
+                if (!initrd)
+                        return log_oom();
         }
 
-        kernel = path_join(where, e->kernel);
-        if (!strv_isempty(e->initrd))
-                initrd = path_join(where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
@@ -3560,7 +3562,7 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3569,19 +3571,14 @@ static int load_kexec_kernel(void) {
                         "--load", kernel,
                         "--append", options,
                         initrd ? "--initrd" : NULL, initrd,
-                        NULL };
+                        NULL
+                };
 
                 /* Child */
                 execv(args[0], (char * const *) args);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                /* Command failed */
-                return -EPROTO;
         return 0;
 }
 
@@ -3633,8 +3630,16 @@ static int start_special(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = prepare_boot_loader_menu();
+        if (r < 0)
+                return r;
+
+        r = prepare_boot_loader_entry();
+        if (r < 0)
+                return r;
+
         if (a == ACTION_REBOOT && argc > 1) {
-                r = update_reboot_parameter_and_warn(argv[1]);
+                r = update_reboot_parameter_and_warn(argv[1], false);
                 if (r < 0)
                         return r;
 
@@ -3733,7 +3738,7 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, args, NULL, &names);
+        r = expand_names(bus, args, NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -3792,7 +3797,7 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         if (streq(arg_job_mode, "fail"))
                 kill_who = strjoina(arg_kill_who, "-fail");
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -3818,6 +3823,101 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int clean_unit(int argc, char *argv[], void *userdata) {
+        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        int r, ret = EXIT_SUCCESS;
+        char **name;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        polkit_agent_open_maybe();
+
+        if (!arg_clean_what) {
+                arg_clean_what = strv_new("cache", "runtime");
+                if (!arg_clean_what)
+                        return log_oom();
+        }
+
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
+
+        if (!arg_no_block) {
+                r = bus_wait_for_units_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate unit waiter: %m");
+        }
+
+        STRV_FOREACH(name, names) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                if (w) {
+                        /* If we shall wait for the cleaning to complete, let's add a ref on the unit first */
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "RefUnit",
+                                        &error,
+                                        NULL,
+                                        "s", *name);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to add reference to unit %s: %s", *name, bus_error_message(&error, r));
+                                if (ret == EXIT_SUCCESS)
+                                        ret = r;
+                                continue;
+                        }
+                }
+
+                r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "CleanUnit");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", *name);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_strv(m, arg_clean_what);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to clean unit %s: %s", *name, bus_error_message(&error, r));
+                        if (ret == EXIT_SUCCESS) {
+                                ret = r;
+                                continue;
+                        }
+                }
+
+                if (w) {
+                        r = bus_wait_for_units_add_unit(w, *name, BUS_WAIT_REFFED|BUS_WAIT_FOR_MAINTENANCE_END, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to watch unit %s: %m", *name);
+                }
+        }
+
+        r = bus_wait_for_units_run(w);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for units: %m");
+        if (r == BUS_WAIT_FAILURE)
+                ret = EXIT_FAILURE;
+
+        return ret;
+}
+
 typedef struct ExecStatusInfo {
         char *name;
 
@@ -3832,6 +3932,8 @@ typedef struct ExecStatusInfo {
         int code;
         int status;
 
+        ExecCommandFlags flags;
+
         LIST_FIELDS(struct ExecStatusInfo, exec);
 } ExecStatusInfo;
 
@@ -3844,7 +3946,8 @@ static void exec_status_info_free(ExecStatusInfo *i) {
         free(i);
 }
 
-static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
+static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i, bool is_ex_prop) {
+        _cleanup_strv_free_ char **ex_opts = NULL;
         uint64_t start_timestamp, exit_timestamp, start_timestamp_monotonic, exit_timestamp_monotonic;
         const char *path;
         uint32_t pid;
@@ -3854,7 +3957,7 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
         assert(m);
         assert(i);
 
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_STRUCT, "sasbttttuii");
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_STRUCT, is_ex_prop ? "sasasttttuii" : "sasbttttuii");
         if (r < 0)
                 return bus_log_parse_error(r);
         else if (r == 0)
@@ -3872,9 +3975,12 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
+        r = is_ex_prop ? sd_bus_message_read_strv(m, &ex_opts) : sd_bus_message_read(m, "b", &ignore);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
         r = sd_bus_message_read(m,
-                                "bttttuii",
-                                &ignore,
+                                "ttttuii",
                                 &start_timestamp, &start_timestamp_monotonic,
                                 &exit_timestamp, &exit_timestamp_monotonic,
                                 &pid,
@@ -3882,7 +3988,15 @@ static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        i->ignore = ignore;
+        if (is_ex_prop) {
+                r = exec_command_flags_from_strv(ex_opts, &i->flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert strv to ExecCommandFlags: %m");
+
+                i->ignore = FLAGS_SET(i->flags, EXEC_COMMAND_IGNORE_FAILURE);
+        } else
+                i->ignore = ignore;
+
         i->start_timestamp = (usec_t) start_timestamp;
         i->exit_timestamp = (usec_t) exit_timestamp;
         i->pid = (pid_t) pid;
@@ -3935,6 +4049,9 @@ typedef struct UnitStatusInfo {
         const char *control_group;
 
         char **dropin_paths;
+
+        char **triggered_by;
+        char **triggers;
 
         const char *load_error;
         const char *result;
@@ -4003,9 +4120,13 @@ typedef struct UnitStatusInfo {
         uint64_t cpu_usage_nsec;
         uint64_t tasks_current;
         uint64_t tasks_max;
-
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
+        uint64_t io_read_bytes;
+        uint64_t io_write_bytes;
+
+        uint64_t default_memory_min;
+        uint64_t default_memory_low;
 
         LIST_HEAD(ExecStatusInfo, exec);
 } UnitStatusInfo;
@@ -4016,6 +4137,8 @@ static void unit_status_info_free(UnitStatusInfo *info) {
 
         strv_free(info->documentation);
         strv_free(info->dropin_paths);
+        strv_free(info->triggered_by);
+        strv_free(info->triggers);
         strv_free(info->listen);
 
         while ((c = info->conditions)) {
@@ -4027,6 +4150,17 @@ static void unit_status_info_free(UnitStatusInfo *info) {
                 LIST_REMOVE(exec, info->exec, p);
                 exec_status_info_free(p);
         }
+}
+
+static void format_active_state(const char *active_state, const char **active_on, const char **active_off) {
+        if (streq_ptr(active_state, "failed")) {
+                *active_on = ansi_highlight_red();
+                *active_off = ansi_normal();
+        } else if (STRPTR_IN_SET(active_state, "active", "reloading")) {
+                *active_on = ansi_highlight_green();
+                *active_off = ansi_normal();
+        } else
+                *active_on = *active_off = "";
 }
 
 static void print_status_info(
@@ -4048,14 +4182,7 @@ static void print_status_info(
         /* This shows pretty information about a unit. See
          * print_property() for a low-level property printer */
 
-        if (streq_ptr(i->active_state, "failed")) {
-                active_on = ansi_highlight_red();
-                active_off = ansi_normal();
-        } else if (STRPTR_IN_SET(i->active_state, "active", "reloading")) {
-                active_on = ansi_highlight_green();
-                active_off = ansi_normal();
-        } else
-                active_on = active_off = "";
+        format_active_state(i->active_state, &active_on, &active_off);
 
         printf("%s%s%s %s", active_on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), active_off, strna(i->id));
 
@@ -4078,24 +4205,24 @@ static void print_status_info(
                 path = formatted_path;
 
         if (!isempty(i->load_error))
-                printf("   Loaded: %s%s%s (Reason: %s)\n",
+                printf("     Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
                  !STR_IN_SET(i->unit_file_state, "generated", "transient"))
-                printf("   Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
+                printf("     Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
         else if (path && !isempty(i->unit_file_state))
-                printf("   Loaded: %s%s%s (%s; %s)\n",
+                printf("     Loaded: %s%s%s (%s; %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state);
         else if (path)
-                printf("   Loaded: %s%s%s (%s)\n",
+                printf("     Loaded: %s%s%s (%s)\n",
                        on, strna(i->load_state), off, path);
         else
-                printf("   Loaded: %s%s%s\n",
+                printf("     Loaded: %s%s%s\n",
                        on, strna(i->load_state), off);
 
         if (i->transient)
-                printf("Transient: yes\n");
+                printf("  Transient: yes\n");
 
         if (!strv_isempty(i->dropin_paths)) {
                 _cleanup_free_ char *dir = NULL;
@@ -4107,8 +4234,8 @@ static void print_status_info(
                         const char *df;
 
                         if (!dir || last) {
-                                printf(dir ? "           " :
-                                             "  Drop-In: ");
+                                printf(dir ? "             " :
+                                             "    Drop-In: ");
 
                                 dir = mfree(dir);
 
@@ -4119,7 +4246,7 @@ static void print_status_info(
                                 }
 
                                 printf("%s\n"
-                                       "           %s", dir,
+                                       "             %s", dir,
                                        special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
                         }
 
@@ -4136,10 +4263,10 @@ static void print_status_info(
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
         if (ss)
-                printf("   Active: %s%s (%s)%s",
+                printf("     Active: %s%s (%s)%s",
                        active_on, strna(i->active_state), ss, active_off);
         else
-                printf("   Active: %s%s%s",
+                printf("     Active: %s%s%s",
                        active_on, strna(i->active_state), active_off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
@@ -4160,6 +4287,18 @@ static void print_status_info(
         else
                 printf("\n");
 
+        STRV_FOREACH(t, i->triggered_by) {
+                UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+
+                (void) get_state_one_unit(bus, *t, &state);
+                format_active_state(unit_active_state_to_string(state), &on, &off);
+
+                printf("%s %s%s%s %s\n",
+                       t == i->triggered_by ? "TriggeredBy:" : "            ",
+                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       *t);
+        }
+
         if (endswith(i->id, ".timer")) {
                 char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
                      tstamp2[FORMAT_TIMESTAMP_MAX];
@@ -4168,7 +4307,7 @@ static void print_status_info(
                                            i->next_elapse_monotonic};
                 usec_t next_elapse;
 
-                printf("  Trigger: ");
+                printf("    Trigger: ");
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
@@ -4181,6 +4320,18 @@ static void print_status_info(
                         printf("n/a\n");
         }
 
+        STRV_FOREACH(t, i->triggers) {
+                UnitActiveState state = _UNIT_ACTIVE_STATE_INVALID;
+
+                (void) get_state_one_unit(bus, *t, &state);
+                format_active_state(unit_active_state_to_string(state), &on, &off);
+
+                printf("%s %s%s%s %s\n",
+                       t == i->triggers ? "   Triggers:" : "            ",
+                       on, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE), off,
+                       *t);
+        }
+
         if (!i->condition_result && i->condition_timestamp > 0) {
                 UnitCondition *c;
                 int n = 0;
@@ -4188,7 +4339,7 @@ static void print_status_info(
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
 
-                printf("Condition: start %scondition failed%s at %s%s%s\n",
+                printf("  Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
 
@@ -4198,7 +4349,7 @@ static void print_status_info(
 
                 LIST_FOREACH(conditions, c, i->conditions)
                         if (c->tristate < 0)
-                                printf("           %s %s=%s%s%s was not met\n",
+                                printf("             %s %s=%s%s%s was not met\n",
                                        --n ? special_glyph(SPECIAL_GLYPH_TREE_BRANCH) : special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
                                        c->name,
                                        c->trigger ? "|" : "",
@@ -4210,24 +4361,24 @@ static void print_status_info(
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
                 s2 = format_timestamp(since2, sizeof(since2), i->assert_timestamp);
 
-                printf("   Assert: start %sassertion failed%s at %s%s%s\n",
+                printf("     Assert: start %sassertion failed%s at %s%s%s\n",
                        ansi_highlight_red(), ansi_normal(),
                        s2, s1 ? "; " : "", strempty(s1));
                 if (i->failed_assert_trigger)
-                        printf("           none of the trigger assertions were met\n");
+                        printf("             none of the trigger assertions were met\n");
                 else if (i->failed_assert)
-                        printf("           %s=%s%s was not met\n",
+                        printf("             %s=%s%s was not met\n",
                                i->failed_assert,
                                i->failed_assert_negate ? "!" : "",
                                i->failed_assert_parameter);
         }
 
         if (i->sysfs_path)
-                printf("   Device: %s\n", i->sysfs_path);
+                printf("     Device: %s\n", i->sysfs_path);
         if (i->where)
-                printf("    Where: %s\n", i->where);
+                printf("      Where: %s\n", i->where);
         if (i->what)
-                printf("     What: %s\n", i->what);
+                printf("       What: %s\n", i->what);
 
         STRV_FOREACH(t, i->documentation) {
                 _cleanup_free_ char *formatted = NULL;
@@ -4238,16 +4389,16 @@ static void print_status_info(
                 else
                         q = *t;
 
-                printf(" %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
+                printf("   %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
         }
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
-                printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
+                printf("   %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
 
         if (i->accept) {
-                printf(" Accepted: %u; Connected: %u;", i->n_accepted, i->n_connections);
+                printf("   Accepted: %u; Connected: %u;", i->n_accepted, i->n_connections);
                 if (i->n_refused)
-                        printf(" Refused: %u", i->n_refused);
+                        printf("   Refused: %u", i->n_refused);
                 printf("\n");
         }
 
@@ -4259,8 +4410,13 @@ static void print_status_info(
                 if (p->code == 0)
                         continue;
 
+                /* Don't print ExecXYZEx= properties here since it will appear as a
+                 * duplicate of the non-Ex= variant. */
+                if (endswith(p->name, "Ex"))
+                        continue;
+
                 argv = strv_join(p->argv, " ");
-                printf("  Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
+                printf("    Process: "PID_FMT" %s=%s ", p->pid, p->name, strna(argv));
 
                 good = is_clean_exit(p->code, p->status, EXIT_CLEAN_DAEMON, NULL);
                 if (!good) {
@@ -4276,7 +4432,7 @@ static void print_status_info(
 
                         printf("status=%i", p->status);
 
-                        c = exit_status_to_string(p->status, EXIT_STATUS_SYSTEMD);
+                        c = exit_status_to_string(p->status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
                         if (c)
                                 printf("/%s", c);
 
@@ -4297,7 +4453,7 @@ static void print_status_info(
 
         if (i->main_pid > 0 || i->control_pid > 0) {
                 if (i->main_pid > 0) {
-                        printf(" Main PID: "PID_FMT, i->main_pid);
+                        printf("   Main PID: "PID_FMT, i->main_pid);
 
                         if (i->running) {
 
@@ -4317,7 +4473,8 @@ static void print_status_info(
 
                                         printf("status=%i", i->exit_status);
 
-                                        c = exit_status_to_string(i->exit_status, EXIT_STATUS_SYSTEMD);
+                                        c = exit_status_to_string(i->exit_status,
+                                                                  EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
                                         if (c)
                                                 printf("/%s", c);
 
@@ -4348,20 +4505,28 @@ static void print_status_info(
         }
 
         if (i->status_text)
-                printf("   Status: \"%s\"\n", i->status_text);
+                printf("     Status: \"%s\"\n", i->status_text);
         if (i->status_errno > 0)
-                printf("    Error: %i (%s)\n", i->status_errno, strerror(i->status_errno));
+                printf("      Error: %i (%s)\n", i->status_errno, strerror_safe(i->status_errno));
 
         if (i->ip_ingress_bytes != (uint64_t) -1 && i->ip_egress_bytes != (uint64_t) -1) {
                 char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
 
-                printf("       IP: %s in, %s out\n",
+                printf("         IP: %s in, %s out\n",
                         format_bytes(buf_in, sizeof(buf_in), i->ip_ingress_bytes),
                         format_bytes(buf_out, sizeof(buf_out), i->ip_egress_bytes));
         }
 
+        if (i->io_read_bytes != UINT64_MAX && i->io_write_bytes != UINT64_MAX) {
+                char buf_in[FORMAT_BYTES_MAX], buf_out[FORMAT_BYTES_MAX];
+
+                printf("         IO: %s read, %s written\n",
+                        format_bytes(buf_in, sizeof(buf_in), i->io_read_bytes),
+                        format_bytes(buf_out, sizeof(buf_out), i->io_write_bytes));
+        }
+
         if (i->tasks_current != (uint64_t) -1) {
-                printf("    Tasks: %" PRIu64, i->tasks_current);
+                printf("      Tasks: %" PRIu64, i->tasks_current);
 
                 if (i->tasks_max != (uint64_t) -1)
                         printf(" (limit: %" PRIu64 ")\n", i->tasks_max);
@@ -4372,7 +4537,7 @@ static void print_status_info(
         if (i->memory_current != (uint64_t) -1) {
                 char buf[FORMAT_BYTES_MAX];
 
-                printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
+                printf("     Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
 
                 if (i->memory_min > 0 || i->memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
@@ -4412,15 +4577,15 @@ static void print_status_info(
 
         if (i->cpu_usage_nsec != (uint64_t) -1) {
                 char buf[FORMAT_TIMESPAN_MAX];
-                printf("      CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
+                printf("        CPU: %s\n", format_timespan(buf, sizeof(buf), i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
         }
 
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                static const char prefix[] = "           ";
+                static const char prefix[] = "             ";
                 unsigned c;
 
-                printf("   CGroup: %s\n", i->control_group);
+                printf("     CGroup: %s\n", i->control_group);
 
                 c = columns();
                 if (c > sizeof(prefix) - 1)
@@ -4443,7 +4608,8 @@ static void print_status_info(
 
                         show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
                 } else if (r < 0)
-                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s", i->id, bus_error_message(&error, r));
+                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
+                                          i->id, bus_error_message(&error, r));
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)
@@ -4553,21 +4719,22 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
                 _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
 
-                c = new0(UnitCondition, 1);
+                c = new(UnitCondition, 1);
                 if (!c)
                         return -ENOMEM;
 
-                c->name = strdup(cond);
-                c->param = strdup(param);
+                *c = (UnitCondition) {
+                        .name = strdup(cond),
+                        .param = strdup(param),
+                        .trigger = trigger,
+                        .negate = negate,
+                        .tristate = state,
+                };
+
                 if (!c->name || !c->param)
                         return -ENOMEM;
 
-                c->trigger = trigger;
-                c->negate = negate;
-                c->tristate = state;
-
-                LIST_PREPEND(conditions, i->conditions, c);
-                c = NULL;
+                LIST_PREPEND(conditions, i->conditions, TAKE_PTR(c));
         }
         if (r < 0)
                 return r;
@@ -4612,9 +4779,10 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         _cleanup_free_ ExecStatusInfo *info = NULL;
         ExecStatusInfo *last;
         UnitStatusInfo *i = userdata;
+        bool is_ex_prop = endswith(member, "Ex");
         int r;
 
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, is_ex_prop ? "(sasasttttuii)" : "(sasbttttuii)");
         if (r < 0)
                 return r;
 
@@ -4624,7 +4792,7 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
 
         LIST_FIND_TAIL(exec, i->exec, last);
 
-        while ((r = exec_status_info_deserialize(m, info)) > 0) {
+        while ((r = exec_status_info_deserialize(m, info, is_ex_prop)) > 0) {
 
                 info->name = strdup(member);
                 if (!info->name)
@@ -4664,6 +4832,33 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
         switch (bus_type) {
 
+        case SD_BUS_TYPE_INT32:
+                if (endswith(name, "ActionExitStatus")) {
+                        int32_t i;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        if (r < 0)
+                                return r;
+
+                        if (i >= 0 && i <= 255)
+                                bus_print_property_valuef(name, expected_value, value, "%"PRIi32, i);
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "[not set]");
+
+                        return 1;
+                } else if (streq(name, "NUMAPolicy")) {
+                        int32_t i;
+
+                        r = sd_bus_message_read_basic(m, bus_type, &i);
+                        if (r < 0)
+                                return r;
+
+                        bus_print_property_valuef(name, expected_value, value, "%s", strna(mpol_to_string(i)));
+
+                        return 1;
+                }
+                break;
+
         case SD_BUS_TYPE_STRUCT:
 
                 if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
@@ -4674,9 +4869,9 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (u > 0)
-                                bus_print_property_value(name, expected_value, value, "%"PRIu32, u);
+                                bus_print_property_valuef(name, expected_value, value, "%"PRIu32, u);
                         else if (all)
-                                bus_print_property_value(name, expected_value, value, "%s", "");
+                                bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
 
@@ -4688,7 +4883,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         if (all || !isempty(s))
-                                bus_print_property_value(name, expected_value, value, "%s", s);
+                                bus_print_property_value(name, expected_value, value, s);
 
                         return 1;
 
@@ -4699,11 +4894,14 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || !isempty(a) || !isempty(b))
-                                bus_print_property_value(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
+                        if (!isempty(a) || !isempty(b))
+                                bus_print_property_valuef(name, expected_value, value, "%s \"%s\"", strempty(a), strempty(b));
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "");
 
                         return 1;
-                } else if (streq_ptr(name, "SystemCallFilter")) {
+
+                } else if (STR_IN_SET(name, "SystemCallFilter", "RestrictAddressFamilies")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int whitelist;
 
@@ -4747,6 +4945,81 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         }
 
                         return 1;
+
+                } else if (STR_IN_SET(name, "SELinuxContext", "AppArmorProfile", "SmackProcessLabel")) {
+                        int ignore;
+                        const char *s;
+
+                        r = sd_bus_message_read(m, "(bs)", &ignore, &s);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!isempty(s))
+                                bus_print_property_valuef(name, expected_value, value, "%s%s", ignore ? "-" : "", s);
+                        else if (all)
+                                bus_print_property_value(name, expected_value, value, "");
+
+                        return 1;
+
+                } else if (endswith(name, "ExitStatus") && streq(contents, "aiai")) {
+                        const int32_t *status, *signal;
+                        size_t n_status, n_signal, i;
+
+                        r = sd_bus_message_enter_container(m, 'r', "aiai");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &status, &n_status);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_read_array(m, 'i', (const void **) &signal, &n_signal);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        n_status /= sizeof(int32_t);
+                        n_signal /= sizeof(int32_t);
+
+                        if (all || n_status > 0 || n_signal > 0) {
+                                bool first = true;
+
+                                if (!value) {
+                                        fputs(name, stdout);
+                                        fputc('=', stdout);
+                                }
+
+                                for (i = 0; i < n_status; i++) {
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        printf("%"PRIi32, status[i]);
+                                }
+
+                                for (i = 0; i < n_signal; i++) {
+                                        const char *str;
+
+                                        str = signal_to_string((int) signal[i]);
+
+                                        if (first)
+                                                first = false;
+                                        else
+                                                fputc(' ', stdout);
+
+                                        if (str)
+                                                fputs(str, stdout);
+                                        else
+                                                printf("%"PRIi32, status[i]);
+                                }
+
+                                fputc('\n', stdout);
+                        }
+                        return 1;
                 }
 
                 break;
@@ -4762,7 +5035,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
+                                bus_print_property_valuef(name, expected_value, value, "%s (ignore_errors=%s)", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4781,7 +5054,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4799,7 +5072,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s (%s)", path, type);
+                                bus_print_property_valuef(name, expected_value, value, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4818,11 +5091,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
-                                char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
+                                char timespan1[FORMAT_TIMESPAN_MAX] = "n/a", timespan2[FORMAT_TIMESPAN_MAX] = "n/a";
 
-                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base,
-                                                         format_timespan(timespan1, sizeof(timespan1), v, 0),
-                                                         format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                                (void) format_timespan(timespan1, sizeof timespan1, v, 0);
+                                (void) format_timespan(timespan2, sizeof timespan2, next_elapse, 0);
+
+                                bus_print_property_valuef(name, expected_value, value,
+                                                          "{ %s=%s ; next_elapse=%s }", base, timespan1, timespan2);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4842,10 +5117,11 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
-                                char timestamp[FORMAT_TIMESTAMP_MAX];
+                                char timestamp[FORMAT_TIMESTAMP_MAX] = "n/a";
 
-                                bus_print_property_value(name, expected_value, value, "{ %s=%s ; next_elapse=%s }", base, spec,
-                                                         format_timestamp(timestamp, sizeof(timestamp), next_elapse));
+                                (void) format_timestamp(timestamp, sizeof(timestamp), next_elapse);
+                                bus_print_property_valuef(name, expected_value, value,
+                                                          "{ %s=%s ; next_elapse=%s }", base, spec, timestamp);
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4858,29 +5134,51 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && startswith(name, "Exec")) {
                         ExecStatusInfo info = {};
+                        bool is_ex_prop = endswith(name, "Ex");
 
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, is_ex_prop ? "(sasasttttuii)" : "(sasbttttuii)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = exec_status_info_deserialize(m, &info)) > 0) {
+                        while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
                                 char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
-                                _cleanup_free_ char *tt;
+                                _cleanup_strv_free_ char **optv = NULL;
+                                _cleanup_free_ char *tt, *o = NULL;
 
                                 tt = strv_join(info.argv, " ");
 
-                                 bus_print_property_value(name, expected_value, value,
-                                                          "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
-                                                          strna(info.path),
-                                                          strna(tt),
-                                                          yes_no(info.ignore),
-                                                          strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                                          strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
-                                                          info.pid,
-                                                          sigchld_code_to_string(info.code),
-                                                          info.status,
-                                                          info.code == CLD_EXITED ? "" : "/",
-                                                          strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+                                if (is_ex_prop) {
+                                        r = exec_command_flags_to_strv(info.flags, &optv);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to convert ExecCommandFlags to strv: %m");
+
+                                        o = strv_join(optv, " ");
+
+                                        bus_print_property_valuef(name, expected_value, value,
+                                                                  "{ path=%s ; argv[]=%s ; flags=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
+                                                                  strna(info.path),
+                                                                  strna(tt),
+                                                                  strna(o),
+                                                                  strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                                                  strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                                  info.pid,
+                                                                  sigchld_code_to_string(info.code),
+                                                                  info.status,
+                                                                  info.code == CLD_EXITED ? "" : "/",
+                                                                  strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
+                                } else
+                                        bus_print_property_valuef(name, expected_value, value,
+                                                                  "{ path=%s ; argv[]=%s ; ignore_errors=%s ; start_time=[%s] ; stop_time=[%s] ; pid="PID_FMT" ; code=%s ; status=%i%s%s }",
+                                                                  strna(info.path),
+                                                                  strna(tt),
+                                                                  yes_no(info.ignore),
+                                                                  strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
+                                                                  strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                                  info.pid,
+                                                                  sigchld_code_to_string(info.code),
+                                                                  info.status,
+                                                                  info.code == CLD_EXITED ? "" : "/",
+                                                                  strempty(info.code == CLD_EXITED ? NULL : signal_to_string(info.status)));
 
                                 free(info.path);
                                 strv_free(info.argv);
@@ -4901,7 +5199,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &path, &rwm)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path), strna(rwm));
+                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path), strna(rwm));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4921,7 +5219,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &weight)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
+                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), weight);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4942,7 +5240,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &bandwidth)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
+                                bus_print_property_valuef(name, expected_value, value, "%s %"PRIu64, strna(path), bandwidth);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4963,8 +5261,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(st)", &path, &target)) > 0)
-                                bus_print_property_value(name, expected_value, value, "%s %s", strna(path),
-                                                         format_timespan(ts, sizeof(ts), target, 1));
+                                bus_print_property_valuef(name, expected_value, value, "%s %s", strna(path),
+                                                          format_timespan(ts, sizeof(ts), target, 1));
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4988,7 +5286,208 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (n < 0)
                                 return log_oom();
 
-                        bus_print_property_value(name, expected_value, value, "%s", h);
+                        bus_print_property_value(name, expected_value, value, h);
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
+                        _cleanup_free_ char *addresses = NULL;
+
+                        r = sd_bus_message_enter_container(m, 'a', "(iayu)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *str = NULL;
+                                uint32_t prefixlen;
+                                int32_t family;
+                                const void *ap;
+                                size_t an;
+
+                                r = sd_bus_message_enter_container(m, 'r', "iayu");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                                if (r == 0)
+                                        break;
+
+                                r = sd_bus_message_read(m, "i", &family);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read_array(m, 'y', &ap, &an);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_read(m, "u", &prefixlen);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (!IN_SET(family, AF_INET, AF_INET6))
+                                        continue;
+
+                                if (an != FAMILY_ADDRESS_SIZE(family))
+                                        continue;
+
+                                if (prefixlen > FAMILY_ADDRESS_SIZE(family) * 8)
+                                        continue;
+
+                                if (in_addr_prefix_to_string(family, (union in_addr_union *) ap, prefixlen, &str) < 0)
+                                        continue;
+
+                                if (!strextend_with_separator(&addresses, " ", str, NULL))
+                                        return log_oom();
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(addresses))
+                                bus_print_property_value(name, expected_value, value, strempty(addresses));
+
+                        return 1;
+
+                } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *source, *dest;
+                        int ignore_enoent;
+                        uint64_t rbind;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ssbt)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ssbt)", &source, &dest, &ignore_enoent, &rbind)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(source))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s%s%s",
+                                             ignore_enoent ? "-" : "",
+                                             source,
+                                             isempty(dest) ? "" : ":",
+                                             strempty(dest),
+                                             rbind == MS_REC ? ":rbind" : "") < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "TemporaryFileSystem")) {
+                        _cleanup_free_ char *paths = NULL;
+                        const char *target, *option;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(ss)", &target, &option)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+
+                                if (isempty(target))
+                                        continue;
+
+                                if (asprintf(&str, "%s%s%s", target, isempty(option) ? "" : ":", strempty(option)) < 0)
+                                        return log_oom();
+
+                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(paths))
+                                bus_print_property_value(name, expected_value, value, strempty(paths));
+
+                        return 1;
+
+                } else if (streq(name, "LogExtraFields")) {
+                        _cleanup_free_ char *fields = NULL;
+                        const void *p;
+                        size_t sz;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "ay");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read_array(m, 'y', &p, &sz)) > 0) {
+                                _cleanup_free_ char *str = NULL;
+                                const char *eq;
+
+                                if (memchr(p, 0, sz))
+                                        continue;
+
+                                eq = memchr(p, '=', sz);
+                                if (!eq)
+                                        continue;
+
+                                if (!journal_field_valid(p, eq - (const char*) p, false))
+                                        continue;
+
+                                str = malloc(sz + 1);
+                                if (!str)
+                                        return log_oom();
+
+                                memcpy(str, p, sz);
+                                str[sz] = '\0';
+
+                                if (!utf8_is_valid(str))
+                                        continue;
+
+                                if (!strextend_with_separator(&fields, " ", str, NULL))
+                                        return log_oom();
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(fields))
+                                bus_print_property_value(name, expected_value, value, strempty(fields));
+
+                        return 1;
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "CPUAffinity", "NUMAMask", "AllowedCPUs", "AllowedMemoryNodes", "EffectiveCPUs", "EffectiveMemoryNodes")) {
+                        _cleanup_free_ char *affinity = NULL;
+                        _cleanup_(cpu_set_reset) CPUSet set = {};
+                        const void *a;
+                        size_t n;
+
+                        r = sd_bus_message_read_array(m, 'y', &a, &n);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = cpu_set_from_dbus(a, n, &set);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to deserialize %s: %m", name);
+
+                        affinity = cpu_set_to_range_string(&set);
+                        if (!affinity)
+                                return log_oom();
+
+                        bus_print_property_value(name, expected_value, value, affinity);
 
                         return 1;
                 }
@@ -5024,78 +5523,92 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
-                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
-                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
                 {}
         }, status_map[] = {
-                { "Id",                             "s",              NULL,           offsetof(UnitStatusInfo, id)                                },
-                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
-                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
-                { "SubState",                       "s",              NULL,           offsetof(UnitStatusInfo, sub_state)                         },
-                { "UnitFileState",                  "s",              NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
-                { "UnitFilePreset",                 "s",              NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
-                { "Description",                    "s",              NULL,           offsetof(UnitStatusInfo, description)                       },
-                { "Following",                      "s",              NULL,           offsetof(UnitStatusInfo, following)                         },
-                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
-                { "FragmentPath",                   "s",              NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
-                { "SourcePath",                     "s",              NULL,           offsetof(UnitStatusInfo, source_path)                       },
-                { "ControlGroup",                   "s",              NULL,           offsetof(UnitStatusInfo, control_group)                     },
-                { "DropInPaths",                    "as",             NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
-                { "LoadError",                      "(ss)",           map_load_error, offsetof(UnitStatusInfo, load_error)                        },
-                { "Result",                         "s",              NULL,           offsetof(UnitStatusInfo, result)                            },
-                { "InactiveExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
-                { "InactiveExitTimestampMonotonic", "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
-                { "ActiveEnterTimestamp",           "t",              NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
-                { "ActiveExitTimestamp",            "t",              NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
-                { "InactiveEnterTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
-                { "NeedDaemonReload",               "b",              NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
-                { "Transient",                      "b",              NULL,           offsetof(UnitStatusInfo, transient)                         },
-                { "ExecMainPID",                    "u",              NULL,           offsetof(UnitStatusInfo, main_pid)                          },
-                { "MainPID",                        "u",              map_main_pid,   0                                                           },
-                { "ControlPID",                     "u",              NULL,           offsetof(UnitStatusInfo, control_pid)                       },
-                { "StatusText",                     "s",              NULL,           offsetof(UnitStatusInfo, status_text)                       },
-                { "PIDFile",                        "s",              NULL,           offsetof(UnitStatusInfo, pid_file)                          },
-                { "StatusErrno",                    "i",              NULL,           offsetof(UnitStatusInfo, status_errno)                      },
-                { "ExecMainStartTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
-                { "ExecMainExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
-                { "ExecMainCode",                   "i",              NULL,           offsetof(UnitStatusInfo, exit_code)                         },
-                { "ExecMainStatus",                 "i",              NULL,           offsetof(UnitStatusInfo, exit_status)                       },
-                { "ConditionTimestamp",             "t",              NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
-                { "ConditionResult",                "b",              NULL,           offsetof(UnitStatusInfo, condition_result)                  },
-                { "Conditions",                     "a(sbbsi)",       map_conditions, 0                                                           },
-                { "AssertTimestamp",                "t",              NULL,           offsetof(UnitStatusInfo, assert_timestamp)                  },
-                { "AssertResult",                   "b",              NULL,           offsetof(UnitStatusInfo, assert_result)                     },
-                { "Asserts",                        "a(sbbsi)",       map_asserts,    0                                                           },
-                { "NextElapseUSecRealtime",         "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
-                { "NextElapseUSecMonotonic",        "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
-                { "NAccepted",                      "u",              NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
-                { "NConnections",                   "u",              NULL,           offsetof(UnitStatusInfo, n_connections)                     },
-                { "NRefused",                       "u",              NULL,           offsetof(UnitStatusInfo, n_refused)                         },
-                { "Accept",                         "b",              NULL,           offsetof(UnitStatusInfo, accept)                            },
-                { "Listen",                         "a(ss)",          map_listen,     offsetof(UnitStatusInfo, listen)                            },
-                { "SysFSPath",                      "s",              NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
-                { "Where",                          "s",              NULL,           offsetof(UnitStatusInfo, where)                             },
-                { "What",                           "s",              NULL,           offsetof(UnitStatusInfo, what)                              },
-                { "MemoryCurrent",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_current)                    },
-                { "MemoryMin",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_min)                        },
-                { "MemoryLow",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_low)                        },
-                { "MemoryHigh",                     "t",              NULL,           offsetof(UnitStatusInfo, memory_high)                       },
-                { "MemoryMax",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_max)                        },
-                { "MemorySwapMax",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
-                { "MemoryLimit",                    "t",              NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
-                { "CPUUsageNSec",                   "t",              NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
-                { "TasksCurrent",                   "t",              NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
-                { "TasksMax",                       "t",              NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
-                { "IPIngressBytes",                 "t",              NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
-                { "IPEgressBytes",                  "t",              NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
-                { "ExecStartPre",                   "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecStart",                      "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecStartPost",                  "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecReload",                     "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecStopPre",                    "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecStop",                       "a(sasbttttuii)", map_exec,       0                                                           },
-                { "ExecStopPost",                   "a(sasbttttuii)", map_exec,       0                                                           },
+                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
+                { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
+                { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
+                { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
+                { "Description",                    "s",               NULL,           offsetof(UnitStatusInfo, description)                       },
+                { "Following",                      "s",               NULL,           offsetof(UnitStatusInfo, following)                         },
+                { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "FragmentPath",                   "s",               NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
+                { "SourcePath",                     "s",               NULL,           offsetof(UnitStatusInfo, source_path)                       },
+                { "ControlGroup",                   "s",               NULL,           offsetof(UnitStatusInfo, control_group)                     },
+                { "DropInPaths",                    "as",              NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
+                { "LoadError",                      "(ss)",            map_load_error, offsetof(UnitStatusInfo, load_error)                        },
+                { "Result",                         "s",               NULL,           offsetof(UnitStatusInfo, result)                            },
+                { "TriggeredBy",                    "as",              NULL,           offsetof(UnitStatusInfo, triggered_by)                      },
+                { "Triggers",                       "as",              NULL,           offsetof(UnitStatusInfo, triggers)                          },
+                { "InactiveExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
+                { "InactiveExitTimestampMonotonic", "t",               NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
+                { "ActiveEnterTimestamp",           "t",               NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
+                { "ActiveExitTimestamp",            "t",               NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
+                { "InactiveEnterTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
+                { "NeedDaemonReload",               "b",               NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
+                { "Transient",                      "b",               NULL,           offsetof(UnitStatusInfo, transient)                         },
+                { "ExecMainPID",                    "u",               NULL,           offsetof(UnitStatusInfo, main_pid)                          },
+                { "MainPID",                        "u",               map_main_pid,   0                                                           },
+                { "ControlPID",                     "u",               NULL,           offsetof(UnitStatusInfo, control_pid)                       },
+                { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
+                { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                          },
+                { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
+                { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
+                { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                         },
+                { "ExecMainStatus",                 "i",               NULL,           offsetof(UnitStatusInfo, exit_status)                       },
+                { "ConditionTimestamp",             "t",               NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
+                { "ConditionResult",                "b",               NULL,           offsetof(UnitStatusInfo, condition_result)                  },
+                { "Conditions",                     "a(sbbsi)",        map_conditions, 0                                                           },
+                { "AssertTimestamp",                "t",               NULL,           offsetof(UnitStatusInfo, assert_timestamp)                  },
+                { "AssertResult",                   "b",               NULL,           offsetof(UnitStatusInfo, assert_result)                     },
+                { "Asserts",                        "a(sbbsi)",        map_asserts,    0                                                           },
+                { "NextElapseUSecRealtime",         "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
+                { "NextElapseUSecMonotonic",        "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
+                { "NAccepted",                      "u",               NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
+                { "NConnections",                   "u",               NULL,           offsetof(UnitStatusInfo, n_connections)                     },
+                { "NRefused",                       "u",               NULL,           offsetof(UnitStatusInfo, n_refused)                         },
+                { "Accept",                         "b",               NULL,           offsetof(UnitStatusInfo, accept)                            },
+                { "Listen",                         "a(ss)",           map_listen,     offsetof(UnitStatusInfo, listen)                            },
+                { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
+                { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
+                { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
+                { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
+                { "MemoryMin",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_min)                        },
+                { "MemoryLow",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_low)                        },
+                { "MemoryHigh",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_high)                       },
+                { "MemoryMax",                      "t",               NULL,           offsetof(UnitStatusInfo, memory_max)                        },
+                { "MemorySwapMax",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
+                { "MemoryLimit",                    "t",               NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
+                { "CPUUsageNSec",                   "t",               NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
+                { "TasksCurrent",                   "t",               NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
+                { "TasksMax",                       "t",               NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
+                { "IPIngressBytes",                 "t",               NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
+                { "IPEgressBytes",                  "t",               NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
+                { "IOReadBytes",                    "t",               NULL,           offsetof(UnitStatusInfo, io_read_bytes)                     },
+                { "IOWriteBytes",                   "t",               NULL,           offsetof(UnitStatusInfo, io_write_bytes)                    },
+                { "ExecCondition",                  "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecConditionEx",                "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecStartPre",                   "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStartPreEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecStart",                      "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStartEx",                    "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecStartPost",                  "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecStopPost",                   "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecStopPostEx",                 "a(sasasttttuii)", map_exec,       0                                                           },
                 {}
         };
 
@@ -5113,6 +5626,8 @@ static int show_one(
                 .tasks_max = (uint64_t) -1,
                 .ip_ingress_bytes = (uint64_t) -1,
                 .ip_egress_bytes = (uint64_t) -1,
+                .io_read_bytes = UINT64_MAX,
+                .io_write_bytes = UINT64_MAX,
         };
         char **pp;
         int r;
@@ -5390,7 +5905,7 @@ static int show(int argc, char *argv[], void *userdata) {
                 if (!strv_isempty(patterns)) {
                         _cleanup_strv_free_ char **names = NULL;
 
-                        r = expand_names(bus, patterns, NULL, &names);
+                        r = expand_names(bus, patterns, NULL, &names, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -5424,10 +5939,13 @@ static int cat(int argc, char *argv[], void *userdata) {
         bool first = true;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot remotely cat units.");
-                return -EINVAL;
-        }
+        /* Include all units by default — i.e. continue as if the --all
+         * option was used */
+        if (strv_isempty(arg_states))
+                arg_all = true;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot remotely cat units.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -5437,7 +5955,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -5523,10 +6041,8 @@ static int set_property(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         t = unit_name_to_type(n);
-        if (t < 0) {
-                log_error("Invalid unit type: %s", n);
-                return -EINVAL;
-        }
+        if (t < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid unit type: %s", n);
 
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
@@ -5670,7 +6186,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -5764,15 +6280,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot switch root remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch root remotely.");
 
-        if (argc < 2 || argc > 3) {
-                log_error("Wrong number of arguments.");
-                return -EINVAL;
-        }
+        if (argc < 2 || argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
 
         root = argv[1];
 
@@ -5790,8 +6302,8 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
-                root_systemd_path = strjoina(root, "/" SYSTEMD_BINARY_PATH);
-                root_init_path = strjoina(root, "/", init);
+                root_systemd_path = prefix_roota(root, "/" SYSTEMD_BINARY_PATH);
+                root_init_path = prefix_roota(root, init);
 
                 /* If the passed init is actually the same as the
                  * systemd binary, then let's suppress it. */
@@ -5799,10 +6311,11 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                         init = NULL;
         }
 
-        /* Instruct PID1 to exclude us from its killing spree applied during
-         * the transition. Otherwise we would exit with a failure status even
-         * though the switch to the new root has succeed. */
-        argv_cmdline[0] = '@';
+        /* Instruct PID1 to exclude us from its killing spree applied during the transition. Otherwise we
+         * would exit with a failure status even though the switch to the new root has succeed. */
+        assert(saved_argv);
+        assert(saved_argv[0]);
+        saved_argv[0][0] = '@';
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -5831,6 +6344,145 @@ static int switch_root(int argc, char *argv[], void *userdata) {
                 (void) default_signals(SIGTERM, -1);
 
                 return log_error_errno(r, "Failed to switch root: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int log_level(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 1) {
+                _cleanup_free_ char *level = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LogLevel",
+                                &error,
+                                &level);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
+
+                puts(level);
+
+        } else {
+                assert(argc == 2);
+
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LogLevel",
+                                &error,
+                                "s",
+                                argv[1]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int log_target(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 1) {
+                _cleanup_free_ char *target = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LogTarget",
+                                &error,
+                                &target);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
+
+                puts(target);
+
+        } else {
+                assert(argc == 2);
+
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "LogTarget",
+                                &error,
+                                "s",
+                                argv[1]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log target: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int service_watchdogs(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int b, r;
+
+        assert(argv);
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 1) {
+                /* get ServiceWatchdogs */
+                r = sd_bus_get_property_trivial(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                'b',
+                                &b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get service-watchdog state: %s", bus_error_message(&error, r));
+
+                printf("%s\n", yes_no(!!b));
+
+        } else {
+                /* set ServiceWatchdogs */
+                assert(argc == 2);
+
+                b = parse_boolean(argv[1]);
+                if (b < 0)
+                        return log_error_errno(b, "Failed to parse service-watchdogs argument: %m");
+
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                "b",
+                                b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -5910,10 +6562,8 @@ static int import_environment(int argc, char *argv[], void *userdata) {
 
                 STRV_FOREACH(a, strv_skip(argv, 1)) {
 
-                        if (!env_name_is_valid(*a)) {
-                                log_error("Not a valid environment variable name: %s", *a);
-                                return -EINVAL;
-                        }
+                        if (!env_name_is_valid(*a))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid environment variable name: %s", *a);
 
                         STRV_FOREACH(b, environ) {
                                 const char *eq;
@@ -5972,13 +6622,13 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 const char *argv[] = {
                         ROOTLIBEXECDIR "/systemd-sysv-install",
-                        NULL,
-                        NULL,
-                        NULL,
+                        NULL, /* --root= */
+                        NULL, /* verb */
+                        NULL, /* service */
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -6019,10 +6669,21 @@ static int enable_sysv_units(const char *verb, char **args) {
                                 log_info("%s is not a native service, redirecting to systemd-sysv-install.", name);
                 }
 
-                if (!isempty(arg_root))
-                        argv[c++] = q = strappend("--root=", arg_root);
+                if (!isempty(arg_root)) {
+                        q = strjoin("--root=", arg_root);
+                        if (!q)
+                                return log_oom();
 
-                argv[c++] = verb;
+                        argv[c++] = q;
+                }
+
+                /* Let's copy the verb, since it's still pointing directly into the original argv[] array we
+                 * got passed, but safe_fork() is likely going to rewrite that for the new child */
+                v = strdup(verb);
+                if (!v)
+                        return log_oom();
+
+                argv[c++] = v;
                 argv[c++] = basename(p);
                 argv[c] = NULL;
 
@@ -6066,14 +6727,14 @@ static int enable_sysv_units(const char *verb, char **args) {
                 assert(f > 0);
                 f--;
                 assert(args[f] == name);
-                strv_remove(args, name);
+                strv_remove(args + f, name);
         }
 
 #endif
         return r;
 }
 
-static int mangle_names(char **original_names, char ***mangled_names) {
+static int mangle_names(const char *operation, char **original_names, char ***mangled_names) {
         char **i, **l, **name;
         int r;
 
@@ -6093,7 +6754,9 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                                 return log_oom();
                         }
                 } else {
-                        r = unit_name_mangle(*name, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, i);
+                        r = unit_name_mangle_with_suffix(*name, operation,
+                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                                         ".service", i);
                         if (r < 0) {
                                 *i = NULL;
                                 strv_free(l);
@@ -6204,7 +6867,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = mangle_names(strv_skip(argv, 1), &names);
+        r = mangle_names("to enable", strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
 
@@ -6431,11 +7094,13 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &target);
+        r = unit_name_mangle_with_suffix(argv[1], "as target",
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".target", &target);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
-        r = mangle_names(strv_skip(argv, 2), &names);
+        r = mangle_names("as dependency", strv_skip(argv, 2), &names);
         if (r < 0)
                 return r;
 
@@ -6621,7 +7286,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         char **name;
         int r;
 
-        r = mangle_names(strv_skip(argv, 1), &names);
+        r = mangle_names("to check", strv_skip(argv, 1), &names);
         if (r < 0)
                 return r;
 
@@ -6807,7 +7472,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
 
-        r = copy_file(original_path, t, 0, 0644, 0, COPY_REFLINK);
+        r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
         if (r == -ENOENT) {
 
                 r = touch(t);
@@ -6832,12 +7497,12 @@ static int get_file_to_edit(
         assert(name);
         assert(ret_path);
 
-        path = strjoin(paths->persistent_config, "/", name);
+        path = path_join(paths->persistent_config, name);
         if (!path)
                 return log_oom();
 
         if (arg_runtime) {
-                run = strjoin(paths->runtime_config, "/", name);
+                run = path_join(paths->runtime_config, name);
                 if (!run)
                         return log_oom();
         }
@@ -7084,15 +7749,11 @@ static int edit(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (!on_tty()) {
-                log_error("Cannot edit units if not on a tty.");
-                return -EINVAL;
-        }
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
 
-        if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                log_error("Cannot edit units remotely.");
-                return -EINVAL;
-        }
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");
 
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
@@ -7102,7 +7763,7 @@ static int edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
@@ -7110,10 +7771,8 @@ static int edit(int argc, char *argv[], void *userdata) {
                 r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        log_error("Cannot edit %s: unit is masked.", *tmp);
-                        return -EINVAL;
-                }
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
         }
 
         r = find_paths_to_edit(bus, names, &paths);
@@ -7180,62 +7839,9 @@ static int systemctl_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Query or send control commands to the systemd manager.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --system         Connect to system manager\n"
-               "     --user           Connect to user service manager\n"
-               "  -H --host=[USER@]HOST\n"
-               "                      Operate on remote host\n"
-               "  -M --machine=CONTAINER\n"
-               "                      Operate on local container\n"
-               "  -t --type=TYPE      List units of a particular type\n"
-               "     --state=STATE    List units with particular LOAD or SUB or ACTIVE state\n"
-               "  -p --property=NAME  Show only properties by this name\n"
-               "  -a --all            Show all properties/all units currently in memory,\n"
-               "                      including dead/empty ones. To list all units installed on\n"
-               "                      the system, use the 'list-unit-files' command instead.\n"
-               "     --failed         Same as --state=failed\n"
-               "  -l --full           Don't ellipsize unit names on output\n"
-               "  -r --recursive      Show unit list of host and local containers\n"
-               "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
-               "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
-               "                      queueing a new job\n"
-               "     --show-types     When showing sockets, explicitly show their type\n"
-               "     --value          When showing properties, only print the value\n"
-               "  -i --ignore-inhibitors\n"
-               "                      When shutting down or sleeping, ignore inhibitors\n"
-               "     --kill-who=WHO   Who to send signal to\n"
-               "  -s --signal=SIGNAL  Which signal to send\n"
-               "     --now            Start or stop unit in addition to enabling or disabling it\n"
-               "     --dry-run        Only print what would be done\n"
-               "  -q --quiet          Suppress output\n"
-               "     --wait           For (re)start, wait until service stopped again\n"
-               "                      For is-system-running, wait until startup is completed\n"
-               "     --no-block       Do not wait until operation finished\n"
-               "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
-               "     --no-reload      Don't reload daemon after en-/dis-abling unit files\n"
-               "     --no-legend      Do not print a legend (column headers and hints)\n"
-               "     --no-pager       Do not pipe output into a pager\n"
-               "     --no-ask-password\n"
-               "                      Do not ask for system passwords\n"
-               "     --global         Enable/disable/mask unit files globally\n"
-               "     --runtime        Enable/disable/mask unit files temporarily until next\n"
-               "                      reboot\n"
-               "  -f --force          When enabling unit files, override existing symlinks\n"
-               "                      When shutting down, execute action immediately\n"
-               "     --preset-mode=   Apply only enable, only disable, or all presets\n"
-               "     --root=PATH      Enable/disable/mask unit files in the specified root\n"
-               "                      directory\n"
-               "  -n --lines=INTEGER  Number of journal entries to show\n"
-               "  -o --output=STRING  Change journal output mode (short, short-precise,\n"
-               "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix,\n"
-               "                             verbose, export, json, json-pretty, json-sse, cat)\n"
-               "     --firmware-setup Tell the firmware to show the setup menu on next boot\n"
-               "     --plain          Print unit dependencies as a list instead of a tree\n\n"
-               "Unit Commands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sQuery or send control commands to the system manager.%6$s\n"
+               "\n%3$sUnit Commands:%4$s\n"
                "  list-units [PATTERN...]             List units currently in memory\n"
                "  list-sockets [PATTERN...]           List socket units currently in memory,\n"
                "                                      ordered by address\n"
@@ -7252,6 +7858,8 @@ static int systemctl_help(void) {
                "                                      if supported, otherwise restart\n"
                "  isolate UNIT                        Start one unit and stop all others\n"
                "  kill UNIT...                        Send signal to processes of a unit\n"
+               "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
+               "                                      configuration of unit\n"
                "  is-active PATTERN...                Check whether units are active\n"
                "  is-failed PATTERN...                Check whether units are failed\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
@@ -7264,8 +7872,8 @@ static int systemctl_help(void) {
                "                                      units\n"
                "  list-dependencies [UNIT]            Recursively show units which are required\n"
                "                                      or wanted by this unit or by which this\n"
-               "                                      unit is required or wanted\n\n"
-               "Unit File Commands:\n"
+               "                                      unit is required or wanted"
+               "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
                "  disable UNIT...                     Disable one or more unit files\n"
@@ -7287,21 +7895,24 @@ static int systemctl_help(void) {
                "                                      on specified one or more units\n"
                "  edit UNIT...                        Edit one or more unit files\n"
                "  get-default                         Get the name of the default target\n"
-               "  set-default TARGET                  Set the default target\n\n"
-               "Machine Commands:\n"
-               "  list-machines [PATTERN...]          List local containers and host\n\n"
-               "Job Commands:\n"
+               "  set-default TARGET                  Set the default target\n"
+               "\n%3$sMachine Commands:%4$s\n"
+               "  list-machines [PATTERN...]          List local containers and host\n"
+               "\n%3$sJob Commands:%4$s\n"
                "  list-jobs [PATTERN...]              List jobs\n"
-               "  cancel [JOB...]                     Cancel all, one, or more jobs\n\n"
-               "Environment Commands:\n"
+               "  cancel [JOB...]                     Cancel all, one, or more jobs\n"
+               "\n%3$sEnvironment Commands:%4$s\n"
                "  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
-               "  import-environment [VARIABLE...]    Import all or some environment variables\n\n"
-               "Manager Lifecycle Commands:\n"
+               "  import-environment [VARIABLE...]    Import all or some environment variables\n"
+               "\n%3$sManager State Commands:%4$s\n"
                "  daemon-reload                       Reload systemd manager configuration\n"
-               "  daemon-reexec                       Reexecute systemd manager\n\n"
-               "System Commands:\n"
+               "  daemon-reexec                       Reexecute systemd manager\n"
+               "  log-level [LEVEL]                   Get/set logging threshold for manager\n"
+               "  log-target [TARGET]                 Get/set logging target for manager\n"
+               "  service-watchdogs [BOOL]            Get/set service watchdog state\n"
+               "\n%3$sSystem Commands:%4$s\n"
                "  is-system-running                   Check whether system is fully running\n"
                "  default                             Enter system default mode\n"
                "  rescue                              Enter system rescue mode\n"
@@ -7316,10 +7927,68 @@ static int systemctl_help(void) {
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
                "  suspend-then-hibernate              Suspend the system, wake after a period of\n"
-               "                                      time and put it into hibernate\n"
-               "\nSee the %s for details.\n"
+               "                                      time, and hibernate"
+               "\n%3$sOptions:%4$s\n"
+               "  -h --help              Show this help\n"
+               "     --version           Show package version\n"
+               "     --system            Connect to system manager\n"
+               "     --user              Connect to user service manager\n"
+               "  -H --host=[USER@]HOST  Operate on remote host\n"
+               "  -M --machine=CONTAINER Operate on a local container\n"
+               "  -t --type=TYPE         List units of a particular type\n"
+               "     --state=STATE       List units with particular LOAD or SUB or ACTIVE state\n"
+               "     --failed            Shorcut for --state=failed\n"
+               "  -p --property=NAME     Show only properties by this name\n"
+               "  -a --all               Show all properties/all units currently in memory,\n"
+               "                         including dead/empty ones. To list all units installed\n"
+               "                         on the system, use 'list-unit-files' instead.\n"
+               "  -l --full              Don't ellipsize unit names on output\n"
+               "  -r --recursive         Show unit list of host and local containers\n"
+               "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
+               "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
+               "                         queueing a new job\n"
+               "  -T --show-transaction  When enqueuing a unit job, show full transaction\n"
+               "     --show-types        When showing sockets, explicitly show their type\n"
+               "     --value             When showing properties, only print the value\n"
+               "  -i --ignore-inhibitors When shutting down or sleeping, ignore inhibitors\n"
+               "     --kill-who=WHO      Whom to send signal to\n"
+               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --what=RESOURCES    Which types of resources to remove\n"
+               "     --now               Start or stop unit after enabling or disabling it\n"
+               "     --dry-run           Only print what would be done\n"
+               "  -q --quiet             Suppress output\n"
+               "     --wait              For (re)start, wait until service stopped again\n"
+               "                         For is-system-running, wait until startup is completed\n"
+               "     --no-block          Do not wait until operation finished\n"
+               "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
+               "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
+               "     --no-legend         Do not print a legend (column headers and hints)\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-ask-password   Do not ask for system passwords\n"
+               "     --global            Enable/disable/mask unit files globally\n"
+               "     --runtime           Enable/disable/mask unit files temporarily until next\n"
+               "                         reboot\n"
+               "  -f --force             When enabling unit files, override existing symlinks\n"
+               "                         When shutting down, execute action immediately\n"
+               "     --preset-mode=      Apply only enable, only disable, or all presets\n"
+               "     --root=PATH         Enable/disable/mask unit files in the specified root\n"
+               "                         directory\n"
+               "  -n --lines=INTEGER     Number of journal entries to show\n"
+               "  -o --output=STRING     Change journal output mode (short, short-precise,\n"
+               "                             short-iso, short-iso-precise, short-full,\n"
+               "                             short-monotonic, short-unix,\n"
+               "                             verbose, export, json, json-pretty, json-sse, cat)\n"
+               "     --firmware-setup    Tell the firmware to show the setup menu on next boot\n"
+               "     --boot-loader-menu=TIME\n"
+               "                         Boot into boot loader menu on next boot\n"
+               "     --boot-loader-entry=NAME\n"
+               "                         Boot into a specific boot loader entry on next boot\n"
+               "     --plain             Print unit dependencies as a list instead of a tree\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
         );
 
         return 0;
@@ -7333,8 +8002,9 @@ static int halt_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]%s\n\n"
-               "%s the system.\n\n"
+        printf("%s [OPTIONS...]%s\n"
+               "\n%s%s the system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "     --halt      Halt the machine\n"
                "  -p --poweroff  Switch off the machine\n"
@@ -7345,10 +8015,12 @@ static int halt_help(void) {
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
-               , arg_action == ACTION_REBOOT   ? " [ARG]" : "",
-                 arg_action == ACTION_REBOOT   ? "Reboot" :
+               , arg_action == ACTION_REBOOT   ? " [ARG]" : ""
+               , ansi_highlight()
+               , arg_action == ACTION_REBOOT   ? "Reboot" :
                  arg_action == ACTION_POWEROFF ? "Power off" :
                                                  "Halt"
+               , ansi_normal()
                , link
         );
 
@@ -7363,8 +8035,9 @@ static int shutdown_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [TIME] [WALL...]\n\n"
-               "Shut down the system.\n\n"
+        printf("%s [OPTIONS...] [TIME] [WALL...]\n"
+               "\n%sShut down the system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "  -H --halt      Halt the machine\n"
                "  -P --poweroff  Power-off the machine\n"
@@ -7375,6 +8048,7 @@ static int shutdown_help(void) {
                "  -c             Cancel a pending shutdown\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -7389,19 +8063,21 @@ static int telinit_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] {COMMAND}\n\n"
-               "Send control commands to the init daemon.\n\n"
-               "     --help      Show this help\n"
-               "     --no-wall   Don't send wall message before halt/power-off/reboot\n\n"
-               "Commands:\n"
+        printf("%s [OPTIONS...] COMMAND\n\n"
+               "%sSend control commands to the init daemon.%s\n"
+               "\nCommands:\n"
                "  0              Power-off the machine\n"
                "  6              Reboot the machine\n"
                "  2, 3, 4, 5     Start runlevelX.target unit\n"
                "  1, s, S        Enter rescue mode\n"
                "  q, Q           Reload init daemon configuration\n"
                "  u, U           Reexecute init daemon\n"
+               "\nOptions:\n"
+               "     --help      Show this help\n"
+               "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -7416,11 +8092,13 @@ static int runlevel_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Prints the previous and current runlevel of the init system.\n\n"
+        printf("%s [OPTIONS...]\n"
+               "\n%sPrints the previous and current runlevel of the init system.%s\n"
+               "\nOptions:\n"
                "     --help      Show this help\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 
@@ -7442,6 +8120,10 @@ static void help_states(void) {
         if (!arg_no_legend)
                 puts("\nAvailable unit active states:");
         DUMP_STRING_TABLE(unit_active_state, UnitActiveState, _UNIT_ACTIVE_STATE_MAX);
+
+        if (!arg_no_legend)
+                puts("\nAvailable unit file states:");
+        DUMP_STRING_TABLE(unit_file_state, UnitFileState, _UNIT_FILE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable automount unit substates:");
@@ -7488,6 +8170,37 @@ static void help_states(void) {
         DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
 
+static int help_boot_loader_entry(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        sd_bus *bus;
+        char **i;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_get_property_strv(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "BootLoaderEntries",
+                        &error,
+                        &l);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate boot loader entries: %s", bus_error_message(&error, r));
+
+        if (strv_isempty(l))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "No boot loader entries discovered.");
+
+        STRV_FOREACH(i, l)
+                puts(*i);
+
+        return 0;
+}
+
 static int systemctl_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_FAIL = 0x100,
@@ -7518,9 +8231,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_JOB_MODE,
                 ARG_PRESET_MODE,
                 ARG_FIRMWARE_SETUP,
+                ARG_BOOT_LOADER_MENU,
+                ARG_BOOT_LOADER_ENTRY,
                 ARG_NOW,
                 ARG_MESSAGE,
                 ARG_WAIT,
+                ARG_WHAT,
         };
 
         static const struct option options[] = {
@@ -7567,12 +8283,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "recursive",           no_argument,       NULL, 'r'                     },
                 { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
                 { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
+                { "boot-loader-menu",    required_argument, NULL, ARG_BOOT_LOADER_MENU    },
+                { "boot-loader-entry",   required_argument, NULL, ARG_BOOT_LOADER_ENTRY   },
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
+                { "show-transaction",    no_argument,       NULL, 'T'                     },
+                { "what",                required_argument, NULL, ARG_WHAT                },
                 {}
         };
 
-        const char *p;
         int c, r;
 
         assert(argc >= 0);
@@ -7581,7 +8300,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* we default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:ir.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -7592,6 +8311,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 't': {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--type= requires arguments.");
@@ -7611,9 +8332,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (unit_type_from_string(type) >= 0) {
-                                        if (strv_push(&arg_types, type) < 0)
+                                        if (strv_consume(&arg_types, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
@@ -7622,9 +8342,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                  * in --types= too for compatibility
                                  * with old versions */
                                 if (unit_load_state_from_string(type) >= 0) {
-                                        if (strv_push(&arg_states, type) < 0)
+                                        if (strv_consume(&arg_states, TAKE_PTR(type)) < 0)
                                                 return log_oom();
-                                        type = NULL;
                                         continue;
                                 }
 
@@ -7636,14 +8355,16 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case 'p': {
-                        /* Make sure that if the empty property list
-                           was specified, we won't show any properties. */
+                case 'p':
+                        /* Make sure that if the empty property list was specified, we won't show any
+                           properties. */
                         if (isempty(optarg) && !arg_properties) {
                                 arg_properties = new0(char*, 1);
                                 if (!arg_properties)
                                         return log_oom();
-                        } else
+                        } else {
+                                const char *p;
+
                                 for (p = optarg;;) {
                                         _cleanup_free_ char *prop = NULL;
 
@@ -7653,11 +8374,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         if (r == 0)
                                                 break;
 
-                                        if (strv_push(&arg_properties, prop) < 0)
+                                        if (strv_consume(&arg_properties, TAKE_PTR(prop)) < 0)
                                                 return log_oom();
-
-                                        prop = NULL;
                                 }
+                        }
 
                         /* If the user asked for a particular
                          * property, show it to him, even if it is
@@ -7665,7 +8385,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_all = true;
 
                         break;
-                }
 
                 case 'a':
                         arg_all = true;
@@ -7840,7 +8559,30 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_firmware_setup = true;
                         break;
 
+                case ARG_BOOT_LOADER_MENU:
+
+                        r = parse_sec(optarg, &arg_boot_loader_menu);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --boot-loader-menu= argument '%s': %m", optarg);
+
+                        break;
+
+                case ARG_BOOT_LOADER_ENTRY:
+
+                        if (streq(optarg, "help")) { /* Yes, this means, "help" is not a valid boot loader entry name we can deal with */
+                                r = help_boot_loader_entry();
+                                if (r < 0)
+                                        return r;
+
+                                return 0;
+                        }
+
+                        arg_boot_loader_entry = empty_to_null(optarg);
+                        break;
+
                 case ARG_STATE: {
+                        const char *p;
+
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "--state= requires arguments.");
@@ -7859,10 +8601,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                         return 0;
                                 }
 
-                                if (strv_push(&arg_states, s) < 0)
+                                if (strv_consume(&arg_states, TAKE_PTR(s)) < 0)
                                         return log_oom();
-
-                                s = NULL;
                         }
                         break;
                 }
@@ -7897,11 +8637,47 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case 'T':
+                        arg_show_transaction = true;
+                        break;
+
+                case ARG_WHAT: {
+                        const char *p;
+
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--what= requires arguments.");
+
+                        for (p = optarg;;) {
+                                _cleanup_free_ char *k = NULL;
+
+                                r = extract_first_word(&p, &k, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse directory type: %s", optarg);
+                                if (r == 0)
+                                        break;
+
+                                if (streq(k, "help")) {
+                                        puts("runtime\n"
+                                             "state\n"
+                                             "cache\n"
+                                             "logs\n"
+                                             "configuration");
+                                        return 0;
+                                }
+
+                                r = strv_consume(&arg_clean_what, TAKE_PTR(k));
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        break;
+                }
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
                         log_notice("Hint: to specify units starting with a dash, use \"--\":\n"
-                                   "      %s [OPTIONS...] {COMMAND} -- -.%s ...",
+                                   "      %s [OPTIONS...] COMMAND -- -.%s ...",
                                    program_invocation_name, optarg ?: "mount");
                         _fallthrough_;
 
@@ -8005,7 +8781,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 }
 
         if (arg_action == ACTION_REBOOT && (argc == optind || argc == optind + 1)) {
-                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL);
+                r = update_reboot_parameter_and_warn(argc == optind + 1 ? argv[optind] : NULL, false);
                 if (r < 0)
                         return r;
         } else if (optind < argc)
@@ -8013,56 +8789,6 @@ static int halt_parse_argv(int argc, char *argv[]) {
                                        "Too many arguments.");
 
         return 1;
-}
-
-static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
-        assert(t);
-        assert(_u);
-
-        if (streq(t, "now"))
-                *_u = 0;
-        else if (!strchr(t, ':')) {
-                uint64_t u;
-
-                if (safe_atou64(t, &u) < 0)
-                        return -EINVAL;
-
-                *_u = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
-        } else {
-                char *e = NULL;
-                long hour, minute;
-                struct tm tm = {};
-                time_t s;
-                usec_t n;
-
-                errno = 0;
-                hour = strtol(t, &e, 10);
-                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
-                        return -EINVAL;
-
-                minute = strtol(e+1, &e, 10);
-                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
-                        return -EINVAL;
-
-                n = now(CLOCK_REALTIME);
-                s = (time_t) (n / USEC_PER_SEC);
-
-                assert_se(localtime_r(&s, &tm));
-
-                tm.tm_hour = (int) hour;
-                tm.tm_min = (int) minute;
-                tm.tm_sec = 0;
-
-                s = mktime(&tm);
-                assert(s >= 0);
-
-                *_u = (usec_t) s * USEC_PER_SEC;
-
-                while (*_u <= n)
-                        *_u += USEC_PER_DAY;
-        }
-
-        return 0;
 }
 
 static int shutdown_parse_argv(int argc, char *argv[]) {
@@ -8365,121 +9091,83 @@ _pure_ static int action_to_runlevel(void) {
         };
 
         assert(arg_action >= 0 && arg_action < _ACTION_MAX);
-
         return table[arg_action];
 }
 #endif
 
-static int talk_initctl(void) {
-#if HAVE_SYSV_COMPAT
-        struct init_request request = {
-                .magic = INIT_MAGIC,
-                .sleeptime  = 0,
-                .cmd = INIT_CMD_RUNLVL
-        };
-
-        _cleanup_close_ int fd = -1;
-        char rl;
-        int r;
-        const char *p;
-
-        rl = action_to_runlevel();
-        if (!rl)
-                return 0;
-
-        request.runlevel = rl;
-
-        FOREACH_STRING(p, "/run/initctl", "/dev/initctl") {
-                fd = open(p, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
-                if (fd >= 0 || errno != ENOENT)
-                        break;
-        }
-        if (fd < 0) {
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_error_errno(errno, "Failed to open initctl fifo: %m");
-        }
-
-        r = loop_write(fd, &request, sizeof(request), false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to %s: %m", p);
-
-        return 1;
-#else
-        return 0;
-#endif
-}
-
 static int systemctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                list_unit_files      },
-                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_sockets         },
-                { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_timers          },
-                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY|VERB_MUST_BE_ROOT, list_machines },
-                { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, trivial_method       },
-                { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, cancel_job           },
-                { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "reload-or-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatbility with old systemctl <= 228 */
-                { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
-                { "force-reload",          2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with RH */
-                { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit           },
-                { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit            },
-                { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
-                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    }, /* deprecated alias of is-active */
-                { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },
-                { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
-                { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                  },
-                { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
-                { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
-                { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload        },
-                { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload        },
-                { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment     },
-                { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment      },
-                { "unset-environment",     2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment      },
-                { "import-environment",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, import_environment   },
-                { "halt",                  VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "poweroff",              VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "reboot",                VERB_ANY, 2,        VERB_ONLINE_ONLY, start_system_special },
-                { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "suspend-then-hibernate",VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_special        },
-                { "rescue",                VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "emergency",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
-                { "exit",                  VERB_ANY, 2,        VERB_ONLINE_ONLY, start_special        },
-                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, reset_failed         },
-                { "enable",                2,        VERB_ANY, 0,                enable_unit          },
-                { "disable",               2,        VERB_ANY, 0,                enable_unit          },
-                { "is-enabled",            2,        VERB_ANY, 0,                unit_is_enabled      },
-                { "reenable",              2,        VERB_ANY, 0,                enable_unit          },
-                { "preset",                2,        VERB_ANY, 0,                enable_unit          },
-                { "preset-all",            VERB_ANY, 1,        0,                preset_all           },
-                { "mask",                  2,        VERB_ANY, 0,                enable_unit          },
-                { "unmask",                2,        VERB_ANY, 0,                enable_unit          },
-                { "link",                  2,        VERB_ANY, 0,                enable_unit          },
-                { "revert",                2,        VERB_ANY, 0,                enable_unit          },
-                { "switch-root",           2,        VERB_ANY, VERB_ONLINE_ONLY, switch_root          },
-                { "list-dependencies",     VERB_ANY, 2,        VERB_ONLINE_ONLY, list_dependencies    },
-                { "set-default",           2,        2,        0,                set_default          },
-                { "get-default",           VERB_ANY, 1,        0,                get_default          },
-                { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, set_property         },
-                { "is-system-running",     VERB_ANY, 1,        0,                is_system_running    },
-                { "add-wants",             3,        VERB_ANY, 0,                add_dependency       },
-                { "add-requires",          3,        VERB_ANY, 0,                add_dependency       },
-                { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, edit                 },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                list_unit_files         },
+                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_sockets            },
+                { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_timers             },
+                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_jobs               },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_machines           },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, trivial_method          },
+                { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, cancel_job              },
+                { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with ALTLinux */
+                { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "reload-or-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              },
+                { "force-reload",          2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with SysV */
+                { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with ALTLinux */
+                { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with RH */
+                { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit              },
+                { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit               },
+                { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, clean_unit              },
+                { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active       },
+                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active       }, /* deprecated alias of is-active */
+                { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed       },
+                { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                    },
+                { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                     },
+                { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                    },
+                { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                    },
+                { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
+                { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
+                { "log-level",             VERB_ANY, 2,        0,                log_level               },
+                { "log-target",            VERB_ANY, 2,        0,                log_target              },
+                { "service-watchdogs",     VERB_ANY, 2,        0,                service_watchdogs       },
+                { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment        },
+                { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },
+                { "unset-environment",     2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },
+                { "import-environment",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, import_environment      },
+                { "halt",                  VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "poweroff",              VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "reboot",                VERB_ANY, 2,        VERB_ONLINE_ONLY, start_system_special    },
+                { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "suspend-then-hibernate",VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_special           },
+                { "rescue",                VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "emergency",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special    },
+                { "exit",                  VERB_ANY, 2,        VERB_ONLINE_ONLY, start_special           },
+                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, reset_failed            },
+                { "enable",                2,        VERB_ANY, 0,                enable_unit             },
+                { "disable",               2,        VERB_ANY, 0,                enable_unit             },
+                { "is-enabled",            2,        VERB_ANY, 0,                unit_is_enabled         },
+                { "reenable",              2,        VERB_ANY, 0,                enable_unit             },
+                { "preset",                2,        VERB_ANY, 0,                enable_unit             },
+                { "preset-all",            VERB_ANY, 1,        0,                preset_all              },
+                { "mask",                  2,        VERB_ANY, 0,                enable_unit             },
+                { "unmask",                2,        VERB_ANY, 0,                enable_unit             },
+                { "link",                  2,        VERB_ANY, 0,                enable_unit             },
+                { "revert",                2,        VERB_ANY, 0,                enable_unit             },
+                { "switch-root",           2,        VERB_ANY, VERB_ONLINE_ONLY, switch_root             },
+                { "list-dependencies",     VERB_ANY, 2,        VERB_ONLINE_ONLY, list_dependencies       },
+                { "set-default",           2,        2,        0,                set_default             },
+                { "get-default",           VERB_ANY, 1,        0,                get_default             },
+                { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, set_property            },
+                { "is-system-running",     VERB_ANY, 1,        0,                is_system_running       },
+                { "add-wants",             3,        VERB_ANY, 0,                add_dependency          },
+                { "add-requires",          3,        VERB_ANY, 0,                add_dependency          },
+                { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, edit                    },
                 {}
         };
 
@@ -8502,12 +9190,14 @@ static int reload_with_fallback(void) {
 
 static int start_with_fallback(void) {
         /* First, try systemd via D-Bus. */
-        if (start_unit(0, NULL, NULL) >= 0)
+        if (start_unit(0, NULL, NULL) == 0)
                 return 0;
 
+#if HAVE_SYSV_COMPAT
         /* Nothing else worked, so let's try /dev/initctl */
-        if (talk_initctl() > 0)
+        if (talk_initctl(action_to_runlevel()) > 0)
                 return 0;
+#endif
 
         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                "Failed to talk to init daemon.");
@@ -8607,8 +9297,8 @@ static int logind_schedule_shutdown(void) {
                 log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
         return 0;
 #else
-        log_error("Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Cannot schedule shutdown without logind support, proceeding with immediate shutdown.");
 #endif
 }
 
@@ -8714,15 +9404,13 @@ static int logind_cancel_shutdown(void) {
 
         return 0;
 #else
-        log_error("Not compiled with logind support, cannot cancel scheduled shutdowns.");
-        return -ENOSYS;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
+                               "Not compiled with logind support, cannot cancel scheduled shutdowns.");
 #endif
 }
 
 static int run(int argc, char *argv[]) {
         int r;
-
-        argv_cmdline = argv[0];
 
         setlocale(LC_ALL, "");
         log_parse_environment();
@@ -8807,14 +9495,6 @@ static int run(int argc, char *argv[]) {
 
 finish:
         release_busses();
-
-        strv_free(arg_types);
-        strv_free(arg_states);
-        strv_free(arg_properties);
-
-        strv_free(arg_wall);
-        free(arg_root);
-        free(arg_esp_path);
 
         /* Note that we return r here, not 0, so that we can implement the LSB-like return codes */
         return r;

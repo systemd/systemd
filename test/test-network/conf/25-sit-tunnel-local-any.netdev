@@ -1,0 +1,7 @@
+[NetDev]
+Name=sittun98
+Kind=sit
+
+[Tunnel]
+Local=any
+Remote=10.65.223.239

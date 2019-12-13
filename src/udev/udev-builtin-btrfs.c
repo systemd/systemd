@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
+#include <linux/btrfs.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
 #include "device-util.h"
 #include "fd-util.h"
-#include "missing.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -33,7 +33,7 @@ static int builtin_btrfs(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_btrfs = {
+const UdevBuiltin udev_builtin_btrfs = {
         .name = "btrfs",
         .cmd = builtin_btrfs,
         .help = "btrfs volume management",

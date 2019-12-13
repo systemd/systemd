@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.device">
   <refentryinfo>
@@ -54,7 +51,7 @@
 
     <para>Device units are named after the <filename>/sys</filename>
     and <filename>/dev</filename> paths they control. Example: the
-    device <filename noindex='true'>/dev/sda5</filename> is exposed in
+    device <filename index="false">/dev/sda5</filename> is exposed in
     systemd as <filename>dev-sda5.device</filename>. For details about
     the escaping logic used to convert a file system path to a unit
     name see

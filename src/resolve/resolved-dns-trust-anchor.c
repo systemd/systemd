@@ -9,10 +9,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
-#include "resolved-dns-trust-anchor.h"
 #include "resolved-dns-dnssec.h"
+#include "resolved-dns-trust-anchor.h"
 #include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -214,13 +216,13 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse domain in line %s:%u: %m", path, line);
 
         r = dns_name_is_valid(domain);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+                return log_warning_errno(r, "Failed to check validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
         if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;
@@ -384,13 +386,13 @@ static int dns_trust_anchor_load_negative(DnsTrustAnchor *d, const char *path, u
         assert(d);
         assert(line);
 
-        r = extract_first_word(&p, &domain, NULL, EXTRACT_QUOTES);
+        r = extract_first_word(&p, &domain, NULL, EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_warning_errno(r, "Unable to parse line %s:%u: %m", path, line);
 
         r = dns_name_is_valid(domain);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chack validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
+                return log_warning_errno(r, "Failed to check validity of domain name '%s', at line %s:%u, ignoring line: %m", domain, path, line);
         if (r == 0) {
                 log_warning("Domain name %s is invalid, at line %s:%u, ignoring line.", domain, path, line);
                 return -EINVAL;

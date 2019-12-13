@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "efivars.h"
+#include "efi-loader.h"
 #include "generator.h"
 #include "log.h"
 #include "mkdir.h"

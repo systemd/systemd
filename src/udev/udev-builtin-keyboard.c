@@ -2,9 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <linux/input.h>
 
@@ -251,7 +249,7 @@ static int builtin_keyboard(sd_device *dev, int argc, char *argv[], bool test) {
         return 0;
 }
 
-const struct udev_builtin udev_builtin_keyboard = {
+const UdevBuiltin udev_builtin_keyboard = {
         .name = "keyboard",
         .cmd = builtin_keyboard,
         .help = "Keyboard scan code to key mapping",

@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -40,6 +39,8 @@ static int detect_vm_cpuid(void) {
                 /* https://wiki.freebsd.org/bhyve */
                 { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
                 { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
+                /* https://projectacrn.org */
+                { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
         };
 
         uint32_t eax, ebx, ecx, edx;
@@ -116,6 +117,8 @@ static int detect_vm_device_tree(void) {
                 return VIRTUALIZATION_KVM;
         else if (strstr(hvtype, "xen"))
                 return VIRTUALIZATION_XEN;
+        else if (strstr(hvtype, "vmware"))
+                return VIRTUALIZATION_VMWARE;
         else
                 return VIRTUALIZATION_VM_OTHER;
 #else
@@ -138,17 +141,17 @@ static int detect_vm_dmi(void) {
                 const char *vendor;
                 int id;
         } dmi_vendor_table[] = {
-                { "KVM",           VIRTUALIZATION_KVM       },
-                { "QEMU",          VIRTUALIZATION_QEMU      },
-                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                { "VMware",        VIRTUALIZATION_VMWARE    },
-                { "VMW",           VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",  VIRTUALIZATION_ORACLE    },
-                { "Xen",           VIRTUALIZATION_XEN       },
-                { "Bochs",         VIRTUALIZATION_BOCHS     },
-                { "Parallels",     VIRTUALIZATION_PARALLELS },
+                { "KVM",                 VIRTUALIZATION_KVM       },
+                { "QEMU",                VIRTUALIZATION_QEMU      },                
+                { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
+                { "VMW",                 VIRTUALIZATION_VMWARE    },
+                { "innotek GmbH",        VIRTUALIZATION_ORACLE    },
+                { "Oracle Corporation",  VIRTUALIZATION_ORACLE    },
+                { "Xen",                 VIRTUALIZATION_XEN       },
+                { "Bochs",               VIRTUALIZATION_BOCHS     },
+                { "Parallels",           VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",         VIRTUALIZATION_BHYVE     },
+                { "BHYVE",               VIRTUALIZATION_BHYVE     },
         };
         unsigned i;
         int r;
@@ -196,13 +199,12 @@ static int detect_vm_xen(void) {
 /* Returns -errno, or 0 for domU, or 1 for dom0 */
 static int detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
-        char *cap, *i;
         int r;
 
         r = read_one_line_file(PATH_FEATURES, &domcap);
         if (r < 0 && r != -ENOENT)
                 return r;
-        if (r == 0) {
+        if (r >= 0) {
                 unsigned long features;
 
                 /* Here, we need to use sscanf() instead of safe_atoul()
@@ -227,17 +229,22 @@ static int detect_vm_xen_dom0(void) {
         if (r < 0)
                 return r;
 
-        i = domcap;
-        while ((cap = strsep(&i, ",")))
-                if (streq(cap, "control_d"))
-                        break;
-        if (!cap) {
-                log_debug("Virtualization XEN DomU found (/proc/xen/capabilites)");
-                return 0;
-        }
+        for (const char *i = domcap;;) {
+                _cleanup_free_ char *cap = NULL;
 
-        log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
-        return 1;
+                r = extract_first_word(&i, &cap, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Virtualization XEN DomU found (/proc/xen/capabilities)");
+                        return 0;
+                }
+
+                if (streq(cap, "control_d")) {
+                        log_debug("Virtualization XEN Dom0 ignored (/proc/xen/capabilities)");
+                        return 1;
+                }
+        }
 }
 
 static int detect_vm_hypervisor(void) {
@@ -426,7 +433,6 @@ finish:
 }
 
 int detect_container(void) {
-
         static const struct {
                 const char *value;
                 int id;
@@ -435,11 +441,14 @@ int detect_container(void) {
                 { "lxc-libvirt",    VIRTUALIZATION_LXC_LIBVIRT    },
                 { "systemd-nspawn", VIRTUALIZATION_SYSTEMD_NSPAWN },
                 { "docker",         VIRTUALIZATION_DOCKER         },
+                { "podman",         VIRTUALIZATION_PODMAN         },
                 { "rkt",            VIRTUALIZATION_RKT            },
+                { "wsl",            VIRTUALIZATION_WSL            },
         };
 
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL;
+        _cleanup_free_ char *o = NULL;
         const char *e = NULL;
         unsigned j;
         int r;
@@ -454,10 +463,25 @@ int detect_container(void) {
                 goto finish;
         }
 
-        if (getpid_cached() == 1) {
-                /* If we are PID 1 we can just check our own environment variable, and that's authoritative. */
+        /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364 */
+        r = read_one_line_file("/proc/sys/kernel/osrelease", &o);
+        if (r >= 0) {
+                if (strstr(o, "Microsoft") || strstr(o, "WSL")) {
+                        r = VIRTUALIZATION_WSL;
+                        goto finish;
+                }
+        }
 
+        if (getpid_cached() == 1) {
+                /* If we are PID 1 we can just check our own environment variable, and that's authoritative.
+                 * We distinguish three cases:
+                 * - the variable is not defined → we jump to other checks
+                 * - the variable is defined to an empty value → we are not in a container
+                 * - anything else → some container, either one of the known ones or "container-other"
+                 */
                 e = getenv("container");
+                if (!e)
+                        goto check_sched;
                 if (isempty(e)) {
                         r = VIRTUALIZATION_NONE;
                         goto finish;
@@ -469,11 +493,11 @@ int detect_container(void) {
         /* Otherwise, PID 1 might have dropped this information into a file in /run. This is better than accessing
          * /proc/1/environ, since we don't need CAP_SYS_PTRACE for that. */
         r = read_one_line_file("/run/systemd/container", &m);
-        if (r >= 0) {
+        if (r > 0) {
                 e = m;
                 goto translate_name;
         }
-        if (r != -ENOENT)
+        if (!IN_SET(r, -ENOENT, 0))
                 return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
 
         /* Fallback for cases where PID 1 was not systemd (for example, cases where init=/bin/sh is used. */
@@ -485,8 +509,9 @@ int detect_container(void) {
         if (r < 0) /* This only works if we have CAP_SYS_PTRACE, hence let's better ignore failures here */
                 log_debug_errno(r, "Failed to read $container of PID 1, ignoring: %m");
 
-        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. Hence, if the PID shown
-         * there is not 1, we know we are in a PID namespace. and hence a container. */
+        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. If the PID
+         * shown there is not 1, we know we are in a PID namespace and hence a container. */
+ check_sched:
         r = read_one_line_file("/proc/1/sched", &m);
         if (r >= 0) {
                 const char *t;
@@ -628,6 +653,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_PARALLELS] = "parallels",
         [VIRTUALIZATION_BHYVE] = "bhyve",
         [VIRTUALIZATION_QNX] = "qnx",
+        [VIRTUALIZATION_ACRN] = "acrn",
         [VIRTUALIZATION_VM_OTHER] = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN] = "systemd-nspawn",
@@ -635,7 +661,9 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_LXC] = "lxc",
         [VIRTUALIZATION_OPENVZ] = "openvz",
         [VIRTUALIZATION_DOCKER] = "docker",
+        [VIRTUALIZATION_PODMAN] = "podman",
         [VIRTUALIZATION_RKT] = "rkt",
+        [VIRTUALIZATION_WSL] = "wsl",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 

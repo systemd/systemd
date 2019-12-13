@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd-bus-errors"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -112,7 +109,7 @@
     <variablelist>
 
       <varlistentry>
-         <term><varname>SD_BUS_ERROR_FAILED</varname></term>
+         <term><constant>SD_BUS_ERROR_FAILED</constant></term>
          <listitem><para>A generic error indication. See the error
          message for further details. This error name should be
          avoided, in favor of a more expressive error
@@ -120,134 +117,134 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NO_MEMORY</varname></term>
+        <term><constant>SD_BUS_ERROR_NO_MEMORY</constant></term>
         <listitem><para>A memory allocation failed, and the requested
         operation could not be completed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_SERVICE_UNKNOWN</varname></term>
+        <term><constant>SD_BUS_ERROR_SERVICE_UNKNOWN</constant></term>
         <listitem><para>The contacted bus service is unknown and
         cannot be activated.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NAME_HAS_NO_OWNER</varname></term>
+        <term><constant>SD_BUS_ERROR_NAME_HAS_NO_OWNER</constant></term>
         <listitem><para>The specified bus service name currently has
         no owner.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NO_REPLY</varname></term>
+        <term><constant>SD_BUS_ERROR_NO_REPLY</constant></term>
         <listitem><para>A message did not receive a reply. This error
         is usually generated after a timeout.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_IO_ERROR</varname></term>
+        <term><constant>SD_BUS_ERROR_IO_ERROR</constant></term>
         <listitem><para>Generic input/output error, for example when
         accessing a socket or other I/O context.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_BAD_ADDRESS</varname></term>
+        <term><constant>SD_BUS_ERROR_BAD_ADDRESS</constant></term>
         <listitem><para>The specified D-Bus bus address string is
         malformed.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NOT_SUPPORTED</varname></term>
+        <term><constant>SD_BUS_ERROR_NOT_SUPPORTED</constant></term>
         <listitem><para>The requested operation is not supported on
         the local system.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_LIMITS_EXCEEDED</varname></term>
+        <term><constant>SD_BUS_ERROR_LIMITS_EXCEEDED</constant></term>
         <listitem><para>Some limited resource has been
         exhausted.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_ACCESS_DENIED</varname></term>
+        <term><constant>SD_BUS_ERROR_ACCESS_DENIED</constant></term>
         <listitem><para>Access to a resource has been denied due to security restrictions.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_AUTH_FAILED</varname></term>
+        <term><constant>SD_BUS_ERROR_AUTH_FAILED</constant></term>
         <listitem><para>Authentication did not complete successfully.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NO_SERVER</varname></term>
+        <term><constant>SD_BUS_ERROR_NO_SERVER</constant></term>
         <listitem><para>Unable to connect to the specified server.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_TIMEOUT</varname></term>
+        <term><constant>SD_BUS_ERROR_TIMEOUT</constant></term>
         <listitem><para>An operation timed out. Note that method calls
         which timeout generate a
-        <varname>SD_BUS_ERROR_NO_REPLY</varname>.</para></listitem>
+        <constant>SD_BUS_ERROR_NO_REPLY</constant>.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_NO_NETWORK</varname></term>
+        <term><constant>SD_BUS_ERROR_NO_NETWORK</constant></term>
         <listitem><para>No network available to execute requested network operation on.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_ADDRESS_IN_USE</varname></term>
+        <term><constant>SD_BUS_ERROR_ADDRESS_IN_USE</constant></term>
         <listitem><para>The specified network address is already being listened on.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_DISCONNECTED</varname></term>
+        <term><constant>SD_BUS_ERROR_DISCONNECTED</constant></term>
         <listitem><para>The connection has been terminated.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_INVALID_ARGS</varname></term>
+        <term><constant>SD_BUS_ERROR_INVALID_ARGS</constant></term>
         <listitem><para>One or more invalid arguments have been passed.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_FILE_NOT_FOUND</varname></term>
+        <term><constant>SD_BUS_ERROR_FILE_NOT_FOUND</constant></term>
         <listitem><para>The requested file could not be found.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_FILE_EXISTS</varname></term>
+        <term><constant>SD_BUS_ERROR_FILE_EXISTS</constant></term>
         <listitem><para>The requested file already exists.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_UNKNOWN_METHOD</varname></term>
+        <term><constant>SD_BUS_ERROR_UNKNOWN_METHOD</constant></term>
         <listitem><para>The requested method does not exist in the selected interface.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_UNKNOWN_OBJECT</varname></term>
+        <term><constant>SD_BUS_ERROR_UNKNOWN_OBJECT</constant></term>
         <listitem><para>The requested object does not exist in the selected service.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_UNKNOWN_INTERFACE</varname></term>
+        <term><constant>SD_BUS_ERROR_UNKNOWN_INTERFACE</constant></term>
         <listitem><para>The requested interface does not exist on the selected object.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_UNKNOWN_PROPERTY</varname></term>
+        <term><constant>SD_BUS_ERROR_UNKNOWN_PROPERTY</constant></term>
         <listitem><para>The requested property does not exist in the selected interface.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_PROPERTY_READ_ONLY</varname></term>
+        <term><constant>SD_BUS_ERROR_PROPERTY_READ_ONLY</constant></term>
         <listitem><para>A write operation was requested on a read-only property.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN</varname></term>
+        <term><constant>SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN</constant></term>
         <listitem><para>The requested PID is not known.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_INVALID_SIGNATURE</varname></term>
+        <term><constant>SD_BUS_ERROR_INVALID_SIGNATURE</constant></term>
         <listitem><para>The specified message signature is not
         valid.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_INCONSISTENT_MESSAGE</varname></term>
+        <term><constant>SD_BUS_ERROR_INCONSISTENT_MESSAGE</constant></term>
         <listitem><para>The passed message does not validate
         correctly.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_MATCH_RULE_NOT_FOUND</varname></term>
+        <term><constant>SD_BUS_ERROR_MATCH_RULE_NOT_FOUND</constant></term>
         <listitem><para>The specified match rule does not exist.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_MATCH_RULE_INVALID</varname></term>
+        <term><constant>SD_BUS_ERROR_MATCH_RULE_INVALID</constant></term>
         <listitem><para>The specified match rule is invalid.</para></listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED</varname></term>
+        <term><constant>SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED</constant></term>
         <listitem><para>Access to the requested operation is not
         permitted. However, it might be available after interactive
         authentication. This is usually returned by method calls

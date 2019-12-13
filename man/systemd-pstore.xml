@@ -1,0 +1,99 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-pstore" conditional='ENABLE_PSTORE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-pstore</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-pstore</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-pstore</refname>
+    <refname>systemd-pstore.service</refname>
+    <refpurpose>Tool to archive contents of the persistent storage filesytem</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/systemd-pstore</filename></para>
+    <para><filename>systemd-pstore.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para><filename>systemd-pstore.service</filename> is a system service that archives the
+    contents of the Linux persistent storage filesystem, pstore, to other storage,
+    thus preserving the existing information contained in the pstore, and clearing
+    pstore storage for future error events.</para>
+
+    <para>Linux provides a persistent storage file system, pstore, that can store
+    error records when the kernel dies (or reboots or powers-off). These records in
+    turn can be referenced to debug kernel problems (currently the kernel stuffs
+    the tail of the dmesg, which also contains a stack backtrace, into pstore).</para>
+
+    <para>The pstore file system supports a variety of backends that map onto persistent
+    storage, such as the ACPI ERST and UEFI variables. The pstore backends
+    typically offer a relatively small amount of persistent storage, e.g. 64KiB,
+    which can quickly fill up and thus prevent subsequent kernel crashes from
+    recording errors. Thus there is a need to monitor and extract the pstore
+    contents so that future kernel problems can also record information in the
+    pstore.</para>
+
+    <para>The pstore service is independent of the kdump service. In cloud environments
+    specifically, host and guest filesystems are on remote filesystems (eg. iSCSI
+    or NFS), thus kdump relies [implicitly and/or explicitly] upon proper operation
+    of networking software *and* hardware *and* infrastructure.  Thus it may not be
+    possible to capture a kernel coredump to a file since writes over the network
+    may not be possible.</para>
+
+    <para>The pstore backend, on the other hand, is completely local and provides a path
+    to store error records which will survive a reboot and aid in post-mortem
+    debugging.</para>
+
+    <para>The <command>systemd-pstore</command> executable does the actual work. Upon starting,
+    the <filename>pstore.conf</filename> is read to obtain options, then the /sys/fs/pstore
+    directory contents are processed according to the options. Pstore files are written to the
+    journal, and optionally saved into /var/lib/systemd/pstore.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration</title>
+
+    <para>The behavior of <command>systemd-pstore</command> is configured through the configuration file
+    <filename>/etc/systemd/pstore.conf</filename> and corresponding snippets
+    <filename>/etc/systemd/pstore.conf.d/*.conf</filename>, see
+    <citerefentry><refentrytitle>pstore.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <refsect2>
+      <title>Disabling pstore processing</title>
+
+      <para>To disable pstore processing by <command>systemd-pstore</command>,
+      set <programlisting>Storage=none</programlisting> in
+      <citerefentry><refentrytitle>pstore.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Usage</title>
+    <para>Data stored in the journal can be viewed with
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    as usual.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>pstore.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

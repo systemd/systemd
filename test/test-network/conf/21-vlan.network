@@ -1,2 +1,7 @@
 [Match]
-Name=test1
+Name=vlan99
+
+[Network]
+IPv6AcceptRA=false
+Address=192.168.23.5/24
+LinkLocalAddressing=yes

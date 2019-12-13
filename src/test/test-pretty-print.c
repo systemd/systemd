@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "macro.h"
@@ -12,7 +15,7 @@ static void test_terminal_urlify(void) {
         _cleanup_free_ char *formatted = NULL;
 
         assert_se(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd/", "systemd homepage", &formatted) >= 0);
-        printf("Hey, considere visiting the %s right now! It is very good!\n", formatted);
+        printf("Hey, consider visiting the %s right now! It is very good!\n", formatted);
 
         formatted = mfree(formatted);
 

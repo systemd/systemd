@@ -1,68 +1,68 @@
-#compdef systemd-analyze
+#compdef systemd-analyze                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_systemd-analyze_log-level] )) ||
-_systemd-analyze_log-level() {
-    local -a _levels
-    _levels=(debug info notice warning err crit alert emerg)
-    _describe -t level 'logging level' _levels || compadd "$@"
-}
+    _systemd-analyze_log-level() {
+        local -a _levels
+        _levels=(debug info notice warning err crit alert emerg)
+        _describe -t level 'logging level' _levels || compadd "$@"
+    }
 
 (( $+functions[_systemd-analyze_log-target] )) ||
-_systemd-analyze_log-target() {
-    local -a _targets
-    _targets=(console journal kmsg journal-or-kmsg null)
-    _describe -t target 'logging target' _targets || compadd "$@"
-}
+    _systemd-analyze_log-target() {
+        local -a _targets
+        _targets=(console journal kmsg journal-or-kmsg null)
+        _describe -t target 'logging target' _targets || compadd "$@"
+    }
 
 (( $+functions[_systemd-analyze_verify] )) ||
-_systemd-analyze_verify() {
-    _sd_unit_files
-}
+    _systemd-analyze_verify() {
+        _sd_unit_files
+    }
 
 (( $+functions[_systemd-analyze_service-watchdogs] )) ||
-_systemd-analyze_service-watchdogs() {
-    local -a _states
-    _states=(on off)
-    _describe -t state 'state' _states || compadd "$@"
-}
+    _systemd-analyze_service-watchdogs() {
+        local -a _states
+        _states=(on off)
+        _describe -t state 'state' _states || compadd "$@"
+    }
 
 (( $+functions[_systemd-analyze_commands] )) ||
-_systemd-analyze_commands(){
-    local -a _systemd_analyze_cmds
-    # Descriptions taken from systemd-analyze --help.
-    _systemd_analyze_cmds=(
-        'time:Print time spent in the kernel before reaching userspace'
-        'blame:Print list of running units ordered by time to init'
-        'critical-chain:Print a tree of the time critical chain of units'
-        'plot:Output SVG graphic showing service initialization'
-        'dot:Dump dependency graph (in dot(1) format)'
-        'dump:Dump server status'
-        'unit-paths:List unit load paths'
-        'log-level:Get/set systemd log threshold'
-        'log-target:Get/set systemd log target'
-        'service-watchdogs:Get/set service watchdog status'
-        'syscall-filter:List syscalls in seccomp filter'
-        'verify:Check unit files for correctness'
-        'calendar:Validate repetitive calendar time events'
-    )
+    _systemd-analyze_commands(){
+        local -a _systemd_analyze_cmds
+        # Descriptions taken from systemd-analyze --help.
+        _systemd_analyze_cmds=(
+            'time:Print time spent in the kernel before reaching userspace'
+            'blame:Print list of running units ordered by time to init'
+            'critical-chain:Print a tree of the time critical chain of units'
+            'plot:Output SVG graphic showing service initialization'
+            'dot:Dump dependency graph (in dot(1) format)'
+            'dump:Dump server status'
+            'unit-paths:List unit load paths'
+            'log-level:Get/set systemd log threshold'
+            'log-target:Get/set systemd log target'
+            'service-watchdogs:Get/set service watchdog status'
+            'syscall-filter:List syscalls in seccomp filter'
+            'verify:Check unit files for correctness'
+            'calendar:Validate repetitive calendar time events'
+        )
 
-    if (( CURRENT == 1 )); then
-        _describe "options" _systemd_analyze_cmds
-    else
-        local curcontext="$curcontext"
-        cmd="${${_systemd_analyze_cmds[(r)$words[1]:*]%%:*}}"
-        if (( $#cmd )); then
-            if (( $+functions[_systemd-analyze_$cmd] )) && (( CURRENT == 2 )); then
-                _systemd-analyze_$cmd
-            else
-                _message "no more options"
-            fi
+        if (( CURRENT == 1 )); then
+            _describe "options" _systemd_analyze_cmds
         else
-            _message "unknown systemd-analyze command: $words[1]"
+            local curcontext="$curcontext"
+            cmd="${${_systemd_analyze_cmds[(r)$words[1]:*]%%:*}}"
+            if (( $#cmd )); then
+                if (( $+functions[_systemd-analyze_$cmd] )) && (( CURRENT == 2 )); then
+                    _systemd-analyze_$cmd
+                else
+                    _message "no more options"
+                fi
+            else
+                _message "unknown systemd-analyze command: $words[1]"
+            fi
         fi
-    fi
-}
+    }
 
 _arguments \
     {-h,--help}'[Show help text]' \

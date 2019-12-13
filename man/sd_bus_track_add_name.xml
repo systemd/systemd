@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_track_add_name" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -184,36 +181,36 @@
     <para><function>sd_bus_track_first()</function> and <function>sd_bus_track_next()</function> return the first/next
     name contained in the bus peer tracking object, and <constant>NULL</constant> if the end of the enumeration is
     reached and on error.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EUNATCH</constant></term>
+        <varlistentry>
+          <term><constant>-EUNATCH</constant></term>
 
-        <listitem><para><function>sd_bus_track_remove_name()</function> or
-        <function>sd_bus_track_remove_sender()</function> have been invoked for a name not previously added to the bus
-        peer object.</para></listitem>
-      </varlistentry>
+          <listitem><para><function>sd_bus_track_remove_name()</function> or
+          <function>sd_bus_track_remove_sender()</function> have been invoked for a name not previously added
+          to the bus peer object.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified parameter is invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified parameter is invalid.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

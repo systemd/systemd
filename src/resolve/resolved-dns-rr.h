@@ -9,6 +9,7 @@
 #include "in-addr-util.h"
 #include "list.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
@@ -308,6 +309,8 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr);
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_new_address(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *name);
 int dns_resource_record_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResourceRecord *b);
+
 const char* dns_resource_record_to_string(DnsResourceRecord *rr);
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsResourceRecord*, dns_resource_record_unref);

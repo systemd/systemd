@@ -8,8 +8,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -604,7 +602,13 @@ _public_ int sd_booted(void) {
          * created. This takes place in mount-setup.c, so is
          * guaranteed to happen very early during boot. */
 
-        return laccess("/run/systemd/system/", F_OK) >= 0;
+        if (laccess("/run/systemd/system/", F_OK) >= 0)
+                return true;
+
+        if (errno == ENOENT)
+                return false;
+
+        return -errno;
 }
 
 _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {

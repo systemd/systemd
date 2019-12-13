@@ -1,0 +1,8 @@
+[Match]
+Name=*tun99 *tap99 ip6tnl99 erspan99
+
+[Network]
+IPv6AcceptRA=no
+Address=2001:db8:0:f102::16/64
+Address=10.3.2.3/16
+LinkLocalAddressing=yes

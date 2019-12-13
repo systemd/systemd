@@ -1,0 +1,9 @@
+[Unit]
+Description=Test ProtectHome=tmpfs vs ProtectSystem=strict
+# Test for #11276
+
+[Service]
+ProtectHome=tmpfs
+ProtectSystem=strict
+Type=oneshot
+ExecStart=/bin/sh -x -c 'test "$$(stat -fc %%T /home)" = "tmpfs"'

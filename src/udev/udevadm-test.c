@@ -20,7 +20,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
-#include "udev.h"
+#include "udev-event.h"
 #include "udevadm.h"
 
 static const char *arg_action = "add";
@@ -33,7 +33,7 @@ static int help(void) {
                "Test an event run.\n\n"
                "  -h --help                            Show this help\n"
                "  -V --version                         Show package version\n"
-               "  -a --action=ACTION                   Set action string\n"
+               "  -a --action=ACTION|help              Set action string\n"
                "  -N --resolve-names=early|late|never  When to resolve names\n"
                , program_invocation_short_name);
 
@@ -53,9 +53,22 @@ static int parse_argv(int argc, char *argv[]) {
 
         while ((c = getopt_long(argc, argv, "a:N:Vh", options, NULL)) >= 0)
                 switch (c) {
-                case 'a':
+                case 'a': {
+                        DeviceAction a;
+
+                        if (streq(optarg, "help")) {
+                                dump_device_action_table();
+                                return 0;
+                        }
+
+                        a = device_action_from_string(optarg);
+                        if (a < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid action '%s'", optarg);
+
                         arg_action = optarg;
                         break;
+                }
                 case 'N':
                         arg_resolve_name_timing = resolve_name_timing_from_string(optarg);
                         if (arg_resolve_name_timing < 0)
@@ -135,7 +148,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("%s=%s\n", key, value);
 
-        HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
                 char program[UTIL_PATH_SIZE];
 
                 udev_event_apply_format(event, cmd, program, sizeof(program), false);

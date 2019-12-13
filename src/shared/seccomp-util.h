@@ -38,6 +38,7 @@ enum {
         SYSCALL_FILTER_SET_MOUNT,
         SYSCALL_FILTER_SET_NETWORK_IO,
         SYSCALL_FILTER_SET_OBSOLETE,
+        SYSCALL_FILTER_SET_PKEY,
         SYSCALL_FILTER_SET_PRIVILEGED,
         SYSCALL_FILTER_SET_PROCESS,
         SYSCALL_FILTER_SET_RAW_IO,
@@ -70,21 +71,24 @@ typedef enum SeccompParseFlags {
         SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
 
-int seccomp_parse_syscall_filter_full(
-                const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags,
-                const char *unit, const char *filename, unsigned line);
-
-static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
-        return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
-}
+int seccomp_parse_syscall_filter(
+                const char *name,
+                int errno_num,
+                Hashmap *filter,
+                SeccompParseFlags flags,
+                const char *unit,
+                const char *filename, unsigned line);
 
 int seccomp_restrict_archs(Set *archs);
 int seccomp_restrict_namespaces(unsigned long retain);
 int seccomp_protect_sysctl(void);
+int seccomp_protect_syslog(void);
 int seccomp_restrict_address_families(Set *address_families, bool whitelist);
 int seccomp_restrict_realtime(void);
 int seccomp_memory_deny_write_execute(void);
 int seccomp_lock_personality(unsigned long personality);
+int seccomp_protect_hostname(void);
+int seccomp_restrict_suid_sgid(void);
 
 extern const uint32_t seccomp_local_archs[];
 
@@ -93,6 +97,14 @@ extern const uint32_t seccomp_local_archs[];
              seccomp_local_archs[_i] != (uint32_t) -1;                  \
              (arch) = seccomp_local_archs[++_i])
 
+/* EACCES: does not have the CAP_SYS_ADMIN or no_new_privs == 1
+ * ENOMEM: out of memory, failed to allocate space for a libseccomp structure, or would exceed a defined constant
+ * EFAULT: addresses passed as args (by libseccomp) are invalid */
+#define ERRNO_IS_SECCOMP_FATAL(r)                                       \
+        IN_SET(abs(r), EPERM, EACCES, ENOMEM, EFAULT)
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
 
 int parse_syscall_archs(char **l, Set **archs);
+
+uint32_t scmp_act_kill_process(void);

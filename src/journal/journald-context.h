@@ -2,9 +2,12 @@
 #pragma once
 
 #include <inttypes.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 
 #include "sd-id128.h"
+
+#include "time-util.h"
 
 typedef struct ClientContext ClientContext;
 
@@ -50,8 +53,8 @@ struct ClientContext {
         void *extra_fields_data;
         nsec_t extra_fields_mtime;
 
-        usec_t log_rate_limit_interval;
-        unsigned log_rate_limit_burst;
+        usec_t log_ratelimit_interval;
+        unsigned log_ratelimit_burst;
 };
 
 int client_context_get(

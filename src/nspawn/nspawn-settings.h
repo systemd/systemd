@@ -4,13 +4,21 @@
 #include <sched.h>
 #include <stdio.h>
 
+#if HAVE_SECCOMP
+#include <seccomp.h>
+#endif
+
+#include "sd-bus.h"
 #include "sd-id128.h"
 
+#include "capability-util.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "macro.h"
 #include "missing_resource.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
+#include "time-util.h"
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */
@@ -60,6 +68,15 @@ typedef enum TimezoneMode {
         _TIMEZONE_MODE_INVALID = -1
 } TimezoneMode;
 
+typedef enum ConsoleMode {
+        CONSOLE_INTERACTIVE,
+        CONSOLE_READ_ONLY,
+        CONSOLE_PASSIVE,
+        CONSOLE_PIPE,
+        _CONSOLE_MODE_MAX,
+        _CONSOLE_MODE_INVALID = -1,
+} ConsoleMode;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
@@ -86,9 +103,14 @@ typedef enum SettingsMask {
         SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
         SETTING_TIMEZONE          = UINT64_C(1) << 23,
         SETTING_EPHEMERAL         = UINT64_C(1) << 24,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 25, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (25 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (25 + _RLIMIT_MAX)) -1,
+        SETTING_SLICE             = UINT64_C(1) << 25,
+        SETTING_DIRECTORY         = UINT64_C(1) << 26,
+        SETTING_USE_CGNS          = UINT64_C(1) << 27,
+        SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
+        SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 30, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (30 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (30 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -100,6 +122,22 @@ typedef enum SettingsMask {
 assert_cc(sizeof(SettingsMask) == 8);
 assert_cc(sizeof(SETTING_RLIMIT_FIRST) == 8);
 assert_cc(sizeof(SETTING_RLIMIT_LAST) == 8);
+
+typedef struct DeviceNode {
+        char *path;
+        unsigned major;
+        unsigned minor;
+        mode_t mode;
+        uid_t uid;
+        gid_t gid;
+} DeviceNode;
+
+typedef struct OciHook {
+        char *path;
+        char **args;
+        char **env;
+        usec_t timeout;
+} OciHook;
 
 typedef struct Settings {
         /* [Run] */
@@ -126,8 +164,7 @@ typedef struct Settings {
         int no_new_privileges;
         int oom_score_adjust;
         bool oom_score_adjust_set;
-        cpu_set_t *cpuset;
-        unsigned cpuset_ncpus;
+        CPUSet cpu_set;
         ResolvConfMode resolv_conf;
         LinkJournal link_journal;
         bool link_journal_try;
@@ -150,13 +187,39 @@ typedef struct Settings {
         char **network_ipvlan;
         char **network_veth_extra;
         ExposePort *expose_ports;
+
+        /* Additional fields, that are specific to OCI runtime case */
+        char *bundle;
+        char *root;
+        OciHook *oci_hooks_prestart, *oci_hooks_poststart, *oci_hooks_poststop;
+        size_t n_oci_hooks_prestart, n_oci_hooks_poststart, n_oci_hooks_poststop;
+        char *slice;
+        sd_bus_message *properties;
+        CapabilityQuintet full_capabilities;
+        uid_t uid;
+        gid_t gid;
+        gid_t *supplementary_gids;
+        size_t n_supplementary_gids;
+        unsigned console_width, console_height;
+        ConsoleMode console_mode;
+        DeviceNode *extra_nodes;
+        size_t n_extra_nodes;
+        unsigned long clone_ns_flags;
+        char *network_namespace_path;
+        int use_cgns;
+        char **sysctl;
+#if HAVE_SECCOMP
+        scmp_filter_ctx seccomp;
+#endif
 } Settings;
 
+Settings *settings_new(void);
 int settings_load(FILE *f, const char *path, Settings **ret);
 Settings* settings_free(Settings *s);
 
 bool settings_network_veth(Settings *s);
 bool settings_private_network(Settings *s);
+int settings_allocate_properties(Settings *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 
@@ -170,6 +233,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_pivot_root);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind);
 CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs);
 CONFIG_PARSER_PROTOTYPE(config_parse_overlay);
+CONFIG_PARSER_PROTOTYPE(config_parse_inaccessible);
 CONFIG_PARSER_PROTOTYPE(config_parse_veth_extra);
 CONFIG_PARSER_PROTOTYPE(config_parse_network_zone);
 CONFIG_PARSER_PROTOTYPE(config_parse_boot);
@@ -190,3 +254,5 @@ const char *timezone_mode_to_string(TimezoneMode a) _const_;
 TimezoneMode timezone_mode_from_string(const char *s) _pure_;
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);
+
+void device_node_array_free(DeviceNode *node, size_t n);

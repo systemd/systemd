@@ -2,7 +2,6 @@
 
 #include <netinet/in.h>
 #include <pwd.h>
-#include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -15,8 +14,8 @@
 #include "macro.h"
 #include "missing_prctl.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "tests.h"
-#include "util.h"
 
 static uid_t test_uid = -1;
 static gid_t test_gid = -1;
@@ -99,7 +98,7 @@ static int setup_tests(bool *run_ambient) {
 
         nobody = getpwnam(NOBODY_USER_NAME);
         if (!nobody)
-                return log_error_errno(errno, "Could not find nobody user: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Could not find nobody user: %m");
 
         test_uid = nobody->pw_uid;
         test_gid = nobody->pw_gid;
@@ -196,7 +195,7 @@ static void test_update_inherited_set(void) {
         cap_free(caps);
 }
 
-static void test_set_ambient_caps(void) {
+static void test_apply_ambient_caps(void) {
         cap_t caps;
         uint64_t set = 0;
         cap_flag_value_t fv;
@@ -208,17 +207,48 @@ static void test_set_ambient_caps(void) {
         assert_se(!capability_ambient_set_apply(set, true));
 
         caps = cap_get_proc();
+        assert_se(caps);
         assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert(fv == CAP_SET);
+        assert_se(fv == CAP_SET);
         cap_free(caps);
 
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
+
+        assert_se(!capability_ambient_set_apply(0, true));
+        caps = cap_get_proc();
+        assert_se(caps);
+        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
+        assert_se(fv == CAP_CLEAR);
+        cap_free(caps);
+
+        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+}
+
+static void test_ensure_cap_64bit(void) {
+        _cleanup_free_ char *content = NULL;
+        unsigned long p = 0;
+        int r;
+
+        r = read_one_line_file("/proc/sys/kernel/cap_last_cap", &content);
+        if (r == -ENOENT) /* kernel pre 3.2 */
+                return;
+        assert_se(r >= 0);
+
+        assert_se(safe_atolu(content, &p) >= 0);
+
+        /* If caps don't fit into 64bit anymore, we have a problem, fail the test. */
+        assert_se(p <= 63);
+
+        /* Also check for the header definition */
+        assert_se(CAP_LAST_CAP <= 63);
 }
 
 int main(int argc, char *argv[]) {
         bool run_ambient;
 
         test_setup_logging(LOG_INFO);
+
+        test_ensure_cap_64bit();
 
         test_last_cap_file();
         test_last_cap_probe();
@@ -239,7 +269,7 @@ int main(int argc, char *argv[]) {
         fork_test(test_have_effective_cap);
 
         if (run_ambient)
-                fork_test(test_set_ambient_caps);
+                fork_test(test_apply_ambient_caps);
 
         return 0;
 }

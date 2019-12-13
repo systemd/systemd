@@ -2,9 +2,7 @@
 
 #include <net/if.h>
 
-#include "sd-netlink.h"
-#include "missing.h"
-#include "netdev/vrf.h"
+#include "vrf.h"
 
 static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Vrf *v;
@@ -27,7 +25,8 @@ static int netdev_vrf_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 
 const NetDevVTable vrf_vtable = {
         .object_size = sizeof(Vrf),
-        .sections = "Match\0NetDev\0VRF\0",
+        .sections = NETDEV_COMMON_SECTIONS "VRF\0",
         .fill_message_create = netdev_vrf_fill_message_create,
         .create_type = NETDEV_CREATE_MASTER,
+        .generate_mac = true,
 };

@@ -625,7 +625,7 @@ msgstr ""
 "Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
 
 #~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-#~ msgstr "Strl+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
+#~ msgstr "Strg+C drücken um laufende Dateisystem-Prüfungen abzubrechen"
 
 #~ msgid "Checking in progress on %d disk (%3.1f%% complete)"
 #~ msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"

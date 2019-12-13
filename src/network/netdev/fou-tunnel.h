@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#if HAVE_LINUX_FOU_H
+#include <netinet/in.h>
 #include <linux/fou.h>
-#endif
 
 #include "in-addr-util.h"
-#include "missing_fou.h"
-#include "netdev/netdev.h"
+#include "netdev.h"
 
 typedef enum FooOverUDPEncapType {
         NETDEV_FOO_OVER_UDP_ENCAP_UNSPEC = FOU_ENCAP_UNSPEC,
@@ -23,8 +21,14 @@ typedef struct FouTunnel {
         uint8_t fou_protocol;
 
         uint16_t port;
+        uint16_t peer_port;
+
+        int local_family;
+        int peer_family;
 
         FooOverUDPEncapType fou_encap_type;
+        union in_addr_union local;
+        union in_addr_union peer;
 } FouTunnel;
 
 DEFINE_NETDEV_CAST(FOU, FouTunnel);
@@ -34,3 +38,5 @@ const char *fou_encap_type_to_string(FooOverUDPEncapType d) _const_;
 FooOverUDPEncapType fou_encap_type_from_string(const char *d) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fou_encap_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_fou_tunnel_address);

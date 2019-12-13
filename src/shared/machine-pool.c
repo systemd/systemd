@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <sys/statfs.h>
 
 #include "btrfs-util.h"
 #include "label.h"
 #include "machine-pool.h"
-#include "missing.h"
+#include "missing_magic.h"
 #include "stat-util.h"
 
 static int check_btrfs(void) {

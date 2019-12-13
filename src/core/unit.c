@@ -2,9 +2,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/prctl.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -12,8 +10,10 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "dbus-unit.h"
 #include "dbus.h"
@@ -27,15 +27,17 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "install.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
 #include "macro.h"
-#include "missing.h"
+#include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "serialize.h"
 #include "set.h"
 #include "signal-util.h"
@@ -54,6 +56,16 @@
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
+
+/* Thresholds for logging at INFO level about resource consumption */
+#define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
+#define MENTIONWORTHY_IO_BYTES (1024 * 1024ULL)
+#define MENTIONWORTHY_IP_BYTES (0ULL)
+
+/* Thresholds for logging at INFO level about resource consumption */
+#define NOTICEWORTHY_CPU_NSEC (10*60 * NSEC_PER_SEC) /* 10 minutes */
+#define NOTICEWORTHY_IO_BYTES (10 * 1024 * 1024ULL)  /* 10 MB */
+#define NOTICEWORTHY_IP_BYTES (128 * 1024 * 1024ULL) /* 128 MB */
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -91,7 +103,8 @@ Unit *unit_new(Manager *m, size_t size) {
         u->unit_file_state = _UNIT_FILE_STATE_INVALID;
         u->unit_file_preset = -1;
         u->on_failure_job_mode = JOB_REPLACE;
-        u->cgroup_inotify_wd = -1;
+        u->cgroup_control_inotify_wd = -1;
+        u->cgroup_memory_inotify_wd = -1;
         u->job_timeout = USEC_INFINITY;
         u->job_running_timeout = USEC_INFINITY;
         u->ref_uid = UID_INVALID;
@@ -109,8 +122,11 @@ Unit *unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        RATELIMIT_INIT(u->start_limit, m->default_start_limit_interval, m->default_start_limit_burst);
-        RATELIMIT_INIT(u->auto_stop_ratelimit, 10 * USEC_PER_SEC, 16);
+        u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
+        u->auto_stop_ratelimit = (RateLimit) { 10 * USEC_PER_SEC, 16 };
+
+        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
+                u->io_accounting_last[i] = UINT64_MAX;
 
         return u;
 }
@@ -158,7 +174,6 @@ static void unit_init(Unit *u) {
 
                 cc->cpu_accounting = u->manager->default_cpu_accounting;
                 cc->io_accounting = u->manager->default_io_accounting;
-                cc->ip_accounting = u->manager->default_ip_accounting;
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
@@ -679,6 +694,11 @@ void unit_free(Unit *u) {
         bpf_program_unref(u->ip_bpf_egress);
         bpf_program_unref(u->ip_bpf_egress_installed);
 
+        set_free(u->ip_bpf_custom_ingress);
+        set_free(u->ip_bpf_custom_egress);
+        set_free(u->ip_bpf_custom_ingress_installed);
+        set_free(u->ip_bpf_custom_egress_installed);
+
         bpf_program_unref(u->bpf_device_control_installed);
 
         condition_free_list(u->conditions);
@@ -804,7 +824,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         assert(other);
         assert(d < _UNIT_DEPENDENCY_MAX);
 
-        /* Fix backwards pointers. Let's iterate through all dependendent units of the other unit. */
+        /* Fix backwards pointers. Let's iterate through all dependent units of the other unit. */
         HASHMAP_FOREACH_KEY(v, back, other->dependencies[d], i) {
                 UnitDependency k;
 
@@ -939,6 +959,9 @@ int unit_merge_by_name(Unit *u, const char *name) {
         Unit *other;
         int r;
 
+        /* Either add name to u, or if a unit with name already exists, merge it with u.
+         * If name is a template, do the same for name@instance, where instance is u's instance. */
+
         assert(u);
         assert(name);
 
@@ -1002,7 +1025,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 STRV_FOREACH(dp, c->directories[dt].paths) {
                         _cleanup_free_ char *p;
 
-                        p = strjoin(u->manager->prefix[dt], "/", *dp);
+                        p = path_join(u->manager->prefix[dt], *dp);
                         if (!p)
                                 return -ENOMEM;
 
@@ -1058,6 +1081,15 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
+const char *unit_status_string(Unit *u) {
+        assert(u);
+
+        if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
+                return u->id;
+
+        return unit_description(u);
+}
+
 static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependencyMask mask, bool *space) {
         const struct {
                 UnitDependencyMask mask;
@@ -1105,13 +1137,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         UnitDependency d;
         Iterator i;
         const char *prefix2;
-        char
-                timestamp0[FORMAT_TIMESTAMP_MAX],
-                timestamp1[FORMAT_TIMESTAMP_MAX],
-                timestamp2[FORMAT_TIMESTAMP_MAX],
-                timestamp3[FORMAT_TIMESTAMP_MAX],
-                timestamp4[FORMAT_TIMESTAMP_MAX],
-                timespan[FORMAT_TIMESPAN_MAX];
+        char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
         const char *n;
@@ -1125,7 +1151,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = strjoina(prefix, "\t");
 
         fprintf(f,
-                "%s-> Unit %s:\n"
+                "%s-> Unit %s:\n",
+                prefix, u->id);
+
+        SET_FOREACH(t, u->names, i)
+                if (!streq(t, u->id))
+                        fprintf(f, "%s\tAlias: %s\n", prefix, t);
+
+        fprintf(f,
                 "%s\tDescription: %s\n"
                 "%s\tInstance: %s\n"
                 "%s\tUnit Load State: %s\n"
@@ -1143,16 +1176,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tSlice: %s\n"
                 "%s\tCGroup: %s\n"
                 "%s\tCGroup realized: %s\n",
-                prefix, u->id,
                 prefix, unit_description(u),
                 prefix, strna(u->instance),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, strna(format_timestamp(timestamp0, sizeof(timestamp0), u->state_change_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->inactive_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
-                prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->state_change_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[1], sizeof(timestamp[1]), u->inactive_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[2], sizeof(timestamp[2]), u->active_enter_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[3], sizeof(timestamp[3]), u->active_exit_timestamp.realtime)),
+                prefix, strna(format_timestamp(timestamp[4], sizeof(timestamp[4]), u->inactive_enter_timestamp.realtime)),
                 prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
@@ -1194,9 +1226,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 (void) cg_mask_to_string(m, &s);
                 fprintf(f, "%s\tCGroup delegate mask: %s\n", prefix, strnull(s));
         }
-
-        SET_FOREACH(t, u->names, i)
-                fprintf(f, "%s\tName: %s\n", prefix, t);
 
         if (!sd_id128_is_null(u->invocation_id))
                 fprintf(f, "%s\tInvocation ID: " SD_ID128_FORMAT_STR "\n",
@@ -1251,14 +1280,14 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%s\tCondition Timestamp: %s\n"
                         "%s\tCondition Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->condition_timestamp.realtime)),
+                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->condition_timestamp.realtime)),
                         prefix, yes_no(u->condition_result));
 
         if (dual_timestamp_is_set(&u->assert_timestamp))
                 fprintf(f,
                         "%s\tAssert Timestamp: %s\n"
                         "%s\tAssert Result: %s\n",
-                        prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->assert_timestamp.realtime)),
+                        prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->assert_timestamp.realtime)),
                         prefix, yes_no(u->assert_result));
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
@@ -1317,7 +1346,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         "%s\tMerged into: %s\n",
                         prefix, u->merged_into->id);
         else if (u->load_state == UNIT_ERROR)
-                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror(-u->load_error));
+                fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror_safe(u->load_error));
 
         for (n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
                 fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
@@ -1330,7 +1359,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 /* Common implementation for multiple backends */
-int unit_load_fragment_and_dropin(Unit *u) {
+int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
         int r;
 
         assert(u);
@@ -1340,34 +1369,17 @@ int unit_load_fragment_and_dropin(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (u->load_state == UNIT_STUB)
-                return -ENOENT;
+        if (u->load_state == UNIT_STUB) {
+                if (fragment_required)
+                        return -ENOENT;
+
+                u->load_state = UNIT_LOADED;
+        }
 
         /* Load drop-in directory data. If u is an alias, we might be reloading the
          * target unit needlessly. But we cannot be sure which drops-ins have already
          * been loaded and which not, at least without doing complicated book-keeping,
          * so let's always reread all drop-ins. */
-        return unit_load_dropin(unit_follow_merge(u));
-}
-
-/* Common implementation for multiple backends */
-int unit_load_fragment_and_dropin_optional(Unit *u) {
-        int r;
-
-        assert(u);
-
-        /* Same as unit_load_fragment_and_dropin(), but whether
-         * something can be loaded or not doesn't matter. */
-
-        /* Load a .service/.socket/.slice/… file */
-        r = unit_load_fragment(u);
-        if (r < 0)
-                return r;
-
-        if (u->load_state == UNIT_STUB)
-                u->load_state = UNIT_LOADED;
-
-        /* Load drop-in directory data */
         return unit_load_dropin(unit_follow_merge(u));
 }
 
@@ -1528,16 +1540,11 @@ int unit_load(Unit *u) {
                 u->fragment_mtime = now(CLOCK_REALTIME);
         }
 
-        if (UNIT_VTABLE(u)->load) {
-                r = UNIT_VTABLE(u)->load(u);
-                if (r < 0)
-                        goto fail;
-        }
-
-        if (u->load_state == UNIT_STUB) {
-                r = -ENOENT;
+        r = UNIT_VTABLE(u)->load(u);
+        if (r < 0)
                 goto fail;
-        }
+
+        assert(u->load_state != UNIT_STUB);
 
         if (u->load_state == UNIT_LOADED) {
                 unit_add_to_target_deps_queue(u);
@@ -1589,66 +1596,43 @@ fail:
         return log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 }
 
-static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to_string)(ConditionType t)) {
-        Condition *c;
-        int triggered = -1;
+_printf_(7, 8)
+static int log_unit_internal(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) {
+        Unit *u = userdata;
+        va_list ap;
+        int r;
 
-        assert(u);
-        assert(to_string);
+        va_start(ap, format);
+        if (u)
+                r = log_object_internalv(level, error, file, line, func,
+                                         u->manager->unit_log_field,
+                                         u->id,
+                                         u->manager->invocation_log_field,
+                                         u->invocation_id_string,
+                                         format, ap);
+        else
+                r = log_internalv(level, error,  file, line, func, format, ap);
+        va_end(ap);
 
-        /* If the condition list is empty, then it is true */
-        if (!first)
-                return true;
-
-        /* Otherwise, if all of the non-trigger conditions apply and
-         * if any of the trigger conditions apply (unless there are
-         * none) we return true */
-        LIST_FOREACH(conditions, c, first) {
-                int r;
-
-                r = condition_test(c);
-                if (r < 0)
-                        log_unit_warning(u,
-                                         "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
-                                         to_string(c->type),
-                                         c->trigger ? "|" : "",
-                                         c->negate ? "!" : "",
-                                         c->parameter);
-                else
-                        log_unit_debug(u,
-                                       "%s=%s%s%s %s.",
-                                       to_string(c->type),
-                                       c->trigger ? "|" : "",
-                                       c->negate ? "!" : "",
-                                       c->parameter,
-                                       condition_result_to_string(c->result));
-
-                if (!c->trigger && r <= 0)
-                        return false;
-
-                if (c->trigger && triggered <= 0)
-                        triggered = r > 0;
-        }
-
-        return triggered != 0;
+        return r;
 }
 
-static bool unit_condition_test(Unit *u) {
+static bool unit_test_condition(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = unit_condition_test_list(u, u->conditions, condition_type_to_string);
+        u->condition_result = condition_test_list(u->conditions, condition_type_to_string, log_unit_internal, u);
 
         unit_add_to_dbus_queue(u);
 
         return u->condition_result;
 }
 
-static bool unit_assert_test(Unit *u) {
+static bool unit_test_assert(Unit *u) {
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
-        u->assert_result = unit_condition_test_list(u, u->asserts, assert_type_to_string);
+        u->assert_result = condition_test_list(u->asserts, assert_type_to_string, log_unit_internal, u);
 
         unit_add_to_dbus_queue(u);
 
@@ -1658,7 +1642,7 @@ static bool unit_assert_test(Unit *u) {
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
         const char *d;
 
-        d = unit_description(u);
+        d = unit_status_string(u);
         if (log_get_show_color())
                 d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
 
@@ -1667,12 +1651,12 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
         REENABLE_WARNING;
 }
 
-int unit_start_limit_test(Unit *u) {
+int unit_test_start_limit(Unit *u) {
         const char *reason;
 
         assert(u);
 
-        if (ratelimit_below(&u->start_limit)) {
+        if (ratelimit_below(&u->start_ratelimit)) {
                 u->start_limit_hit = false;
                 return 0;
         }
@@ -1682,9 +1666,11 @@ int unit_start_limit_test(Unit *u) {
 
         reason = strjoina("unit ", u->id, " failed");
 
-        return emergency_action(u->manager, u->start_limit_action,
-                                EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
-                                u->reboot_arg, -1, reason);
+        emergency_action(u->manager, u->start_limit_action,
+                         EMERGENCY_ACTION_IS_WATCHDOG|EMERGENCY_ACTION_WARN,
+                         u->reboot_arg, -1, reason);
+
+        return -ECANCELED;
 }
 
 bool unit_shall_confirm_spawn(Unit *u) {
@@ -1725,16 +1711,20 @@ static bool unit_verify_deps(Unit *u) {
         return true;
 }
 
-/* Errors:
- *         -EBADR:      This unit type does not support starting.
+/* Errors that aren't really errors:
  *         -EALREADY:   Unit is already started.
+ *         -ECOMM:      Condition failed
  *         -EAGAIN:     An operation is already in progress. Retry later.
- *         -ECANCELED:  Too many requests for now.
+ *
+ * Errors that are real errors:
+ *         -EBADR:      This unit type does not support starting.
+ *         -ECANCELED:  Start limit hit, too many requests for now
  *         -EPROTO:     Assert failed
  *         -EINVAL:     Unit not loaded
  *         -EOPNOTSUPP: Unit type not supported
  *         -ENOLINK:    The necessary dependencies are not fulfilled.
  *         -ESTALE:     This unit has been started before and can't be started a second time
+ *         -ENOENT:     This is a triggering unit and unit to trigger is not loaded
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -1742,13 +1732,14 @@ int unit_start(Unit *u) {
 
         assert(u);
 
-        /* If this is already started, then this will succeed. Note
-         * that this will even succeed if this unit is not startable
-         * by the user. This is relied on to detect when we need to
-         * wait for units and when waiting is finished. */
+        /* If this is already started, then this will succeed. Note that this will even succeed if this unit
+         * is not startable by the user. This is relied on to detect when we need to wait for units and when
+         * waiting is finished. */
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
+        if (state == UNIT_MAINTENANCE)
+                return -EAGAIN;
 
         /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
@@ -1758,35 +1749,28 @@ int unit_start(Unit *u) {
         if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_enter_timestamp))
                 return -ESTALE;
 
-        /* If the conditions failed, don't do anything at all. If we
-         * already are activating this call might still be useful to
-         * speed up activation in case there is some hold-off time,
-         * but we don't want to recheck the condition in that case. */
+        /* If the conditions failed, don't do anything at all. If we already are activating this call might
+         * still be useful to speed up activation in case there is some hold-off time, but we don't want to
+         * recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
-            !unit_condition_test(u)) {
-                log_unit_debug(u, "Starting requested but condition failed. Not starting unit.");
-                return -ECOMM;
-        }
+            !unit_test_condition(u))
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(ECOMM), "Starting requested but condition failed. Not starting unit.");
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&
-            !unit_assert_test(u)) {
-                log_unit_notice(u, "Starting requested but asserts failed.");
-                return -EPROTO;
-        }
+            !unit_test_assert(u))
+                return log_unit_notice_errno(u, SYNTHETIC_ERRNO(EPROTO), "Starting requested but asserts failed.");
 
-        /* Units of types that aren't supported cannot be
-         * started. Note that we do this test only after the condition
-         * checks, so that we rather return condition check errors
-         * (which are usually not considered a true failure) than "not
-         * supported" errors (which are considered a failure).
+        /* Units of types that aren't supported cannot be started. Note that we do this test only after the
+         * condition checks, so that we rather return condition check errors (which are usually not
+         * considered a true failure) than "not supported" errors (which are considered a failure).
          */
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return -EOPNOTSUPP;
 
-        /* Let's make sure that the deps really are in order before we start this. Normally the job engine should have
-         * taken care of this already, but let's check this here again. After all, our dependencies might not be in
-         * effect anymore, due to a reload or due to a failed condition. */
+        /* Let's make sure that the deps really are in order before we start this. Normally the job engine
+         * should have taken care of this already, but let's check this here again. After all, our
+         * dependencies might not be in effect anymore, due to a reload or due to a failed condition. */
         if (!unit_verify_deps(u))
                 return -ENOLINK;
 
@@ -1801,11 +1785,9 @@ int unit_start(Unit *u) {
         if (!UNIT_VTABLE(u)->start)
                 return -EBADR;
 
-        /* We don't suppress calls to ->start() here when we are
-         * already starting, to allow this request to be used as a
-         * "hurry up" call, for example when the unit is in some "auto
-         * restart" state where it waits for a holdoff timer to elapse
-         * before it will start again. */
+        /* We don't suppress calls to ->start() here when we are already starting, to allow this request to
+         * be used as a "hurry up" call, for example when the unit is in some "auto restart" state where it
+         * waits for a holdoff timer to elapse before it will start again. */
 
         unit_add_to_dbus_queue(u);
 
@@ -1818,7 +1800,7 @@ bool unit_can_start(Unit *u) {
         if (u->load_state != UNIT_LOADED)
                 return false;
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         /* Scope units may be started only once */
@@ -1867,7 +1849,7 @@ int unit_stop(Unit *u) {
 bool unit_can_stop(Unit *u) {
         assert(u);
 
-        if (!unit_supported(u))
+        if (!unit_type_supported(u->type))
                 return false;
 
         if (u->perpetual)
@@ -1895,7 +1877,7 @@ int unit_reload(Unit *u) {
 
         state = unit_active_state(u);
         if (state == UNIT_RELOADING)
-                return -EALREADY;
+                return -EAGAIN;
 
         if (state != UNIT_ACTIVE) {
                 log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
@@ -2044,7 +2026,7 @@ static void unit_check_binds_to(Unit *u) {
         log_unit_info(u, "Unit is bound to inactive unit %s. Stopping, too.", other->id);
 
         /* A unit we need to run is gone. Sniff. Let's stop this. */
-        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, NULL);
+        r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, NULL, &error, NULL);
         if (r < 0)
                 log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
 }
@@ -2060,25 +2042,25 @@ static void retroactively_start_dependencies(Unit *u) {
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRES], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_WANTS], i)
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL);
+                        manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTS], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTED_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
@@ -2092,7 +2074,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         /* Pull down units which are bound to us recursively if enabled */
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL);
+                        manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(Unit *u) {
@@ -2111,7 +2093,7 @@ void unit_start_on_failure(Unit *u) {
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, &error, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, &error, NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -2129,12 +2111,21 @@ void unit_trigger_notify(Unit *u) {
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
 
+static int raise_level(int log_level, bool condition_info, bool condition_notice) {
+        if (condition_notice && log_level > LOG_NOTICE)
+                return LOG_NOTICE;
+        if (condition_info && log_level > LOG_INFO)
+                return LOG_INFO;
+        return log_level;
+}
+
 static int unit_log_resources(Unit *u) {
-        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + 4];
-        bool any_traffic = false, have_ip_accounting = false;
-        _cleanup_free_ char *igress = NULL, *egress = NULL;
+        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
+        bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
+        _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
+        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a treshold */
         size_t n_message_parts = 0, n_iovec = 0;
-        char* message_parts[3 + 1], *t;
+        char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         CGroupIPAccountingMetric m;
         size_t i;
@@ -2144,6 +2135,12 @@ static int unit_log_resources(Unit *u) {
                 [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
                 [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
                 [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
+        };
+        const char* const io_fields[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = "IO_METRIC_READ_BYTES",
+                [CGROUP_IO_WRITE_BYTES]      = "IO_METRIC_WRITE_BYTES",
+                [CGROUP_IO_READ_OPERATIONS]  = "IO_METRIC_READ_OPERATIONS",
+                [CGROUP_IO_WRITE_OPERATIONS] = "IO_METRIC_WRITE_OPERATIONS",
         };
 
         assert(u);
@@ -2172,6 +2169,75 @@ static int unit_log_resources(Unit *u) {
                 }
 
                 message_parts[n_message_parts++] = t;
+
+                log_level = raise_level(log_level,
+                                        nsec > NOTICEWORTHY_CPU_NSEC,
+                                        nsec > MENTIONWORTHY_CPU_NSEC);
+        }
+
+        for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
+                char buf[FORMAT_BYTES_MAX] = "";
+                uint64_t value = UINT64_MAX;
+
+                assert(io_fields[k]);
+
+                (void) unit_get_io_accounting(u, k, k > 0, &value);
+                if (value == UINT64_MAX)
+                        continue;
+
+                have_io_accounting = true;
+                if (value > 0)
+                        any_io = true;
+
+                /* Format IO accounting data for inclusion in the structured log message */
+                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format the IO accounting data for inclusion in the human language message string, but only
+                 * for the bytes counters (and not for the operations counters) */
+                if (k == CGROUP_IO_READ_BYTES) {
+                        assert(!rr);
+                        rr = strjoin("read ", format_bytes(buf, sizeof(buf), value), " from disk");
+                        if (!rr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                } else if (k == CGROUP_IO_WRITE_BYTES) {
+                        assert(!wr);
+                        wr = strjoin("written ", format_bytes(buf, sizeof(buf), value), " to disk");
+                        if (!wr) {
+                                r = log_oom();
+                                goto finish;
+                        }
+                }
+
+                if (IN_SET(k, CGROUP_IO_READ_BYTES, CGROUP_IO_WRITE_BYTES))
+                        log_level = raise_level(log_level,
+                                                value > MENTIONWORTHY_IO_BYTES,
+                                                value > NOTICEWORTHY_IO_BYTES);
+        }
+
+        if (have_io_accounting) {
+                if (any_io) {
+                        if (rr)
+                                message_parts[n_message_parts++] = TAKE_PTR(rr);
+                        if (wr)
+                                message_parts[n_message_parts++] = TAKE_PTR(wr);
+
+                } else {
+                        char *k;
+
+                        k = strdup("no IO");
+                        if (!k) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        message_parts[n_message_parts++] = k;
+                }
         }
 
         for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
@@ -2212,6 +2278,11 @@ static int unit_log_resources(Unit *u) {
                                 goto finish;
                         }
                 }
+
+                if (IN_SET(m, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
+                        log_level = raise_level(log_level,
+                                                value > MENTIONWORTHY_IP_BYTES,
+                                                value > NOTICEWORTHY_IP_BYTES);
         }
 
         if (have_ip_accounting) {
@@ -2268,7 +2339,7 @@ static int unit_log_resources(Unit *u) {
         t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
-        log_struct_iovec(LOG_INFO, iovec, n_iovec + 4);
+        log_struct_iovec(log_level, iovec, n_iovec + 4);
         r = 0;
 
 finish:
@@ -2330,6 +2401,7 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected = false;
+        JobResult result;
 
         assert(j);
 
@@ -2352,8 +2424,16 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                                if (ns == UNIT_FAILED)
+                                        result = JOB_FAILED;
+                                else if (FLAGS_SET(flags, UNIT_NOTIFY_SKIP_CONDITION))
+                                        result = JOB_SKIPPED;
+                                else
+                                        result = JOB_DONE;
+
+                                job_finish_and_invalidate(j, result, true, false);
+                        }
                 }
 
                 break;
@@ -2501,23 +2581,29 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
                         reason = strjoina("unit ", u->id, " failed");
-                        (void) emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
+                        emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
-                        (void) emergency_action(m, u->success_action, 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
+                        emergency_action(m, u->success_action, 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
                 }
         }
 
         unit_add_to_gc_queue(u);
 }
 
-int unit_watch_pid(Unit *u, pid_t pid) {
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         int r;
 
         assert(u);
         assert(pid_is_valid(pid));
 
         /* Watch a specific PID */
+
+        /* Caller might be sure that this PID belongs to this unit only. Let's take this
+         * opportunity to remove any stalled references to this PID as they can be created
+         * easily (when watching a process which is not our direct child). */
+        if (exclusive)
+                manager_unwatch_pid(u->manager, pid);
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
@@ -2680,7 +2766,7 @@ int unit_enqueue_rewatch_pids(Unit *u) {
 
                 r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: m");
+                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: %m");
 
                 (void) sd_event_source_set_description(s, "tidy-watch-pids");
 
@@ -3116,7 +3202,46 @@ static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd
         new_owner = empty_to_null(new_owner);
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, name, old_owner, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, old_owner, new_owner);
+
+        return 0;
+}
+
+static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const sd_bus_error *e;
+        const char *new_owner;
+        Unit *u = userdata;
+        int r;
+
+        assert(message);
+        assert(u);
+
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
+
+        if (sd_bus_error_is_set(error)) {
+                log_error("Failed to get name owner from bus: %s", error->message);
+                return 0;
+        }
+
+        e = sd_bus_message_get_error(message);
+        if (sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
+                return 0;
+
+        if (e) {
+                log_error("Unexpected error response from GetNameOwner: %s", e->message);
+                return 0;
+        }
+
+        r = sd_bus_message_read(message, "s", &new_owner);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        new_owner = empty_to_null(new_owner);
+
+        if (UNIT_VTABLE(u)->bus_name_owner_change)
+                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, new_owner);
 
         return 0;
 }
@@ -3138,7 +3263,19 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        return sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        int r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(bus,
+                                        &u->get_name_owner_slot,
+                                        "org.freedesktop.DBus",
+                                        "/org/freedesktop/DBus",
+                                        "org.freedesktop.DBus",
+                                        "GetNameOwner",
+                                        get_name_owner_handler,
+                                        u,
+                                        "s", name);
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
@@ -3173,6 +3310,7 @@ void unit_unwatch_bus_name(Unit *u, const char *name) {
 
         (void) hashmap_remove_value(u->manager->watch_bus, name, u);
         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 }
 
 bool unit_can_serialize(Unit *u) {
@@ -3198,11 +3336,25 @@ static int serialize_cgroup_mask(FILE *f, const char *key, CGroupMask mask) {
         return serialize_item(f, key, s);
 }
 
-static const char *ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
         [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
         [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+};
+
+static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
+};
+
+static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+        [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
@@ -3241,12 +3393,22 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
         (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
         (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
-        (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_rate_limit_interval);
-        (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_rate_limit_burst);
+        (void) serialize_bool(f, "exported-log-rate-limit-interval", u->exported_log_ratelimit_interval);
+        (void) serialize_bool(f, "exported-log-rate-limit-burst", u->exported_log_ratelimit_burst);
 
         (void) serialize_item_format(f, "cpu-usage-base", "%" PRIu64, u->cpu_usage_base);
         if (u->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
+
+        if (u->oom_kill_last > 0)
+                (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
+
+        for (CGroupIOAccountingMetric im = 0; im < _CGROUP_IO_ACCOUNTING_METRIC_MAX; im++) {
+                (void) serialize_item_format(f, io_accounting_metric_field_base[im], "%" PRIu64, u->io_accounting_base[im]);
+
+                if (u->io_accounting_last[im] != UINT64_MAX)
+                        (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+        }
 
         if (u->cgroup_path)
                 (void) serialize_item(f, "cgroup", u->cgroup_path);
@@ -3323,8 +3485,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                CGroupIPAccountingMetric m;
                 char *l, *v;
+                ssize_t m;
                 size_t k;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
@@ -3451,7 +3613,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse exported log rate limit interval %s, ignoring.", v);
                         else
-                                u->exported_log_rate_limit_interval = r;
+                                u->exported_log_ratelimit_interval = r;
 
                         continue;
 
@@ -3461,7 +3623,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 log_unit_debug(u, "Failed to parse exported log rate limit burst %s, ignoring.", v);
                         else
-                                u->exported_log_rate_limit_burst = r;
+                                u->exported_log_ratelimit_burst = r;
 
                         continue;
 
@@ -3481,6 +3643,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
+                } else if (streq(l, "oom-kill-last")) {
+
+                        r = safe_atou64(v, &u->oom_kill_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read OOM kill last %s, ignoring.", v);
+
+                        continue;
+
                 } else if (streq(l, "cgroup")) {
 
                         r = unit_set_cgroup_path(u, v);
@@ -3488,6 +3658,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug_errno(u, r, "Failed to set cgroup path %s, ignoring: %m", v);
 
                         (void) unit_watch_cgroup(u);
+                        (void) unit_watch_cgroup_memory(u);
 
                         continue;
                 } else if (streq(l, "cgroup-realized")) {
@@ -3567,10 +3738,8 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 }
 
                 /* Check if this is an IP accounting metric serialization field */
-                for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++)
-                        if (streq(l, ip_accounting_metric_field[m]))
-                                break;
-                if (m < _CGROUP_IP_ACCOUNTING_METRIC_MAX) {
+                m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
+                if (m >= 0) {
                         uint64_t c;
 
                         r = safe_atou64(v, &c);
@@ -3578,6 +3747,30 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                                 log_unit_debug(u, "Failed to parse IP accounting value %s, ignoring.", v);
                         else
                                 u->ip_accounting_extra[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_base, ELEMENTSOF(io_accounting_metric_field_base), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting base value %s, ignoring.", v);
+                        else
+                                u->io_accounting_base[m] = c;
+                        continue;
+                }
+
+                m = string_table_lookup(io_accounting_metric_field_last, ELEMENTSOF(io_accounting_metric_field_last), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse IO accounting last value %s, ignoring.", v);
+                        else
+                                u->io_accounting_last[m] = c;
                         continue;
                 }
 
@@ -3637,7 +3830,7 @@ int unit_deserialize_skip(FILE *f) {
         }
 }
 
-int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency dep, UnitDependencyMask mask) {
+int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
         Unit *device;
         _cleanup_free_ char *e = NULL;
         int r;
@@ -3667,24 +3860,15 @@ int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependen
         if (dep == UNIT_REQUIRES && device_shall_be_bound_by(device, u))
                 dep = UNIT_BINDS_TO;
 
-        r = unit_add_two_dependencies(u, UNIT_AFTER,
-                                      MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
-                                      device, true, mask);
-        if (r < 0)
-                return r;
-
-        if (wants) {
-                r = unit_add_dependency(device, UNIT_WANTS, u, false, mask);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return unit_add_two_dependencies(u, UNIT_AFTER,
+                                         MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
+                                         device, true, mask);
 }
 
 int unit_coldplug(Unit *u) {
         int r = 0, q;
         char **i;
+        Job *uj;
 
         assert(u);
 
@@ -3707,8 +3891,9 @@ int unit_coldplug(Unit *u) {
                         r = q;
         }
 
-        if (u->job) {
-                q = job_coldplug(u->job);
+        uj = u->job ?: u->nop_job;
+        if (uj) {
+                q = job_coldplug(uj);
                 if (q < 0 && r >= 0)
                         r = q;
         }
@@ -3782,7 +3967,7 @@ void unit_reset_failed(Unit *u) {
         if (UNIT_VTABLE(u)->reset_failed)
                 UNIT_VTABLE(u)->reset_failed(u);
 
-        RATELIMIT_RESET(u->start_limit);
+        ratelimit_reset(&u->start_ratelimit);
         u->start_limit_hit = false;
 }
 
@@ -3804,7 +3989,7 @@ bool unit_stop_pending(Unit *u) {
          * different from unit_inactive_or_pending() which checks both
          * the current state and for a queued job. */
 
-        return u->job && u->job->type == JOB_STOP;
+        return unit_has_job_type(u, JOB_STOP);
 }
 
 bool unit_inactive_or_pending(Unit *u) {
@@ -3834,6 +4019,12 @@ bool unit_active_or_pending(Unit *u) {
                 return true;
 
         return false;
+}
+
+bool unit_will_restart_default(Unit *u) {
+        assert(u);
+
+        return unit_has_job_type(u, JOB_START);
 }
 
 bool unit_will_restart(Unit *u) {
@@ -4078,6 +4269,9 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_kernel_modules)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYS_MODULE);
 
+                if (ec->protect_kernel_logs)
+                        ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);
@@ -4091,14 +4285,20 @@ int unit_patch_contexts(Unit *u) {
                                         return -ENOMEM;
                         }
 
-                        /* If the dynamic user option is on, let's make sure that the unit can't leave its UID/GID
-                         * around in the file system or on IPC objects. Hence enforce a strict sandbox. */
+                        /* If the dynamic user option is on, let's make sure that the unit can't leave its
+                         * UID/GID around in the file system or on IPC objects. Hence enforce a strict
+                         * sandbox. */
 
                         ec->private_tmp = true;
                         ec->remove_ipc = true;
                         ec->protect_system = PROTECT_SYSTEM_STRICT;
                         if (ec->protect_home == PROTECT_HOME_NO)
                                 ec->protect_home = PROTECT_HOME_READ_ONLY;
+
+                        /* Make sure this service can neither benefit from SUID/SGID binaries nor create
+                         * them. */
+                        ec->no_new_privileges = true;
+                        ec->restrict_suid_sgid = true;
                 }
         }
 
@@ -4106,11 +4306,11 @@ int unit_patch_contexts(Unit *u) {
         if (cc && ec) {
 
                 if (ec->private_devices &&
-                    cc->device_policy == CGROUP_AUTO)
-                        cc->device_policy = CGROUP_CLOSED;
+                    cc->device_policy == CGROUP_DEVICE_POLICY_AUTO)
+                        cc->device_policy = CGROUP_DEVICE_POLICY_CLOSED;
 
                 if (ec->root_image &&
-                    (cc->device_policy != CGROUP_AUTO || cc->device_allow)) {
+                    (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow)) {
 
                         /* When RootImage= is specified, the following devices are touched. */
                         r = cgroup_add_device_allow(cc, "/dev/loop-control", "rw");
@@ -4344,6 +4544,15 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
                 return r;
 
         (void) mkdir_p_label(p, 0755);
+
+        /* Make sure the drop-in dir is registered in our path cache. This way we don't need to stupidly
+         * recreate the cache after every drop-in we write. */
+        if (u->manager->unit_path_cache) {
+                r = set_put_strdup(u->manager->unit_path_cache, p);
+                if (r < 0)
+                        return r;
+        }
+
         r = write_string_file_atomic_label(q, wrapped);
         if (r < 0)
                 return r;
@@ -4393,7 +4602,7 @@ int unit_make_transient(Unit *u) {
 
         (void) mkdir_p_label(u->manager->lookup_paths.transient, 0755);
 
-        path = strjoin(u->manager->lookup_paths.transient, "/", u->id);
+        path = path_join(u->manager->lookup_paths.transient, u->id);
         if (!path)
                 return -ENOMEM;
 
@@ -4428,7 +4637,7 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
-static void log_kill(pid_t pid, int sig, void *userdata) {
+static int log_kill(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         (void) get_process_comm(pid, &comm);
@@ -4436,28 +4645,37 @@ static void log_kill(pid_t pid, int sig, void *userdata) {
         /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
            only, like for example systemd's own PAM stub process. */
         if (comm && comm[0] == '(')
-                return;
+                return 0;
 
         log_unit_notice(userdata,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
                         pid,
                         strna(comm),
                         signal_to_string(sig));
+
+        return 1;
 }
 
-static int operation_to_signal(KillContext *c, KillOperation k) {
+static int operation_to_signal(const KillContext *c, KillOperation k, bool *noteworthy) {
         assert(c);
 
         switch (k) {
 
         case KILL_TERMINATE:
         case KILL_TERMINATE_AND_LOG:
+                *noteworthy = false;
                 return c->kill_signal;
 
+        case KILL_RESTART:
+                *noteworthy = false;
+                return restart_kill_signal(c);
+
         case KILL_KILL:
+                *noteworthy = true;
                 return c->final_kill_signal;
 
         case KILL_WATCHDOG:
+                *noteworthy = true;
                 return c->watchdog_signal;
 
         default:
@@ -4486,15 +4704,15 @@ int unit_kill_context(
         if (c->kill_mode == KILL_NONE)
                 return 0;
 
-        sig = operation_to_signal(c, k);
+        bool noteworthy;
+        sig = operation_to_signal(c, k, &noteworthy);
+        if (noteworthy)
+                log_func = log_kill;
 
         send_sighup =
                 c->send_sighup &&
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
-
-        if (k != KILL_TERMINATE || IN_SET(sig, SIGKILL, SIGABRT))
-                log_func = log_kill;
 
         if (main_pid > 0) {
                 if (log_func)
@@ -4607,7 +4825,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!p)
                 return -ENOMEM;
 
-        path = path_simplify(p, false);
+        path = path_simplify(p, true);
 
         if (!path_is_normalized(path))
                 return -EPERM;
@@ -4747,7 +4965,7 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
         assert(u);
         assert(where);
 
-        r = chase_symlinks(where, NULL, CHASE_NONEXISTENT, &canonical_where);
+        r = chase_symlinks(where, NULL, CHASE_NONEXISTENT, &canonical_where, NULL);
         if (r < 0) {
                 log_unit_debug_errno(u, r, "Failed to check %s for symlinks, ignoring: %m", where);
                 return 0;
@@ -5015,7 +5233,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->prefix = u->manager->prefix;
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
 
-        /* Copy paramaters from unit */
+        /* Copy parameters from unit */
         p->cgroup_path = u->cgroup_path;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 
@@ -5050,6 +5268,39 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
                 }
         }
 
+        return 0;
+}
+
+int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
+        pid_t pid;
+        int r;
+
+        assert(u);
+        assert(ret_pid);
+
+        r = unit_fork_helper_process(u, "(sd-rmrf)", &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                int ret = EXIT_SUCCESS;
+                char **i;
+
+                STRV_FOREACH(i, paths) {
+                        r = rm_rf(*i, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to remove '%s': %m", *i);
+                                ret = EXIT_FAILURE;
+                        }
+                }
+
+                _exit(ret);
+        }
+
+        r = unit_watch_pid(u, pid, true);
+        if (r < 0)
+                return r;
+
+        *ret_pid = pid;
         return 0;
 }
 
@@ -5225,7 +5476,7 @@ fail:
         return r;
 }
 
-static int unit_export_log_rate_limit_interval(Unit *u, const ExecContext *c) {
+static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *buf = NULL;
         const char *p;
         int r;
@@ -5233,26 +5484,26 @@ static int unit_export_log_rate_limit_interval(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (u->exported_log_rate_limit_interval)
+        if (u->exported_log_ratelimit_interval)
                 return 0;
 
-        if (c->log_rate_limit_interval_usec == 0)
+        if (c->log_ratelimit_interval_usec == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_rate_limit_interval_usec) < 0)
+        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit_interval_usec) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create log rate limit interval symlink %s: %m", p);
 
-        u->exported_log_rate_limit_interval = true;
+        u->exported_log_ratelimit_interval = true;
         return 0;
 }
 
-static int unit_export_log_rate_limit_burst(Unit *u, const ExecContext *c) {
+static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *buf = NULL;
         const char *p;
         int r;
@@ -5260,22 +5511,22 @@ static int unit_export_log_rate_limit_burst(Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (u->exported_log_rate_limit_burst)
+        if (u->exported_log_ratelimit_burst)
                 return 0;
 
-        if (c->log_rate_limit_burst == 0)
+        if (c->log_ratelimit_burst == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_rate_limit_burst) < 0)
+        if (asprintf(&buf, "%u", c->log_ratelimit_burst) < 0)
                 return log_oom();
 
         r = symlink_atomic(buf, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create log rate limit burst symlink %s: %m", p);
 
-        u->exported_log_rate_limit_burst = true;
+        u->exported_log_ratelimit_burst = true;
         return 0;
 }
 
@@ -5312,8 +5563,8 @@ void unit_export_state_files(Unit *u) {
         if (c) {
                 (void) unit_export_log_level_max(u, c);
                 (void) unit_export_log_extra_fields(u, c);
-                (void) unit_export_log_rate_limit_interval(u, c);
-                (void) unit_export_log_rate_limit_burst(u, c);
+                (void) unit_export_log_ratelimit_interval(u, c);
+                (void) unit_export_log_ratelimit_burst(u, c);
         }
 }
 
@@ -5351,18 +5602,18 @@ void unit_unlink_state_files(Unit *u) {
                 u->exported_log_extra_fields = false;
         }
 
-        if (u->exported_log_rate_limit_interval) {
+        if (u->exported_log_ratelimit_interval) {
                 p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
                 (void) unlink(p);
 
-                u->exported_log_rate_limit_interval = false;
+                u->exported_log_ratelimit_interval = false;
         }
 
-        if (u->exported_log_rate_limit_burst) {
+        if (u->exported_log_ratelimit_burst) {
                 p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
                 (void) unlink(p);
 
-                u->exported_log_rate_limit_burst = false;
+                u->exported_log_ratelimit_burst = false;
         }
 }
 
@@ -5371,13 +5622,18 @@ int unit_prepare_exec(Unit *u) {
 
         assert(u);
 
+        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
+         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
+        r = bpf_firewall_load_custom(u);
+        if (r < 0)
+                return r;
+
         /* Prepares everything so that we can fork of a process for this unit */
 
         (void) unit_realize_cgroup(u);
 
         if (u->reset_accounting) {
-                (void) unit_reset_cpu_accounting(u);
-                (void) unit_reset_ip_accounting(u);
+                (void) unit_reset_accounting(u);
                 u->reset_accounting = false;
         }
 
@@ -5394,29 +5650,31 @@ int unit_prepare_exec(Unit *u) {
         return 0;
 }
 
-static void log_leftover(pid_t pid, int sig, void *userdata) {
+static int log_leftover(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         (void) get_process_comm(pid, &comm);
 
         if (comm && comm[0] == '(') /* Most likely our own helper process (PAM?), ignore */
-                return;
+                return 0;
 
         log_unit_warning(userdata,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
                          "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
                          pid, strna(comm));
+
+        return 1;
 }
 
-void unit_warn_leftover_processes(Unit *u) {
+int unit_warn_leftover_processes(Unit *u) {
         assert(u);
 
         (void) unit_pick_cgroup_path(u);
 
         if (!u->cgroup_path)
-                return;
+                return 0;
 
-        (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+        return cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
 }
 
 bool unit_needs_console(Unit *u) {
@@ -5508,18 +5766,40 @@ void unit_log_failure(Unit *u, const char *result) {
                    "UNIT_RESULT=%s", result);
 }
 
+void unit_log_skip(Unit *u, const char *result) {
+        assert(u);
+        assert(result);
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_UNIT_SKIPPED_STR,
+                   LOG_UNIT_ID(u),
+                   LOG_UNIT_INVOCATION_ID(u),
+                   LOG_UNIT_MESSAGE(u, "Skipped due to '%s'.", result),
+                   "UNIT_RESULT=%s", result);
+}
+
 void unit_log_process_exit(
                 Unit *u,
-                int level,
                 const char *kind,
                 const char *command,
+                bool success,
                 int code,
                 int status) {
+
+        int level;
 
         assert(u);
         assert(kind);
 
-        if (code != CLD_EXITED)
+        /* If this is a successful exit, let's log about the exit code on DEBUG level. If this is a failure
+         * and the process exited on its own via exit(), then let's make this a NOTICE, under the assumption
+         * that the service already logged the reason at a higher log level on its own. Otherwise, make it a
+         * WARNING. */
+        if (success)
+                level = LOG_DEBUG;
+        else if (code == CLD_EXITED)
+                level = LOG_NOTICE;
+        else
                 level = LOG_WARNING;
 
         log_struct(level,
@@ -5583,6 +5863,75 @@ int unit_success_action_exit_status(Unit *u) {
                 return 255;
 
         return r;
+}
+
+int unit_test_trigger_loaded(Unit *u) {
+        Unit *trigger;
+
+        /* Tests whether the unit to trigger is loaded */
+
+        trigger = UNIT_TRIGGER(u);
+        if (!trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, no unit to trigger.");
+        if (trigger->load_state != UNIT_LOADED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "Refusing to start, unit %s to trigger not loaded.", trigger->id);
+
+        return 0;
+}
+
+void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
+            (context->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !unit_will_restart(u)))
+                exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+}
+
+int unit_clean(Unit *u, ExecCleanMask mask) {
+        UnitActiveState state;
+
+        assert(u);
+
+        /* Special return values:
+         *
+         *   -EOPNOTSUPP → cleaning not supported for this unit type
+         *   -EUNATCH    → cleaning not defined for this resource type
+         *   -EBUSY      → unit currently can't be cleaned since it's running or not properly loaded, or has
+         *                 a job queued or similar
+         */
+
+        if (!UNIT_VTABLE(u)->clean)
+                return -EOPNOTSUPP;
+
+        if (mask == 0)
+                return -EUNATCH;
+
+        if (u->load_state != UNIT_LOADED)
+                return -EBUSY;
+
+        if (u->job)
+                return -EBUSY;
+
+        state = unit_active_state(u);
+        if (!IN_SET(state, UNIT_INACTIVE))
+                return -EBUSY;
+
+        return UNIT_VTABLE(u)->clean(u, mask);
+}
+
+int unit_can_clean(Unit *u, ExecCleanMask *ret) {
+        assert(u);
+
+        if (!UNIT_VTABLE(u)->clean ||
+            u->load_state != UNIT_LOADED) {
+                *ret = 0;
+                return 0;
+        }
+
+        /* When the clean() method is set, can_clean() really should be set too */
+        assert(UNIT_VTABLE(u)->can_clean);
+
+        return UNIT_VTABLE(u)->can_clean(u, ret);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

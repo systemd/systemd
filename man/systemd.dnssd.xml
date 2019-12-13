@@ -1,9 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.dnssd" conditional='ENABLE_RESOLVE'>
 
@@ -36,15 +34,16 @@
     <para>The main network service file must have the extension <filename>.dnssd</filename>; other
     extensions are ignored.</para>
 
-    <para>The <filename>.dnssd</filename> files are read from the files located in the system
-    network directory <filename>/usr/lib/systemd/dnssd</filename>, the volatile runtime network
-    directory <filename>/run/systemd/dnssd</filename> and the local administration network
-    directory <filename>/etc/systemd/dnssd</filename>. All configuration files are collectively
-    sorted and processed in lexical order, regardless of the directories in which they live.
-    However, files with identical filenames replace each other. Files in <filename>/etc</filename>
-    have the highest priority, files in <filename>/run</filename> take precedence over files with
-    the same name in <filename>/usr/lib</filename>. This can be used to override a system-supplied
-    configuration file with a local file if needed.</para>
+    <para>The <filename>.dnssd</filename> files are read from the files located in the system network
+    directories <filename>/usr/lib/systemd/dnssd</filename> and
+    <filename>/usr/local/lib/systemd/dnssd</filename>, the volatile runtime network directory
+    <filename>/run/systemd/dnssd</filename> and the local administration network directory
+    <filename>/etc/systemd/dnssd</filename>. All configuration files are collectively sorted and processed in
+    lexical order, regardless of the directories in which they live. However, files with identical filenames
+    replace each other. Files in <filename>/etc</filename> have the highest priority, files in
+    <filename>/run</filename> take precedence over files with the same name in
+    <filename>/usr/lib</filename>. This can be used to override a system-supplied configuration file with a
+    local file if needed.</para>
 
     <para>Along with the network service file <filename>foo.dnssd</filename>, a "drop-in" directory
     <filename>foo.dnssd.d/</filename> may exist. All files with the suffix
@@ -52,14 +51,12 @@
     parsed. This is useful to alter or add configuration settings, without having to modify the main
     configuration file. Each drop-in file must have appropriate section headers.</para>
 
-    <para>In addition to <filename>/etc/systemd/dnssd</filename>, drop-in <literal>.d</literal>
-    directories can be placed in <filename>/usr/lib/systemd/dnssd</filename> or
-    <filename>/run/systemd/dnssd</filename> directories. Drop-in files in
-    <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
-    take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
-    directories take precedence over the main network service file wherever located. (Of course, since
-    <filename>/run</filename> is temporary and <filename>/usr/lib</filename> is for vendors, it is
-    unlikely drop-ins should be used in either of those places.)</para>
+    <para>In addition to <filename>/etc/systemd/dnssd</filename>, drop-in <literal>.d</literal> directories
+    can be placed in <filename>/usr/lib/systemd/dnssd</filename> or <filename>/run/systemd/dnssd</filename>
+    directories. Drop-in files in <filename>/etc</filename> take precedence over those in
+    <filename>/run</filename> which in turn take precedence over those in <filename>/usr/lib</filename> or
+    <filename>/usr/local/lib</filename>. Drop-in files under any of these directories take precedence over
+    the main network service file wherever located.</para>
   </refsect1>
 
   <refsect1>

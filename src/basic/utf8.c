@@ -26,12 +26,12 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "gunicode.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "string-util.h"
 #include "utf8.h"
 
 bool unichar_is_valid(char32_t ch) {
@@ -61,12 +61,7 @@ static bool unichar_is_control(char32_t ch) {
 }
 
 /* count of characters used to encode one unicode char */
-static size_t utf8_encoded_expected_len(const char *str) {
-        uint8_t c;
-
-        assert(str);
-
-        c = (uint8_t) str[0];
+static size_t utf8_encoded_expected_len(uint8_t c) {
         if (c < 0x80)
                 return 1;
         if ((c & 0xe0) == 0xc0)
@@ -90,7 +85,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
 
         assert(str);
 
-        len = utf8_encoded_expected_len(str);
+        len = utf8_encoded_expected_len(str[0]);
 
         switch (len) {
         case 1:
@@ -133,14 +128,14 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
 
         assert(str);
 
-        for (p = str; length;) {
+        for (p = str; length > 0;) {
                 int encoded_len, r;
                 char32_t val;
 
-                encoded_len = utf8_encoded_valid_unichar(p);
-                if (encoded_len < 0 ||
-                    (size_t) encoded_len > length)
+                encoded_len = utf8_encoded_valid_unichar(p, length);
+                if (encoded_len < 0)
                         return false;
+                assert(encoded_len > 0 && (size_t) encoded_len <= length);
 
                 r = utf8_encoded_to_unichar(p, &val);
                 if (r < 0 ||
@@ -164,7 +159,7 @@ char *utf8_is_valid(const char *str) {
         while (*p) {
                 int len;
 
-                len = utf8_encoded_valid_unichar(p);
+                len = utf8_encoded_valid_unichar(p, (size_t) -1);
                 if (len < 0)
                         return NULL;
 
@@ -186,7 +181,7 @@ char *utf8_escape_invalid(const char *str) {
         while (*str) {
                 int len;
 
-                len = utf8_encoded_valid_unichar(str);
+                len = utf8_encoded_valid_unichar(str, (size_t) -1);
                 if (len > 0) {
                         s = mempcpy(s, str, len);
                         str += len;
@@ -197,46 +192,93 @@ char *utf8_escape_invalid(const char *str) {
         }
 
         *s = '\0';
-
+        (void) str_realloc(&p);
         return p;
 }
 
-char *utf8_escape_non_printable(const char *str) {
-        char *p, *s;
+static int utf8_char_console_width(const char *str) {
+        char32_t c;
+        int r;
+
+        r = utf8_encoded_to_unichar(str, &c);
+        if (r < 0)
+                return r;
+
+        /* TODO: we should detect combining characters */
+
+        return unichar_iswide(c) ? 2 : 1;
+}
+
+char *utf8_escape_non_printable_full(const char *str, size_t console_width) {
+        char *p, *s, *prev_s;
+        size_t n = 0; /* estimated print width */
 
         assert(str);
 
-        p = s = malloc(strlen(str) * 4 + 1);
+        if (console_width == 0)
+                return strdup("");
+
+        p = s = prev_s = malloc(strlen(str) * 4 + 1);
         if (!p)
                 return NULL;
 
-        while (*str) {
+        for (;;) {
                 int len;
+                char *saved_s = s;
 
-                len = utf8_encoded_valid_unichar(str);
+                if (!*str) /* done! */
+                        goto finish;
+
+                len = utf8_encoded_valid_unichar(str, (size_t) -1);
                 if (len > 0) {
                         if (utf8_is_printable(str, len)) {
+                                int w;
+
+                                w = utf8_char_console_width(str);
+                                assert(w >= 0);
+                                if (n + w > console_width)
+                                        goto truncation;
+
                                 s = mempcpy(s, str, len);
                                 str += len;
+                                n += w;
+
                         } else {
-                                while (len > 0) {
+                                for (; len > 0; len--) {
+                                        if (n + 4 > console_width)
+                                                goto truncation;
+
                                         *(s++) = '\\';
                                         *(s++) = 'x';
                                         *(s++) = hexchar((int) *str >> 4);
                                         *(s++) = hexchar((int) *str);
 
                                         str += 1;
-                                        len--;
+                                        n += 4;
                                 }
                         }
                 } else {
-                        s = stpcpy(s, UTF8_REPLACEMENT_CHARACTER);
+                        if (n + 1 > console_width)
+                                goto truncation;
+
+                        s = mempcpy(s, UTF8_REPLACEMENT_CHARACTER, strlen(UTF8_REPLACEMENT_CHARACTER));
                         str += 1;
+                        n += 1;
                 }
+
+                prev_s = saved_s;
         }
 
-        *s = '\0';
+ truncation:
+        /* Try to go back one if we don't have enough space for the ellipsis */
+        if (n + 1 >= console_width)
+                s = prev_s;
 
+        s = mempcpy(s, "…", strlen("…"));
+
+ finish:
+        *s = '\0';
+        (void) str_realloc(&p);
         return p;
 }
 
@@ -405,7 +447,7 @@ char16_t *utf8_to_utf16(const char *s, size_t length) {
                 char32_t unichar;
                 size_t e;
 
-                e = utf8_encoded_expected_len(s + i);
+                e = utf8_encoded_expected_len(s[i]);
                 if (e <= 1) /* Invalid and single byte characters are copied as they are */
                         goto copy;
 
@@ -457,15 +499,22 @@ static int utf8_unichar_to_encoded_len(char32_t unichar) {
 }
 
 /* validate one encoded unicode char and return its length */
-int utf8_encoded_valid_unichar(const char *str) {
+int utf8_encoded_valid_unichar(const char *str, size_t length /* bytes */) {
         char32_t unichar;
         size_t len, i;
         int r;
 
         assert(str);
+        assert(length > 0);
 
-        len = utf8_encoded_expected_len(str);
+        /* We read until NUL, at most length bytes. (size_t) -1 may be used to disable the length check. */
+
+        len = utf8_encoded_expected_len(str[0]);
         if (len == 0)
+                return -EINVAL;
+
+        /* Do we have a truncated multi-byte character? */
+        if (len > length)
                 return -EINVAL;
 
         /* ascii is valid */
@@ -500,7 +549,7 @@ size_t utf8_n_codepoints(const char *str) {
         while (*str != 0) {
                 int k;
 
-                k = utf8_encoded_valid_unichar(str);
+                k = utf8_encoded_valid_unichar(str, (size_t) -1);
                 if (k < 0)
                         return (size_t) -1;
 
@@ -517,15 +566,15 @@ size_t utf8_console_width(const char *str) {
         /* Returns the approximate width a string will take on screen when printed on a character cell
          * terminal/console. */
 
-        while (*str != 0) {
-                char32_t c;
+        while (*str) {
+                int w;
 
-                if (utf8_encoded_to_unichar(str, &c) < 0)
+                w = utf8_char_console_width(str);
+                if (w < 0)
                         return (size_t) -1;
 
+                n += w;
                 str = utf8_next_char(str);
-
-                n += unichar_iswide(c) ? 2 : 1;
         }
 
         return n;

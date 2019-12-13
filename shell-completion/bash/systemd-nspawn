@@ -3,7 +3,6 @@
 #
 # This file is part of systemd.
 #
-#
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation; either version 2.1 of the License, or
@@ -18,176 +17,178 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 __contains_word() {
-        local w word=$1; shift
-        for w in "$@"; do
-                [[ $w = "$word" ]] && return
-        done
+    local w word=$1; shift
+    for w in "$@"; do
+        [[ $w = "$word" ]] && return
+    done
 }
 
 __get_users() {
-        local a b
-        loginctl list-users --no-legend --no-pager | { while read a b; do echo " $b"; done; };
+    local a b
+    loginctl list-users --no-legend --no-pager | { while read a b; do echo " $b"; done; };
 }
 
 __get_slices() {
-        local a b
-        systemctl list-units -t slice --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    local a b
+    systemctl list-units -t slice --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 __get_machines() {
-        local a b
-        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    local a b
+    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 __get_env() {
-        local a
-        env | { while read a; do echo " ${a%%=*}"; done; };
+    local a
+    env | { while read a; do echo " ${a%%=*}"; done; };
 }
 
 __get_interfaces(){
-        local name
-        for name in $(cd /sys/class/net && ls); do
-                [[ "$name" != "lo" ]] && echo "$name"
-        done
+    local name
+    for name in $(cd /sys/class/net && ls); do
+        [[ "$name" != "lo" ]] && echo "$name"
+    done
 }
 
 __get_rlimit() {
-        local i
-        for i in $(systemd-nspawn --rlimit=help 2>/dev/null); do
-                echo " ${i}="
-        done
+    local i
+    for i in $(systemd-nspawn --rlimit=help 2>/dev/null); do
+        echo " ${i}="
+    done
 }
 
 _systemd_nspawn() {
-        local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-        local i verb comps
+    local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
+    local i verb comps
 
-        local -A OPTS=(
-                [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system --keep-unit -n --network-veth
-                              -j -x --ephemeral -a --as-pid2 --private-users-chown -U'
-                       [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro -M --machine
-                              -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context --register --network-interface --network-bridge
-                              --personality -i --image --tmpfs --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash
-                              --chdir --pivot-root --property --private-users --network-namespace-path --network-ipvlan --network-veth-extra
-                              --network-zone -p --port --system-call-filter --overlay --overlay-ro --settings
-                              --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity --resolv-conf --timezone'
-        )
+    local -A OPTS=(
+        [STANDALONE]='-h --help --version --private-network -b --boot --read-only -q --quiet --share-system
+                      --keep-unit -n --network-veth -j -x --ephemeral -a --as-pid2 --private-users-chown -U'
+        [ARG]='-D --directory -u --user --uuid --capability --drop-capability --link-journal --bind --bind-ro
+                      -M --machine -S --slice -E --setenv -Z --selinux-context -L --selinux-apifs-context
+                      --register --network-interface --network-bridge --personality -i --image --tmpfs
+                      --volatile --network-macvlan --kill-signal --template --notify-ready --root-hash --chdir
+                      --pivot-root --property --private-users --network-namespace-path --network-ipvlan
+                      --network-veth-extra --network-zone -p --port --system-call-filter --overlay --overlay-ro
+                      --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
+                      --resolv-conf --timezone'
+    )
 
-        _init_completion || return
+    _init_completion || return
 
-        if __contains_word "$prev" ${OPTS[ARG]}; then
-                case $prev in
-                        --directory|-D|--template)
-                                compopt -o nospace
-                                comps=$(compgen -S/ -A directory -- "$cur" )
-                        ;;
-                        --user|-u)
-                                comps=$( __get_users )
-                        ;;
-                        --uuid|--root-hash)
-                                comps=''
-                        ;;
-                        --capability)
-                                comps='CAP_BLOCK_SUSPEND CAP_IPC_LOCK CAP_MAC_ADMIN CAP_MAC_OVERRIDE CAP_SYS_MODULE CAP_SYS_PACCT CAP_SYS_RAWIO
-                                       CAP_SYS_TIME CAP_SYSLOG CAP_WAKE_ALARM CAP_NET_ADMIN'
-                        ;;
-                        --drop-capability)
-                                comps='CAP_AUDIT_CONTROL CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_FSETID
-                                       CAP_IPC_OWNER CAP_KILL CAP_LEASE CAP_LINUX_IMMUTABLE CAP_MKNOD CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-                                       CAP_NET_BROADCAST CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_ADMIN CAP_SYS_BOOT
-                                       CAP_SYS_CHROOT CAP_SYS_NICE CAP_SYS_PTRACE CAP_SYS_RESOURCE CAP_SYS_TTY_CONFIG'
-                        ;;
-                        --link-journal)
-                                comps='no auto guest try-guest host try-host'
-                        ;;
-                        --bind|--bind-ro)
-                                compopt -o nospace
-                                comps=$(compgen -S/ -A directory -- "$cur" )
-                        ;;
-                        --tmpfs)
-                                compopt -o nospace
-                                comps=$(compgen -S/ -A directory -- "$cur" )
-                        ;;
-                        --machine|-M)
-                                comps=$( __get_machines )
-                        ;;
-                        --slice|-S)
-                                comps=$( __get_slices )
-                        ;;
-                        --setenv|-E)
-                                comps=$( __get_env )
-                        ;;
-                        --selinux-context|-Z)
-                                comps=''
-                        ;;
-                        --selinux-apifs-context|-L)
-                                comps=''
-                        ;;
-                        --register)
-                                comps='yes no'
-                        ;;
-                        --network-interface)
-                                comps=$(__get_interfaces)
-                        ;;
-                        --network-bridge)
-                                comps=''
-                        ;;
-                        --network-macvlan)
-                                comps=''
-                        ;;
-                        --personality)
-                                comps='x86 x86-64'
-                        ;;
-                        --volatile)
-                                comps=$( systemd-nspawn --volatile=help 2>/dev/null )
-                        ;;
-                        --image|-i)
-                                compopt -o nospace
-                                comps=$( compgen -A file -- "$cur" )
-                        ;;
-                        --kill-signal)
-                                _signals
-                                return
-                        ;;
-                        --notify-ready)
-                                comps='yes no'
-                        ;;
-                        --private-users)
-                                comps='yes no pick'
-                        ;;
-                        --network-namespace-path)
-                                comps=$( compgen -A file -- "$cur" )
-                        ;;
-                        --settings)
-                                comps='yes no override trusted'
-                        ;;
-                        --rlimit)
-                                comps=$( __get_rlimit )
-                        ;;
-                        --hostname)
-                                comps=''
-                        ;;
-                        --no-new-privileges)
-                                comps='yes no'
-                        ;;
-                        --oom-score-adjust)
-                                comps=''
-                        ;;
-                        --cpu-affinity)
-                                comps=''
-                        ;;
-                        --resolv-conf)
-                                comps=$( systemd-nspawn --resolv-conf=help 2>/dev/null )
-                        ;;
-                        --timezone)
-                                comps=$( systemd-nspawn --timezone=help 2>/dev/null )
-                        ;;
-                esac
-                COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-                return 0
-        fi
+    if __contains_word "$prev" ${OPTS[ARG]}; then
+        case $prev in
+            --directory|-D|--template)
+                compopt -o nospace
+                comps=$(compgen -S/ -A directory -- "$cur" )
+                ;;
+            --user|-u)
+                comps=$( __get_users )
+                ;;
+            --uuid|--root-hash)
+                comps=''
+                ;;
+            --capability)
+                comps='CAP_BLOCK_SUSPEND CAP_IPC_LOCK CAP_MAC_ADMIN CAP_MAC_OVERRIDE CAP_SYS_MODULE CAP_SYS_PACCT CAP_SYS_RAWIO
+                       CAP_SYS_TIME CAP_SYSLOG CAP_WAKE_ALARM CAP_NET_ADMIN'
+                ;;
+            --drop-capability)
+                comps='CAP_AUDIT_CONTROL CAP_AUDIT_WRITE CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_FSETID
+                       CAP_IPC_OWNER CAP_KILL CAP_LEASE CAP_LINUX_IMMUTABLE CAP_MKNOD CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+                       CAP_NET_BROADCAST CAP_NET_RAW CAP_SETFCAP CAP_SETGID CAP_SETPCAP CAP_SETUID CAP_SYS_ADMIN CAP_SYS_BOOT
+                       CAP_SYS_CHROOT CAP_SYS_NICE CAP_SYS_PTRACE CAP_SYS_RESOURCE CAP_SYS_TTY_CONFIG'
+                ;;
+            --link-journal)
+                comps='no auto guest try-guest host try-host'
+                ;;
+            --bind|--bind-ro)
+                compopt -o nospace -o filenames
+                comps=$(compgen -f -- "$cur" )
+                ;;
+            --tmpfs)
+                compopt -o nospace
+                comps=$(compgen -S/ -A directory -- "$cur" )
+                ;;
+            --machine|-M)
+                comps=$( __get_machines )
+                ;;
+            --slice|-S)
+                comps=$( __get_slices )
+                ;;
+            --setenv|-E)
+                comps=$( __get_env )
+                ;;
+            --selinux-context|-Z)
+                comps=''
+                ;;
+            --selinux-apifs-context|-L)
+                comps=''
+                ;;
+            --register)
+                comps='yes no'
+                ;;
+            --network-interface)
+                comps=$(__get_interfaces)
+                ;;
+            --network-bridge)
+                comps=''
+                ;;
+            --network-macvlan)
+                comps=''
+                ;;
+            --personality)
+                comps='x86 x86-64'
+                ;;
+            --volatile)
+                comps=$( systemd-nspawn --volatile=help 2>/dev/null )
+                ;;
+            --image|-i)
+                compopt -o nospace
+                comps=$( compgen -A file -- "$cur" )
+                ;;
+            --kill-signal)
+                _signals
+                return
+                ;;
+            --notify-ready)
+                comps='yes no'
+                ;;
+            --private-users)
+                comps='yes no pick'
+                ;;
+            --network-namespace-path)
+                comps=$( compgen -A file -- "$cur" )
+                ;;
+            --settings)
+                comps='yes no override trusted'
+                ;;
+            --rlimit)
+                comps=$( __get_rlimit )
+                ;;
+            --hostname)
+                comps=''
+                ;;
+            --no-new-privileges)
+                comps='yes no'
+                ;;
+            --oom-score-adjust)
+                comps=''
+                ;;
+            --cpu-affinity)
+                comps=''
+                ;;
+            --resolv-conf)
+                comps=$( systemd-nspawn --resolv-conf=help 2>/dev/null )
+                ;;
+            --timezone)
+                comps=$( systemd-nspawn --timezone=help 2>/dev/null )
+                ;;
+        esac
+        COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
+        return 0
+    fi
 
-        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+    COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
 }
 
 complete -F _systemd_nspawn systemd-nspawn

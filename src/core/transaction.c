@@ -6,9 +6,10 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "dbus-unit.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "transaction.h"
-#include "dbus-unit.h"
 
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -279,32 +280,40 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
 }
 
 static void transaction_drop_redundant(Transaction *tr) {
-        Job *j;
-        Iterator i;
+        bool again;
 
-        /* Goes through the transaction and removes all jobs of the units
-         * whose jobs are all noops. If not all of a unit's jobs are
-         * redundant, they are kept. */
+        /* Goes through the transaction and removes all jobs of the units whose jobs are all noops. If not
+         * all of a unit's jobs are redundant, they are kept. */
 
         assert(tr);
 
-rescan:
-        HASHMAP_FOREACH(j, tr->jobs, i) {
-                Job *k;
+        do {
+                Iterator i;
+                Job *j;
 
-                LIST_FOREACH(transaction, k, j) {
+                again = false;
 
-                        if (tr->anchor_job == k ||
-                            !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
-                            (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type)))
-                                goto next_unit;
+                HASHMAP_FOREACH(j, tr->jobs, i) {
+                        bool keep = false;
+                        Job *k;
+
+                        LIST_FOREACH(transaction, k, j)
+                                if (tr->anchor_job == k ||
+                                    !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
+                                    (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type))) {
+                                        keep = true;
+                                        break;
+                                }
+
+                        if (!keep) {
+                                log_trace("Found redundant job %s/%s, dropping from transaction.",
+                                          j->unit->id, job_type_to_string(j->type));
+                                transaction_delete_job(tr, j, false);
+                                again = true;
+                                break;
+                        }
                 }
-
-                log_trace("Found redundant job %s/%s, dropping from transaction.", j->unit->id, job_type_to_string(j->type));
-                transaction_delete_job(tr, j, false);
-                goto rescan;
-        next_unit:;
-        }
+        } while (again);
 }
 
 _pure_ static bool unit_matters_to_anchor(Unit *u, Job *j) {
@@ -345,6 +354,11 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         Unit *u;
         void *v;
         int r;
+        static const UnitDependency directions[] = {
+                UNIT_BEFORE,
+                UNIT_AFTER,
+        };
+        size_t d;
 
         assert(tr);
         assert(j);
@@ -433,25 +447,33 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
         j->marker = from ? from : j;
         j->generation = generation;
 
-        /* We assume that the dependencies are bidirectional, and
-         * hence can ignore UNIT_AFTER */
-        HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[UNIT_BEFORE], i) {
-                Job *o;
+        /* Actual ordering of jobs depends on the unit ordering dependency and job types. We need to traverse
+         * the graph over 'before' edges in the actual job execution order. We traverse over both unit
+         * ordering dependencies and we test with job_compare() whether it is the 'before' edge in the job
+         * execution ordering. */
+        for (d = 0; d < ELEMENTSOF(directions); d++) {
+                HASHMAP_FOREACH_KEY(v, u, j->unit->dependencies[directions[d]], i) {
+                        Job *o;
 
-                /* Is there a job for this unit? */
-                o = hashmap_get(tr->jobs, u);
-                if (!o) {
-                        /* Ok, there is no job for this in the
-                         * transaction, but maybe there is already one
-                         * running? */
-                        o = u->job;
-                        if (!o)
+                        /* Is there a job for this unit? */
+                        o = hashmap_get(tr->jobs, u);
+                        if (!o) {
+                                /* Ok, there is no job for this in the
+                                 * transaction, but maybe there is already one
+                                 * running? */
+                                o = u->job;
+                                if (!o)
+                                        continue;
+                        }
+
+                        /* Cut traversing if the job j is not really *before* o. */
+                        if (job_compare(j, o, directions[d]) >= 0)
                                 continue;
-                }
 
-                r = transaction_verify_order_one(tr, o, j, generation, e);
-                if (r < 0)
-                        return r;
+                        r = transaction_verify_order_one(tr, o, j, generation, e);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         /* Ok, let's backtrack, and remember that this entry is not on
@@ -485,29 +507,36 @@ static int transaction_verify_order(Transaction *tr, unsigned *generation, sd_bu
 }
 
 static void transaction_collect_garbage(Transaction *tr) {
-        Iterator i;
-        Job *j;
+        bool again;
 
         assert(tr);
 
         /* Drop jobs that are not required by any other job */
 
-rescan:
-        HASHMAP_FOREACH(j, tr->jobs, i) {
-                if (tr->anchor_job == j)
-                        continue;
-                if (j->object_list) {
+        do {
+                Iterator i;
+                Job *j;
+
+                again = false;
+
+                HASHMAP_FOREACH(j, tr->jobs, i) {
+                        if (tr->anchor_job == j)
+                                continue;
+
+                        if (!j->object_list) {
+                                log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
+                                transaction_delete_job(tr, j, true);
+                                again = true;
+                                break;
+                        }
+
                         log_trace("Keeping job %s/%s because of %s/%s",
                                   j->unit->id, job_type_to_string(j->type),
                                   j->object_list->subject ? j->object_list->subject->unit->id : "root",
                                   j->object_list->subject ? job_type_to_string(j->object_list->subject->type) : "root");
-                        continue;
                 }
 
-                log_trace("Garbage collecting job %s/%s", j->unit->id, job_type_to_string(j->type));
-                transaction_delete_job(tr, j, true);
-                goto rescan;
-        }
+        } while (again);
 }
 
 static int transaction_is_destructive(Transaction *tr, JobMode mode, sd_bus_error *e) {
@@ -589,7 +618,12 @@ rescan:
         }
 }
 
-static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
+static int transaction_apply(
+                Transaction *tr,
+                Manager *m,
+                JobMode mode,
+                Set *affected_jobs) {
+
         Iterator i;
         Job *j;
         int r;
@@ -646,6 +680,11 @@ static int transaction_apply(Transaction *tr, Manager *m, JobMode mode) {
                 job_add_to_dbus_queue(j);
                 job_start_timer(j, false);
                 job_shutdown_magic(j);
+
+                /* When 'affected' is specified, let's track all in it all jobs that were touched because of
+                 * this transaction. */
+                if (affected_jobs)
+                        (void) set_put(affected_jobs, j);
         }
 
         return 0;
@@ -658,7 +697,13 @@ rollback:
         return r;
 }
 
-int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error *e) {
+int transaction_activate(
+                Transaction *tr,
+                Manager *m,
+                JobMode mode,
+                Set *affected_jobs,
+                sd_bus_error *e) {
+
         Iterator i;
         Job *j;
         int r;
@@ -735,7 +780,7 @@ int transaction_activate(Transaction *tr, Manager *m, JobMode mode, sd_bus_error
                 return log_notice_errno(r, "Requested transaction contradicts existing jobs: %s", bus_error_message(e, r));
 
         /* Tenth step: apply changes */
-        r = transaction_apply(tr, m, mode);
+        r = transaction_apply(tr, m, mode, affected_jobs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to apply transaction: %m");
 
@@ -1091,6 +1136,32 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, true, false, false, false, NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Cannot add isolate job, ignoring: %m");
+        }
+
+        return 0;
+}
+
+int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
+        Iterator i;
+        void *v;
+        Unit *trigger;
+        int r;
+
+        assert(tr);
+        assert(u);
+
+        HASHMAP_FOREACH_KEY(v, trigger, u->dependencies[UNIT_TRIGGERED_BY], i) {
+                /* No need to stop inactive jobs */
+                if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger)) && !trigger->job)
+                        continue;
+
+                /* Is there already something listed for this? */
+                if (hashmap_get(tr->jobs, trigger))
+                        continue;
+
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, true, false, false, false, NULL);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Cannot add triggered by job, ignoring: %m");
         }
 
         return 0;

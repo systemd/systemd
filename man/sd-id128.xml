@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd-id128"
   xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -27,6 +24,7 @@
     <refname>SD_ID128_NULL</refname>
     <refname>SD_ID128_CONST_STR</refname>
     <refname>SD_ID128_FORMAT_STR</refname>
+    <refname>SD_ID128_UUID_FORMAT_STR</refname>
     <refname>SD_ID128_FORMAT_VAL</refname>
     <refname>sd_id128_equal</refname>
     <refname>sd_id128_is_null</refname>
@@ -121,6 +119,11 @@ int main(int argc, char **argv) {
         printf("The ID encoded in this C file is " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(id));
         return 0;
 }</programlisting>
+
+    <para><function>SD_ID128_UUID_FORMAT_STR()</function> is similar to
+    <function>SD_ID128_FORMAT_STR()</function> but includes separating hyphens to conform to the
+    "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical representation</ulink>".
+    </para>
 
     <para>Use <function>sd_id128_equal()</function> to compare two 128-bit IDs:</para>
 

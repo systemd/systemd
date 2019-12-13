@@ -1,0 +1,19 @@
+# This udev rule is for any devices that should enter automatic suspend
+# but are not already included in generated rules from Chromium OS via
+# tools/make-autosuspend-rules.py
+#
+
+ACTION!="add", GOTO="autosuspend_manual_end"
+SUBSYSTEM!="usb", GOTO="autosuspend_manual_end"
+
+SUBSYSTEM=="usb", GOTO="autosuspend_manual_usb"
+
+# USB rules
+LABEL="autosuspend_manual_usb"
+GOTO="autosuspend_manual_end"
+
+# Enable autosuspend
+LABEL="autosuspend_manual_enable"
+TEST=="power/control", ATTR{power/control}="auto", GOTO="autosuspend_manual_end"
+
+LABEL="autosuspend_manual_end"

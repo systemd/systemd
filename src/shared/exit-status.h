@@ -3,12 +3,12 @@
 
 #include <stdbool.h>
 
+#include "bitmap.h"
 #include "hashmap.h"
 #include "macro.h"
-#include "set.h"
 
-/* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with the LSB
- * 'status' verb exit codes which are defined very differently. For details see:
+/* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with
+ * the LSB 'status' verb exit codes which are defined very differently. For details see:
  *
  * https://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html
  */
@@ -25,8 +25,8 @@ enum {
 
         /* BSD's sysexits.h defines a couple EX_xyz exit codes in the range 64 … 78 */
 
-        /* The LSB suggests that error codes >= 200 are "reserved". We use them here under the assumption that they
-         * hence are unused by init scripts. */
+        /* The LSB suggests that error codes >= 200 are "reserved". We use them here under the assumption
+         * that they hence are unused by init scripts. */
         EXIT_CHDIR = 200,
         EXIT_NICE,
         EXIT_FDS,
@@ -69,31 +69,42 @@ enum {
         EXIT_CACHE_DIRECTORY,
         EXIT_LOGS_DIRECTORY, /* 240 */
         EXIT_CONFIGURATION_DIRECTORY,
+        EXIT_NUMA_POLICY,
 
         EXIT_EXCEPTION = 255,  /* Whenever we want to propagate an abnormal/signal exit, in line with bash */
 };
 
-typedef enum ExitStatusLevel {
-        EXIT_STATUS_MINIMAL,   /* only cover libc EXIT_STATUS/EXIT_FAILURE */
-        EXIT_STATUS_SYSTEMD,   /* cover libc and systemd's own exit codes */
-        EXIT_STATUS_LSB,       /* cover libc, systemd's own and LSB exit codes */
-        EXIT_STATUS_FULL,      /* cover libc, systemd's own, LSB and BSD (EX_xyz) exit codes */
-} ExitStatusLevel;
+typedef enum ExitStatusClass {
+        EXIT_STATUS_LIBC    = 1 << 0,  /* libc EXIT_STATUS/EXIT_FAILURE */
+        EXIT_STATUS_SYSTEMD = 1 << 1,  /* systemd's own exit codes */
+        EXIT_STATUS_LSB     = 1 << 2,  /* LSB exit codes */
+        EXIT_STATUS_BSD     = 1 << 3,  /* BSD (EX_xyz) exit codes */
+        EXIT_STATUS_FULL    = EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD | EXIT_STATUS_LSB | EXIT_STATUS_BSD,
+} ExitStatusClass;
 
 typedef struct ExitStatusSet {
-        Set *status;
-        Set *signal;
+        Bitmap status;
+        Bitmap signal;
 } ExitStatusSet;
 
-const char* exit_status_to_string(int status, ExitStatusLevel level) _const_;
+const char* exit_status_to_string(int code, ExitStatusClass class) _const_;
+const char* exit_status_class(int code) _const_;
+int exit_status_from_string(const char *s) _pure_;
+
+typedef struct ExitStatusMapping {
+        const char *name;
+        ExitStatusClass class;
+} ExitStatusMapping;
+
+extern const ExitStatusMapping exit_status_mappings[256];
 
 typedef enum ExitClean {
         EXIT_CLEAN_DAEMON,
         EXIT_CLEAN_COMMAND,
 } ExitClean;
 
-bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success_status);
+bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *success_status);
 
 void exit_status_set_free(ExitStatusSet *x);
-bool exit_status_set_is_empty(ExitStatusSet *x);
-bool exit_status_set_test(ExitStatusSet *x, int code, int status);
+bool exit_status_set_is_empty(const ExitStatusSet *x);
+bool exit_status_set_test(const ExitStatusSet *x, int code, int status);

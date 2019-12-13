@@ -59,6 +59,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(Writer, writer, writer_free);
 int writer_write(Writer *w,
                  struct iovec_wrapper *iovw,
                  dual_timestamp *ts,
+                 sd_id128_t *boot_id,
                  bool compress,
                  bool seal) {
         int r;
@@ -75,7 +76,7 @@ int writer_write(Writer *w,
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal, ts, NULL,
+        r = journal_file_append_entry(w->journal, ts, boot_id,
                                       iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r >= 0) {
@@ -93,7 +94,7 @@ int writer_write(Writer *w,
                 log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal, ts, NULL,
+        r = journal_file_append_entry(w->journal, ts, boot_id,
                                       iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r < 0)

@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd-timedated.service" conditional='ENABLE_TIMEDATED'>
 
@@ -34,7 +31,7 @@
 
     <para><filename>systemd-timedated</filename> is a system service
     that may be used as a mechanism to change the system clock and
-    timezone, as well as to enable/disable NTP time synchronization.
+    timezone, as well as to enable/disable network time synchronization.
     <filename>systemd-timedated</filename> is automatically activated
     on request and terminates itself when it is unused.</para>
 
@@ -49,25 +46,36 @@
   </refsect1>
 
   <refsect1>
-    <title>Environment</title>
+    <title>List of network time synchronization services</title>
 
-    <variablelist class='environment-variables'>
-      <varlistentry>
-        <term><varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname></term>
+    <para><command>systemd-timesyncd</command> will look for files with a <literal>.list</literal> extension
+    in <filename>ntp-units.d/</filename> directories. Each file is parsed as a list of unit names, one per
+    line. Empty lines and lines with comments (<literal>#</literal>) are ignored.  Files are read from
+    <filename>/usr/lib/systemd/ntp-units.d/</filename> and the corresponding directories under
+    <filename>/etc/</filename>, <filename>/run/</filename>, <filename>/usr/local/lib/</filename>. Files in
+    <filename>/etc/</filename> override files with the same name in <filename>/run/</filename>,
+    <filename>/usr/local/lib/</filename>, and <filename>/usr/lib/</filename>. Files in
+    <filename>/run/</filename> override files with the same name under <filename>/usr/</filename>. Packages
+    should install their configuration files in <filename>/usr/lib/</filename> (distribution packages) or
+    <filename>/usr/local/lib/</filename> (local installs).</para>
 
-        <listitem><para>Colon-separated list of unit names of NTP client services.
-        If not set, then
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        is used. See the entries of NTP related commands of
-        <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details about this.</para>
+    <example>
+      <title><filename>ntp-units.d/</filename> entry for <command>systemd-timesyncd</command></title>
+      <programlisting># /usr/lib/systemd/ntp-units.d/80-systemd-timesync.list
+systemd-timesyncd.service
+</programlisting>
+    </example>
 
-        <para>Example:
-        <programlisting>SYSTEMD_TIMEDATED_NTP_SERVICES=ntpd.service:chronyd.service:systemd-timesyncd.service</programlisting>
-        </para></listitem>
-      </varlistentry>
-    </variablelist>
+    <para>If the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname> is set,
+    <command>systemd-timesyncd</command> will parse the contents of that variable as a colon-separated list
+    of unit names. When set, this variable overrides the file-based list described above.</para>
+
+    <example>
+      <title>An override that specifies that <command>chronyd</command> should be used if available</title>
+      <programlisting>SYSTEMD_TIMEDATED_NTP_SERVICES=chronyd.service:systemd-timesyncd.service</programlisting>
+    </example>
   </refsect1>
+
   <refsect1>
     <title>See Also</title>
     <para>

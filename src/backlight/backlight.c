@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -9,7 +13,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
-#include "proc-cmdline.h"
+#include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
@@ -379,7 +383,7 @@ static int run(int argc, char *argv[]) {
                 clamp = shall_clamp(device);
 
                 r = read_one_line_file(saved, &value);
-                if (r == -ENOENT) {
+                if (IN_SET(r, -ENOENT, 0)) {
                         const char *curval;
 
                         /* Fallback to clamping current brightness or exit early if
@@ -408,7 +412,7 @@ static int run(int argc, char *argv[]) {
                 const char *value;
 
                 if (validate_device(device) == 0) {
-                        unlink(saved);
+                        (void) unlink(saved);
                         return 0;
                 }
 

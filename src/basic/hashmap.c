@@ -3,20 +3,20 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "alloc-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "mempool.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 #if ENABLE_DEBUG_HASHMAP
 #include <pthread.h>
@@ -285,7 +285,11 @@ _destructor_ static void cleanup_pools(void) {
         /* The pool is only allocated by the main thread, but the memory can
          * be passed to other threads. Let's clean up if we are the main thread
          * and no other threads are live. */
-        if (!is_main_thread())
+        /* We build our own is_main_thread() here, which doesn't use C11
+         * TLS based caching of the result. That's because valgrind apparently
+         * doesn't like malloc() (which C11 TLS internally uses) to be called
+         * from a GCC destructors. */
+        if (getpid() != gettid())
                 return;
 
         r = get_proc_field("/proc/self/status", "Threads", WHITESPACE, &t);
@@ -728,8 +732,8 @@ bool internal_hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const v
         return true;
 }
 
-bool set_iterate(Set *s, Iterator *i, void **value) {
-        return internal_hashmap_iterate(HASHMAP_BASE(s), i, value, NULL);
+bool set_iterate(const Set *s, Iterator *i, void **value) {
+        return internal_hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, NULL);
 }
 
 #define HASHMAP_FOREACH_IDX(idx, h, i) \
@@ -888,7 +892,8 @@ void internal_hashmap_clear(HashmapBase *h, free_func_t default_free_key, free_f
                  * themselves from our hash table a second time, the entry is already gone. */
 
                 while (internal_hashmap_size(h) > 0) {
-                        void *v, *k;
+                        void *k = NULL;
+                        void *v;
 
                         v = internal_hashmap_first_key_and_value(h, true, &k);
 
@@ -1515,8 +1520,11 @@ void *internal_hashmap_first_key_and_value(HashmapBase *h, bool remove, void **r
         unsigned idx;
 
         idx = find_first_entry(h);
-        if (idx == IDX_NIL)
+        if (idx == IDX_NIL) {
+                if (ret_key)
+                        *ret_key = NULL;
                 return NULL;
+        }
 
         e = bucket_at(h, idx);
         key = (void*) e->key;
@@ -1532,7 +1540,6 @@ void *internal_hashmap_first_key_and_value(HashmapBase *h, bool remove, void **r
 }
 
 unsigned internal_hashmap_size(HashmapBase *h) {
-
         if (!h)
                 return 0;
 
@@ -1540,7 +1547,6 @@ unsigned internal_hashmap_size(HashmapBase *h) {
 }
 
 unsigned internal_hashmap_buckets(HashmapBase *h) {
-
         if (!h)
                 return 0;
 
@@ -1761,6 +1767,32 @@ int set_consume(Set *s, void *value) {
         return r;
 }
 
+int hashmap_put_strdup(Hashmap **h, const char *k, const char *v) {
+        int r;
+
+        r = hashmap_ensure_allocated(h, &string_hash_ops_free_free);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *kdup = NULL, *vdup = NULL;
+        kdup = strdup(k);
+        vdup = strdup(v);
+        if (!kdup || !vdup)
+                return -ENOMEM;
+
+        r = hashmap_put(*h, kdup, vdup);
+        if (r < 0) {
+                if (r == -EEXIST && streq(v, hashmap_get(*h, kdup)))
+                        return 0;
+                return r;
+        }
+
+        assert(r > 0); /* 0 would mean vdup is already in the hashmap, which cannot be */
+        kdup = vdup = NULL;
+
+        return 0;
+}
+
 int set_put_strdup(Set *s, const char *p) {
         char *c;
 
@@ -1900,8 +1932,7 @@ IteratedCache *iterated_cache_free(IteratedCache *cache) {
         if (cache) {
                 free(cache->keys.ptr);
                 free(cache->values.ptr);
-                free(cache);
         }
 
-        return NULL;
+        return mfree(cache);
 }

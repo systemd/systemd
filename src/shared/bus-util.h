@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -64,7 +65,8 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
 
 typedef int (*bus_message_print_t) (const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all);
 
-int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) _printf_(4,5);
+int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *value);
+int bus_print_property_valuef(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) _printf_(4,5);
 int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 
@@ -112,8 +114,11 @@ assert_cc(sizeof(pid_t) == sizeof(uint32_t));
 assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 #define bus_property_get_mode ((sd_bus_property_get_t) NULL)
 
-int bus_log_parse_error(int r);
-int bus_log_create_error(int r);
+#define bus_log_parse_error(r) \
+        log_error_errno(r, "Failed to parse bus message: %m")
+
+#define bus_log_create_error(r) \
+        log_error_errno(r, "Failed to create bus message: %m")
 
 #define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
         int function(sd_bus *bus,                                       \
@@ -177,3 +182,5 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
 }
 
 int bus_reply_pair_array(sd_bus_message *m, char **l);
+
+extern const struct hash_ops bus_message_hash_ops;

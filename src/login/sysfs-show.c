@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 
 #include "sd-device.h"
 
@@ -109,7 +108,7 @@ static int show_sysfs_one(
                 if (++(*i_dev) < n_dev) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strappend(prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ");
+                        p = strjoin(prefix, lookahead < n_dev ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ");
                         if (!p)
                                 return -ENOMEM;
 

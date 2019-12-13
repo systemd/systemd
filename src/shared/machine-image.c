@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/fs.h>
+#include <linux/loop.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <linux/fs.h>
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -31,6 +30,7 @@
 #include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -39,7 +39,6 @@
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
-#include "util.h"
 #include "xattr-util.h"
 
 static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
@@ -87,8 +86,8 @@ static char **image_settings_path(Image *image) {
 
         fn = strjoina(image->name, ".nspawn");
 
-        FOREACH_STRING(s, "/etc/systemd/nspawn/", "/run/systemd/nspawn/") {
-                l[i] = strappend(s, fn);
+        FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                l[i] = path_join(s, fn);
                 if (!l[i])
                         return NULL;
 
@@ -146,10 +145,7 @@ static int image_new(
         if (!i->name)
                 return -ENOMEM;
 
-        if (path)
-                i->path = strjoin(path, "/", filename);
-        else
-                i->path = strdup(filename);
+        i->path = path_join(path, filename);
         if (!i->path)
                 return -ENOMEM;
 
@@ -200,12 +196,13 @@ static int image_make(
                 const struct stat *st,
                 Image **ret) {
 
-        _cleanup_free_ char *pretty_buffer = NULL;
+        _cleanup_free_ char *pretty_buffer = NULL, *parent = NULL;
         struct stat stbuf;
         bool read_only;
         int r;
 
         assert(dfd >= 0 || dfd == AT_FDCWD);
+        assert(path || dfd == AT_FDCWD);
         assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
@@ -219,6 +216,13 @@ static int image_make(
                         return -errno;
 
                 st = &stbuf;
+        }
+
+        if (!path) {
+                if (dfd == AT_FDCWD)
+                        (void) safe_getcwd(&parent);
+                else
+                        (void) fd_get_path(dfd, &parent);
         }
 
         read_only =
@@ -359,7 +363,7 @@ static int image_make(
 
                 block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
-                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
+                        log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                 else {
                         /* Refresh stat data after opening the node */
                         if (fstat(block_fd, &stbuf) < 0)
@@ -373,13 +377,13 @@ static int image_make(
                                 int state = 0;
 
                                 if (ioctl(block_fd, BLKROGET, &state) < 0)
-                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path, filename);
+                                        log_debug_errno(errno, "Failed to issue BLKROGET on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
                                 else if (state)
                                         read_only = true;
                         }
 
                         if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path, filename);
+                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
 
                         block_fd = safe_close(block_fd);
                 }
@@ -395,7 +399,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                if (size != 0 && size != UINT64_MAX)
+                if (!IN_SET(size, 0, UINT64_MAX))
                         (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
                 return 0;
@@ -436,7 +440,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         if (errno != ENOENT)
                                 return -errno;
 
-                        raw = strappend(name, ".raw");
+                        raw = strjoin(name, ".raw");
                         if (!raw)
                                 return -ENOMEM;
 
@@ -808,7 +812,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
         if (!rs)
                 return -ENOMEM;
 
-        return copy_file_atomic(path, rs, 0664, 0, COPY_REFLINK);
+        return copy_file_atomic(path, rs, 0664, 0, 0, COPY_REFLINK);
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
@@ -870,7 +874,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         case IMAGE_RAW:
                 new_path = strjoina("/var/lib/machines/", new_name, ".raw");
 
-                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, COPY_REFLINK);
+                r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
                 break;
 
         case IMAGE_BLOCK:
@@ -984,28 +988,52 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         _cleanup_free_ char *p = NULL;
         LockFile t = LOCK_FILE_INIT;
         struct stat st;
+        bool exclusive;
         int r;
 
         assert(path);
         assert(global);
         assert(local);
 
-        /* Locks an image path. This actually creates two locks: one
-         * "local" one, next to the image path itself, which might be
-         * shared via NFS. And another "global" one, in /run, that
-         * uses the device/inode number. This has the benefit that we
-         * can even lock a tree that is a mount point, correctly. */
+        /* Locks an image path. This actually creates two locks: one "local" one, next to the image path
+         * itself, which might be shared via NFS. And another "global" one, in /run, that uses the
+         * device/inode number. This has the benefit that we can even lock a tree that is a mount point,
+         * correctly. */
 
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        switch (operation & (LOCK_SH|LOCK_EX)) {
+        case LOCK_SH:
+                exclusive = false;
+                break;
+        case LOCK_EX:
+                exclusive = true;
+                break;
+        default:
+                return -EINVAL;
+        }
 
         if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
                 *local = *global = (LockFile) LOCK_FILE_INIT;
                 return 0;
         }
 
-        if (path_equal(path, "/"))
-                return -EBUSY;
+        /* Prohibit taking exclusive locks on the host image. We can't allow this, since we ourselves are
+         * running off it after all, and we don't want any images to manipulate the host image. We make an
+         * exception for shared locks however: we allow those (and make them NOPs since there's no point in
+         * taking them if there can't be exclusive locks). Strictly speaking these are questionable as well,
+         * since it means changes made to the host might propagate to the container as they happen (and a
+         * shared lock kinda suggests that no changes happen at all while it is in place), but it's too
+         * useful not to allow read-only containers off the host root, hence let's support this, and trust
+         * the user to do the right thing with this. */
+        if (path_equal(path, "/")) {
+                if (exclusive)
+                        return -EBUSY;
+
+                *local = *global = (LockFile) LOCK_FILE_INIT;
+                return 0;
+        }
 
         if (stat(path, &st) >= 0) {
                 if (S_ISBLK(st.st_mode))
@@ -1019,12 +1047,12 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                         return -ENOMEM;
         }
 
-        /* For block devices we don't need the "local" lock, as the major/minor lock above should be sufficient, since
-         * block devices are device local anyway. */
-        if (!path_startswith(path, "/dev")) {
+        /* For block devices we don't need the "local" lock, as the major/minor lock above should be
+         * sufficient, since block devices are host local anyway. */
+        if (!path_startswith(path, "/dev/")) {
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {
-                        if ((operation & LOCK_SH) && r == -EROFS)
+                        if (!exclusive && r == -EROFS)
                                 log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
                         else
                                 return r;
@@ -1032,7 +1060,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         }
 
         if (p) {
-                mkdir_p("/run/systemd/nspawn/locks", 0700);
+                (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
 
                 r = make_lock_file(p, operation, global);
                 if (r < 0) {
@@ -1084,7 +1112,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
+                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -1095,7 +1123,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
+                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -1113,7 +1141,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
+                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -1139,7 +1167,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
 
-                r = loop_device_make_by_path(i->path, O_RDONLY, &d);
+                r = loop_device_make_by_path(i->path, O_RDONLY, LO_FLAGS_PARTSCAN, &d);
                 if (r < 0)
                         return r;
 
@@ -1169,8 +1197,6 @@ int image_read_metadata(Image *i) {
 }
 
 int image_name_lock(const char *name, int operation, LockFile *ret) {
-        const char *p;
-
         assert(name);
         assert(ret);
 
@@ -1187,9 +1213,8 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
         if (streq(name, ".host"))
                 return -EBUSY;
 
-        mkdir_p("/run/systemd/nspawn/locks", 0700);
-        p = strjoina("/run/systemd/nspawn/locks/name-", name);
-
+        const char *p = strjoina("/run/systemd/nspawn/locks/name-", name);
+        (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
         return make_lock_file(p, operation, ret);
 }
 

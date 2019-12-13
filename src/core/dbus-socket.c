@@ -277,10 +277,10 @@ static int bus_socket_set_transient_property(
                 return bus_set_transient_fdname(u, name, &s->fdname, message, flags, error);
 
         if (streq(name, "SocketUser"))
-                return bus_set_transient_user(u, name, &s->user, message, flags, error);
+                return bus_set_transient_user_compat(u, name, &s->user, message, flags, error);
 
         if (streq(name, "SocketGroup"))
-                return bus_set_transient_user(u, name, &s->group, message, flags, error);
+                return bus_set_transient_user_compat(u, name, &s->group, message, flags, error);
 
         if (streq(name, "BindIPv6Only"))
                 return bus_set_transient_bind_ipv6_only(u, name, &s->bind_ipv6_only, message, flags, error);
@@ -303,8 +303,11 @@ static int bus_socket_set_transient_property(
         if (streq(name, "SocketProtocol"))
                 return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, error);
 
-        if ((ci = socket_exec_command_from_string(name)) >= 0)
-                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
+        ci = socket_exec_command_from_string(name);
+        if (ci >= 0)
+                return bus_set_transient_exec_command(u, name,
+                                                      &s->exec_command[ci],
+                                                      message, flags, error);
 
         if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;

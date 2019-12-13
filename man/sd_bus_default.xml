@@ -1,10 +1,7 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_default" xmlns:xi="http://www.w3.org/2001/XInclude">
 
@@ -272,36 +269,37 @@
     <para>On success, these calls return 0 or a positive
     integer. On failure, these calls return a negative
     errno-style error code.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>The specified parameters are invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>The specified parameters are invalid.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENOMEM</constant></term>
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
 
-        <listitem><para>Memory allocation failed.</para></listitem>
-      </varlistentry>
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ESOCKTNOSUPPORT</constant></term>
+        <varlistentry>
+          <term><constant>-ESOCKTNOSUPPORT</constant></term>
 
-        <listitem><para>The protocol version required to connect to the selected bus is not supported.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>The protocol version required to connect to the selected bus is not
+          supported.</para></listitem>
+        </varlistentry>
+      </variablelist>
 
-    <para>In addition, any further connection-related errors may be
-    by returned. See <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+      <para>In addition, any further connection-related errors may be by returned. See
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

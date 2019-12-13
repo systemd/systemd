@@ -1,0 +1,18 @@
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.2.3.4/16
+
+# This should be ignored when ipv6 is disabled
+Gateway=2607:5300:0203:39ff:ff:ff:ff:ff
+
+[Address]
+# This should be ignored when ipv6 is disabled
+Address=2607:5300:0203:3906::/64
+
+[Route]
+# This should be ignored when ipv6 is disabled
+Destination=2607:5300:0203:39ff:ff:ff:ff:ff
+Scope=link

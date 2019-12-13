@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <poll.h>
-#include <string.h>
 #include <sys/inotify.h>
 
 #include "sd-network.h"
@@ -18,13 +17,13 @@
 #include "strv.h"
 #include "util.h"
 
-_public_ int sd_network_get_operational_state(char **state) {
+static int network_get_string(const char *field, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        assert_return(state, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        r = parse_env_file(NULL, "/run/systemd/netif/state", "OPER_STATE", &s);
+        r = parse_env_file(NULL, "/run/systemd/netif/state", field, &s);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -32,9 +31,21 @@ _public_ int sd_network_get_operational_state(char **state) {
         if (isempty(s))
                 return -ENODATA;
 
-        *state = TAKE_PTR(s);
+        *ret = TAKE_PTR(s);
 
         return 0;
+}
+
+_public_ int sd_network_get_operational_state(char **state) {
+        return network_get_string("OPER_STATE", state);
+}
+
+_public_ int sd_network_get_carrier_state(char **state) {
+        return network_get_string("CARRIER_STATE", state);
+}
+
+_public_ int sd_network_get_address_state(char **state) {
+        return network_get_string("ADDRESS_STATE", state);
 }
 
 static int network_get_strv(const char *key, char ***ret) {
@@ -149,6 +160,14 @@ _public_ int sd_network_link_get_operational_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "OPER_STATE", state);
 }
 
+_public_ int sd_network_link_get_carrier_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "CARRIER_STATE", state);
+}
+
+_public_ int sd_network_link_get_address_state(int ifindex, char **state) {
+        return network_link_get_string(ifindex, "ADDRESS_STATE", state);
+}
+
 _public_ int sd_network_link_get_required_for_online(int ifindex) {
         _cleanup_free_ char *s = NULL;
         int r;
@@ -162,6 +181,27 @@ _public_ int sd_network_link_get_required_for_online(int ifindex) {
         }
 
         return parse_boolean(s);
+}
+
+_public_ int sd_network_link_get_required_operstate_for_online(int ifindex, char **state) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_return(state, -EINVAL);
+
+        r = network_link_get_string(ifindex, "REQUIRED_OPER_STATE_FOR_ONLINE", &s);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        return r;
+
+                /* For compatibility, assuming degraded. */
+                s = strdup("degraded");
+                if (!s)
+                        return -ENOMEM;
+        }
+
+        *state = TAKE_PTR(s);
+        return 0;
 }
 
 _public_ int sd_network_link_get_llmnr(int ifindex, char **llmnr) {
@@ -188,6 +228,10 @@ _public_ int sd_network_link_get_timezone(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "TIMEZONE", ret);
 }
 
+_public_ int sd_network_link_get_dhcp4_address(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DHCP4_ADDRESS", ret);
+}
+
 _public_ int sd_network_link_get_dns(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "DNS", ret);
 }
@@ -202,6 +246,10 @@ _public_ int sd_network_link_get_search_domains(int ifindex, char ***ret) {
 
 _public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "ROUTE_DOMAINS", ret);
+}
+
+_public_ int sd_network_link_get_sip_servers(int ifindex, char ***ret) {
+        return network_link_get_strv(ifindex, "SIP", ret);
 }
 
 _public_ int sd_network_link_get_dns_default_route(int ifindex) {

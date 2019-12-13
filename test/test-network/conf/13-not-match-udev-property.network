@@ -1,0 +1,6 @@
+[Match]
+Name=dummy98
+Property=INTERFACE=hoge
+
+[Network]
+IPv6AcceptRA=false

@@ -20,7 +20,7 @@ static void log_and_status(Manager *m, bool warn, const char *message, const cha
                                       "%s: %s", message, reason);
 }
 
-int emergency_action(
+void emergency_action(
                 Manager *m,
                 EmergencyAction action,
                 EmergencyActionFlags options,
@@ -33,11 +33,11 @@ int emergency_action(
         assert(action < _EMERGENCY_ACTION_MAX);
 
         if (action == EMERGENCY_ACTION_NONE)
-                return -ECANCELED;
+                return;
 
         if (FLAGS_SET(options, EMERGENCY_ACTION_IS_WATCHDOG) && !m->service_watchdogs) {
                 log_warning("Watchdog disabled! Not acting on: %s", reason);
-                return -ECANCELED;
+                return;
         }
 
         bool warn = FLAGS_SET(options, EMERGENCY_ACTION_WARN);
@@ -47,15 +47,14 @@ int emergency_action(
         case EMERGENCY_ACTION_REBOOT:
                 log_and_status(m, warn, "Rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
-
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
         case EMERGENCY_ACTION_REBOOT_FORCE:
                 log_and_status(m, warn, "Forcibly rebooting", reason);
 
-                (void) update_reboot_parameter_and_warn(reboot_arg);
+                (void) update_reboot_parameter_and_warn(reboot_arg, true);
                 m->objective = MANAGER_REBOOT;
 
                 break;
@@ -82,7 +81,7 @@ int emergency_action(
 
                 if (MANAGER_IS_USER(m) || detect_container() > 0) {
                         log_and_status(m, warn, "Exiting", reason);
-                        (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                        (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                         break;
                 }
 
@@ -91,7 +90,7 @@ int emergency_action(
 
         case EMERGENCY_ACTION_POWEROFF:
                 log_and_status(m, warn, "Powering off", reason);
-                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_POWEROFF_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
                 break;
 
         case EMERGENCY_ACTION_EXIT_FORCE:
@@ -125,8 +124,6 @@ int emergency_action(
         default:
                 assert_not_reached("Unknown emergency action");
         }
-
-        return -ECANCELED;
 }
 
 static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {

@@ -1,4 +1,4 @@
-#compdef journalctl
+#compdef journalctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
 (( $+functions[_journalctl_fields] )) ||
@@ -85,6 +85,7 @@ _arguments -s \
     {-h,--help}'[Show this help]' \
     '--version[Show package version]' \
     '--no-pager[Do not pipe output into a pager]' \
+    --no-hostname"[Don't show the hostname of local log messages]" \
     {-l,--full}'[Show long fields in full]' \
     {-a,--all}'[Show all fields, including long and unprintable]' \
     {-f,--follow}'[Follow journal]' \
@@ -104,6 +105,7 @@ _arguments -s \
     {-p+,--priority=}'[Show only messages within the specified priority range]:priority:_journalctl_field_values PRIORITY' \
     {-t+,--identifier=}'[Show only messages with the specified syslog identifier]:identifier:_journalctl_field_values SYSLOG_IDENTIFIER' \
     {-c+,--cursor=}'[Start showing entries from the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
+    '--cursor-file=[Show entries using cursor store in file]:file:_files' \
     '--after-cursor=[Start showing entries from after the specified cursor]:cursors:_journalctl_field_values __CURSORS' \
     '--since=[Start showing entries on or newer than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
     '--until=[Stop showing entries on or older than the specified date]:YYYY-MM-DD HH\:MM\:SS' \
@@ -114,15 +116,21 @@ _arguments -s \
     '(--directory -D -M --machine --root --file)'{-D+,--directory=}'[Show journal files from directory]:directories:_directories' \
     '(--directory -D -M --machine --root --file)--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
     '(--directory -D -M --machine --root)*--file=[Operate on specified journal files]:file:_files' \
-    '--new-id128[Generate a new 128 Bit ID]' \
-    '--header[Show journal header information]' \
     '--disk-usage[Show total disk usage]' \
-    '--list-catalog[List messages in catalog]' \
     '--dump-catalog[Dump messages in catalog]' \
-    '--update-catalog[Update binary catalog database]' \
-    '--setup-keys[Generate a new FSS key pair]' \
+    '--flush[Flush all journal data from /run into /var]' \
     '--force[Force recreation of the FSS keys]' \
+    '--header[Show journal header information]' \
     '--interval=[Time interval for changing the FSS sealing key]:time interval' \
-    '--verify[Verify journal file consistency]' \
+    '--list-catalog[List messages in catalog]' \
+    '--new-id128[Generate a new 128 Bit ID]' \
+    '--rotate[Request immediate rotation of the journal files]' \
+    '--setup-keys[Generate a new FSS key pair]' \
+    '--sync[Synchronize unwritten journal messages to disk]' \
+    '--update-catalog[Update binary catalog database]' \
+    '--vacuum-files=[Leave only the specified number of journal files]:integer' \
+    '--vacuum-size=[Reduce disk usage below specified size]:bytes' \
+    '--vacuum-time=[Remove journal files older than specified time]:time' \
     '--verify-key=[Specify FSS verification key]:FSS key' \
+    '--verify[Verify journal file consistency]' \
     '*::default: _journalctl_none'

@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="systemd.mount">
   <refentryinfo>
@@ -37,9 +34,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. The mount specific configuration options are
-    configured in the [Mount] section.</para>
+    configuration items are configured in the generic <literal>[Unit]</literal> and
+    <literal>[Install]</literal> sections. The mount specific configuration options are
+    configured in the <literal>[Mount]</literal> section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -63,7 +60,7 @@
     must be run as UID 0.</para>
 
     <para>Mount units must be named after the mount point directories they control. Example: the mount point <filename
-    noindex='true'>/home/lennart</filename> must be configured in a unit file <filename>home-lennart.mount</filename>.
+    index="false">/home/lennart</filename> must be configured in a unit file <filename>home-lennart.mount</filename>.
     For details about the escaping logic used to convert a file system path to a unit name, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.  Note that mount
     units cannot be templated, nor is possible to add multiple names to a mount unit by creating additional symlinks to
@@ -86,6 +83,11 @@
     disabled. For a longer discussion see <ulink
     url="https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems">API
     File Systems</ulink>.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry> command
+    allows creating <filename>.mount</filename> and <filename>.automount</filename> units dynamically and
+    transiently from the command line.</para>
   </refsect1>
 
   <refsect1>
@@ -131,11 +133,15 @@
         <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
 
         <listitem><para>Mount units referring to local file systems automatically gain
-        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
+        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless
+        <option>nofail</option> mount option is set.</para></listitem>
 
         <listitem><para>Network mount units
         automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-        <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
+        <filename>network.target</filename> and <filename>network-online.target</filename>, and gain a
+        <varname>Before=</varname> dependency on <filename>remote-fs.target</filename> unless
+        <option>nofail</option> mount option is set. Towards the latter a
         <varname>Wants=</varname> unit is added as well.</para></listitem>
       </itemizedlist>
 
@@ -176,7 +182,7 @@
     mount options are understood by systemd which influence how
     dependencies are created for mount points. systemd will create a
     dependency of type <varname>Wants=</varname> or
-    <option>Requires</option> (see option <option>nofail</option>
+    <option>Requires=</option> (see option <option>nofail</option>
     below), from either <filename>local-fs.target</filename> or
     <filename>remote-fs.target</filename>, depending whether the file
     system is local or remote.</para>
@@ -306,7 +312,7 @@
         <listitem><para>The file system will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
-        remains set even after the device has been initalized.</para>
+        remains set even after the device has been initialized.</para>
 
         <para>Note that this option can only be used in
         <filename>/etc/fstab</filename>, and will be ignored when part of the
@@ -506,9 +512,9 @@
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.)
         Takes a unit-less value in seconds, or a time span value such
         as "5min 20s". Pass 0 to disable the timeout logic. The
-        default value is set from the manager configuration file's
-        <varname>DefaultTimeoutStartSec=</varname>
-        variable.</para></listitem>
+        default value is set from <varname>DefaultTimeoutStartSec=</varname> option in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -524,6 +530,7 @@
       <para>
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -533,7 +540,8 @@
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
 

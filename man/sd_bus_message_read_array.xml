@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -58,41 +58,41 @@
       a positive integer. On failure, it returns a negative errno-style error
       code.
     </para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>Specified type is invalid or the message parameter or one of the output
-        parameters are <constant>NULL</constant>.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specified type is invalid or the message parameter or one of the output
+          parameters are <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EOPNOTSUPP</constant></term>
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
 
-        <listitem><para>The byte order in the message is different than native byte
-        order.</para></listitem>
-      </varlistentry>
+          <listitem><para>The byte order in the message is different than native byte
+          order.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>The message is not sealed.</para></listitem>
-      </varlistentry>
+          <listitem><para>The message is not sealed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EBADMSG</constant></term>
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
 
-        <listitem><para>The message cannot be parsed.</para></listitem>
-      </varlistentry>
+          <listitem><para>The message cannot be parsed.</para></listitem>
+        </varlistentry>
 
-    </variablelist>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

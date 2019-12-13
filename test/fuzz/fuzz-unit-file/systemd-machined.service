@@ -15,6 +15,14 @@ Documentation=https://www.freedesktop.org/wiki/Software/systemd/machined
 Wants=machine.slice
 After=machine.slice
 RequiresMountsFor=/var/lib/machines
+ConditionNull=true
+ConditionNull=
+ConditionNull=|!false
+OnFailureIsolate=false
+FailureActionExitStatus=222
+FailureActionExitStatus=
+SuccessActionExitStatus=0
+SuccessActionExitStatus=
 
 [Service]
 ExecStart=/usr/lib/systemd/systemd-machined
@@ -32,3 +40,13 @@ IPAddressDeny=any
 # Note that machined cannot be placed in a mount namespace, since it
 # needs access to the host's mount namespace in order to implement the
 # "machinectl bind" operation.
+
+SELinuxContext=system_u:system_r:kernel_t:s0
+AppArmorProfile=profile
+SELinuxContext=-system_u:system_r:kernel_t:s22
+AppArmorProfile=-profile
+IODeviceLatencyTargetSec=/dev/sda 25ms
+IODeviceLatencyTargetSec=/dev/sdb 2h
+PIDFile=%t/mypid
+PIDFile=
+DisableControllers=

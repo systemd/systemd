@@ -144,5 +144,5 @@ bool signature_is_valid(const char *s, bool allow_dict_entry) {
                 p += t;
         }
 
-        return p - s <= 255;
+        return p - s <= SD_BUS_MAXIMUM_SIGNATURE_LENGTH;
 }

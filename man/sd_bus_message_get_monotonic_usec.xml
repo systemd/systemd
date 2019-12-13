@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="sd_bus_message_get_monotonic_usec"
           xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -101,32 +98,29 @@
 
     <para>On success, the timestamp or sequence number is returned in
     the specified 64-bit unsigned integer variable.</para>
-  </refsect1>
 
-  <refsect1>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>A specified parameter is
-        invalid.</para></listitem>
-      </varlistentry>
+          <listitem><para>A specified parameter is invalid.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-ENODATA</constant></term>
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
 
-        <listitem><para>No timestamp or sequence number information is
-        attached to the passed message. This error is returned if the
-        underlying transport does not support timestamping or
-        assigning of sequence numbers, or if this feature has not been
-        negotiated with
-        <citerefentry><refentrytitle>sd_bus_negotiate_timestamp</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>No timestamp or sequence number information is attached to the passed message. This
+          error is returned if the underlying transport does not support timestamping or assigning of
+          sequence numbers, or if this feature has not been negotiated with
+          <citerefentry><refentrytitle>sd_bus_negotiate_timestamp</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

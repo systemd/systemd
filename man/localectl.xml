@@ -1,10 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="localectl" conditional='ENABLE_LOCALED'
     xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -60,38 +57,6 @@
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to initialize the system locale for mounted (but not booted)
     system images.</para>
-  </refsect1>
-
-  <refsect1>
-    <title>Options</title>
-
-    <para>The following options are understood:</para>
-
-    <variablelist>
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-convert</option></term>
-
-        <listitem><para>If <command>set-keymap</command> or
-        <command>set-x11-keymap</command> is invoked and this option
-        is passed, then the keymap will not be converted from the
-        console to X11, or X11 to console,
-        respectively.</para></listitem>
-      </varlistentry>
-
-      <xi:include href="user-system-options.xml" xpointer="host" />
-      <xi:include href="user-system-options.xml" xpointer="machine" />
-
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -179,6 +144,38 @@
       </varlistentry>
     </variablelist>
 
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for
+        privileged operations.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-convert</option></term>
+
+        <listitem><para>If <command>set-keymap</command> or
+        <command>set-x11-keymap</command> is invoked and this option
+        is passed, then the keymap will not be converted from the
+        console to X11, or X11 to console,
+        respectively.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="host" />
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

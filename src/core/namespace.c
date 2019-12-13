@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <linux/loop.h>
 #include <sched.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <linux/fs.h>
 
@@ -17,21 +16,23 @@
 #include "label.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "namespace.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "util.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
@@ -49,6 +50,8 @@ typedef enum MountMode {
         READONLY,
         READWRITE,
         TMPFS,
+        READWRITE_IMPLICIT, /* Should have the lowest priority. */
+        _MOUNT_MODE_MAX,
 } MountMode;
 
 typedef struct MountEntry {
@@ -57,6 +60,7 @@ typedef struct MountEntry {
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
+        bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
@@ -77,26 +81,26 @@ static const MountEntry apivfs_table[] = {
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_table[] = {
-        { "/proc/acpi",          READONLY,     true  },
-        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
-        { "/proc/asound",        READONLY,     true  },
-        { "/proc/bus",           READONLY,     true  },
-        { "/proc/fs",            READONLY,     true  },
-        { "/proc/irq",           READONLY,     true  },
-        { "/proc/kallsyms",      INACCESSIBLE, true  },
-        { "/proc/kcore",         INACCESSIBLE, true  },
-        { "/proc/latency_stats", READONLY,     true  },
-        { "/proc/mtrr",          READONLY,     true  },
-        { "/proc/scsi",          READONLY,     true  },
-        { "/proc/sys",           READONLY,     false },
-        { "/proc/sysrq-trigger", READONLY,     true  },
-        { "/proc/timer_stats",   READONLY,     true  },
-        { "/sys",                READONLY,     false },
-        { "/sys/fs/bpf",         READONLY,     true  },
-        { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
-        { "/sys/fs/selinux",     READWRITE,    true  },
-        { "/sys/kernel/debug",   READONLY,     true  },
-        { "/sys/kernel/tracing", READONLY,     true  },
+        { "/proc/acpi",          READONLY,           true  },
+        { "/proc/apm",           READONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
+        { "/proc/asound",        READONLY,           true  },
+        { "/proc/bus",           READONLY,           true  },
+        { "/proc/fs",            READONLY,           true  },
+        { "/proc/irq",           READONLY,           true  },
+        { "/proc/kallsyms",      INACCESSIBLE,       true  },
+        { "/proc/kcore",         INACCESSIBLE,       true  },
+        { "/proc/latency_stats", READONLY,           true  },
+        { "/proc/mtrr",          READONLY,           true  },
+        { "/proc/scsi",          READONLY,           true  },
+        { "/proc/sys",           READONLY,           false },
+        { "/proc/sysrq-trigger", READONLY,           true  },
+        { "/proc/timer_stats",   READONLY,           true  },
+        { "/sys",                READONLY,           false },
+        { "/sys/fs/bpf",         READONLY,           true  },
+        { "/sys/fs/cgroup",      READWRITE_IMPLICIT, false }, /* READONLY is set by ProtectControlGroups= option */
+        { "/sys/fs/selinux",     READWRITE_IMPLICIT, true  },
+        { "/sys/kernel/debug",   READONLY,           true  },
+        { "/sys/kernel/tracing", READONLY,           true  },
 };
 
 /* ProtectKernelModules= option */
@@ -105,6 +109,12 @@ static const MountEntry protect_kernel_modules_table[] = {
         { "/lib/modules",        INACCESSIBLE, true  },
 #endif
         { "/usr/lib/modules",    INACCESSIBLE, true  },
+};
+
+/* ProtectKernelLogs= option */
+static const MountEntry protect_kernel_logs_table[] = {
+        { "/proc/kmsg",          INACCESSIBLE, true },
+        { "/dev/kmsg",           INACCESSIBLE, true },
 };
 
 /*
@@ -171,14 +181,32 @@ static const MountEntry protect_system_full_table[] = {
  * shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
-        { "/",                   READONLY,     false },
-        { "/proc",               READWRITE,    false },      /* ProtectKernelTunables= */
-        { "/sys",                READWRITE,    false },      /* ProtectKernelTunables= */
-        { "/dev",                READWRITE,    false },      /* PrivateDevices= */
-        { "/home",               READWRITE,    true  },      /* ProtectHome= */
-        { "/run/user",           READWRITE,    true  },      /* ProtectHome= */
-        { "/root",               READWRITE,    true  },      /* ProtectHome= */
+        { "/",                   READONLY,           false },
+        { "/proc",               READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/sys",                READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/dev",                READWRITE_IMPLICIT, false },      /* PrivateDevices= */
+        { "/home",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
+
+static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
+        [INACCESSIBLE]         = "inaccessible",
+        [BIND_MOUNT]           = "bind",
+        [BIND_MOUNT_RECURSIVE] = "rbind",
+        [PRIVATE_TMP]          = "private-tmp",
+        [PRIVATE_DEV]          = "private-dev",
+        [BIND_DEV]             = "bind-dev",
+        [EMPTY_DIR]            = "empty",
+        [SYSFS]                = "sysfs",
+        [PROCFS]               = "procfs",
+        [READONLY]             = "read-only",
+        [READWRITE]            = "read-write",
+        [TMPFS]                = "tmpfs",
+        [READWRITE_IMPLICIT]   = "rw-implicit",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
 static const char *mount_entry_path(const MountEntry *p) {
         assert(p);
@@ -220,7 +248,7 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
 
         assert(p);
 
-        /* Adds a list of user-supplied READWRITE/READONLY/INACCESSIBLE entries */
+        /* Adds a list of user-supplied READWRITE/READWRITE_IMPLICIT/READONLY/INACCESSIBLE entries */
 
         STRV_FOREACH(i, strv) {
                 bool ignore = false, needs_prefix = false;
@@ -286,6 +314,7 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
                         .path_const = b->destination,
                         .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
                         .read_only = b->read_only,
+                        .nosuid = b->nosuid,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
@@ -420,7 +449,7 @@ static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directo
                 if (m[i].has_prefix)
                         continue;
 
-                s = prefix_root(root_directory, mount_entry_path(m+i));
+                s = path_join(root_directory, mount_entry_path(m+i));
                 if (!s)
                         return -ENOMEM;
 
@@ -446,7 +475,7 @@ static void drop_duplicates(MountEntry *m, size_t *n) {
                 if (previous &&
                     path_equal(mount_entry_path(f), mount_entry_path(previous)) &&
                     !f->applied && !previous->applied) {
-                        log_debug("%s is duplicate.", mount_entry_path(f));
+                        log_debug("%s (%s) is duplicate.", mount_entry_path(f), mount_mode_to_string(f->mode));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
                         mount_entry_done(f);
                         continue;
@@ -500,8 +529,8 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
         for (f = m, t = m; f < m + *n; f++) {
 
-                /* Only suppress such subtrees for READONLY and READWRITE entries */
-                if (IN_SET(f->mode, READONLY, READWRITE)) {
+                /* Only suppress such subtrees for READONLY, READWRITE and READWRITE_IMPLICIT entries */
+                if (IN_SET(f->mode, READONLY, READWRITE, READWRITE_IMPLICIT)) {
                         MountEntry *p;
                         bool found = false;
 
@@ -515,7 +544,9 @@ static void drop_nop(MountEntry *m, size_t *n) {
 
                         /* We found it, let's see if it's the same mode, if so, we can drop this entry */
                         if (found && p->mode == f->mode) {
-                                log_debug("%s is redundant by %s", mount_entry_path(f), mount_entry_path(p));
+                                log_debug("%s (%s) is made redundant by %s (%s)",
+                                          mount_entry_path(f), mount_mode_to_string(f->mode),
+                                          mount_entry_path(p), mount_mode_to_string(p->mode));
                                 mount_entry_done(f);
                                 continue;
                         }
@@ -736,27 +767,27 @@ static int mount_private_dev(MountEntry *m) {
                 goto fail;
         }
 
-        rmdir(dev);
-        rmdir(temporary_mount);
+        (void) rmdir(dev);
+        (void) rmdir(temporary_mount);
 
         return 0;
 
 fail:
         if (devpts)
-                umount(devpts);
+                (void) umount(devpts);
 
         if (devshm)
-                umount(devshm);
+                (void) umount(devshm);
 
         if (devhugepages)
-                umount(devhugepages);
+                (void) umount(devhugepages);
 
         if (devmqueue)
-                umount(devmqueue);
+                (void) umount(devmqueue);
 
-        umount(dev);
-        rmdir(dev);
-        rmdir(temporary_mount);
+        (void) umount(dev);
+        (void) rmdir(dev);
+        (void) rmdir(temporary_mount);
 
         return r;
 }
@@ -849,7 +880,7 @@ static int follow_symlink(
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
          * end and already have a fully normalized name. */
 
-        r = chase_symlinks(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target);
+        r = chase_symlinks(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
         if (r > 0) /* Reached the end, nothing more to resolve */
@@ -908,6 +939,7 @@ static int apply_mount(
 
         case READONLY:
         case READWRITE:
+        case READWRITE_IMPLICIT:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
@@ -930,7 +962,7 @@ static int apply_mount(
                  * mount source paths are always relative to the host root, hence we pass NULL as root directory to
                  * chase_symlinks() here. */
 
-                r = chase_symlinks(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased);
+                r = chase_symlinks(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
                         return 0;
@@ -1017,47 +1049,56 @@ static int apply_mount(
         return 0;
 }
 
-/* Change the per-mount readonly flag on an existing mount */
-static int remount_bind_readonly(const char *path, unsigned long orig_flags) {
-        int r;
+/* Change per-mount flags on an existing mount */
+static int bind_remount_one(const char *path, unsigned long orig_flags, unsigned long new_flags, unsigned long flags_mask) {
+        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask) | MS_REMOUNT | MS_BIND | new_flags, NULL) < 0)
+                return -errno;
 
-        r = mount(NULL, path, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY | orig_flags, NULL);
-
-        return r < 0 ? -errno : 0;
+        return 0;
 }
 
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
+        unsigned long new_flags = 0, flags_mask = 0;
         bool submounts = false;
         int r = 0;
 
         assert(m);
         assert(proc_self_mountinfo);
 
-        if (mount_entry_read_only(m)) {
-                if (IN_SET(m->mode, EMPTY_DIR, TMPFS)) {
-                        r = remount_bind_readonly(mount_entry_path(m), m->flags);
-                } else {
-                        submounts = true;
-                        r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
-                }
-        } else if (m->mode == PRIVATE_DEV) {
-                /* Set /dev readonly, but not submounts like /dev/shm. Also, we only set the per-mount read-only flag.
-                 * We can't set it on the superblock, if we are inside a user namespace and running Linux <= 4.17. */
-                r = remount_bind_readonly(mount_entry_path(m), DEV_MOUNT_OPTIONS);
-        } else
+        if (mount_entry_read_only(m) || m->mode == PRIVATE_DEV) {
+                new_flags |= MS_RDONLY;
+                flags_mask |= MS_RDONLY;
+        }
+
+        if (m->nosuid) {
+                new_flags |= MS_NOSUID;
+                flags_mask |= MS_NOSUID;
+        }
+
+        if (flags_mask == 0) /* No Change? */
                 return 0;
 
-        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked read-only
-         * already stays this way. This improves compatibility with container managers, where we won't attempt to undo
-         * read-only mounts already applied. */
+        /* We generally apply these changes recursively, except for /dev, and the cases we know there's
+         * nothing further down.  Set /dev readonly, but not submounts like /dev/shm. Also, we only set the
+         * per-mount read-only flag.  We can't set it on the superblock, if we are inside a user namespace
+         * and running Linux <= 4.17. */
+        submounts =
+                mount_entry_read_only(m) &&
+                !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+        if (submounts)
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, blacklist, proc_self_mountinfo);
+        else
+                r = bind_remount_one(mount_entry_path(m), m->flags, new_flags, flags_mask);
+
+        /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
+         * read-only already stays this way. This improves compatibility with container managers, where we
+         * won't attempt to undo read-only mounts already applied. */
 
         if (r == -ENOENT && m->ignore)
-                r = 0;
-
+                return 0;
         if (r < 0)
-                return log_debug_errno(r, "Failed to re-mount '%s'%s read-only: %m", mount_entry_path(m),
+                return log_debug_errno(r, "Failed to re-mount '%s'%s: %m", mount_entry_path(m),
                                        submounts ? " and its submounts" : "");
-
         return 0;
 }
 
@@ -1114,9 +1155,11 @@ static size_t namespace_calculate_mounts(
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
-                (ns_info->protect_control_groups ? 1 : 0) +
                 (ns_info->protect_kernel_modules ? ELEMENTSOF(protect_kernel_modules_table) : 0) +
+                (ns_info->protect_kernel_logs ? ELEMENTSOF(protect_kernel_logs_table) : 0) +
+                (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
+                (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
@@ -1150,13 +1193,14 @@ int setup_namespace(
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
-                DissectImageFlags dissect_image_flags) {
+                DissectImageFlags dissect_image_flags,
+                char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ void *root_hash = NULL;
-        MountEntry *m, *mounts = NULL;
+        MountEntry *m = NULL, *mounts = NULL;
         size_t n_mounts, root_hash_size = 0;
         bool require_prefix = false;
         const char *root;
@@ -1177,6 +1221,7 @@ int setup_namespace(
 
                 r = loop_device_make_by_path(root_image,
                                              dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             LO_FLAGS_PARTSCAN,
                                              &loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
@@ -1220,7 +1265,10 @@ int setup_namespace(
                         protect_home, protect_system);
 
         if (n_mounts > 0) {
-                m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));
+                m = mounts = new0(MountEntry, n_mounts);
+                if (!mounts)
+                        return -ENOMEM;
+
                 r = append_access_mounts(&m, read_write_paths, READWRITE, require_prefix);
                 if (r < 0)
                         goto finish;
@@ -1265,6 +1313,7 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/dev",
                                 .mode = PRIVATE_DEV,
+                                .flags = DEV_MOUNT_OPTIONS,
                         };
                 }
 
@@ -1276,6 +1325,12 @@ int setup_namespace(
 
                 if (ns_info->protect_kernel_modules) {
                         r = append_static_mounts(&m, protect_kernel_modules_table, ELEMENTSOF(protect_kernel_modules_table), ns_info->ignore_protect_paths);
+                        if (r < 0)
+                                goto finish;
+                }
+
+                if (ns_info->protect_kernel_logs) {
+                        r = append_static_mounts(&m, protect_kernel_logs_table, ELEMENTSOF(protect_kernel_logs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
                 }
@@ -1299,6 +1354,17 @@ int setup_namespace(
                         r = append_static_mounts(&m, apivfs_table, ELEMENTSOF(apivfs_table), ns_info->ignore_protect_paths);
                         if (r < 0)
                                 goto finish;
+                }
+
+                if (ns_info->protect_hostname) {
+                        *(m++) = (MountEntry) {
+                                .path_const = "/proc/sys/kernel/hostname",
+                                .mode = READONLY,
+                        };
+                        *(m++) = (MountEntry) {
+                                .path_const = "/proc/sys/kernel/domainname",
+                                .mode = READONLY,
+                        };
                 }
 
                 assert(mounts + n_mounts == m);
@@ -1380,7 +1446,7 @@ int setup_namespace(
 
         if (n_mounts > 0) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-                char **blacklist;
+                _cleanup_free_ char **blacklist = NULL;
                 size_t j;
 
                 /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
@@ -1388,6 +1454,8 @@ int setup_namespace(
                 proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!proc_self_mountinfo) {
                         r = log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+                        if (error_path)
+                                *error_path = strdup("/proc/self/mountinfo");
                         goto finish;
                 }
 
@@ -1401,8 +1469,11 @@ int setup_namespace(
                                         continue;
 
                                 r = follow_symlink(root, m);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (error_path && mount_entry_path(m))
+                                                *error_path = strdup(mount_entry_path(m));
                                         goto finish;
+                                }
                                 if (r == 0) {
                                         /* We hit a symlinked mount point. The entry got rewritten and might point to a
                                          * very different place now. Let's normalize the changed list, and start from
@@ -1413,8 +1484,11 @@ int setup_namespace(
                                 }
 
                                 r = apply_mount(root, m);
-                                if (r < 0)
+                                if (r < 0) {
+                                        if (error_path && mount_entry_path(m))
+                                                *error_path = strdup(mount_entry_path(m));
                                         goto finish;
+                                }
 
                                 m->applied = true;
                         }
@@ -1426,7 +1500,11 @@ int setup_namespace(
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
-                blacklist = newa(char*, n_mounts+1);
+                blacklist = new(char*, n_mounts+1);
+                if (!blacklist) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
                 for (j = 0; j < n_mounts; j++)
                         blacklist[j] = (char*) mount_entry_path(mounts+j);
                 blacklist[j] = NULL;
@@ -1434,8 +1512,11 @@ int setup_namespace(
                 /* Second round, flip the ro bits if necessary. */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
                         r = make_read_only(m, blacklist, proc_self_mountinfo);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (error_path && mount_entry_path(m))
+                                        *error_path = strdup(mount_entry_path(m));
                                 goto finish;
+                        }
                 }
         }
 
@@ -1459,6 +1540,8 @@ int setup_namespace(
 finish:
         for (m = mounts; m < mounts + n_mounts; m++)
                 mount_entry_done(m);
+
+        free(mounts);
 
         return r;
 }
@@ -1502,6 +1585,7 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
+                .nosuid = item->nosuid,
                 .recursive = item->recursive,
                 .ignore_enoent = item->ignore_enoent,
         };
@@ -1559,6 +1643,44 @@ int temporary_filesystem_add(
         return 0;
 }
 
+static int make_tmp_prefix(const char *prefix) {
+        _cleanup_free_ char *t = NULL;
+        int r;
+
+        /* Don't do anything unless we know the dir is actually missing */
+        r = access(prefix, F_OK);
+        if (r >= 0)
+                return 0;
+        if (errno != ENOENT)
+                return -errno;
+
+        r = mkdir_parents(prefix, 0755);
+        if (r < 0)
+                return r;
+
+        r = tempfn_random(prefix, NULL, &t);
+        if (r < 0)
+                return r;
+
+        if (mkdir(t, 0777) < 0)
+                return -errno;
+
+        if (chmod(t, 01777) < 0) {
+                r = -errno;
+                (void) rmdir(t);
+                return r;
+        }
+
+        if (rename(t, prefix) < 0) {
+                r = -errno;
+                (void) rmdir(t);
+                return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
+        }
+
+        return 0;
+
+}
+
 static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         _cleanup_free_ char *x = NULL;
         char bid[SD_ID128_STRING_MAX];
@@ -1579,6 +1701,10 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
         x = strjoin(prefix, "/systemd-private-", sd_id128_to_string(boot_id, bid), "-", id, "-XXXXXX");
         if (!x)
                 return -ENOMEM;
+
+        r = make_tmp_prefix(prefix);
+        if (r < 0)
+                return r;
 
         RUN_WITH_UMASK(0077)
                 if (!mkdtemp(x))
@@ -1615,8 +1741,8 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
                 char *t;
 
                 t = strjoina(a, "/tmp");
-                rmdir(t);
-                rmdir(a);
+                (void) rmdir(t);
+                (void) rmdir(a);
 
                 free(a);
                 return r;
@@ -1628,7 +1754,7 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_netns(int netns_storage_socket[static 2]) {
+int setup_netns(const int netns_storage_socket[static 2]) {
         _cleanup_close_ int netns = -1;
         int r, q;
 
@@ -1649,14 +1775,14 @@ int setup_netns(int netns_storage_socket[static 2]) {
 
         netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
         if (netns == -EAGAIN) {
-                /* Nothing stored yet, so let's create a new namespace */
+                /* Nothing stored yet, so let's create a new namespace. */
 
                 if (unshare(CLONE_NEWNET) < 0) {
                         r = -errno;
                         goto fail;
                 }
 
-                loopback_setup();
+                (void) loopback_setup();
 
                 netns = open("/proc/self/ns/net", O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (netns < 0) {
@@ -1679,6 +1805,59 @@ int setup_netns(int netns_storage_socket[static 2]) {
 
                 r = 0;
         }
+
+        q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
+        if (q < 0) {
+                r = q;
+                goto fail;
+        }
+
+fail:
+        (void) lockf(netns_storage_socket[0], F_ULOCK, 0);
+        return r;
+}
+
+int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
+        _cleanup_close_ int netns = -1;
+        int q, r;
+
+        assert(netns_storage_socket);
+        assert(netns_storage_socket[0] >= 0);
+        assert(netns_storage_socket[1] >= 0);
+        assert(path);
+
+        /* If the storage socket doesn't contain a netns fd yet, open one via the file system and store it in
+         * it. This is supposed to be called ahead of time, i.e. before setup_netns() which will allocate a
+         * new anonymous netns if needed. */
+
+        if (lockf(netns_storage_socket[0], F_LOCK, 0) < 0)
+                return -errno;
+
+        netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
+        if (netns == -EAGAIN) {
+                /* Nothing stored yet. Open the file from the file system. */
+
+                netns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netns < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                r = fd_is_network_ns(netns);
+                if (r == 0) { /* Not a netns? Refuse early. */
+                        r = -EINVAL;
+                        goto fail;
+                }
+                if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
+                        goto fail;
+
+                r = 1;
+
+        } else if (netns < 0) {
+                r = netns;
+                goto fail;
+        } else
+                r = 0; /* Already allocated */
 
         q = send_one_fd(netns_storage_socket[1], netns, MSG_DONTWAIT);
         if (q < 0) {

@@ -250,7 +250,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
 
         r = qcow2_convert(i->raw_job->disk_fd, converted_fd);
         if (r < 0) {
-                unlink(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to convert qcow2 image: %m");
         }
 
@@ -299,7 +299,7 @@ static int raw_pull_copy_auxiliary_file(
 
         local = strjoina(i->image_root, "/", i->local, suffix);
 
-        r = copy_file_atomic(*path, local, 0644, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
+        r = copy_file_atomic(*path, local, 0644, 0, 0, COPY_REFLINK | (i->force_local ? COPY_REPLACE : 0));
         if (r == -EEXIST)
                 log_warning_errno(r, "File %s already exists, not replacing.", local);
         else if (r == -ENOENT)
@@ -364,11 +364,11 @@ static int raw_pull_make_local_copy(RawPull *i) {
 
         r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
-                unlink(tp);
+                (void) unlink(tp);
                 return log_error_errno(r, "Failed to make writable copy of image: %m");
         }
 
-        (void) copy_times(i->raw_job->disk_fd, dfd);
+        (void) copy_times(i->raw_job->disk_fd, dfd, COPY_CRTIME);
         (void) copy_xattr(i->raw_job->disk_fd, dfd);
 
         dfd = safe_close(dfd);
@@ -376,7 +376,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
         r = rename(tp, p);
         if (r < 0)  {
                 r = log_error_errno(errno, "Failed to move writable image into place: %m");
-                unlink(tp);
+                (void) unlink(tp);
                 return r;
         }
 

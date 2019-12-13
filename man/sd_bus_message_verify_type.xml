@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -56,32 +56,32 @@
     <para>On success, this call returns true if the type matches and zero if not (the message
     <parameter>m</parameter> contains different data or the end of the message has been reached). On
     failure, it returns a negative errno-style error code.</para>
-  </refsect1>
 
-  <refsect1 id='errors'>
-    <title>Errors</title>
+    <refsect2>
+      <title>Errors</title>
 
-    <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems:</para>
 
-    <variablelist>
+      <variablelist>
 
-      <varlistentry>
-        <term><constant>-EINVAL</constant></term>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
 
-        <listitem><para><parameter>m</parameter> or both <parameter>type</parameter> and
-        <parameter>contents</parameter> are <constant>NULL</constant>.</para>
+          <listitem><para><parameter>m</parameter> or both <parameter>type</parameter> and
+          <parameter>contents</parameter> are <constant>NULL</constant>.</para>
 
-        <para>Arguments do not satisfy other contraints listed above.</para>
-        </listitem>
-      </varlistentry>
+          <para>Arguments do not satisfy other constraints listed above.</para>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><constant>-EPERM</constant></term>
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
 
-        <listitem><para>Message <parameter>m</parameter> is not sealed.
-        </para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Message <parameter>m</parameter> is not sealed.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

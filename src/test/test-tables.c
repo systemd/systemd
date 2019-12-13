@@ -5,7 +5,7 @@
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
-#include "device-internal.h"
+#include "device-private.h"
 #include "device.h"
 #include "execute.h"
 #include "import-util.h"
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
         test_table(kill_who, KILL_WHO);
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
-        test_table(mac_policy, MACPOLICY);
+        test_table(mac_address_policy, MAC_ADDRESS_POLICY);
         test_table(manager_state, MANAGER_STATE);
         test_table(manager_timestamp, MANAGER_TIMESTAMP);
         test_table(mount_exec_command, MOUNT_EXEC_COMMAND);

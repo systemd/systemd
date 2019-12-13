@@ -1,5 +1,28 @@
-#compdef bootctl
+#compdef bootctl                    -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1+
+
+__bootctl() {
+    bootctl --no-pager $@ 2>/dev/null
+}
+
+_bootctl_comp_ids() {
+    local expl
+    local -a ids
+    __bootctl list | while read a b; do
+        if [[ "$a" == "id:" ]]; then
+            ids+="$b"
+        fi
+    done
+    _wanted id expl 'boot id' compadd "$@" -a ids
+}
+
+_bootctl_set-default() {
+    _bootctl_comp_ids
+}
+
+_bootctl_set-oneshot() {
+    _bootctl_comp_ids
+}
 
 (( $+functions[_bootctl_commands] )) || _bootctl_commands()
 {
@@ -9,6 +32,10 @@
         "install:Install systemd-boot to the ESP and EFI variables"
         "update:Update systemd-boot in the ESP and EFI variables"
         "remove:Remove systemd-boot from the ESP and EFI variables"
+        "random-seed:Initialize random seed in ESP and EFI variables"
+        "is-installed:Test whether systemd-boot is installed in the ESP"
+        "set-default:Set the default boot loader entry"
+        "set-oneshot:Set the default boot loader entry only for the next boot"
     )
     if (( CURRENT == 1 )); then
         _describe -t commands 'bootctl command' _bootctl_cmds || compadd "$@"
@@ -26,6 +53,10 @@
 _arguments \
     {-h,--help}'[Prints a short help text and exits.]' \
     '--version[Prints a short version string and exits.]' \
-    '--path=[Path to the EFI System Partition (ESP)]:path:_directories' \
+    '--esp-path=[Path to the EFI System Partition (ESP)]:path:_directories' \
+    '--boot-path=[Path to the $BOOT partition]:path:_directories' \
+    {-p,--print-esp-path}'[Print path to the EFI system partition]' \
+    {-x,--print-boot-path}'[Print path to the $BOOT partition]' \
     '--no-variables[Do not touch EFI variables]' \
+    '--no-pager[Do not pipe output into a pager]' \
     '*::bootctl command:_bootctl_commands'

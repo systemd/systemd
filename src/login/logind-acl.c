@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 
 #include "sd-device.h"
 
@@ -222,7 +221,7 @@ int devnode_acl_all(const char *seat,
                         if (cunescape(dent->d_name, UNESCAPE_RELAX, &unescaped_devname) < 0)
                                 return -ENOMEM;
 
-                        n = strappend("/dev/", unescaped_devname);
+                        n = path_join("/dev", unescaped_devname);
                         if (!n)
                                 return -ENOMEM;
 

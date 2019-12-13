@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "sd-daemon.h"
 #include "sd-event.h"
 
@@ -49,7 +52,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
 
                 if (geteuid() == 0) {
                         /* Try to fix the access mode, so that we can still
-                           touch the file after dropping priviliges */
+                           touch the file after dropping privileges */
                         r = fchmod_and_chown(fd, 0644, uid, gid);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);

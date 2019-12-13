@@ -4,6 +4,10 @@
 #include "conf-parser.h"
 #include "unit.h"
 
+/* Config-parsing helpers relevant only for sources under src/core/ */
+int parse_crash_chvt(const char *value, int *data);
+int parse_confirm_spawn(const char *value, char **console);
+
 /* Read service data from .desktop file style configuration fragments */
 
 int unit_load_fragment(Unit *u);
@@ -24,6 +28,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_nice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_restart);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bindtodevice);
@@ -38,8 +43,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_prio);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
-CONFIG_PARSER_PROTOTYPE(config_parse_kill_signal);
-CONFIG_PARSER_PROTOTYPE(config_parse_final_kill_signal);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_timer);
 CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
@@ -87,6 +90,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
+CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpus);
+CONFIG_PARSER_PROTOTYPE(config_parse_allowed_mems);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
 CONFIG_PARSER_PROTOTYPE(config_parse_bus_name);
@@ -94,8 +99,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_utmp_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_working_directory);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdname);
 CONFIG_PARSER_PROTOTYPE(config_parse_sec_fix_0);
-CONFIG_PARSER_PROTOTYPE(config_parse_user_group);
-CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_user_group_compat);
+CONFIG_PARSER_PROTOTYPE(config_parse_user_group_strv_compat);
 CONFIG_PARSER_PROTOTYPE(config_parse_restrict_namespaces);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
@@ -106,6 +111,16 @@ CONFIG_PARSER_PROTOTYPE(config_parse_collect_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_exit_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_disable_controllers);
+CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
+CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
+CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
+CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
+CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
+CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "main-func.h"

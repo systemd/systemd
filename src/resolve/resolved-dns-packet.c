@@ -6,7 +6,9 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "memory-util.h"
 #include "resolved-dns-packet.h"
+#include "set.h"
 #include "string-table.h"
 #include "strv.h"
 #include "unaligned.h"
@@ -15,7 +17,7 @@
 
 #define EDNS0_OPT_DO (1<<15)
 
-assert_cc(DNS_PACKET_SIZE_START > DNS_PACKET_HEADER_SIZE)
+assert_cc(DNS_PACKET_SIZE_START > DNS_PACKET_HEADER_SIZE);
 
 typedef struct DnsPacketRewinder {
         DnsPacket *packet;
@@ -1947,7 +1949,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         case DNS_TYPE_NSEC: {
 
                 /*
-                 * RFC6762, section 18.14 explictly states mDNS should use name compression.
+                 * RFC6762, section 18.14 explicitly states mDNS should use name compression.
                  * This contradicts RFC3845, section 2.1.1
                  */
 
@@ -2133,6 +2135,17 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (!question)
                         return -ENOMEM;
 
+                _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+
+                keys = set_new(&dns_resource_key_hash_ops);
+                if (!keys)
+                        return log_oom();
+
+                r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
+                                               * hash collisions, but the gains quickly drop of after 2. */
+                if (r < 0)
+                        return r;
+
                 for (i = 0; i < n; i++) {
                         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                         bool cache_flush;
@@ -2147,7 +2160,14 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                         if (!dns_type_is_valid_query(key->type))
                                 return -EBADMSG;
 
-                        r = dns_question_add(question, key);
+                        r = set_put(keys, key);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                /* Already in the Question, let's skip */
+                                continue;
+
+                        r = dns_question_add_raw(question, key);
                         if (r < 0)
                                 return r;
                 }
@@ -2239,7 +2259,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                                          * be contained in questions, never in replies. Crappy
                                          * Belkin routers copy the OPT data for example, hence let's
                                          * detect this so that we downgrade early. */
-                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        log_debug("OPT RR contains RFC6975 data, ignoring.");
                                         bad_opt = true;
                                         continue;
                                 }

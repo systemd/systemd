@@ -7,6 +7,7 @@
 #include "bus-internal.h"
 #include "bus-socket.h"
 #include "fd-util.h"
+#include "namespace-util.h"
 #include "process-util.h"
 #include "util.h"
 

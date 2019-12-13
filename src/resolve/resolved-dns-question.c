@@ -32,8 +32,20 @@ static DnsQuestion *dns_question_free(DnsQuestion *q) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsQuestion, dns_question, dns_question_free);
 
+int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key) {
+        /* Insert without checking for duplicates. */
+
+        assert(key);
+        assert(q);
+
+        if (q->n_keys >= q->n_allocated)
+                return -ENOSPC;
+
+        q->keys[q->n_keys++] = dns_resource_key_ref(key);
+        return 0;
+}
+
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
-        size_t i;
         int r;
 
         assert(key);
@@ -41,7 +53,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
         if (!q)
                 return -ENOSPC;
 
-        for (i = 0; i < q->n_keys; i++) {
+        for (size_t i = 0; i < q->n_keys; i++) {
                 r = dns_resource_key_equal(q->keys[i], key);
                 if (r < 0)
                         return r;
@@ -49,11 +61,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
                         return 0;
         }
 
-        if (q->n_keys >= q->n_allocated)
-                return -ENOSPC;
-
-        q->keys[q->n_keys++] = dns_resource_key_ref(key);
-        return 0;
+        return dns_question_add_raw(q, key);
 }
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
@@ -281,7 +289,7 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
                 else
                         /* We did not manage to create convert the idna name, or it's
                          * the same as the original name. We assume the caller already
-                         * created an uncoverted question, so let's not repeat work
+                         * created an unconverted question, so let's not repeat work
                          * unnecessarily. */
                         return -EALREADY;
         }

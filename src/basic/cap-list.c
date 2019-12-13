@@ -8,7 +8,6 @@
 #include "cap-list.h"
 #include "extract-word.h"
 #include "macro.h"
-#include "missing.h"
 #include "parse-util.h"
 #include "util.h"
 
@@ -62,7 +61,7 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
         assert(s);
 
-        for (i = 0; i < cap_last_cap(); i++)
+        for (i = 0; i <= cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
                         size_t add;
@@ -100,7 +99,7 @@ int capability_set_from_string(const char *s, uint64_t *set) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
                         return r;
                 if (r <= 0)

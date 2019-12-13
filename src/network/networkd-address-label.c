@@ -94,10 +94,12 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                log_link_warning_errno(link, r, "could not set address label: %m");
-        else if (r >= 0)
-                manager_rtnl_process_address(rtnl, m, link->manager);
+        if (r < 0 && r != -EEXIST) {
+                log_link_message_warning_errno(link, m, r, "Could not set address label");
+                link_enter_failed(link);
+                return 1;
+        } else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->address_label_messages == 0)
                 log_link_debug(link, "Addresses label set");
@@ -159,7 +161,7 @@ int config_parse_address_label_prefix(const char *unit,
                                       void *data,
                                       void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -196,7 +198,7 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(address_label_freep) AddressLabel *n = NULL;
+        _cleanup_(address_label_free_or_set_invalidp) AddressLabel *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;

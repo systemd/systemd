@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <string.h>
-
 #include "alloc-util.h"
 #include "calendarspec.h"
+#include "errno-util.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -23,7 +22,7 @@ static void test_one(const char *input, const char *output) {
 
         u = now(CLOCK_REALTIME);
         r = calendar_spec_next_usec(c, u, &u);
-        printf("Next: %s\n", r < 0 ? strerror(-r) : format_timestamp(buf, sizeof(buf), u));
+        printf("Next: %s\n", r < 0 ? strerror_safe(r) : format_timestamp(buf, sizeof(buf), u));
         calendar_spec_free(c);
 
         assert_se(calendar_spec_from_string(p, &c) >= 0);
@@ -44,9 +43,12 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
         if (old_tz)
                 old_tz = strdupa(old_tz);
 
-        if (new_tz)
-                assert_se(setenv("TZ", new_tz, 1) >= 0);
-        else
+        if (new_tz) {
+                char *colon_tz;
+
+                colon_tz = strjoina(":", new_tz);
+                assert_se(setenv("TZ", colon_tz, 1) >= 0);
+        } else
                 assert_se(unsetenv("TZ") >= 0);
         tzset();
 
@@ -56,7 +58,7 @@ static void test_next(const char *input, const char *new_tz, usec_t after, usec_
 
         u = after;
         r = calendar_spec_next_usec(c, after, &u);
-        printf("At: %s\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u));
+        printf("At: %s\n", r < 0 ? strerror_safe(r) : format_timestamp_us(buf, sizeof buf, u));
         if (expect != (usec_t)-1)
                 assert_se(r >= 0 && u == expect);
         else
@@ -103,10 +105,10 @@ static void test_hourly_bug_4031(void) {
         assert_se((r = calendar_spec_next_usec(c, n, &u)) >= 0);
 
         printf("Now: %s (%"PRIu64")\n", format_timestamp_us(buf, sizeof buf, n), n);
-        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(buf, sizeof buf, u), u);
+        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror_safe(r) : format_timestamp_us(buf, sizeof buf, u), u);
 
         assert_se((r = calendar_spec_next_usec(c, u, &w)) >= 0);
-        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror(-r) : format_timestamp_us(zaf, sizeof zaf, w), w);
+        printf("Next hourly: %s (%"PRIu64")\n", r < 0 ? strerror_safe(r) : format_timestamp_us(zaf, sizeof zaf, w), w);
 
         assert_se(n < u);
         assert_se(u <= n + USEC_PER_HOUR);

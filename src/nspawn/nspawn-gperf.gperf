@@ -62,6 +62,7 @@ Files.Volatile,               config_parse_volatile_mode,  0,                 of
 Files.Bind,                   config_parse_bind,           0,                 0
 Files.BindReadOnly,           config_parse_bind,           1,                 0
 Files.TemporaryFileSystem,    config_parse_tmpfs,          0,                 0
+Files.Inaccessible,           config_parse_inaccessible,   0,                 0
 Files.Overlay,                config_parse_overlay,        0,                 0
 Files.OverlayReadOnly,        config_parse_overlay,        1,                 0
 Files.PrivateUsersChown,      config_parse_tristate,       0,                 offsetof(Settings, userns_chown)

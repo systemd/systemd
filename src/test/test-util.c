@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "def.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "limits-util.h"
+#include "memory-util.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -26,7 +26,19 @@ static void test_align_power2(void) {
         assert_se(ALIGN_POWER2(1) == 1);
         assert_se(ALIGN_POWER2(2) == 2);
         assert_se(ALIGN_POWER2(3) == 4);
+        assert_se(ALIGN_POWER2(4) == 4);
+        assert_se(ALIGN_POWER2(5) == 8);
+        assert_se(ALIGN_POWER2(6) == 8);
+        assert_se(ALIGN_POWER2(7) == 8);
+        assert_se(ALIGN_POWER2(9) == 16);
+        assert_se(ALIGN_POWER2(10) == 16);
+        assert_se(ALIGN_POWER2(11) == 16);
         assert_se(ALIGN_POWER2(12) == 16);
+        assert_se(ALIGN_POWER2(13) == 16);
+        assert_se(ALIGN_POWER2(14) == 16);
+        assert_se(ALIGN_POWER2(15) == 16);
+        assert_se(ALIGN_POWER2(16) == 16);
+        assert_se(ALIGN_POWER2(17) == 32);
 
         assert_se(ALIGN_POWER2(ULONG_MAX) == 0);
         assert_se(ALIGN_POWER2(ULONG_MAX - 1) == 0);
@@ -139,11 +151,11 @@ static void test_container_of(void) {
                 uint64_t v1;
                 uint8_t pad2[2];
                 uint32_t v2;
-        } _packed_ myval = { };
+        } myval = { };
 
         log_info("/* %s */", __func__);
 
-        assert_cc(sizeof(myval) == 17);
+        assert_cc(sizeof(myval) >= 17);
         assert_se(container_of(&myval.v1, struct mytype, v1) == &myval);
         assert_se(container_of(&myval.v2, struct mytype, v2) == &myval);
         assert_se(container_of(&container_of(&myval.v2,
@@ -211,6 +223,30 @@ static void test_protect_errno(void) {
                 errno = 11;
         }
         assert_se(errno == 12);
+}
+
+static void test_unprotect_errno_inner_function(void) {
+        PROTECT_ERRNO;
+
+        errno = 2222;
+}
+
+static void test_unprotect_errno(void) {
+        log_info("/* %s */", __func__);
+
+        errno = 4711;
+
+        PROTECT_ERRNO;
+
+        errno = 815;
+
+        UNPROTECT_ERRNO;
+
+        assert_se(errno == 4711);
+
+        test_unprotect_errno_inner_function();
+
+        assert_se(errno == 4711);
 }
 
 static void test_in_set(void) {
@@ -383,6 +419,7 @@ int main(int argc, char *argv[]) {
         test_div_round_up();
         test_u64log2();
         test_protect_errno();
+        test_unprotect_errno();
         test_in_set();
         test_log2i();
         test_eqzero();

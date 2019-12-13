@@ -1,0 +1,5 @@
+VARIABLE="value"
+OPTION="--option=1234"
+NUMBER=1
+EMPTY=""
+PATH=/var/lib/xxx

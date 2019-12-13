@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "async.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"

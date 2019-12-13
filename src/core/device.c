@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "swap.h"
+#include "udev-util.h"
 #include "unit-name.h"
 #include "unit.h"
 
@@ -115,7 +116,7 @@ static void device_done(Unit *u) {
 static int device_load(Unit *u) {
         int r;
 
-        r = unit_load_fragment_and_dropin_optional(u);
+        r = unit_load_fragment_and_dropin(u, false);
         if (r < 0)
                 return r;
 
@@ -373,7 +374,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
 
-                r = extract_first_word(&wants, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&wants, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -419,7 +420,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
                  * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
                  * changes while the device unit is already up, let's manually trigger any new units listed in it not
-                 * seen before. This typically appens during the boot-time switch root transition, as udev devices
+                 * seen before. This typically happens during the boot-time switch root transition, as udev devices
                  * will generally already be up in the initrd, but SYSTEMD_WANTS properties get then added through udev
                  * rules only available on the host system, and thus only when the initial udev coldplug trigger runs.
                  *
@@ -432,7 +433,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (strv_contains(d->wants_property, *i)) /* Was this unit already listed before? */
                                 continue;
 
-                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, &error, NULL);
+                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, NULL, &error, NULL);
                         if (r < 0)
                                 log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
                 }
@@ -524,7 +525,7 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
 
                 delete = false;
 
-                /* Let's remove all dependencies generated due to udev properties. We'll readd whatever is configured
+                /* Let's remove all dependencies generated due to udev properties. We'll re-add whatever is configured
                  * now below. */
                 unit_remove_dependencies(u, UNIT_DEPENDENCY_UDEV);
         } else {
@@ -625,7 +626,7 @@ static int device_process_new(Manager *m, sd_device *dev) {
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
+                r = extract_first_word(&alias, &word, NULL, EXTRACT_UNQUOTE);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
@@ -665,9 +666,13 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+        Manager *m;
+
         assert(d);
 
-        if (MANAGER_IS_RUNNING(UNIT(d)->manager)) {
+        m = UNIT(d)->manager;
+
+        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
                 DeviceFound n, previous;
 
                 /* When we are already running, then apply the new mask right-away, and trigger state changes
@@ -728,6 +733,9 @@ static bool device_is_ready(sd_device *dev) {
         const char *ready;
 
         assert(dev);
+
+        if (device_is_renaming(dev) > 0)
+                return false;
 
         if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0)
                 return true;
@@ -889,7 +897,8 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *m = userdata;
-        const char *action, *sysfs;
+        DeviceAction action;
+        const char *sysfs;
         int r;
 
         assert(m);
@@ -901,19 +910,19 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
-        r = sd_device_get_property_value(dev, "ACTION", &action);
+        r = device_get_action(dev, &action);
         if (r < 0) {
-                log_device_error_errno(dev, r, "Failed to get udev action string: %m");
+                log_device_error_errno(dev, r, "Failed to get udev action: %m");
                 return 0;
         }
 
-        if (streq(action, "change"))
+        if (action == DEVICE_ACTION_CHANGE)
                 device_propagate_reload_by_sysfs(m, sysfs);
 
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
-         * so we need to reach the else block of the follwing if, even for change events */
-        if (streq(action, "remove"))  {
+         * so we need to reach the else block of the following if, even for change events */
+        if (action == DEVICE_ACTION_REMOVE) {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to process swap device remove event, ignoring: %m");

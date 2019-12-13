@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #if HAVE_LINUX_MEMFD_H
 #include <linux/memfd.h>
 #endif
 #include <stdio.h>
-#include <sys/mman.h>
 #include <sys/prctl.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "memfd-util.h"
-#include "missing.h"
+#include "missing_fcntl.h"
+#include "missing_mman.h"
+#include "missing_syscall.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -41,7 +41,7 @@ int memfd_new(const char *name) {
                         if (!e)
                                 return -ENOMEM;
 
-                        g = strappend("sd-", e);
+                        g = strjoin("sd-", e);
                         if (!g)
                                 return -ENOMEM;
 
