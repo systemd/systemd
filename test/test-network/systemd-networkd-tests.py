@@ -142,6 +142,8 @@ def setUpModule():
             running_units.append(u)
 
     drop_in = [
+        '[Unit]',
+        'StartLimitIntervalSec=0',
         '[Service]',
         'Restart=no',
         'ExecStart=',
@@ -216,8 +218,8 @@ def tearDownModule():
     for u in running_units:
         check_output(f'systemctl start {u}')
 
-def read_link_attr(link, dev, attribute):
-    with open(os.path.join(os.path.join(os.path.join('/sys/class/net/', link), dev), attribute)) as f:
+def read_link_attr(*args):
+    with open(os.path.join('/sys/class/net/', *args)) as f:
         return f.readline().strip()
 
 def read_bridge_port_attr(bridge, link, attribute):
@@ -267,14 +269,33 @@ def read_ipv4_sysctl_attr(link, attribute):
     with open(os.path.join(os.path.join(network_sysctl_ipv4_path, link), attribute)) as f:
         return f.readline().strip()
 
-def copy_unit_to_networkd_unit_path(*units):
+def copy_unit_to_networkd_unit_path(*units, dropins=True):
+    """Copy networkd unit files into the testbed.
+
+    Any networkd unit file type can be specified, as well as drop-in files.
+
+    By default, all drop-ins for a specified unit file are copied in;
+    to avoid that specify dropins=False.
+
+    When a drop-in file is specified, its unit file is also copied in automatically.
+    """
     print()
     for unit in units:
-        shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
-        if (os.path.exists(os.path.join(networkd_ci_path, unit + '.d'))):
+        if dropins and os.path.exists(os.path.join(networkd_ci_path, unit + '.d')):
             copytree(os.path.join(networkd_ci_path, unit + '.d'), os.path.join(network_unit_file_path, unit + '.d'))
+        if unit.endswith('.conf'):
+            dropin = unit
+            dropindir = os.path.join(network_unit_file_path, os.path.dirname(dropin))
+            os.makedirs(dropindir, exist_ok=True)
+            shutil.copy(os.path.join(networkd_ci_path, dropin), dropindir)
+            unit = os.path.dirname(dropin).rstrip('.d')
+        shutil.copy(os.path.join(networkd_ci_path, unit), network_unit_file_path)
 
 def remove_unit_from_networkd_path(units):
+    """Remove previously copied unit files from the testbed.
+
+    Drop-ins will be removed automatically.
+    """
     for unit in units:
         if (os.path.exists(os.path.join(network_unit_file_path, unit))):
             os.remove(os.path.join(network_unit_file_path, unit))
@@ -352,7 +373,7 @@ class Utilities():
     def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
         self.assertRegex(get_operstate(link, show_status, setup_state), expected)
 
-    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured'):
+    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured', setup_timeout=5):
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
@@ -363,13 +384,23 @@ class Utilities():
                 output = check_output(*networkctl_cmd, 'status', link.split(':')[0], env=env)
                 print(output)
             raise
-        if not bool_any:
-            for link in links_with_operstate:
-                output = check_output(*networkctl_cmd, 'status', link.split(':')[0])
-                print(output)
-                for line in output.splitlines():
-                    if 'State:' in line:
-                        self.assertRegex(line, setup_state)
+        if not bool_any and setup_state:
+            # check at least once now, then once per sec for setup_timeout secs
+            for secs in range(setup_timeout + 1):
+                for link in links_with_operstate:
+                    output = check_output(*networkctl_cmd, 'status', link.split(':')[0])
+                    print(output)
+                    if not re.search(rf'(?m)^\s*State:.*({setup_state}).*$', output):
+                        # this link isn't in the right state; break into the sleep below
+                        break
+                else:
+                    # all the links were in the right state; break to exit the timer loop
+                    break
+                # don't bother sleeping if time is up
+                if secs < setup_timeout:
+                    time.sleep(1)
+            else:
+                self.fail(f'link {link} state does not match {setup_state}')
 
     def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
         for i in range(timeout_sec):
@@ -3303,6 +3334,101 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         output = check_output('ip', '-6', 'route', 'show', 'dev', 'veth-peer')
         print(output)
         self.assertRegex(output, '2001:db8:0:1::/64 proto ra')
+
+class NetworkdMTUTests(unittest.TestCase, Utilities):
+    links = ['dummy98']
+
+    units = [
+        '12-dummy.netdev',
+        '12-dummy-mtu.netdev',
+        '12-dummy-mtu.link',
+        '12-dummy.network',
+        ]
+
+    def setUp(self):
+        remove_links(self.links)
+        stop_networkd(show_logs=False)
+
+    def tearDown(self):
+        remove_log_file()
+        remove_links(self.links)
+        remove_unit_from_networkd_path(self.units)
+        stop_networkd(show_logs=True)
+
+    def check_mtu(self, mtu, ipv6_mtu=None, reset=True):
+        if not ipv6_mtu:
+            ipv6_mtu = mtu
+
+        # test normal start
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), ipv6_mtu)
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), mtu)
+
+        # test normal restart
+        restart_networkd()
+        self.wait_online(['dummy98:routable'])
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), ipv6_mtu)
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), mtu)
+
+        if reset:
+            self.reset_check_mtu(mtu, ipv6_mtu)
+
+    def reset_check_mtu(self, mtu, ipv6_mtu=None):
+        ''' test setting mtu/ipv6_mtu with interface already up '''
+        stop_networkd()
+
+        # note - changing the device mtu resets the ipv6 mtu
+        run('ip link set up mtu 1501 dev dummy98')
+        run('ip link set up mtu 1500 dev dummy98')
+        self.assertEqual(read_link_attr('dummy98', 'mtu'), '1500')
+        self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'mtu'), '1500')
+
+        self.check_mtu(mtu, ipv6_mtu, reset=False)
+
+    def test_mtu_network(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/mtu.conf')
+        self.check_mtu('1600')
+
+    def test_mtu_netdev(self):
+        copy_unit_to_networkd_unit_path('12-dummy-mtu.netdev', '12-dummy.network', dropins=False)
+        # note - MTU set by .netdev happens ONLY at device creation!
+        self.check_mtu('1600', reset=False)
+
+    def test_mtu_link(self):
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network', dropins=False)
+        # must reload udev because it only picks up new files after 3 second delay
+        call('udevadm control --reload')
+        # note - MTU set by .link happens ONLY at udev processing of device 'add' uevent!
+        self.check_mtu('1600', reset=False)
+
+    def test_ipv6_mtu(self):
+        ''' set ipv6 mtu without setting device mtu '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/ipv6-mtu-1400.conf')
+        self.check_mtu('1500', '1400')
+
+    def test_ipv6_mtu_toolarge(self):
+        ''' try set ipv6 mtu over device mtu (it shouldn't work) '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1500', '1500')
+
+    def test_mtu_network_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via network file '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy.network.d/mtu.conf', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1600', '1550')
+
+    def test_mtu_netdev_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via netdev file '''
+        copy_unit_to_networkd_unit_path('12-dummy-mtu.netdev', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        self.check_mtu('1600', '1550', reset=False)
+
+    def test_mtu_link_ipv6_mtu(self):
+        ''' set ipv6 mtu and set device mtu via link file '''
+        copy_unit_to_networkd_unit_path('12-dummy.netdev', '12-dummy-mtu.link', '12-dummy.network.d/ipv6-mtu-1550.conf')
+        # must reload udev because it only picks up new files after 3 second delay
+        call('udevadm control --reload')
+        self.check_mtu('1600', '1550', reset=False)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
