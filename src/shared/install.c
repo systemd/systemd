@@ -1200,7 +1200,8 @@ static int config_parse_default_instance(
         }
 
         if (!unit_instance_is_valid(printed))
-                return -EINVAL;
+                return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Invalid DefaultInstance= value \"%s\".", printed);
 
         return free_and_replace(i->default_instance, printed);
 }
