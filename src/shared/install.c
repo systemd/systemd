@@ -1138,9 +1138,6 @@ static int config_parse_also(
                 if (r < 0)
                         return r;
 
-                if (!unit_name_is_valid(printed, UNIT_NAME_ANY))
-                        return -EINVAL;
-
                 r = install_info_add(c, printed, NULL, true, &alsoinfo);
                 if (r < 0)
                         return r;
