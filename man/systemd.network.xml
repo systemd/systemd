@@ -2516,6 +2516,76 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingFlowLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the maximum number of packets queued per flow. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingQuantum=</varname></term>
+        <listitem>
+          <para>Specifies the credit per dequeue RR round, i.e. the amount of bytes a flow is allowed
+          to dequeue at once. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
+          Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and kernel's
+          default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingInitialQuantum=</varname></term>
+        <listitem>
+          <para>Specifies the initial sending rate credit, i.e. the amount of bytes a new flow is
+          allowed to dequeue initially. When suffixed with K, M, or G, the specified size is parsed as
+          Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingMaximumRate=</varname></term>
+        <listitem>
+          <para>Specifies the maximum sending rate of a flow. When suffixed with K, M, or G, the
+          specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of
+          1000. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingBuckets=</varname></term>
+        <listitem>
+          <para>Specifies the size of the hash table used for flow lookups. Defaults to unset and
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingOrphanMask=</varname></term>
+        <listitem>
+          <para>Takes an unsigned integer. For packets not owned by a socket, fq is able to mask a part
+          of hash and reduce number of buckets associated with the traffic. Defaults to unset and
+          kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingPacing=</varname></term>
+        <listitem>
+          <para>Takes a boolean, and enables or disables flow pacing. Defaults to unset and kernel's
+          default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueueTrafficPolicingCEThresholdSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
+          Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

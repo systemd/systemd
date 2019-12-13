@@ -746,6 +746,7 @@ static const NLType rtnl_tca_option_data_fq_types[] = {
         [TCA_FQ_FLOW_REFILL_DELAY]  = { .type = NETLINK_TYPE_U32 },
         [TCA_FQ_LOW_RATE_THRESHOLD] = { .type = NETLINK_TYPE_U32 },
         [TCA_FQ_CE_THRESHOLD]       = { .type = NETLINK_TYPE_U32 },
+        [TCA_FQ_ORPHAN_MASK]        = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLType rtnl_tca_option_data_fq_codel_types[] = {
