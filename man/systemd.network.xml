@@ -2451,6 +2451,64 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FairQueuingControlledDelayMemoryLimit=</varname></term>
+        <listitem>
+          <para>Specifies the limit on the total number of bytes that can be queued in this FQ-CoDel instance.
+          When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
+          respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayFlows=</varname></term>
+        <listitem>
+          <para>Specifies the number of flows into which the incoming packets are classified.
+          Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayTargetSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
+          Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayIntervalSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
+          become too stale. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayQuantum=</varname></term>
+        <listitem>
+          <para>Specifies the number of bytes used as 'deficit' in the fair queuing algorithmtimespan.
+          When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
+          respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayECN=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FairQueuingControlledDelayCEThresholdSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
+          Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FairQueueTrafficPolicingPacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are

@@ -10,6 +10,20 @@
 #include "qdisc.h"
 #include "string-util.h"
 
+static int fair_queuing_controlled_delay_init(QDisc *qdisc) {
+        FairQueuingControlledDelay *fqcd;
+
+        assert(qdisc);
+
+        fqcd = FQ_CODEL(qdisc);
+
+        fqcd->memory_limit = UINT32_MAX;
+        fqcd->ce_threshold_usec = USEC_INFINITY;
+        fqcd->ecn = -1;
+
+        return 0;
+}
+
 static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         FairQueuingControlledDelay *fqcd;
         int r;
@@ -24,9 +38,53 @@ static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, 
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open container TCA_OPTIONS: %m");
 
-        r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_LIMIT, fqcd->limit);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_LIMIT attribute: %m");
+        if (fqcd->packet_limit > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_LIMIT, fqcd->packet_limit);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_LIMIT attribute: %m");
+        }
+
+        if (fqcd->flows > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_FLOWS, fqcd->flows);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_FLOWS attribute: %m");
+        }
+
+        if (fqcd->quantum > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_QUANTUM, fqcd->quantum);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_QUANTUM attribute: %m");
+        }
+
+        if (fqcd->interval_usec > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_INTERVAL, fqcd->interval_usec);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_INTERVAL attribute: %m");
+        }
+
+        if (fqcd->target_usec > 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_TARGET, fqcd->target_usec);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_TARGET attribute: %m");
+        }
+
+        if (fqcd->ecn >= 0) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_ECN, fqcd->ecn);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_ECN attribute: %m");
+        }
+
+        if (fqcd->ce_threshold_usec != USEC_INFINITY) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_CE_THRESHOLD, fqcd->ce_threshold_usec);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_CE_THRESHOLD attribute: %m");
+        }
+
+        if (fqcd->memory_limit != UINT32_MAX) {
+                r = sd_netlink_message_append_u32(req, TCA_FQ_CODEL_MEMORY_LIMIT, fqcd->memory_limit);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append TCA_FQ_CODEL_MEMORY_LIMIT attribute: %m");
+        }
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)
@@ -35,7 +93,130 @@ static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, 
         return 0;
 }
 
-int config_parse_tc_fair_queuing_controlled_delay_limit(
+int config_parse_tc_fair_queuing_controlled_delay_u32(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        FairQueuingControlledDelay *fqcd;
+        Network *network = data;
+        uint32_t *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_FQ_CODEL, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        fqcd = FQ_CODEL(qdisc);
+
+        if (streq(lvalue, "FairQueuingControlledDelayPacketLimit"))
+                p = &fqcd->packet_limit;
+        else if (streq(lvalue, "FairQueuingControlledDelayFlows"))
+                p = &fqcd->flows;
+        else
+                assert_not_reached("Invalid lvalue.");
+
+        if (isempty(rvalue)) {
+                *p = 0;
+
+                qdisc = NULL;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        qdisc = NULL;
+
+        return 0;
+}
+
+int config_parse_tc_fair_queuing_controlled_delay_usec(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        FairQueuingControlledDelay *fqcd;
+        Network *network = data;
+        usec_t *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_FQ_CODEL, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        fqcd = FQ_CODEL(qdisc);
+
+        if (streq(lvalue, "FairQueuingControlledDelayTargetSec"))
+                p = &fqcd->target_usec;
+        else if (streq(lvalue, "FairQueuingControlledDelayIntervalSec"))
+                p = &fqcd->interval_usec;
+        else if (streq(lvalue, "FairQueuingControlledDelayCEThresholdSec"))
+                p = &fqcd->ce_threshold_usec;
+        else
+                assert_not_reached("Invalid lvalue.");
+
+        if (isempty(rvalue)) {
+                if (streq(lvalue, "FairQueuingControlledDelayCEThresholdSec"))
+                        *p = USEC_INFINITY;
+                else
+                        *p = 0;
+
+                qdisc = NULL;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, p);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        qdisc = NULL;
+
+        return 0;
+}
+
+int config_parse_tc_fair_queuing_controlled_delay_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -67,13 +248,13 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
         fqcd = FQ_CODEL(qdisc);
 
         if (isempty(rvalue)) {
-                fqcd->limit = 0;
+                fqcd->ecn = -1;
 
                 qdisc = NULL;
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &fqcd->limit);
+        r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -81,6 +262,77 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
                 return 0;
         }
 
+        fqcd->ecn = r;
+        qdisc = NULL;
+
+        return 0;
+}
+
+int config_parse_tc_fair_queuing_controlled_delay_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        FairQueuingControlledDelay *fqcd;
+        Network *network = data;
+        uint64_t sz;
+        uint32_t *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_FQ_CODEL, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        fqcd = FQ_CODEL(qdisc);
+
+        if (streq(lvalue, "FairQueuingControlledDelayMemoryLimit"))
+                p = &fqcd->memory_limit;
+        else if (streq(lvalue, "FairQueuingControlledDelayQuantum"))
+                p = &fqcd->quantum;
+        else
+                assert_not_reached("Invalid lvalue.");
+
+        if (isempty(rvalue)) {
+                if (streq(lvalue, "FairQueuingControlledMemoryLimit"))
+                        *p = UINT32_MAX;
+                else
+                        *p = 0;
+
+                qdisc = NULL;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &sz);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+        if (sz >= UINT32_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Specified '%s=' is too large, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *p = sz;
         qdisc = NULL;
 
         return 0;
@@ -89,5 +341,6 @@ int config_parse_tc_fair_queuing_controlled_delay_limit(
 const QDiscVTable fq_codel_vtable = {
         .object_size = sizeof(FairQueuingControlledDelay),
         .tca_kind = "fq_codel",
+        .init = fair_queuing_controlled_delay_init,
         .fill_message = fair_queuing_controlled_delay_fill_message,
 };
