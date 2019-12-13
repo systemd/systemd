@@ -233,6 +233,10 @@ run_qemu() {
 
     CONSOLE=ttyS0
 
+    # make sure the initdir is not mounted to avoid concurrent access
+    cleanup_initdir
+    umount_loopback
+
     if [[ ! "$KERNEL_BIN" ]]; then
         if [[ "$LOOKS_LIKE_ARCH" ]]; then
             KERNEL_BIN=/boot/vmlinuz-linux
@@ -361,7 +365,7 @@ run_nspawn() {
     local _nspawn_cmd=(
         --register=no
         --kill-signal=SIGKILL
-        --directory=$TESTDIR/$1
+        --directory=$1
         --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:
         $PATH_TO_INIT
         $KERNEL_APPEND
@@ -677,11 +681,13 @@ create_empty_image() {
     image="${TESTDIR}/${IMAGE_NAME}.img"
     public="$IMAGESTATEDIR/${IMAGE_NAME}.img"
     echo "Setting up $public (${_size} MB)"
-
     rm -f "$image" "$public"
+
     # Create the blank file to use as a root filesystem
     truncate -s "${_size}M" "$image"
-    LOOPDEV=$(losetup --show -P -f "$image")
+    ln -vs "$(realpath $image)" "$public"
+
+    LOOPDEV=$(losetup --show -P -f "$public")
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
     sfdisk "$LOOPDEV" <<EOF
@@ -698,14 +704,11 @@ EOF
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
     fi
-
-    # the image is created, let's expose it
-    ln -vs "$(realpath $image)" "$public"
 }
 
 mount_initdir() {
     if [ -z "${LOOPDEV}" ]; then
-        image="${TESTDIR}/${IMAGE_NAME}.img"
+        image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
         LOOPDEV=$(losetup --show -P -f "$image")
         [ -b "$LOOPDEV" ] || return 1
         echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
@@ -724,6 +727,21 @@ umount_initdir() {
     fi
     LOOPDEV=
     sed -i /LOOPDEV=/d $STATEFILE
+}
+
+cleanup_initdir() {
+    # only umount if create_empty_image_rootdir() was called to mount it
+    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
+}
+
+umount_loopback() {
+    # unmount the loopback device from all places. Otherwise we risk file
+    # system corruption.
+    image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+    for device in $(losetup -l | awk '$6=="'"$image"'" {print $1}'); do
+        ddebug "Unmounting all uses of $device"
+        mount | awk '/^'"${device}"'p/{print $1}' | xargs --no-run-if-empty umount -v
+    done
 }
 
 create_empty_image_rootdir() {
@@ -773,15 +791,15 @@ check_result_nspawn() {
     local ret=1
     local journald_report=""
     local pids=""
-    [[ -e $TESTDIR/$1/testok ]] && ret=0
-    [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
-    cp -a $TESTDIR/$1/var/log/journal $TESTDIR
-    rm -r $TESTDIR/$1/var/log/journal/*
+    [[ -e $1/testok ]] && ret=0
+    [[ -f $1/failed ]] && cp -a $1/failed $TESTDIR
+    cp -a $1/var/log/journal $TESTDIR
+    rm -r $1/var/log/journal/*
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
-    check_asan_reports "$TESTDIR/$1" || ret=$(($ret+1))
+    check_asan_reports "$1" || ret=$(($ret+1))
     umount_initdir
     return $ret
 }
@@ -1085,11 +1103,10 @@ setup_nspawn_root() {
         dfatal "\$initdir not defined"
         exit 1
     fi
-    rm -fr $TESTDIR/nspawn-root
-    ddebug "cp -ar $initdir $TESTDIR/nspawn-root"
-    cp -ar $initdir $TESTDIR/nspawn-root
+
     if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
-        cp -ar $TESTDIR/nspawn-root $TESTDIR/unprivileged-nspawn-root
+        ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
+        cp -ar $initdir $TESTDIR/unprivileged-nspawn-root
     fi
 }
 
@@ -1898,14 +1915,9 @@ _umount_dir() {
     fi
 }
 
-_test_setup_cleanup() {
-    # only umount if create_empty_image_rootdir() was called to mount it
-    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
-}
-
 # can be overridden in specific test
 test_setup_cleanup() {
-    _test_setup_cleanup
+    cleanup_initdir
 }
 
 _test_cleanup() {
@@ -1971,15 +1983,17 @@ test_run() {
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
-        if run_nspawn "nspawn-root" "$1"; then
-            check_result_nspawn "nspawn-root" || { echo "nspawn-root test failed"; return 1; }
+        mount_initdir
+        if run_nspawn "$initdir" "$1"; then
+            check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
         if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
-            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root" "$1"; then
-                check_result_nspawn "unprivileged-nspawn-root" || { echo "unprivileged-nspawn-root test failed"; return 1; }
+            dir="$TESTDIR/unprivileged-nspawn-root"
+            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "$dir" "$1"; then
+                check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
             fi

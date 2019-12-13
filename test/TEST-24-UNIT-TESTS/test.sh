@@ -7,25 +7,25 @@ RUN_IN_UNPRIVILEGED_CONTAINER=yes
 
 check_result_nspawn() {
     local _ret=1
-    [[ -e $TESTDIR/$1/testok ]] && _ret=0
-    if [[ -s $TESTDIR/$1/failed ]]; then
+    [[ -e $1/testok ]] && _ret=0
+    if [[ -s $1/failed ]]; then
         _ret=$(($_ret+1))
         echo "=== Failed test log ==="
-        cat $TESTDIR/$1/failed
+        cat $1/failed
     else
-        if [[ -s $TESTDIR/$1/skipped ]]; then
+        if [[ -s $1/skipped ]]; then
             echo "=== Skipped test log =="
-            cat $TESTDIR/$1/skipped
+            cat $1/skipped
         fi
-        if [[ -s $TESTDIR/$1/testok ]]; then
+        if [[ -s $1/testok ]]; then
             echo "=== Passed tests ==="
-            cat $TESTDIR/$1/testok
+            cat $1/testok
         fi
     fi
-    cp -a $TESTDIR/$1/var/log/journal $TESTDIR
-    rm -r $TESTDIR/$1/var/log/journal/*
-    [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
+    cp -a $1/var/log/journal $TESTDIR
+    rm -r $1/var/log/journal/*
     umount_initdir
+    [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
     return $_ret
 }
 

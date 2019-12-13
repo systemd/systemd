@@ -70,8 +70,8 @@ test_cleanup() {
 }
 
 test_setup_cleanup() {
-    cleanup_root_var
-    _test_setup_cleanup
+    cleanup_root_var || :
+    cleanup_initdir
 }
 
 do_test "$@" 02
