@@ -1447,6 +1447,9 @@ static int service_spawn(
         if (r < 0)
                 return r;
 
+        /* A device we couldn't find before might be available now, let's look again. */
+        unit_invalidate_cgroup_bpf_devices(UNIT(s));
+
         if (flags & EXEC_IS_CONTROL) {
                 /* If this is a control process, mask the permissions/chroot application if this is requested. */
                 if (s->permissions_start_only)

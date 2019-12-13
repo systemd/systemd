@@ -263,6 +263,7 @@ int manager_notify_cgroup_empty(Manager *m, const char *group);
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m);
 void unit_invalidate_cgroup_bpf(Unit *u);
+void unit_invalidate_cgroup_bpf_devices(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 

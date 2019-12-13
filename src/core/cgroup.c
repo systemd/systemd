@@ -3523,6 +3523,19 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
         }
 }
 
+void unit_invalidate_cgroup_bpf_devices(Unit *u) {
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
+        if (u->cgroup_invalidated_mask & CGROUP_MASK_BPF_DEVICES) /* NOP? */
+                return;
+
+        u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_DEVICES;
+        unit_add_to_cgroup_realize_queue(u);
+}
+
 bool unit_cgroup_delegate(Unit *u) {
         CGroupContext *c;
 
