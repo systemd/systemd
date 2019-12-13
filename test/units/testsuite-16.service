@@ -12,6 +12,7 @@ Wants=fail-runtime.service
 StopWhenUnneeded=yes
 
 [Service]
+ExecStartPre=rm -f /failed /testok
 Type=simple
 TimeoutStartSec=infinity
 ExecStartPre=/usr/lib/systemd/tests/testdata/units/%N.sh

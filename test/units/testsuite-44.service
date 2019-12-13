@@ -6,6 +6,7 @@ Wants=systemd-journald@foobar.socket systemd-journald-varlink@foobar.socket
 After=systemd-journald@foobar.socket systemd-journald-varlink@foobar.socket
 
 [Service]
+ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
 LogTarget=foobar

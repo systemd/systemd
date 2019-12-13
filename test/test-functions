@@ -1899,6 +1899,9 @@ test_setup() {
 }
 
 test_run() {
+    mount_initdir
+    rm -f "$initdir"/{testok,failed,skipped}
+
     if [ -z "$TEST_NO_QEMU" ]; then
         if run_qemu "$1"; then
             check_result_qemu || return 1

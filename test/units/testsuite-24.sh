@@ -6,6 +6,9 @@ NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
 IFS=$'\n' TEST_LIST=($(ls /usr/lib/systemd/tests/test-*))
 
+# reset state
+rm /failed-tests /skipped-tests /skipped
+
 # Check & report test results
 # Arguments:
 #   $1: test path

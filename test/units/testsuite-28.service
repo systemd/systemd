@@ -5,5 +5,6 @@ Wants=specifier-j-wants.service
 After=specifier-j-wants.service
 
 [Service]
+ExecStartPre=rm -f /failed /testok
 ExecStart=true
 Type=oneshot
