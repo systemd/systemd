@@ -543,7 +543,7 @@ layout: default
   time you need that please immediately undefine `basename()`, and add a
   comment about it, so that no code ever ends up using the POSIX version!
 
-# Committing to git
+## Committing to git
 
 - Commit message subject lines should be prefixed with an appropriate component
   name of some kind. For example "journal: ", "nspawn: " and so on.

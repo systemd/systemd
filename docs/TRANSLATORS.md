@@ -69,7 +69,7 @@ Once you're done, create a git commit for the update of the `po/*.po` file you
 touched. Remember to undo the changes to the other `*.po` files (for instance,
 using `git checkout -- po/` after you commit the changes you do want to keep.)
 
-# Recompiling Translations
+## Recompiling Translations
 
 You can recompile the `*.po` files using the following command:
 

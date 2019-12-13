@@ -56,7 +56,7 @@ components:
   script can optionally create boot loader entries that carry an initial boot
   counter (the initial counter is configurable in `/etc/kernel/tries`).
 
-# Details
+## Details
 
 The boot counting data `systemd-boot` and `systemd-bless-boot.service`
 manage is stored in the name of the boot loader entries. If a boot loader entry
@@ -149,7 +149,7 @@ scenario the first 4 steps are the same as above:
 12. On the following boot (and all subsequent boots after that) the entry is
     now seen with boot counting turned off, no further renaming takes place.
 
-# How to adapt this scheme to other setups
+## How to adapt this scheme to other setups
 
 Of the stack described above many components may be replaced or augmented. Here
 are a couple of recommendations.
@@ -180,7 +180,7 @@ are a couple of recommendations.
    wrap them in a unit and order them after `boot-complete.target`, pulling it
    in.
 
-# FAQ
+## FAQ
 
 1. *Why do you use file renames to store the counter? Why not a regular file?*
    — Mainly two reasons: it's relatively likely that renames can be implemented
