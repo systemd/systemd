@@ -444,20 +444,20 @@ static void test_write_string_file_verify(void) {
         _cleanup_free_ char *buf = NULL, *buf2 = NULL;
         int r;
 
-        assert_se(read_one_line_file("/proc/cmdline", &buf) >= 0);
+        assert_se(read_one_line_file("/proc/version", &buf) >= 0);
         assert_se(buf2 = strjoin(buf, "\n"));
 
-        r = write_string_file("/proc/cmdline", buf, 0);
+        r = write_string_file("/proc/version", buf, 0);
         assert_se(IN_SET(r, -EACCES, -EIO));
-        r = write_string_file("/proc/cmdline", buf2, 0);
+        r = write_string_file("/proc/version", buf2, 0);
         assert_se(IN_SET(r, -EACCES, -EIO));
 
-        assert_se(write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
-        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
+        assert_se(write_string_file("/proc/version", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
+        assert_se(write_string_file("/proc/version", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE) == 0);
 
-        r = write_string_file("/proc/cmdline", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file("/proc/version", buf, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE);
         assert_se(IN_SET(r, -EACCES, -EIO));
-        assert_se(write_string_file("/proc/cmdline", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
+        assert_se(write_string_file("/proc/version", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
 }
 
 static void test_load_env_file_pairs(void) {
@@ -757,7 +757,7 @@ static void test_read_line3(void) {
         _cleanup_free_ char *line = NULL;
         int r;
 
-        f = fopen("/proc/cmdline", "re");
+        f = fopen("/proc/uptime", "re");
         if (!f && IN_SET(errno, ENOENT, EPERM))
                 return;
         assert_se(f);
