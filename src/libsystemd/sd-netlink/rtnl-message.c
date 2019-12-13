@@ -523,6 +523,26 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
         return 0;
 }
 
+int sd_rtnl_message_new_linkprop(sd_netlink *rtnl, sd_netlink_message **ret,
+                                 uint16_t nlmsg_type, int index) {
+        struct ifinfomsg *ifi;
+        int r;
+
+        assert_return(rtnl_message_type_is_linkprop(nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        ifi = NLMSG_DATA((*ret)->hdr);
+
+        ifi->ifi_family = AF_UNSPEC;
+        ifi->ifi_index = index;
+
+        return 0;
+}
+
 int sd_rtnl_message_addr_set_prefixlen(sd_netlink_message *m, unsigned char prefixlen) {
         struct ifaddrmsg *ifa;
 

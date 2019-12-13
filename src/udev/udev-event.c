@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <linux/if.h>
 
 #include "sd-event.h"
 
@@ -812,6 +813,7 @@ int udev_event_spawn(UdevEvent *event,
 
 static int rename_netif(UdevEvent *event) {
         sd_device *dev = event->dev;
+        char altname[ALTIFNAMSIZ];
         const char *oldname;
         int ifindex, r;
 
@@ -833,6 +835,14 @@ static int rename_netif(UdevEvent *event) {
                 return 0; /* Device is not a network interface. */
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+
+        if (snprintf_ok(altname, sizeof altname, "udev_%s", event->name)) {
+                /* Setup alternative name always. Prefix it so it does not conflict with the link name. */
+                r = rtnl_add_link_altname(&event->rtnl, ifindex, altname);
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to add alternative name to network interface %i: %m",
+                                                 ifindex);
+        }
 
         r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
         if (r < 0)

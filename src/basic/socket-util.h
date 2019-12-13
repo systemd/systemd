@@ -134,6 +134,9 @@ bool ifname_valid_full(const char *p, bool alternative);
 static inline bool ifname_valid(const char *p) {
         return ifname_valid_full(p, false);
 }
+static inline bool altifname_valid(const char *p) {
+        return ifname_valid_full(p, true);
+}
 bool address_label_valid(const char *p);
 
 int getpeercred(int fd, struct ucred *ucred);

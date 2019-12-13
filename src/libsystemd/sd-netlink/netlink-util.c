@@ -38,6 +38,46 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         return 0;
 }
 
+int rtnl_add_link_altname(sd_netlink **rtnl, int ifindex, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(ifindex > 0);
+        assert(name);
+
+        if (!altifname_valid(name))
+                return -EINVAL;
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_linkprop(*rtnl, &message, RTM_NEWLINKPROP, ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_array(message, IFLA_PROP_LIST);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
                              const struct ether_addr *mac, uint32_t mtu) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;

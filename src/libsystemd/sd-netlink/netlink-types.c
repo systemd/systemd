@@ -593,6 +593,7 @@ static const NLType rtnl_link_types[] = {
         [IFLA_MIN_MTU]          = { .type = NETLINK_TYPE_U32 },
         [IFLA_MAX_MTU]          = { .type = NETLINK_TYPE_U32 },
         [IFLA_PROP_LIST]        = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_prop_list_type_system },
+        [IFLA_ALT_IFNAME]       = { .type = NETLINK_TYPE_STRING, .size = ALTIFNAMSIZ - 1 },
 };
 
 static const NLTypeSystem rtnl_link_type_system = {

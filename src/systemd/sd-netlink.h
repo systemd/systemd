@@ -133,6 +133,7 @@ int sd_netlink_message_is_broadcast(const sd_netlink_message *m);
 /* rtnl */
 
 int sd_rtnl_message_new_link(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index);
+int sd_rtnl_message_new_linkprop(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int index);
 int sd_rtnl_message_new_addr_update(sd_netlink *nl, sd_netlink_message **ret, int index, int family);
 int sd_rtnl_message_new_addr(sd_netlink *nl, sd_netlink_message **ret, uint16_t msg_type, int index, int family);
 int sd_rtnl_message_new_route(sd_netlink *nl, sd_netlink_message **ret, uint16_t nlmsg_type, int rtm_family, unsigned char rtm_protocol);

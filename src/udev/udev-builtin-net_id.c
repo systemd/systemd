@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <linux/pci_regs.h>
+#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "dirent-util.h"
@@ -872,7 +873,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (names.pci_onboard[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))

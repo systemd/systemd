@@ -31,6 +31,10 @@ static inline bool rtnl_message_type_is_link(uint16_t type) {
                       RTM_NEWLINKPROP, RTM_DELLINKPROP, RTM_GETLINKPROP);
 }
 
+static inline bool rtnl_message_type_is_linkprop(uint16_t type) {
+        return IN_SET(type, RTM_NEWLINKPROP, RTM_DELLINKPROP);
+}
+
 static inline bool rtnl_message_type_is_addr(uint16_t type) {
         return IN_SET(type, RTM_NEWADDR, RTM_GETADDR, RTM_DELADDR);
 }
@@ -48,6 +52,7 @@ static inline bool rtnl_message_type_is_qdisc(uint16_t type) {
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
+int rtnl_add_link_altname(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 
