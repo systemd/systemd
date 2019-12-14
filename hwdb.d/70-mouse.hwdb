@@ -449,11 +449,20 @@ mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
 mouse:bluetooth:v046dpb01a:name:MX Anywhere 2S Mouse:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
-# Logitech MX Master
+# Logitech MX Master (via Logitech Unifying Receiver)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:usb:v046dp4060:name:Logitech MX Master:
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
+ MOUSE_WHEEL_CLICK_ANGLE=15
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
+ MOUSE_WHEEL_CLICK_COUNT=24
+ MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
+# Logitech MX Master (via Bluetooth)
+# Horiz wheel has 14 stops, angle is rounded up
+mouse:bluetooth:v046dpb012:name:MX Master Mouse:
+ MOUSE_DPI=1000@2000
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
