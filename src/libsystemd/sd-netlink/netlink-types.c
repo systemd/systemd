@@ -527,6 +527,15 @@ static const NLTypeSystem rtnl_af_spec_type_system = {
         .types = rtnl_af_spec_types,
 };
 
+static const NLType rtnl_prop_list_types[] = {
+        [IFLA_ALT_IFNAME]       = { .type = NETLINK_TYPE_STRING, .size = ALTIFNAMSIZ - 1 },
+};
+
+static const NLTypeSystem rtnl_prop_list_type_system = {
+        .count = ELEMENTSOF(rtnl_prop_list_types),
+        .types = rtnl_prop_list_types,
+};
+
 static const NLType rtnl_link_types[] = {
         [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR },
         [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR },
@@ -581,8 +590,9 @@ static const NLType rtnl_link_types[] = {
 /*
         [IFLA_PHYS_PORT_ID]     = { .type = NETLINK_TYPE_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
 */
-        [IFLA_MIN_MTU]              = { .type = NETLINK_TYPE_U32 },
-        [IFLA_MAX_MTU]              = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MIN_MTU]          = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MAX_MTU]          = { .type = NETLINK_TYPE_U32 },
+        [IFLA_PROP_LIST]        = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_prop_list_type_system },
 };
 
 static const NLTypeSystem rtnl_link_type_system = {
@@ -824,6 +834,9 @@ static const NLType rtnl_types[] = {
         [RTM_DELLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_GETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_SETLINK]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_NEWLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_DELLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
+        [RTM_GETLINKPROP]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_type_system, .size = sizeof(struct ifinfomsg) },
         [RTM_NEWADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
         [RTM_DELADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },
         [RTM_GETADDR]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_address_type_system, .size = sizeof(struct ifaddrmsg) },

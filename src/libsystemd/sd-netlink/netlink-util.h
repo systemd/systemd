@@ -26,7 +26,9 @@ static inline bool rtnl_message_type_is_nexthop(uint16_t type) {
 }
 
 static inline bool rtnl_message_type_is_link(uint16_t type) {
-        return IN_SET(type, RTM_NEWLINK, RTM_SETLINK, RTM_GETLINK, RTM_DELLINK);
+        return IN_SET(type,
+                      RTM_NEWLINK, RTM_SETLINK, RTM_GETLINK, RTM_DELLINK,
+                      RTM_NEWLINKPROP, RTM_DELLINKPROP, RTM_GETLINKPROP);
 }
 
 static inline bool rtnl_message_type_is_addr(uint16_t type) {
