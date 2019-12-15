@@ -35,6 +35,7 @@ Link.MACAddressPolicy,           config_parse_mac_address_policy, 0,            
 Link.MACAddress,                 config_parse_hwaddr,             0,                             offsetof(link_config, mac)
 Link.NamePolicy,                 config_parse_name_policy,        0,                             offsetof(link_config, name_policy)
 Link.Name,                       config_parse_ifname,             0,                             offsetof(link_config, name)
+Link.AlternativeName,            config_parse_ifnames,            1,                             offsetof(link_config, alternative_names)
 Link.Alias,                      config_parse_ifalias,            0,                             offsetof(link_config, alias)
 Link.MTUBytes,                   config_parse_mtu,                AF_UNSPEC,                     offsetof(link_config, mtu)
 Link.BitsPerSecond,              config_parse_si_size,            0,                             offsetof(link_config, speed)

@@ -357,6 +357,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AlternativeName=</varname></term>
+        <listitem>
+          <para>The alternative interface name to use. This option can be specified multiple times.
+          If the empty string is assigned to this option, the list is reset, and all prior assignments
+          have no effect.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
