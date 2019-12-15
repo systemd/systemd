@@ -67,7 +67,7 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        int fd;
+        int fd = -1; /* avoid false maybe-uninitialized warning */
 
         assert(pattern);
 
