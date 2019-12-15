@@ -250,6 +250,35 @@ int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type,
         return 0;
 }
 
+int sd_netlink_message_append_strv(sd_netlink_message *m, unsigned short type, char * const *data) {
+        size_t length, size;
+        char * const *p;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+
+        r = message_attribute_has_type(m, &size, type, NETLINK_TYPE_STRING);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, data) {
+                if (size) {
+                        length = strnlen(*p, size+1);
+                        if (length > size)
+                                return -EINVAL;
+                } else
+                        length = strlen(*p);
+
+                r = add_rtattr(m, type, *p, length + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type) {
         size_t size;
         int r;
