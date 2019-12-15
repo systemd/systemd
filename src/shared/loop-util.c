@@ -112,14 +112,20 @@ int loop_device_make_full(
                         return -ENOMEM;
 
                 loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-                if (loop < 0)
-                        return -errno;
-                if (ioctl(loop, LOOP_SET_FD, fd) >= 0) {
-                        loop_with_fd = TAKE_FD(loop);
-                        break;
+                if (loop < 0) {
+                        /* Somebody might've gotten the same number from the kernel, used the device,
+                         * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
+                        if (errno != ENOENT)
+                                return -errno;
+                } else {
+                        if (ioctl(loop, LOOP_SET_FD, fd) >= 0) {
+                                loop_with_fd = TAKE_FD(loop);
+                                break;
+                        }
+                        if (errno != EBUSY)
+                                return -errno;
                 }
-                if (errno != EBUSY)
-                        return -errno;
+
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
 
