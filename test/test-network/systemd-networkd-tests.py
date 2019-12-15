@@ -127,6 +127,17 @@ def expectedFailureIfNexthopIsNotAvailable():
 
     return f
 
+def expectedFailureIfAlternativeNameIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('ip link prop add dev dummy98 altname hogehogehogehogehoge', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -425,6 +436,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         '11-dummy-mtu.netdev',
         '11-dummy.network',
         '12-dummy.netdev',
+        '12-dummy.link',
         '25-address-static.network',
         '25-veth.netdev',
         'netdev-link-local-addressing-yes.network',
@@ -438,6 +450,16 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         remove_links(self.links)
         remove_unit_from_networkd_path(self.units)
         stop_networkd(show_logs=True)
+
+    @expectedFailureIfAlternativeNameIsNotAvailable()
+    def test_altname(self):
+        copy_unit_to_networkd_unit_path('netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
+        check_output('udevadm control --reload')
+        start_networkd()
+        self.wait_online(['dummy98:degraded'])
+
+        output = check_output(*networkctl_cmd, 'status', 'dummy98', env=env)
+        self.assertRegex(output, 'hogehogehogehogehogehoge')
 
     def test_reconfigure(self):
         copy_unit_to_networkd_unit_path('25-address-static.network', '12-dummy.netdev')
