@@ -551,11 +551,11 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['test1:degraded'])
 
-        output = check_output(*networkctl_cmd, 'status', 'test1')
+        output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
         print(output)
         self.assertRegex(output, 'Type: ether')
 
-        output = check_output(*networkctl_cmd, 'status', 'lo')
+        output = check_output(*networkctl_cmd, 'status', 'lo', env=env)
         print(output)
         self.assertRegex(output, 'Type: loopback')
 
@@ -565,12 +565,12 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['test1:degraded'])
 
-        output = check_output(*networkctl_cmd, 'status', 'test1')
+        output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
         print(output)
         self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
         self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
 
-        output = check_output(*networkctl_cmd, 'status', 'lo')
+        output = check_output(*networkctl_cmd, 'status', 'lo', env=env)
         print(output)
         self.assertRegex(output, r'Link File: (/usr)?/lib/systemd/network/99-default.link')
         self.assertRegex(output, r'Network File: n/a')
@@ -582,7 +582,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
 
-        check_output(*networkctl_cmd, 'delete', 'test1', 'veth99')
+        check_output(*networkctl_cmd, 'delete', 'test1', 'veth99', env=env)
         self.assertFalse(link_exists('test1'))
         self.assertFalse(link_exists('veth99'))
         self.assertFalse(link_exists('veth-peer'))
@@ -827,7 +827,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertEqual(1,         int(read_link_attr('bridge99', 'bridge', 'stp_state')))
         self.assertEqual(3,         int(read_link_attr('bridge99', 'bridge', 'multicast_igmp_version')))
 
-        output = check_output(*networkctl_cmd, 'status', 'bridge99')
+        output = check_output(*networkctl_cmd, 'status', 'bridge99', env=env)
         print(output)
         self.assertRegex(output, 'Priority: 9')
         self.assertRegex(output, 'STP: yes')
@@ -1394,7 +1394,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '00:11:22:33:44:66 dst 10.0.0.6 self permanent')
         self.assertRegex(output, '00:11:22:33:44:77 dst 10.0.0.7 self permanent')
 
-        output = check_output(*networkctl_cmd, 'status', 'vxlan99')
+        output = check_output(*networkctl_cmd, 'status', 'vxlan99', env=env)
         print(output)
         self.assertRegex(output, 'VNI: 999')
         self.assertRegex(output, 'Destination Port: 5555')
@@ -1665,7 +1665,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['test1:routable'])
 
-        output = check_output(*networkctl_cmd, 'status', 'test1')
+        output = check_output(*networkctl_cmd, 'status', 'test1', env=env)
         print(output)
         self.assertRegex(output, '192.168.0.15')
         self.assertRegex(output, '192.168.0.1')
