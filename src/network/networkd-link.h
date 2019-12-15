@@ -48,6 +48,7 @@ typedef struct Link {
         int ifindex;
         int master_ifindex;
         char *ifname;
+        char **alternative_names;
         char *kind;
         unsigned short iftype;
         char *state_file;

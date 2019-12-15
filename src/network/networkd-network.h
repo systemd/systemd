@@ -297,8 +297,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
-int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac,
-                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid, Network **ret);
+int network_get(Manager *manager, sd_device *device, const char *ifname, char * const *alternative_names,
+                const struct ether_addr *mac, enum nl80211_iftype wlan_iftype, const char *ssid,
+                const struct ether_addr *bssid, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 

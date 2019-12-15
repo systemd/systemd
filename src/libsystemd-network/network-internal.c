@@ -103,6 +103,18 @@ static bool net_condition_test_strv(char * const *patterns, const char *string) 
         return has_positive_rule ? match : true;
 }
 
+static bool net_condition_test_ifname(char * const *patterns, const char *ifname, char * const *alternative_names) {
+        if (net_condition_test_strv(patterns, ifname))
+                return true;
+
+        char * const *p;
+        STRV_FOREACH(p, alternative_names)
+                if (net_condition_test_strv(patterns, *p))
+                        return true;
+
+        return false;
+}
+
 static int net_condition_test_property(char * const *match_property, sd_device *device) {
         char * const *p;
 
@@ -166,6 +178,7 @@ bool net_match_config(Set *match_mac,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name,
+                      char * const *alternative_names,
                       enum nl80211_iftype wifi_iftype,
                       const char *ssid,
                       const struct ether_addr *bssid) {
@@ -196,7 +209,7 @@ bool net_match_config(Set *match_mac,
         if (!net_condition_test_strv(match_types, dev_type))
                 return false;
 
-        if (!net_condition_test_strv(match_names, dev_name))
+        if (!net_condition_test_ifname(match_names, dev_name, alternative_names))
                 return false;
 
         if (!net_condition_test_property(match_property, device))
@@ -349,7 +362,7 @@ int config_parse_match_ifnames(
                         return 0;
                 }
 
-                if (!ifname_valid(word)) {
+                if (!ifname_valid_full(word, ltype)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Interface name is not valid or too long, ignoring assignment: %s", word);
                         continue;
