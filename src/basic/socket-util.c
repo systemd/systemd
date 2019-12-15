@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -909,7 +910,7 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 
-bool ifname_valid(const char *p) {
+bool ifname_valid_full(const char *p, bool alternative) {
         bool numeric = true;
 
         /* Checks whether a network interface name is valid. This is inspired by dev_valid_name() in the kernel sources
@@ -919,8 +920,13 @@ bool ifname_valid(const char *p) {
         if (isempty(p))
                 return false;
 
-        if (strlen(p) >= IFNAMSIZ)
-                return false;
+        if (alternative) {
+                if (strlen(p) >= ALTIFNAMSIZ)
+                        return false;
+        } else {
+                if (strlen(p) >= IFNAMSIZ)
+                        return false;
+        }
 
         if (dot_or_dot_dot(p))
                 return false;
