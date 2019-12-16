@@ -11,6 +11,7 @@
 Description=Platform Persistent Storage Archival
 Documentation=man:systemd-pstore(8)
 ConditionDirectoryNotEmpty=/sys/fs/pstore
+ConditionVirtualization=!container
 DefaultDependencies=no
 Wants=systemd-remount-fs.service
 After=systemd-remount-fs.service
