@@ -864,7 +864,7 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         const NLType *nl_type;
         struct rtattr *rta;
         void *container;
-        unsigned short rt_len;
+        size_t rt_len;
         int r;
 
         assert_return(m, -EINVAL);
@@ -896,10 +896,14 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
         if (r < 0)
                 return r;
 
-        rt_len = (unsigned short) r;
+        rt_len = (size_t) r;
         rta = container;
 
-        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
+        /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
+         * LGTM.com analysis does not like the type difference. Hence, here we
+         * introduce an unsigned short variable as a workaround. */
+        unsigned short len = rt_len;
+        for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
                 unsigned short type;
 
                 type = RTA_TYPE(rta);
@@ -918,11 +922,15 @@ int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container
 static int netlink_container_parse(sd_netlink_message *m,
                                    struct netlink_container *container,
                                    struct rtattr *rta,
-                                   unsigned rt_len) {
+                                   size_t rt_len) {
         _cleanup_free_ struct netlink_attribute *attributes = NULL;
         size_t n_allocated = 0;
 
-        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
+        /* RTA_OK() macro compares with rta->rt_len, which is unsigned short, and
+         * LGTM.com analysis does not like the type difference. Hence, here we
+         * introduce an unsigned short variable as a workaround. */
+        unsigned short len = rt_len;
+        for (; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
                 unsigned short type;
 
                 type = RTA_TYPE(rta);
