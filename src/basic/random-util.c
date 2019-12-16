@@ -7,6 +7,7 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -27,6 +28,8 @@
 #include "random-util.h"
 #include "siphash24.h"
 #include "time-util.h"
+
+static bool srand_called = false;
 
 int rdrand(unsigned long *ret) {
 
@@ -272,8 +275,12 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         return loop_read_exact(fd, p, n, true);
 }
 
+static void clear_srand_initialization(void) {
+        srand_called = false;
+}
+
 void initialize_srand(void) {
-        static bool srand_called = false;
+        static bool pthread_atfork_registered = false;
         unsigned x;
 #if HAVE_SYS_AUXV_H
         const void *auxv;
@@ -309,6 +316,11 @@ void initialize_srand(void) {
 
         srand(x);
         srand_called = true;
+
+        if (!pthread_atfork_registered) {
+                (void) pthread_atfork(NULL, NULL, clear_srand_initialization);
+                pthread_atfork_registered = true;
+        }
 }
 
 /* INT_MAX gives us only 31 bits, so use 24 out of that. */
