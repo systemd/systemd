@@ -47,6 +47,7 @@ struct link_config {
         struct ether_addr *mac;
         MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
+        NamePolicy *alternative_names_policy;
         char *name;
         char **alternative_names;
         char *alias;
@@ -79,6 +80,9 @@ int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret);
 const char *name_policy_to_string(NamePolicy p) _const_;
 NamePolicy name_policy_from_string(const char *p) _pure_;
 
+const char *alternative_names_policy_to_string(NamePolicy p) _const_;
+NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
+
 const char *mac_address_policy_to_string(MACAddressPolicy p) _const_;
 MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
 
@@ -87,3 +91,4 @@ const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN
 
 CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
