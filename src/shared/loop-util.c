@@ -29,7 +29,7 @@ static void cleanup_clear_loop_close(int *fd) {
         }
 }
 
-int loop_device_make_full(
+int loop_device_make(
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -166,7 +166,7 @@ int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_fla
         if (fd < 0)
                 return -errno;
 
-        return loop_device_make_full(fd, open_flags, 0, 0, loop_flags, ret);
+        return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
