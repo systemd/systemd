@@ -13,9 +13,9 @@
 #include "macro.h"
 #include "string-util.h"
 
-char *strv_find(char **l, const char *name) _pure_;
-char *strv_find_prefix(char **l, const char *name) _pure_;
-char *strv_find_startswith(char **l, const char *name) _pure_;
+char *strv_find(char * const *l, const char *name) _pure_;
+char *strv_find_prefix(char * const *l, const char *name) _pure_;
+char *strv_find_startswith(char * const *l, const char *name) _pure_;
 
 char **strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
@@ -30,8 +30,8 @@ void strv_clear(char **l);
 char **strv_copy(char * const *l);
 size_t strv_length(char * const *l) _pure_;
 
-int strv_extend_strv(char ***a, char **b, bool filter_duplicates);
-int strv_extend_strv_concat(char ***a, char **b, const char *suffix);
+int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
+int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix);
 int strv_extend(char ***l, const char *value);
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,0);
 int strv_extend_front(char ***l, const char *value);
@@ -49,9 +49,9 @@ int strv_consume_prepend(char ***l, char *value);
 
 char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);
-bool strv_is_uniq(char **l);
+bool strv_is_uniq(char * const *l);
 
-bool strv_equal(char **a, char **b);
+bool strv_equal(char * const *a, char * const *b);
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
@@ -77,16 +77,16 @@ char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
 
-char *strv_join_prefix(char **l, const char *separator, const char *prefix);
-static inline char *strv_join(char **l, const char *separator) {
+char *strv_join_prefix(char * const *l, const char *separator, const char *prefix);
+static inline char *strv_join(char * const *l, const char *separator) {
         return strv_join_prefix(l, separator, NULL);
 }
 
 char **strv_parse_nulstr(const char *s, size_t l);
 char **strv_split_nulstr(const char *s);
-int strv_make_nulstr(char **l, char **p, size_t *n);
+int strv_make_nulstr(char * const *l, char **p, size_t *n);
 
-bool strv_overlap(char **a, char **b) _pure_;
+bool strv_overlap(char * const *a, char * const *b) _pure_;
 
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
@@ -103,7 +103,7 @@ bool strv_overlap(char **a, char **b) _pure_;
         for ((x) = (l), (y) = (x+1); (x) && *(x) && *(y); (x) += 2, (y) = (x + 1))
 
 char **strv_sort(char **l);
-void strv_print(char **l);
+void strv_print(char * const *l);
 
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
 
@@ -192,7 +192,7 @@ char **strv_skip(char **l, size_t n);
 
 int strv_extend_n(char ***l, const char *value, size_t n);
 
-int fputstrv(FILE *f, char **l, const char *separator, bool *space);
+int fputstrv(FILE *f, char * const *l, const char *separator, bool *space);
 
 #define strv_free_and_replace(a, b)             \
         ({                                      \
