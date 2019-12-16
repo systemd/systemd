@@ -27,6 +27,7 @@ bool net_match_config(Set *match_mac,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const char *dev_name,
+                      char * const *alternative_names,
                       enum nl80211_iftype wifi_iftype,
                       const char *ssid,
                       const struct ether_addr *bssid);

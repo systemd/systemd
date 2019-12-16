@@ -542,10 +542,10 @@ static int link_update_flags(Link *link, sd_netlink_message *m, bool force_updat
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         _cleanup_(link_unrefp) Link *link = NULL;
-        uint16_t type;
         const char *ifname, *kind = NULL;
-        int r, ifindex;
         unsigned short iftype;
+        int r, ifindex;
+        uint16_t type;
 
         assert(manager);
         assert(message);
@@ -616,6 +616,10 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
                 log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
+
+        r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &link->alternative_names);
+        if (r < 0 && r != -ENODATA)
+                return r;
 
         if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
                 return -ENOMEM;
@@ -713,6 +717,7 @@ static Link *link_free(Link *link) {
         free(link->lldp_file);
 
         free(link->ifname);
+        strv_free(link->alternative_names);
         free(link->kind);
         free(link->ssid);
 
@@ -2934,14 +2939,28 @@ static int link_configure_duid(Link *link) {
         return 0;
 }
 
-int link_reconfigure(Link *link, bool force) {
+static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
         Network *network;
         int r;
 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
 
-        r = network_get(link->manager, link->sd_device, link->ifname,
+        if (m) {
+                _cleanup_strv_free_ char **s = NULL;
+
+                r = sd_netlink_message_get_errno(m);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+
+                strv_free_and_replace(link->alternative_names, s);
+        }
+
+        r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
                         &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
@@ -2959,10 +2978,8 @@ int link_reconfigure(Link *link, bool force) {
 
         /* Dropping old .network file */
         r = link_stop_clients(link, false);
-        if (r < 0) {
-                link_enter_failed(link);
+        if (r < 0)
                 return r;
-        }
 
         if (link_dhcp4_server_enabled(link))
                 (void) sd_dhcp_server_stop(link->dhcp_server);
@@ -3006,6 +3023,46 @@ int link_reconfigure(Link *link, bool force) {
         return 0;
 }
 
+static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        r = link_reconfigure_internal(link, m, false);
+        if (r < 0)
+                link_enter_failed(link);
+
+        return 1;
+}
+
+static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        r = link_reconfigure_internal(link, m, true);
+        if (r < 0)
+                link_enter_failed(link);
+
+        return 1;
+}
+
+int link_reconfigure(Link *link, bool force) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
+                                     link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               force ? link_force_reconfigure_handler : link_reconfigure_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return r;
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int link_initialized_and_synced(Link *link) {
         Network *network;
         int r;
@@ -3035,7 +3092,7 @@ static int link_initialized_and_synced(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = network_get(link->manager, link->sd_device, link->ifname,
+                r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
                                 &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
@@ -3080,7 +3137,22 @@ static int link_initialized_and_synced(Link *link) {
 }
 
 static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        _cleanup_strv_free_ char **s = NULL;
         int r;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
+        if (r < 0 && r != -ENODATA) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        strv_free_and_replace(link->alternative_names, s);
 
         r = link_initialized_and_synced(link);
         if (r < 0)
@@ -3414,9 +3486,11 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = link_reconfigure(link, false);
-                if (r < 0)
+                r = link_reconfigure_internal(link, NULL, false);
+                if (r < 0) {
+                        link_enter_failed(link);
                         return r;
+                }
         }
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
@@ -3520,6 +3594,7 @@ static int link_admin_state_up(Link *link) {
 }
 
 int link_update(Link *link, sd_netlink_message *m) {
+        _cleanup_strv_free_ char **s = NULL;
         struct ether_addr mac;
         const char *ifname;
         uint32_t mtu;
@@ -3550,6 +3625,10 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return r;
         }
+
+        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
+        if (r >= 0)
+                strv_free_and_replace(link->alternative_names, s);
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {

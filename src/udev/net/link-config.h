@@ -48,6 +48,7 @@ struct link_config {
         MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
         char *name;
+        char **alternative_names;
         char *alias;
         uint32_t mtu;
         size_t speed;

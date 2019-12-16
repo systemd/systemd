@@ -80,6 +80,7 @@ int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
 
 int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type, const char *data);
+int sd_netlink_message_append_strv(sd_netlink_message *m, unsigned short type, char * const *data);
 int sd_netlink_message_append_flag(sd_netlink_message *m, unsigned short type);
 int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uint8_t data);
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data);
@@ -100,6 +101,7 @@ int sd_netlink_message_close_container(sd_netlink_message *m);
 int sd_netlink_message_read(sd_netlink_message *m, unsigned short type, size_t size, void *data);
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, unsigned short type, char **data);
 int sd_netlink_message_read_string(sd_netlink_message *m, unsigned short type, const char **data);
+int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container_type, unsigned short type_id, char ***ret);
 int sd_netlink_message_read_u8(sd_netlink_message *m, unsigned short type, uint8_t *data);
 int sd_netlink_message_read_u16(sd_netlink_message *m, unsigned short type, uint16_t *data);
 int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint32_t *data);

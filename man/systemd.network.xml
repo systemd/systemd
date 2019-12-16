@@ -132,10 +132,9 @@
         <varlistentry>
           <term><varname>Name=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of shell-style globs
-            matching the device name, as exposed by the udev property
-            <literal>INTERFACE</literal>. If the list is prefixed
-            with a "!", the test is inverted.</para>
+            <para>A whitespace-separated list of shell-style globs matching the device name, as exposed
+            by the udev property <literal>INTERFACE</literal>, or device's alternative names. If the
+            list is prefixed with a "!", the test is inverted.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -985,6 +985,66 @@ int config_parse_ifname(
         return 0;
 }
 
+int config_parse_ifnames(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **names = NULL;
+        char ***s = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *s = strv_free(*s);
+                return 0;
+        }
+
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract interface name, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (!ifname_valid_full(word, ltype)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Interface name is not valid or too long, ignoring assignment: %s",
+                                   word);
+                        continue;
+                }
+
+                r = strv_consume(&names, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = strv_extend_strv(s, names, true);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 int config_parse_ip_port(
                 const char *unit,
                 const char *filename,

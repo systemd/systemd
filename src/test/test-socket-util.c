@@ -45,6 +45,7 @@ static void test_ifname_valid(void) {
 
         assert(ifname_valid("xxxxxxxxxxxxxxx"));
         assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
+        assert(ifname_valid_full("xxxxxxxxxxxxxxxx", true));
 }
 
 static void test_socket_address_parse_one(const char *in, int ret, int family, const char *expected) {

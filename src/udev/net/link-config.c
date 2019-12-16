@@ -58,6 +58,7 @@ static void link_config_free(link_config *link) {
         free(link->mac);
         free(link->name_policy);
         free(link->name);
+        strv_free(link->alternative_names);
         free(link->alias);
 
         free(link);
@@ -243,7 +244,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, NULL, 0, NULL, NULL)) {
+                                     device, NULL, NULL, NULL, 0, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
@@ -457,6 +458,10 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
                 return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
+
+        r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, config->alternative_names);
+        if (r < 0)
+                return log_warning_errno(r, "Could not set AlternativeName= on %s: %m", old_name);
 
         *name = new_name;
 

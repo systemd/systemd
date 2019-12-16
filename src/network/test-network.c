@@ -125,7 +125,7 @@ static void test_network_get(Manager *manager, sd_device *loopback) {
 
         /* let's assume that the test machine does not have a .network file
            that applies to the loopback device... */
-        assert_se(network_get(manager, loopback, "lo", &mac, 0, NULL, NULL, &network) == -ENOENT);
+        assert_se(network_get(manager, loopback, "lo", NULL, &mac, 0, NULL, NULL, &network) == -ENOENT);
         assert_se(!network);
 }
 

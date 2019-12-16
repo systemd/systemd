@@ -8,11 +8,12 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
 #include "socket-util.h"
-#include "memory-util.h"
+#include "strv.h"
 
 #define GET_CONTAINER(m, i) ((i) < (m)->n_containers ? (struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset) : NULL)
 #define PUSH_CONTAINER(m, new) (m)->container_offsets[(m)->n_containers++] = (uint8_t*)(new) - (uint8_t*)(m)->hdr;
@@ -86,7 +87,8 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
         assert_return(m, -EINVAL);
         assert_return(m->hdr, -EINVAL);
 
-        assert_return(IN_SET(m->hdr->nlmsg_type, RTM_GETLINK, RTM_GETADDR, RTM_GETROUTE, RTM_GETNEIGH,
+        assert_return(IN_SET(m->hdr->nlmsg_type,
+                             RTM_GETLINK, RTM_GETLINKPROP, RTM_GETADDR, RTM_GETROUTE, RTM_GETNEIGH,
                              RTM_GETRULE, RTM_GETADDRLABEL, RTM_GETNEXTHOP), -EINVAL);
 
         SET_FLAG(m->hdr->nlmsg_flags, NLM_F_DUMP, dump);
@@ -244,6 +246,35 @@ int sd_netlink_message_append_string(sd_netlink_message *m, unsigned short type,
         r = add_rtattr(m, type, data, length + 1);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int sd_netlink_message_append_strv(sd_netlink_message *m, unsigned short type, char * const *data) {
+        size_t length, size;
+        char * const *p;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+
+        r = message_attribute_has_type(m, &size, type, NETLINK_TYPE_STRING);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, data) {
+                if (size) {
+                        length = strnlen(*p, size+1);
+                        if (length > size)
+                                return -EINVAL;
+                } else
+                        length = strlen(*p);
+
+                r = add_rtattr(m, type, *p, length + 1);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -824,6 +855,63 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
         if (data)
                 memcpy(data, attr_data, sizeof(struct in6_addr));
 
+        return 0;
+}
+
+int sd_netlink_message_read_strv(sd_netlink_message *m, unsigned short container_type, unsigned short type_id, char ***ret) {
+        _cleanup_strv_free_ char **s = NULL;
+        const NLTypeSystem *type_system;
+        const NLType *nl_type;
+        struct rtattr *rta;
+        void *container;
+        unsigned short rt_len;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->n_containers < RTNL_CONTAINER_DEPTH, -EINVAL);
+
+        r = type_system_get_type(m->containers[m->n_containers].type_system,
+                                 &nl_type,
+                                 container_type);
+        if (r < 0)
+                return r;
+
+        if (type_get_type(nl_type) != NETLINK_TYPE_NESTED)
+                return -EINVAL;
+
+        r = type_system_get_type_system(m->containers[m->n_containers].type_system,
+                                        &type_system,
+                                        container_type);
+        if (r < 0)
+                return r;
+
+        r = type_system_get_type(type_system, &nl_type, type_id);
+        if (r < 0)
+                return r;
+
+        if (type_get_type(nl_type) != NETLINK_TYPE_STRING)
+                return -EINVAL;
+
+        r = netlink_message_read_internal(m, container_type, &container, NULL);
+        if (r < 0)
+                return r;
+
+        rt_len = (unsigned short) r;
+        rta = container;
+
+        for (; RTA_OK(rta, rt_len); rta = RTA_NEXT(rta, rt_len)) {
+                unsigned short type;
+
+                type = RTA_TYPE(rta);
+                if (type != type_id)
+                        continue;
+
+                r = strv_extend(&s, RTA_DATA(rta));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 

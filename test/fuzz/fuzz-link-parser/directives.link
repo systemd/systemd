@@ -16,6 +16,7 @@ MACAddressPolicy=
 MACAddress=
 NamePolicy=
 Name=
+AlternativeName=
 Alias=
 MTUBytes=
 BitsPerSecond=

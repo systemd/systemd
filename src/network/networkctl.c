@@ -139,6 +139,7 @@ typedef struct LinkInfo {
         uint32_t max_mtu;
         uint32_t tx_queues;
         uint32_t rx_queues;
+        char **alternative_names;
 
         union {
                 struct rtnl_link_stats64 stats64;
@@ -191,6 +192,7 @@ static const LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
                 free(array[i].ssid);
+                strv_free(array[i].alternative_names);
         }
 
         return mfree(array);
@@ -304,6 +306,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu);
+        (void) sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &info->alternative_names);
 
         info->has_rx_queues =
                 sd_netlink_message_read_u32(m, IFLA_NUM_RX_QUEUES, &info->rx_queues) >= 0 &&
@@ -1063,6 +1066,7 @@ static int link_status_one(
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
+        char **p;
         int r;
 
         assert(rtnl);
@@ -1143,6 +1147,18 @@ static int link_status_one(
                                    on_color_setup, strna(setup_state), off_color_setup);
         if (r < 0)
                 return r;
+
+        STRV_FOREACH(p, info->alternative_names)
+                if (p == info->alternative_names)
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Alternative Names:",
+                                           TABLE_STRING, *p);
+                else
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, *p);
 
         if (path) {
                 r = table_add_many(table,
