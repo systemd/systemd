@@ -757,7 +757,7 @@ int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint
         r = netlink_message_read_internal(m, type, &attr_data, &net_byteorder);
         if (r < 0)
                 return r;
-        else if ((size_t)r < sizeof(uint32_t))
+        else if ((size_t) r < sizeof(uint32_t))
                 return -EIO;
 
         if (data) {
@@ -783,7 +783,7 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t)r < sizeof(struct ether_addr))
+        else if ((size_t) r < sizeof(struct ether_addr))
                 return -EIO;
 
         if (data)
@@ -805,7 +805,7 @@ int sd_netlink_message_read_cache_info(sd_netlink_message *m, unsigned short typ
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t)r < sizeof(struct ifa_cacheinfo))
+        else if ((size_t) r < sizeof(struct ifa_cacheinfo))
                 return -EIO;
 
         if (info)
@@ -827,7 +827,7 @@ int sd_netlink_message_read_in_addr(sd_netlink_message *m, unsigned short type, 
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t)r < sizeof(struct in_addr))
+        else if ((size_t) r < sizeof(struct in_addr))
                 return -EIO;
 
         if (data)
@@ -849,7 +849,7 @@ int sd_netlink_message_read_in6_addr(sd_netlink_message *m, unsigned short type,
         r = netlink_message_read_internal(m, type, &attr_data, NULL);
         if (r < 0)
                 return r;
-        else if ((size_t)r < sizeof(struct in6_addr))
+        else if ((size_t) r < sizeof(struct in6_addr))
                 return -EIO;
 
         if (data)
@@ -1029,8 +1029,7 @@ int sd_netlink_message_enter_container(sd_netlink_message *m, unsigned short typ
         if (r < 0)
                 return r;
 
-        size = (size_t)r;
-
+        size = (size_t) r;
         m->n_containers++;
 
         r = netlink_container_parse(m,
@@ -1060,7 +1059,6 @@ int sd_netlink_message_enter_array(sd_netlink_message *m, unsigned short type_id
                 return r;
 
         size = (size_t) r;
-
         m->n_containers++;
 
         r = netlink_container_parse(m,
