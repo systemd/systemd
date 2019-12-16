@@ -93,8 +93,8 @@ int efi_get_variable(
                 assert(n <= st.st_size - 4);
 
                 /* Always NUL terminate (2 bytes, to protect UTF-16) */
-                ((char*) buf)[n - 4] = 0;
-                ((char*) buf)[n - 4 + 1] = 0;
+                ((char*) buf)[n] = 0;
+                ((char*) buf)[n + 1] = 0;
         } else
                 /* Assume that the reported size is accurate */
                 n = st.st_size - 4;
