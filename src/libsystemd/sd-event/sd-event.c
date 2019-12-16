@@ -386,7 +386,7 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
-        struct epoll_event ev;
+        struct epoll_event ev = {0};
         int r;
 
         assert(s);
@@ -436,7 +436,7 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev;
+                struct epoll_event ev = {0};
 
                 ev = (struct epoll_event) {
                         .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
@@ -544,7 +544,7 @@ static int event_make_signal_data(
                 int sig,
                 struct signal_data **ret) {
 
-        struct epoll_event ev;
+        struct epoll_event ev = {0};
         struct signal_data *d;
         bool added = false;
         sigset_t ss_copy;
@@ -1039,7 +1039,7 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
-        struct epoll_event ev;
+        struct epoll_event ev = {0};
         int r, fd;
 
         assert(e);
@@ -1549,7 +1549,7 @@ static int event_make_inotify_data(
 
         _cleanup_close_ int fd = -1;
         struct inotify_data *d;
-        struct epoll_event ev;
+        struct epoll_event ev = {0};
         int r;
 
         assert(e);
@@ -3493,7 +3493,7 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
         }
 
         ev_queue_max = MAX(e->n_sources, 1u);
-        ev_queue = newa(struct epoll_event, ev_queue_max);
+        ev_queue = newa0(struct epoll_event, ev_queue_max);
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
         if (e->inotify_data_buffered)
@@ -3841,7 +3841,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 return e->watchdog;
 
         if (b) {
-                struct epoll_event ev;
+                struct epoll_event ev = {0};
 
                 r = sd_watchdog_enabled(false, &e->watchdog_period);
                 if (r <= 0)
