@@ -562,17 +562,20 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
 
         r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUSec", &x);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to read LoaderTimeInitUSec: %m");
 
         r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUSec", &y);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to read LoaderTimeExecUSec: %m");
 
         if (y == 0 || y < x)
-                return -EIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Bad LoaderTimeInitUSec=%"PRIu64", LoaderTimeExecUSec=%" PRIu64"; refusing.",
+                                       x, y);
 
         if (y > USEC_PER_HOUR)
-                return -EIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "LoaderTimeExecUSec=%"PRIu64" too large, refusing.", x);
 
         *firmware = x;
         *loader = y;
