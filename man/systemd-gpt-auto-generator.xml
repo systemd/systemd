@@ -35,7 +35,7 @@
     root, <filename>/home/</filename>, <filename>/srv/</filename>, the EFI System Partition, the Extended
     Boot Loader Partition and swap partitions and creates mount and swap units for them, based on the
     partition type GUIDs of GUID partition tables (GPT), see <ulink
-    url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5.  It implements the <ulink
+    url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5. It implements the <ulink
     url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
     Specification</ulink>. Note that this generator has no effect on non-GPT systems, and on specific mount
     points that are directories already containing files. Also, on systems where the units are explicitly
@@ -44,17 +44,20 @@
     units this generator creates are overridden, but additional implicit dependencies might be
     created.</para>
 
-    <para>This generator will only look for root partitions on the
-    same physical disk the EFI System Partition (ESP) is located on.
-    It will only look for the other partitions on the same physical
-    disk the root file system is located on. These partitions will not
-    be searched for on systems where the root file system is distributed
-    on multiple disks, for example via btrfs RAID.</para>
+    <para>This generator will only look for the root partition on the same physical disk the EFI System
+    Partition (ESP) is located on. Note that support from the boot loader is required: EFI variable
+    <varname>LoaderDevicePartUUID-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</varname> is used to determine from
+    which partition, and hence the disk from which the system was booted. If the boot loader does not set
+    this variable, this generator will not be able to autodetect the root partition.</para>
 
-    <para><filename>systemd-gpt-auto-generator</filename> is useful
-    for centralizing file system configuration in the partition table
-    and making configuration in <filename>/etc/fstab</filename> unnecessary.
+    <para>Similarly, this generator will only look for the other partitions on the same physical disk as the
+    root partition. In this case, boot loader support is not required. These partitions will not be searched
+    for on systems where the root file system is distributed on multiple disks, for example via btrfs RAID.
     </para>
+
+    <para><filename>systemd-gpt-auto-generator</filename> is useful for centralizing file system
+    configuration in the partition table and making configuration in <filename>/etc/fstab</filename> or on
+    the kernel command line unnecessary.</para>
 
     <para>This generator looks for the partitions based on their
     partition type GUID. The following partition type GUIDs are

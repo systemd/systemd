@@ -1163,6 +1163,15 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
+static void print_yes_no_line(bool first, bool good, const char *name) {
+        printf("%s%s%s%s %s\n",
+               first ? "     Features: " : "               ",
+               good ? ansi_highlight_green() : ansi_highlight_red(),
+               good ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK),
+               ansi_normal(),
+               name);
+}
+
 static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
         int r, k;
@@ -1242,18 +1251,15 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                for (i = 0; i < ELEMENTSOF(flags); i++) {
+                for (i = 0; i < ELEMENTSOF(flags); i++)
+                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, flags[i].flag), flags[i].name);
 
-                        if (i == 0)
-                                printf("     Features: ");
-                        else
-                                printf("               ");
+                sd_id128_t bootloader_esp_uuid;
+                bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
 
-                        if (FLAGS_SET(loader_features, flags[i].flag))
-                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(SPECIAL_GLYPH_CHECK_MARK), ansi_normal(), flags[i].name);
-                        else
-                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(SPECIAL_GLYPH_CROSS_MARK), ansi_normal(), flags[i].name);
-                }
+                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP partition information");
+                if (have_bootloader_esp_uuid && !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
+                        printf("WARNING: The boot loader reports different ESP UUID then detected!\n");
 
                 if (stub)
                         printf("         Stub: %s\n", stub);
