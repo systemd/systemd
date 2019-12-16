@@ -1486,7 +1486,7 @@ int time_change_fd(void) {
 
         /* We only care for the cancellation event, hence we set the timeout to the latest possible value. */
         static const struct itimerspec its = {
-                .it_value.tv_sec = TIME_T_MAX,
+                .it_value.tv_sec = INT_MAX,
         };
 
         _cleanup_close_ int fd;
