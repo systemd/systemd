@@ -17,6 +17,7 @@ UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
 IMAGE_NAME=${IMAGE_NAME:-default}
+TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
@@ -1933,7 +1934,9 @@ test_create_image() {
 }
 
 test_setup() {
-    if type -P meson >/dev/null && [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if [ ${TEST_REQUIRE_INSTALL_TESTS} -ne 0 ] && \
+            type -P meson >/dev/null && \
+            [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "Needs to be built with -Dinstall-tests=true"
         exit 1
     fi
