@@ -401,7 +401,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         }
 
         if (ctx->enable_name_policy && config->name_policy)
-                for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
+                for (NamePolicy *p = config->name_policy; *p != _NAMEPOLICY_INVALID; p++) {
                         policy = *p;
 
                         switch (policy) {
@@ -438,6 +438,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         default:
                                 assert_not_reached("invalid policy");
                         }
+                        if (ifname_valid(new_name))
+                                break;
                 }
 
         if (new_name)
