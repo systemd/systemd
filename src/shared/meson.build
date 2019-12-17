@@ -132,6 +132,7 @@ shared_sources = files('''
         nscd-flush.h
         nsflags.c
         nsflags.h
+        openssl-util.h
         os-util.c
         os-util.h
         output-mode.c
@@ -141,6 +142,8 @@ shared_sources = files('''
         path-lookup.c
         path-lookup.h
         pe-header.h
+        pkcs11-util.c
+        pkcs11-util.h
         pretty-print.c
         pretty-print.h
         ptyfwd.c
@@ -277,6 +280,8 @@ libshared_deps = [threads,
                   libkmod,
                   liblz4,
                   libmount,
+                  libopenssl,
+                  libp11kit,
                   librt,
                   libseccomp,
                   libselinux,

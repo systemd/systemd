@@ -1104,6 +1104,18 @@ else
 endif
 conf.set10('HAVE_OPENSSL', have)
 
+want_p11kit = get_option('p11kit')
+if want_p11kit != 'false' and not skip_deps
+        libp11kit = dependency('p11-kit-1',
+                                version : '>= 0.23.3',
+                                required : want_p11kit == 'true')
+        have = libp11kit.found()
+else
+        have = false
+        libp11kit = []
+endif
+conf.set10('HAVE_P11KIT', have)
+
 want_elfutils = get_option('elfutils')
 if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
@@ -1997,11 +2009,21 @@ executable('systemd-system-update-generator',
            install_dir : systemgeneratordir)
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        systemd_cryptsetup_sources = files('''
+                src/cryptsetup/cryptsetup.c
+                src/cryptsetup/cryptsetup-pkcs11.h
+'''.split())
+
+        if conf.get('HAVE_P11KIT') == 1
+                systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-pkcs11.c')
+        endif
+
         executable('systemd-cryptsetup',
-                   'src/cryptsetup/cryptsetup.c',
+                   systemd_cryptsetup_sources,
                    include_directories : includes,
                    link_with : [libshared],
-                   dependencies : [libcryptsetup],
+                   dependencies : [libcryptsetup,
+                                   libp11kit],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
@@ -3194,6 +3216,7 @@ missing = []
 foreach tuple : [
         ['libcryptsetup'],
         ['PAM'],
+        ['p11kit'],
         ['AUDIT'],
         ['IMA'],
         ['AppArmor'],
