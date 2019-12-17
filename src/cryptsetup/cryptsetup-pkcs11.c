@@ -12,11 +12,14 @@
 #include "cryptsetup-pkcs11.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
 #include "stat-util.h"
 #include "strv.h"
+
+#define KEY_FILE_SIZE_MAX (16U*1024U*1024U) /* 16 MiB */
 
 static int load_key_file(
                 const char *key_file,
@@ -50,8 +53,13 @@ static int load_key_file(
 
                 if (st.st_size == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file is empty, refusing.");
-                if ((uint64_t) st.st_size > SIZE_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Key file too large, refusing.");
+                if ((uint64_t) st.st_size > KEY_FILE_SIZE_MAX) {
+                        char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "Key file larger (%s) than allowed maximum size (%s), refusing.",
+                                               format_bytes(buf1, sizeof(buf1), st.st_size),
+                                               format_bytes(buf2, sizeof(buf2), KEY_FILE_SIZE_MAX));
+                }
 
                 if (key_file_offset >= (uint64_t) st.st_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file offset too large for file, refusing.");
