@@ -462,7 +462,9 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
 
         r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, config->alternative_names);
-        if (r < 0)
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not set AlternativeName= on %s, ignoring: %m", old_name);
+        else if (r < 0)
                 return log_warning_errno(r, "Could not set AlternativeName= on %s: %m", old_name);
 
         *name = new_name;

@@ -361,7 +361,8 @@
         <listitem>
           <para>The alternative interface name to use. This option can be specified multiple times.
           If the empty string is assigned to this option, the list is reset, and all prior assignments
-          have no effect.</para>
+          have no effect. If the kernel does not support the alternative names, then this setting will
+          be ignored.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
