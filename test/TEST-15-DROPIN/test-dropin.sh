@@ -419,9 +419,23 @@ EOF
     clear_services a b
 }
 
+test_invalid_dropins () {
+    echo "Testing invalid dropins..."
+    # Assertion failed on earlier versions, command exits unsuccessfully on later versions
+    systemctl cat nonexistent@.service || true
+    create_services a
+    systemctl daemon-reload
+    # Assertion failed on earlier versions, command exits unsuccessfully on later versions
+    systemctl cat a@.service || true
+    systemctl stop a
+    clear_services a
+    return 0
+}
+
 test_basic_dropins
 test_template_dropins
 test_alias_dropins
 test_masked_dropins
+test_invalid_dropins
 
 touch /testok
