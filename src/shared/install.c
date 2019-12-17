@@ -362,6 +362,12 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                         verb, changes[i].path);
                         logged = true;
                         break;
+                case -EUCLEAN:
+                        log_error_errno(changes[i].type,
+                                        "Failed to %s unit, \"%s\" is not a valid unit name.",
+                                        verb, changes[i].path);
+                        logged = true;
+                        break;
                 case -ELOOP:
                         log_error_errno(changes[i].type, "Failed to %s unit, refusing to operate on linked unit file %s",
                                         verb, changes[i].path);
@@ -1138,9 +1144,6 @@ static int config_parse_also(
                 if (r < 0)
                         return r;
 
-                if (!unit_name_is_valid(printed, UNIT_NAME_ANY))
-                        return -EINVAL;
-
                 r = install_info_add(c, printed, NULL, true, &alsoinfo);
                 if (r < 0)
                         return r;
@@ -1194,7 +1197,8 @@ static int config_parse_default_instance(
         }
 
         if (!unit_instance_is_valid(printed))
-                return -EINVAL;
+                return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                                  "Invalid DefaultInstance= value \"%s\".", printed);
 
         return free_and_replace(i->default_instance, printed);
 }
@@ -1797,7 +1801,8 @@ static int install_info_symlink_wants(
                         return q;
 
                 if (!unit_name_is_valid(dst, UNIT_NAME_ANY)) {
-                        r = -EINVAL;
+                        unit_file_changes_add(changes, n_changes, -EUCLEAN, dst, NULL);
+                        r = -EUCLEAN;
                         continue;
                 }
 

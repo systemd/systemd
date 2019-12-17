@@ -1033,12 +1033,11 @@ Features:
   - allow Type=simple with PIDFile=
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
-  - load-fragment: when loading a unit file via a chain of symlinks
-    verify that it is not masked via any of the names traversed.
   - introduce Type=pid-file
   - introduce mix of BindTo and Requisite
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
+  - add verification of [Install] section to systemd-analyze verify
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
