@@ -261,6 +261,7 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
 }
 
 static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
+        _cleanup_strv_free_ char **altnames = NULL;
         const char *name;
         int ifindex, r;
         uint16_t type;
@@ -283,13 +284,26 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+        if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENODATA))
+                return r;
+
         if (patterns) {
                 char str[DECIMAL_STR_MAX(int)];
 
                 xsprintf(str, "%i", ifindex);
+                if (!strv_fnmatch(patterns, str, 0) && !strv_fnmatch(patterns, name, 0)) {
+                        bool match = false;
+                        char **p;
 
-                if (!strv_fnmatch(patterns, str, 0) && !strv_fnmatch(patterns, name, 0))
-                        return 0;
+                        STRV_FOREACH(p, altnames)
+                                if (strv_fnmatch(patterns, *p, 0)) {
+                                        match = true;
+                                        break;
+                                }
+                        if (!match)
+                                return 0;
+                }
         }
 
         r = sd_rtnl_message_link_get_type(m, &info->iftype);
@@ -298,6 +312,7 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
 
         strscpy(info->name, sizeof info->name, name);
         info->ifindex = ifindex;
+        info->alternative_names = TAKE_PTR(altnames);
 
         info->has_mac_address =
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
@@ -306,7 +321,6 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MAX_MTU, &info->max_mtu);
-        (void) sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &info->alternative_names);
 
         info->has_rx_queues =
                 sd_netlink_message_read_u32(m, IFLA_NUM_RX_QUEUES, &info->rx_queues) >= 0 &&
@@ -1764,8 +1778,11 @@ static int link_delete(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
                 r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                if (r < 0) {
+                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                }
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
@@ -1808,6 +1825,7 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
 
 static int link_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, i, k = 0, r;
 
         r = sd_bus_open_system(&bus);
@@ -1816,8 +1834,11 @@ static int link_renew(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
                 r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                if (r < 0) {
+                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                }
 
                 r = link_renew_one(bus, index, argv[i]);
                 if (r < 0 && k >= 0)
@@ -1852,6 +1873,7 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
 static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
         int index, i, r;
         Iterator j;
@@ -1867,8 +1889,11 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 
         for (i = 1; i < argc; i++) {
                 r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                if (r < 0) {
+                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
+                }
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
