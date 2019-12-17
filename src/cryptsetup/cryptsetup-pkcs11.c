@@ -121,7 +121,16 @@ static int pkcs11_callback(
 
         /* Called for every token matching our URI */
 
-        r = pkcs11_token_login(m, session, slot_id, token_info, data->friendly_name, "drive-harddisk", "pkcs11-pin", data->until, NULL);
+        r = pkcs11_token_login(
+                        m,
+                        session,
+                        slot_id,
+                        token_info,
+                        data->friendly_name,
+                        "drive-harddisk",
+                        "pkcs11-pin",
+                        data->until,
+                        NULL);
         if (r < 0)
                 return r;
 
@@ -134,7 +143,14 @@ static int pkcs11_callback(
         if (r < 0)
                 return r;
 
-        r = pkcs11_token_decrypt_data(m, session, object, data->encrypted_key, data->encrypted_key_size, &data->decrypted_key, &data->decrypted_key_size);
+        r = pkcs11_token_decrypt_data(
+                        m,
+                        session,
+                        object,
+                        data->encrypted_key,
+                        data->encrypted_key_size,
+                        &data->decrypted_key,
+                        &data->decrypted_key_size);
         if (r < 0)
                 return r;
 
