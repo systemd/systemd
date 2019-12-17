@@ -18,7 +18,10 @@ REPO_ROOT="${REPO_ROOT:-$PWD}"
 ADDITIONAL_DEPS=(python3-libevdev
                  python3-pyparsing
                  clang
-                 perl)
+                 perl
+                 libfdisk-dev
+                 libp11-kit-dev
+                 libssl-dev)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
