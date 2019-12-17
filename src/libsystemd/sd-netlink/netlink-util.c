@@ -123,6 +123,35 @@ int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const
         return 0;
 }
 
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, int *ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(name);
+        assert(ret);
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r < 0)
+                return r;
+
+        return sd_rtnl_message_link_get_ifindex(reply, ret);
+}
+
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret) {
         struct nlmsgerr *err;
         int r;
