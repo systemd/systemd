@@ -59,6 +59,7 @@ static void link_config_free(link_config *link) {
         free(link->name_policy);
         free(link->name);
         strv_free(link->alternative_names);
+        free(link->alternative_names_policy);
         free(link->alias);
 
         free(link);
@@ -326,6 +327,7 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       sd_device *device, const char **name) {
+        _cleanup_strv_free_ char **altnames = NULL;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         const char *new_name = NULL;
@@ -401,7 +403,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         }
 
         if (ctx->enable_name_policy && config->name_policy)
-                for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
+                for (NamePolicy *p = config->name_policy; *p != _NAMEPOLICY_INVALID; p++) {
                         policy = *p;
 
                         switch (policy) {
@@ -438,6 +440,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         default:
                                 assert_not_reached("invalid policy");
                         }
+                        if (ifname_valid(new_name))
+                                break;
                 }
 
         if (new_name)
@@ -459,9 +463,52 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
 
-        r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, config->alternative_names);
-        if (r < 0)
-                return log_warning_errno(r, "Could not set AlternativeName= on %s: %m", old_name);
+        if (config->alternative_names) {
+                altnames = strv_copy(config->alternative_names);
+                if (!altnames)
+                        return log_oom();
+        }
+
+        if (config->alternative_names_policy)
+                for (NamePolicy *p = config->alternative_names_policy; *p != _NAMEPOLICY_INVALID; p++) {
+                        const char *n;
+
+                        switch (*p) {
+                        case NAMEPOLICY_DATABASE:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &n);
+                                break;
+                        case NAMEPOLICY_ONBOARD:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &n);
+                                break;
+                        case NAMEPOLICY_SLOT:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_SLOT", &n);
+                                break;
+                        case NAMEPOLICY_PATH:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_PATH", &n);
+                                break;
+                        case NAMEPOLICY_MAC:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &n);
+                                break;
+                        default:
+                                assert_not_reached("invalid policy");
+                        }
+                        if (!isempty(n)) {
+                                r = strv_extend(&altnames, n);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
+
+        if (new_name)
+                strv_remove(altnames, new_name);
+        strv_remove(altnames, old_name);
+        strv_uniq(altnames);
+
+        r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, altnames);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s, ignoring: %m", old_name);
+        else if (r < 0)
+                return log_warning_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s: %m", old_name);
 
         *name = new_name;
 
@@ -509,3 +556,16 @@ DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
                           _NAMEPOLICY_INVALID,
                           "Failed to parse interface name policy");
+
+static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
+        [NAMEPOLICY_DATABASE] = "database",
+        [NAMEPOLICY_ONBOARD] = "onboard",
+        [NAMEPOLICY_SLOT] = "slot",
+        [NAMEPOLICY_PATH] = "path",
+        [NAMEPOLICY_MAC] = "mac",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
+DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
+                          _NAMEPOLICY_INVALID,
+                          "Failed to parse alternative names policy");

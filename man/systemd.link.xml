@@ -357,11 +357,23 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AlternativeNamesPolicy=</varname></term>
+        <listitem>
+          <para>A space-separated list of policies by which the interface's alternative names
+          should be set. Each of the policies may fail, and all successful policies are used. The
+          available policies are <literal>database</literal>, <literal>onboard</literal>,
+          <literal>slot</literal>, <literal>path</literal>, and <literal>mac</literal>. If the
+          kernel does not support the alternative names, then this setting will be ignored.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>AlternativeName=</varname></term>
         <listitem>
           <para>The alternative interface name to use. This option can be specified multiple times.
           If the empty string is assigned to this option, the list is reset, and all prior assignments
-          have no effect.</para>
+          have no effect. If the kernel does not support the alternative names, then this setting will
+          be ignored.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

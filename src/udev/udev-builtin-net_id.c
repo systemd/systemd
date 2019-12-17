@@ -19,6 +19,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <linux/if.h>
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
@@ -56,22 +57,22 @@ struct netnames {
         bool mac_valid;
 
         sd_device *pcidev;
-        char pci_slot[IFNAMSIZ];
-        char pci_path[IFNAMSIZ];
-        char pci_onboard[IFNAMSIZ];
+        char pci_slot[ALTIFNAMSIZ];
+        char pci_path[ALTIFNAMSIZ];
+        char pci_onboard[ALTIFNAMSIZ];
         const char *pci_onboard_label;
 
-        char usb_ports[IFNAMSIZ];
-        char bcma_core[IFNAMSIZ];
-        char ccw_busid[IFNAMSIZ];
-        char vio_slot[IFNAMSIZ];
-        char platform_path[IFNAMSIZ];
-        char netdevsim_path[IFNAMSIZ];
+        char usb_ports[ALTIFNAMSIZ];
+        char bcma_core[ALTIFNAMSIZ];
+        char ccw_busid[ALTIFNAMSIZ];
+        char vio_slot[ALTIFNAMSIZ];
+        char platform_path[ALTIFNAMSIZ];
+        char netdevsim_path[ALTIFNAMSIZ];
 };
 
 struct virtfn_info {
         sd_device *physfn_pcidev;
-        char suffix[IFNAMSIZ];
+        char suffix[ALTIFNAMSIZ];
 };
 
 /* skip intermediate virtio devices */
@@ -104,7 +105,7 @@ static int get_virtfn_info(sd_device *dev, struct netnames *names, struct virtfn
         _cleanup_free_ char *virtfn_pci_syspath = NULL;
         struct dirent *dent;
         _cleanup_closedir_ DIR *dir = NULL;
-        char suffix[IFNAMSIZ];
+        char suffix[ALTIFNAMSIZ];
         int r;
 
         assert(dev);
@@ -819,7 +820,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         r = names_mac(dev, &names);
         if (r >= 0 && names.mac_valid) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 xsprintf(str, "%sx%02x%02x%02x%02x%02x%02x", prefix,
                          names.mac[0], names.mac[1], names.mac[2],
@@ -831,7 +832,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* get path names for Linux on System z network devices */
         if (names_ccw(dev, &names) >= 0 && names.type == NET_CCW) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.ccw_busid))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
@@ -840,7 +841,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* get ibmveth/ibmvnic slot-based names. */
         if (names_vio(dev, &names) >= 0 && names.type == NET_VIO) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
@@ -849,7 +850,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* get ACPI path names for ARM64 platform devices */
         if (names_platform(dev, &names, test) >= 0 && names.type == NET_PLATFORM) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
@@ -858,7 +859,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* get netdevsim path names */
         if (names_netdevsim(dev, &names) >= 0 && names.type == NET_NETDEVSIM) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.netdevsim_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
@@ -872,7 +873,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (names.pci_onboard[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
@@ -896,7 +897,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* USB device */
         if (names_usb(dev, &names) >= 0 && names.type == NET_USB) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (names.pci_path[0] &&
                     snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.usb_ports))
@@ -910,7 +911,7 @@ static int builtin_net_id(sd_device *dev, int argc, char *argv[], bool test) {
 
         /* Broadcom bus */
         if (names_bcma(dev, &names) >= 0 && names.type == NET_BCMA) {
-                char str[IFNAMSIZ];
+                char str[ALTIFNAMSIZ];
 
                 if (names.pci_path[0] &&
                     snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.bcma_core))
