@@ -5,6 +5,7 @@ setup:
 - sudo apt-get update -y
 - sudo apt-get build-dep -y systemd
 - sudo apt-get install -y python3-pip
+- sudo apt-get install -y libfdisk-dev libp11-kit-dev libssl-dev
 # FIXME: temporarily pin the meson version as 0.53 doesn't work with older
 # python 3.5
 # # See: https://github.com/mesonbuild/meson/issues/6427

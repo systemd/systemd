@@ -5,6 +5,9 @@ extraction:
         - python3-pip
         - python3-setuptools
         - python3-wheel
+        - libfdisk-dev
+        - libp11-kit-dev
+        - libssl-dev
     after_prepare:
       - pip3 install meson
       - export PATH="$HOME/.local/bin/:$PATH"
