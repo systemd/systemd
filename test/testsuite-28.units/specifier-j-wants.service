@@ -2,6 +2,7 @@
 Description=Wants with percent-j specifier
 Wants=specifier-j-depends-%j.service
 After=specifier-j-depends-%j.service
+After=testsuite-28-pre.service
 
 [Service]
 Type=oneshot
