@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/fcntl.h>
 #include <sys/types.h>
 
 #include "macro.h"
@@ -22,6 +23,7 @@ typedef enum {
         WRITE_STRING_FILE_DISABLE_BUFFER    = 1 << 5,
         WRITE_STRING_FILE_NOFOLLOW          = 1 << 6,
         WRITE_STRING_FILE_MKDIR_0755        = 1 << 7,
+        WRITE_STRING_FILE_MODE_0600         = 1 << 8,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
@@ -52,9 +54,9 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
 int read_one_line_file(const char *filename, char **line);
-int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
 static inline int read_full_file(const char *filename, char **contents, size_t *size) {
-        return read_full_file_full(filename, 0, contents, size);
+        return read_full_file_full(AT_FDCWD, filename, 0, contents, size);
 }
 int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size);
 int read_full_stream_full(FILE *f, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
@@ -69,6 +71,7 @@ int executable_is_script(const char *path, char **interpreter);
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
+int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret);
 
 int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **_f);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **_f);

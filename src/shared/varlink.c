@@ -577,7 +577,7 @@ static int varlink_parse_message(Varlink *v) {
 
         varlink_log(v, "New incoming message: %s", begin);
 
-        r = json_parse(begin, &v->current, NULL, NULL);
+        r = json_parse(begin, 0, &v->current, NULL, NULL);
         if (r < 0)
                 return r;
 

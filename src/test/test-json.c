@@ -82,7 +82,7 @@ static void test_variant(const char *data, Test test) {
         _cleanup_free_ char *s = NULL;
         int r;
 
-        r = json_parse(data, &v, NULL, NULL);
+        r = json_parse(data, 0, &v, NULL, NULL);
         assert_se(r == 0);
         assert_se(v);
 
@@ -93,7 +93,7 @@ static void test_variant(const char *data, Test test) {
 
         log_info("formatted normally: %s\n", s);
 
-        r = json_parse(data, &w, NULL, NULL);
+        r = json_parse(data, JSON_PARSE_SENSITIVE, &w, NULL, NULL);
         assert_se(r == 0);
         assert_se(w);
         assert_se(json_variant_has_type(v, json_variant_type(w)));
@@ -110,7 +110,7 @@ static void test_variant(const char *data, Test test) {
 
         log_info("formatted prettily:\n%s", s);
 
-        r = json_parse(data, &w, NULL, NULL);
+        r = json_parse(data, 0, &w, NULL, NULL);
         assert_se(r == 0);
         assert_se(w);
 
@@ -302,7 +302,7 @@ static void test_build(void) {
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
-        assert_se(json_parse(s, &b, NULL, NULL) >= 0);
+        assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_equal(a, b));
 
         a = json_variant_unref(a);
@@ -313,7 +313,7 @@ static void test_build(void) {
         s = mfree(s);
         assert_se(json_variant_format(a, 0, &s) >= 0);
         log_info("GOT: %s\n", s);
-        assert_se(json_parse(s, &b, NULL, NULL) >= 0);
+        assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_format(b, 0, &t) >= 0);
         log_info("GOT: %s\n", t);
 
@@ -365,7 +365,7 @@ static void test_source(void) {
 
         assert_se(f = fmemopen_unlocked((void*) data, strlen(data), "r"));
 
-        assert_se(json_parse_file(f, "waldo", &v, NULL, NULL) >= 0);
+        assert_se(json_parse_file(f, "waldo", 0, &v, NULL, NULL) >= 0);
 
         printf("--- non-pretty begin ---\n");
         json_variant_dump(v, 0, stdout, NULL);
@@ -415,6 +415,93 @@ static void test_depth(void) {
         fputs("\n", stdout);
 }
 
+static void test_normalize(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        _cleanup_free_ char *t = NULL;
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("x")),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_STRING("y")),
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_STRING("z")))) >= 0);
+
+        assert_se(!json_variant_is_sorted(v));
+        assert_se(!json_variant_is_normalized(v));
+
+        assert_se(json_variant_format(v, 0, &t) >= 0);
+        assert_se(streq(t, "{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}"));
+        t = mfree(t);
+
+        assert_se(json_build(&w, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("bar", JSON_BUILD_STRING("zzz")),
+                                             JSON_BUILD_PAIR("foo", JSON_BUILD_VARIANT(v)))) >= 0);
+
+        assert_se(json_variant_is_sorted(w));
+        assert_se(!json_variant_is_normalized(w));
+
+        assert_se(json_variant_format(w, 0, &t) >= 0);
+        assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"b\":\"x\",\"c\":\"y\",\"a\":\"z\"}}"));
+        t = mfree(t);
+
+        assert_se(json_variant_sort(&v) >= 0);
+        assert_se(json_variant_is_sorted(v));
+        assert_se(json_variant_is_normalized(v));
+
+        assert_se(json_variant_format(v, 0, &t) >= 0);
+        assert_se(streq(t, "{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}"));
+        t = mfree(t);
+
+        assert_se(json_variant_normalize(&w) >= 0);
+        assert_se(json_variant_is_sorted(w));
+        assert_se(json_variant_is_normalized(w));
+
+        assert_se(json_variant_format(w, 0, &t) >= 0);
+        assert_se(streq(t, "{\"bar\":\"zzz\",\"foo\":{\"a\":\"z\",\"b\":\"x\",\"c\":\"y\"}}"));
+        t = mfree(t);
+}
+
+static void test_bisect(void) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        char c;
+
+        /* Tests the bisection logic in json_variant_by_key() */
+
+        for (c = 'z'; c >= 'a'; c--) {
+
+                if ((c % 3) == 0)
+                        continue;
+
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+                assert_se(json_variant_new_stringn(&w, (char[4]) { '<', c, c, '>' }, 4) >= 0);
+                assert_se(json_variant_set_field(&v, (char[2]) { c, 0 }, w) >= 0);
+        }
+
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(!json_variant_is_sorted(v));
+        assert_se(!json_variant_is_normalized(v));
+        assert_se(json_variant_normalize(&v) >= 0);
+        assert_se(json_variant_is_sorted(v));
+        assert_se(json_variant_is_normalized(v));
+
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        for (c = 'a'; c <= 'z'; c++) {
+                JsonVariant *k;
+                const char *z;
+
+                k = json_variant_by_key(v, (char[2]) { c, 0 });
+                assert_se(!k == ((c % 3) == 0));
+
+                if (!k)
+                        continue;
+
+                assert_se(json_variant_is_string(k));
+
+                z = (char[5]){ '<', c, c, '>', 0};
+                assert_se(streq(json_variant_string(k), z));
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -462,10 +549,11 @@ int main(int argc, char *argv[]) {
         test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 
         test_build();
-
         test_source();
-
         test_depth();
+
+        test_normalize();
+        test_bisect();
 
         return 0;
 }

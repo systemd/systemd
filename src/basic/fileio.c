@@ -136,13 +136,18 @@ static int write_string_file_atomic(
         assert(fn);
         assert(line);
 
+        /* Note that we'd really like to use O_TMPFILE here, but can't really, since we want replacement
+         * semantics here, and O_TMPFILE can't offer that. i.e. rename() replaces but linkat() doesn't. */
+
         r = fopen_temporary(fn, &f, &p);
         if (r < 0)
                 return r;
 
-        (void) fchmod_umask(fileno(f), 0644);
-
         r = write_string_stream_ts(f, line, flags, ts);
+        if (r < 0)
+                goto fail;
+
+        r = fchmod_umask(fileno(f), FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0644);
         if (r < 0)
                 goto fail;
 
@@ -165,7 +170,7 @@ int write_string_file_ts(
                 struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
-        int q, r;
+        int q, r, fd;
 
         assert(fn);
         assert(line);
@@ -190,26 +195,20 @@ int write_string_file_ts(
         } else
                 assert(!ts);
 
-        if (flags & WRITE_STRING_FILE_CREATE) {
-                r = fopen_unlocked(fn, "we", &f);
-                if (r < 0)
-                        goto fail;
-        } else {
-                int fd;
+        /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
+        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY |
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0),
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
+        if (fd < 0) {
+                r = -errno;
+                goto fail;
+        }
 
-                /* We manually build our own version of fopen(..., "we") that
-                 * works without O_CREAT */
-                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
-                if (fd < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = fdopen_unlocked(fd, "w", &f);
-                if (r < 0) {
-                        safe_close(fd);
-                        goto fail;
-                }
+        r = fdopen_unlocked(fd, "w", &f);
+        if (r < 0) {
+                safe_close(fd);
+                goto fail;
         }
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
@@ -543,16 +542,18 @@ finalize:
         return r;
 }
 
-int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
+int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(filename);
         assert(contents);
 
-        r = fopen_unlocked(filename, "re", &f);
+        r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0)
                 return r;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream_full(f, filename, flags, contents, size);
 }
@@ -678,6 +679,81 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         }
 
         return d;
+}
+
+static int mode_to_flags(const char *mode) {
+        const char *p;
+        int flags;
+
+        if ((p = startswith(mode, "r+")))
+                flags = O_RDWR;
+        else if ((p = startswith(mode, "r")))
+                flags = O_RDONLY;
+        else if ((p = startswith(mode, "w+")))
+                flags = O_RDWR|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "w")))
+                flags = O_WRONLY|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "a+")))
+                flags = O_RDWR|O_CREAT|O_APPEND;
+        else if ((p = startswith(mode, "a")))
+                flags = O_WRONLY|O_CREAT|O_APPEND;
+        else
+                return -EINVAL;
+
+        for (; *p != 0; p++) {
+
+                switch (*p) {
+
+                case 'e':
+                        flags |= O_CLOEXEC;
+                        break;
+
+                case 'x':
+                        flags |= O_EXCL;
+                        break;
+
+                case 'm':
+                        /* ignore this here, fdopen() might care later though */
+                        break;
+
+                case 'c': /* not sure what to do about this one */
+                default:
+                        return -EINVAL;
+                }
+        }
+
+        return flags;
+}
+
+int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret) {
+        FILE *f;
+
+        /* A combination of fopen() with openat() */
+
+        if (dir_fd == AT_FDCWD && flags == 0) {
+                f = fopen(path, mode);
+                if (!f)
+                        return -errno;
+        } else {
+                int fd, mode_flags;
+
+                mode_flags = mode_to_flags(mode);
+                if (mode_flags < 0)
+                        return mode_flags;
+
+                fd = openat(dir_fd, path, mode_flags | flags);
+                if (fd < 0)
+                        return -errno;
+
+                f = fdopen(fd, mode);
+                if (!f) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        *ret = f;
+        return 0;
 }
 
 static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
