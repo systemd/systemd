@@ -694,6 +694,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         const char *local, *object;
         Manager *m = userdata;
         TransferType type;
+        struct stat st;
         uint32_t id;
 
         assert(msg);
@@ -717,9 +718,11 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
+                return -EINVAL;
 
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
@@ -829,6 +832,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         const char *local, *object, *format;
         Manager *m = userdata;
         TransferType type;
+        struct stat st;
         uint32_t id;
 
         assert(msg);
@@ -855,9 +859,11 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!machine_name_is_valid(local))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
 
-        r = fd_verify_regular(fd);
-        if (r < 0)
-                return r;
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
+                return -EINVAL;
 
         type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
