@@ -266,7 +266,15 @@ TrafficControlQueueingDiscipline.FairQueuingControlledDelayTargetSec,        con
 TrafficControlQueueingDiscipline.FairQueuingControlledDelayIntervalSec,      config_parse_tc_fair_queuing_controlled_delay_usec,          0, 0
 TrafficControlQueueingDiscipline.FairQueuingControlledDelayCEThresholdSec,   config_parse_tc_fair_queuing_controlled_delay_usec,          0, 0
 TrafficControlQueueingDiscipline.FairQueuingControlledDelayECN,              config_parse_tc_fair_queuing_controlled_delay_bool,          0, 0
-TrafficControlQueueingDiscipline.FairQueueTrafficPolicingPacketLimit,        config_parse_tc_fair_queue_traffic_policing_packet_limit,    0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingPacketLimit,        config_parse_tc_fair_queue_traffic_policing_u32,             0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingFlowLimit,          config_parse_tc_fair_queue_traffic_policing_u32,             0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingQuantum,            config_parse_tc_fair_queue_traffic_policing_size,            0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingInitialQuantum,     config_parse_tc_fair_queue_traffic_policing_size,            0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingMaximumRate,        config_parse_tc_fair_queue_traffic_policing_max_rate,        0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingBuckets,            config_parse_tc_fair_queue_traffic_policing_u32,             0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingOrphanMask,         config_parse_tc_fair_queue_traffic_policing_u32,             0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingPacing,             config_parse_tc_fair_queue_traffic_policing_bool,            0, 0
+TrafficControlQueueingDiscipline.FairQueueTrafficPolicingCEThresholdSec,     config_parse_tc_fair_queue_traffic_policing_usec,            0, 0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                             0,                             offsetof(Network, link_local)
 DHCP.ClientIdentifier,                  config_parse_dhcp_client_identifier,             0,                             offsetof(Network, dhcp_client_identifier)

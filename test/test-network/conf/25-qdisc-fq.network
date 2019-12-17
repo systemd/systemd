@@ -8,3 +8,11 @@ Address=10.1.2.3/16
 [TrafficControlQueueingDiscipline]
 Parent=root
 FairQueueTrafficPolicingPacketLimit=1000
+FairQueueTrafficPolicingFlowLimit=200
+FairQueueTrafficPolicingQuantum=1500
+FairQueueTrafficPolicingInitialQuantum=13000
+FairQueueTrafficPolicingMaximumRate=1M
+FairQueueTrafficPolicingBuckets=512
+FairQueueTrafficPolicingOrphanMask=511
+FairQueueTrafficPolicingPacing=yes
+FairQueueTrafficPolicingCEThresholdSec=100ms
