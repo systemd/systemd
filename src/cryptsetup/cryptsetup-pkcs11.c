@@ -154,7 +154,7 @@ static int pkcs11_callback(
         if (r < 0)
                 return r;
 
-        return 1;
+        return 0;
 }
 
 int decrypt_pkcs11_key(
