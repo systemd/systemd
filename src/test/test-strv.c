@@ -6,6 +6,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "virt.h"
 
 static void test_specifier_printf(void) {
         static const Specifier table[] = {
@@ -422,13 +423,13 @@ static void test_strv_split_nulstr(void) {
         assert_se(streq(l[3], "str3"));
 }
 
-static void test_strv_parse_nulstr(void) {
+static void test_strv_parse(char** (*test_function)(const char*, size_t)) {
         _cleanup_strv_free_ char **l = NULL;
         const char nulstr[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx";
 
         log_info("/* %s */", __func__);
 
-        l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
+        l = test_function(nulstr, sizeof(nulstr)-1);
         assert_se(l);
         puts("Parse nulstr:");
         strv_print(l);
@@ -440,6 +441,22 @@ static void test_strv_parse_nulstr(void) {
         assert_se(streq(l[4], "hoge5"));
         assert_se(streq(l[5], ""));
         assert_se(streq(l[6], "xxx"));
+}
+
+static void test_strv_parse_nulstr(void) {
+        log_info("/* %s */", __func__);
+        test_strv_parse(strv_parse_nulstr);
+}
+
+static void test_strv_parse_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* We will get EPERM locking memory in a container. */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+        test_strv_parse(strv_parse_password);
 }
 
 static void test_strv_overlap(void) {
@@ -505,7 +522,7 @@ static void test_strv_extend_strv_concat(void) {
         assert_se(streq(a[3], "suffix_suffix"));
 }
 
-static void test_strv_extend_strv(void) {
+static void test_strv_extend_extend(int (*test_function)(char***, char**, bool)) {
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **n = NULL;
 
         log_info("/* %s */", __func__);
@@ -515,7 +532,7 @@ static void test_strv_extend_strv(void) {
         assert_se(a);
         assert_se(b);
 
-        assert_se(strv_extend_strv(&a, b, true) == 3);
+        assert_se(test_function(&a, b, true) == 3);
 
         assert_se(streq(a[0], "abc"));
         assert_se(streq(a[1], "def"));
@@ -525,12 +542,30 @@ static void test_strv_extend_strv(void) {
         assert_se(streq(a[5], "pqr"));
         assert_se(strv_length(a) == 6);
 
-        assert_se(strv_extend_strv(&n, b, false) >= 0);
+        assert_se(test_function(&n, b, false) >= 0);
         assert_se(streq(n[0], "jkl"));
         assert_se(streq(n[1], "mno"));
         assert_se(streq(n[2], "abc"));
         assert_se(streq(n[3], "pqr"));
         assert_se(strv_length(n) == 4);
+}
+
+static void test_strv_extend_strv(void) {
+        log_info("/* %s */", __func__);
+
+        test_strv_extend_extend(strv_extend_strv);
+}
+
+static void test_strv_extend_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* We will get EPERM locking memory in a container. */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+
+        test_strv_extend_extend(strv_extend_password);
 }
 
 static void test_strv_extend(void) {
@@ -856,7 +891,7 @@ static void test_strv_extend_n(void) {
         assert_se(v[1] == NULL);
 }
 
-static void test_strv_make_nulstr_one(char **l) {
+static void test_strv_make_one(int (*test_function)(char**, char**, size_t*), char **l) {
         _cleanup_free_ char *b = NULL, *c = NULL;
         _cleanup_strv_free_ char **q = NULL;
         const char *s = NULL;
@@ -865,11 +900,11 @@ static void test_strv_make_nulstr_one(char **l) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(strv_make_nulstr(l, &b, &n) >= 0);
+        assert_se(test_function(l, &b, &n) >= 0);
         assert_se(q = strv_parse_nulstr(b, n));
         assert_se(strv_equal(l, q));
 
-        assert_se(strv_make_nulstr(q, &c, &m) >= 0);
+        assert_se(test_function(q, &c, &m) >= 0);
         assert_se(m == n);
         assert_se(memcmp(b, c, m) == 0);
 
@@ -878,14 +913,32 @@ static void test_strv_make_nulstr_one(char **l) {
         assert_se(i == strv_length(l));
 }
 
+static void test_strv_make(int (*test_function)(char**, char**, size_t*)) {
+        log_info("/* %s */", __func__);
+
+        test_strv_make_one(test_function, NULL);
+        test_strv_make_one(test_function, STRV_MAKE(NULL));
+        test_strv_make_one(test_function, STRV_MAKE("foo"));
+        test_strv_make_one(test_function, STRV_MAKE("foo", "bar"));
+        test_strv_make_one(test_function, STRV_MAKE("foo", "bar", "quuux"));
+}
+
 static void test_strv_make_nulstr(void) {
         log_info("/* %s */", __func__);
 
-        test_strv_make_nulstr_one(NULL);
-        test_strv_make_nulstr_one(STRV_MAKE(NULL));
-        test_strv_make_nulstr_one(STRV_MAKE("foo"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar"));
-        test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
+        test_strv_make(strv_make_nulstr);
+}
+
+static void test_strv_to_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* We will get EPERM locking memory in a container. */
+        if (detect_container() > 0) {
+                log_notice("Testing in container, skipping %s", __func__);
+                return;
+        }
+
+        test_strv_make(strv_to_password);
 }
 
 static void test_strv_free_free(void) {
@@ -978,9 +1031,11 @@ int main(int argc, char *argv[]) {
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
+        test_strv_parse_password();
         test_strv_overlap();
         test_strv_sort();
         test_strv_extend_strv();
+        test_strv_extend_password();
         test_strv_extend_strv_concat();
         test_strv_extend();
         test_strv_extendf();
@@ -995,6 +1050,7 @@ int main(int argc, char *argv[]) {
         test_strv_skip();
         test_strv_extend_n();
         test_strv_make_nulstr();
+        test_strv_to_password();
         test_strv_free_free();
 
         test_foreach_string();

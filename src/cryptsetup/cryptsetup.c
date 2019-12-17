@@ -316,7 +316,7 @@ static char *disk_mount_point(const char *label) {
 
 static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***ret) {
         _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *text = NULL, *disk_path = NULL;
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_strv_free_erase_unlock_ char **passwords = NULL;
         const char *name = NULL;
         char **p, *id;
         int r = 0;
@@ -362,7 +362,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
-                _cleanup_strv_free_erase_ char **passwords2 = NULL;
+                _cleanup_strv_free_erase_unlock_ char **passwords2 = NULL;
 
                 assert(strv_length(passwords) == 1);
 

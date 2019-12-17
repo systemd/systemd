@@ -10,3 +10,7 @@
 #ifndef MFD_CLOEXEC
 #define MFD_CLOEXEC 0x0001U
 #endif
+
+#ifndef MLOCK_ONFAULT
+#define MLOCK_ONFAULT 0x01
+#endif

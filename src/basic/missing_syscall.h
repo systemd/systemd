@@ -80,6 +80,53 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 
 /* ======================================================================= */
 
+#if !HAVE_MLOCK2
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_mlock2 && __NR_mlock2 > 0)
+#    if defined __NR_mlock2
+#      undef __NR_mlock2
+#    endif
+#    if defined(__x86_64__)
+#      define __NR_mlock2 325
+#    elif defined(__i386__)
+#      define __NR_mlock2 376
+#    elif defined(__arm__)
+#      define __NR_mlock2 390
+#    elif defined(__aarch64__)
+#      define __NR_mlock2 325
+#    elif defined(__powerpc__)
+#      define __NR_mlock2 378
+#    elif defined _MIPS_SIM
+#      if _MIPS_SIM == _MIPS_SIM_ABI32
+#        define __NR_mlock2 4359
+#      endif
+#      if _MIPS_SIM == _MIPS_SIM_NABI32
+#        define __NR_mlock2 6319
+#      endif
+#      if _MIPS_SIM == _MIPS_SIM_ABI64
+#        define __NR_mlock2 5319
+#      endif
+#    elif defined(__s390x__)
+#      define __NR_mlock2 374
+#    else
+#      warning "__NR_mlock2 unknown for your architecture"
+#    endif
+#  endif
+
+static inline int missing_mlock2(void *address, size_t length, int flags) {
+#  ifdef __NR_mlock2
+        return syscall(__NR_mlock2, address, length, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define mlock2 missing_mlock2
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_GETRANDOM
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #  if ! (defined __NR_getrandom && __NR_getrandom >= 0)

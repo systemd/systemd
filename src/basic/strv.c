@@ -83,6 +83,15 @@ char **strv_free_erase(char **l) {
         return mfree(l);
 }
 
+char **strv_free_erase_unlock(char **l) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                erase_freep_and_unlock(i);
+
+        return mfree(l);
+}
+
 char **strv_copy(char * const *l) {
         char **r, **k;
 
@@ -930,6 +939,170 @@ static int string_strv_hashmap_put_internal(Hashmap *h, const char *key, const c
 
         return 1;
 }
+
+/* The equivalent of strv_parse_nulstr, but for sensitive data. */
+char **strv_parse_password(const char *s, size_t l) {
+        const char *p;
+        size_t c = 0, i = 0;
+        char **v;
+
+        assert(s ||l <= 0);
+
+        if (l <= 0)
+                return new0(char*, 1);
+
+
+        /* Sweep the string for the number of passwords. */
+        for (p = s; p < s + l; p++)
+                if (*p == 0)
+                        c++;
+
+        if (s[l-1] != 0)
+                c++;
+
+        v = new0(char*, c+1);
+        if (!v)
+                return NULL;
+
+        p = s;
+        while (p < s + l) {
+                const char *e;
+                _cleanup_(erase_freep_and_unlock) char *pp;
+                size_t n;
+
+                /* Scan for the next NUL byte, marking the end of the next password */
+                e = memchr(p, 0, s + l - p);
+
+                /* If there is no NUL byte, take the entire thing */
+                n = e ? e - p : s + l - p;
+                pp = new_aligned0(char, n + 1);
+                if (!pp || lock_mem(pp) < 0) {
+                        strv_free_erase_unlock(v);
+                        return NULL;
+                }
+
+                strncpy(pp, p, n);
+                v[i] = TAKE_PTR(pp);
+
+                i++;
+
+                if (!e)
+                        break;
+
+                /* Start scanning after the last password */
+                p = e + 1;
+        }
+
+        assert(i == c);
+
+        return v;
+}
+
+/* The equivalent of strv_make_nulstr, but for sensitive data. */
+int strv_to_password(char **l, char **p, size_t *q) {
+        size_t n = 0;
+        _cleanup_(erase_freep_and_unlock) char *m = NULL;
+        char *w;
+        char **i;
+
+        assert(p);
+        assert(q);
+
+        STRV_FOREACH(i, l)
+                n += strlen(*i) + 1;
+
+        /* The length of all strings and the extra NUL byte at the end */
+        m = new_aligned0(char, n + 1);
+        if (!m || lock_mem(m) < 0)
+                return -errno;
+
+        w = m;
+
+        STRV_FOREACH(i, l) {
+                size_t z;
+
+                z = strlen(*i);
+
+                memcpy(w, *i, z + 1);
+                w += z + 1;
+        }
+
+        *w = '\0';
+        *p = TAKE_PTR(m);
+        *q = w == m ? 1 : n;
+
+        return 0;
+}
+
+/* The equivalent of strv_extend_strv, but for sensitive data. */
+int strv_extend_password(char ***a, char **b, bool filter_duplicates) {
+        char **s, **t;
+        size_t p, q, i = 0, j;
+        int r;
+
+        assert(a);
+
+        if (strv_isempty(b))
+                return 0;
+
+        p = strv_length(*a);
+        q = strv_length(b);
+
+        t = reallocarray(*a, p + q + 1, sizeof(char *));
+        if (!t)
+                return -ENOMEM;
+
+        t[p] = NULL;
+        *a = t;
+
+        STRV_FOREACH(s, b) {
+                size_t z;
+                _cleanup_(erase_freep_and_unlock) char *m;
+
+                if (filter_duplicates && strv_contains(t, *s))
+                        continue;
+
+                z = strlen(*s);
+                m = new_aligned0(char, z + 1);
+                if (!m) {
+                        r = -errno;
+                        goto rollback;
+                }
+
+                if (lock_mem(m) < 0) {
+                        r = -errno;
+                        goto rollback;
+                }
+
+                memcpy(m, *s, z + 1);
+                t[p+i] = TAKE_PTR(m);
+
+                i++;
+                t[p+i] = NULL;
+        }
+
+        assert(i <= q);
+
+        return (int) i;
+
+rollback:
+        for (j = 0; j < i; j++)
+                erase_freep_and_unlock(t[p + j]);
+
+        t[p] = NULL;
+        return r;
+}
+
+int strv_consume_password(char ***l, char *p) {
+        int r;
+
+        r = strv_push(l, p);
+        if (r < 0)
+                erase_freep_and_unlock(p);
+
+        return r;
+}
+
 
 int string_strv_hashmap_put(Hashmap **h, const char *key, const char *value) {
         int r;

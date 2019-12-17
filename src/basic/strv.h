@@ -22,8 +22,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
 #define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char **strv_free_erase(char **l);
+char **strv_free_erase_unlock(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
 #define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
+DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase_unlock);
+#define _cleanup_strv_free_erase_unlock_ _cleanup_(strv_free_erase_unlockp)
 
 void strv_clear(char **l);
 
@@ -38,6 +41,11 @@ int strv_extend_front(char ***l, const char *value);
 int strv_push(char ***l, char *value);
 int strv_push_pair(char ***l, char *a, char *b);
 int strv_insert(char ***l, size_t position, char *value);
+
+char **strv_parse_password(const char *s, size_t l);
+int strv_to_password(char **l, char **p, size_t *q);
+int strv_extend_password(char ***a, char **b, bool filter_duplicates);
+int strv_consume_password(char ***l, char *p);
 
 static inline int strv_push_prepend(char ***l, char *value) {
         return strv_insert(l, 0, value);
