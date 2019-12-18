@@ -2476,6 +2476,9 @@ static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_
         return bus_scope_method_abandon(message, u, error);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
