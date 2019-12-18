@@ -503,6 +503,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 strv_remove(altnames, new_name);
         strv_remove(altnames, old_name);
         strv_uniq(altnames);
+        strv_sort(altnames);
 
         r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, altnames);
         if (r == -EOPNOTSUPP)
