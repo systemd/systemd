@@ -249,6 +249,13 @@ if conf.get('HAVE_KMOD') == 1
         shared_sources += files('module-util.c')
 endif
 
+if conf.get('HAVE_PAM') == 1
+        shared_sources += files('''
+        pam-util.c
+        pam-util.h
+'''.split())
+endif
+
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
@@ -305,6 +312,7 @@ libshared_deps = [threads,
                   libmount,
                   libopenssl,
                   libp11kit,
+                  libpam,
                   librt,
                   libseccomp,
                   libselinux,
