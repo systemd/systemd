@@ -1880,8 +1880,8 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
+                index = parse_ifindex_or_ifname(argv[i]);
+                if (index < 0) {
                         r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
@@ -1936,8 +1936,8 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
+                index = parse_ifindex_or_ifname(argv[i]);
+                if (index < 0) {
                         r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
@@ -1991,8 +1991,8 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
+                index = parse_ifindex_or_ifname(argv[i]);
+                if (index < 0) {
                         r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve interface %s", argv[i]);

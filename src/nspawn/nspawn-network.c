@@ -337,9 +337,9 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        r = parse_ifindex_or_ifname(bridge_name, &bridge_ifi);
-        if (r < 0)
-                return r;
+        bridge_ifi = parse_ifindex_or_ifname(bridge_name);
+        if (bridge_ifi < 0)
+                return bridge_ifi;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0)
@@ -473,11 +473,11 @@ int remove_bridge(const char *bridge_name) {
 }
 
 static int parse_interface(const char *name) {
-        int ifi, r;
+        int ifi;
 
-        r = parse_ifindex_or_ifname(name, &ifi);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface %s: %m", name);
+        ifi = parse_ifindex_or_ifname(name);
+        if (ifi < 0)
+                return log_error_errno(ifi, "Failed to resolve interface %s: %m", name);
 
         return ifi;
 }

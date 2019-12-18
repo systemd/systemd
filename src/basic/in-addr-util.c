@@ -439,48 +439,38 @@ int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union
         return -EINVAL;
 }
 
-int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
+int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret_addr, int *ret_ifindex) {
         _cleanup_free_ char *buf = NULL;
         const char *suffix;
-        int r, ifi = 0;
+        int r, ifindex = 0;
 
         assert(s);
         assert(family);
-        assert(ret);
+        assert(ret_addr);
 
         /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix ("scope id")
          * if one is found. */
 
         suffix = strchr(s, '%');
         if (suffix) {
-
-                if (ifindex) {
+                if (ret_ifindex) {
                         /* If we shall return the interface index, try to parse it */
-                        r = parse_ifindex(suffix + 1, &ifi);
-                        if (r < 0) {
-                                unsigned u;
-
-                                u = if_nametoindex(suffix + 1);
-                                if (u <= 0)
-                                        return -errno;
-
-                                ifi = (int) u;
-                        }
+                        ifindex = parse_ifindex_or_ifname(suffix + 1);
+                        if (ifindex < 0)
+                                return ifindex;
                 }
 
-                buf = strndup(s, suffix - s);
+                s = buf = strndup(s, suffix - s);
                 if (!buf)
                         return -ENOMEM;
-
-                s = buf;
         }
 
-        r = in_addr_from_string_auto(s, family, ret);
+        r = in_addr_from_string_auto(s, family, ret_addr);
         if (r < 0)
                 return r;
 
-        if (ifindex)
-                *ifindex = ifi;
+        if (ret_ifindex)
+                *ret_ifindex = ifindex;
 
         return r;
 }

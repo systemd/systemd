@@ -712,9 +712,8 @@ const sd_bus_vtable link_vtable[] = {
 int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
-        int ifindex;
         Link *link;
-        int r;
+        int ifindex, r;
 
         assert(bus);
         assert(path);
@@ -726,8 +725,8 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r <= 0)
                 return 0;
 
-        r = parse_ifindex(e, &ifindex);
-        if (r < 0)
+        ifindex = parse_ifindex(e);
+        if (ifindex < 0)
                 return 0;
 
         link = hashmap_get(m->links, INT_TO_PTR(ifindex));

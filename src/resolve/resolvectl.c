@@ -80,7 +80,7 @@ typedef enum StatusMode {
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
         const char *dot;
-        int ifi, r;
+        int ifi;
 
         assert(s);
 
@@ -94,14 +94,14 @@ int ifname_mangle(const char *s) {
         if (!iface)
                 return log_oom();
 
-        r = parse_ifindex_or_ifname(iface, &ifi);
-        if (r < 0) {
-                if (r == -ENODEV && arg_ifindex_permissive) {
+        ifi = parse_ifindex_or_ifname(iface);
+        if (ifi < 0) {
+                if (ifi == -ENODEV && arg_ifindex_permissive) {
                         log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
                         return 0; /* done */
                 }
 
-                return log_error_errno(r, "Unknown interface '%s': %m", iface);
+                return log_error_errno(ifi, "Unknown interface '%s': %m", iface);
         }
 
         if (arg_ifindex > 0 && arg_ifindex != ifi)
@@ -1819,18 +1819,18 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
 static int verb_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        int q, r = 0;
+        int r = 0;
 
         if (argc > 1) {
                 char **ifname;
                 bool empty_line = false;
 
                 STRV_FOREACH(ifname, argv + 1) {
-                        int ifindex;
+                        int ifindex, q;
 
-                        q = parse_ifindex_or_ifname(*ifname, &ifindex);
-                        if (q < 0) {
-                                log_error_errno(q, "Unknown interface '%s', ignoring: %m", *ifname);
+                        ifindex = parse_ifindex_or_ifname(*ifname);
+                        if (ifindex < 0) {
+                                log_warning_errno(ifindex, "Unknown interface '%s', ignoring: %m", *ifname);
                                 continue;
                         }
 

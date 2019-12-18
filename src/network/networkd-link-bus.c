@@ -715,8 +715,8 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r <= 0)
                 return 0;
 
-        r = parse_ifindex(identifier, &ifindex);
-        if (r < 0)
+        ifindex = parse_ifindex(identifier);
+        if (ifindex < 0)
                 return 0;
 
         r = link_get(m, ifindex, &link);

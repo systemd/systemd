@@ -839,9 +839,12 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
         assert(str);
         assert(ret);
 
-        r = parse_ifindex(str, ret);
-        if (r >= 0)
+        r = parse_ifindex(str);
+        if (r >= 0) {
+                assert(r != 0);
+                *ret = r;
                 return 0;
+        }
 
         r = sd_bus_call_method(
                         bus,
