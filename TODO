@@ -37,8 +37,6 @@ Features:
   waitid() only on the children with the highest priority until one is waitable
   and ignore all lower-prio ones from that point on
 
-* sd-event: drop stack allocated epoll_event buffer in sd_event_wait()
-
 * maybe introduce xattrs that can be set on the root dir of the root fs
   partition that declare the volatility mode to use the image in. Previously I
   thought marking this via GPT partition flags but that's not ideal since
