@@ -1514,7 +1514,7 @@ int time_change_fd(void) {
          * See: https://github.com/systemd/systemd/issues/14362 */
 
 #if SIZEOF_TIME_T == 8 && ULONG_MAX < UINT64_MAX
-        if (ERRNO_IS_NOT_SUPPORTED(errno)) {
+        if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EOVERFLOW) {
                 static const struct itimerspec its32 = {
                         .it_value.tv_sec = INT32_MAX,
                 };
