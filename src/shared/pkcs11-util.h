@@ -4,15 +4,12 @@
 #include <stdbool.h>
 
 #if HAVE_P11KIT
-#include <p11-kit/p11-kit.h>
-#include <p11-kit/uri.h>
-
-#if HAVE_OPENSSL
-#include <openssl/pem.h>
-#endif
+#  include <p11-kit/p11-kit.h>
+#  include <p11-kit/uri.h>
 #endif
 
 #include "macro.h"
+#include "openssl-util.h"
 #include "time-util.h"
 
 bool pkcs11_uri_valid(const char *uri);
