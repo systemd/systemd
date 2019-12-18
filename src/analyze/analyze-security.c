@@ -305,7 +305,7 @@ static int assess_root_directory(
         assert(ret_description);
 
         *ret_badness =
-                empty_or_root(info->root_directory) ||
+                empty_or_root(info->root_directory) &&
                 empty_or_root(info->root_image);
         *ret_description = NULL;
 
