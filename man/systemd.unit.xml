@@ -458,10 +458,12 @@
     <programlisting>systemd-analyze --user unit-paths</programlisting>
     </para>
 
-    <para>Moreover, additional units might be loaded into systemd ("linked") from
-    directories not on the unit load path. See the <command>link</command> command
-    for
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <para>Moreover, additional units might be loaded into systemd from
+    directories not on the unit load path by creating a symlink pointing to a
+    unit file in the directories. You can use <command>systemctl link</command>
+    for this operation. See
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for its usage and precaution.
     </para>
   </refsect1>
 
