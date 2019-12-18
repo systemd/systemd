@@ -425,10 +425,10 @@
         line. This is useful for unlocking encrypted volumes through security tokens or smartcards. See below
         for an example how to set up this mechanism for unlocking a LUKS volume with a YubiKey security
         token. The specified URI can refer directly to a private RSA key stored on a token or alternatively
-        just to a slot or token in which case a suitable private RSA key object is automatically searched on
-        it. In this case if multiple suitable objects are found the token is refused. The key configured in
-        the third column is passed as is to RSA decryption. The resulting decrypted key is then base64
-        encoded before it is used to unlock the LUKS volume.</para></listitem>
+        just to a slot or token, in which case a search for a suitable private RSA key will be performed.  In
+        this case if multiple suitable objects are found the token is refused. The key configured in the
+        third column is passed as is to RSA decryption. The resulting decrypted key is then base64 encoded
+        before it is used to unlock the LUKS volume.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -489,7 +489,8 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s</programlist
       <title>Yubikey-based Volume Unlocking Example</title>
 
       <para>The PKCS#11 logic allows hooking up any compatible security token that is capable of storing RSA
-      decryption keys. Here's an example how to set up a Yubikey security token for this purpose:</para>
+      decryption keys. Here's an example how to set up a Yubikey security token for this purpose, using
+      <command>ykman</command> from the yubikey-manager project:</para>
 
 <programlisting><xi:include href="yubikey-crypttab.sh" parse="text" /></programlisting>
 

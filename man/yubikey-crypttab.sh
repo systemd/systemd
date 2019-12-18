@@ -7,7 +7,9 @@ ykman piv reset
 # Generate a new private/public key pair on the device, store the public key in 'pubkey.pem'.
 ykman piv generate-key -a RSA2048 9d pubkey.pem
 
-# Create a self-signed certificate from this public key, and store it on the device.
+# Create a self-signed certificate from this public key, and store it on the
+# device. The "subject" should be an arbitrary string to identify the token in
+# the p11tool output below.
 ykman piv generate-certificate --subject "Knobelei" 9d pubkey.pem
 
 # Check if the newly create key on the Yubikey shows up as token in PKCS#11. Have a look at the output, and
@@ -18,16 +20,16 @@ p11tool --list-tokens
 dd if=/dev/urandom of=plaintext.bin bs=128 count=1
 
 # Encode the secret key also as base64 text (with all whitespace removed)
-base64 &lt; plaintext.bin | tr -d '\n\r\t ' &gt; plaintext.base64
+base64 < plaintext.bin | tr -d '\n\r\t ' > plaintext.base64
 
 # Encrypt this newly generated (binary) LUKS decryption key using the public key whose private key is on the
 # Yubikey, store the result in /etc/encrypted-luks-key.bin, where we'll look for it during boot.
-openssl rsautl -encrypt -pubin -inkey pubkey.pem -in plaintext.bin -out /etc/encrypted-luks-key.bin
+sudo openssl rsautl -encrypt -pubin -inkey pubkey.pem -in plaintext.bin -out /etc/encrypted-luks-key.bin
 
 # Configure the LUKS decryption key on the LUKS device. We use very low pbkdf settings since the key already
 # has quite a high quality (it comes directly from /dev/urandom after all), and thus we don't need to do much
-# key derivation.
-cryptsetup luksAddKey /dev/sda1 plaintext.base64 --pbkdf=pbkdf2 --pbkdf-force-iterations=1000
+# key derivation. Replace /dev/sdXn by the partition to use (e.g. sda1)
+sudo cryptsetup luksAddKey /dev/sdXn plaintext.base64 --pbkdf=pbkdf2 --pbkdf-force-iterations=1000
 
 # Now securely delete the plain text LUKS key, we don't need it anymore, and since it contains secret key
 # material it should be removed from disk thoroughly.
@@ -39,7 +41,7 @@ rm pubkey.pem
 
 # Test: Let's run systemd-cryptsetup to test if this all worked. The option string should contain the full
 # PKCS#11 URI we have in the clipboard, it tells the tool how to decypher the encrypted LUKS key.
-systemd-cryptsetup attach mytest /dev/sda1 /etc/encrypted-luks-key.bin 'pkcs11-uri=pkcs11:…'
+sudo systemd-cryptsetup attach mytest /dev/sdXn /etc/encrypted-luks-key.bin 'pkcs11-uri=pkcs11:…'
 
 # If that worked, let's now add the same line persistently to /etc/crypttab, for the future.
-echo "mytest /dev/sda1 /etc/encrypted-luks-key 'pkcs11-uri=pkcs11:…' >> /etc/crypttab
+sudo bash -c 'echo "mytest /dev/sdXn /etc/encrypted-luks-key \'pkcs11-uri=pkcs11:…\'" >> /etc/crypttab'
