@@ -245,6 +245,10 @@ static int loopback_list_get(MountPoint **head) {
         if (r < 0)
                 return r;
 
+        r = sd_device_enumerator_add_match_sysattr(e, "loop/autoclear", "0", true);
+        if (r < 0)
+                return r;
+
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
@@ -323,7 +327,7 @@ static int dm_list_get(MountPoint **head) {
         return 0;
 }
 
-static int delete_loopback(const char *device) {
+static int delete_or_set_autoclear_loopback(const char *device) {
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -540,28 +544,16 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 
 static int loopback_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
-        int n_failed = 0, k;
-        struct stat root_st;
+        int n_failed = 0;
 
         assert(head);
         assert(changed);
 
-        k = lstat("/", &root_st);
-
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
                 int r;
-                struct stat loopback_st;
 
-                if (k >= 0 &&
-                    major(root_st.st_dev) != 0 &&
-                    lstat(m->path, &loopback_st) >= 0 &&
-                    root_st.st_dev == loopback_st.st_rdev) {
-                        n_failed++;
-                        continue;
-                }
-
-                log_info("Detaching loopback %s.", m->path);
-                r = delete_loopback(m->path);
+                log_info("Detaching loopback %s or setting autoclear.", m->path);
+                r = delete_or_set_autoclear_loopback(m->path);
                 if (r >= 0) {
                         if (r > 0)
                                 *changed = true;
