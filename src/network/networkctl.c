@@ -64,6 +64,21 @@ static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
 
+static int resolve_ifname(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        r = parse_ifindex_or_ifname(name);
+        if (r > 0)
+                return r;
+        assert(r < 0);
+
+        r = rtnl_resolve_link_alternative_name(rtnl, name);
+        if (r > 0)
+                return r;
+        assert(r < 0);
+        return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
+}
+
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
         char *p;
@@ -1880,12 +1895,9 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                index = parse_ifindex_or_ifname(argv[i]);
-                if (index < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_ifname(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
@@ -1936,12 +1948,9 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (i = 1; i < argc; i++) {
-                index = parse_ifindex_or_ifname(argv[i]);
-                if (index < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_ifname(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = link_renew_one(bus, index, argv[i]);
                 if (r < 0 && k >= 0)
@@ -1991,12 +2000,9 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                index = parse_ifindex_or_ifname(argv[i]);
-                if (index < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_ifname(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)

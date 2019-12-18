@@ -68,8 +68,8 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
 
         index = if_nametoindex(name);
         if (index <= 0) {
-                r = rtnl_resolve_link_alternative_name(&manager->rtnl, name, &index);
-                if (r < 0)
+                index = rtnl_resolve_link_alternative_name(&manager->rtnl, name);
+                if (index < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
         }
 
