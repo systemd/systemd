@@ -92,49 +92,59 @@
 
     <!-- note: do not use unicode ellipsis here, because docbook will replace that
          with three dots anyway, messing up alignment -->
-<programlisting>local-fs-pre.target
-         |
-         v
-(various mounts and   (various swap   (various cryptsetup
- fsck services...)     devices...)        devices...)       (various low-level   (various low-level
-         |                  |                  |             services: udevd,     API VFS mounts:
-         v                  v                  v             tmpfiles, random     mqueue, configfs,
-  local-fs.target      swap.target     cryptsetup.target    seed, sysctl, ...)      debugfs, ...)
-         |                  |                  |                    |                    |
-         \__________________|_________________ | ___________________|____________________/
-                                              \|/
-                                               v
-                                        sysinit.target
-                                               |
-          ____________________________________/|\________________________________________
-         /                  |                  |                    |                    \
-         |                  |                  |                    |                    |
-         v                  v                  |                    v                    v
-     (various           (various               |                (various          rescue.service
-    timers...)          paths...)              |               sockets...)               |
-         |                  |                  |                    |                    v
-         v                  v                  |                    v              <emphasis>rescue.target</emphasis>
-   timers.target      paths.target             |             sockets.target
-         |                  |                  |                    |
-         v                  \_________________ | ___________________/
-                                              \|/
-                                               v
-                                         basic.target
-                                               |
-          ____________________________________/|                                 emergency.service
-         /                  |                  |                                         |
-         |                  |                  |                                         v
-         v                  v                  v                                 <emphasis>emergency.target</emphasis>
-     display-        (various system    (various system
- manager.service         services           services)
-         |             required for            |
-         |            graphical UIs)           v
-         |                  |           <emphasis>multi-user.target</emphasis>
-         |                  |                  |
-         \_________________ | _________________/
-                           \|/
-                            v
-                  <emphasis>graphical.target</emphasis></programlisting>
+<programlisting>                                     cryptsetup-pre.target
+                                                  |
+(various low-level                                v
+ API VFS mounts:                 (various cryptsetup devices...)
+ mqueue, configfs,                                |    |
+ debugfs, ...)                                    v    |
+ |                                  cryptsetup.target  |
+ |  (various swap                                 |    |    remote-fs-pre.target
+ |   devices...)                                  |    |     |        |
+ |    |                                           |    |     |        v
+ |    v                       local-fs-pre.target |    |     |  (network file systems)
+ |  swap.target                       |           |    v     v                 |
+ |    |                               v           |  remote-cryptsetup.target  |
+ |    |  (various low-level  (various mounts and  |             |              |
+ |    |   services: udevd,    fsck services...)   |             |    remote-fs.target
+ |    |   tmpfiles, random            |           |             |             /
+ |    |   seed, sysctl, ...)          v           |             |            /
+ |    |      |                 local-fs.target    |             |           /
+ |    |      |                        |           |             |          /
+ \____|______|_______________   ______|___________/             |         /
+                             \ /                                |        /
+                              v                                 |       /
+                       sysinit.target                           |      /
+                              |                                 |     /
+       ______________________/|\_____________________           |    /
+      /              |        |      |               \          |   /
+      |              |        |      |               |          |  /
+      v              v        |      v               |          | /
+ (various       (various      |  (various            |          |/
+  timers...)      paths...)   |   sockets...)        |          |
+      |              |        |      |               |          |
+      v              v        |      v               |          |
+timers.target  paths.target   |  sockets.target      |          |
+      |              |        |      |               v          |
+      v              \_______ | _____/         rescue.service   |
+                             \|/                     |          |
+                              v                      v          |
+                          basic.target         <emphasis>rescue.target</emphasis>    |
+                              |                                 |
+                      ________v____________________             |
+                     /              |              \            |
+                     |              |              |            |
+                     v              v              v            |
+                 display-    (various system   (various system  |
+             manager.service     services        services)      |
+                     |         required for        |            |
+                     |        graphical UIs)       v            v
+                     |              |            <emphasis>multi-user.target</emphasis>
+emergency.service    |              |              |
+        |            \_____________ | _____________/
+        v                          \|/
+<emphasis>emergency.target</emphasis>                    v
+                              <emphasis>graphical.target</emphasis></programlisting>
 
     <para>Target units that are commonly used as boot targets are
     <emphasis>emphasized</emphasis>. These units are good choices as
