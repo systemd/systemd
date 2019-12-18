@@ -22,8 +22,6 @@ libcore_sources = '''
         bpf-firewall.h
         cgroup.c
         cgroup.h
-        chown-recursive.c
-        chown-recursive.h
         dbus-automount.c
         dbus-automount.h
         dbus-cgroup.c

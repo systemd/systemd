@@ -139,3 +139,40 @@ int path_chown_recursive(
 
         return chown_recursive_internal(TAKE_FD(fd), &st, uid, gid, mask); /* we donate the fd to the call, regardless if it succeeded or failed */
 }
+
+int fd_chown_recursive(
+                int fd,
+                uid_t uid,
+                gid_t gid,
+                mode_t mask) {
+
+        int duplicated_fd = -1;
+        struct stat st;
+
+        /* Note that the slightly different order of fstat() and the checks here and in
+         * path_chown_recursive(). That's because when we open the dirctory ourselves we can specify
+         * O_DIRECTORY and we always want to ensure we are operating on a directory before deciding whether
+         * the operation is otherwise redundant. */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && (mask & 07777) == 07777)
+                return 0; /* nothing to do */
+
+        /* Shortcut, as above */
+        if ((!uid_is_valid(uid) || st.st_uid == uid) &&
+            (!gid_is_valid(gid) || st.st_gid == gid) &&
+            ((st.st_mode & ~mask & 07777) == 0))
+                return 0;
+
+        /* Let's duplicate the fd here, as opendir() wants to take possession of it and close it afterwards */
+        duplicated_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (duplicated_fd < 0)
+                return -errno;
+
+        return chown_recursive_internal(duplicated_fd, &st, uid, gid, mask); /* fd donated even on failure */
+}
