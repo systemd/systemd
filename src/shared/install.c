@@ -2112,13 +2112,26 @@ static int install_context_mark_for_removal(
         return 0;
 }
 
+static int do_mac_check(
+                mac_callback_t mac_check,
+                const char *unit_name,
+                void *userdata) {
+
+        if (!mac_check)
+                return 0;
+
+        return mac_check(unit_name, userdata);
+}
+
 int unit_file_mask(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         const char *config_path;
@@ -2146,6 +2159,10 @@ int unit_file_mask(
                         continue;
                 }
 
+                q = do_mac_check(mac_check, *i, userdata);
+                if (q < 0)
+                        return q;
+
                 path = path_make_absolute(*i, config_path);
                 if (!path)
                         return -ENOMEM;
@@ -2164,7 +2181,9 @@ int unit_file_unmask(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
@@ -2193,6 +2212,10 @@ int unit_file_unmask(
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
 
                 path = path_make_absolute(*i, config_path);
                 if (!path)
@@ -2258,7 +2281,9 @@ int unit_file_link(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
@@ -2289,6 +2314,10 @@ int unit_file_link(
                 fn = basename(*i);
                 if (!unit_name_is_valid(fn, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, fn, userdata);
+                if (r < 0)
+                        return r;
 
                 full = path_join(paths.root_dir, *i);
                 if (!full)
@@ -2358,7 +2387,9 @@ int unit_file_revert(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -2388,6 +2419,10 @@ int unit_file_revert(
 
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
+
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
 
                 STRV_FOREACH(p, paths.search_path) {
                         _cleanup_free_ char *path = NULL, *dropin = NULL;
@@ -2515,7 +2550,9 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2549,6 +2586,10 @@ int unit_file_add_dependency(
 
         assert(target_info->type == UNIT_FILE_TYPE_REGULAR);
 
+        r = do_mac_check(mac_check, target_info->name, userdata);
+        if (r < 0)
+                return r;
+
         STRV_FOREACH(f, files) {
                 char ***l;
 
@@ -2558,6 +2599,10 @@ int unit_file_add_dependency(
                         return r;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
+
+                r = do_mac_check(mac_check, i->name, userdata);
+                if (r < 0)
+                        return r;
 
                 /* We didn't actually load anything from the unit
                  * file, but instead just add in our new symlink to
@@ -2583,7 +2628,9 @@ int unit_file_enable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2610,6 +2657,10 @@ int unit_file_enable(
                         return r;
 
                 assert(i->type == UNIT_FILE_TYPE_REGULAR);
+
+                r = do_mac_check(mac_check, i->name, userdata);
+                if (r < 0)
+                        return r;
         }
 
         /* This will return the number of symlink rules that were
@@ -2626,7 +2677,9 @@ int unit_file_disable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2650,6 +2703,10 @@ int unit_file_disable(
                 if (!unit_name_is_valid(*i, UNIT_NAME_ANY))
                         return -EINVAL;
 
+                r = do_mac_check(mac_check, *i, userdata);
+                if (r < 0)
+                        return r;
+
                 r = install_info_add(&c, *i, NULL, false, NULL);
                 if (r < 0)
                         return r;
@@ -2668,7 +2725,9 @@ int unit_file_reenable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         char **n;
         int r;
@@ -2681,12 +2740,12 @@ int unit_file_reenable(
                 n[i] = basename(files[i]);
         n[i] = NULL;
 
-        r = unit_file_disable(scope, flags, root_dir, n, changes, n_changes);
+        r = unit_file_disable(scope, flags, root_dir, n, changes, n_changes, mac_check, userdata);
         if (r < 0)
                 return r;
 
         /* But the enable command with the full name */
-        return unit_file_enable(scope, flags, root_dir, files, changes, n_changes);
+        return unit_file_enable(scope, flags, root_dir, files, changes, n_changes, mac_check, userdata);
 }
 
 int unit_file_set_default(
@@ -3200,7 +3259,9 @@ static int preset_prepare_one(
                 const char *name,
                 const UnitFilePresets *presets,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext tmp = {};
         _cleanup_strv_free_ char **instance_name_list = NULL;
@@ -3214,6 +3275,11 @@ static int preset_prepare_one(
                                   &i, changes, n_changes);
         if (r < 0)
                 return r;
+
+        r = do_mac_check(mac_check, i->name, userdata);
+        if (r < 0)
+                return r;
+
         if (!streq(name, i->name)) {
                 log_debug("Skipping %s because it is an alias for %s.", name, i->name);
                 return 0;
@@ -3253,7 +3319,9 @@ int unit_file_preset(
                 char **files,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -3279,7 +3347,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, &presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, &presets, changes, n_changes, mac_check, userdata);
                 if (r < 0)
                         return r;
         }
@@ -3293,7 +3361,9 @@ int unit_file_preset_all(
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes) {
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -3341,7 +3411,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, NULL, 0, mac_check, userdata);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);
