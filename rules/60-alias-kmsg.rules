@@ -1,0 +1,10 @@
+SUBSYSTEM!="block", GOTO="log_end"
+KERNEL=="loop*|ram*", GOTO="log_end"
+ACTION=="remove", GOTO="log_end"
+ENV{DM_UDEV_DISABLE_OTHER_RULES_FLAG}=="1", GOTO="log_end"
+ENV{DM_UDEV_DISABLE_DISK_RULES_FLAG}=="1", GOTO="log_end"
+
+IMPORT{cmdline}="udev.alias"
+ENV{udev.alias}=="1", RUN+="/bin/sh -c 'echo udev-alias: $name \($links\) > /dev/kmsg'"
+
+LABEL="log_end"
