@@ -161,6 +161,45 @@ emergency.service    |              |              |
   </refsect1>
 
   <refsect1>
+    <title>User manager startup</title>
+
+    <para>The system manager starts the <filename>user@<replaceable>uid</replaceable>.service</filename> unit
+    for each user, which launches a separate unprivileged instance of <command>systemd</command> for each
+    user — the user manager. Similarly to the system manager, the user manager starts units which are pulled
+    in by <filename>default.target</filename>. The following chart is a structural overview of the well-known
+    user units. For non-graphical sessions, <filename>default.target</filename> is used. Whenever the user
+    logs into a graphical session, the login manager will start the
+    <filename>graphical-session.target</filename> target that is used to pull in units required for the
+    grahpical session. A number of targets (shown on the right side) are started when specific hardware is
+    available to the user.</para>
+
+<programlisting>
+    (various           (various         (various
+     timers...)         paths...)        sockets...)    (sound devices)
+         |                  |                 |               |
+         v                  v                 v               v
+   timers.target      paths.target     sockets.target    sound.target
+         |                  |                 |
+         \______________   _|_________________/         (bluetooth devices)
+                        \ /                                   |
+                         V                                    v
+                   basic.target                          bluetooth.target
+                         |
+              __________/ \_______                      (smartcard devices)
+             /                    \                           |
+             |                    |                           v
+             |                    v                      smartcard.target
+             v            graphical-session-pre.target
+ (various user services)          |                       (printers)
+             |                    v                           |
+             |        (services for the graphical sesion)     v
+             |                    |                       printer.target
+             v                    v
+      <emphasis>default.target</emphasis>      graphical-session.target</programlisting>
+
+  </refsect1>
+
+  <refsect1>
     <title>Bootup in the Initial RAM Disk (initrd)</title>
     <para>The initial RAM disk implementation (initrd) can be set up
     using systemd as well. In this case, boot up inside the initrd
