@@ -598,6 +598,43 @@ int dissect_image(
                                         if (!generic_node)
                                                 return -ENOMEM;
                                 }
+
+                        } else if (sd_id128_equal(type_id, GPT_TMP)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                designator = PARTITION_TMP;
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
+
+                        } else if (sd_id128_equal(type_id, GPT_VAR)) {
+
+                                if (pflags & GPT_FLAG_NO_AUTO)
+                                        continue;
+
+                                if (!FLAGS_SET(flags, DISSECT_IMAGE_RELAX_VAR_CHECK)) {
+                                        sd_id128_t var_uuid;
+
+                                        /* For /var we insist that the uuid of the partition matches the
+                                         * HMAC-SHA256 of the /var GPT partition type uuid, keyed by machine
+                                         * ID. Why? Unlike the other partitions /var is inherently
+                                         * installation specific, hence we need to be careful not to mount it
+                                         * in the wrong installation. By hashing the partition UUID from
+                                         * /etc/machine-id we can securely bind the partition to the
+                                         * installation. */
+
+                                        r = sd_id128_get_machine_app_specific(GPT_VAR, &var_uuid);
+                                        if (r < 0)
+                                                return r;
+
+                                        if (!sd_id128_equal(var_uuid, id)) {
+                                                log_debug("Found a /var/ partition, but its UUID didn't match our expectations, ignoring.");
+                                                continue;
+                                        }
+                                }
+
+                                designator = PARTITION_VAR;
+                                rw = !(pflags & GPT_FLAG_READ_ONLY);
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
@@ -907,6 +944,14 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 return r;
 
         r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, flags);
+        if (r < 0)
+                return r;
+
+        r = mount_partition(m->partitions + PARTITION_VAR, where, "/var", uid_shift, flags);
+        if (r < 0)
+                return r;
+
+        r = mount_partition(m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, flags);
         if (r < 0)
                 return r;
 
@@ -1333,7 +1378,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 [META_HOSTNAME]     = "/etc/hostname\0",
                 [META_MACHINE_ID]   = "/etc/machine-id\0",
                 [META_MACHINE_INFO] = "/etc/machine-info\0",
-                [META_OS_RELEASE]   = "/etc/os-release\0/usr/lib/os-release\0",
+                [META_OS_RELEASE]   = "/etc/os-release\0"
+                                      "/usr/lib/os-release\0",
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
@@ -1528,6 +1574,8 @@ static const char *const partition_designator_table[] = {
         [PARTITION_SWAP] = "swap",
         [PARTITION_ROOT_VERITY] = "root-verity",
         [PARTITION_ROOT_SECONDARY_VERITY] = "root-secondary-verity",
+        [PARTITION_TMP] = "tmp",
+        [PARTITION_VAR] = "var",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(partition_designator, int);
