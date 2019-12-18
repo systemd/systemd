@@ -17,4 +17,4 @@ Before=initrd-switch-root.target
 
 [Service]
 Type=oneshot
-ExecStart=-@rootbindir@/udevadm info --cleanup-db
+ExecStart=-udevadm info --cleanup-db

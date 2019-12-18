@@ -8,13 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Switch Root
+Description=Reload Configuration from the Real Root
 DefaultDependencies=no
-ConditionPathExists=/etc/initrd-release
+Requires=initrd-root-fs.target
+After=initrd-root-fs.target
 OnFailure=emergency.target
 OnFailureJobMode=replace-irreversibly
-AllowIsolate=yes
+ConditionPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStart=@rootbindir@/systemctl --no-block switch-root /sysroot
+ExecStartPre=-systemctl daemon-reload
+# we have to retrigger initrd-fs.target after daemon-reload
+ExecStart=-systemctl --no-block start initrd-fs.target
+ExecStart=systemctl --no-block start initrd-cleanup.service

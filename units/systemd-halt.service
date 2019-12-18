@@ -8,18 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create User's Volatile Files and Directories
-Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+Description=Halt
+Documentation=man:systemd-halt.service(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
-Before=basic.target shutdown.target
-RefuseManualStop=yes
+Requires=shutdown.target umount.target final.target
+After=shutdown.target umount.target final.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-tmpfiles --user --create --remove --boot
-SuccessExitStatus=DATAERR
-
-[Install]
-WantedBy=basic.target
+ExecStart=systemctl --force halt

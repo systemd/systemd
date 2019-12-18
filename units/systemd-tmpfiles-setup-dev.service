@@ -8,12 +8,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Halt
-Documentation=man:systemd-halt.service(8)
+Description=Create Static Device Nodes in /dev
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-Requires=shutdown.target umount.target final.target
-After=shutdown.target umount.target final.target
+Conflicts=shutdown.target
+After=systemd-sysusers.service
+Before=sysinit.target local-fs-pre.target systemd-udevd.service shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@SYSTEMCTL@ --force halt
+RemainAfterExit=yes
+ExecStart=systemd-tmpfiles --prefix=/dev --create --boot
+SuccessExitStatus=DATAERR CANTCREAT

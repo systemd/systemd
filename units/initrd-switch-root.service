@@ -8,15 +8,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cleanup of Temporary Directories
-Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+Description=Switch Root
 DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target time-set.target
-Before=shutdown.target
+ConditionPathExists=/etc/initrd-release
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
+AllowIsolate=yes
 
 [Service]
 Type=oneshot
-ExecStart=@rootbindir@/systemd-tmpfiles --clean
-SuccessExitStatus=DATAERR
-IOSchedulingClass=idle
+ExecStart=systemctl --no-block switch-root /sysroot

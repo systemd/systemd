@@ -8,13 +8,18 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cleaning Up and Shutting Down Daemons
+Description=Create User's Volatile Files and Directories
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-ConditionPathExists=/etc/initrd-release
-OnFailure=emergency.target
-OnFailureJobMode=replace-irreversibly
-After=initrd-root-fs.target initrd-fs.target initrd.target
+Conflicts=shutdown.target
+Before=basic.target shutdown.target
+RefuseManualStop=yes
 
 [Service]
 Type=oneshot
-ExecStart=@rootbindir@/systemctl --no-block isolate initrd-switch-root.target
+RemainAfterExit=yes
+ExecStart=systemd-tmpfiles --user --create --remove --boot
+SuccessExitStatus=DATAERR
+
+[Install]
+WantedBy=basic.target

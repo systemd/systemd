@@ -8,16 +8,16 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=udev Coldplug all Devices
-Documentation=man:udev(7) man:systemd-udevd.service(8)
+Description=Create System Users
+Documentation=man:sysusers.d(5) man:systemd-sysusers.service(8)
 DefaultDependencies=no
-Wants=systemd-udevd.service
-After=systemd-udevd-kernel.socket systemd-udevd-control.socket
-Before=sysinit.target
-ConditionPathIsReadWrite=/sys
+Conflicts=shutdown.target
+After=systemd-remount-fs.service
+Before=sysinit.target shutdown.target systemd-update-done.service
+ConditionNeedsUpdate=/etc
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/udevadm trigger --type=subsystems --action=add
-ExecStart=@rootbindir@/udevadm trigger --type=devices --action=add
+ExecStart=systemd-sysusers
+TimeoutSec=90s

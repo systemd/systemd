@@ -8,19 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=First Boot Wizard
-Documentation=man:systemd-firstboot(1)
+Description=Commit a transient machine-id on disk
+Documentation=man:systemd-machine-id-commit.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-remount-fs.service
-Before=systemd-sysusers.service sysinit.target shutdown.target
+Before=sysinit.target shutdown.target
+After=local-fs.target
 ConditionPathIsReadWrite=/etc
-ConditionFirstBoot=yes
+ConditionPathIsMountPoint=/etc/machine-id
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-firstboot --prompt-locale --prompt-timezone --prompt-root-password
-StandardOutput=tty
-StandardInput=tty
-StandardError=tty
+ExecStart=systemd-machine-id-setup --commit
+TimeoutSec=30s
