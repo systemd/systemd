@@ -89,27 +89,35 @@ struct UnitFileInstallInfo {
         bool auxiliary;
 };
 
+typedef int (*mac_callback_t)(const char *unit_name, void *userdata);
+
 int unit_file_enable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_disable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_reenable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_preset(
                 UnitFileScope scope,
                 UnitFileFlags flags,
@@ -117,41 +125,53 @@ int unit_file_preset(
                 char **files,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_preset_all(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_mask(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_unmask(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_link(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_revert(
                 UnitFileScope scope,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 int unit_file_set_default(
                 UnitFileScope scope,
                 UnitFileFlags flags,
@@ -171,7 +191,9 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
-                size_t *n_changes);
+                size_t *n_changes,
+                mac_callback_t mac_check,
+                void *userdata);
 
 int unit_file_lookup_state(
                 UnitFileScope scope,
