@@ -14,7 +14,7 @@ struct LoopDevice {
         bool relinquished;
 };
 
-int loop_device_make_full(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, LoopDevice **ret);
+int loop_device_make(int fd, int open_flags, uint64_t offset, uint64_t size, uint32_t loop_flags, LoopDevice **ret);
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret);
 int loop_device_open(const char *loop_path, int open_flags, LoopDevice **ret);
 
