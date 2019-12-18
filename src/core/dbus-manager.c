@@ -2742,6 +2742,9 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 

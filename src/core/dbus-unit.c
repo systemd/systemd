@@ -845,6 +845,9 @@ static int property_get_refs(
         return sd_bus_message_close_container(reply);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -1528,6 +1531,9 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         return sd_bus_reply_method_return(message, NULL);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
