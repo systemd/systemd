@@ -8,12 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Reboot via kexec
-Documentation=man:systemd-halt.service(8)
+Description=Cleanup of User's Temporary Files and Directories
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-Requires=shutdown.target umount.target final.target
-After=shutdown.target umount.target final.target
+Conflicts=shutdown.target
+Before=basic.target shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart=@SYSTEMCTL@ --force kexec
+ExecStart=systemd-tmpfiles --user --clean
+SuccessExitStatus=DATAERR
+IOSchedulingClass=idle

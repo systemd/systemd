@@ -8,17 +8,12 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Commit a transient machine-id on disk
-Documentation=man:systemd-machine-id-commit.service(8)
+Description=Reboot via kexec
+Documentation=man:systemd-halt.service(8)
 DefaultDependencies=no
-Conflicts=shutdown.target
-Before=sysinit.target shutdown.target
-After=local-fs.target
-ConditionPathIsReadWrite=/etc
-ConditionPathIsMountPoint=/etc/machine-id
+Requires=shutdown.target umount.target final.target
+After=shutdown.target umount.target final.target
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-machine-id-setup --commit
-TimeoutSec=30s
+ExecStart=systemctl --force kexec

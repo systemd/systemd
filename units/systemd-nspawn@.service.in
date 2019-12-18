@@ -18,7 +18,7 @@ RequiresMountsFor=/var/lib/machines
 
 [Service]
 # Make sure the DeviceAllow= lines below can properly resolve the 'block-loop' expression (and others)
-ExecStart=@bindir@/systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth -U --settings=override --machine=%i
+ExecStart=systemd-nspawn --quiet --keep-unit --boot --link-journal=try-guest --network-veth -U --settings=override --machine=%i
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133

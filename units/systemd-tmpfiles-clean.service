@@ -8,14 +8,15 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Dispatch Password Requests to Console
-Documentation=man:systemd-ask-password-console.service(8)
+Description=Cleanup of Temporary Directories
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 DefaultDependencies=no
-Conflicts=shutdown.target emergency.service
-After=plymouth-start.service systemd-vconsole-setup.service
+Conflicts=shutdown.target
+After=local-fs.target time-set.target
 Before=shutdown.target
-ConditionPathExists=!/run/plymouth/pid
 
 [Service]
-ExecStart=@rootbindir@/systemd-tty-ask-password-agent --watch --console
-SystemCallArchitectures=native
+Type=oneshot
+ExecStart=systemd-tmpfiles --clean
+SuccessExitStatus=DATAERR
+IOSchedulingClass=idle
