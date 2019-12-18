@@ -41,6 +41,9 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, scope_result, ScopeResult);
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_scope_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Controller", "s", NULL, offsetof(Scope, controller), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
