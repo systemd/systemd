@@ -195,10 +195,11 @@ def check_one_mount_matrix(prop, value):
 def check_one_keycode(prop, value):
     if value != '!' and ecodes is not None:
         key = 'KEY_' + value.upper()
-        if key not in ecodes:
-            key = value.upper()
-            if key not in ecodes:
-                error('Keycode {} unknown', key)
+        if not (key in ecodes or
+                value.upper() in ecodes or
+                 # new keys added in kernel 5.5
+                'KBD_LCD_MENU' in key):
+            error('Keycode {} unknown', key)
 
 def check_properties(groups):
     grammar = property_grammar()
