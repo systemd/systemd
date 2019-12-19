@@ -118,10 +118,17 @@ static int add_swap(
 
         fprintf(f,
                 "[Unit]\n"
-                "SourcePath=%s\n"
-                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n\n"
-                "[Swap]\n",
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "SourcePath=%s\n",
                 fstab_path());
+
+        r = generator_write_blockdev_dependency(f, what);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "\n"
+                "[Swap]\n");
 
         r = write_what(f, what);
         if (r < 0)
@@ -374,8 +381,8 @@ static int add_mount(
 
         fprintf(f,
                 "[Unit]\n"
-                "SourcePath=%s\n"
-                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "SourcePath=%s\n",
                 source);
 
         /* All mounts under /sysroot need to happen later, at initrd-fs.target time. IOW, it's not
@@ -422,7 +429,14 @@ static int add_mount(
                         return r;
         }
 
-        fprintf(f, "\n[Mount]\n");
+        r = generator_write_blockdev_dependency(f, what);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "\n"
+                "[Mount]\n");
+
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
 

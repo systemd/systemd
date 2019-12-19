@@ -2,6 +2,7 @@
 
 units = [
         ['basic.target',                        ''],
+        ['blockdev@.target',                    ''],
         ['bluetooth.target',                    ''],
         ['boot-complete.target',                ''],
         ['cryptsetup-pre.target',               'HAVE_LIBCRYPTSETUP'],
