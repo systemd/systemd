@@ -310,6 +310,7 @@ static int link_set_dhcp_routes(Link *link) {
                 assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
+                route->mtu = link->network->dhcp_route_mtu;
                 route->scope = route_scope_from_address(route, &address);
                 if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
                         route->prefsrc.in = address;
@@ -353,6 +354,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route_gw->protocol = RTPROT_DHCP;
                 route_gw->priority = link->network->dhcp_route_metric;
                 route_gw->table = table;
+                route_gw->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp_route_configure(&route_gw, link);
                 if (r < 0)
@@ -368,6 +370,7 @@ static int link_set_dhcp_routes(Link *link) {
                 route->protocol = RTPROT_DHCP;
                 route->priority = link->network->dhcp_route_metric;
                 route->table = table;
+                route->mtu = link->network->dhcp_route_mtu;
 
                 r = dhcp_route_configure(&route, link);
                 if (r < 0)

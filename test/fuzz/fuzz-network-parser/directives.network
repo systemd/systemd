@@ -99,6 +99,7 @@ MaxAttempts=
 IPServiceType=
 SendOption=
 SendDecline=
+RouteMTUBytes=
 [DHCPv6]
 UseNTP=
 UseDNS=
