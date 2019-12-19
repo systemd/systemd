@@ -92,24 +92,17 @@
 
     <!-- note: do not use unicode ellipsis here, because docbook will replace that
          with three dots anyway, messing up alignment -->
-<programlisting>(various cryptsetup
-     devices...)
+<programlisting>local-fs-pre.target
          |
          v
-  cryptsetup.target
-         |
-         v
- local-fs-pre.target
-         |
-         v
-(various mounts and   (various swap
- fsck services...)     devices...)                        (various low-level      (various low-level
-         |                  |                              services: udevd,        API VFS mounts:
-         v                  v                              tmpfiles, random        mqueue, configfs,
-  local-fs.target      swap.target                         seed, sysctl, ...)      debugfs, ...)
-         |                  |                                     |                      |
-         \__________________|_________________   _________________|______________________/
-                                              \ /
+(various mounts and   (various swap   (various cryptsetup
+ fsck services...)     devices...)        devices...)       (various low-level   (various low-level
+         |                  |                  |             services: udevd,     API VFS mounts:
+         v                  v                  v             tmpfiles, random     mqueue, configfs,
+  local-fs.target      swap.target     cryptsetup.target    seed, sysctl, ...)      debugfs, ...)
+         |                  |                  |                    |                    |
+         \__________________|_________________ | ___________________|____________________/
+                                              \|/
                                                v
                                         sysinit.target
                                                |
