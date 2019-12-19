@@ -7539,7 +7539,7 @@ static int run_editor(char **paths) {
 
         assert(paths);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(editor)", FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
