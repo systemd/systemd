@@ -24,6 +24,9 @@ Features:
 * honour specifiers in unit files that resolve to some very basic
   /etc/os-release data, such as ID, VERSION_ID, BUILD_ID, VARIANT_ID.
 
+* cryptsetup: reimplement the mkswap/mke2fs in cryptsetup-generator to use
+  systemd-makefs.service instead.
+
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
