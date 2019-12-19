@@ -4211,7 +4211,7 @@ static int run_container(
         int ifi = 0, r;
         ssize_t l;
         sigset_t mask_chld;
-        _cleanup_close_ int netns_fd = -1;
+        _cleanup_close_ int child_netns_fd = -1;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -4270,11 +4270,11 @@ static int run_container(
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
         if (arg_network_namespace_path) {
-                netns_fd = open(arg_network_namespace_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netns_fd < 0)
+                child_netns_fd = open(arg_network_namespace_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (child_netns_fd < 0)
                         return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
 
-                r = fd_is_network_ns(netns_fd);
+                r = fd_is_network_ns(child_netns_fd);
                 if (r == -EUCLEAN)
                         log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
                 else if (r < 0)
@@ -4319,7 +4319,7 @@ static int run_container(
                                 master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
-                                netns_fd);
+                                child_netns_fd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4421,7 +4421,15 @@ static int run_container(
                                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early");
                 }
 
-                r = move_network_interfaces(*pid, arg_network_interfaces);
+                if (child_netns_fd < 0) {
+                        /* Make sure we have an open file descriptor to the child's network
+                         * namespace so it stays alive even if the child exits. */
+                        r = namespace_open(*pid, NULL, NULL, &child_netns_fd, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open child network namespace: %m");
+                }
+
+                r = move_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
 
@@ -4666,6 +4674,36 @@ static int run_container(
 
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
+
+        if (arg_private_network) {
+                /* Move network interfaces back to the parent network namespace. We use `safe_fork`
+                 * to avoid having to move the parent to the child network namespace. */
+                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG, NULL);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        _cleanup_close_ int parent_netns_fd = -1;
+
+                        r = namespace_open(getpid(), NULL, NULL, &parent_netns_fd, NULL, NULL);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to open parent network namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = namespace_enter(-1, -1, child_netns_fd, -1, -1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enter child network namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = move_network_interfaces(parent_netns_fd, arg_network_interfaces);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
+
+                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                }
+        }
 
         r = wait_for_container(*pid, &container_status);
         *pid = 0;

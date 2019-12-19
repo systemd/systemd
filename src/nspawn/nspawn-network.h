@@ -16,7 +16,7 @@ int remove_bridge(const char *bridge_name);
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces);
 
-int move_network_interfaces(pid_t pid, char **ifaces);
+int move_network_interfaces(int netns_fd, char **ifaces);
 
 int veth_extra_parse(char ***l, const char *p);
 

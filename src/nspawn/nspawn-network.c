@@ -438,7 +438,7 @@ int test_network_interface_initialized(const char *name) {
         return 0;
 }
 
-int move_network_interfaces(pid_t pid, char **ifaces) {
+int move_network_interfaces(int netns_fd, char **ifaces) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -462,9 +462,9 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append namespace PID to netlink message: %m");
+                        return log_error_errno(r, "Failed to append namespace fd to netlink message: %m");
 
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
