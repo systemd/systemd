@@ -206,8 +206,11 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     writable. Adding a user to this group thus enables them to read
     the journal files.</para>
 
-    <para>By default, each logged in user will get their own set of
-    journal files in <filename>/var/log/journal/</filename>. These
+    <para>By default, each user, with a UID outside the range of system users,
+    dynamic service users, and the nobody user, will get their own set of
+    journal files in <filename>/var/log/journal/</filename>. See
+    <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
+    for more details about UID ranges. These journal
     files will not be owned by the user, however, in order to avoid
     that the user can write to them directly. Instead, file system
     ACLs are used to ensure the user gets read access only.</para>
