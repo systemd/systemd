@@ -330,14 +330,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return log_oom();
 
         r = sd_rtnl_message_route_get_family(message, &tmp->family);
-        if (r < 0 || !IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received route message with invalid family, ignoring");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received route message without family, ignoring");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received route message with invalid family '%i', ignoring", tmp->family);
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received route message with invalid route protocol: %m");
+                log_warning_errno(r, "rtnl: received route message without route protocol: %m");
                 return 0;
         }
 
@@ -625,8 +628,11 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         }
 
         r = sd_rtnl_message_neigh_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received neighbor message with invalid family, ignoring.");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received neighbor message withot family, ignoring.");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", family);
                 return 0;
         }
 
@@ -754,8 +760,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_rtnl_message_addr_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address message with invalid family, ignoring.");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received address message without family, ignoring.");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received address message with invalid family '%i', ignoring.", family);
                 return 0;
         }
 
