@@ -1598,12 +1598,22 @@ static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         assert(link);
 
+        link->setting_genmode = false;
+
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not set address genmode for interface, ignoring");
+        else
+                log_link_debug(link, "Setting address genmode done.");
+
+        if (link->state == LINK_STATE_INITIALIZED) {
+                r = link_configure_continue(link);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
 
         return 1;
 }
@@ -1618,7 +1628,7 @@ static int link_configure_addrgen_mode(Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (!socket_ipv6_is_supported())
+        if (!socket_ipv6_is_supported() || link->setting_genmode)
                 return 0;
 
         log_link_debug(link, "Setting address genmode for link");
@@ -1662,6 +1672,7 @@ static int link_configure_addrgen_mode(Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+        link->setting_genmode = true;
 
         return 0;
 }
@@ -2807,7 +2818,7 @@ static int link_configure_continue(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        if (link->setting_mtu)
+        if (link->setting_mtu || link->setting_genmode)
                 return 0;
 
         /* The kernel resets ipv6 mtu after changing device mtu;
