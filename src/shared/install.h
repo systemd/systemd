@@ -187,7 +187,7 @@ int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, UnitFileC
 void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
 
-int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst);
+int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst);
 
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name);
 

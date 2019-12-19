@@ -1708,36 +1708,67 @@ static int install_info_discover_and_check(
         return install_info_may_process(ret ? *ret : NULL, paths, changes, n_changes);
 }
 
-int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst) {
+int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst) {
+        _cleanup_free_ char *dst_updated = NULL;
         int r;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) &&
-            !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) &&
-            !i->default_instance)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Aliases for templates without DefaultInstance must be templates.");
+        /* Verify that dst is a valid either a valid alias or a valid .wants/.requires symlink for the target
+         * unit *i. Return negative on error or if not compatible, zero on success.
+         *
+         * ret_dst is set in cases where "instance propagation" happens, i.e. when the instance part is
+         * inserted into dst. It is not normally set, even on success, so that the caller can easily
+         * distinguish the case where instance propagation occured.
+         */
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
-            !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE | UNIT_NAME_INSTANCE))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Aliases for template instances must be a templates or template instances containing the instance name.");
+        const char *path_alias = strrchr(dst, '/');
+        if (path_alias) {
+                /* This branch covers legacy Alias= function of creating .wants and .requires symlinks. */
+                _cleanup_free_ char *dir = NULL;
 
-        if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
-            unit_name_is_valid(dst, UNIT_NAME_INSTANCE)) {
-                _cleanup_free_ char *src_inst = NULL, *dst_inst = NULL;
+                path_alias ++; /* skip over slash */
 
-                r = unit_name_to_instance(i->name, &src_inst);
+                dir = dirname_malloc(dst);
+                if (!dir)
+                        return log_oom();
+
+                if (!endswith(dir, ".wants") && !endswith(dir, ".requires"))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
+                                                 "Invalid path \"%s\" in alias.", dir);
+
+                /* That's the name we want to use for verification. */
+                r = unit_symlink_name_compatible(path_alias, i->name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to verify alias validity: %m");
+                if (r == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
+                                                 "Invalid unit %s symlink %s.",
+                                                 i->name, dst);
+
+        } else {
+                /* If the symlink target has an instance set and the symlink source doesn't, we "propagate
+                 * the instance", i.e. instantiate the symlink source with the target instance. */
+                if (unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
+                        _cleanup_free_ char *inst = NULL;
+
+                        r = unit_name_to_instance(i->name, &inst);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract instance name from %s: %m", i->name);
+
+                        if (r == UNIT_NAME_INSTANCE) {
+                                r = unit_name_replace_instance(dst, inst, &dst_updated);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build unit name from %s+%s: %m",
+                                                               dst, inst);
+                        }
+                }
+
+                r = unit_validate_alias_symlink_and_warn(dst_updated ?: dst, i->name);
                 if (r < 0)
                         return r;
 
-                r = unit_name_to_instance(dst, &dst_inst);
-                if (r < 0)
-                        return r;
-                if (!strstr(dst_inst, src_inst?src_inst:i->default_instance))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Aliases for template instances must be a templates or template instances containing the instance name.");
         }
 
+        *ret_dst = TAKE_PTR(dst_updated);
         return 0;
 }
 
@@ -1757,31 +1788,17 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, i->aliases) {
-                _cleanup_free_ char *alias_path = NULL, *dst = NULL;
+                _cleanup_free_ char *alias_path = NULL, *dst = NULL, *dst_updated = NULL;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 
-                q = unit_file_verify_alias(i, dst);
+                q = unit_file_verify_alias(i, dst, &dst_updated);
                 if (q < 0)
                         continue;
 
-                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) &&
-                    unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
-
-                        _cleanup_free_ char *s_copy = NULL, *instance = NULL;
-                        q = unit_name_to_instance(i->name, &instance);
-                        if (q < 0)
-                                return q;
-
-                        q = unit_name_replace_instance(dst, instance, &s_copy);
-                        if (q < 0)
-                                return q;
-                        free_and_replace(dst, s_copy);
-                }
-
-                alias_path = path_make_absolute(dst, config_path);
+                alias_path = path_make_absolute(dst_updated ?: dst, config_path);
                 if (!alias_path)
                         return -ENOMEM;
 
