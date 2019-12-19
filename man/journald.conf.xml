@@ -110,8 +110,11 @@
         <listitem><para>Controls whether to split up journal files per user, either <literal>uid</literal> or
         <literal>none</literal>. Split journal files are primarily useful for access control: on UNIX/Linux access
         control is managed per file, and the journal daemon will assign users read access to their journal files. If
-        <literal>uid</literal>, all regular users will each get their own journal files, and system users will log to
-        the system journal. If <literal>none</literal>, journal files are not split up by user and all messages are
+        <literal>uid</literal>, all regular users (with UID outside the range of system users, dynamic service users,
+        and the nobody user) will each get their own journal files, and system users will log to the system journal.
+        See <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
+        for more details about UID ranges.
+        If <literal>none</literal>, journal files are not split up by user and all messages are
         instead stored in the single system journal. In this mode unprivileged users generally do not have access to
         their own log data. Note that splitting up journal files by user is only available for journals stored
         persistently. If journals are stored on volatile storage (see <varname>Storage=</varname> above), only a single
