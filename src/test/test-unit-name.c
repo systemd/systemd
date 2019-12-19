@@ -78,6 +78,10 @@ static void test_unit_name_is_valid(void) {
         test_unit_name_is_valid_one("foo@%%i.service", UNIT_NAME_INSTANCE, false);
         test_unit_name_is_valid_one("foo@%%i%f.service", UNIT_NAME_INSTANCE, false);
         test_unit_name_is_valid_one("foo@%F.service", UNIT_NAME_INSTANCE, false);
+
+        test_unit_name_is_valid_one("foo.target.wants/plain.service", UNIT_NAME_ANY, false);
+        test_unit_name_is_valid_one("foo.target.conf/foo.conf", UNIT_NAME_ANY, false);
+        test_unit_name_is_valid_one("foo.target.requires/plain.socket", UNIT_NAME_ANY, false);
 }
 
 static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
