@@ -99,7 +99,14 @@ static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_key
         return 0;
 }
 
-static int generate_keydev_mount(const char *name, const char *keydev, const char *keydev_timeout, bool canfail, char **unit, char **mount) {
+static int generate_keydev_mount(
+                const char *name,
+                const char *keydev,
+                const char *keydev_timeout,
+                bool canfail,
+                char **unit,
+                char **mount) {
+
         _cleanup_free_ char *u = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
