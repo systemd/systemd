@@ -1708,6 +1708,39 @@ static int install_info_discover_and_check(
         return install_info_may_process(ret ? *ret : NULL, paths, changes, n_changes);
 }
 
+int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst) {
+        int r;
+
+        if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) &&
+            !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) &&
+            !i->default_instance)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Aliases for templates without DefaultInstance must be templates.");
+
+        if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
+            !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE | UNIT_NAME_INSTANCE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Aliases for template instances must be a templates or template instances containing the instance name.");
+
+        if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
+            unit_name_is_valid(dst, UNIT_NAME_INSTANCE)) {
+                _cleanup_free_ char *src_inst = NULL, *dst_inst = NULL;
+
+                r = unit_name_to_instance(i->name, &src_inst);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_to_instance(dst, &dst_inst);
+                if (r < 0)
+                        return r;
+                if (!strstr(dst_inst, src_inst?src_inst:i->default_instance))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Aliases for template instances must be a templates or template instances containing the instance name.");
+        }
+
+        return 0;
+}
+
 static int install_info_symlink_alias(
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
@@ -1724,46 +1757,25 @@ static int install_info_symlink_alias(
         assert(config_path);
 
         STRV_FOREACH(s, i->aliases) {
-
                 _cleanup_free_ char *alias_path = NULL, *dst = NULL;
 
                 q = install_full_printf(i, *s, &dst);
                 if (q < 0)
                         return q;
 
-                if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) &&
-                    !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) &&
-                    !i->default_instance) {
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for templates without DefaultInstance must be templates.");
-                }
+                q = unit_file_verify_alias(i, dst);
+                if (q < 0)
+                        continue;
 
-                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
-                    !unit_name_is_valid(dst, UNIT_NAME_TEMPLATE | UNIT_NAME_INSTANCE)) {
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for template instances must be a templates or template instances containing the instance name.");
-                }
+                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) &&
+                    unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
 
-                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE) &&
-                    unit_name_is_valid(dst, UNIT_NAME_INSTANCE)) {
-                        _cleanup_free_ char *src_inst = NULL, *dst_inst = NULL;
-
-                        q = unit_name_to_instance(i->name, &src_inst);
-                        if (q < 0)
-                                return q;
-
-                        q = unit_name_to_instance(dst, &dst_inst);
-                        if (q < 0)
-                                return q;
-                        if (!strstr(dst_inst, src_inst?src_inst:i->default_instance))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Aliases for template instances must be a templates or template instances containing the instance name.");
-                }
-
-                if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) && unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
                         _cleanup_free_ char *s_copy = NULL, *instance = NULL;
-                        q = unit_name_to_instance(i->name,&instance);
+                        q = unit_name_to_instance(i->name, &instance);
                         if (q < 0)
                                 return q;
 
-                        q = unit_name_replace_instance(dst,instance,&s_copy);
+                        q = unit_name_replace_instance(dst, instance, &s_copy);
                         if (q < 0)
                                 return q;
                         free_and_replace(dst, s_copy);
