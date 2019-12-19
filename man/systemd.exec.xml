@@ -117,12 +117,12 @@
       <varlistentry>
         <term><varname>RootImage=</varname></term>
 
-        <listitem><para>Takes a path to a block device node or regular file as argument. This call is similar to
-        <varname>RootDirectory=</varname> however mounts a file system hierarchy from a block device node or loopback
-        file instead of a directory. The device node or file system image file needs to contain a file system without a
-        partition table, or a file system within an MBR/MS-DOS or GPT partition table with only a single
-        Linux-compatible partition, or a set of file systems within a GPT partition table that follows the <ulink
-        url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
+        <listitem><para>Takes a path to a block device node or regular file as argument. This call is similar
+        to <varname>RootDirectory=</varname> however mounts a file system hierarchy from a block device node
+        or loopback file instead of a directory. The device node or file system image file needs to contain a
+        file system without a partition table, or a file system within an MBR/MS-DOS or GPT partition table
+        with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
+        that follows the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
         Specification</ulink>.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
