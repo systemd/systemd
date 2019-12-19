@@ -12,6 +12,7 @@
 #include "base-filesystem.h"
 #include "dev-setup.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "label.h"
 #include "loop-util.h"
@@ -905,6 +906,7 @@ static int apply_mount(
                 const char *root_directory,
                 MountEntry *m) {
 
+        _cleanup_free_ char *inaccessible = NULL;
         bool rbind = true, make = false;
         const char *what;
         int r;
@@ -916,6 +918,8 @@ static int apply_mount(
         switch (m->mode) {
 
         case INACCESSIBLE: {
+                _cleanup_free_ char *tmp = NULL;
+                const char *runtime_dir;
                 struct stat target;
 
                 /* First, get rid of everything that is below if there
@@ -930,10 +934,20 @@ static int apply_mount(
                         return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", mount_entry_path(m));
                 }
 
-                what = mode_to_inaccessible_node(target.st_mode);
-                if (!what)
+                if (geteuid() == 0)
+                        runtime_dir = "/run/systemd";
+                else {
+                        if (asprintf(&tmp, "/run/user/"UID_FMT, geteuid()) < 0)
+                                log_oom();
+
+                        runtime_dir = tmp;
+                }
+
+                r = mode_to_inaccessible_node(runtime_dir, target.st_mode, &inaccessible);
+                if (r < 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
                                                "File type not supported for inaccessible mounts. Note that symlinks are not allowed");
+                what = inaccessible;
                 break;
         }
 

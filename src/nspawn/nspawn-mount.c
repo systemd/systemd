@@ -883,8 +883,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 }
 
 static int mount_inaccessible(const char *dest, CustomMount *m) {
-        _cleanup_free_ char *where = NULL;
-        const char *source;
+        _cleanup_free_ char *where = NULL, *source = NULL;
         struct stat st;
         int r;
 
@@ -897,7 +896,9 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
                 return m->graceful ? 0 : r;
         }
 
-        assert_se(source = mode_to_inaccessible_node(st.st_mode));
+        r = mode_to_inaccessible_node("/run/systemd", st.st_mode, &source);
+        if (r < 0)
+                return m->graceful ? 0 : r;
 
         r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, source, where, NULL, MS_BIND, NULL);
         if (r < 0)

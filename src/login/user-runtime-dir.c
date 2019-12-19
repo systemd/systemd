@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
+#include "dev-setup.h"
 #include "fs-util.h"
 #include "format-util.h"
 #include "label.h"
@@ -91,6 +92,8 @@ static int user_mkdir_runtime_path(
                         log_warning_errno(r, "Failed to fix label of \"%s\", ignoring: %m", runtime_path);
         }
 
+        /* Set up inaccessible nodes now so they're available if we decide to use them with user namespaces. */
+        (void) make_inaccessible_nodes(runtime_path, uid, gid);
         return 0;
 
 fail:

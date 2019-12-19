@@ -20,7 +20,8 @@ int main(int argc, char *argv[]) {
         f = prefix_roota(p, "/run");
         assert_se(mkdir(f, 0755) >= 0);
 
-        assert_se(make_inaccessible_nodes(p, 1, 1) >= 0);
+        f = prefix_roota(p, "/run/systemd");
+        assert_se(make_inaccessible_nodes(f, 1, 1) >= 0);
 
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         assert_se(stat(f, &st) >= 0);

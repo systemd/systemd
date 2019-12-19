@@ -102,6 +102,7 @@ test_data_files = '''
         test-execute/exec-privatedevices-no-capability-mknod.service
         test-execute/exec-privatedevices-no-capability-sys-rawio.service
         test-execute/exec-privatedevices-no.service
+        test-execute/exec-privatedevices-yes-with-group.service
         test-execute/exec-privatedevices-yes-capability-mknod.service
         test-execute/exec-privatedevices-yes-capability-sys-rawio.service
         test-execute/exec-privatedevices-yes.service

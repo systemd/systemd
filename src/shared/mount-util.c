@@ -339,38 +339,72 @@ int repeat_unmount(const char *path, int flags) {
         }
 }
 
-const char* mode_to_inaccessible_node(mode_t mode) {
+int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest) {
         /* This function maps a node type to a corresponding inaccessible file node. These nodes are created during
          * early boot by PID 1. In some cases we lacked the privs to create the character and block devices (maybe
          * because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a devices policy that excludes
          * device nodes with major and minor of 0), but that's fine, in that case we use an AF_UNIX file node instead,
          * which is not the same, but close enough for most uses. And most importantly, the kernel allows bind mounts
          * from socket nodes to any non-directory file nodes, and that's the most important thing that matters. */
+        _cleanup_free_ char *d = NULL;
+        const char *node = NULL;
+        char *tmp;
+
+        assert(dest);
 
         switch(mode & S_IFMT) {
                 case S_IFREG:
-                        return "/run/systemd/inaccessible/reg";
+                        node = "/inaccessible/reg";
+                        break;
 
                 case S_IFDIR:
-                        return "/run/systemd/inaccessible/dir";
+                        node = "/inaccessible/dir";
+                        break;
 
                 case S_IFCHR:
-                        if (access("/run/systemd/inaccessible/chr", F_OK) == 0)
-                                return "/run/systemd/inaccessible/chr";
-                        return "/run/systemd/inaccessible/sock";
+                        d = path_join(runtime_dir, "/inaccessible/chr");
+                        if (!d)
+                                return log_oom();
+
+                        if (access(d, F_OK) == 0) {
+                                *dest = TAKE_PTR(d);
+                                return 0;
+                        }
+
+                        node = "/inaccessible/sock";
+                        break;
 
                 case S_IFBLK:
-                        if (access("/run/systemd/inaccessible/blk", F_OK) == 0)
-                                return "/run/systemd/inaccessible/blk";
-                        return "/run/systemd/inaccessible/sock";
+                        d = path_join(runtime_dir, "/inaccessible/blk");
+                        if (!d)
+                                return log_oom();
+
+                        if (access(d, F_OK) == 0) {
+                                *dest = TAKE_PTR(d);
+                                return 0;
+                        }
+
+                        node = "/inaccessible/sock";
+                        break;
 
                 case S_IFIFO:
-                        return "/run/systemd/inaccessible/fifo";
+                        node = "/inaccessible/fifo";
+                        break;
 
                 case S_IFSOCK:
-                        return "/run/systemd/inaccessible/sock";
+                        node = "/inaccessible/sock";
+                        break;
         }
-        return NULL;
+
+        if (!node)
+                return -EINVAL;
+
+        tmp = path_join(runtime_dir, node);
+        if (!tmp)
+                return log_oom();
+
+        *dest = tmp;
+        return 0;
 }
 
 #define FLAG(name) (flags & name ? STRINGIFY(name) "|" : "")

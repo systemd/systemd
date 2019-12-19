@@ -830,7 +830,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     <para>Also note that some sandboxing functionality is generally not available in user services (i.e. services run
     by the per-user service manager). Specifically, the various settings requiring file system namespacing support
     (such as <varname>ProtectSystem=</varname>) are not available, as the underlying kernel functionality is only
-    accessible to privileged processes.</para>
+    accessible to privileged processes. However, most namespacing settings, that will not work on their own in user
+    services, will work when used in conjunction with <varname>PrivateUsers=</varname><option>true</option>.</para>
 
     <variablelist class='unit-directives'>
 
@@ -1251,6 +1252,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         such as <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
         additional capabilities in the host's user namespace. Defaults to off.</para>
 
+        <para>When this setting is set up by a per-user instance of the service manager, the mapping of the
+        <literal>root</literal> user and group to itself is omitted (unless the user manager is root).
+        Additionally, in the per-user instance manager case, the
+        user namespace will be set up before most other namespaces. This means that combining
+        <varname>PrivateUsers=</varname><option>true</option> with other namespaces will enable use of features not
+        normally supported by the per-user instances of the service manager.</para>
+
         <para>This setting is particularly useful in conjunction with
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname>, as the need to synchronize the user and group
         databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
@@ -1258,9 +1266,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        security.</para></listitem>
       </varlistentry>
 
       <varlistentry>
