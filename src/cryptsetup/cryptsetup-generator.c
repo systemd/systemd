@@ -299,9 +299,11 @@ static int create_disk(
                 "SourcePath=%s\n"
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=%s\n",
-                arg_crypttab,
-                netdev ? "remote-fs-pre.target" : "cryptsetup-pre.target");
+                "After=cryptsetup-pre.target\n",
+                arg_crypttab);
+
+        if (netdev)
+                fprintf(f, "After=remote-fs-pre.target\n");
 
         /* If initrd takes care of attaching the disk then it should also detach it during shutdown. */
         if (!attach_in_initrd)
