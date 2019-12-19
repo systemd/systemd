@@ -848,6 +848,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Network interface name not valid: %s", optarg);
 
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
+
                         if (strv_extend(&arg_network_interfaces, optarg) < 0)
                                 return log_oom();
 
@@ -861,6 +865,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "MACVLAN network interface name not valid: %s", optarg);
 
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
+
                         if (strv_extend(&arg_network_macvlan, optarg) < 0)
                                 return log_oom();
 
@@ -873,6 +881,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!ifname_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "IPVLAN network interface name not valid: %s", optarg);
+
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
 
                         if (strv_extend(&arg_network_ipvlan, optarg) < 0)
                                 return log_oom();
