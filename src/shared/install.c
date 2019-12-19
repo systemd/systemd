@@ -1788,22 +1788,6 @@ static int install_info_symlink_alias(
                 q = create_symlink(paths, i->path, alias_path, force, changes, n_changes);
                 if (r == 0)
                         r = q;
-
-                /* if we are a template with a DefaultInstance and we target a template, also create a link from the DefaultInstance*/
-                if (unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE) && unit_name_is_valid(dst, UNIT_NAME_TEMPLATE) && i->default_instance) {
-                        _cleanup_free_ char *s_copy = NULL,*final_path = NULL;
-
-                        q = unit_name_replace_instance(dst,i->default_instance,&s_copy);
-                        if (q < 0)
-                                return q;
-                        final_path = path_make_absolute(s_copy, config_path);
-                        if (!final_path)
-                                return -ENOMEM;
-                        q = create_symlink(paths, i->path, final_path, force, changes, n_changes);
-                        if (r == 0)
-                                r = q;
-                }
-
         }
 
         return r;
