@@ -460,8 +460,8 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
         return r;
 }
 
-/* This includes remounting readonly, which changes the kernel mount options.
- * Therefore the list passed to this function is invalidated, and should not be reused. */
+/* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
+ * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m;
         int n_failed = 0;
@@ -471,26 +471,18 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
 
         LIST_FOREACH(mount_point, m, *head) {
                 if (m->try_remount_ro) {
-                        /* We always try to remount directories
-                         * read-only first, before we go on and umount
+                        /* We always try to remount directories read-only first, before we go on and umount
                          * them.
                          *
-                         * Mount points can be stacked. If a mount
-                         * point is stacked below / or /usr, we
-                         * cannot umount or remount it directly,
-                         * since there is no way to refer to the
-                         * underlying mount. There's nothing we can do
-                         * about it for the general case, but we can
-                         * do something about it if it is aliased
-                         * somewhere else via a bind mount. If we
-                         * explicitly remount the super block of that
-                         * alias read-only we hence should be
-                         * relatively safe regarding keeping a dirty fs
-                         * we cannot otherwise see.
+                         * Mount points can be stacked. If a mount point is stacked below / or /usr, we
+                         * cannot umount or remount it directly, since there is no way to refer to the
+                         * underlying mount. There's nothing we can do about it for the general case, but we
+                         * can do something about it if it is aliased somewhere else via a bind mount. If we
+                         * explicitly remount the super block of that alias read-only we hence should be
+                         * relatively safe regarding keeping a dirty fs we cannot otherwise see.
                          *
-                         * Since the remount can hang in the instance of
-                         * remote filesystems, we remount asynchronously
-                         * and skip the subsequent umount if it fails. */
+                         * Since the remount can hang in the instance of remote filesystems, we remount
+                         * asynchronously and skip the subsequent umount if it fails. */
                         if (remount_with_timeout(m, umount_log_level) < 0) {
                                 /* Remount failed, but try unmounting anyway,
                                  * unless this is a mount point we want to skip. */
@@ -501,9 +493,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
                         }
                 }
 
-                /* Skip / and /usr since we cannot unmount that
-                 * anyway, since we are running from it. They have
-                 * already been remounted ro. */
+                /* Skip / and /usr since we cannot unmount that anyway, since we are running from it. They
+                 * have already been remounted ro. */
                 if (nonunmountable_path(m->path))
                         continue;
 
