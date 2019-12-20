@@ -629,7 +629,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
 
         r = sd_rtnl_message_neigh_get_family(message, &family);
         if (r < 0) {
-                log_link_warning(link, "rtnl: received neighbor message withot family, ignoring.");
+                log_link_warning(link, "rtnl: received neighbor message without family, ignoring.");
                 return 0;
         } else if (!IN_SET(family, AF_INET, AF_INET6)) {
                 log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", family);
