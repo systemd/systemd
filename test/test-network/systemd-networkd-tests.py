@@ -2632,6 +2632,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-vrf.netdev',
         '25-vrf.network',
         'dhcp-client-anonymize.network',
+        'dhcp-client-decline.network',
         'dhcp-client-gateway-onlink-implicit.network',
         'dhcp-client-ipv4-dhcp-settings.network',
         'dhcp-client-ipv4-only-ipv6-disabled.network',
@@ -2656,6 +2657,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network',
         'dhcp-client-with-static-address.network',
         'dhcp-client.network',
+        'dhcp-server-decline.network',
         'dhcp-server-veth-peer.network',
         'dhcp-v4-server-veth-peer.network',
         'dhcp-client-use-domains.network',
@@ -3327,6 +3329,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output(*resolvectl_cmd, 'domain', 'veth99', env=env)
         print(output)
         self.assertRegex(output, 'example.com')
+
+    def test_dhcp_client_decline(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-decline.network', 'dhcp-client-decline.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        rc = call(*wait_online_cmd, '--timeout=10s', '--interface=veth99:routable', env=env)
+        self.assertTrue(rc == 1)
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
     links = ['veth99']
