@@ -881,8 +881,17 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                         return r;
         }
 
-        if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
-                r = mkdir_label("/run/systemd/units", 0755);
+        if (test_run_flags == 0) {
+                if (MANAGER_IS_SYSTEM(m))
+                        r = mkdir_label("/run/systemd/units", 0755);
+                else {
+                        _cleanup_free_ char *units_path = NULL;
+                        r = xdg_user_runtime_dir(&units_path, "/systemd/units");
+                        if (r < 0)
+                                return r;
+                        r = mkdir_p_label(units_path, 0755);
+                }
+
                 if (r < 0 && r != -EEXIST)
                         return r;
         }

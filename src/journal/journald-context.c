@@ -325,19 +325,29 @@ static int client_context_read_invocation_id(
                 Server *s,
                 ClientContext *c) {
 
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(s);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit. PID 1 stores it in a per-unit symlink in /run/systemd/units/ */
+        /* Read the invocation ID of a unit off a unit.
+         * PID 1 stores it in a per-unit symlink in /run/systemd/units/
+         * User managers store it in a per-unit symlink under /run/user/<uid>/systemd/units/ */
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/invocation:", c->unit);
+        if (c->user_unit) {
+                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
+                if (r < 0)
+                        return r;
+        } else {
+                p = strjoin("/run/systemd/units/invocation:", c->unit);
+                if (!p)
+                        return -ENOMEM;
+        }
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;

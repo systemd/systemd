@@ -92,6 +92,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>INVOCATION_ID=</varname></term>
+        <term><varname>USER_INVOCATION_ID=</varname></term>
+        <listitem>
+          <para>A randomized, unique 128-bit ID identifying each runtime cycle of the unit. This is different from
+          <varname>_SYSTEMD_INVOCATION_ID</varname> in that it is only used for messages coming from systemd code
+          (e.g. logs from the system/user manager or from forked processes performing systemd-related setup).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SYSLOG_FACILITY=</varname></term>
         <term><varname>SYSLOG_IDENTIFIER=</varname></term>
         <term><varname>SYSLOG_PID=</varname></term>
