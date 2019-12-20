@@ -340,7 +340,30 @@ static int delete_loopback(const char *device) {
                 if (errno == ENXIO) /* Nothing bound, didn't do anything */
                         return 0;
 
-                return -errno;
+                if (errno != EBUSY)
+                        return log_debug_errno(errno, "Failed to clear loopback device %s: %m", device);
+
+                if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                        if (errno == ENXIO) /* What? Suddenly detached after all? That's fine by us then. */
+                                return 1;
+
+                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device);
+                        return -EBUSY; /* propagate original error */
+                }
+
+                if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR)) /* someone else already set LO_FLAGS_AUTOCLEAR for us? fine by us */
+                        return -EBUSY; /* propagate original error */
+
+                info.lo_flags |= LO_FLAGS_AUTOCLEAR;
+                if (ioctl(fd, LOOP_SET_STATUS64, &info) < 0) {
+                        if (errno == ENXIO) /* Suddenly detached after all? Fine by us */
+                                return 1;
+
+                        log_debug_errno(errno, "Failed to set LO_FLAGS_AUTOCLEAR flag for loop device %s, ignoring: %m", device);
+                } else
+                        log_debug("Successfully set LO_FLAGS_AUTOCLEAR flag for loop device %s.", device);
+
+                return -EBUSY;
         }
 
         if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
