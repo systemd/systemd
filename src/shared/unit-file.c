@@ -31,6 +31,24 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
+int unit_symlink_name_compatible(const char *symlink, const char *target) {
+        _cleanup_free_ char *template = NULL;
+        int r;
+
+        /* The straightforward case: the symlink name matches the target */
+        if (streq(symlink, target))
+                return 1;
+
+        r = unit_name_template(symlink, &template);
+        if (r == -EINVAL)
+                return 0; /* Not a template */
+        if (r < 0)
+                return r;
+
+        /* An instance name points to a target that is just the template name */
+        return streq(template, target);
+}
+
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target) {
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
