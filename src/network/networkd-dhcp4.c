@@ -48,6 +48,15 @@ void dhcp4_release_old_lease(Link *link) {
         link_dirty(link);
 }
 
+static void dhcp4_check_ready(Link *link) {
+        if (link->dhcp4_messages == 0) {
+                link->dhcp4_configured = true;
+                /* New address and routes are configured now. Let's release old lease. */
+                dhcp4_release_old_lease(link);
+                link_check_ready(link);
+        }
+}
+
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -89,10 +98,8 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
                         return 1;
                 }
-                link->dhcp4_configured = true;
-                /* New address and routes are configured now. Let's release old lease. */
-                dhcp4_release_old_lease(link);
-                link_check_ready(link);
+                if (!link->network->dhcp_send_decline)
+                        dhcp4_check_ready(link);
         }
 
         return 1;
@@ -677,7 +684,7 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                         (void) in_addr_to_string(AF_INET, &address, &pretty);
                         log_link_debug(link, "Successfully claimed DHCP4 address %s", strna(pretty));
                 }
-                link_check_ready(link);
+                dhcp4_check_ready(link);
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
@@ -756,14 +763,6 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 return 1;
         }
 
-        if (link->dhcp4_messages == 0) {
-                link->dhcp4_configured = true;
-                /* The new address is configured, and no route is requested.
-                 * Let's drop the old lease. */
-                dhcp4_release_old_lease(link);
-                link_check_ready(link);
-        }
-
         if (link->network->dhcp_send_decline) {
                 union in_addr_union addr;
 
@@ -787,7 +786,8 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 r = sd_ipv4acd_start(link->network->dhcp_acd, true);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
-        }
+        } else
+                dhcp4_check_ready(link);
 
         return 1;
 }
