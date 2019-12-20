@@ -619,6 +619,9 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_request_options);
         free(network->mac);
 
+        if (network->dhcp_acd)
+                sd_ipv4acd_unref(network->dhcp_acd);
+
         strv_free(network->ntp);
         free(network->dns);
         strv_free(network->sip);

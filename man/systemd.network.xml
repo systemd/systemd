@@ -1634,6 +1634,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SendDecline=</varname></term>
+          <listitem>
+            <para>A boolen. When <literal>true</literal>, DHCPv4 clients receives IP address from DHCP server.
+            After new IP is received, DHCPv4 performs IPv4 Duplicate Address Detection. If duplicate use of IP is detected
+            the DHCPv4 client rejects the IP by sending a DHCPDECLINE packet DHCP clients try to obtain an IP address again.
+            See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.
+            Defaults to <literal>unset</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
         <term><varname>BlackList=</varname></term>
         <listitem>
           <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>

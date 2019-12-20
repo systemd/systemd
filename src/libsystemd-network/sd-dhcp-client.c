@@ -643,7 +643,7 @@ static int client_message_init(
         assert(ret);
         assert(_optlen);
         assert(_optoffset);
-        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST, DHCP_RELEASE));
+        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST, DHCP_RELEASE, DHCP_DECLINE));
 
         optlen = DHCP_MIN_OPTIONS_SIZE;
         size = sizeof(DHCPPacket) + optlen;
@@ -1962,6 +1962,48 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "RELEASE");
+
+        return 0;
+}
+
+int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(client->state != DHCP_STATE_STOPPED, -ESTALE);
+        assert_return(client->lease, -EUNATCH);
+
+        _cleanup_free_ DHCPPacket *release = NULL;
+        size_t optoffset, optlen;
+        int r;
+
+        r = client_message_init(client, &release, DHCP_DECLINE, &optlen, &optoffset);
+        if (r < 0)
+                return r;
+
+        release->dhcp.ciaddr = client->lease->address;
+        memcpy(&release->dhcp.chaddr, &client->mac_addr, client->mac_addr_len);
+
+        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
+                               SD_DHCP_OPTION_END, 0, NULL);
+        if (r < 0)
+                return r;
+
+        r = dhcp_network_send_udp_socket(client->fd,
+                                         client->lease->server_address,
+                                         DHCP_PORT_SERVER,
+                                         &release->dhcp,
+                                         sizeof(DHCPMessage) + optoffset);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "DECLINE");
+
+        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+
+        if (client->state != DHCP_STATE_STOPPED) {
+                r = sd_dhcp_client_start(client);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

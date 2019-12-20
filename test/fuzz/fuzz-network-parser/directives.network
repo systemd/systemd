@@ -98,6 +98,7 @@ SendRelease=
 MaxAttempts=
 IPServiceType=
 SendOption=
+SendDecline=
 [DHCPv6]
 UseNTP=
 UseDNS=

@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-ipv4acd.h"
 
 #include "bridge.h"
 #include "condition.h"
@@ -111,7 +112,9 @@ struct Network {
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         bool dhcp_send_release;
+        bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
+        sd_ipv4acd *dhcp_acd;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_client_send_options;
