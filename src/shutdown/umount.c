@@ -325,7 +325,6 @@ static int dm_list_get(MountPoint **head) {
 
 static int delete_loopback(const char *device) {
         _cleanup_close_ int fd = -1;
-        int r;
 
         assert(device);
 
@@ -333,8 +332,7 @@ static int delete_loopback(const char *device) {
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = ioctl(fd, LOOP_CLR_FD, 0);
-        if (r >= 0)
+        if (ioctl(fd, LOOP_CLR_FD, 0) >= 0)
                 return 1;
 
         /* ENXIO: not bound, so no error */
