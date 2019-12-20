@@ -184,6 +184,7 @@ int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
+int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);

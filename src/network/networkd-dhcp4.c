@@ -48,6 +48,15 @@ void dhcp4_release_old_lease(Link *link) {
         link_dirty(link);
 }
 
+static void dhcp4_check_ready(Link *link) {
+        if (link->dhcp4_messages == 0) {
+                link->dhcp4_configured = true;
+                /* New address and routes are configured now. Let's release old lease. */
+                dhcp4_release_old_lease(link);
+                link_check_ready(link);
+        }
+}
+
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -89,10 +98,8 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
                         return 1;
                 }
-                link->dhcp4_configured = true;
-                /* New address and routes are configured now. Let's release old lease. */
-                dhcp4_release_old_lease(link);
-                link_check_ready(link);
+                if (!link->network->dhcp_send_decline)
+                        dhcp4_check_ready(link);
         }
 
         return 1;
@@ -655,6 +662,78 @@ static int dhcp_lease_lost(Link *link) {
         return 0;
 }
 
+static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
+        _cleanup_free_ char *pretty = NULL;
+        union in_addr_union address = {};
+        Link *link;
+        int r;
+
+        assert(acd);
+        assert(userdata);
+
+        link = userdata;
+
+        switch (event) {
+        case SD_IPV4ACD_EVENT_STOP:
+                log_link_debug(link, "Stopping ACD client for DHCP4...");
+                return;
+
+        case SD_IPV4ACD_EVENT_BIND:
+                if (DEBUG_LOGGING) {
+                        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
+                        (void) in_addr_to_string(AF_INET, &address, &pretty);
+                        log_link_debug(link, "Successfully claimed DHCP4 address %s", strna(pretty));
+                }
+                dhcp4_check_ready(link);
+                break;
+
+        case SD_IPV4ACD_EVENT_CONFLICT:
+                (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
+                (void) in_addr_to_string(AF_INET, &address, &pretty);
+                log_link_warning(link, "DAD conflict. Dropping DHCP4 address %s", strna(pretty));
+
+                (void) sd_dhcp_client_send_decline(link->dhcp_client);
+
+                if (link->dhcp_lease) {
+                        r = dhcp_lease_lost(link);
+                        if (r < 0)
+                                link_enter_failed(link);
+                }
+                break;
+
+        default:
+                assert_not_reached("Invalid IPv4ACD event.");
+        }
+
+        sd_ipv4acd_stop(acd);
+
+        return;
+}
+
+static int configure_dhcpv4_duplicate_address_detection(Link *link) {
+        int r;
+
+        assert(link);
+
+        r = sd_ipv4acd_new(&link->network->dhcp_acd);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_attach_event(link->network->dhcp_acd, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_ifindex(link->network->dhcp_acd, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_mac(link->network->dhcp_acd, &link->mac);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -684,13 +763,31 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                 return 1;
         }
 
-        if (link->dhcp4_messages == 0) {
-                link->dhcp4_configured = true;
-                /* The new address is configured, and no route is requested.
-                 * Let's drop the old lease. */
-                dhcp4_release_old_lease(link);
-                link_check_ready(link);
-        }
+        if (link->network->dhcp_send_decline) {
+                union in_addr_union addr;
+
+                (void) sd_dhcp_lease_get_address(link->dhcp_lease, &addr.in);
+
+                r = sd_ipv4acd_set_address(link->network->dhcp_acd, &addr.in);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4acd_set_callback(link->network->dhcp_acd, dhcp_address_on_acd, link);
+                if (r < 0)
+                        return r;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *pretty = NULL;
+
+                        (void) in_addr_to_string(AF_INET, &addr, &pretty);
+                        log_debug("Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
+                }
+
+                r = sd_ipv4acd_start(link->network->dhcp_acd, true);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
+        } else
+                dhcp4_check_ready(link);
 
         return 1;
 }
@@ -1033,6 +1130,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                 return r;
                         if (r != 0)
                                 return -ENOMSG;
+
                         break;
                 default:
                         if (event < 0)
@@ -1334,7 +1432,14 @@ int dhcp4_configure(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set ip service type: %m");
         }
-       return dhcp4_set_client_identifier(link);
+
+        if (link->network->dhcp_send_decline) {
+                r = configure_dhcpv4_duplicate_address_detection(link);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to configure service type: %m");
+        }
+
+        return dhcp4_set_client_identifier(link);
 }
 
 int config_parse_dhcp_max_attempts(
