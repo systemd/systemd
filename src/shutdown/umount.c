@@ -247,7 +247,7 @@ static int loopback_list_get(MountPoint **head) {
 
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
-                const char *dn;
+                const char *dn, *syspath, *bf;
                 MountPoint *lb;
 
                 if (sd_device_get_devname(d, &dn) < 0)
@@ -257,12 +257,18 @@ static int loopback_list_get(MountPoint **head) {
                 if (!p)
                         return -ENOMEM;
 
+                if (sd_device_get_syspath(d, &syspath) < 0)
+                        continue;
+
+                bf = prefix_roota(syspath, "loop/backing_file");
+
                 lb = new(MountPoint, 1);
                 if (!lb)
                         return -ENOMEM;
 
                 *lb = (MountPoint) {
                         .path = TAKE_PTR(p),
+                        .loop_backing_file = bf,
                 };
 
                 LIST_PREPEND(mount_point, *head, lb);
@@ -323,8 +329,10 @@ static int dm_list_get(MountPoint **head) {
         return 0;
 }
 
-static int delete_loopback(const char *device) {
+static int delete_loopback(const MountPoint *m) {
+        const char *device = m->path;
         _cleanup_close_ int fd = -1;
+        struct stat statbuf;
         int r;
 
         assert(device);
@@ -334,8 +342,16 @@ static int delete_loopback(const char *device) {
                 return errno == ENOENT ? 0 : -errno;
 
         r = ioctl(fd, LOOP_CLR_FD, 0);
-        if (r >= 0)
-                return 1;
+        if (r >= 0) {
+                /* Iocl succeeded - horay! but wait, if you look into loop_clr_fd implementation, if refcount
+                 * is >1 instead of clearing the backing file it simply sets autoclear flag, and exits 0 thus
+                 * check if the loopback fd file is actually gone befode declaring that something has changed
+                 */
+                if (lstat(m->loop_backing_file, &statbuf) < 0)
+                        return 1;
+                else
+                        return 0;
+        }
 
         /* ENXIO: not bound, so no error */
         if (errno == ENXIO)
@@ -561,7 +577,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
                 }
 
                 log_info("Detaching loopback %s.", m->path);
-                r = delete_loopback(m->path);
+                r = delete_loopback(m);
                 if (r >= 0) {
                         if (r > 0)
                                 *changed = true;

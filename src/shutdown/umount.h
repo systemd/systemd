@@ -22,6 +22,7 @@ typedef struct MountPoint {
         unsigned long remount_flags;
         bool try_remount_ro;
         dev_t devnum;
+        const char *loop_backing_file;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
 
