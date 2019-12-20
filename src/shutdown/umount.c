@@ -328,6 +328,7 @@ static int dm_list_get(MountPoint **head) {
 
 static int delete_loopback(const char *device) {
         _cleanup_close_ int fd = -1;
+        struct loop_info64 info;
 
         assert(device);
 
@@ -335,14 +336,31 @@ static int delete_loopback(const char *device) {
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
-        if (ioctl(fd, LOOP_CLR_FD, 0) >= 0)
+        if (ioctl(fd, LOOP_CLR_FD, 0) < 0) {
+                if (errno == ENXIO) /* Nothing bound, didn't do anything */
+                        return 0;
+
+                return -errno;
+        }
+
+        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                /* If the LOOP_CLR_FD above succeeded we'll see ENXIO here. */
+                if (errno == ENXIO)
+                        log_debug("Successfully detached loopback device %s.", device);
+                else
+                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device); /* the LOOP_CLR_FD at least worked, let's hope for the best */
+
                 return 1;
+        }
 
-        /* ENXIO: not bound, so no error */
-        if (errno == ENXIO)
-                return 0;
+        /* Linux makes LOOP_CLR_FD succeed whenever LO_FLAGS_AUTOCLEAR is set without actually doing
+         * anything. Very confusing. Let's hence not claim we did anything in this case. */
+        if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
+                log_debug("Successfully called LOOP_CLR_FD on a loopback device %s with autoclear set, which is a NOP.", device);
+        else
+                log_debug("Weird, LOOP_CLR_FD succeeded but the device is still attached on %s.", device);
 
-        return -errno;
+        return -EBUSY; /* Nothing changed, the device is still attached, hence it apparently is still busy */
 }
 
 static int delete_dm(dev_t devnum) {
