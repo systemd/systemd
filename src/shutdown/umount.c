@@ -249,8 +249,10 @@ static int loopback_list_get(MountPoint **head) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
                 MountPoint *lb;
+                dev_t devnum;
 
-                if (sd_device_get_devname(d, &dn) < 0)
+                if (sd_device_get_devnum(d, &devnum) < 0 ||
+                    sd_device_get_devname(d, &dn) < 0)
                         continue;
 
                 p = strdup(dn);
@@ -263,6 +265,7 @@ static int loopback_list_get(MountPoint **head) {
 
                 *lb = (MountPoint) {
                         .path = TAKE_PTR(p),
+                        .devnum = devnum,
                 };
 
                 LIST_PREPEND(mount_point, *head, lb);
@@ -530,22 +533,16 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 
 static int loopback_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
-        int n_failed = 0, k;
-        struct stat root_st;
+        int n_failed = 0, r;
+        dev_t rootdev = 0;
 
         assert(head);
         assert(changed);
 
-        k = lstat("/", &root_st);
+        (void) get_block_device("/", &rootdev);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                int r;
-                struct stat loopback_st;
-
-                if (k >= 0 &&
-                    major(root_st.st_dev) != 0 &&
-                    lstat(m->path, &loopback_st) >= 0 &&
-                    root_st.st_dev == loopback_st.st_rdev) {
+                if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed++;
                         continue;
                 }
@@ -569,17 +566,14 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
 static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
         int n_failed = 0, r;
-        dev_t rootdev;
+        dev_t rootdev = 0;
 
         assert(head);
         assert(changed);
 
-        r = get_block_device("/", &rootdev);
-        if (r <= 0)
-                rootdev = 0;
+        (void) get_block_device("/", &rootdev);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;
