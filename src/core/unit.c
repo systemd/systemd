@@ -798,6 +798,7 @@ Unit* unit_free(Unit *u) {
         strv_free(u->documentation);
         free(u->fragment_path);
         free(u->source_path);
+        free(u->obstructed_path);
         strv_free(u->dropin_paths);
         free(u->instance);
 
@@ -5546,12 +5547,13 @@ bool unit_needs_console(Unit *u) {
 const char *unit_label_path(const Unit *u) {
         const char *p;
 
+        assert_cc(_UNIT_LOAD_STATE_MAX == 7);
         assert(u);
 
         /* Returns the file system path to use for MAC access decisions, i.e. the file to read the SELinux label off
          * when validating access checks. */
 
-        if (IN_SET(u->load_state, UNIT_MASKED, UNIT_NOT_FOUND, UNIT_MERGED))
+        if (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_MERGED))
                 return NULL; /* Shortcut things if we know there is no real, relevant unit file around */
 
         p = u->source_path ?: u->fragment_path;
@@ -5562,11 +5564,12 @@ const char *unit_label_path(const Unit *u) {
                 return p; /* Shortcut things, if we successfully loaded at least some stuff from the unit file */
 
         /* Not loaded yet, we need to go to disk */
-        assert(u->load_state == UNIT_STUB);
+        assert(IN_SET(u->load_state, UNIT_STUB, UNIT_MASKED));
 
-        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense */
+        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense.
+         * Instead try the obstructed path (which can be NULL) */
         if (null_or_empty_path(p) > 0)
-                return NULL;
+                return u->obstructed_path;
 
         return p;
 }
