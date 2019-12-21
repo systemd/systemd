@@ -92,6 +92,7 @@ const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
 
 typedef enum NLUnionTCAOptionData {
+        NL_UNION_TCA_OPTION_DATA_CODEL,
         NL_UNION_TCA_OPTION_DATA_FQ,
         NL_UNION_TCA_OPTION_DATA_FQ_CODEL,
         NL_UNION_TCA_OPTION_DATA_TBF,

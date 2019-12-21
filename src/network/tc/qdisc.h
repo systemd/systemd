@@ -8,6 +8,7 @@
 #include "networkd-util.h"
 
 typedef enum QDiscKind {
+        QDISC_KIND_CODEL,
         QDISC_KIND_FQ,
         QDISC_KIND_FQ_CODEL,
         QDISC_KIND_NETEM,
@@ -64,6 +65,7 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_tc_qdiscs_parent);
 
+#include "codel.h"
 #include "fq-codel.h"
 #include "fq.h"
 #include "netem.h"
