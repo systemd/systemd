@@ -249,8 +249,10 @@ static int loopback_list_get(MountPoint **head) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
                 MountPoint *lb;
+                dev_t devnum;
 
-                if (sd_device_get_devname(d, &dn) < 0)
+                if (sd_device_get_devnum(d, &devnum) < 0 ||
+                    sd_device_get_devname(d, &dn) < 0)
                         continue;
 
                 p = strdup(dn);
@@ -263,6 +265,7 @@ static int loopback_list_get(MountPoint **head) {
 
                 *lb = (MountPoint) {
                         .path = TAKE_PTR(p),
+                        .devnum = devnum,
                 };
 
                 LIST_PREPEND(mount_point, *head, lb);
@@ -325,7 +328,7 @@ static int dm_list_get(MountPoint **head) {
 
 static int delete_loopback(const char *device) {
         _cleanup_close_ int fd = -1;
-        int r;
+        struct loop_info64 info;
 
         assert(device);
 
@@ -333,15 +336,54 @@ static int delete_loopback(const char *device) {
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
-        r = ioctl(fd, LOOP_CLR_FD, 0);
-        if (r >= 0)
+        if (ioctl(fd, LOOP_CLR_FD, 0) < 0) {
+                if (errno == ENXIO) /* Nothing bound, didn't do anything */
+                        return 0;
+
+                if (errno != EBUSY)
+                        return log_debug_errno(errno, "Failed to clear loopback device %s: %m", device);
+
+                if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                        if (errno == ENXIO) /* What? Suddenly detached after all? That's fine by us then. */
+                                return 1;
+
+                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device);
+                        return -EBUSY; /* propagate original error */
+                }
+
+                if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR)) /* someone else already set LO_FLAGS_AUTOCLEAR for us? fine by us */
+                        return -EBUSY; /* propagate original error */
+
+                info.lo_flags |= LO_FLAGS_AUTOCLEAR;
+                if (ioctl(fd, LOOP_SET_STATUS64, &info) < 0) {
+                        if (errno == ENXIO) /* Suddenly detached after all? Fine by us */
+                                return 1;
+
+                        log_debug_errno(errno, "Failed to set LO_FLAGS_AUTOCLEAR flag for loop device %s, ignoring: %m", device);
+                } else
+                        log_debug("Successfully set LO_FLAGS_AUTOCLEAR flag for loop device %s.", device);
+
+                return -EBUSY;
+        }
+
+        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                /* If the LOOP_CLR_FD above succeeded we'll see ENXIO here. */
+                if (errno == ENXIO)
+                        log_debug("Successfully detached loopback device %s.", device);
+                else
+                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device); /* the LOOP_CLR_FD at least worked, let's hope for the best */
+
                 return 1;
+        }
 
-        /* ENXIO: not bound, so no error */
-        if (errno == ENXIO)
-                return 0;
+        /* Linux makes LOOP_CLR_FD succeed whenever LO_FLAGS_AUTOCLEAR is set without actually doing
+         * anything. Very confusing. Let's hence not claim we did anything in this case. */
+        if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
+                log_debug("Successfully called LOOP_CLR_FD on a loopback device %s with autoclear set, which is a NOP.", device);
+        else
+                log_debug("Weird, LOOP_CLR_FD succeeded but the device is still attached on %s.", device);
 
-        return -errno;
+        return -EBUSY; /* Nothing changed, the device is still attached, hence it apparently is still busy */
 }
 
 static int delete_dm(dev_t devnum) {
@@ -460,8 +502,8 @@ static int umount_with_timeout(MountPoint *m, int umount_log_level) {
         return r;
 }
 
-/* This includes remounting readonly, which changes the kernel mount options.
- * Therefore the list passed to this function is invalidated, and should not be reused. */
+/* This includes remounting readonly, which changes the kernel mount options.  Therefore the list passed to
+ * this function is invalidated, and should not be reused. */
 static int mount_points_list_umount(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m;
         int n_failed = 0;
@@ -471,26 +513,18 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
 
         LIST_FOREACH(mount_point, m, *head) {
                 if (m->try_remount_ro) {
-                        /* We always try to remount directories
-                         * read-only first, before we go on and umount
+                        /* We always try to remount directories read-only first, before we go on and umount
                          * them.
                          *
-                         * Mount points can be stacked. If a mount
-                         * point is stacked below / or /usr, we
-                         * cannot umount or remount it directly,
-                         * since there is no way to refer to the
-                         * underlying mount. There's nothing we can do
-                         * about it for the general case, but we can
-                         * do something about it if it is aliased
-                         * somewhere else via a bind mount. If we
-                         * explicitly remount the super block of that
-                         * alias read-only we hence should be
-                         * relatively safe regarding keeping a dirty fs
-                         * we cannot otherwise see.
+                         * Mount points can be stacked. If a mount point is stacked below / or /usr, we
+                         * cannot umount or remount it directly, since there is no way to refer to the
+                         * underlying mount. There's nothing we can do about it for the general case, but we
+                         * can do something about it if it is aliased somewhere else via a bind mount. If we
+                         * explicitly remount the super block of that alias read-only we hence should be
+                         * relatively safe regarding keeping a dirty fs we cannot otherwise see.
                          *
-                         * Since the remount can hang in the instance of
-                         * remote filesystems, we remount asynchronously
-                         * and skip the subsequent umount if it fails. */
+                         * Since the remount can hang in the instance of remote filesystems, we remount
+                         * asynchronously and skip the subsequent umount if it fails. */
                         if (remount_with_timeout(m, umount_log_level) < 0) {
                                 /* Remount failed, but try unmounting anyway,
                                  * unless this is a mount point we want to skip. */
@@ -501,9 +535,8 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, int umount
                         }
                 }
 
-                /* Skip / and /usr since we cannot unmount that
-                 * anyway, since we are running from it. They have
-                 * already been remounted ro. */
+                /* Skip / and /usr since we cannot unmount that anyway, since we are running from it. They
+                 * have already been remounted ro. */
                 if (nonunmountable_path(m->path))
                         continue;
 
@@ -526,13 +559,14 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
                 log_info("Deactivating swap %s.", m->path);
-                if (swapoff(m->path) == 0) {
-                        *changed = true;
-                        mount_point_free(head, m);
-                } else {
+                if (swapoff(m->path) < 0) {
                         log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
                         n_failed++;
+                        continue;
                 }
+
+                *changed = true;
+                mount_point_free(head, m);
         }
 
         return n_failed;
@@ -540,37 +574,31 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
 
 static int loopback_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
-        int n_failed = 0, k;
-        struct stat root_st;
+        int n_failed = 0, r;
+        dev_t rootdev = 0;
 
         assert(head);
         assert(changed);
 
-        k = lstat("/", &root_st);
+        (void) get_block_device("/", &rootdev);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-                int r;
-                struct stat loopback_st;
-
-                if (k >= 0 &&
-                    major(root_st.st_dev) != 0 &&
-                    lstat(m->path, &loopback_st) >= 0 &&
-                    root_st.st_dev == loopback_st.st_rdev) {
+                if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed++;
                         continue;
                 }
 
                 log_info("Detaching loopback %s.", m->path);
                 r = delete_loopback(m->path);
-                if (r >= 0) {
-                        if (r > 0)
-                                *changed = true;
-
-                        mount_point_free(head, m);
-                } else {
-                        log_full_errno(umount_log_level, errno, "Could not detach loopback %s: %m", m->path);
+                if (r < 0) {
+                        log_full_errno(umount_log_level, r, "Could not detach loopback %s: %m", m->path);
                         n_failed++;
+                        continue;
                 }
+                if (r > 0)
+                        *changed = true;
+
+                mount_point_free(head, m);
         }
 
         return n_failed;
@@ -579,39 +607,37 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, int umo
 static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
         int n_failed = 0, r;
-        dev_t rootdev;
+        dev_t rootdev = 0;
 
         assert(head);
         assert(changed);
 
-        r = get_block_device("/", &rootdev);
-        if (r <= 0)
-                rootdev = 0;
+        (void) get_block_device("/", &rootdev);
 
         LIST_FOREACH_SAFE(mount_point, m, n, *head) {
-
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;
                 }
 
-                log_info("Detaching DM %u:%u.", major(m->devnum), minor(m->devnum));
+                log_info("Detaching DM %s (%u:%u).", m->path, major(m->devnum), minor(m->devnum));
                 r = delete_dm(m->devnum);
-                if (r >= 0) {
-                        *changed = true;
-                        mount_point_free(head, m);
-                } else {
-                        log_full_errno(umount_log_level, errno, "Could not detach DM %s: %m", m->path);
+                if (r < 0) {
+                        log_full_errno(umount_log_level, r, "Could not detach DM %s: %m", m->path);
                         n_failed++;
+                        continue;
                 }
+
+                *changed = true;
+                mount_point_free(head, m);
         }
 
         return n_failed;
 }
 
 static int umount_all_once(bool *changed, int umount_log_level) {
-        int r;
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
+        int r;
 
         assert(changed);
 
