@@ -49,6 +49,7 @@ int unit_file_build_name_map(
                 const LookupPaths *lp,
                 uint64_t *cache_timestamp_hash,
                 Hashmap **unit_ids_map,
+                Hashmap **unit_obstructed_map,
                 Hashmap **unit_names_map,
                 Set **path_cache);
 
