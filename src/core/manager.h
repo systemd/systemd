@@ -231,6 +231,7 @@ struct Manager {
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
         Hashmap *unit_id_map;
+        Hashmap *unit_withdrawal_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;

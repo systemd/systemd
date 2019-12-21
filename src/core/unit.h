@@ -137,6 +137,7 @@ typedef struct Unit {
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
+        char *withdrawal_path; /* if masked, path to withdrawal unit file (if existent) */
         char **dropin_paths;
 
         usec_t fragment_not_found_timestamp_hash;
