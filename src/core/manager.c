@@ -726,6 +726,7 @@ static int manager_setup_prefix(Manager *m) {
 
 static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
+        m->unit_obstructed_map = hashmap_free(m->unit_obstructed_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
         m->unit_path_cache = set_free(m->unit_path_cache);
         m->unit_cache_timestamp_hash = 0;
