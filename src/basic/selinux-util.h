@@ -16,6 +16,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #endif
 
 bool mac_selinux_use(void);
+bool mac_selinux_overhaul_enabled(void);
 void mac_selinux_retest(void);
 bool mac_selinux_enforcing(void);
 

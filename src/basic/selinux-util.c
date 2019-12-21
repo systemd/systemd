@@ -38,6 +38,7 @@ static int cached_use = -1;
 static bool initialized = false;
 static int (*enforcing_status_func)(void) = security_getenforce;
 static int last_policyload = 0;
+static int cached_overhaul = -1;
 static struct selabel_handle *label_hnd = NULL;
 
 #define log_enforcing(...)                                              \
@@ -80,6 +81,23 @@ bool mac_selinux_enforcing(void) {
 void mac_selinux_retest(void) {
 #if HAVE_SELINUX
         cached_use = -1;
+        cached_overhaul = -1;
+#endif
+}
+
+bool mac_selinux_overhaul_enabled(void) {
+
+#if HAVE_SELINUX
+        if (_unlikely_(cached_overhaul < 0)) {
+                // check if the overhaul security classes are defined in the current policy
+                cached_overhaul = (string_to_security_class("systemd_instance") != 0 && string_to_security_class("systemd_unit") != 0);
+
+                log_debug("SELinux overhaul state cached to: %s", cached_overhaul ? "active" : "inactive");
+        }
+
+        return cached_overhaul != 0;
+#else
+        return false;
 #endif
 }
 
@@ -209,6 +227,8 @@ void mac_selinux_finish(void) {
 
         enforcing_status_func = security_getenforce;
 
+        cached_overhaul = -1;
+
         selinux_status_close();
 
         initialized = false;
@@ -220,6 +240,8 @@ static int mac_selinux_reload(int seqno) {
         log_debug("SELinux reload %d", seqno);
 
         (void) open_label_db();
+
+        cached_overhaul = -1;
 
         return 0;
 }
