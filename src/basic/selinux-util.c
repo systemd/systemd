@@ -37,6 +37,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
 
+static bool polcap_overhaul = false;
+
 #define log_enforcing(...) log_full(security_getenforce() == 1 ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
 #define log_enforcing_errno(r, ...) log_full_errno(security_getenforce() == 1 ? LOG_ERR : LOG_WARNING, r, __VA_ARGS__)
 #endif
@@ -58,6 +60,54 @@ void mac_selinux_retest(void) {
 #endif
 }
 
+
+bool mac_selinux_polcap_overhaul_enabled(void) {
+
+#if HAVE_SELINUX
+        return polcap_overhaul;
+#else
+        return false;
+#endif
+}
+
+
+#if HAVE_SELINUX
+/* TODO: replace with security_is_policy_capability_enabled() from libselinux > 3.0 in the future */
+#define MAC_SELINUX_POLCAP_NAME "systemd_overhaul"
+#include <unistd.h> // read(), close()
+static bool is_overhaul_policy_capability_enabled(void)
+{
+        int fd, enabled;
+        ssize_t ret;
+        char buf[20];
+
+        fd = open("/sys/fs/selinux/policy_capabilities/" MAC_SELINUX_POLCAP_NAME, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) {
+                if (errno == ENOENT)
+                        log_debug_errno(errno, "Failed to open SELinux policy capability '" MAC_SELINUX_POLCAP_NAME "': %m");
+                else
+                        log_enforcing_errno(errno, "Failed to open SELinux policy capability '" MAC_SELINUX_POLCAP_NAME "': %m");
+                return false;
+        }
+
+        memset(buf, 0, sizeof buf);
+        ret = read(fd, buf, sizeof buf - 1);
+        close(fd);
+        if (ret < 0) {
+                log_enforcing_errno(errno, "Failed to read SELinux policy capability '" MAC_SELINUX_POLCAP_NAME "': %m");
+                return false;
+        }
+
+        if (sscanf(buf, "%d", &enabled) != 1) {
+                log_enforcing_errno(errno, "Failed to parse SELinux policy capability '" MAC_SELINUX_POLCAP_NAME "': %m");
+                return false;
+        }
+
+        return !!enabled;
+}
+#undef MAC_SELINUX_POLCAP_NAME
+#endif
+
 int mac_selinux_init(void) {
         int r = 0;
 
@@ -70,6 +120,8 @@ int mac_selinux_init(void) {
 
         if (!mac_selinux_use())
                 return 0;
+
+        polcap_overhaul = is_overhaul_policy_capability_enabled();
 
         before_mallinfo = mallinfo();
         before_timestamp = now(CLOCK_MONOTONIC);
