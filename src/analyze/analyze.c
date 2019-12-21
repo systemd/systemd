@@ -1489,8 +1489,7 @@ static bool strv_fnmatch_strv_or_empty(char* const* patterns, char **strv, int f
 
 static int do_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
+        _cleanup_hashmap_free_ Hashmap *unit_ids = NULL, *unit_withdrawals = NULL, *unit_names = NULL;
         char **patterns = strv_skip(argv, 1);
         const char *k, *dst;
         char **v;
@@ -1500,7 +1499,7 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "lookup_paths_init() failed: %m");
 
-        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_names, NULL);
+        r = unit_file_build_name_map(&lp, NULL, &unit_ids, &unit_withdrawals, &unit_names, NULL);
         if (r < 0)
                 return log_error_errno(r, "unit_file_build_name_map() failed: %m");
 
@@ -1510,6 +1509,14 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
                         continue;
 
                 printf("ids: %s → %s\n", k, dst);
+        }
+
+        HASHMAP_FOREACH_KEY(dst, k, unit_withdrawals) {
+                if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
+                    !strv_fnmatch_or_empty(patterns, dst, FNM_NOESCAPE))
+                        continue;
+
+                printf("withdrawals: %s → %s\n", k, dst);
         }
 
         HASHMAP_FOREACH_KEY(v, k, unit_names) {
