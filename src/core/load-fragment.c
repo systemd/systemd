@@ -6070,6 +6070,7 @@ int unit_load_fragment(Unit *u) {
         r = unit_file_build_name_map(&u->manager->lookup_paths,
                                      &u->manager->unit_cache_timestamp_hash,
                                      &u->manager->unit_id_map,
+                                     &u->manager->unit_obstructed_map,
                                      &u->manager->unit_name_map,
                                      &u->manager->unit_path_cache);
         if (r < 0)
@@ -6105,8 +6106,17 @@ int unit_load_fragment(Unit *u) {
                 if (null_or_empty(&st)) {
                         /* Unit file is masked */
 
+                        const char *wpath;
+
                         u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
+
+                        wpath = hashmap_get(u->manager->unit_obstructed_map, u->id);
+                        if (wpath) {
+                                r = free_and_strdup(&u->obstructed_path, wpath);
+                                if (r < 0)
+                                        return r;
+                        }
                 } else {
                         u->load_state = UNIT_LOADED;
                         u->fragment_mtime = timespec_load(&st.st_mtim);
