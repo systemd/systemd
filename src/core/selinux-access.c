@@ -67,6 +67,12 @@ const struct compat_permission_verb mac_selinux_instance_permissions[_MAC_SELINU
         [MAC_SELINUX_INSTANCE_PRESETALLUNITFILES]       = { "preset_all_unit_files",    "enable" },
         [MAC_SELINUX_INSTANCE_RAWSET]                   = { "raw_set",                  "reload" },
         [MAC_SELINUX_INSTANCE_RAWSTATUS]                = { "raw_status",               "status" },
+        [MAC_SELINUX_INSTANCE_SETLOGTARGET]             = { "set_log_target",           "reload" },
+        [MAC_SELINUX_INSTANCE_SETLOGLEVEL]              = { "set_log_level",            "reload" },
+        [MAC_SELINUX_INSTANCE_GETUNITFILELINKS]         = { "get_unit_file_links",      "status" },
+        [MAC_SELINUX_INSTANCE_ADDDEPENDENCYUNITFILES]   = { "add_dependency_unit_files", "reload" },
+        [MAC_SELINUX_INSTANCE_GETDYNAMICUSERS]          = { "get_dynamic_users",        NULL },
+        [MAC_SELINUX_INSTANCE_SETWATCHDOG]              = { "set_watchdog",             "reload" },
 };
 
 const char *const mac_selinux_overhaul_unit_class = "systemd_unit";
@@ -91,6 +97,9 @@ const struct compat_permission_verb mac_selinux_unit_permissions[_MAC_SELINUX_UN
         [MAC_SELINUX_UNIT_RAWSET]                       = { "raw_set",                  "reload" },
         [MAC_SELINUX_UNIT_RAWSTATUS]                    = { "raw_status",               "status" },
         [MAC_SELINUX_UNIT_BINDMOUNT]                    = { "bind_mount",               "start" },
+        [MAC_SELINUX_UNIT_GETWAITING_JOBS]              = { "get_waiting_jobs",         "status" },
+        [MAC_SELINUX_UNIT_UNREF]                        = { "unref",                    "stop" },
+        [MAC_SELINUX_UNIT_LOADUNIT]                     = { "load_unit",                NULL },
 };
 
 /*

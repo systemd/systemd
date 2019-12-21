@@ -267,8 +267,14 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 else
                         manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
-        if (!u)
+
+        if (!u) {
+                r = mac_selinux_instance_access_check(message, verb_instance, error);
+                if (r < 0)
+                        return r;
+
                 return 0;
+        }
 
         r = mac_selinux_unit_access_check(u, message, verb_unit, error);
         if (r < 0)

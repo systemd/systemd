@@ -123,6 +123,10 @@ static int property_set_log_target(
         assert(bus);
         assert(value);
 
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETLOGTARGET, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read(value, "s", &t);
         if (r < 0)
                 return r;
@@ -157,6 +161,10 @@ static int property_set_log_level(
 
         assert(bus);
         assert(value);
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETLOGLEVEL, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(value, "s", &t);
         if (r < 0)
@@ -322,6 +330,12 @@ static int property_set_runtime_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
         return property_set_watchdog(userdata, WATCHDOG_RUNTIME, value);
 }
 
@@ -333,6 +347,12 @@ static int property_set_reboot_watchdog(
                 sd_bus_message *value,
                 void *userdata,
                 sd_bus_error *error) {
+
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
 
         return property_set_watchdog(userdata, WATCHDOG_REBOOT, value);
 }
@@ -352,7 +372,31 @@ static int property_set_kexec_watchdog(
         assert(bus);
         assert(value);
 
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
         return property_set_watchdog(userdata, WATCHDOG_KEXEC, value);
+}
+
+static int property_set_service_watchdogs(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+
+        r = mac_selinux_instance_access_check(value, MAC_SELINUX_INSTANCE_SETWATCHDOG, error);
+        if (r < 0)
+                return r;
+
+        return bus_property_set_bool(bus, path, interface, property, value, userdata, error);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -406,14 +450,11 @@ static int bus_load_unit_by_name(Manager *m, sd_bus_message *message, const char
 
 static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
-        int r;
 
         assert(u);
         assert(message);
 
-        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
-        if (r < 0)
-                return r;
+        /* No mac_selinux check: calling functions are performing one. */
 
         path = unit_dbus_path(u);
         if (!path)
@@ -438,6 +479,10 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
 
         r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
         if (r < 0)
                 return r;
 
@@ -478,6 +523,10 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
         u = manager_get_unit_by_pid(m, pid);
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
+
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
+        if (r < 0)
+                return r;
 
         return reply_unit_path(u, message, error);
 }
@@ -554,6 +603,10 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
         if (!u)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Control group '%s' is not valid or not managed by this instance", cgroup);
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETUNIT, error);
+        if (r < 0)
+                return r;
+
         return reply_unit_path(u, message, error);
 }
 
@@ -576,6 +629,10 @@ static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_LOADUNIT, error);
+        if (r < 0)
+                return r;
+
         return reply_unit_path(u, message, error);
 }
 
@@ -595,6 +652,7 @@ static int method_start_unit_generic(sd_bus_message *message, Manager *m, JobTyp
         if (r < 0)
                 return r;
 
+        /* bus_unit_method_start_generic() includes a mac_selinux check */
         return bus_unit_method_start_generic(message, u, job_type, reload_if_possible, error);
 }
 
@@ -781,6 +839,10 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_LISTUNITS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read_strv(message, &units);
         if (r < 0)
@@ -1340,11 +1402,11 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(m);
 
-        r = verify_run_space("Refusing to reload", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_RELOAD, error);
         if (r < 0)
                 return r;
 
-        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_RELOAD, error);
+        r = verify_run_space("Refusing to reload", error);
         if (r < 0)
                 return r;
 
@@ -1376,11 +1438,11 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         assert(message);
         assert(m);
 
-        r = verify_run_space("Refusing to reexecute", error);
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_REEXECUTE, error);
         if (r < 0)
                 return r;
 
-        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_REEXECUTE, error);
+        r = verify_run_space("Refusing to reexecute", error);
         if (r < 0)
                 return r;
 
@@ -1505,6 +1567,10 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         assert(message);
         assert(m);
 
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SWITCHROOT, error);
+        if (r < 0)
+                return r;
+
         if (statvfs("/run/systemd", &svfs) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
 
@@ -1517,10 +1583,6 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                             format_bytes(fb_available, sizeof(fb_available), available),
                             format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
         }
-
-        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_SWITCHROOT, error);
-        if (r < 0)
-                return r;
 
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Root switching is only supported by system manager.");
@@ -1713,6 +1775,10 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
         assert(message);
         assert(m);
 
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read_basic(message, 's', &name);
         if (r < 0)
                 return r;
@@ -1741,6 +1807,11 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         assert(m);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
+
         r = sd_bus_message_read_basic(message, 'u', &uid);
         if (r < 0)
                 return r;
@@ -1767,6 +1838,10 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
 
         assert(message);
         assert(m);
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETDYNAMICUSERS, error);
+        if (r < 0)
+                return r;
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
@@ -2375,6 +2450,10 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         assert(message);
         assert(m);
 
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_ADDDEPENDENCYUNITFILES, error);
+        if (r < 0)
+                return r;
+
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
                 return r;
@@ -2410,6 +2489,10 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         const char *name;
         char **p;
         int runtime, r;
+
+        r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETUNITFILELINKS, error);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_read(message, "sb", &name, &runtime);
         if (r < 0)
@@ -2557,7 +2640,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         /* The following item is an obsolete alias */
         SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, SD_BUS_VTABLE_HIDDEN),
         SD_BUS_WRITABLE_PROPERTY("KExecWatchdogUSec", "t", property_get_kexec_watchdog, property_set_kexec_watchdog, 0, 0),
-        SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, service_watchdogs), 0),
+        SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, property_set_service_watchdogs, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
         SD_BUS_PROPERTY("ExitCode", "y", bus_property_get_unsigned, offsetof(Manager, return_value), 0),
