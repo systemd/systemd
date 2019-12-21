@@ -65,7 +65,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 /* We don't treat this as an error, especially because we didn't check this for a
                  * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
-                r = unit_symlink_name_compatible(entry, basename(target));
+                r = unit_symlink_name_compatible(entry, basename(target), u->instance);
                 if (r < 0) {
                         log_unit_warning_errno(u, r, "Can't check if names %s and %s are compatible, ignoring: %m",
                                                entry, basename(target));

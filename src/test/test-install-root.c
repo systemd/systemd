@@ -1091,6 +1091,8 @@ static void test_verify_alias(void) {
         verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.requires/service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
+        verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, NULL); /* invalid unit name component */
 
         verify_one(&bare_template, "alias.service", -EXDEV, NULL);
         verify_one(&bare_template, "alias.socket", -EXDEV, NULL);
@@ -1114,6 +1116,12 @@ static void test_verify_alias(void) {
         verify_one(&bare_template, "foo.target.requires/template1@inst.service", 0, NULL);
         verify_one(&bare_template, "foo.target.requires/service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@.target.requires/template1@.service", 0, NULL); /* instance propagated */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@inst.service", 0, NULL); /* instance provided */
 
         verify_one(&di_template, "alias.service", -EXDEV, NULL);
         verify_one(&di_template, "alias.socket", -EXDEV, NULL);
@@ -1133,6 +1141,7 @@ static void test_verify_alias(void) {
         verify_one(&di_template, "foo.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&di_template, "foo.target.requires/plain@di.service", -EXDEV, NULL);
         verify_one(&di_template, "foo.target.requires/plain@foo.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/template2@.service", -EXDEV, NULL); /* instance missing */
         verify_one(&di_template, "foo.target.requires/template2@di.service", 0, NULL);
         verify_one(&di_template, "foo.target.requires/service", -EXDEV, NULL);
         verify_one(&di_template, "foo.target.conf/plain.service", -EXDEV, NULL);
@@ -1161,6 +1170,13 @@ static void test_verify_alias(void) {
         verify_one(&inst_template, "bar.target.requires/template3@inst.service", 0, NULL);
         verify_one(&inst_template, "bar.target.requires/service", -EXDEV, NULL);
         verify_one(&inst_template, "bar.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@inst.service", 0, NULL); /* instance provided */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@ins2.service", -EXDEV, NULL); /* instance mismatch */
 
         /* explicit alias overrides DefaultInstance */
         verify_one(&di_inst_template, "alias.service", -EXDEV, NULL);

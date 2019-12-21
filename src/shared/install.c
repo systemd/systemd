@@ -1724,6 +1724,7 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
         if (path_alias) {
                 /* This branch covers legacy Alias= function of creating .wants and .requires symlinks. */
                 _cleanup_free_ char *dir = NULL;
+                char *p;
 
                 path_alias ++; /* skip over slash */
 
@@ -1731,12 +1732,23 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
                 if (!dir)
                         return log_oom();
 
-                if (!endswith(dir, ".wants") && !endswith(dir, ".requires"))
+                p = endswith(dir, ".wants");
+                if (!p)
+                        p = endswith(dir, ".requires");
+                if (!p)
                         return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
                                                  "Invalid path \"%s\" in alias.", dir);
+                *p = '\0'; /* dir should now be a unit name */
+
+                r = unit_name_classify(dir);
+                if (r < 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EXDEV),
+                                                 "Invalid unit name component \"%s\" in alias.", dir);
+
+                const bool instance_propagation = r == UNIT_NAME_TEMPLATE;
 
                 /* That's the name we want to use for verification. */
-                r = unit_symlink_name_compatible(path_alias, i->name);
+                r = unit_symlink_name_compatible(path_alias, i->name, instance_propagation);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify alias validity: %m");
                 if (r == 0)
