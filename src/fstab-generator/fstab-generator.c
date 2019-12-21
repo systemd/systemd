@@ -40,6 +40,7 @@ typedef enum MountpointFlags {
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;
 static bool arg_fstab_enabled = true;
+static bool arg_swap_enabled = true;
 static char *arg_root_what = NULL;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
@@ -97,6 +98,11 @@ static int add_swap(
 
         assert(what);
         assert(me);
+
+        if (!arg_swap_enabled) {
+                log_info("Swap unit generation disabled on kernel command line, ignoring fstab swap entry for %s.", what);
+                return 0;
+        }
 
         if (access("/proc/swaps", F_OK) < 0) {
                 log_info("Swap not supported, ignoring fstab swap entry for %s.", what);
@@ -896,6 +902,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                                 arg_volatile_mode = m;
                 } else
                         arg_volatile_mode = VOLATILE_YES;
+
+        } else if (streq(key, "systemd.swap")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning("Failed to parse systemd.swap switch %s. Ignoring.", value);
+                else
+                        arg_swap_enabled = r;
         }
 
         return 0;
