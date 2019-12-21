@@ -651,6 +651,10 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         assert(message);
         assert(u);
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_UNREF, error);
+        if (r < 0)
+                return r;
+
         r = bus_unit_track_remove_sender(u, message);
         if (r == -EUNATCH)
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_REFERENCED, "Unit has not been referenced yet.");
