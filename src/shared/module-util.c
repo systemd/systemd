@@ -53,7 +53,13 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
                                          "Module '%s' is blacklisted", kmod_module_get_name(mod));
                         else {
-                                assert(err < 0);
+                                /* In addition to above, err can be either negative errno, or (due to bug in
+                                 * libkmod) exit code from install command */
+                                assert(err < 127);
+
+                                /* convert any accidental exit code to errno style */
+                                if (err > 0)
+                                        err = -EINVAL;
 
                                 log_full_errno(!verbose ? LOG_DEBUG :
                                                err == -ENODEV ? LOG_NOTICE :
