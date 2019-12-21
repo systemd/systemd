@@ -73,6 +73,10 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         Job *j = userdata;
         int r, n;
 
+        r = mac_selinux_unit_access_check(j->unit, message, MAC_SELINUX_UNIT_GETWAITING_JOBS, error);
+        if (r < 0)
+                return r;
+
         if (strstr(sd_bus_message_get_member(message), "After"))
                 n = job_get_after(j, &list);
         else
