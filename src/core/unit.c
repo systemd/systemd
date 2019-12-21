@@ -785,6 +785,7 @@ Unit* unit_free(Unit *u) {
         strv_free(u->documentation);
         free(u->fragment_path);
         free(u->source_path);
+        free(u->withdrawal_path);
         strv_free(u->dropin_paths);
         free(u->instance);
 
@@ -5541,9 +5542,10 @@ const char *unit_label_path(const Unit *u) {
         /* Not loaded yet, we need to go to disk */
         assert(u->load_state == UNIT_STUB);
 
-        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense */
+        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense.
+         * Instead try withdrawal path (which can be NULL) */
         if (null_or_empty_path(p) > 0)
-                return NULL;
+                return u->withdrawal_path;
 
         return p;
 }
