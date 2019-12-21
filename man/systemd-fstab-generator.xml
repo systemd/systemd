@@ -198,6 +198,15 @@
         automatically populate <filename>/etc</filename>, and also <filename>/var</filename> in case of
         <literal>systemd.volatile=yes</literal>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.swap</varname></term>
+
+        <listitem><para>Takes a boolean argument or enables the option if specified
+        without an argument. If disabled, causes the generator to ignore
+        any swap devices configured in <filename>/etc/fstab</filename>.
+        Defaults to enabled.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
