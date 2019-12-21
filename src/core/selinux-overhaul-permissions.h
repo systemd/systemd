@@ -30,6 +30,13 @@ const char *const mac_selinux_overhaul_pidone_permissions[] = {
         [MAC_SELINUX_PIDONE_PRESETALLUNITFILES] = "preset_all_unit_files",
         [MAC_SELINUX_PIDONE_RAWSET] = "raw_set",
         [MAC_SELINUX_PIDONE_RAWSTATUS] = "raw_status",
+        [MAC_SELINUX_PIDONE_SETLOGTARGET] = "set_log_target",
+        [MAC_SELINUX_PIDONE_SETLOGLEVEL] = "set_log_level",
+        [MAC_SELINUX_PIDONE_GETUNITFILELINKS] = "get_unit_file_links",
+        [MAC_SELINUX_PIDONE_ADDDEPENDENCYUNITFILES] = "add_dependency_unit_files",
+        [MAC_SELINUX_PIDONE_GETDYNAMICUSERS] = "get_dynamic_users",
+        [MAC_SELINUX_PIDONE_SETRUNTIMEWATCHDOG] = "set_runtime_watchdog",
+        [MAC_SELINUX_PIDONE_SETSERVICEWATCHDOGS] = "set_service_watchdogs",
 };
 assert_cc(sizeof mac_selinux_overhaul_pidone_permissions / sizeof *mac_selinux_overhaul_pidone_permissions == MAC_SELINUX_PIDONE_PERMISSION_MAX);
 
@@ -54,5 +61,8 @@ const char *const mac_selinux_overhaul_unit_permissions[] = {
         [MAC_SELINUX_UNIT_ATTACHPROCESSES] = "attach_processes",
         [MAC_SELINUX_UNIT_RAWSET] = "raw_set",
         [MAC_SELINUX_UNIT_RAWSTATUS] = "raw_status",
+        [MAC_SELINUX_UNIT_GETWAITING_JOBS] = "get_waiting_jobs",
+        [MAC_SELINUX_UNIT_UNREF] = "unref",
+        [MAC_SELINUX_UNIT_LOADUNIT] = "load_unit",
 };
 assert_cc(sizeof mac_selinux_overhaul_unit_permissions / sizeof *mac_selinux_overhaul_unit_permissions == MAC_SELINUX_UNIT_PERMISSION_MAX);
