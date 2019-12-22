@@ -5,7 +5,7 @@ if zshcompletiondir == ''
         zshcompletiondir = join_paths(datadir, 'zsh/site-functions')
 endif
 
-if zshcompletiondir != 'no'
+if zshcompletiondir != 'no' and populate_root
         zsh_systemctl = configure_file(
                 input : '_systemctl.in',
                 output : '_systemctl',

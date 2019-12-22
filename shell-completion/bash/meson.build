@@ -10,7 +10,7 @@ if bashcompletiondir == ''
         endif
 endif
 
-if bashcompletiondir != 'no'
+if bashcompletiondir != 'no' and populate_root
         bash_systemctl = configure_file(
                 input : 'systemctl.in',
                 output : 'systemctl',

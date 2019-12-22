@@ -857,6 +857,13 @@ endif
 
 
 #####################################################################
+if get_option('cross-tools-only') != true
+        populate_root_dep = declare_dependency()
+        populate_root = true
+else
+        populate_root_dep = disabler()
+        populate_root = false
+endif
 
 threads = dependency('threads')
 librt = cc.find_library('rt')
