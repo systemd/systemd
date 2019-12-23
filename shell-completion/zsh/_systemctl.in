@@ -29,6 +29,10 @@
         "help:Show documentation for specified units"
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
+        "clean:Remove configuration, state, cache, logs or runtime data of units"
+
+        # Machine Commands
+        "list-machines:List the host and all running local containers"
 
         # Unit File Commands
         "list-unit-files:List installed unit files"
@@ -56,10 +60,14 @@
         "show-environment:Dump environment"
         "set-environment:Set one or more environment variables"
         "unset-environment:Unset one or more environment variables"
+        "import-environment:Import environment variables set on the client"
 
         # Manager State Commands
         "daemon-reload:Reload systemd manager configuration"
         "daemon-reexec:Reexecute systemd manager"
+        "log-level:Get or set the log level"
+        "log-target:Get or set the log target"
+        "service-watchdogs:Get or set the state of software watchdogs"
 
         # System Commands
         "is-system-running:Query overall status of the system"
