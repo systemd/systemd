@@ -1051,13 +1051,10 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Make sure all bus slots watching names are released. */
         HASHMAP_FOREACH(u, m->watch_bus, i) {
-                if (!u->match_bus_slot)
-                        continue;
-
-                if (sd_bus_slot_get_bus(u->match_bus_slot) != *bus)
-                        continue;
-
-                u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                if (u->match_bus_slot && sd_bus_slot_get_bus(u->match_bus_slot) == *bus)
+                        u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                if (u->get_name_owner_slot && sd_bus_slot_get_bus(u->get_name_owner_slot) == *bus)
+                        u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
         }
 
         /* Get rid of tracked clients on this bus */

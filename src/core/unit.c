@@ -3238,12 +3238,13 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         const char *match;
+        int r;
 
         assert(u);
         assert(bus);
         assert(name);
 
-        if (u->match_bus_slot)
+        if (u->match_bus_slot || u->get_name_owner_slot)
                 return -EBUSY;
 
         match = strjoina("type='signal',"
@@ -3253,19 +3254,27 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        int r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
         if (r < 0)
                 return r;
 
-        return sd_bus_call_method_async(bus,
-                                        &u->get_name_owner_slot,
-                                        "org.freedesktop.DBus",
-                                        "/org/freedesktop/DBus",
-                                        "org.freedesktop.DBus",
-                                        "GetNameOwner",
-                                        get_name_owner_handler,
-                                        u,
-                                        "s", name);
+        r = sd_bus_call_method_async(
+                        bus,
+                        &u->get_name_owner_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetNameOwner",
+                        get_name_owner_handler,
+                        u,
+                        "s", name);
+        if (r < 0) {
+                u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                return r;
+        }
+
+        log_unit_debug(u, "Watching D-Bus name '%s'.", name);
+        return 0;
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
@@ -3288,6 +3297,7 @@ int unit_watch_bus_name(Unit *u, const char *name) {
         r = hashmap_put(u->manager->watch_bus, name, u);
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
                 return log_warning_errno(r, "Failed to put bus name to hashmap: %m");
         }
 
