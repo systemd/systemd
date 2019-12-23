@@ -39,6 +39,10 @@ for phase in "${PHASES[@]}"; do
                         -w /build --privileged=true --name $CONT_NAME \
                         -dit --net=host debian-with-systemd/latest /bin/systemd
             $DOCKER_EXEC bash -c "echo deb-src http://deb.debian.org/debian $DEBIAN_RELEASE main >>/etc/apt/sources.list"
+            # Wait for the container to properly boot up, otherwise we were
+            # running following apt-get commands during the initializing/starting
+            # (early/late bootup) phase, which caused nasty race conditions
+            $DOCKER_EXEC bash -c 'systemctl is-system-running --wait || :'
             $DOCKER_EXEC apt-get -y update
             $DOCKER_EXEC apt-get -y build-dep systemd
             $DOCKER_EXEC apt-get -y install "${ADDITIONAL_DEPS[@]}"
