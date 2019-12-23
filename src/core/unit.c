@@ -3185,24 +3185,21 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
 }
 
 static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *name, *old_owner, *new_owner;
+        const char *new_owner;
         Unit *u = userdata;
         int r;
 
         assert(message);
         assert(u);
 
-        r = sd_bus_message_read(message, "sss", &name, &old_owner, &new_owner);
+        r = sd_bus_message_read(message, "sss", NULL, NULL, &new_owner);
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;
         }
 
-        old_owner = empty_to_null(old_owner);
-        new_owner = empty_to_null(new_owner);
-
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, old_owner, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
 
         return 0;
 }
@@ -3223,15 +3220,17 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
                 if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
                         log_unit_error(u, "Unexpected error response from GetNameOwner(): %s", e->message);
 
-                return 0;
+                new_owner = NULL;
+        } else {
+                r = sd_bus_message_read(message, "s", &new_owner);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                assert(!isempty(new_owner));
         }
 
-        r = sd_bus_message_read(message, "s", &new_owner);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner);
 
         return 0;
 }

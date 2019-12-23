@@ -1373,7 +1373,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
-        sd_event_source_unref(m->sync_bus_names_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -1609,9 +1608,6 @@ static void manager_ready(Manager *m) {
         /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
-
-        /* Sync current state of bus names with our set of listening units */
-        (void) manager_enqueue_sync_bus_names(m);
 
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
