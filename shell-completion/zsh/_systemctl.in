@@ -5,6 +5,7 @@
 {
     local -a _systemctl_cmds
     _systemctl_cmds=(
+        # Unit Commands
         "list-sockets:List sockets"
         "list-timers:List timers"
         "list-units:List units"
@@ -16,9 +17,6 @@
         "try-restart:Restart one or more units if active"
         "reload-or-restart:Reload one or more units if possible, otherwise start or restart"
         "force-reload:Reload one or more units if possible, otherwise restart if active"
-        "hibernate:Hibernate the system"
-        "hybrid-sleep:Hibernate and suspend the system"
-        "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
         "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
         "isolate:Start one unit and stop all others"
         "kill:Send signal to processes of a unit"
@@ -27,32 +25,44 @@
         "status:Show runtime status of one or more units"
         "show:Show properties of one or more units/jobs or the manager"
         "cat:Show the source unit files and drop-ins"
+        "set-property:Sets one or more properties of a unit"
+        "help:Show documentation for specified units"
         "reset-failed:Reset failed state for all, one, or more units"
+        "list-dependencies:Show unit dependency tree"
+
+        # Unit File Commands
         "list-unit-files:List installed unit files"
         "enable:Enable one or more unit files"
         "disable:Disable one or more unit files"
-        "add-wants:Add Wants= dependencies to a unit"
-        "add-requires:Add Requires= dependencies to a unit"
         "reenable:Reenable one or more unit files"
         "preset:Enable/disable one or more unit files based on preset configuration"
         "preset-all:Enable/disable all unit files based on preset configuration"
-        "set-default:Set the default target"
-        "get-default:Query the default target"
-        "edit:Edit one or more unit files"
-        "is-system-running:Query overall status of the system"
-        "help:Show documentation for specified units"
-        "list-dependencies:Show unit dependency tree"
+        "is-enabled:Check whether unit files are enabled"
         "mask:Mask one or more units"
         "unmask:Unmask one or more units"
         "link:Link one or more units files into the search path"
-        "is-enabled:Check whether unit files are enabled"
+        "revert:Revert unit files to their vendor versions"
+        "add-wants:Add Wants= dependencies to a unit"
+        "add-requires:Add Requires= dependencies to a unit"
+        "set-default:Set the default target"
+        "get-default:Query the default target"
+        "edit:Edit one or more unit files"
+
+        # Job Commands
         "list-jobs:List jobs"
         "cancel:Cancel all, one, or more jobs"
+
+        # Environment Commands
         "show-environment:Dump environment"
         "set-environment:Set one or more environment variables"
         "unset-environment:Unset one or more environment variables"
+
+        # Manager State Commands
         "daemon-reload:Reload systemd manager configuration"
         "daemon-reexec:Reexecute systemd manager"
+
+        # System Commands
+        "is-system-running:Query overall status of the system"
         "default:Enter system default mode"
         "rescue:Enter system rescue mode"
         "emergency:Enter system emergency mode"
@@ -63,8 +73,11 @@
         "kexec:Shut down and reboot the system with kexec"
         "exit:Ask for user instance termination"
         "switch-root:Change root directory"
-        "revert:Revert unit files to their vendor versions"
-        "set-property:Sets one or more properties of a unit"
+        "hibernate:Hibernate the system"
+        "hybrid-sleep:Hibernate and suspend the system"
+        "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
+
+        # (Add new commands to the appropriate category, not here.)
     )
 
     if (( CURRENT == 1 )); then
