@@ -3,8 +3,7 @@
 
 (( $+functions[_systemctl_commands] )) || _systemctl_commands()
 {
-    local -a _systemctl_cmds
-    _systemctl_cmds=(
+    local -a unit_commands=(
         # Unit Commands
         "list-sockets:List sockets"
         "list-timers:List timers"
@@ -30,10 +29,14 @@
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
         "clean:Remove configuration, state, cache, logs or runtime data of units"
+    )
 
+    local -a machine_commands=(
         # Machine Commands
         "list-machines:List the host and all running local containers"
+    )
 
+    local -a unit_file_commands=(
         # Unit File Commands
         "list-unit-files:List installed unit files"
         "enable:Enable one or more unit files"
@@ -51,24 +54,32 @@
         "set-default:Set the default target"
         "get-default:Query the default target"
         "edit:Edit one or more unit files"
+    )
 
+    local -a job_commands=(
         # Job Commands
         "list-jobs:List jobs"
         "cancel:Cancel all, one, or more jobs"
+    )
 
+    local -a environment_commands=(
         # Environment Commands
         "show-environment:Dump environment"
         "set-environment:Set one or more environment variables"
         "unset-environment:Unset one or more environment variables"
         "import-environment:Import environment variables set on the client"
+    )
 
+    local -a manager_state_commands=(
         # Manager State Commands
         "daemon-reload:Reload systemd manager configuration"
         "daemon-reexec:Reexecute systemd manager"
         "log-level:Get or set the log level"
         "log-target:Get or set the log target"
         "service-watchdogs:Get or set the state of software watchdogs"
+    )
 
+    local -a system_commands=(
         # System Commands
         "is-system-running:Query overall status of the system"
         "default:Enter system default mode"
@@ -84,8 +95,16 @@
         "hibernate:Hibernate the system"
         "hybrid-sleep:Hibernate and suspend the system"
         "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
+    )
 
-        # (Add new commands to the appropriate category, not here.)
+    local -a _systemctl_cmds=(
+        "${unit_commands[@]}"
+        "${machine_commands[@]}"
+        "${unit_file_commands[@]}"
+        "${job_commands[@]}"
+        "${environment_commands[@]}"
+        "${manager_state_commands[@]}"
+        "${system_commands[@]}"
     )
 
     if (( CURRENT == 1 )); then
