@@ -3142,6 +3142,7 @@ static int link_initialized_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to wait for the interface to be initialized: %m");
                 link_enter_failed(link);
                 return 0;
         }
