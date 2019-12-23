@@ -3219,11 +3219,10 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
         e = sd_bus_message_get_error(message);
-        if (sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
-                return 0;
-
         if (e) {
-                log_error("Unexpected error response from GetNameOwner: %s", e->message);
+                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
+                        log_unit_error(u, "Unexpected error response from GetNameOwner(): %s", e->message);
+
                 return 0;
         }
 
