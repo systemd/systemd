@@ -3218,11 +3218,6 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
-        if (sd_bus_error_is_set(error)) {
-                log_error("Failed to get name owner from bus: %s", error->message);
-                return 0;
-        }
-
         e = sd_bus_message_get_error(message);
         if (sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
                 return 0;
