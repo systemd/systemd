@@ -535,6 +535,22 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (detect_container() > 0)
                         log_set_target(LOG_TARGET_CONSOLE);
 
+        } else if (streq(key, "loglevel")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                uint8_t loglevel;
+                if (safe_atou8(value, &loglevel) < 0)
+                        return 0;
+
+                if (loglevel >= 6)
+                        arg_show_status = SHOW_STATUS_YES;
+                else if (loglevel >= 4)
+                        arg_show_status = SHOW_STATUS_AUTO;
+                else
+                        arg_show_status = SHOW_STATUS_NO;
+
         } else if (!value) {
                 const char *target;
 
