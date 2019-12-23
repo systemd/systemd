@@ -3232,8 +3232,6 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
                 return 0;
         }
 
-        new_owner = empty_to_null(new_owner);
-
         if (UNIT_VTABLE(u)->bus_name_owner_change)
                 UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, new_owner);
 
