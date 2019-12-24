@@ -1001,7 +1001,7 @@
             from this one as template on behalf of Privacy Extensions
             <ulink url="https://tools.ietf.org/html/rfc3041">RFC 3041</ulink>.  For this to become
             active, the use_tempaddr sysctl setting has to be set to a value greater than zero.
-            The given address needs to have a prefix length of 64. This flag allows to use privacy
+            The given address needs to have a prefix length of 64. This flag allows using privacy
             extensions in a manually configured network, just like if stateless auto-configuration
             was active. Defaults to false. </para>
           </listitem>
@@ -1664,7 +1664,7 @@
             <para>Send an arbitrary option in the DHCPv4 request. Takes a DHCP option number, data type
             and data separated with a colon
             (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
-            The option number must be an interger in the range 1..254. The type takes one of <literal>uint8</literal>,
+            The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
             <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
             <literal>string</literal>. Special characters in the data string may be escaped using
             <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style

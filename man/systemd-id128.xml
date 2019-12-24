@@ -104,7 +104,7 @@
         <term><option>--uuid</option></term>
 
         <listitem><para>Generate output as an UUID formatted in the "canonical representation", with five
-        groups of digits seperated by hyphens. See the
+        groups of digits separated by hyphens. See the
         <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
         for more discussion.</para></listitem>
       </varlistentry>
