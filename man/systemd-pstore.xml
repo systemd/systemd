@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>systemd-pstore</refname>
     <refname>systemd-pstore.service</refname>
-    <refpurpose>Tool to archive contents of the persistent storage filesytem</refpurpose>
+    <refpurpose>Tool to archive contents of the persistent storage filesystem</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

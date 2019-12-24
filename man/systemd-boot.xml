@@ -90,7 +90,7 @@
       Assessment</ulink>.</para></listitem>
 
       <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
-      with a 'system token' stored in a persistant EFI variable and derives a random seed to use by the OS as
+      with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
       entropy pool initializaton, providing a full entropy pool during early boot.</para></listitem>
     </itemizedlist>
 

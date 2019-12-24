@@ -107,7 +107,7 @@
         <term><varname>systemd.early_core_pattern=</varname></term>
         <listitem>
           <para>During early boot, the generation of core dump files is disabled until a core dump handler (if any)
-          takes over. This parameter allows to specifies an absolute path where core dump files should be stored until
+          takes over. This parameter allows specifying an absolute path where core dump files should be stored until
           a handler is installed. The path should be absolute and may contain specifiers, see
           <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.</para>
         </listitem>
