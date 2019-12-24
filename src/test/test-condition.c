@@ -689,7 +689,7 @@ static void test_condition_test_group(void) {
         condition_free(condition);
         free(gid);
 
-        groupname = (char*)(geteuid() == 0 ? NOBODY_GROUP_NAME : "root");
+        groupname = (char*)(getegid() == 0 ? NOBODY_GROUP_NAME : "root");
         condition = condition_new(CONDITION_GROUP, groupname, false, false);
         assert_se(condition);
         r = condition_test(condition);
