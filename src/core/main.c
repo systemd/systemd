@@ -1199,7 +1199,7 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         int r;
 
         /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
-         * normally disable such checks. We need them to implement IPAccessAllow= and IPAccessDeny=, hence let's bump
+         * normally disable such checks. We need them to implement IPAddressAllow= and IPAddressDeny=, hence let's bump
          * the value high enough for our user. */
 
         /* Using MAX() on resource limits only is safe if RLIM_INFINITY is > 0. POSIX declares that rlim_t
