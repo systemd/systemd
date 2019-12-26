@@ -38,8 +38,8 @@
 #include "udev-util.h"
 #include "virt.h"
 
-/* use 8 MB for receive socket kernel queue. */
-#define RCVBUF_SIZE    (8*1024*1024)
+/* use 128 MB for receive socket kernel queue. */
+#define RCVBUF_SIZE    (128*1024*1024)
 
 static int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
         const char *err_msg = NULL;
