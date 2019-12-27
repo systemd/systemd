@@ -33,6 +33,65 @@ struct audit_info {
         const char *cmdline;
 };
 
+struct compat_permission_verb {
+        const char *overhaul;
+        const char *original;
+};
+
+const char *const mac_selinux_overhaul_instance_class = "systemd_instance";
+const char *const mac_selinux_original_instance_class = "system";
+const struct compat_permission_verb mac_selinux_instance_permissions[_MAC_SELINUX_INSTANCE_PERMISSION_MAX] = {
+        [MAC_SELINUX_INSTANCE_STARTTRANSIENT]           = { "start_transient",          "start" },
+        [MAC_SELINUX_INSTANCE_CLEARJOBS]                = { "clear_jobs",               "reload" },
+        [MAC_SELINUX_INSTANCE_RESETFAILED]              = { "reset_failed",             "reload" },
+        [MAC_SELINUX_INSTANCE_LISTUNITS]                = { "list_units",               "status" },
+        [MAC_SELINUX_INSTANCE_LISTJOBS]                 = { "list_jobs",                "status" },
+        [MAC_SELINUX_INSTANCE_SUBSCRIBE]                = { "subscribe",                "status" },
+        [MAC_SELINUX_INSTANCE_UNSUBSCRIBE]              = { "unsubscribe",              "status" },
+        [MAC_SELINUX_INSTANCE_DUMP]                     = { "dump",                     "status" },
+        [MAC_SELINUX_INSTANCE_RELOAD]                   = { "reload",                   "reload" },
+        [MAC_SELINUX_INSTANCE_REEXECUTE]                = { "reexecute",                "reload" },
+        [MAC_SELINUX_INSTANCE_EXIT]                     = { "exit",                     "halt" },
+        [MAC_SELINUX_INSTANCE_REBOOT]                   = { "reboot",                   "reboot" },
+        [MAC_SELINUX_INSTANCE_POWEROFFORHALT]           = { "poweroff_or_halt",         "halt" },
+        [MAC_SELINUX_INSTANCE_KEXEC]                    = { "kexec",                    "reboot" },
+        [MAC_SELINUX_INSTANCE_SWITCHROOT]               = { "switch_root",              "reboot" },
+        [MAC_SELINUX_INSTANCE_SETENVIRONMENT]           = { "set_environment",          "reload" },
+        [MAC_SELINUX_INSTANCE_UNSETENVIRONMENT]         = { "unset_environment",        "reload" },
+        [MAC_SELINUX_INSTANCE_SETEXITCODE]              = { "set_exit_code",            "exit" },
+        [MAC_SELINUX_INSTANCE_LISTUNITFILES]            = { "list_unit_files",          "status" },
+        [MAC_SELINUX_INSTANCE_STATEUNITFILE]            = { "state_unit_file",          "status" },
+        [MAC_SELINUX_INSTANCE_GETDEFAULTTARGET]         = { "get_default_target",       "status" },
+        [MAC_SELINUX_INSTANCE_SETDEFAULTTARGET]         = { "set_default_target",       "enable" },
+        [MAC_SELINUX_INSTANCE_PRESETALLUNITFILES]       = { "preset_all_unit_files",    "enable" },
+        [MAC_SELINUX_INSTANCE_RAWSET]                   = { "raw_set",                  "reload" },
+        [MAC_SELINUX_INSTANCE_RAWSTATUS]                = { "raw_status",               "status" },
+};
+
+const char *const mac_selinux_overhaul_unit_class = "systemd_unit";
+const char *const mac_selinux_original_unit_class = "service";
+const struct compat_permission_verb mac_selinux_unit_permissions[_MAC_SELINUX_UNIT_PERMISSION_MAX] = {
+        [MAC_SELINUX_UNIT_GETJOB]                       = { "get_job",                  "status" },
+        [MAC_SELINUX_UNIT_GETUNIT]                      = { "get_unit",                 "status" },
+        [MAC_SELINUX_UNIT_START]                        = { "start",                    "start" },
+        [MAC_SELINUX_UNIT_STOP]                         = { "stop",                     "stop" },
+        [MAC_SELINUX_UNIT_RELOAD]                       = { "reload",                   "reload" },
+        [MAC_SELINUX_UNIT_RESTART]                      = { "restart",                  "start" },
+        [MAC_SELINUX_UNIT_NOP]                          = { "nop",                      "reload" },
+        [MAC_SELINUX_UNIT_CANCEL]                       = { "cancel",                   "stop" },
+        [MAC_SELINUX_UNIT_ABANDON]                      = { "abandon",                  "stop" },
+        [MAC_SELINUX_UNIT_KILL]                         = { "kill",                     "stop" },
+        [MAC_SELINUX_UNIT_RESETFAILED]                  = { "reset_failed",             "reload" },
+        [MAC_SELINUX_UNIT_SETPROPERTIES]                = { "set_properties",           "start" },
+        [MAC_SELINUX_UNIT_REF]                          = { "ref",                      "start" },
+        [MAC_SELINUX_UNIT_CLEAN]                        = { "clean",                    "stop" },
+        [MAC_SELINUX_UNIT_GETPROCESSES]                 = { "get_processes",            "status" },
+        [MAC_SELINUX_UNIT_ATTACHPROCESSES]              = { "attach_processes",         "start" },
+        [MAC_SELINUX_UNIT_RAWSET]                       = { "raw_set",                  "reload" },
+        [MAC_SELINUX_UNIT_RAWSTATUS]                    = { "raw_status",               "status" },
+        [MAC_SELINUX_UNIT_BINDMOUNT]                    = { "bind_mount",               "start" },
+};
+
 /*
    Any time an access gets denied this callback will be called
    with the audit data.  We then need to just copy the audit data into the msgbuf.
@@ -175,14 +234,16 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_generic_access_check(
+static int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
+                const char *class,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass, *scon;
+        const char *scon = NULL;
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
@@ -190,8 +251,10 @@ int mac_selinux_generic_access_check(
         int r = 0;
 
         assert(message);
+        assert(class);
         assert(permission);
         assert(error);
+        assert(func);
 
         r = access_init(error);
         if (r <= 0)
@@ -238,8 +301,6 @@ int mac_selinux_generic_access_check(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                 }
 
-                tclass = "service";
-
         } else {
                 if (getcon_raw(&fcon) < 0) {
                         r = -errno;
@@ -252,8 +313,6 @@ int mac_selinux_generic_access_check(
 
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                 }
-
-                tclass = "system";
         }
 
         sd_bus_creds_get_cmdline(creds, &cmdline);
@@ -265,7 +324,7 @@ int mac_selinux_generic_access_check(
                 .cmdline = cl,
         };
 
-        r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
+        r = selinux_check_access(scon, fcon, class, permission, &audit_info);
         if (r < 0) {
                 r = errno_or_else(EPERM);
 
@@ -273,20 +332,84 @@ int mac_selinux_generic_access_check(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
-                        scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
+        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline='%s' func=%s result=%m",
+                        scon, fcon, class, permission, enforce ? "enforcing" : "permissive", strna(path), cl, func);
         return enforce ? r : 0;
 }
 
-#else /* HAVE_SELINUX */
-
-int mac_selinux_generic_access_check(
+int _mac_selinux_instance_access_check_internal(
                 sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
+                mac_selinux_instance_permission permission,
+                sd_bus_error *error,
+                const char *func) {
 
-        return 0;
+        const char *class;
+        const char *verb;
+
+        assert(message);
+        assert(permission >= 0);
+        assert(permission < _MAC_SELINUX_INSTANCE_PERMISSION_MAX);
+        assert(error);
+        assert(func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (mac_selinux_overhaul_enabled()) {
+                class = mac_selinux_overhaul_instance_class;
+                verb = mac_selinux_instance_permissions[permission].overhaul;
+        } else {
+                class = mac_selinux_original_instance_class;
+                verb = mac_selinux_instance_permissions[permission].original;
+        }
+
+        /* skip check if variant does not serve permission */
+        if (!verb) {
+                log_debug("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                return 0;
+        }
+
+        return mac_selinux_generic_access_check(message, NULL, class, verb, error, func);
+}
+
+int _mac_selinux_unit_access_check_internal(
+                const Unit *unit,
+                sd_bus_message *message,
+                mac_selinux_unit_permission permission,
+                sd_bus_error *error,
+                const char *func) {
+
+        const char *class;
+        const char *verb;
+        const char *path;
+
+        assert(unit);
+        assert(message);
+        assert(permission >= 0);
+        assert(permission < _MAC_SELINUX_UNIT_PERMISSION_MAX);
+        assert(error);
+        assert(func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        path = unit_label_path(unit);
+
+        if (mac_selinux_overhaul_enabled()) {
+                class = mac_selinux_overhaul_unit_class;
+                verb = mac_selinux_unit_permissions[permission].overhaul;
+        } else {
+                class = path ? mac_selinux_original_unit_class : mac_selinux_original_instance_class;
+                verb = mac_selinux_unit_permissions[permission].original;
+        }
+
+        /* skip check if variant does not serve permission */
+        if (!verb) {
+                log_debug("SELinux unit access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                return 0;
+        }
+
+        return mac_selinux_generic_access_check(message, path, class, verb, error, func);
 }
 
 #endif /* HAVE_SELINUX */
