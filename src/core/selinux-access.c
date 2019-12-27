@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -100,6 +101,16 @@ const struct compat_permission_verb mac_selinux_unit_permissions[_MAC_SELINUX_UN
         [MAC_SELINUX_UNIT_GETWAITING_JOBS]              = { "get_waiting_jobs",         "status" },
         [MAC_SELINUX_UNIT_UNREF]                        = { "unref",                    "stop" },
         [MAC_SELINUX_UNIT_LOADUNIT]                     = { "load_unit",                NULL },
+        [MAC_SELINUX_UNIT_ENABLE]                       = { "enable",                   "enable" },
+        [MAC_SELINUX_UNIT_REENABLE]                     = { "reenable",                 "enable" },
+        [MAC_SELINUX_UNIT_LINK]                         = { "link",                     NULL },
+        [MAC_SELINUX_UNIT_PRESET]                       = { "preset",                   "reload" },
+        [MAC_SELINUX_UNIT_MASK]                         = { "mask",                     "disable" },
+        [MAC_SELINUX_UNIT_DISABLE]                      = { "disable",                  "disable" },
+        [MAC_SELINUX_UNIT_UNMASK]                       = { "unmask",                   "enable" },
+        [MAC_SELINUX_UNIT_REVERT]                       = { "revert",                   "reload" },
+        [MAC_SELINUX_UNIT_ADDDEPENDENCY]                = { "add_dependency",           "reload" },
+        [MAC_SELINUX_UNIT_GETUNITFILELINKS]             = { "get_unit_file_links",      "status" },
 };
 
 /*
@@ -424,4 +435,40 @@ int _mac_selinux_unit_access_check_internal(
         return mac_selinux_generic_access_check(message, path, class, verb, error, func);
 }
 
-#endif /* HAVE_SELINUX */
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
+
+        const Unit *u;
+        const char *path = NULL;
+
+        assert(unit_name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->func);
+        assert(userdata->selinux_permission >= 0);
+        assert(userdata->selinux_permission < _MAC_SELINUX_UNIT_PERMISSION_MAX);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        u = manager_get_unit(userdata->manager, unit_name);
+        if (u)
+                path = unit_label_path(u);
+
+        /* maybe the unit is not loaded, e.g. a disabled user session unit */
+        if (!path)
+                path = manager_lookup_unit_label_path(userdata->manager, unit_name);
+
+        return mac_selinux_generic_access_check(
+                        userdata->message,
+                        path,
+                        mac_selinux_overhaul_unit_class,
+                        mac_selinux_unit_permissions[userdata->selinux_permission].overhaul,
+                        userdata->error,
+                        userdata->func);
+}
+
+#endif

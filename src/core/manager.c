@@ -1866,6 +1866,19 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         return hashmap_get(m->units, name);
 }
 
+const char *manager_lookup_unit_label_path(Manager *m, const char *name) {
+        const char *path;
+
+        assert(m);
+        assert(name);
+
+        path = hashmap_get(m->unit_id_map, name);
+        if (!path || null_or_empty_path(path) > 0)
+                return hashmap_get(m->unit_withdrawal_map, name);
+
+        return path;
+}
+
 static int manager_dispatch_target_deps_queue(Manager *m) {
         Unit *u;
         int r = 0;
