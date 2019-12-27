@@ -510,7 +510,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_KILL, error);
         if (r < 0)
                 return r;
 
@@ -556,7 +556,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "reload", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_RESETFAILED, error);
         if (r < 0)
                 return r;
 
@@ -585,7 +585,7 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_SETPROPERTIES,  error);
         if (r < 0)
                 return r;
 
@@ -620,7 +620,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_REF, error);
         if (r < 0)
                 return r;
 
@@ -668,7 +668,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_CLEAN, error);
         if (r < 0)
                 return r;
 
@@ -730,6 +730,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
         const char* perm;
+        mac_selinux_unit_permission perm_id;
         int (*method)(Unit*);
         Unit *u = userdata;
         bool reply_no_delay = false;
@@ -741,13 +742,15 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         if (action == FREEZER_FREEZE) {
                 perm = "stop";
+                perm_id = MAC_SELINUX_UNIT_FREEZE;
                 method = unit_freeze;
         } else {
                 perm = "start";
+                perm_id = MAC_SELINUX_UNIT_THAW;
                 method = unit_thaw;
         }
 
-        r = mac_selinux_unit_access_check(u, message, perm, error);
+        r = mac_selinux_unit_access_check(u, message, perm_id, error);
         if (r < 0)
                 return r;
 
@@ -1305,7 +1308,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_GETPROCESSES, error);
         if (r < 0)
                 return r;
 
@@ -1424,7 +1427,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
          * representation. If a process is already in the cgroup no operation is executed – in this case the specified
          * subcgroup path has no effect! */
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_ATTACHPROCESSES, error);
         if (r < 0)
                 return r;
 

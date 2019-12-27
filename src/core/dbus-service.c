@@ -110,7 +110,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported for system managers.");
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_BINDMOUNT, error);
         if (r < 0)
                 return r;
 
