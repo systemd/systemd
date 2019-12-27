@@ -108,6 +108,17 @@ static bool is_overhaul_policy_capability_enabled(void)
 #undef MAC_SELINUX_POLCAP_NAME
 #endif
 
+bool mac_selinux_overhaul_enabled(void) {
+
+#if HAVE_SELINUX
+        if (string_to_security_class("systemd_pidone") && string_to_security_class("systemd_unit")) {
+                return true;
+        }
+#endif
+
+        return false;
+}
+
 int mac_selinux_init(void) {
         int r = 0;
 

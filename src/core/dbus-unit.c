@@ -378,7 +378,9 @@ int bus_unit_method_start_generic(
         r = mac_selinux_unit_access_check(
                         u, message,
                         job_type_to_access_method(job_type),
-                        error);
+                        job_type_to_access_method_overhaul(job_type),
+                        error,
+                        __func__);
         if (r < 0)
                 return r;
 
@@ -476,7 +478,9 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
         r = mac_selinux_unit_access_check(
                         u, message,
                         job_type_to_access_method(type),
-                        error);
+                        job_type_to_access_method_overhaul(type),
+                        error,
+                        __func__);
         if (r < 0)
                 return r;
 
@@ -506,7 +510,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, "stop", MAC_SELINUX_UNIT_KILL, error, __func__);
         if (r < 0)
                 return r;
 
@@ -552,7 +556,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "reload", error);
+        r = mac_selinux_unit_access_check(u, message, "reload", MAC_SELINUX_UNIT_RESETFAILED, error, __func__);
         if (r < 0)
                 return r;
 
@@ -581,7 +585,7 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", MAC_SELINUX_UNIT_SETPROPERTIES,  error, __func__);
         if (r < 0)
                 return r;
 
@@ -616,7 +620,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", MAC_SELINUX_UNIT_REF, error, __func__);
         if (r < 0)
                 return r;
 
@@ -664,7 +668,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         assert(message);
         assert(u);
 
-        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        r = mac_selinux_unit_access_check(u, message, "stop", MAC_SELINUX_UNIT_CLEAN, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1132,7 +1136,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
 
         assert(message);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
+        r = mac_selinux_unit_access_check(u, message, "status", MAC_SELINUX_UNIT_GETPROCESSES, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1251,7 +1255,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
          * representation. If a process is already in the cgroup no operation is executed – in this case the specified
          * subcgroup path has no effect! */
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", MAC_SELINUX_UNIT_ATTACHPROCESSES, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1535,7 +1539,9 @@ int bus_unit_queue_job(
         r = mac_selinux_unit_access_check(
                         u, message,
                         job_type_to_access_method(type),
-                        error);
+                        job_type_to_access_method_overhaul(type),
+                        error,
+                        __func__);
         if (r < 0)
                 return r;
 

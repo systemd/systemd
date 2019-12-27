@@ -778,6 +778,10 @@ tests += [
         [['src/test/test-local-addresses.c'],
          [],
          []],
+
+        [['src/test/test-selinux-overhaul-permissions.c'],
+         [],
+         []],
 ]
 
 ############################################################

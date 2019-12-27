@@ -46,7 +46,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         assert(message);
         assert(j);
 
-        r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
+        r = mac_selinux_unit_access_check(j->unit, message, "stop", MAC_SELINUX_UNIT_CANCEL, error, __func__);
         if (r < 0)
                 return r;
 

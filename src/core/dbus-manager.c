@@ -346,7 +346,7 @@ static int reply_unit_path(Unit *u, sd_bus_message *message, sd_bus_error *error
         assert(u);
         assert(message);
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
+        r = mac_selinux_unit_access_check(u, message, "status", MAC_SELINUX_UNIT_GETUNIT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -462,7 +462,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
                         return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(id));
         }
 
-        r = mac_selinux_unit_access_check(u, message, "status", error);
+        r = mac_selinux_unit_access_check(u, message, "status", MAC_SELINUX_UNIT_GETUNIT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -857,7 +857,7 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "start", error);
+        r = mac_selinux_access_check(message, "start", MAC_SELINUX_PIDONE_STARTTRANSIENT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -907,7 +907,7 @@ static int method_get_job(sd_bus_message *message, void *userdata, sd_bus_error 
         if (!j)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "Job %u does not exist.", (unsigned) id);
 
-        r = mac_selinux_unit_access_check(j->unit, message, "status", error);
+        r = mac_selinux_unit_access_check(j->unit, message, "status", MAC_SELINUX_UNIT_GETJOB, error, __func__);
         if (r < 0)
                 return r;
 
@@ -945,7 +945,7 @@ static int method_clear_jobs(sd_bus_message *message, void *userdata, sd_bus_err
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_CLEARJOBS, error, __func__);
         if (r < 0)
                 return r;
 
@@ -967,7 +967,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_RESETFAILED, error, __func__);
         if (r < 0)
                 return r;
 
@@ -995,7 +995,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_LISTUNITS, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1076,7 +1076,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_LISTJOBS, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1127,7 +1127,7 @@ static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_SUBSCRIBE, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1161,7 +1161,7 @@ static int method_unsubscribe(sd_bus_message *message, void *userdata, sd_bus_er
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_UNSUBSCRIBE, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1186,7 +1186,7 @@ static int dump_impl(sd_bus_message *message, void *userdata, sd_bus_error *erro
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_DUMP, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1268,7 +1268,7 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_RELOAD, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1304,7 +1304,7 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_REEXECUTE, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1328,7 +1328,7 @@ static int method_exit(sd_bus_message *message, void *userdata, sd_bus_error *er
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_access_check(message, "halt", MAC_SELINUX_PIDONE_EXIT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1349,7 +1349,7 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reboot", error);
+        r = mac_selinux_access_check(message, "reboot", MAC_SELINUX_PIDONE_REBOOT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1368,7 +1368,7 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_access_check(message, "halt", MAC_SELINUX_PIDONE_POWEROFF, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1387,7 +1387,7 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "halt", error);
+        r = mac_selinux_access_check(message, "halt", MAC_SELINUX_PIDONE_HALT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1406,7 +1406,7 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reboot", error);
+        r = mac_selinux_access_check(message, "reboot", MAC_SELINUX_PIDONE_KEXEC, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1442,7 +1442,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                             format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));
         }
 
-        r = mac_selinux_access_check(message, "reboot", error);
+        r = mac_selinux_access_check(message, "reboot", MAC_SELINUX_PIDONE_SWITCHROOT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1511,7 +1511,7 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_SETENVIRONMENT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1542,7 +1542,7 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_UNSETENVIRONMENT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1574,7 +1574,7 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "reload", error);
+        r = mac_selinux_access_check(message, "reload", MAC_SELINUX_PIDONE_UNSETANDSETENVIRONMENT, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1612,7 +1612,7 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "exit", error);
+        r = mac_selinux_access_check(message, "exit", MAC_SELINUX_PIDONE_SETEXITCODE, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1740,7 +1740,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_LISTUNITFILES, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1811,7 +1811,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_STATEUNITFILE, error, __func__);
         if (r < 0)
                 return r;
 
@@ -1836,7 +1836,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 
         /* Anyone can call this method */
 
-        r = mac_selinux_access_check(message, "status", error);
+        r = mac_selinux_access_check(message, "status", MAC_SELINUX_PIDONE_GETDEFAULTTARGET, error, __func__);
         if (r < 0)
                 return r;
 
@@ -2188,7 +2188,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "enable", error);
+        r = mac_selinux_access_check(message, "enable", MAC_SELINUX_PIDONE_SETDEFAULTTARGET, error, __func__);
         if (r < 0)
                 return r;
 
@@ -2221,7 +2221,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         assert(message);
         assert(m);
 
-        r = mac_selinux_access_check(message, "enable", error);
+        r = mac_selinux_access_check(message, "enable", MAC_SELINUX_PIDONE_PRESETALLUNITFILES, error, __func__);
         if (r < 0)
                 return r;
 
