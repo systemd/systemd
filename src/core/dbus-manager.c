@@ -2156,9 +2156,14 @@ fail:
 
 static int mac_unit_callback_check(const char *unit_name, void *userdata) {
         MacUnitCallbackUserdata *ud = userdata;
+        int r;
 
         assert(unit_name);
         assert(ud);
+
+        r = mac_selinux_unit_callback_check(unit_name, ud);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2168,6 +2173,8 @@ static int method_enable_unit_files_generic(
                 Manager *m,
                 int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
                 bool carries_install_info,
+                mac_selinux_unit_permission mac_selinux_permission,
+                const char *func,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2175,7 +2182,7 @@ static int method_enable_unit_files_generic(
         size_t n_changes = 0;
         UnitFileFlags flags;
         int r;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, func, mac_selinux_permission };
 
         assert(message);
         assert(m);
@@ -2216,19 +2223,19 @@ static int method_enable_unit_files_generic(
 }
 
 static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, MAC_SELINUX_UNIT_ENABLE, __func__, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, MAC_SELINUX_UNIT_ENABLE, __func__, error);
 }
 
 static int method_reenable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_reenable, true, MAC_SELINUX_UNIT_REENABLE, __func__, error);
 }
 
 static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_link, false, MAC_SELINUX_UNIT_LINK, __func__, error);
 }
 
 static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata) {
@@ -2236,11 +2243,11 @@ static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flag
 }
 
 static int method_preset_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_preset_without_mode, true, MAC_SELINUX_UNIT_PRESET, __func__, error);
 }
 
 static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, error);
+        return method_enable_unit_files_generic(message, userdata, unit_file_mask, false, MAC_SELINUX_UNIT_MASK, __func__, error);
 }
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2253,7 +2260,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         int runtime, force, r;
         UnitFileFlags flags;
         const char *mode;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_PRESET };
 
         assert(message);
         assert(m);
@@ -2293,6 +2300,8 @@ static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
                 int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes, mac_callback_t mac_check, void *userdata),
+                mac_selinux_unit_permission mac_selinux_permissions,
+                const char *func,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
@@ -2300,7 +2309,7 @@ static int method_disable_unit_files_generic(
         UnitFileFlags flags;
         size_t n_changes = 0;
         int r;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, func, mac_selinux_permissions };
 
         assert(message);
         assert(m);
@@ -2342,15 +2351,15 @@ static int method_disable_unit_files_generic(
 }
 
 static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, MAC_SELINUX_UNIT_DISABLE, __func__, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, MAC_SELINUX_UNIT_DISABLE, __func__, error);
 }
 
 static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, error);
+        return method_disable_unit_files_generic(message, userdata, unit_file_unmask, MAC_SELINUX_UNIT_UNMASK, __func__, error);
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2359,7 +2368,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         size_t n_changes = 0;
         Manager *m = userdata;
         int r;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = {  m, message, error, __func__, MAC_SELINUX_UNIT_REVERT };
 
         assert(message);
         assert(m);
@@ -2420,7 +2429,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         const char *mode;
         UnitFileFlags flags;
         int force, runtime, r;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_PRESET };
 
         assert(message);
         assert(m);
@@ -2465,7 +2474,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         char *target, *type;
         UnitDependency dep;
         UnitFileFlags flags;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_ADDDEPENDENCY };
 
         assert(message);
         assert(m);
@@ -2502,6 +2511,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0, i;
@@ -2509,7 +2519,10 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         const char *name;
         char **p;
         int runtime, r;
-        MacUnitCallbackUserdata mcud = {};
+        MacUnitCallbackUserdata mcud = { m, message, error, __func__, MAC_SELINUX_UNIT_GETUNITFILELINKS };
+
+        assert(message);
+        assert(m);
 
         r = mac_selinux_instance_access_check(message, MAC_SELINUX_INSTANCE_GETUNITFILELINKS, error);
         if (r < 0)
