@@ -20,7 +20,7 @@ int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_err
         assert(message);
         assert(s);
 
-        r = mac_selinux_unit_access_check(UNIT(s), message, "stop", error);
+        r = mac_selinux_unit_access_check(UNIT(s), message, MAC_SELINUX_UNIT_ABANDON, error);
         if (r < 0)
                 return r;
 
