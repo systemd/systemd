@@ -1229,7 +1229,6 @@ int setup_namespace(
                 dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
 
                 if (protect_system == PROTECT_SYSTEM_STRICT &&
-                    protect_home != PROTECT_HOME_NO &&
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
