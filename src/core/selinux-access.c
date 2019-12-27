@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -342,6 +343,36 @@ int mac_selinux_unit_access_check(
         }
 
         return mac_selinux_generic_access_check(message, unit_label_path(unit), class, permission, error, func);
+}
+
+int mac_selinux_callback_check(
+                const char *name,
+                struct mac_callback_userdata *userdata) {
+
+        const Unit *u;
+        const char *path = NULL;
+
+        assert(name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->func);
+        assert(userdata->selinux_permission >= 0);
+        assert(userdata->selinux_permission < MAC_SELINUX_UNIT_PERMISSION_MAX);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        u = manager_get_unit(userdata->manager, name);
+        if (u)
+                path = unit_label_path(u);
+
+        /* maybe the unit is not loaded, e.g. a disabled user session unit */
+        if (!path)
+                path = manager_lookup_unit_path(userdata->manager, name);
+
+        return mac_selinux_generic_access_check(userdata->message, path, mac_selinux_overhaul_unit_class, mac_selinux_overhaul_unit_permissions[userdata->selinux_permission], userdata->error, userdata->func);
 }
 
 #endif

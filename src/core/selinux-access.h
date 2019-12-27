@@ -5,6 +5,9 @@
 #include "manager.h"
 #include "sd-bus.h"
 
+/* forward declaration */
+struct mac_callback_userdata;
+
 enum mac_selinux_pidone_permissions {
         MAC_SELINUX_PIDONE_STARTTRANSIENT,
         MAC_SELINUX_PIDONE_CLEARJOBS,
@@ -72,6 +75,16 @@ enum mac_selinux_unit_permissions {
         MAC_SELINUX_UNIT_GETWAITING_JOBS,
         MAC_SELINUX_UNIT_UNREF,
         MAC_SELINUX_UNIT_LOADUNIT,
+        MAC_SELINUX_UNIT_ENABLE,
+        MAC_SELINUX_UNIT_REENABLE,
+        MAC_SELINUX_UNIT_LINK,
+        MAC_SELINUX_UNIT_PRESET,
+        MAC_SELINUX_UNIT_MASK,
+        MAC_SELINUX_UNIT_DISABLE,
+        MAC_SELINUX_UNIT_UNMASK,
+        MAC_SELINUX_UNIT_REVERT,
+        MAC_SELINUX_UNIT_ADDDEPENDENCY,
+        MAC_SELINUX_UNIT_GETUNITFILELINKS,
 
         MAC_SELINUX_UNIT_PERMISSION_MAX
 };
@@ -94,6 +107,10 @@ int mac_selinux_unit_access_check(
                 sd_bus_error *error,
                 const char *func);
 
+int mac_selinux_callback_check(
+                const char *name,
+                struct mac_callback_userdata *userdata);
+
 #else
 
 _const_ static inline int mac_selinux_access_check(
@@ -112,6 +129,12 @@ _const_ static inline int mac_selinux_unit_access_check(
                 enum mac_selinux_unit_permissions overhaul_permission,
                 sd_bus_error *error,
                 const char *func) {
+        return 0;
+}
+
+_const_ static inline int mac_selinux_callback_check(
+                const char *name,
+                struct mac_callback_userdata *userdata) {
         return 0;
 }
 

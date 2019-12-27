@@ -64,5 +64,15 @@ const char *const mac_selinux_overhaul_unit_permissions[] = {
         [MAC_SELINUX_UNIT_GETWAITING_JOBS] = "get_waiting_jobs",
         [MAC_SELINUX_UNIT_UNREF] = "unref",
         [MAC_SELINUX_UNIT_LOADUNIT] = "load_unit",
+        [MAC_SELINUX_UNIT_ENABLE] = "enable",
+        [MAC_SELINUX_UNIT_REENABLE] = "reenable",
+        [MAC_SELINUX_UNIT_LINK] = "link",
+        [MAC_SELINUX_UNIT_PRESET] = "preset",
+        [MAC_SELINUX_UNIT_MASK] = "mask",
+        [MAC_SELINUX_UNIT_DISABLE] = "disable",
+        [MAC_SELINUX_UNIT_UNMASK] = "unmask",
+        [MAC_SELINUX_UNIT_REVERT] = "revert",
+        [MAC_SELINUX_UNIT_ADDDEPENDENCY] = "add_dependency",
+        [MAC_SELINUX_UNIT_GETUNITFILELINKS] = "get_unit_file_links",
 };
 assert_cc(sizeof mac_selinux_overhaul_unit_permissions / sizeof *mac_selinux_overhaul_unit_permissions == MAC_SELINUX_UNIT_PERMISSION_MAX);
