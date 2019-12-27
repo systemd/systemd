@@ -5,6 +5,9 @@
 #include "manager.h"
 #include "sd-bus.h"
 
+/* forward declaration */
+typedef struct MacUnitCallbackUserdata MacUnitCallbackUserdata;
+
 typedef enum mac_selinux_instance_permission {
         MAC_SELINUX_INSTANCE_STARTTRANSIENT,
         MAC_SELINUX_INSTANCE_CLEARJOBS,
@@ -76,6 +79,16 @@ typedef enum mac_selinux_unit_permission {
         MAC_SELINUX_UNIT_GETWAITING_JOBS,
         MAC_SELINUX_UNIT_UNREF,
         MAC_SELINUX_UNIT_LOADUNIT,
+        MAC_SELINUX_UNIT_ENABLE,
+        MAC_SELINUX_UNIT_REENABLE,
+        MAC_SELINUX_UNIT_LINK,
+        MAC_SELINUX_UNIT_PRESET,
+        MAC_SELINUX_UNIT_MASK,
+        MAC_SELINUX_UNIT_DISABLE,
+        MAC_SELINUX_UNIT_UNMASK,
+        MAC_SELINUX_UNIT_REVERT,
+        MAC_SELINUX_UNIT_ADDDEPENDENCY,
+        MAC_SELINUX_UNIT_GETUNITFILELINKS,
 
         _MAC_SELINUX_UNIT_PERMISSION_MAX
 } mac_selinux_unit_permission;
@@ -103,6 +116,10 @@ int _mac_selinux_unit_access_check_internal(
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
         _mac_selinux_unit_access_check_internal((unit), (message), (permission), (error), __func__)
 
+int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata);
+
 #else
 
 static inline int mac_selinux_instance_access_check(
@@ -117,6 +134,12 @@ static inline int mac_selinux_unit_access_check(
                 sd_bus_message *message,
                 mac_selinux_unit_permission permission,
                 sd_bus_error *error) {
+        return 0;
+}
+
+static inline int mac_selinux_unit_callback_check(
+                const char *unit_name,
+                const MacUnitCallbackUserdata *userdata) {
         return 0;
 }
 
