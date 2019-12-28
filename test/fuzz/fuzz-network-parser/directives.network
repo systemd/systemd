@@ -299,3 +299,7 @@ FairQueueTrafficPolicingOrphanMask=
 FairQueueTrafficPolicingPacing=
 FairQueueTrafficPolicingCEThresholdSec=
 ControlledDelayPacketLimit=
+ControlledDelayTargetSec=
+ControlledDelayIntervalSec=
+ControlledDelayCEThresholdSec=
+ControlledDelayECN=
