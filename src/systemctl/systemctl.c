@@ -2669,6 +2669,9 @@ static int unit_find_paths(
                 if (r < 0)
                         return r;
 
+                if (set_isempty(names))
+                        goto not_found;
+
                 if (_path) {
                         path = strdup(_path);
                         if (!path)
