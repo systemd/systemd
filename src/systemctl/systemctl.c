@@ -5937,7 +5937,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         char **name;
         sd_bus *bus;
         bool first = true;
-        int r;
+        int r, rc = 0;
 
         /* Include all units by default — i.e. continue as if the --all
          * option was used */
@@ -5982,8 +5982,12 @@ static int cat(int argc, char *argv[], void *userdata) {
                 }
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -ENOENT;
+                if (r == 0) {
+                        /* Skip units which have no on-disk counterpart, but
+                         * propagate the error to the user */
+                        rc = -ENOENT;
+                        continue;
+                }
 
                 if (first)
                         first = false;
@@ -6009,7 +6013,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        return 0;
+        return rc;
 }
 
 static int set_property(int argc, char *argv[], void *userdata) {
