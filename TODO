@@ -556,8 +556,6 @@ Features:
 * as soon as we have sender timestamps, revisit coalescing multiple parallel daemon reloads:
   http://lists.freedesktop.org/archives/systemd-devel/2014-December/025862.html
 
-* in systemctl list-unit-files: show the install value the presets would suggest for a service in a third column
-
 * figure out when we can use the coarse timers
 
 * add "systemctl start -v foobar.service" that shows logs of a service

@@ -1436,11 +1436,12 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
 }
 
 static void output_unit_file_list(const UnitFileList *units, unsigned c) {
-        unsigned max_id_len, id_cols, state_cols;
+        unsigned max_id_len, id_cols, state_cols, preset_cols;
         const UnitFileList *u;
 
         max_id_len = STRLEN("UNIT FILE");
         state_cols = STRLEN("STATE");
+        preset_cols = STRLEN("VENDOR PRESET");
 
         for (u = units; u < units + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
@@ -1458,15 +1459,18 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                 id_cols = max_id_len;
 
         if (!arg_no_legend && c > 0)
-                printf("%s%-*s %-*s%s\n",
+                printf("%s%-*s %-*s %-*s%s\n",
                        ansi_underline(),
                        id_cols, "UNIT FILE",
                        state_cols, "STATE",
+                       preset_cols, "VENDOR PRESET",
                        ansi_normal());
 
         for (u = units; u < units + c; u++) {
-                const char *on_underline = NULL, *on_color = NULL, *off = NULL, *id;
+                const char *on_underline = NULL, *on_unit_color = NULL, *id;
+                const char *on_preset_color = NULL, *off_preset = NULL, *unit_preset_str;
                 _cleanup_free_ char *e = NULL;
+                int r;
                 bool underline;
 
                 underline = u + 1 < units + c &&
@@ -1480,21 +1484,34 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
                            UNIT_FILE_MASKED_RUNTIME,
                            UNIT_FILE_DISABLED,
                            UNIT_FILE_BAD))
-                        on_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                        on_unit_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
                 else if (u->state == UNIT_FILE_ENABLED)
-                        on_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
-
-                if (on_underline || on_color)
-                        off = ansi_normal();
+                        on_unit_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
 
                 id = basename(u->path);
 
+                r = unit_file_query_preset(arg_scope, NULL, id);
+                if (r < 0) {
+                        unit_preset_str = "n/a";
+                        on_preset_color = underline ? on_underline : ansi_normal();
+                } else if (r == 0) {
+                        unit_preset_str = "disabled";
+                        on_preset_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                } else {
+                        unit_preset_str = "enabled";
+                        on_preset_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+                }
+
+                if (on_underline || on_preset_color)
+                        off_preset = ansi_normal();
+
                 e = arg_full ? NULL : ellipsize(id, id_cols, 33);
 
-                printf("%s%-*s %s%-*s%s\n",
+                printf("%s%-*s %s%-*s %s%-*s%s\n",
                        strempty(on_underline),
                        id_cols, e ? e : id,
-                       strempty(on_color), state_cols, unit_file_state_to_string(u->state), strempty(off));
+                       strempty(on_unit_color), state_cols, unit_file_state_to_string(u->state),
+                       strempty(on_preset_color), preset_cols, unit_preset_str, strempty(off_preset));
         }
 
         if (!arg_no_legend)
