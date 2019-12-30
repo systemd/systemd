@@ -16,6 +16,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "ip-protocol-list.h"
+#include "libmount-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "missing_fs.h"
@@ -1367,6 +1368,89 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                                        p);
 
                         r = sd_bus_message_append(m, "(ss)", path, w);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "MountPaths")) {
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "a(ssbs)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(ssbs)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                for (;;) {
+                        _cleanup_free_ char *source = NULL, *destination = NULL, *mount_flags = NULL;
+                        char *s = NULL, *d = NULL, *f = NULL;
+                        bool permissive = false;
+                        unsigned long flags = 0;
+
+                        r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        s = source;
+                        if (s[0] == '-') {
+                                permissive = true;
+                                s++;
+                        }
+
+                        if (p && p[-1] == ':') {
+                                r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument: %m");
+                                if (r == 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Missing argument after ':': %s",
+                                                               eq);
+
+                                d = destination;
+
+                                if (p && p[-1] == ':') {
+                                        r = extract_first_word(&p, &mount_flags, NULL, EXTRACT_UNQUOTE);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse argument: %m");
+
+                                        r = mnt_optstr_get_flags(mount_flags, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to resolve flags in \"%s\", ignoring: %m", mount_flags);
+                                                continue;
+                                        }
+                                        f = mount_flags;
+                                }
+                        } else
+                                d = s;
+
+                        r = sd_bus_message_append(m, "(ssbs)", s, d, permissive, f);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }

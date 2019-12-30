@@ -40,6 +40,7 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        MOUNT_PATHS,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
         PRIVATE_TMP,
@@ -64,12 +65,13 @@ typedef struct MountEntry {
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
-        const char *source_const; /* The source path, for bind mounts */
+        const char *source_const; /* The source path, for bind mounts or path images */
         char *source_malloc;
         const char *options_const;/* Mount options for tmpfs */
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
+        char *fstype_malloc;
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
@@ -204,6 +206,7 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [READONLY]             = "read-only",
         [READWRITE]            = "read-write",
         [TMPFS]                = "tmpfs",
+        [MOUNT_PATHS]           = "mount-path",
         [READWRITE_IMPLICIT]   = "rw-implicit",
 };
 
@@ -242,6 +245,7 @@ static void mount_entry_done(MountEntry *p) {
         p->path_malloc = mfree(p->path_malloc);
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
+        p->fstype_malloc = mfree(p->fstype_malloc);
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
@@ -318,6 +322,68 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
                         .nosuid = b->nosuid,
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
+                };
+        }
+
+        return 0;
+}
+
+static int append_mount_paths(MountEntry **p, const MountPath *mount_paths, size_t n, LoopDevice **loop_devices) {
+        size_t i;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                const MountPath *pi = mount_paths + i;
+                char *node = NULL, *options = NULL, *fstype = NULL;
+                int r;
+                struct stat st;
+                unsigned long flags = 0;
+                bool ro, nosuid;
+
+                r = mount_option_mangle(pi->mount_flags, 0, &flags, &options);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse mount option '%s': %m", pi->mount_flags);
+
+                ro = flags & MS_RDONLY;
+                if (ro)
+                        flags ^= MS_RDONLY;
+
+                nosuid = flags & MS_NOSUID;
+                if (nosuid)
+                        flags ^= MS_NOSUID;
+
+                if (!loop_devices[i]) {
+                        /* Source is a block device */
+                        node = strdup(pi->source);
+                        if (!node)
+                                return -ENOMEM;
+                } else {
+                        if (fstat(loop_devices[i]->fd, &st) < 0)
+                                return -errno;
+
+                        if (!S_ISBLK(st.st_mode))
+                                return -ENOTBLK;
+
+                        r = device_path_make_major_minor(st.st_mode, st.st_rdev, &node);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = probe_filesystem(pi->source, &fstype);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to probe file system '%s': %m", pi->source);
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = pi->destination,
+                        .mode = MOUNT_PATHS,
+                        .source_malloc = TAKE_PTR(node),
+                        .options_malloc = TAKE_PTR(options),
+                        .fstype_malloc = TAKE_PTR(fstype),
+                        .ignore = pi->permissive,
+                        .read_only = ro,
+                        .nosuid = nosuid,
+                        .flags = flags,
                 };
         }
 
@@ -869,6 +935,28 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
+static int mount_mount_path(const MountEntry *m, const char *root_directory) {
+        unsigned long flags = m->flags;
+        assert(m);
+
+        if (!root_directory)
+                root_directory = mount_entry_path(m);
+
+        /* Unlike other mounts, use MS_RDONLY already during first mount pass, in case the source is read-only */
+        if (mount_entry_read_only(m))
+                flags |= MS_RDONLY;
+
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our image */
+
+        (void) mkdir_p_label(root_directory, 0755);
+        (void) umount_recursive(root_directory, 0);
+
+        if (mount(mount_entry_source(m), root_directory, m->fstype_malloc, flags, mount_entry_options(m)) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", root_directory);
+
+        return 1;
+}
+
 static int follow_symlink(
                 const char *root_directory,
                 MountEntry *m) {
@@ -1014,6 +1102,9 @@ static int apply_mount(
         case PROCFS:
                 return mount_procfs(m);
 
+        case MOUNT_PATHS:
+                return mount_mount_path(m, NULL);
+
         default:
                 assert_not_reached("Unknown mode");
         }
@@ -1129,6 +1220,7 @@ static size_t namespace_calculate_mounts(
                 char** inaccessible_paths,
                 char** empty_directories,
                 size_t n_bind_mounts,
+                size_t n_mount_paths,
                 size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
@@ -1159,6 +1251,7 @@ static size_t namespace_calculate_mounts(
                 strv_length(inaccessible_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
+                n_mount_paths +
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
@@ -1238,6 +1331,8 @@ static bool home_read_only(
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
+                const MountPath *mount_paths,
+                size_t n_mount_paths,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -1256,7 +1351,8 @@ int setup_namespace(
                 DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *root_image_loop_device = NULL;
+        LoopDevice **mount_path_loop_devices = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ void *root_hash = NULL;
@@ -1264,7 +1360,9 @@ int setup_namespace(
         size_t n_mounts, root_hash_size = 0;
         bool require_prefix = false;
         const char *root;
+        bool root_mount_path = false;
         int r = 0;
+        size_t i;
 
         assert(ns_info);
 
@@ -1286,7 +1384,7 @@ int setup_namespace(
                 r = loop_device_make_by_path(root_image,
                                              FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                              LO_FLAGS_PARTSCAN,
-                                             &loop_device);
+                                             &root_image_loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
@@ -1294,13 +1392,39 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load root hash: %m");
 
-                r = dissect_image(loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
+                r = dissect_image(root_image_loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
                 r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+        }
+
+        if (n_mount_paths > 0) {
+                mount_path_loop_devices = new0(LoopDevice *, n_mount_paths);
+                if (!mount_path_loop_devices)
+                        return -ENOMEM;
+
+                for (i = 0; i < n_mount_paths; i++) {
+                        struct stat st;
+
+                        if (stat(mount_paths[i].source, &st) < 0)
+                                return -errno;
+
+                        if (S_ISBLK(st.st_mode)) /* Source is a block device */
+                                mount_path_loop_devices[i] = NULL;
+                        else {
+                                r = loop_device_make_by_path(mount_paths[i].source,
+                                                             mount_paths[i].read_only ? O_RDONLY : O_RDWR,
+                                                             0,
+                                                             &mount_path_loop_devices[i]);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to create loop device for a MountPath: %m");
+                        }
+                        if (streq(mount_paths[i].destination, "/"))
+                                root_mount_path = true;
+                }
         }
 
         if (root_directory)
@@ -1324,6 +1448,7 @@ int setup_namespace(
                         inaccessible_paths,
                         empty_directories,
                         n_bind_mounts,
+                        n_mount_paths,
                         n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
                         log_namespace,
@@ -1351,6 +1476,10 @@ int setup_namespace(
                         goto finish;
 
                 r = append_bind_mounts(&m, bind_mounts, n_bind_mounts);
+                if (r < 0)
+                        goto finish;
+
+                r = append_mount_paths(&m, mount_paths, n_mount_paths, mount_path_loop_devices);
                 if (r < 0)
                         goto finish;
 
@@ -1480,7 +1609,18 @@ int setup_namespace(
                 goto finish;
         }
 
-        if (root_image) {
+        if (root_mount_path) {
+                char *prefixed_root;
+
+                prefixed_root = path_join(root_directory, "/");
+                for (m = mounts; m < mounts + n_mounts; m++) {
+                        if (m->mode == MOUNT_PATHS && streq(mount_entry_path(m), prefixed_root)) {
+                                        mount_mount_path(m, root);
+                                        m->applied = true;
+                                        break;
+                        }
+                }
+        } else if (root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(dissected_image, root, UID_INVALID, dissect_image_flags);
                 if (r < 0) {
@@ -1496,7 +1636,7 @@ int setup_namespace(
                         }
                 }
 
-                loop_device_relinquish(loop_device);
+                loop_device_relinquish(root_image_loop_device);
 
         } else if (root_directory) {
 
@@ -1523,7 +1663,7 @@ int setup_namespace(
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (root_image || root_directory)
+        if (root_image || root_directory || root_mount_path)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         if (n_mounts > 0) {
@@ -1625,6 +1765,12 @@ finish:
 
         free(mounts);
 
+        for (i = 0; i < n_mount_paths; i++)
+                if (mount_path_loop_devices[i]) /* Source is a loop device */
+                        loop_device_relinquish(mount_path_loop_devices[i]);
+
+        free(mount_path_loop_devices);
+
         return r;
 }
 
@@ -1670,6 +1816,58 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
                 .nosuid = item->nosuid,
                 .recursive = item->recursive,
                 .ignore_enoent = item->ignore_enoent,
+        };
+
+        return 0;
+}
+
+void mount_path_free_many(MountPath *p, size_t n) {
+        size_t i;
+
+        assert(p || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(p[i].source);
+                free(p[i].destination);
+                free(p[i].mount_flags);
+        }
+
+        free(p);
+}
+
+int mount_path_add(MountPath **p, size_t *n, const MountPath *item) {
+        _cleanup_free_ char *s = NULL, *d = NULL, *f = NULL;
+        MountPath *c;
+
+        assert(p);
+        assert(n);
+        assert(item);
+
+        s = strdup(item->source);
+        if (!s)
+                return -ENOMEM;
+
+        d = strdup(item->destination);
+        if (!d)
+                return -ENOMEM;
+
+        f = strdup(item->mount_flags);
+        if (!f)
+                return -ENOMEM;
+
+        c = reallocarray(*p, *n + 1, sizeof(MountPath));
+        if (!c)
+                return -ENOMEM;
+
+        *p = c;
+
+        c[(*n) ++] = (MountPath) {
+                .source = TAKE_PTR(s),
+                .destination = TAKE_PTR(d),
+                .mount_flags = TAKE_PTR(f),
+                .read_only = item->read_only,
+                .nosuid = item->nosuid,
+                .permissive = item->permissive,
         };
 
         return 0;

@@ -5,12 +5,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/fs.h>
 #include <linux/oom.h>
 #if HAVE_SECCOMP
 #include <seccomp.h>
 #endif
 #include <sched.h>
+#include <sys/mount.h>
 #include <sys/resource.h>
 
 #include "af-list.h"
@@ -35,6 +35,7 @@
 #include "ioprio.h"
 #include "ip-protocol-list.h"
 #include "journal-util.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -4344,6 +4345,135 @@ int config_parse_bind_paths(
                                            .read_only = !!strstr(lvalue, "ReadOnly"),
                                            .recursive = rbind,
                                            .ignore_enoent = ignore_enoent,
+                                   });
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+int config_parse_mount_paths(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                mount_path_free_many(c->mount_paths, c->n_mount_paths);
+                c->mount_paths = NULL;
+                c->n_mount_paths = 0;
+                return 0;
+        }
+
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *source = NULL, *destination = NULL, *mount_flags = NULL;
+                _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
+                char *s = NULL, *d = NULL, *f = NULL;
+                bool permissive = false;
+                unsigned long flags = 0;
+
+                r = extract_first_word(&p, &source, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                r = unit_full_printf(u, source, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
+                        continue;
+                }
+
+                s = sresolved;
+                if (s[0] == '-') {
+                        permissive = true;
+                        s++;
+                }
+
+                r = path_simplify_and_warn(s, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                if (p && p[-1] == ':') {
+                        r = extract_first_word(&p, &destination, ":" WHITESPACE, EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                                return 0;
+                        }
+                        if (r == 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Missing argument after ':', ignoring: %s", s);
+                                continue;
+                        }
+
+                        r = unit_full_printf(u, destination, &dresolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to resolve specifiers in \"%s\", ignoring: %m", destination);
+                                continue;
+                        }
+
+                        r = path_simplify_and_warn(dresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                        if (r < 0)
+                                continue;
+
+                        d = dresolved;
+
+                        /* Optionally, there's also a short mount flag string specified */
+                        if (p && p[-1] == ':') {
+                                r = extract_first_word(&p, &mount_flags, NULL, EXTRACT_UNQUOTE);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                                        return 0;
+                                }
+                                r = mnt_optstr_get_flags(mount_flags, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                                   "Invalid mount flags in \"%s\", ignoring: %m", mount_flags);
+                                        continue;
+                                }
+                                f = mount_flags;
+                        }
+                } else {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Missing destination in %s, ignoring: %s", lvalue, rvalue);
+                        continue;
+                }
+
+                r = mount_path_add(&c->mount_paths, &c->n_mount_paths,
+                                   &(MountPath) {
+                                           .source = TAKE_PTR(s),
+                                           .destination = TAKE_PTR(d),
+                                           .mount_flags = TAKE_PTR(f),
+                                           .read_only = flags & MS_RDONLY,
+                                           .nosuid = flags & MS_NOSUID,
+                                           .permissive = permissive,
                                    });
                 if (r < 0)
                         return log_oom();

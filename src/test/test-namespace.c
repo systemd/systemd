@@ -139,6 +139,8 @@ static void test_protect_kernel_logs(void) {
 
                 r = setup_namespace(NULL,
                                     NULL,
+                                    NULL,
+                                    0,
                                     &ns_info,
                                     NULL,
                                     NULL,

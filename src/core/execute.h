@@ -156,6 +156,8 @@ struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image;
+        MountPath *mount_paths;
+        size_t n_mount_paths;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
 

@@ -1891,6 +1891,9 @@ static bool exec_needs_mount_namespace(
         if (context->root_image)
                 return true;
 
+        if (context->n_mount_paths > 0)
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
@@ -2531,6 +2534,9 @@ static bool insist_on_sandboxing(
         if (root_dir || root_image)
                 return true;
 
+        if (context->n_mount_paths > 0)
+                return true;
+
         if (context->dynamic_user)
                 return true;
 
@@ -2616,6 +2622,8 @@ static int apply_mount_namespace(
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
         r = setup_namespace(root_dir, root_image,
+                            context->mount_paths,
+                            context->n_mount_paths,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
@@ -4121,6 +4129,9 @@ void exec_context_done(ExecContext *c) {
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
+        mount_path_free_many(c->mount_paths, c->n_mount_paths);
+        c->mount_paths = NULL;
+        c->n_mount_paths = 0;
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -4896,6 +4907,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 else
                         fprintf(f, "%d\n", c->syscall_errno);
         }
+
+        if (c->n_mount_paths > 0)
+                for (i = 0; i < c->n_mount_paths; i++)
+                        fprintf(f, "%sMountPaths: %s%s:%s:%s\n", prefix,
+                                c->mount_paths[i].permissive ? "-": "",
+                                c->mount_paths[i].source,
+                                c->mount_paths[i].destination,
+                                c->mount_paths[i].mount_flags);
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

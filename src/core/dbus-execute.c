@@ -25,6 +25,7 @@
 #include "io-util.h"
 #include "ioprio.h"
 #include "journal-util.h"
+#include "libmount-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -692,6 +693,42 @@ static int property_get_log_extra_fields(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_mount_paths(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        size_t i;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssbs)");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < c->n_mount_paths; i++) {
+                r = sd_bus_message_append(
+                                reply, "(ssbs)",
+                                c->mount_paths[i].source,
+                                c->mount_paths[i].destination,
+                                c->mount_paths[i].permissive,
+                                c->mount_paths[i].mount_flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -734,6 +771,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountPaths", "a(ssbs)", property_get_mount_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOSchedulingClass", "i", property_get_ioprio_class, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2583,6 +2621,66 @@ int bus_exec_context_set_transient_property(
                         return 1;
                 }
 
+        } else if (streq(name, "MountPaths")) {
+                char *source, *destination, *mount_flags;
+                int permissive;
+                bool empty = true;
+                unsigned long mflags = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ssbs)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ssbs)", &source, &destination, &permissive, &mount_flags)) > 0) {
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_absolute(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
+                        r = mnt_optstr_get_flags(mount_flags, &mflags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                        if (r < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid mount flags %s.", mount_flags);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = mount_path_add(&c->mount_paths, &c->n_mount_paths,
+                                                   &(MountPath) {
+                                                           .source = source,
+                                                           .destination = destination,
+                                                           .mount_flags = mount_flags,
+                                                           .read_only = mflags & MS_RDONLY,
+                                                           .nosuid = mflags & MS_NOSUID,
+                                                           .permissive = permissive,
+                                                   });
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s%s:%s:%s",
+                                                name,
+                                                permissive ? "-" : "",
+                                                source,
+                                                destination,
+                                                mount_flags);
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        mount_path_free_many(c->mount_paths, c->n_mount_paths);
+                        c->mount_paths = NULL;
+                        c->n_mount_paths = 0;
+
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
         }
 
         return 0;

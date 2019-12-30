@@ -70,9 +70,20 @@ struct TemporaryFileSystem {
         char *options;
 };
 
+typedef struct MountPath {
+        char *source;
+        char *destination;
+        char *mount_flags;
+        bool read_only:1;
+        bool nosuid:1;
+        bool permissive:1;
+} MountPath;
+
 int setup_namespace(
                 const char *root_directory,
                 const char *root_image,
+                const MountPath *mount_paths,
+                size_t n_mount_paths,
                 const NamespaceInfo *ns_info,
                 char **read_write_paths,
                 char **read_only_paths,
@@ -111,6 +122,9 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
 int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
                              const char *path, const char *options);
+
+void mount_path_free_many(MountPath *p, size_t n);
+int mount_path_add(MountPath **p, size_t *n, const MountPath *item);
 
 const char* namespace_type_to_string(NamespaceType t) _const_;
 NamespaceType namespace_type_from_string(const char *s) _pure_;
