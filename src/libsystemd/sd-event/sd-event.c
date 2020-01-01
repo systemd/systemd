@@ -828,9 +828,7 @@ static void source_disconnect(sd_event_source *s) {
         if (s->prepare)
                 prioq_remove(s->event->prepare, s, &s->prepare_index);
 
-        event = s->event;
-
-        s->event = NULL;
+        event = TAKE_PTR(s->event);
         LIST_REMOVE(sources, event->sources, s);
         event->n_sources--;
 
