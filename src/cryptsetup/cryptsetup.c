@@ -455,10 +455,10 @@ static int attach_tcrypt(
         assert(name);
         assert(key_file || (passwords && passwords[0]));
 
-        if (arg_pkcs11_uri) {
-                log_error("Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11 support.");
-                return -EAGAIN; /* Ask for a regular password */
-        }
+        if (arg_pkcs11_uri)
+                /* Ask for a regular password */
+                return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11 support.");
 
         if (arg_tcrypt_hidden)
                 params.flags |= CRYPT_TCRYPT_HIDDEN_HEADER;
