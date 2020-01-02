@@ -27,7 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "naming-scheme.h"
+#include "netif-naming-scheme.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "stdio-util.h"

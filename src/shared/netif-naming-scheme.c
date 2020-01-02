@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include "alloc-util.h"
-#include "naming-scheme.h"
+#include "netif-naming-scheme.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
 
