@@ -117,6 +117,30 @@ EOF
     clear_services a b c
 }
 
+test_hierarchical_dropins () {
+    echo "Testing hierarchical dropins..."
+    echo "*** test service.d/ top level drop-in"
+    create_services a-b-c
+    check_ko a-b-c ExecCondition "/bin/echo service.d"
+    check_ko a-b-c ExecCondition "/bin/echo a-.service.d"
+    check_ko a-b-c ExecCondition "/bin/echo a-b-.service.d"
+    check_ko a-b-c ExecCondition "/bin/echo a-b-c.service.d"
+
+    for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
+        mkdir -p /usr/lib/systemd/system/$dropin
+        echo "
+[Service]
+ExecCondition=/bin/echo $dropin
+        " > /usr/lib/systemd/system/$dropin/override.conf
+        check_ok a-b-c ExecCondition "/bin/echo $dropin"
+    done
+    for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
+        rm -rf /usr/lib/systemd/system/$dropin
+    done
+
+    clear_services a-b-c
+}
+
 test_template_dropins () {
     echo "Testing template dropins..."
 
@@ -433,6 +457,7 @@ test_invalid_dropins () {
 }
 
 test_basic_dropins
+test_hierarchical_dropins
 test_template_dropins
 test_alias_dropins
 test_masked_dropins
