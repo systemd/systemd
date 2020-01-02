@@ -2379,7 +2379,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
-                const char *source, *destination;
+                char *source, *destination;
                 int ignore_enoent;
                 uint64_t mount_flags;
                 bool empty = true;
@@ -2400,8 +2400,8 @@ int bus_exec_context_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
                                                    &(BindMount) {
-                                                           .source = strdup(source),
-                                                           .destination = strdup(destination),
+                                                           .source = source,
+                                                           .destination = destination,
                                                            .read_only = !!strstr(name, "ReadOnly"),
                                                            .recursive = !!(mount_flags & MS_REC),
                                                            .ignore_enoent = ignore_enoent,
