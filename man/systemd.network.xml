@@ -2466,6 +2466,38 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ControlledDelayTargetSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
+          Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ControlledDelayIntervalSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
+          become too stale. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ControlledDelayECN=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ControlledDelayCEThresholdSec=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
+          Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FairQueuingControlledDelayPacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
