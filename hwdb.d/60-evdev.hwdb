@@ -514,6 +514,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoYoga500-14IBD*
  EVDEV_ABS_35=117:3952:36
  EVDEV_ABS_36=105:1960:26
 
+# Lenovo Thinkpad T490
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT490:*
+ EVDEV_ABS_00=::57
+ EVDEV_ABS_01=::33
+ EVDEV_ABS_35=::57
+ EVDEV_ABS_36=::33
+
 #########################################
 # Razer
 #########################################
