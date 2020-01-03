@@ -147,6 +147,7 @@ Route.InitialAdvertisedReceiveWindow,   config_parse_tcp_window,                
 Route.QuickAck,                         config_parse_quickack,                           0,                             0
 Route.FastOpenNoCookie,                 config_parse_fast_open_no_cookie,                0,                             0
 Route.TTLPropagate,                     config_parse_route_ttl_propagate,                0,                             0
+Route.MultiPathRoute,                   config_parse_multipath_route,                    0,                             0
 NextHop.Id,                             config_parse_nexthop_id,                         0,                             0
 NextHop.Gateway,                        config_parse_nexthop_gateway,                    0,                             0
 DHCPv4.ClientIdentifier,                config_parse_dhcp_client_identifier,             0,                             offsetof(Network, dhcp_client_identifier)

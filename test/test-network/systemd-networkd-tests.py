@@ -1812,6 +1812,30 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
 
+        print('### ip route show 192.168.10.1')
+        output = check_output('ip route show 192.168.10.1')
+        print(output)
+        self.assertRegex(output, '192.168.10.1 proto static')
+        self.assertRegex(output, 'nexthop via 149.10.124.59 dev dummy98 weight 10')
+        self.assertRegex(output, 'nexthop via 149.10.124.60 dev dummy98 weight 5')
+
+        print('### ip route show 192.168.10.2')
+        output = check_output('ip route show 192.168.10.2')
+        print(output)
+        # old ip command does not show IPv6 gateways...
+        self.assertRegex(output, '192.168.10.2 proto static')
+        self.assertRegex(output, 'nexthop')
+        self.assertRegex(output, 'dev dummy98 weight 10')
+        self.assertRegex(output, 'dev dummy98 weight 5')
+
+        print('### ip -6 route show 2001:1234:5:7fff:ff:ff:ff:ff')
+        output = check_output('ip -6 route show 2001:1234:5:7fff:ff:ff:ff:ff')
+        print(output)
+        # old ip command does not show 'nexthop' keyword and weight...
+        self.assertRegex(output, '2001:1234:5:7fff:ff:ff:ff:ff')
+        self.assertRegex(output, 'via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98')
+        self.assertRegex(output, 'via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98')
+
     def test_gateway_reconfigure(self):
         copy_unit_to_networkd_unit_path('25-gateway-static.network', '12-dummy.netdev')
         start_networkd()
