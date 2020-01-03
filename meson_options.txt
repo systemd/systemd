@@ -348,3 +348,5 @@ option('fuzzbuzz-engine', type : 'string',
        description : 'the name of the FuzzBuzz fuzzing engine')
 option('fuzzbuzz-engine-dir', type : 'string',
        description : 'the directory where the FuzzBuzz fuzzing engine is')
+option('cross-tools-only', type : 'boolean', value : 'false',
+       description : 'only build host tools that are needed in a croos-environment')
