@@ -52,10 +52,10 @@ p     /fifo/to/create                          mode user group -           -
 p+    /fifo/to/[re]create                      mode user group -           -
 L     /symlink/to/create                       -    -    -     -           symlink/target/path
 L+    /symlink/to/[re]create                   -    -    -     -           symlink/target/path
-c     /dev/char-device-to-create               mode user group -           -
-c+    /dev/char-device-to-[re]create           mode user group -           -
-b     /dev/block-device-to-create              mode user group -           -
-b+    /dev/block-device-to-[re]create          mode user group -           -
+c     /dev/char-device-to-create               mode user group -           major:minor
+c+    /dev/char-device-to-[re]create           mode user group -           major:minor
+b     /dev/block-device-to-create              mode user group -           major:minor
+b+    /dev/block-device-to-[re]create          mode user group -           major:minor
 C     /target/to/create                        -    -    -     -           /source/to/copy
 x     /path-or-glob/to/ignore                  -    -    -     -           -
 X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
