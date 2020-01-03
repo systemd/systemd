@@ -7,7 +7,7 @@ systemd-analyze log-level debug
 runas() {
     declare userid=$1
     shift
-    su "$userid" -c 'XDG_RUNTIME_DIR=/run/user/$UID "$@"' -- sh "$@"
+    su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
 }
 
 runas nobody systemctl --user --wait is-system-running
