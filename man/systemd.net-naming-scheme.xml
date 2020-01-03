@@ -46,6 +46,11 @@
     devices based on those properties. See the description of <varname>NamePolicy=</varname> and
     <varname>MACAddressPolicy=</varname> in
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Note that while the concept of network interface naming schemes is primarily relevant in the
+    context of <filename>systemd-udevd.service</filename>, the
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    container manager also takes it into account when naming network interfaces, see below.</para>
   </refsect1>
 
   <refsect1>
@@ -329,7 +334,21 @@
           <para>Previously two-letter interface type prefix was prepended to
           <varname>ID_NET_LABEL_ONBOARD=</varname>. This is not done anymore.</para></listitem>
         </varlistentry>
-    </variablelist>
+
+        <varlistentry>
+          <term><constant>v245</constant></term>
+
+          <listitem><para>When
+          <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          derives the name for the host side of the network interface created with
+          <option>--network-veth</option> from the container name it previously simply truncated the result
+          at 15 characters if longer (since that's the maximum length for network interface names). From now
+          on, for any interface name that would be longer than 15 characters the last 4 characters are set to
+          a 24bit hash value of the full interface name. This way network interface name collisions between
+          multiple similarly named containers (who only differ in container name suffix) should be less
+          likely (but still possible, since the 24bit hash value is very small).</para></listitem>
+        </varlistentry>
+      </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
     particular version of systemd.</para>
@@ -428,7 +447,8 @@ ID_NET_NAME_PATH=encf5f0</programlisting>
     <para>
       <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>
+      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
