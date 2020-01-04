@@ -124,6 +124,49 @@ int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const
         return 0;
 }
 
+int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(ifname);
+
+        if (strv_isempty(alternative_names))
+                return 0;
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_NEWLINKPROP, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_string(message, IFLA_IFNAME, ifname);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(message, IFLA_PROP_LIST);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_strv(message, IFLA_ALT_IFNAME, alternative_names);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(message);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, int *ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         int r;
