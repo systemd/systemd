@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if.h>
+#include <linux/if.h>
 #include <linux/veth.h>
 #include <sys/file.h>
 
@@ -99,10 +101,34 @@ static int generate_mac(
         return 0;
 }
 
+static int set_alternative_ifname(sd_netlink *rtnl, const char *ifname, const char *altifname) {
+        int r;
+
+        assert(rtnl);
+        assert(ifname);
+
+        if (!altifname)
+                return 0;
+
+        if (strlen(altifname) >= ALTIFNAMSIZ)
+                return log_warning_errno(SYNTHETIC_ERRNO(ERANGE),
+                                         "Alternative interface name '%s' for '%s' is too long, ignoring",
+                                         altifname, ifname);
+
+        r = rtnl_set_link_alternative_names_by_ifname(&rtnl, ifname, STRV_MAKE(altifname));
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "Failed to set alternative interface name '%s' to '%s', ignoring: %m",
+                                         altifname, ifname);
+
+        return 0;
+}
+
 static int add_veth(
                 sd_netlink *rtnl,
                 pid_t pid,
                 const char *ifname_host,
+                const char *altifname_host,
                 const struct ether_addr *mac_host,
                 const char *ifname_container,
                 const struct ether_addr *mac_container) {
@@ -168,6 +194,8 @@ static int add_veth(
         if (r < 0)
                 return log_error_errno(r, "Failed to add new veth interfaces (%s:%s): %m", ifname_host, ifname_container);
 
+        (void) set_alternative_ifname(rtnl, ifname_host, altifname_host);
+
         return 0;
 }
 
@@ -181,13 +209,13 @@ static char urlsafe_base64char(int x) {
         return table[x & 63];
 }
 
-static void shorten_ifname(char *ifname) {
+static int shorten_ifname(char *ifname) {
         char new_ifname[IFNAMSIZ];
 
         assert(ifname);
 
         if (strlen(ifname) < IFNAMSIZ) /* Name is short enough */
-                return;
+                return 0;
 
         if (naming_scheme_has(NAMING_NSPAWN_LONG_HASH)) {
                 uint64_t h;
@@ -211,6 +239,7 @@ static void shorten_ifname(char *ifname) {
         log_warning("Network interface name '%s' has been changed to '%s' to fit length constraints.", ifname, new_ifname);
 
         strcpy(ifname, new_ifname);
+        return 1;
 }
 
 int setup_veth(const char *machine_name,
@@ -221,7 +250,7 @@ int setup_veth(const char *machine_name,
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
         unsigned u;
-        char *n;
+        char *n, *a = NULL;
         int r;
 
         assert(machine_name);
@@ -231,7 +260,9 @@ int setup_veth(const char *machine_name,
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
         n = strjoina(bridge ? "vb-" : "ve-", machine_name);
-        shorten_ifname(n);
+        r = shorten_ifname(n);
+        if (r > 0)
+                a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
         r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
         if (r < 0)
@@ -245,7 +276,7 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = add_veth(rtnl, pid, n, &mac_host, "host0", &mac_container);
+        r = add_veth(rtnl, pid, n, a, &mac_host, "host0", &mac_container);
         if (r < 0)
                 return r;
 
@@ -288,7 +319,7 @@ int setup_veth_extra(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
 
-                r = add_veth(rtnl, pid, *a, &mac_host, *b, &mac_container);
+                r = add_veth(rtnl, pid, *a, NULL, &mac_host, *b, &mac_container);
                 if (r < 0)
                         return r;
 
@@ -536,7 +567,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *a = NULL;
                 struct ether_addr mac;
                 int ifi;
 
@@ -560,7 +591,12 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                shorten_ifname(n);
+                r = shorten_ifname(n);
+                if (r > 0) {
+                        a = strjoin("mv-", *i);
+                        if (!a)
+                                return log_oom();
+                }
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -597,6 +633,8 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new macvlan interfaces: %m");
+
+                (void) set_alternative_ifname(rtnl, n, a);
         }
 
         return 0;
@@ -616,7 +654,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *a = NULL;
                 int ifi;
 
                 ifi = parse_interface(*i);
@@ -635,7 +673,12 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                shorten_ifname(n);
+                r = shorten_ifname(n);
+                if (r > 0) {
+                        a = strjoin("iv-", *i);
+                        if (!a)
+                                return log_oom();
+                }
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -668,6 +711,8 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new ipvlan interfaces: %m");
+
+                (void) set_alternative_ifname(rtnl, n, a);
         }
 
         return 0;
