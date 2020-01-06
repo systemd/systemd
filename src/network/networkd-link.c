@@ -2734,15 +2734,6 @@ static int link_configure(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return link_configure_can(link);
 
-        /* Drop foreign config, but ignore loopback or critical devices.
-         * We do not want to remove loopback address or addresses used for root NFS. */
-        if (!(link->flags & IFF_LOOPBACK) &&
-            link->network->keep_configuration != KEEP_CONFIGURATION_YES) {
-                r = link_drop_foreign_config(link);
-                if (r < 0)
-                        return r;
-        }
-
         /* If IPv6 configured that is static IPv6 address and IPv6LL autoconfiguration is enabled
          * for this interface, then enable IPv6 */
         (void) link_update_ipv6_sysctl(link);
@@ -2870,6 +2861,15 @@ static int link_configure_continue(Link *link) {
 
         if (link->setting_mtu || link->setting_genmode)
                 return 0;
+
+        /* Drop foreign config, but ignore loopback or critical devices.
+         * We do not want to remove loopback address or addresses used for root NFS. */
+        if (!(link->flags & IFF_LOOPBACK) &&
+            link->network->keep_configuration != KEEP_CONFIGURATION_YES) {
+                r = link_drop_foreign_config(link);
+                if (r < 0)
+                        return r;
+        }
 
         /* The kernel resets ipv6 mtu after changing device mtu;
          * we must set this here, after we've set device mtu */
