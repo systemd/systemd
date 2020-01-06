@@ -512,8 +512,8 @@ int sd_rtnl_message_new_link(sd_netlink *rtnl, sd_netlink_message **ret,
 
         if (nlmsg_type == RTM_NEWLINK)
                 (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
-        else if (nlmsg_type == RTM_NEWLINK)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_EXCL | NLM_F_CREATE | NLM_F_APPEND;
+        else if (nlmsg_type == RTM_NEWLINKPROP)
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL | NLM_F_APPEND;
 
         ifi = NLMSG_DATA((*ret)->hdr);
 
