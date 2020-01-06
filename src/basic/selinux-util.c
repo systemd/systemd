@@ -10,6 +10,7 @@
 #include <syslog.h>
 
 #if HAVE_SELINUX
+#include <selinux/avc.h>
 #include <selinux/context.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
@@ -31,6 +32,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 
 #define _cleanup_freecon_ _cleanup_(freeconp)
 #define _cleanup_context_free_ _cleanup_(context_freep)
+
+static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
@@ -62,6 +65,8 @@ int mac_selinux_init(void) {
 #if HAVE_SELINUX
         usec_t before_timestamp, after_timestamp;
         struct mallinfo before_mallinfo, after_mallinfo;
+
+        selinux_set_callback(SELINUX_CB_POLICYLOAD, (union selinux_callback) mac_selinux_reload);
 
         if (label_hnd)
                 return 0;
@@ -105,13 +110,12 @@ void mac_selinux_finish(void) {
 #endif
 }
 
-void mac_selinux_reload(void) {
-
 #if HAVE_SELINUX
+static int mac_selinux_reload(int seqno) {
         struct selabel_handle *backup_label_hnd;
 
         if (!label_hnd)
-                return;
+                return 0;
 
         backup_label_hnd = TAKE_PTR(label_hnd);
 
@@ -122,8 +126,10 @@ void mac_selinux_reload(void) {
                 selabel_close(backup_label_hnd);
         else
                 label_hnd = backup_label_hnd;
-#endif
+
+        return 0;
 }
+#endif
 
 int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
@@ -151,6 +157,9 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
         if (fstat(fd, &st) < 0)
                 return -errno;
+
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        (void) avc_netlink_check_nb();
 
         if (selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode) < 0) {
                 r = -errno;
@@ -345,6 +354,9 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
         assert(abspath);
         assert(path_is_absolute(abspath));
 
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        (void) avc_netlink_check_nb();
+
         r = selabel_lookup_raw(label_hnd, &filecon, abspath, mode);
         if (r < 0) {
                 /* No context specified by the policy? Proceed without setting it. */
@@ -495,6 +507,9 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 goto skipped;
 
         path = strndupa(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
+
+        /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
+        (void) avc_netlink_check_nb();
 
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);
