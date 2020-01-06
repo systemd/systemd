@@ -239,12 +239,11 @@ if conf.get('ENABLE_NETWORKD') == 1
       test_tables_h],
      [libnetworkd_core,
       libudev_static,
-      libudev_core,
       libsystemd_network,
       libshared],
      [threads],
      '', '', [],
-     [network_include_dir] + libudev_core_includes],
+     [network_include_dir]],
 
     [['src/network/generator/test-network-generator.c',
       'src/network/generator/network-generator.c',
