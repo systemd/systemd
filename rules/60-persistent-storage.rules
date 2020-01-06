@@ -12,8 +12,22 @@ KERNEL!="loop*|mmcblk*[0-9]|msblk*[0-9]|mspblk*[0-9]|nvme*|sd*|sr*|vd*|xvd*|bcac
 # ignore partitions that span the entire disk
 TEST=="whole_disk", GOTO="persistent_storage_end"
 
-# for partitions import parent information
-ENV{DEVTYPE}=="partition", IMPORT{parent}="ID_*"
+# For partitions import parent disk ID_* information, except ID_FS_*.
+#
+# This is particularly important on media where a filesystem superblock and
+# partition table are found on the same level, e.g. common Linux distro ISO
+# installation media.
+#
+# In the case where a partition device points to the same filesystem that
+# was detected on the parent disk, the ID_FS_* information is already
+# present on the partition devices as well as the parent, so no need to
+# propagate it. In the case where the partition device points to a different
+# filesystem, merging the parent ID_FS_ properties would lead to
+# inconsistencies, so we avoid doing so.
+ENV{DEVTYPE}=="partition", \
+  IMPORT{parent}="ID_[!F]*", IMPORT{parent}="ID_", \
+  IMPORT{parent}="ID_F[!S]*", IMPORT{parent}="ID_F", \
+  IMPORT{parent}="ID_FS[!_]*", IMPORT{parent}="ID_FS"
 
 # NVMe
 KERNEL=="nvme*[0-9]n*[0-9]", ATTR{wwid}=="?*", SYMLINK+="disk/by-id/nvme-$attr{wwid}"
