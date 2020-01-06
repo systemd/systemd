@@ -182,7 +182,7 @@ int rtnl_log_create_error(int r) {
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length) {
         size_t padding_length;
-        char *padding;
+        uint8_t *padding;
 
         assert(rta);
         assert(!data || data_length > 0);
@@ -202,7 +202,7 @@ void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, c
                 padding = RTA_DATA(rta);
 
         /* make sure also the padding at the end of the message is initialized */
-        padding_length = (char *) rta + RTA_SPACE(data_length) - padding;
+        padding_length = (uint8_t *) rta + RTA_SPACE(data_length) - padding;
         memzero(padding, padding_length);
 }
 
