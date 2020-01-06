@@ -10,8 +10,6 @@ runas() {
     su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
 }
 
-runas testuser systemctl --user --wait is-system-running
-
 runas testuser systemd-run --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
