@@ -218,7 +218,7 @@ int pkcs11_token_login(
                         r = asprintf(&text,
                                      "Please enter correct PIN for security token '%s' in order to unlock %s (final try):",
                                      token_label, friendly_name);
-                if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
+                else if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
                         r = asprintf(&text,
                                      "PIN has been entered incorrectly previously, please enter correct PIN for security token '%s' in order to unlock %s:",
                                      token_label, friendly_name);
