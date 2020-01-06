@@ -933,63 +933,57 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0, n;
+        usec_t atime = 0;
         int r;
 
         assert(s);
 
-        /* Explicit idle hint is set */
-        if (s->idle_hint) {
+        /* Graphical sessions have an explicit idle hint */
+        if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
                 if (t)
                         *t = s->idle_hint_timestamp;
 
                 return s->idle_hint;
         }
 
-        /* Graphical sessions should really implement a real
-         * idle hint logic */
-        if (SESSION_TYPE_IS_GRAPHICAL(s->type))
-                goto dont_know;
-
-        /* For sessions with an explicitly configured tty, let's check
-         * its atime */
+        /* For sessions with an explicitly configured tty, let's check its atime */
         if (s->tty) {
                 r = get_tty_atime(s->tty, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
 
-        /* For sessions with a leader but no explicitly configured
-         * tty, let's check the controlling tty of the leader */
+        /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
+         * the leader */
         if (pid_is_valid(s->leader)) {
                 r = get_process_ctty_atime(s->leader, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
 
-dont_know:
         if (t)
-                *t = s->idle_hint_timestamp;
+                *t = DUAL_TIMESTAMP_NULL;
 
-        return 0;
+        return false;
 
 found_atime:
         if (t)
                 dual_timestamp_from_realtime(t, atime);
 
-        n = now(CLOCK_REALTIME);
-
         if (s->manager->idle_action_usec <= 0)
-                return 0;
+                return false;
 
-        return atime + s->manager->idle_action_usec <= n;
+        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
 }
 
-void session_set_idle_hint(Session *s, bool b) {
+int session_set_idle_hint(Session *s, bool b) {
         assert(s);
 
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+                return -ENOTTY;
+
         if (s->idle_hint == b)
-                return;
+                return 0;
 
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
@@ -1001,6 +995,8 @@ void session_set_idle_hint(Session *s, bool b) {
 
         user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
         manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+
+        return 1;
 }
 
 int session_get_locked_hint(Session *s) {
