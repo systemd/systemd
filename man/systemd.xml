@@ -280,10 +280,9 @@
     files or parameters passed on the kernel command line. For details, see
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-    <para>Systems which invoke systemd in a container or initrd
-    environment should implement the
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink
+    url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 

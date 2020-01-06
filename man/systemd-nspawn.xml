@@ -111,8 +111,7 @@
     container.</para>
 
     <para><command>systemd-nspawn</command> implements the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink>
-    specification.</para>
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> specification.</para>
 
     <para>While running, containers invoked with <command>systemd-nspawn</command> are registered with the
     <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry> service that
