@@ -2,6 +2,7 @@
 
 install_data(
         '50-default.conf',
+        '50-pid-max.conf',
         install_dir : sysctldir)
 
 in_files = []
