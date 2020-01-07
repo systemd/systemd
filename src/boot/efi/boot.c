@@ -1940,7 +1940,7 @@ static VOID config_entry_add_linux(
                                 continue;
                         }
 
-                        if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
+                        if (strcmpa((CHAR8 *)"VERSION", key) == 0) {
                                 FreePool(os_version);
                                 os_version = stra_to_str(value);
                                 continue;
