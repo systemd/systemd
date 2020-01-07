@@ -81,7 +81,6 @@ static void dump_special_glyphs(void) {
         dump_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
         dump_glyph(SPECIAL_GLYPH_BULLET);
         dump_glyph(SPECIAL_GLYPH_ARROW);
-        dump_glyph(SPECIAL_GLYPH_MDASH);
         dump_glyph(SPECIAL_GLYPH_ELLIPSIS);
         dump_glyph(SPECIAL_GLYPH_MU);
         dump_glyph(SPECIAL_GLYPH_CHECK_MARK);
