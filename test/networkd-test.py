@@ -400,7 +400,7 @@ DHCP={}
             self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged'.format(self.if_router)).encode())
             self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured'.format(self.iface)).encode())
 
-            out = subprocess.check_output(['networkctl', 'status', self.iface])
+            out = subprocess.check_output(['networkctl', '-n', '0', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
             self.assertRegex(out, br'State:\s+routable.*configured')
             self.assertRegex(out, br'Address:\s+192.168.5.\d+')
@@ -420,7 +420,7 @@ DHCP={}
             subprocess.call(['ip', 'a', 'show', 'dev', self.iface])
             print('---- networkctl status {} ----'.format(self.iface))
             sys.stdout.flush()
-            rc = subprocess.call(['networkctl', 'status', self.iface])
+            rc = subprocess.call(['networkctl', '-n', '0', 'status', self.iface])
             if rc != 0:
                 print("'networkctl status' exited with an unexpected code {}".format(rc))
             self.show_journal('systemd-networkd.service')
