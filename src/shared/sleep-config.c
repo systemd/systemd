@@ -186,36 +186,25 @@ HibernateLocation* hibernate_location_free(HibernateLocation *hl) {
 }
 
 static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
-        _cleanup_close_ int fd = -1;
         struct stat sb;
-        dev_t swap_dev;
         int r;
 
         assert(swap);
         assert(swap->device);
         assert(swap->type);
 
-        fd = open(swap->device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s': %m", swap->device);
-
-        r = fstat(fd, &sb);
+        r = stat(swap->device, &sb);
         if (r < 0)
                 return log_debug_errno(errno, "Unable to stat %s: %m", swap->device);
 
         if (streq(swap->type, "partition")) {
-                if(!S_ISBLK(sb.st_mode))
+                if (!S_ISBLK(sb.st_mode))
                         return -ENOTBLK;
-                swap_dev = sb.st_rdev;
-        } else {
-                r = get_block_device(swap->device, &swap_dev);
-                if (r < 0)
-                        return r;
-        }
+                *ret_dev = sb.st_rdev;
+                return 0;
 
-        *ret_dev = swap_dev;
-
-        return 0;
+        } else
+                return get_block_device(swap->device, ret_dev);
 }
 
 /*
