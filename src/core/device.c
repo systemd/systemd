@@ -1064,6 +1064,7 @@ const UnitVTable device_vtable = {
                 "Device\0"
                 "Install\0",
 
+        .refuse_after = true,
         .gc_jobs = true,
 
         .init = device_init,

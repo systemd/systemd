@@ -806,6 +806,8 @@ const UnitVTable path_vtable = {
         .private_section = "Path",
 
         .can_transient = true,
+        .can_fail = true,
+        .can_trigger = true,
 
         .init = path_init,
         .done = path_done,

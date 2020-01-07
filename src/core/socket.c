@@ -3417,6 +3417,8 @@ const UnitVTable socket_vtable = {
         .private_section = "Socket",
 
         .can_transient = true,
+        .can_trigger = true,
+        .can_fail = true,
 
         .init = socket_init,
         .done = socket_done,
