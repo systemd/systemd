@@ -97,7 +97,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--timeout=</option> <replaceable>SECS</replaceable></term>
+        <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
 
         <listitem><para>Fail the service if the network is not online
         by the time the timeout elapses. A timeout of 0 disables the
