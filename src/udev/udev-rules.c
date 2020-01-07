@@ -1654,7 +1654,7 @@ static int udev_rule_apply_token_to_event(
                 if (mode == MODE_INVALID)
                         return token->op == OP_MATCH;
 
-                match = (((statbuf.st_mode ^ mode) & 07777) == 0);
+                match = (statbuf.st_mode & mode) > 0;
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {
