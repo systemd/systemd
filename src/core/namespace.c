@@ -1289,7 +1289,7 @@ int setup_namespace(
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
                 r = loop_device_make_by_path(root_image,
-                                             dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                              LO_FLAGS_PARTSCAN,
                                              &loop_device);
                 if (r < 0)
