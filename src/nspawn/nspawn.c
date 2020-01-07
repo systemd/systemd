@@ -1541,6 +1541,9 @@ static int verify_arguments(void) {
         if (arg_volatile_mode != VOLATILE_NO) /* Make sure all file systems contained in the image are mounted read-only if we are in volatile mode */
                 arg_read_only = true;
 
+        if (has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts))
+                arg_read_only = true;
+
         if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
                 /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
                  * The latter is not technically a user session, but we don't need to labour the point. */
@@ -3438,7 +3441,8 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (arg_read_only && arg_volatile_mode == VOLATILE_NO) {
+        if (arg_read_only && arg_volatile_mode == VOLATILE_NO &&
+                !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
                 r = bind_remount_recursive(directory, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");

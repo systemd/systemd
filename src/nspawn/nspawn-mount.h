@@ -55,6 +55,7 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
 int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, const char *selinux_apifs_context, MountSettingsMask mount_settings);
+bool has_custom_root_mount(const CustomMount *mounts, size_t n);
 
 int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
 
