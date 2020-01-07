@@ -48,6 +48,7 @@ struct Route {
         unsigned char pref;
         unsigned flags;
         int gateway_onlink;
+        bool gateway_from_dhcp;
 
         union in_addr_union gw;
         union in_addr_union dst;

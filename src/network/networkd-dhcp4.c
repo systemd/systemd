@@ -377,6 +377,23 @@ static int link_set_dhcp_routes(Link *link) {
                         return log_link_error_errno(link, r, "Could not set router: %m");
         }
 
+        Route *rt;
+        LIST_FOREACH(routes, rt, link->network->static_routes) {
+                if (!rt->gateway_from_dhcp)
+                        continue;
+
+                if (rt->family != AF_INET)
+                        continue;
+
+                rt->gw.in = router[0];
+
+                r = route_configure(rt, link, dhcp4_route_handler);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not set gateway: %m");
+                if (r > 0)
+                        link->dhcp4_messages++;
+        }
+
         return link_set_dns_routes(link, &address);
 }
 
@@ -479,6 +496,20 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_
 
         if (remove_all || !set_contains(link->dhcp_routes, route))
                 (void) route_remove(route, link, NULL);
+
+        Route *rt;
+        LIST_FOREACH(routes, rt, link->network->static_routes) {
+                if (!rt->gateway_from_dhcp)
+                        continue;
+
+                if (rt->family != AF_INET)
+                        continue;
+
+                if (!remove_all && in4_addr_equal(router, &rt->gw.in))
+                        continue;
+
+                (void) route_remove(rt, link, NULL);
+        }
 
         return 0;
 }
