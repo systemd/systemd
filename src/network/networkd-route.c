@@ -998,10 +998,19 @@ int config_parse_gateway(
                 /* we are not in an Route section, so treat
                  * this as the special '0' section */
                 r = route_new_static(network, NULL, 0, &n);
-        } else
+                if (r < 0)
+                        return r;
+        } else {
                 r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+
+                if (streq(rvalue, "dhcp")) {
+                        n->gateway_from_dhcp = true;
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
 
         if (n->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);

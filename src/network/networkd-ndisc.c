@@ -169,6 +169,26 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r > 0)
                 link->ndisc_messages++;
 
+        Route *route_gw;
+        LIST_FOREACH(routes, route_gw, link->network->static_routes) {
+                if (!route_gw->gateway_from_dhcp)
+                        continue;
+
+                if (route_gw->family != AF_INET6)
+                        continue;
+
+                route_gw->gw = gateway;
+
+                r = route_configure(route_gw, link, ndisc_netlink_route_message_handler);
+                if (r < 0) {
+                        log_link_error_errno(link, r, "Could not set gateway: %m");
+                        link_enter_failed(link);
+                        return r;
+                }
+                if (r > 0)
+                        link->ndisc_messages++;
+        }
+
         return 0;
 }
 

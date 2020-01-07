@@ -1039,6 +1039,8 @@ int link_request_set_routes(Link *link) {
         /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
         for (phase = 0; phase < _PHASE_MAX; phase++)
                 LIST_FOREACH(routes, rt, link->network->static_routes) {
+                        if (rt->gateway_from_dhcp)
+                                continue;
 
                         if ((in_addr_is_null(rt->family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
                                 continue;

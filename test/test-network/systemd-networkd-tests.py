@@ -2659,6 +2659,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         '25-vrf.network',
         'dhcp-client-anonymize.network',
         'dhcp-client-decline.network',
+        'dhcp-client-gateway-ipv4.network',
+        'dhcp-client-gateway-ipv6.network',
         'dhcp-client-gateway-onlink-implicit.network',
         'dhcp-client-ipv4-dhcp-settings.network',
         'dhcp-client-ipv4-only-ipv6-disabled.network',
@@ -3144,6 +3146,30 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show table main dev veth99')
         print(output)
         self.assertEqual(output, '')
+
+    def test_dhcp_client_gateway_ipv4(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                        'dhcp-client-gateway-ipv4.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip route list dev veth99 10.0.0.0/8')
+        print(output)
+        self.assertRegex(output, '10.0.0.0/8 via 192.168.5.1 proto static')
+
+    def test_dhcp_client_gateway_ipv6(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
+                                        'dhcp-client-gateway-ipv6.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
+        print(output)
+        self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
