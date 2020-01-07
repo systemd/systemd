@@ -195,7 +195,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
 
         r = stat(swap->device, &sb);
         if (r < 0)
-                return log_debug_errno(errno, "Unable to stat %s: %m", swap->device);
+                return r;
 
         if (streq(swap->type, "partition")) {
                 if (!S_ISBLK(sb.st_mode))
@@ -209,7 +209,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
 
 /*
  * Attempt to calculate the swap file offset on supported filesystems. On unsuported
- * filesystems, a debug message is logged and the ret_offset is set to 0.
+ * filesystems, a debug message is logged and ret_offset is set to UINT64_MAX.
  */
 static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offset) {
         _cleanup_close_ int fd = -1;
@@ -232,8 +232,8 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         if (btrfs < 0)
                 return log_error_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
         else if (btrfs > 0) {
-                log_debug("Detection of swap file offset on Btrfs is not supported: %s; skipping", swap->device);
-                *ret_offset = 0;
+                log_debug("%s: detection of swap file offset on Btrfs is not supported", swap->device);
+                *ret_offset = UINT64_MAX;
                 return 0;
         }
 
@@ -290,10 +290,9 @@ static bool location_is_resume_device(const HibernateLocation *location, dev_t s
         if (!location)
                 return false;
 
-        if (sys_resume > 0 && sys_resume == location->devno && sys_offset == location->offset)
-                return true;
-
-        return false;
+        return  sys_resume > 0 &&
+                sys_resume == location->devno &&
+                (sys_offset == location->offset || (sys_offset > 0 && location->offset == UINT64_MAX));
 }
 
 /*
@@ -314,7 +313,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
         dev_t sys_resume;
         uint64_t sys_offset = 0;
-        unsigned i;
+        bool resume_match = false;
         int r;
 
         /* read the /sys/power/resume & /sys/power/resume_offset values */
@@ -330,7 +329,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         }
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
-        for (i = 1;; i++) {
+        for (unsigned i = 1;; i++) {
                 _cleanup_(swap_entry_freep) SwapEntry *swap = NULL;
                 uint64_t swap_offset = 0;
                 int k;
@@ -363,68 +362,81 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                         if (r < 0)
                                 return r;
 
-                        /* if the offset was not calculated, continue without considering the swap file */
-                        if (swap_offset == 0)
-                                continue;
                 } else if (streq(swap->type, "partition")) {
                         const char *fn;
 
                         fn = path_startswith(swap->device, "/dev/");
                         if (fn && startswith(fn, "zram")) {
-                                log_debug("Ignoring compressed RAM swap device '%s'.", swap->device);
+                                log_debug("%s: ignoring zram swap", swap->device);
                                 continue;
                         }
+
                 } else {
-                        log_debug("Swap type %s is unsupported for hibernation: %s; skipping", swap->type, swap->device);
+                        log_debug("%s: swap type %s is unsupported for hibernation, ignoring", swap->device, swap->type);
                         continue;
                 }
 
                 /* prefer resume device or highest priority swap with most remaining space */
-                if (!hibernate_location || swap->priority > hibernate_location->swap->priority
-                    || ((swap->priority == hibernate_location->swap->priority)
-                        && (swap->size - swap->used) > (hibernate_location->swap->size - hibernate_location->swap->used))) {
-
-                        dev_t swap_device;
-                        r = swap_device_to_device_id(swap, &swap_device);
-                        if (r < 0)
-                                return r;
-
-                        hibernate_location = hibernate_location_free(hibernate_location);
-                        hibernate_location = new(HibernateLocation, 1);
-                        if (!hibernate_location)
-                                return log_oom();
-
-                        *hibernate_location = (HibernateLocation) {
-                                .devno = swap_device,
-                                .offset = swap_offset,
-                                .swap = TAKE_PTR(swap),
-                        };
-
-                        /* if the swap is the resume device, stop looping swaps */
-                        if (location_is_resume_device(hibernate_location, sys_resume, sys_offset))
-                                break;
+                if (hibernate_location && swap->priority < hibernate_location->swap->priority) {
+                        log_debug("%s: ignoring device with lower priority", swap->device);
+                        continue;
                 }
+                if (hibernate_location &&
+                    (swap->priority == hibernate_location->swap->priority
+                     && swap->size - swap->used < hibernate_location->swap->size - hibernate_location->swap->used)) {
+                        log_debug("%s: ignoring device with lower usable space", swap->device);
+                        continue;
+                }
+
+                dev_t swap_device;
+                r = swap_device_to_device_id(swap, &swap_device);
+                if (r < 0)
+                        return log_error_errno(r, "%s: failed to query device number: %m", swap->device);
+
+                hibernate_location = hibernate_location_free(hibernate_location);
+                hibernate_location = new(HibernateLocation, 1);
+                if (!hibernate_location)
+                        return log_oom();
+
+                *hibernate_location = (HibernateLocation) {
+                        .devno = swap_device,
+                        .offset = swap_offset,
+                        .swap = TAKE_PTR(swap),
+                };
+
+                /* if the swap is the resume device, stop the loop */
+                if (location_is_resume_device(hibernate_location, sys_resume, sys_offset)) {
+                        log_debug("%s: device matches configured resume settings.", hibernate_location->swap->device);
+                        resume_match = true;
+                        break;
+                }
+
+                log_debug("%s: is a candidate device.", hibernate_location->swap->device);
         }
 
-        bool resume_match = location_is_resume_device(hibernate_location, sys_resume, sys_offset);
-
-        /* resume= is set, but a matching /proc/swaps entry was not found */
-        if (!resume_match && sys_resume != 0) {
-                log_debug("/sys/power/resume appears to be configured but a matching swap in /proc/swaps could not be identified; hibernation may fail");
-                *ret_hibernate_location = NULL;
-
-                return 1;
-        }
-
+        /* We found nothing at all */
         if (!hibernate_location)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "No swap partitions or files suitable for hibernation were found in /proc/swaps");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                                       "No possible swap partitions or files suitable for hibernation were found in /proc/swaps.");
+
+        /* resume= is set but a matching /proc/swaps entry was not found */
+        if (sys_resume != 0 && !resume_match)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS),
+                                       "No swap partitions or files matching resume config were found in /proc/swaps.");
+
+        if (hibernate_location->offset == UINT64_MAX) {
+                if (sys_offset == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "Offset detection failed and /sys/power/resume_offset is not set.");
+
+                hibernate_location->offset = sys_offset;
+        }
 
         if (resume_match)
                 log_debug("Hibernation will attempt to use swap entry with path: %s, device: %u:%u, offset: %" PRIu64 ", priority: %i",
                           hibernate_location->swap->device, major(hibernate_location->devno), minor(hibernate_location->devno),
                           hibernate_location->offset, hibernate_location->swap->priority);
         else
-                log_debug("/sys/power/resume and /sys/power/resume_offset are not configured; attempting to hibernate with path: %s, device: %u:%u, offset: %" PRIu64 ", priority: %i",
+                log_debug("/sys/power/resume is not configured; attempting to hibernate with path: %s, device: %u:%u, offset: %" PRIu64 ", priority: %i",
                           hibernate_location->swap->device, major(hibernate_location->devno), minor(hibernate_location->devno),
                           hibernate_location->offset, hibernate_location->swap->priority);
 
