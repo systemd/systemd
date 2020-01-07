@@ -181,3 +181,5 @@ bool empty_or_root(const char *root);
 static inline const char *empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
+
+bool path_strv_contains(char **l, const char *path);
