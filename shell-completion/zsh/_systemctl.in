@@ -3,6 +3,8 @@
 
 (( $+functions[_systemctl_commands] )) || _systemctl_commands()
 {
+    local expl i
+
     local -a unit_commands=(
         # Unit Commands
         "list-sockets:List sockets"
@@ -97,20 +99,24 @@
         "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
     )
 
-    local -a _systemctl_cmds=(
-        "${unit_commands[@]}"
-        "${machine_commands[@]}"
-        "${unit_file_commands[@]}"
-        "${job_commands[@]}"
-        "${environment_commands[@]}"
-        "${manager_state_commands[@]}"
-        "${system_commands[@]}"
-    )
+    local -a groups=( unit machine unit_file job environment manager_state system )
+    local -a _systemctl_cmds
+    for i in $groups; do
+        _systemctl_cmds+=( "${(@P)${:-"${i}_commands"}}" )
+    done
 
     if (( CURRENT == 1 )); then
-        _describe -t commands 'systemctl command' _systemctl_cmds || compadd "$@"
+        _tags ${^groups//_/-}-commands
+        while _tags; do
+            for i in $groups; do
+                if _requested ${i//_/-}-commands; then
+                    _describe -t ${i//_/-}-commands "${i//_/ } command" ${i}_commands \
+                        && ret=0
+                fi
+            done
+        done
     else
-        local curcontext="$curcontext" expl
+        local curcontext="$curcontext"
 
         cmd="${${_systemctl_cmds[(r)$words[1]:*]%%:*}}"
         # Deal with any aliases
