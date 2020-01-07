@@ -15,20 +15,23 @@ test_setup() {
 
         mask_supporting_services
 
-        usermod --root $initdir -d /home/nobody -s /bin/bash nobody
-        mkdir $initdir/home $initdir/home/nobody
-        # Ubuntu's equivalent is nogroup
-        chown nobody:nobody $initdir/home/nobody || chown nobody:nogroup $initdir/home/nobody
+        # Allocate user for running test case under
+        mkdir -p $initdir/etc/sysusers.d
+        cat >$initdir/etc/sysusers.d/testuser.conf <<EOF
+u testuser    4711     "Test User" /home/testuser
+EOF
 
-        enable_user_manager nobody
+        mkdir -p $initdir/home/testuser -m 0700
+        chown 4711:4711 $initdir/home/testuser
 
-        nobody_uid=$(id -u nobody)
+        enable_user_manager testuser
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF
 [Unit]
 Description=Testsuite service
-After=systemd-logind.service user@$nobody_uid.service
+After=systemd-logind.service user@4711.service
+Wants=user@4711.service
 
 [Service]
 ExecStart=/testsuite.sh
