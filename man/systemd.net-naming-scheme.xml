@@ -94,8 +94,8 @@
         <varlistentry>
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
 
-          <listitem><para>This name is set based on the ordering information given by the firmware for
-          on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
+          <listitem><para>This name is set based on the numeric ordering information given by the firmware
+          for on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
           specified by the firmware. This is only available for PCI devices.</para>
           </listitem>
         </varlistentry>
@@ -103,8 +103,9 @@
         <varlistentry>
           <term><varname>ID_NET_LABEL_ONBOARD=<replaceable>prefix</replaceable> <replaceable>label</replaceable></varname></term>
 
-          <listitem><para>This property is set based on label given by the firmware for on-board devices. The
-          name consists of the prefix concatenated with the label. This is only available for PCI devices.
+          <listitem><para>This property is set based on textual label given by the firmware for on-board
+          devices. The name consists of the prefix concatenated with the label. This is only available for
+          PCI devices.
           </para>
           </listitem>
         </varlistentry>
