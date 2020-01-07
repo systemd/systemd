@@ -271,11 +271,9 @@ static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
                         return log_error_errno(r, "Failed to parse value in /sys/power/resume_offset \"%s\": %m", resume_offset_str);
         }
 
-        if (resume_offset > 0 && resume == 0) {
-                log_debug("Found offset in /sys/power/resume_offset: %" PRIu64 "; no device id found in /sys/power/resume; ignoring resume_offset",
+        if (resume_offset > 0 && resume == 0)
+                log_debug("Warning: found /sys/power/resume_offset==%" PRIu64 ", but /sys/power/resume unset. Misconfiguration?",
                           resume_offset);
-                resume_offset = 0;
-        }
 
         *ret_resume = resume;
         *ret_resume_offset = resume_offset;
