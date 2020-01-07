@@ -384,6 +384,19 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
+static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
+        assert(p);
+
+        /* if we probed vfat or have no idea about the file system then assume these file systems are vfat
+         * and thus understand "umask=0077". If we detected something else then don't specify any options and
+         * use kernel defaults. */
+
+        if (!p->fstype || streq(p->fstype, "vfat"))
+                return "umask=0077";
+
+        return NULL;
+}
+
 static int add_xbootldr(DissectedPartition *p) {
         int r;
 
@@ -413,7 +426,7 @@ static int add_xbootldr(DissectedPartition *p) {
                              "/boot",
                              p->fstype,
                              true,
-                             "umask=0077",
+                             esp_or_xbootldr_options(p),
                              "Boot Loader Partition",
                              120 * USEC_PER_SEC);
 }
@@ -487,7 +500,7 @@ static int add_esp(DissectedPartition *p, bool has_xbootldr) {
                              esp_path,
                              p->fstype,
                              true,
-                             "umask=0077",
+                             esp_or_xbootldr_options(p),
                              "EFI System Partition Automount",
                              120 * USEC_PER_SEC);
 }
