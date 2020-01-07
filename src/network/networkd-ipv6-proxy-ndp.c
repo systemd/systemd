@@ -162,15 +162,15 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
         /* create new netlink message */
         r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_INET6);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 
         r = sd_rtnl_message_neigh_set_flags(req, NLM_F_REQUEST | NTF_PROXY);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not set neighbor flags: %m");
 
         r = sd_netlink_message_append_in6_addr(req, NDA_DST, &ipv6_proxy_ndp_address->in_addr);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
         r = netlink_call_async(rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
                                link_netlink_destroy_callback, link);

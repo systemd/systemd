@@ -511,7 +511,7 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 
         r = route_remove(route, route->link, NULL);
         if (r < 0)
-                log_warning_errno(r, "Could not remove route: %m");
+                log_link_warning_errno(route->link, r, "Could not remove route: %m");
         else
                 route_free(route);
 

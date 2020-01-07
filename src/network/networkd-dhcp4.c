@@ -783,7 +783,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                         _cleanup_free_ char *pretty = NULL;
 
                         (void) in_addr_to_string(AF_INET, &addr, &pretty);
-                        log_debug("Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
+                        log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
                 }
 
                 r = sd_ipv4acd_start(link->network->dhcp_acd, true);
