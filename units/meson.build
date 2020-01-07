@@ -35,6 +35,7 @@ units = [
         ['local-fs.target',                     ''],
         ['machine.slice',                       'ENABLE_MACHINED'],
         ['machines.target',                     'ENABLE_MACHINED'],
+        ['modprobe@.service',                   ''],
         ['multi-user.target',                   '',
          'runlevel2.target runlevel3.target runlevel4.target'],
         ['network-online.target',               ''],
