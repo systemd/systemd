@@ -39,18 +39,19 @@ STATIC_DESTRUCTOR_REGISTER(arg_verb, freep);
 
 static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
         char offset_str[DECIMAL_STR_MAX(uint64_t)];
+        char resume_str[DECIMAL_STR_MAX(unsigned) * 2 + STRLEN(":")];
         int r;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
-        assert(hibernate_location->resume);
 
-        r = write_string_file("/sys/power/resume", hibernate_location->resume, WRITE_STRING_FILE_DISABLE_BUFFER);
+        xsprintf(resume_str, "%u:%u", major(hibernate_location->devno), minor(hibernate_location->devno));
+        r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
-                                       hibernate_location->swap->device, hibernate_location->resume);
+                                       hibernate_location->swap->device, resume_str);
 
-        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, hibernate_location->resume);
+        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, resume_str);
 
         /* if it's a swap partition, we're done */
         if (streq(hibernate_location->swap->type, "partition"))
@@ -61,17 +62,17 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
                                        "Invalid hibernate type: %s", hibernate_location->swap->type);
 
         /* Only available in 4.17+ */
-        if (hibernate_location->resume_offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
+        if (hibernate_location->offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
                 if (errno == ENOENT) {
                         log_debug("Kernel too old, can't configure resume_offset for %s, ignoring: %" PRIu64,
-                                  hibernate_location->swap->device, hibernate_location->resume_offset);
+                                  hibernate_location->swap->device, hibernate_location->offset);
                         return 0;
                 }
 
                 return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
         }
 
-        xsprintf(offset_str, "%" PRIu64, hibernate_location->resume_offset);
+        xsprintf(offset_str, "%" PRIu64, hibernate_location->offset);
         r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write swap file offset to /sys/power/resume_offset for '%s': '%s': %m",

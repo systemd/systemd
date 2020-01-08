@@ -40,8 +40,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SwapEntry*, swap_entry_free);
  * and the matching /proc/swap entry.
  */
 typedef struct HibernateLocation {
-        char *resume;
-        uint64_t resume_offset;
+        dev_t devno;
+        uint64_t offset;
         SwapEntry *swap;
 } HibernateLocation;
 
