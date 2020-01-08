@@ -1037,13 +1037,14 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
-        int r, fd;
-
         assert(e);
         assert(d);
 
         if (_likely_(d->fd >= 0))
                 return 0;
+
+        _cleanup_close_ int fd = -1;
+        int r;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1057,12 +1058,10 @@ static int event_setup_timer_fd(
         };
 
         r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0) {
-                safe_close(fd);
+        if (r < 0)
                 return -errno;
-        }
 
-        d->fd = fd;
+        d->fd = TAKE_FD(fd);
         return 0;
 }
 
