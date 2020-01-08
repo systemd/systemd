@@ -405,6 +405,25 @@ class Utilities():
         return False
 
     def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured', setup_timeout=5):
+        """Wait for the link(s) to reach the specified operstate and/or setup state.
+
+        This is similar to wait_operstate() but can be used for multiple links,
+        and it also calls systemd-networkd-wait-online to wait for the given operstate.
+        The operstate should be specified in the link name, like 'eth0:degraded'.
+        If just a link name is provided, wait-online's default operstate to wait for is degraded.
+
+        The 'timeout' parameter controls the systemd-networkd-wait-online timeout, and the
+        'setup_timeout' controls the per-link timeout waiting for the setup_state.
+
+        Set 'bool_any' to True to wait for any (instead of all) of the given links.
+        If this is set, no setup_state checks are done.
+
+        Note that this function waits for the link(s) to reach *or exceed* the given operstate.
+        However, the setup_state, if specified, must be matched *exactly*.
+
+        This returns if the link(s) reached the requested operstate/setup_state; otherwise it
+        raises CalledProcessError or fails test assertion.
+        """
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
@@ -416,22 +435,8 @@ class Utilities():
                 print(output)
             raise
         if not bool_any and setup_state:
-            # check at least once now, then once per sec for setup_timeout secs
-            for secs in range(setup_timeout + 1):
-                for link in links_with_operstate:
-                    output = check_output(*networkctl_cmd, '-n', '0', 'status', link.split(':')[0])
-                    print(output)
-                    if not re.search(rf'(?m)^\s*State:.*({setup_state}).*$', output):
-                        # this link isn't in the right state; break into the sleep below
-                        break
-                else:
-                    # all the links were in the right state; break to exit the timer loop
-                    break
-                # don't bother sleeping if time is up
-                if secs < setup_timeout:
-                    time.sleep(1)
-            else:
-                self.fail(f'link {link} state does not match {setup_state}')
+            for link in links_with_operstate:
+                self.wait_operstate(link.split(':')[0], None, setup_state, setup_timeout)
 
     def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
         for i in range(timeout_sec):
