@@ -69,7 +69,13 @@
     The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
+      <!-- This list is reused in systemd.network(3), hence maintain a specific order:
+           1. device matches shared between the two lists
+           2. non-shared settings
+           3. host matches shared between the two lists
+        -->
+
+      <varlistentry id='mac-address'>
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
@@ -80,7 +86,8 @@
           <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='permanent-mac-address'>
         <term><varname>PermanentMACAddress=</varname></term>
         <listitem>
           <para>A whitespace-separated list of hardware's permanent addresses. While
@@ -91,18 +98,8 @@
           of hardware addresses defined prior to this is reset.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>OriginalName=</varname></term>
-        <listitem>
-          <para>A whitespace-separated list of shell-style globs matching
-          the device name, as exposed by the udev property
-          "INTERFACE". This cannot be used to match on names that have
-          already been changed from userspace. Caution is advised when matching on
-          kernel-assigned names, as they are known to be unstable
-          between reboots.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='path'>
         <term><varname>Path=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching
@@ -110,23 +107,27 @@
           <varname>ID_PATH</varname>.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='driver'>
         <term><varname>Driver=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the driver currently bound to the
-          device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or if that
-          is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.</para>
+          device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or
+          if that is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.
+          If the list is prefixed with a "!", the test is inverted.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='type'>
         <term><varname>Type=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of shell-style globs matching
-          the device type, as exposed by the udev
-          property <varname>DEVTYPE</varname>.</para>
+            <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
+            the udev property <literal>DEVTYPE</literal>. If the list is prefixed with a "!", the test is
+            inverted.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='property'>
         <term><varname>Property=</varname></term>
         <listitem>
           <para>A whitespace-separated list of udev property name with its value after a equal
@@ -141,7 +142,18 @@
           </para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
+        <term><varname>OriginalName=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of shell-style globs matching the device name, as exposed by the
+          udev property "INTERFACE". This cannot be used to match on names that have already been changed
+          from userspace. Caution is advised when matching on kernel-assigned names, as they are known to be
+          unstable between reboots.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='host'>
         <term><varname>Host=</varname></term>
         <listitem>
           <para>Matches against the hostname or machine ID of the host. See <varname>ConditionHost=</varname> in
@@ -151,7 +163,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='virtualization'>
         <term><varname>Virtualization=</varname></term>
         <listitem>
           <para>Checks whether the system is executed in a virtualized environment and optionally test
@@ -162,7 +175,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='kernel-command-line'>
         <term><varname>KernelCommandLine=</varname></term>
         <listitem>
           <para>Checks whether a specific kernel command line option is set. See
@@ -173,7 +187,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='kernel-version'>
         <term><varname>KernelVersion=</varname></term>
         <listitem>
           <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
@@ -184,7 +199,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='architecture'>
         <term><varname>Architecture=</varname></term>
         <listitem>
           <para>Checks whether the system is running on a specific architecture. See

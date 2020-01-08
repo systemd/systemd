@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd.network" conditional='ENABLE_NETWORKD'>
+<refentry id="systemd.network" conditional='ENABLE_NETWORKD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.network</title>
@@ -86,60 +87,13 @@
       The following keys are accepted:</para>
 
       <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>MACAddress=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
-            This option may appear more than once, in which case the lists are merged. If the empty string is assigned to this option, the list
-            of hardware addresses defined prior to this is reset.</para>
+        <xi:include href="systemd.link.xml" xpointer="mac-address" />
+        <xi:include href="systemd.link.xml" xpointer="permanent-mac-address" />
+        <xi:include href="systemd.link.xml" xpointer="path" />
+        <xi:include href="systemd.link.xml" xpointer="driver" />
+        <xi:include href="systemd.link.xml" xpointer="type" />
+        <xi:include href="systemd.link.xml" xpointer="property" />
 
-            <para>Example:
-            <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>PermanentMACAddress=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of hardware's permanent addresses. While
-            <varname>MACAddress=</varname> matches the device's current MAC address, this matches the
-            device's permanent MAC address, which may be different from the current one. Use full
-            colon-, hyphen- or dot-delimited hexadecimal. This option may appear more than once, in
-            which case the lists are merged. If the empty string is assigned to this option, the list
-            of hardware addresses defined prior to this is reset.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Path=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of shell-style globs
-            matching the persistent path, as exposed by the udev
-            property <literal>ID_PATH</literal>. If the list is
-            prefixed with a "!", the test is inverted; i.e. it is
-            true when <literal>ID_PATH</literal> does not match any
-            item in the list.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Driver=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of shell-style globs
-            matching the driver currently bound to the device, as
-            exposed by the udev property <literal>ID_NET_DRIVER</literal>
-            of its parent device, or if that is not set the driver
-            as exposed by <literal>ethtool -i</literal> of the
-            device itself. If the list is prefixed with a "!", the
-            test is inverted.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Type=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of shell-style globs
-            matching the device type, as exposed by the udev property
-            <literal>DEVTYPE</literal>. If the list is prefixed with
-            a "!", the test is inverted.</para>
-          </listitem>
-        </varlistentry>
         <varlistentry>
           <term><varname>Name=</varname></term>
           <listitem>
@@ -148,21 +102,7 @@
             list is prefixed with a "!", the test is inverted.</para>
           </listitem>
         </varlistentry>
-        <varlistentry>
-          <term><varname>Property=</varname></term>
-          <listitem>
-            <para>A whitespace-separated list of udev property name with its value after a equal
-            (<literal>=</literal>). If multiple properties are specified, the test results are ANDed.
-            If the list is prefixed with a "!", the test is inverted. If a value contains white
-            spaces, then please quote whole key and value pair. If a value contains quotation, then
-            please escape the quotation with <literal>\</literal>.</para>
 
-            <para>Example: if a .network file has the following:
-            <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
-            then, the .network file matches only when an interface has all the above three properties.
-            </para>
-          </listitem>
-        </varlistentry>
         <varlistentry>
           <term><varname>WLANInterfaceType=</varname></term>
           <listitem>
@@ -175,6 +115,7 @@
             </para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>SSID=</varname></term>
           <listitem>
@@ -183,6 +124,7 @@
             </para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>BSSID=</varname></term>
           <listitem>
@@ -193,61 +135,12 @@
             prior to this is reset.</para>
           </listitem>
         </varlistentry>
-        <varlistentry>
-          <term><varname>Host=</varname></term>
-          <listitem>
-            <para>Matches against the hostname or machine ID of the host. See
-            <literal>ConditionHost=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-            If an empty string is assigned, then previously assigned value is cleared.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Virtualization=</varname></term>
-          <listitem>
-            <para>Checks whether the system is executed in a virtualized environment and optionally test
-            whether it is a specific implementation. See <literal>ConditionVirtualization=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-            If an empty string is assigned, then previously assigned value is cleared.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>KernelCommandLine=</varname></term>
-          <listitem>
-            <para>Checks whether a specific kernel command line option is set. See
-            <literal>ConditionKernelCommandLine=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-            If an empty string is assigned, then previously assigned value is cleared.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>KernelVersion=</varname></term>
-          <listitem>
-            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a
-            certain expression. See <literal>ConditionKernelVersion=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-            If an empty string is assigned, then previously assigned value is cleared.
-            </para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Architecture=</varname></term>
-          <listitem>
-            <para>Checks whether the system is running on a specific architecture. See
-            <literal>ConditionArchitecture=</literal> in
-            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
-            If an empty string is assigned, then previously assigned value is cleared.
-            </para>
-          </listitem>
-        </varlistentry>
+
+        <xi:include href="systemd.link.xml" xpointer="host" />
+        <xi:include href="systemd.link.xml" xpointer="virtualization" />
+        <xi:include href="systemd.link.xml" xpointer="kernel-command-line" />
+        <xi:include href="systemd.link.xml" xpointer="kernel-version" />
+        <xi:include href="systemd.link.xml" xpointer="architecture" />
       </variablelist>
 
   </refsect1>
