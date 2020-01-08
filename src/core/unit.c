@@ -4324,6 +4324,11 @@ int unit_patch_contexts(Unit *u) {
                         r = cgroup_add_device_allow(cc, "block-blkext", "rwm");
                         if (r < 0)
                                 return r;
+
+                        /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices */
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "modprobe@loop.service", true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
                 }
         }
 

@@ -8,8 +8,11 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Load kernel module %i
+Description=Load Kernel Module %i
+DefaultDependencies=no
+Before=sysinit.target
 Documentation=man:modprobe(8)
+ConditionCapability=CAP_SYS_MODULE
 
 [Service]
 Type=oneshot
