@@ -16,23 +16,22 @@ manager, please consider supporting the following interfaces.
 ## Execution Environment
 
 1. If the container manager wants to control the hostname for a container
-   running systemd it should just set it before invoking systemd, and systemd
-   will leave it unmodified (that is unless there's an explicit hostname
-   configured in `/etc/hostname` which overrides whatever is pre-initialized by
-   the container manager).
+   running systemd it may just set it before invoking systemd, and systemd will
+   leave it unmodified when there is no hostname configured in `/etc/hostname`
+   (that file overrides whatever is pre-initialized by the container manager).
 
-2. Make sure to pre-mount `/proc/`, `/sys/` and `/sys/fs/selinux/` before
-   invoking systemd, and mount `/proc/sys/`, `/sys/` and `/sys/fs/selinux/`
-   read-only in order to avoid that the container can alter the host kernel's
-   configuration settings. (As special exception, if your container has network
-   namespaces enabled, feel free to make `/proc/sys/net/` writable). systemd
-   and various other subsystems (such as the SELinux userspace) have been
-   modified to detect whether these file systems are read-only, and will behave
-   accordingly. (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a
-   subset of its sub-trees from the real `sysfs` to hide `/sys/firmware/`,
-   `/sys/kernel/` and so on. If you do that, still make sure to mark `/sys/`
-   read-only, as that condition is what systemd looks for, and is what is
-   considered to be the API in this context.)
+2. Make sure to pre-mount `/proc/`, `/sys/`, and `/sys/fs/selinux/` before
+   invoking systemd, and mount `/proc/sys/`, `/sys/`, and `/sys/fs/selinux/`
+   read-only in order to prevent the container from altering the host kernel's
+   configuration settings. (As a special exception, if your container has
+   network namespaces enabled, feel free to make `/proc/sys/net/` writable).
+   systemd and various other subsystems (such as the SELinux userspace) have
+   been modified to behave accordingly when these file systems are read-only.
+   (It's OK to mount `/sys/` as `tmpfs` btw, and only mount a subset of its
+   sub-trees from the real `sysfs` to hide `/sys/firmware/`, `/sys/kernel/` and
+   so on. If you do that, make sure to mark `/sys/` read-only, as that
+   condition is what systemd looks for, and is what is considered to be the API
+   in this context.)
 
 3. Pre-mount `/dev/` as (container private) `tmpfs` for the container and bind
    mount some suitable TTY to `/dev/console`. Also, make sure to create device
@@ -42,17 +41,17 @@ manager, please consider supporting the following interfaces.
    sure to set up a `BPF_PROG_TYPE_CGROUP_DEVICE` BPF program — on cgroupv2 —
    or the `devices` cgroup controller — on cgroupv1 — so that no other devices
    but these may be created in the container. Note that many systemd services
-   these days use `PrivateDevices=`, which means that systemd will set up a
-   private `/dev/` for them for which it needs to be able to create these
-   device nodes. Dropping `CAP_MKNOD` for containers is hence generally not
-   advisable, but see below.
+   use `PrivateDevices=`, which means that systemd will set up a private
+   `/dev/` for them for which it needs to be able to create these device nodes.
+   Dropping `CAP_MKNOD` for containers is hence generally not advisable, but
+   see below.
 
-4. `systemd-udevd` is not available in containers (and refuses to start), and hence device
-   dependencies are unavailable. The `systemd-udevd` unit files will check for `/sys/`
-   being read-only, as an indication whether device management can work. Hence
-   make sure to mount `/sys/` read-only in the container (see above). Various
-   clients to `systemd-udevd` also check the read-only state of `/sys/` in some cases,
-   including PID 1 itself and `systemd-networkd`.
+4. `systemd-udevd` is not available in containers (and refuses to start), and
+   hence device dependencies are unavailable. The `systemd-udevd` unit files
+   will check for `/sys/` being read-only, as an indication whether device
+   management can work. Therefore make sure to mount `/sys/` read-only in the
+   container (see above). Various clients of `systemd-udevd` also check the
+   read-only state of `/sys/`, including PID 1 itself and `systemd-networkd`.
 
 5. If systemd detects it is run in a container it will spawn a single shell on
    `/dev/console`, and not care about VTs or multiple gettys on VTs. (But see
@@ -70,7 +69,7 @@ manager, please consider supporting the following interfaces.
    (this only applies to cgroupv1, of course), to protect the controllers from
    alteration from inside the containers. Or to turn this around: only the
    cgroup sub-tree of the container itself (on cgroupv2 in the unified
-   hierarchy, and on cgroupv1 in the `name=systemd` hierarchy) must be writable
+   hierarchy, and on cgroupv1 in the `name=systemd` hierarchy) may be writable
    to the container.
 
 7. Create the control group root of your container by either running your
@@ -81,15 +80,15 @@ manager, please consider supporting the following interfaces.
    it. This ensures that that the unit you created will be part of all cgroup
    controllers (or at least the ones systemd understands). The latter may also
    be done via `systemd-machined`'s `CreateMachine()` API. Make sure to use the
-   cgroup path systemd put your process in for all operations of the
-   container. Do not add new cgroup directories to the top of the tree. This
-   will not only confuse systemd and the admin, but also ensure your
-   implementation is not "stackable".
+   cgroup path systemd put your process in for all operations of the container.
+   Do not add new cgroup directories to the top of the tree. This will not only
+   confuse systemd and the admin, but also prevent your implementation from
+   being "stackable".
 
 ## Environment Variables
 
-1. To allow systemd (and other code) to identify that it is executed within a
-   container, please set the `$container=` environment variable for PID 1 in
+1. To allow systemd (and other programs) to identify that it is executed within
+   a container, please set the `$container` environment variable for PID 1 in
    the container to a short lowercase string identifying your
    implementation. With this in place the `ConditionVirtualization=` setting in
    unit files will work properly. Example: `container=lxc-libvirt`
@@ -97,51 +96,51 @@ manager, please consider supporting the following interfaces.
 2. systemd has special support for allowing container managers to initialize
    the UUID for `/etc/machine-id` to some manager supplied value. This is only
    enabled if `/etc/machine-id` is empty (i.e. not yet set) at boot time of the
-   container. The container manager should set `$container_uuid=` as
-   environment variable for the container's PID 1 to the container UUID it
-   wants to set. (This is similar to the effect of `qemu`'s `-uuid`
-   switch). Note that you should pass only a UUID here that is actually unique
-   (i.e. only one running container should have a specific UUID), and gets
-   changed when a container gets duplicated. Also note that systemd will try to
-   persistently store the UUID in `/etc/machine-id` (if writable) when this
-   option is used, hence you should always pass the same UUID here. Keeping the
-   externally used UUID for a container and the internal one in sync is
-   hopefully useful to minimize surprise for the administrator.
+   container. The container manager should set `$container_uuid` as environment
+   variable for the container's PID 1 to the container UUID. (This is similar
+   to the effect of `qemu`'s `-uuid` switch). Note that you should pass only a
+   UUID here that is actually unique (i.e. only one running container should
+   have a specific UUID), and gets changed when a container gets duplicated.
+   Also note that systemd will try to persistently store the UUID in
+   `/etc/machine-id` (if writable) when this option is used, hence you should
+   always pass the same UUID here. Keeping the externally used UUID for a
+   container and the internal one in sync is hopefully useful to minimize
+   surprise for the administrator.
 
 3. systemd can automatically spawn login gettys on additional ptys. A container
-   manager can set the `$container_ttys=` environment variable for the
+   manager can set the `$container_ttys` environment variable for the
    container's PID 1 to tell it on which ptys to spawn gettys. The variable
    should take a space separated list of pty names, without the leading `/dev/`
    prefix, but with the `pts/` prefix included. Note that despite the
    variable's name you may only specify ptys, and not other types of ttys. Also
    you need to specify the pty itself, a symlink will not suffice. This is
    implemented in
-   [systemd-getty-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-getty-generator.html). Note
-   that this variable should not include the pty that `/dev/console` maps to if
-   it maps to one (see below). Example: if the container receives
-   `container_ttys=pts/7 pts/8 pts/14` it will spawn three additionally login
-   gettys on ptys 7, 8 and 14.
+   [systemd-getty-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-getty-generator.html).
+   Note that this variable should not include the pty that `/dev/console` maps
+   to if it maps to one (see below). Example: if the container receives
+   `container_ttys=pts/7 pts/8 pts/14` it will spawn three additional login
+   gettys on ptys 7, 8, and 14.
 
 ## Advanced Integration
 
 1. Consider syncing `/etc/localtime` from the host file system into the
    container. Make it a relative symlink to the containers's zoneinfo dir, as
    usual. Tools rely on being able to determine the timezone setting from the
-   symlink value, and by making it relative it looks nice even if people list
-   the containers' `/etc/` from the host.
+   symlink value, and making it relative looks nice even if people list the
+   container's `/etc/` from the host.
 
 2. Make the container journal available in the host, by automatically
-   symlinking the container journal directory into the host journal
-   directory. More precisely, link `/var/log/journal/<container-machine-id>` of
-   the container into the same dir of the host. Administrators can then
+   symlinking the container journal directory into the host journal directory.
+   More precisely, link `/var/log/journal/<container-machine-id>` of the
+   container into the same dir of the host. Administrators can then
    automatically browse all container journals (correctly interleaved) by
-   issuing `journalctl -m`. The container machine ID you can determine from
+   issuing `journalctl -m`. The container machine ID can be determined from
    `/etc/machine-id` in the container.
 
 3. If the container manager wants to cleanly shutdown the container, it might
-   be a good idea to send `SIGRTMIN+3` to its init process. systemd will then do a
-   clean shutdown. Note however, that only systemd understands `SIGRTMIN+3` like
-   this, this might confuse other init systems.
+   be a good idea to send `SIGRTMIN+3` to its init process. systemd will then
+   do a clean shutdown. Note however, that since only systemd understands
+   `SIGRTMIN+3` like this, this might confuse other init systems.
 
 4. To support [Socket Activated
    Containers](http://0pointer.de/blog/projects/socket-activated-containers.html)
@@ -150,33 +149,33 @@ manager, please consider supporting the following interfaces.
    passed FDs in `$LISTEN_FDS` and its PID as `$LISTEN_PID`. It should take
    these and pass them on to the container's init process, also setting
    $LISTEN_FDS and `$LISTEN_PID` (basically, it can just leave the FDs and
-   `$LISTEN_FDS` untouched, but it needs to set `$LISTEN_PID` to for the
+   `$LISTEN_FDS` untouched, but it needs to adjust `$LISTEN_PID` to the
    container init process). That's all that's necessary to make socket
    activation work. The protocol to hand sockets from systemd to services is
-   hence the same as from a container manager to a container systemd. For
+   hence the same as from the container manager to the container systemd. For
    further details see the explanations of
    [sd_listen_fds(1)](http://0pointer.de/public/systemd-man/sd_listen_fds.html)
    and the [blog story for service
    developers](http://0pointer.de/blog/projects/socket-activation.html).
 
-5. Container managers should stay away from the `name=systemd` cgroup hierarchy
-   outside of the unit they created for their container. That's private
-   property of systemd, and no other code should interfere with it.
+5. Container managers should stay away from the cgroup hierarchy outside of the
+   unit they created for their container. That's private property of systemd,
+   and no other code should modify it.
 
 ## Networking
 
 1. Inside of a container, if a `veth` link is named `host0`, `systemd-networkd`
-   running inside of the container will by default do DHCPv4 client, DHCPv6
-   client and IPv4LL on it. It is thus recommended that container managers that
-   add a `veth` link to a container name it `host0`, to get automatically
-   configured networked, with no manual interference from outside.
+   running inside of the container will by default run DHCPv4, DHCPv6, and
+   IPv4LL clients on it. It is thus recommended that container managers that
+   add a `veth` link to a container name it `host0`, to get an automatically
+   configured network, with no manual setup.
 
-2. Outside of a container, if a `veth` link is prefixed "ve-" will by default do
-   DHCPv4 server and DHCPv6 serer on it, as well as IPv4LL. It is thus recommended
-   that container managers that add a `veth` link to a container name the external
-   side `ve-` followed by the container name.
+2. Outside of a container, if a `veth` link is prefixed "ve-", `systemd-networkd`
+   will by default run DHCPv4 and DHCPv6 servers on it, as well as IPv4LL. It
+   is thus recommended that container managers that add a `veth` link to a
+   container name the external side `ve-` + the container name.
 
-3. It is recommended to configure stable MAC addresses to container `veth`
+3. It is recommended to configure stable MAC addresses for container `veth`
    devices, for example hashed out of the container names. That way it is more
    likely that DHCP and IPv4LL will acquire stable addresses.
 
@@ -186,37 +185,34 @@ manager, please consider supporting the following interfaces.
    used service setting that provides a service with its own, private, minimal
    version of `/dev/`. To set this up systemd in the container needs this
    capability. If you take away the capability than all services that set this
-   flag will cease to work, and this are increasingly many, as we encourage
-   people to make use of this functionality. Use `BPF_PROG_TYPE_CGROUP_DEVICE`
-   BPF programs — on cgroupv2 — or the `devices` controller — on cgroupv1 — to
-   restrict what device nodes the container can create instead of taking away
-   the capability wholesale. (Also see section about fully unprivileged
-   containers below.)
+   flag will cease to work. Use `BPF_PROG_TYPE_CGROUP_DEVICE` BPF programs — on
+   cgroupv2 — or the `devices` controller — on cgroupv1 — to restrict what
+   device nodes the container can create instead of taking away the capability
+   wholesale. (Also see the section about fully unprivileged containers below.)
 
-2. Do not drop `CAP_SYS_ADMIN` from the container. A number of file system
-   namespacing related settings, such as `PrivateDevices=`, `ProtectHome=`,
-   `ProtectSystem=`, `MountFlags=`, `PrivateTmp=`, `ReadWriteDirectories=`,
-   `ReadOnlyDirectories=`, `InaccessibleDirectories=`, `MountFlags=` need to be
-   able to open new mount namespaces and the mount certain file system into
-   it. You break all services that make use of these flags if you drop the
-   flag. Note that already quite a number of services make use of this as we
-   actively encourage users to make use of this security functionality. Also
+2. Do not drop `CAP_SYS_ADMIN` from the container. A number of the most
+   commonly used file system namespacing related settings, such as
+   `PrivateDevices=`, `ProtectHome=`, `ProtectSystem=`, `MountFlags=`,
+   `PrivateTmp=`, `ReadWriteDirectories=`, `ReadOnlyDirectories=`,
+   `InaccessibleDirectories=`, and `MountFlags=` need to be able to open new
+   mount namespaces and the mount certain file systems into them. You break all
+   services that make use of these options if you drop the capability. Also
    note that logind mounts `XDG_RUNTIME_DIR` as `tmpfs` for all logged in users
-   and won't work either if you take away the capability. (Also see section
-   about fully unprivileged containers below.)
+   and that won't work either if you take away the capability. (Also see
+   section about fully unprivileged containers below.)
 
 3. Do not cross-link `/dev/kmsg` with `/dev/console`. They are different things,
    you cannot link them to each other.
 
-4. Do not pretend that the real VTs would be available in the containers. The
-   VT subsystem consists of all devices `/dev/tty*`, `/dev/vcs*`, `/dev/vcsa*`
+4. Do not pretend that the real VTs are available in the container. The VT
+   subsystem consists of all the devices `/dev/tty*`, `/dev/vcs*`, `/dev/vcsa*`
    plus their `sysfs` counterparts. They speak specific `ioctl()`s and
-   understand specific escape sequences, that other ptys don't
-   understand. Hence, it is explicitly not OK to mount a pty to `/dev/tty1`,
-   `/dev/tty2`, `/dev/tty3`. This is explicitly not supported.
+   understand specific escape sequences, that other ptys don't understand.
+   Hence, it is explicitly not OK to mount a pty to `/dev/tty1`, `/dev/tty2`,
+   `/dev/tty3`. This is explicitly not supported.
 
 5. Don't pretend that passing arbitrary devices to containers could really work
-   well. For example, do not pass device nodes for block devices, … to the
+   well. For example, do not pass device nodes for block devices to the
    container. Device access (with the exception of network devices) is not
    virtualized on Linux. Enumeration and probing of meta information from
    `/sys/` and elsewhere is not possible to do correctly in a container. Simply
@@ -231,7 +227,7 @@ manager, please consider supporting the following interfaces.
 
 7. Do not make `/sys/` writable in the container. If you do,
    `systemd-udevd.service` is started to manage your devices — inside the
-   container —, but that will cause conflicts and errors given that the Linux
+   container, but that will cause conflicts and errors given that the Linux
    device model is not virtualized for containers on Linux and thus the
    containers and the host would try to manage the same devices, fighting for
    ownership. Multiple other subsystems of systemd similarly test for `/sys/`
@@ -249,15 +245,15 @@ manager, please consider supporting the following interfaces.
 ## Fully Unprivileged Container Payload
 
 First things first, to make this clear: Linux containers are not a security
-technology right now. There are more holes in the model than in a swiss cheese.
+technology right now. There are more holes in the model than in swiss cheese.
 
-For example: If you do not use user namespacing, and share root and other users
+For example: if you do not use user namespacing, and share root and other users
 between container and host, the `struct user` structures will be shared between
-host and container, and hence `RLIMIT_NPROC` and so of the container users affect
-the host and other containers, and vice versa. This is a major security hole,
-and actually is a real-life problem: since Avahi sets `RLIMIT_NPROC` of its user
-to 2 (to effectively disallow `fork()`ing) you cannot run more than one Avahi
-instance on the entire system...
+host and container, and hence `RLIMIT_NPROC` and so of the container users
+affect the host and other containers, and vice versa. This is a major security
+hole, and actually is a real-life problem: since Avahi sets `RLIMIT_NPROC` of
+its user to 2 (to effectively disallow `fork()`ing) you cannot run more than
+one Avahi instance on the entire system...
 
 People have been asking to be able to run systemd without `CAP_SYS_ADMIN` and
 `CAP_SYS_MKNOD` in the container. This is now supported to some level in
