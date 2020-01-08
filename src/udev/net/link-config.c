@@ -47,6 +47,7 @@ static void link_config_free(link_config *link) {
         free(link->filename);
 
         set_free_free(link->match_mac);
+        set_free_free(link->match_permanent_mac);
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
@@ -162,8 +163,8 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (link->speed > UINT_MAX)
                 return -ERANGE;
 
-        if (set_isempty(link->match_mac) && strv_isempty(link->match_path) &&
-            strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
+        if (set_isempty(link->match_mac) && set_isempty(link->match_permanent_mac) &&
+            strv_isempty(link->match_path) && strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
             strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)
                 log_warning("%s: No valid settings found in the [Match] section. "
                             "The file will match all interfaces. "
@@ -236,16 +237,27 @@ bool link_config_should_reload(link_config_ctx *ctx) {
 }
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
+        struct ether_addr permanent_mac = {};
         link_config *link;
+        const char *name;
+        int r;
 
         assert(ctx);
         assert(device);
         assert(ret);
 
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return r;
+
+        r = ethtool_get_permanent_macaddr(&ctx->ethtool_fd, name, &permanent_mac);
+        if (r < 0)
+                log_device_debug_errno(device, r, "Failed to get permanent MAC address, ignoring: %m");
+
         LIST_FOREACH(links, link, ctx->links) {
-                if (net_match_config(link->match_mac, link->match_path, link->match_driver,
+                if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, NULL, NULL, 0, NULL, NULL)) {
+                                     device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 

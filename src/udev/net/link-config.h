@@ -36,6 +36,7 @@ struct link_config {
         char *filename;
 
         Set *match_mac;
+        Set *match_permanent_mac;
         char **match_path;
         char **match_driver;
         char **match_type;

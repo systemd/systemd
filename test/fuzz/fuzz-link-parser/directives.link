@@ -1,5 +1,6 @@
 [Match]
 MACAddress=
+PermanentMACAddress=
 OriginalName=
 Path=
 Driver=

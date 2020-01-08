@@ -2,6 +2,7 @@
 #pragma once
 
 #include <macro.h>
+#include <net/ethernet.h>
 #include <linux/ethtool.h>
 
 #include "conf-parser.h"
@@ -91,6 +92,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret);
 int ethtool_get_link_info(int *fd, const char *ifname,
                           int *ret_autonegotiation, size_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
+int ethtool_get_permanent_macaddr(int *fd, const char *ifname, struct ether_addr *ret);
 int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *ring);

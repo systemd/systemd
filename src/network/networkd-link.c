@@ -12,6 +12,7 @@
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
+#include "ethtool-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "ipvlan.h"
@@ -616,6 +617,11 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
         if (r < 0)
                 log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
+
+        _cleanup_close_ int fd = -1;
+        r = ethtool_get_permanent_macaddr(&fd, link->ifname, &link->permanent_mac);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
 
         r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &link->alternative_names);
         if (r < 0 && r != -ENODATA)
@@ -2963,7 +2969,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         }
 
         r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
-                        &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
+                        &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -3095,7 +3101,7 @@ static int link_initialized_and_synced(Link *link) {
                         return r;
 
                 r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
-                                &link->mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
+                                &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;

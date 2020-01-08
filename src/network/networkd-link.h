@@ -53,6 +53,7 @@ typedef struct Link {
         unsigned short iftype;
         char *state_file;
         struct ether_addr mac;
+        struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         sd_device *sd_device;

@@ -28,6 +28,7 @@ Virtualization=
 KernelCommandLine=
 Host=
 MACAddress=
+PermanentMACAddress=
 [Link]
 RequiredForOnline=
 ARP=

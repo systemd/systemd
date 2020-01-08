@@ -138,6 +138,7 @@ typedef struct LinkInfo {
         int ifindex;
         unsigned short iftype;
         struct ether_addr mac_address;
+        struct ether_addr permanent_mac_address;
         uint32_t mtu;
         uint32_t min_mtu;
         uint32_t max_mtu;
@@ -177,6 +178,7 @@ typedef struct LinkInfo {
         struct ether_addr bssid;
 
         bool has_mac_address:1;
+        bool has_permanent_mac_address:1;
         bool has_tx_queues:1;
         bool has_rx_queues:1;
         bool has_stats64:1;
@@ -321,6 +323,12 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
         info->has_mac_address =
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
+
+        _cleanup_close_ int fd = -1;
+        info->has_permanent_mac_address =
+                ethtool_get_permanent_macaddr(&fd, info->name, &info->permanent_mac_address) >= 0 &&
+                memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
+                memcmp(&info->permanent_mac_address, &info->mac_address, sizeof(struct ether_addr)) != 0;
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -1288,6 +1296,26 @@ static int link_status_one(
                         return r;
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
                                            ether_addr_to_string(&info->mac_address, ea),
+                                           description ? " (" : "",
+                                           strempty(description),
+                                           description ? ")" : "");
+                if (r < 0)
+                        return r;
+        }
+
+        if (info->has_permanent_mac_address) {
+                _cleanup_free_ char *description = NULL;
+                char ea[ETHER_ADDR_TO_STRING_MAX];
+
+                (void) ieee_oui(hwdb, &info->permanent_mac_address, &description);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "HW Permanent Address:");
+                if (r < 0)
+                        return r;
+                r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
+                                           ether_addr_to_string(&info->permanent_mac_address, ea),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
