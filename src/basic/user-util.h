@@ -42,6 +42,9 @@ char* gid_to_name(gid_t gid);
 int in_gid(gid_t gid);
 int in_group(const char *name);
 
+int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **result);
+int getgroups_alloc(gid_t** gids);
+
 int get_home_dir(char **ret);
 int get_shell(char **_ret);
 
