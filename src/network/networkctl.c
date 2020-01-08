@@ -30,6 +30,7 @@
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
+#include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
 #include "netlink-util.h"
@@ -46,6 +47,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -59,6 +61,8 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_all = false;
 static bool arg_stats = false;
+static bool arg_full = false;
+static unsigned arg_lines = 10;
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
@@ -1067,6 +1071,69 @@ static int dump_statistics(Table *table, const LinkInfo *info) {
         return 0;
 }
 
+static OutputFlags get_output_flags(void) {
+        return
+                arg_all * OUTPUT_SHOW_ALL |
+                (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
+                colors_enabled() * OUTPUT_COLOR;
+}
+
+static int show_logs(const LinkInfo *info) {
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        int r;
+
+        if (arg_lines == 0)
+                return 0;
+
+        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open journal: %m");
+
+        r = add_match_this_boot(j, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add boot matches: %m");
+
+        if (info) {
+                char m1[STRLEN("_KERNEL_DEVICE=n") + DECIMAL_STR_MAX(int)];
+                const char *m2, *m3;
+
+                /* kernel */
+                xsprintf(m1, "_KERNEL_DEVICE=n%i", info->ifindex);
+                /* networkd */
+                m2 = strjoina("INTERFACE=", info->name);
+                /* udevd */
+                m3 = strjoina("DEVICE=", info->name);
+
+                (void)(
+                       (r = sd_journal_add_match(j, m1, 0)) ||
+                       (r = sd_journal_add_disjunction(j)) ||
+                       (r = sd_journal_add_match(j, m2, 0)) ||
+                       (r = sd_journal_add_disjunction(j)) ||
+                       (r = sd_journal_add_match(j, m3, 0))
+                );
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add link matches: %m");
+        } else {
+                r = add_matches_for_unit(j, "systemd-networkd.service");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add unit matches: %m");
+
+                r = add_matches_for_unit(j, "systemd-networkd-wait-online.service");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add unit matches: %m");
+        }
+
+        return show_journal(
+                        stdout,
+                        j,
+                        OUTPUT_SHORT,
+                        0,
+                        0,
+                        arg_lines,
+                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                        NULL);
+}
+
 static int link_status_one(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
@@ -1457,7 +1524,11 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        return table_print(table, NULL);
+        r = table_print(table, NULL);
+        if (r < 0)
+                return r;
+
+        return show_logs(info);
 }
 
 static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
@@ -1520,7 +1591,11 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return r;
 
-        return table_print(table, NULL);
+        r = table_print(table, NULL);
+        if (r < 0)
+                return r;
+
+        return show_logs(NULL);
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
@@ -1946,6 +2021,8 @@ static int help(void) {
                "     --no-legend         Do not show the headers and footers\n"
                "  -a --all               Show status for all links\n"
                "  -s --stats             Show detailed link statics\n"
+               "  -l --full              Do not ellipsize output\n"
+               "  -n --lines=INTEGER     Number of journal entries to show\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -1971,6 +2048,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
                 { "all",       no_argument,       NULL, 'a'           },
                 { "stats",     no_argument,       NULL, 's'           },
+                { "full",      no_argument,       NULL, 'l'           },
+                { "lines",     required_argument, NULL, 'n'           },
                 {}
         };
 
@@ -1979,7 +2058,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "has", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hasln:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -2003,6 +2082,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 's':
                         arg_stats = true;
+                        break;
+
+                case 'l':
+                        arg_full = true;
+                        break;
+
+                case 'n':
+                        if (safe_atou(optarg, &arg_lines) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse lines '%s'", optarg);
                         break;
 
                 case '?':

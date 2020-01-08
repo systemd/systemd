@@ -668,7 +668,7 @@ int address_configure(
                         _cleanup_free_ char *pretty = NULL;
 
                         (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
-                        log_debug("Starting IPv4ACD client. Probing address %s", strna(pretty));
+                        log_link_debug(link, "Starting IPv4ACD client. Probing address %s", strna(pretty));
                 }
 
                 r = sd_ipv4acd_start(address->acd, true);

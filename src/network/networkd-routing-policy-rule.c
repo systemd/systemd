@@ -335,33 +335,33 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, routing_policy_rule->family);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_DELRULE message: %m");
+                return log_link_error_errno(link, r, "Could not allocate RTM_DELRULE message: %m");
 
         if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->from) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, routing_policy_rule->family, &routing_policy_rule->from);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_SRC attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
 
                 r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, routing_policy_rule->from_prefixlen);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set source prefix length: %m");
+                        return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
         if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->to) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_DST, routing_policy_rule->family, &routing_policy_rule->to);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_DST attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
 
                 r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, routing_policy_rule->to_prefixlen);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set destination prefix length: %m");
+                        return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
 
         r = netlink_call_async(link->manager->rtnl, NULL, m,
                                callback ?: routing_policy_rule_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
@@ -461,102 +461,103 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 (void) in_addr_to_string(rule->family, &rule->from, &from);
                 (void) in_addr_to_string(rule->family, &rule->to, &to);
 
-                log_debug("Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                          from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+                log_link_debug(link,
+                               "Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                               from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
         }
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_NEWRULE message: %m");
+                return log_link_error_errno(link, r, "Could not allocate RTM_NEWRULE message: %m");
 
         if (in_addr_is_null(rule->family, &rule->from) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_SRC attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
 
                 r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, rule->from_prefixlen);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set source prefix length: %m");
+                        return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
         if (in_addr_is_null(rule->family, &rule->to) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_DST attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
 
                 r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, rule->to_prefixlen);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set destination prefix length: %m");
+                        return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
 
         r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
         if (r < 0)
-                return log_error_errno(r, "Could not append FRA_PRIORITY attribute: %m");
+                return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
 
         if (rule->tos > 0) {
                 r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set ip rule tos: %m");
+                        return log_link_error_errno(link, r, "Could not set ip rule tos: %m");
         }
 
         if (rule->table < 256) {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set ip rule table: %m");
+                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
         } else {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
                 if (r < 0)
-                        return log_error_errno(r, "Could not set ip rule table: %m");
+                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
 
                 r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_TABLE attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_TABLE attribute: %m");
         }
 
         if (rule->fwmark > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_FWMARK attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_FWMARK attribute: %m");
         }
 
         if (rule->fwmask > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMASK, rule->fwmask);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_FWMASK attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_FWMASK attribute: %m");
         }
 
         if (rule->iif) {
                 r = sd_netlink_message_append_string(m, FRA_IFNAME, rule->iif);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_IFNAME attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_IFNAME attribute: %m");
         }
 
         if (rule->oif) {
                 r = sd_netlink_message_append_string(m, FRA_OIFNAME, rule->oif);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_OIFNAME attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_OIFNAME attribute: %m");
         }
 
         r = sd_netlink_message_append_u8(m, FRA_IP_PROTO, rule->protocol);
         if (r < 0)
-                return log_error_errno(r, "Could not append FRA_IP_PROTO attribute: %m");
+                return log_link_error_errno(link, r, "Could not append FRA_IP_PROTO attribute: %m");
 
         if (rule->sport.start != 0 || rule->sport.end != 0) {
                 r = sd_netlink_message_append_data(m, FRA_SPORT_RANGE, &rule->sport, sizeof(rule->sport));
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_SPORT_RANGE attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_SPORT_RANGE attribute: %m");
         }
 
         if (rule->dport.start != 0 || rule->dport.end != 0) {
                 r = sd_netlink_message_append_data(m, FRA_DPORT_RANGE, &rule->dport, sizeof(rule->dport));
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FRA_DPORT_RANGE attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_DPORT_RANGE attribute: %m");
         }
 
         if (rule->invert_rule) {
                 r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
                 if (r < 0)
-                        return log_error_errno(r, "Could not append FIB_RULE_INVERT attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FIB_RULE_INVERT attribute: %m");
         }
 
         rule->link = link;
@@ -565,13 +566,13 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                                callback ?: routing_policy_rule_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
         r = routing_policy_rule_add(link->manager, rule, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not add rule: %m");
+                return log_link_error_errno(link, r, "Could not add rule: %m");
 
         return 1;
 }

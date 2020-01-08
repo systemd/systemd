@@ -311,6 +311,25 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize the logs in <command>status</command> command.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--lines=</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>, controls the number of journal lines to show,
+          counting from the most recent ones. Takes a positive integer argument. Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />

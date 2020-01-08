@@ -125,25 +125,25 @@ int address_label_configure(
         r = sd_rtnl_message_new_addrlabel(link->manager->rtnl, &req, RTM_NEWADDRLABEL,
                                           link->ifindex, AF_INET6);
         if (r < 0)
-                return log_error_errno(r, "Could not allocate RTM_NEWADDR message: %m");
+                return log_link_error_errno(link, r, "Could not allocate RTM_NEWADDR message: %m");
 
         r = sd_rtnl_message_addrlabel_set_prefixlen(req, label->prefixlen);
         if (r < 0)
-                return log_error_errno(r, "Could not set prefixlen: %m");
+                return log_link_error_errno(link, r, "Could not set prefixlen: %m");
 
         r = sd_netlink_message_append_u32(req, IFAL_LABEL, label->label);
         if (r < 0)
-                return log_error_errno(r, "Could not append IFAL_LABEL attribute: %m");
+                return log_link_error_errno(link, r, "Could not append IFAL_LABEL attribute: %m");
 
         r = sd_netlink_message_append_in6_addr(req, IFA_ADDRESS, &label->in_addr.in6);
         if (r < 0)
-                return log_error_errno(r, "Could not append IFA_ADDRESS attribute: %m");
+                return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                callback ?: address_label_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_error_errno(r, "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
