@@ -32,6 +32,10 @@ if [ -z "$FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
 fi
 
+# FIXME: temporarily pin the meson version as 0.53 doesn't work with older python 3.5
+# See: https://github.com/mesonbuild/meson/issues/6427
+pip3 install meson==0.52.1
+
 meson $build -D$fuzzflag -Db_lundef=false
 ninja -v -C $build fuzzers
 
