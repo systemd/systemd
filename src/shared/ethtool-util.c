@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "socket-util.h"
@@ -219,13 +220,16 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
 }
 
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
+        _cleanup_close_ int fd = -1;
         _cleanup_free_ struct ethtool_perm_addr *epaddr = NULL;
         struct ifreq ifr;
         int r;
 
-        assert(ethtool_fd);
         assert(ifname);
         assert(ret);
+
+        if (!ethtool_fd)
+                ethtool_fd = &fd;
 
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, false);

@@ -618,8 +618,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
 
-        _cleanup_close_ int fd = -1;
-        r = ethtool_get_permanent_macaddr(&fd, link->ifname, &link->permanent_mac);
+        r = ethtool_get_permanent_macaddr(NULL, link->ifname, &link->permanent_mac);
         if (r < 0)
                 log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
 
