@@ -1545,7 +1545,7 @@
 
     <para>Note: <varname>ConsistsOf=</varname>, <varname>BoundBy=</varname>,
     <varname>RequisiteOf=</varname>, <varname>ConflictedBy=</varname> are created
-    implicitly along with their reverse and cannot be specified directly.</para>
+    implicitly along with their reverses and cannot be specified directly.</para>
 
     <para>Note: <varname>Triggers=</varname> is created implicitly between a socket,
     path unit, or an automount unit, and the unit they activate. By default a unit
@@ -1557,7 +1557,7 @@
     <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     and
     <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. <varname>TriggersBy=</varname> is created implicitly on the
+    for details. <varname>TriggeredBy=</varname> is created implicitly on the
     triggered unit.</para>
 
     <para>Note: <varname>Following=</varname> is used to group device aliases and points to the
