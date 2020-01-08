@@ -2762,7 +2762,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    link_with : [libnetworkd_core,
                                 libsystemd_network,
                                 libudev_static,
-                                libshared],
+                                networkd_link_with],
                    dependencies : [threads],
                    install_rpath : rootlibexecdir,
                    install : true,
@@ -2772,7 +2772,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    systemd_networkd_wait_online_sources,
                    include_directories : includes,
                    link_with : [libnetworkd_core,
-                                libshared],
+                                networkd_link_with],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
@@ -2781,7 +2781,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    networkctl_sources,
                    include_directories : includes,
                    link_with : [libsystemd_network,
-                              libshared],
+                              networkd_link_with],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootbindir)
@@ -2790,7 +2790,7 @@ if conf.get('ENABLE_NETWORKD') == 1
         executable('systemd-network-generator',
                    network_generator_sources,
                    include_directories : includes,
-                   link_with : [libshared],
+                   link_with : [networkd_link_with],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
@@ -3296,6 +3296,7 @@ foreach tuple : [
         ['trace logging',    conf.get('LOG_TRACE') == 1],
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
+        ['link-networkd-shared',  get_option('link-networkd-shared')],
 ]
 
         if tuple.length() >= 2
