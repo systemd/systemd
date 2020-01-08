@@ -10,7 +10,9 @@ sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restri
 sudo apt-get update -y
 sudo apt-get build-dep systemd -y
 sudo apt-get install -y ninja-build python3-pip python3-setuptools quota
-pip3 install meson
+# FIXME: temporarily pin the meson version as 0.53 doesn't work with older python 3.5
+# See: https://github.com/mesonbuild/meson/issues/6427
+pip3 install meson==0.52.1
 
 cd $REPO_ROOT
 export PATH="$HOME/.local/bin/:$PATH"

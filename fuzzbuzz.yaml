@@ -5,7 +5,11 @@ setup:
 - sudo apt-get update -y
 - sudo apt-get build-dep -y systemd
 - sudo apt-get install -y python3-pip
-- pip3 install meson ninja
+# FIXME: temporarily pin the meson version as 0.53 doesn't work with older
+# python 3.5
+# # See: https://github.com/mesonbuild/meson/issues/6427
+#
+- pip3 install meson==0.52.1 ninja
 - export PATH="$HOME/.local/bin/:$PATH"
 - CC=$FUZZ_CC CXX=$FUZZ_CXX meson -Dfuzzbuzz=true -Dfuzzbuzz-engine-dir=$(dirname "$FUZZ_ENGINE") -Dfuzzbuzz-engine=$(cut -d. -f1 <(basename "$FUZZ_ENGINE")) -Db_lundef=false ./build
 - ninja -v -C ./build fuzzers
