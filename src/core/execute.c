@@ -1193,6 +1193,10 @@ static int setup_pam(
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
+        pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
+        if (pam_code != PAM_SUCCESS)
+                goto fail;
+
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
@@ -1276,6 +1280,10 @@ static int setup_pam(
                                 break;
                         }
                 }
+
+                pam_code = pam_setcred(handle, PAM_DELETE_CRED | flags);
+                if (pam_code != PAM_SUCCESS)
+                        goto child_finish;
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
