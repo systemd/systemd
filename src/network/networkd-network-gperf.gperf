@@ -303,6 +303,10 @@ TokenBucketFilter.LatencySec,                config_parse_token_bucket_filter_la
 TrivialLinkEqualizer.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_TEQL,               0
 TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_TEQL,               0
 TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
+CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
+CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
+CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
+CAKE.Overhead,                               config_parse_cake_overhead,                               QDISC_KIND_CAKE,               0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
 DHCP.ClientIdentifier,                       config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)

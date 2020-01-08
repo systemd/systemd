@@ -326,6 +326,11 @@ TargetSec=
 IntervalSec=
 CEThresholdSec=
 ECN=
+[CAKE]
+Parent=
+Handle=
+Bandwidth=
+Overhead=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
