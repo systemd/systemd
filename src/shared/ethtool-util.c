@@ -221,8 +221,16 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
 
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
         _cleanup_close_ int fd = -1;
-        _cleanup_free_ struct ethtool_perm_addr *epaddr = NULL;
-        struct ifreq ifr;
+        struct {
+                struct ethtool_perm_addr addr;
+                uint8_t space[MAX_ADDR_LEN];
+        } epaddr = {
+                .addr.cmd = ETHTOOL_GPERMADDR,
+                .addr.size = MAX_ADDR_LEN,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (caddr_t) &epaddr,
+        };
         int r;
 
         assert(ifname);
@@ -237,27 +245,17 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
                         return r;
         }
 
-        epaddr = malloc(offsetof(struct ethtool_perm_addr, data) + MAX_ADDR_LEN);
-        if (!epaddr)
-                return -ENOMEM;
-
-        epaddr->cmd = ETHTOOL_GPERMADDR;
-        epaddr->size = MAX_ADDR_LEN;
-
-        ifr = (struct ifreq) {
-                .ifr_data = (caddr_t) epaddr,
-        };
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
         r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
-        if (epaddr->size != 6)
+        if (epaddr.addr.size != 6)
                 return -EOPNOTSUPP;
 
-        for (size_t i = 0; i < epaddr->size; i++)
-                ret->ether_addr_octet[i] = epaddr->data[i];
+        for (size_t i = 0; i < epaddr.addr.size; i++)
+                ret->ether_addr_octet[i] = epaddr.addr.data[i];
 
         return 0;
 }
