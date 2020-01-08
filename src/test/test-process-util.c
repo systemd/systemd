@@ -617,7 +617,7 @@ static void test_setpriority_closest(void) {
 
                 /* rlimit of 30 equals nice level of -10 */
                 if (setrlimit(RLIMIT_NICE, &RLIMIT_MAKE_CONST(30)) < 0) {
-                        /* If this fails we are probably unprivielged or in a userns of some kind, let's skip
+                        /* If this fails we are probably unprivileged or in a userns of some kind, let's skip
                          * the full test */
                         assert_se(ERRNO_IS_PRIVILEGE(errno));
                         full_test = false;
