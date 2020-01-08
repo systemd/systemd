@@ -99,8 +99,8 @@
         <varlistentry>
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
 
-          <listitem><para>This name is set based on the ordering information given by the firmware for
-          on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
+          <listitem><para>This name is set based on the numeric ordering information given by the firmware
+          for on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
           specified by the firmware. This is only available for PCI devices.</para>
           </listitem>
         </varlistentry>
@@ -108,8 +108,9 @@
         <varlistentry>
           <term><varname>ID_NET_LABEL_ONBOARD=<replaceable>prefix</replaceable> <replaceable>label</replaceable></varname></term>
 
-          <listitem><para>This property is set based on label given by the firmware for on-board devices. The
-          name consists of the prefix concatenated with the label. This is only available for PCI devices.
+          <listitem><para>This property is set based on textual label given by the firmware for on-board
+          devices. The name consists of the prefix concatenated with the label. This is only available for
+          PCI devices.
           </para>
           </listitem>
         </varlistentry>
@@ -126,15 +127,15 @@
 
         <varlistentry>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
+          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
-          the bus type, as described in the table below. In all cases, PCI slot information must be known. In
-          case of USB, BCMA, and SR-VIO devices, the full name consists of the prefix, PCI slot identifier,
-          and USB or BCMA or SR-VIO slot identifier. The first two parts are denoted as "…" in the table
-          below.</para>
+          the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
+          name consists of the prefix, PCI slot identifier, and USB or BCMA or SR-VIO slot identifier. The
+          first two parts are denoted as "…" in the table below.</para>
 
           <table>
             <title>Slot naming schemes</title>
@@ -151,6 +152,11 @@
                 <row>
                   <entry><replaceable>prefix</replaceable> [<constant>P</constant><replaceable>domain</replaceable>] <constant>s</constant><replaceable>slot</replaceable> [<constant>f</constant><replaceable>function</replaceable>] [<constant>n</constant><replaceable>port_name</replaceable> | <constant>d</constant><replaceable>dev_port</replaceable>]</entry>
                   <entry>PCI slot number</entry>
+                </row>
+
+                <row>
+                  <entry><replaceable>prefix</replaceable> <constant>v</constant><replaceable>slot</replaceable></entry>
+                  <entry>VIO slot number (IBM PowerVM)</entry>
                 </row>
 
                 <row>
@@ -182,11 +188,11 @@
           <para>For USB devices the full chain of port numbers of hubs is composed. If the name gets longer
           than the maximum number of 15 characters, the name is not exported. The usual USB configuration
           number 1 and interface number 0 values are suppressed.</para>
-          </listitem>
 
           <para>SR-IOV virtual devices are named based on the name of the parent interface, with a suffix of
           <constant>v</constant> and the virtual device number, with any leading zeros removed. The bus
-          number is ignored. This device type is found in IBM PowerVMs.</para>
+          number is ignored.</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
