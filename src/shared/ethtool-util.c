@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "socket-util.h"
@@ -145,7 +146,7 @@ static int ethtool_connect_or_warn(int *ret, bool warn) {
         return 0;
 }
 
-int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
+int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         struct ethtool_drvinfo ecmd = {
                 .cmd = ETHTOOL_GDRVINFO
         };
@@ -155,15 +156,15 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         char *d;
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -175,7 +176,7 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_get_link_info(int *fd, const char *ifname,
+int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                           int *ret_autonegotiation, size_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port) {
         struct ethtool_cmd ecmd = {
@@ -186,15 +187,15 @@ int ethtool_get_link_info(int *fd, const char *ifname,
         };
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, false);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, false);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -218,47 +219,48 @@ int ethtool_get_link_info(int *fd, const char *ifname,
         return 0;
 }
 
-int ethtool_get_permanent_macaddr(int *fd, const char *ifname, struct ether_addr *ret) {
-        _cleanup_free_ struct ethtool_perm_addr *epaddr = NULL;
-        struct ifreq ifr;
+int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
+        _cleanup_close_ int fd = -1;
+        struct {
+                struct ethtool_perm_addr addr;
+                uint8_t space[MAX_ADDR_LEN];
+        } epaddr = {
+                .addr.cmd = ETHTOOL_GPERMADDR,
+                .addr.size = MAX_ADDR_LEN,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (caddr_t) &epaddr,
+        };
         int r;
 
-        assert(fd);
         assert(ifname);
         assert(ret);
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, false);
+        if (!ethtool_fd)
+                ethtool_fd = &fd;
+
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, false);
                 if (r < 0)
                         return r;
         }
 
-        epaddr = malloc(offsetof(struct ethtool_perm_addr, data) + MAX_ADDR_LEN);
-        if (!epaddr)
-                return -ENOMEM;
-
-        epaddr->cmd = ETHTOOL_GPERMADDR;
-        epaddr->size = MAX_ADDR_LEN;
-
-        ifr = (struct ifreq) {
-                .ifr_data = (caddr_t) epaddr,
-        };
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
-        if (epaddr->size != 6)
+        if (epaddr.addr.size != 6)
                 return -EOPNOTSUPP;
 
-        for (size_t i = 0; i < epaddr->size; i++)
-                ret->ether_addr_octet[i] = epaddr->data[i];
+        for (size_t i = 0; i < epaddr.addr.size; i++)
+                ret->ether_addr_octet[i] = epaddr.addr.data[i];
 
         return 0;
 }
 
-int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex) {
+int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET
         };
@@ -271,15 +273,15 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -308,7 +310,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SSET;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -316,7 +318,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         return 0;
 }
 
-int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL
         };
@@ -329,15 +331,15 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         if (wol == _WOL_INVALID)
                 return 0;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -397,7 +399,7 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SWOL;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -405,7 +407,7 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         return 0;
 }
 
-int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *ring) {
+int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring_param *ring) {
         struct ethtool_ringparam ecmd = {
                 .cmd = ETHTOOL_GRINGPARAM
         };
@@ -415,15 +417,15 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         bool need_update = false;
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -444,7 +446,7 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SRINGPARAM;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -452,7 +454,7 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         return 0;
 }
 
-static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
+static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
                 struct ethtool_sset_info info;
@@ -468,7 +470,7 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
 
         ifr->ifr_data = (void *) &buffer.info;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
         if (r < 0)
                 return -errno;
 
@@ -487,7 +489,7 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
 
         ifr->ifr_data = (void *) strings;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
         if (r < 0)
                 return -errno;
 
@@ -507,21 +509,21 @@ static int find_feature_index(struct ethtool_gstrings *strings, const char *feat
         return -ENODATA;
 }
 
-int ethtool_set_features(int *fd, const char *ifname, int *features) {
+int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         int block, bit, i, r;
         struct ifreq ifr = {};
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = get_stringset(*fd, &ifr, ETH_SS_FEATURES, &strings);
+        r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
         if (r < 0)
                 return log_warning_errno(r, "ethtool: could not get ethtool features for %s", ifname);
 
@@ -553,7 +555,7 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
 
         ifr.ifr_data = (void *) sfeatures;
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return log_warning_errno(r, "ethtool: could not set ethtool features for %s", ifname);
 

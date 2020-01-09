@@ -324,9 +324,8 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
                 sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
                 memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
 
-        _cleanup_close_ int fd = -1;
         info->has_permanent_mac_address =
-                ethtool_get_permanent_macaddr(&fd, info->name, &info->permanent_mac_address) >= 0 &&
+                ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
                 memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
                 memcmp(&info->permanent_mac_address, &info->mac_address, sizeof(struct ether_addr)) != 0;
 

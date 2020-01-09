@@ -391,22 +391,20 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
-        struct epoll_event ev;
-        int r;
-
         assert(s);
         assert(s->type == SOURCE_IO);
         assert(enabled != SD_EVENT_OFF);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
                 .data.ptr = s,
         };
+        int r;
 
-        if (s->io.registered)
-                r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_MOD, s->io.fd, &ev);
-        else
-                r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_ADD, s->io.fd, &ev);
+        r = epoll_ctl(s->event->epoll_fd,
+                      s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                      s->io.fd,
+                      &ev);
         if (r < 0)
                 return -errno;
 
@@ -441,9 +439,7 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev;
-
-                ev = (struct epoll_event) {
+                struct epoll_event ev = {
                         .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
                         .data.ptr = s,
                 };
@@ -549,7 +545,6 @@ static int event_make_signal_data(
                 int sig,
                 struct signal_data **ret) {
 
-        struct epoll_event ev;
         struct signal_data *d;
         bool added = false;
         sigset_t ss_copy;
@@ -616,7 +611,7 @@ static int event_make_signal_data(
 
         d->fd = fd_move_above_stdio(r);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
@@ -1042,14 +1037,14 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
-        struct epoll_event ev;
-        int r, fd;
-
         assert(e);
         assert(d);
 
         if (_likely_(d->fd >= 0))
                 return 0;
+
+        _cleanup_close_ int fd = -1;
+        int r;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1057,18 +1052,16 @@ static int event_setup_timer_fd(
 
         fd = fd_move_above_stdio(fd);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
 
         r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0) {
-                safe_close(fd);
+        if (r < 0)
                 return -errno;
-        }
 
-        d->fd = fd;
+        d->fd = TAKE_FD(fd);
         return 0;
 }
 
@@ -1552,7 +1545,6 @@ static int event_make_inotify_data(
 
         _cleanup_close_ int fd = -1;
         struct inotify_data *d;
-        struct epoll_event ev;
         int r;
 
         assert(e);
@@ -1591,7 +1583,7 @@ static int event_make_inotify_data(
                 return r;
         }
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
@@ -3844,8 +3836,6 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 return e->watchdog;
 
         if (b) {
-                struct epoll_event ev;
-
                 r = sd_watchdog_enabled(false, &e->watchdog_period);
                 if (r <= 0)
                         return r;
@@ -3862,7 +3852,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 if (r < 0)
                         goto fail;
 
-                ev = (struct epoll_event) {
+                struct epoll_event ev = {
                         .events = EPOLLIN,
                         .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
                 };
