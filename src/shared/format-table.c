@@ -14,6 +14,7 @@
 #include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -234,6 +235,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return 0;
 
         case TABLE_STRING:
+        case TABLE_PATH:
                 return strlen(data) + 1;
 
         case TABLE_BOOLEAN:
@@ -768,6 +770,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_STRING:
+                case TABLE_PATH:
                         data = va_arg(ap, const char *);
                         break;
 
@@ -1038,6 +1041,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_STRING:
                         return strcmp(a->string, b->string);
 
+                case TABLE_PATH:
+                        return path_compare(a->string, b->string);
+
                 case TABLE_BOOLEAN:
                         if (!a->boolean && b->boolean)
                                 return -1;
@@ -1151,6 +1157,7 @@ static const char *table_data_format(Table *t, TableData *d) {
                 return strempty(t->empty_string);
 
         case TABLE_STRING:
+        case TABLE_PATH:
                 if (d->uppercase) {
                         char *p, *q;
 
@@ -1897,6 +1904,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_null(ret);
 
         case TABLE_STRING:
+        case TABLE_PATH:
                 return json_variant_new_string(ret, d->string);
 
         case TABLE_BOOLEAN:

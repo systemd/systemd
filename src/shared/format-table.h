@@ -11,6 +11,7 @@
 typedef enum TableDataType {
         TABLE_EMPTY,
         TABLE_STRING,
+        TABLE_PATH,
         TABLE_BOOLEAN,
         TABLE_TIMESTAMP,
         TABLE_TIMESTAMP_UTC,
