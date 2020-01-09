@@ -768,9 +768,9 @@ static void swap_enter_activating(Swap *s) {
 
                 r = fstab_find_pri(s->parameters_fragment.options, &priority);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
-                else if (r == 1 && s->parameters_fragment.priority_set)
-                        log_warning("Duplicate swap priority configuration by Priority and Options fields.");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
+                else if (r > 0 && s->parameters_fragment.priority_set)
+                        log_unit_warning(UNIT(s), "Duplicate swap priority configuration by Priority= and Options= fields.");
 
                 if (r <= 0 && s->parameters_fragment.priority_set) {
                         if (s->parameters_fragment.options)
@@ -788,7 +788,7 @@ static void swap_enter_activating(Swap *s) {
 
         if (s->parameters_fragment.options || opts) {
                 r = exec_command_append(s->control_command, "-o",
-                                opts ? : s->parameters_fragment.options, NULL);
+                                opts ?: s->parameters_fragment.options, NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -804,7 +804,6 @@ static void swap_enter_activating(Swap *s) {
                 goto fail;
 
         swap_set_state(s, SWAP_ACTIVATING);
-
         return;
 
 fail:
