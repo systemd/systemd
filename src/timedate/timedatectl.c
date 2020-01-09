@@ -10,6 +10,7 @@
 
 #include "bus-error.h"
 #include "bus-util.h"
+#include "format-table.h"
 #include "in-addr-util.h"
 #include "main-func.h"
 #include "pager.h"
@@ -45,16 +46,31 @@ typedef struct StatusInfo {
         bool ntp_synced;
 } StatusInfo;
 
-static void print_status_info(const StatusInfo *i) {
+static int print_status_info(const StatusInfo *i) {
+        _cleanup_(table_unrefp) Table *table = NULL;
         const char *old_tz = NULL, *tz, *tz_colon;
         bool have_time = false;
         char a[LINE_MAX];
+        TableCell *cell;
         struct tm tm;
         time_t sec;
         size_t n;
         int r;
 
         assert(i);
+
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+        (void) table_set_align_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         /* Save the old $TZ */
         tz = getenv("TZ");
@@ -77,28 +93,48 @@ static void print_status_info(const StatusInfo *i) {
         } else
                 log_warning("Could not get time from timedated and not operating locally, ignoring.");
 
-        if (have_time) {
+        if (have_time)
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("               Local time: %s\n", n > 0 ? a : "n/a");
 
+        r = table_add_many(table,
+                           TABLE_STRING, "Local time:",
+                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        if (have_time)
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("           Universal time: %s\n", n > 0 ? a : "n/a");
-        } else {
-                printf("               Local time: %s\n", "n/a");
-                printf("           Universal time: %s\n", "n/a");
-        }
+
+        r = table_add_many(table,
+                           TABLE_STRING, "Universal time:",
+                           TABLE_STRING, have_time && n > 0 ? a : "n/a");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
 
         if (i->rtc_time > 0) {
                 time_t rtc_sec;
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-                printf("                 RTC time: %s\n", n > 0 ? a : "n/a");
-        } else
-                printf("                 RTC time: %s\n", "n/a");
+        }
+
+        r = table_add_many(table,
+                           TABLE_STRING, "RTC time:",
+                           TABLE_STRING, i->rtc_time > 0 && n > 0 ? a : "n/a");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
 
         if (have_time)
                 n = strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm));
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Time zone:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), have_time && n > 0 ? a : "n/a");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
 
         /* Restore the $TZ */
         if (old_tz)
@@ -110,14 +146,19 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
-        printf("                Time zone: %s (%s)\n"
-               "System clock synchronized: %s\n"
-               "              NTP service: %s\n"
-               "          RTC in local TZ: %s\n",
-               strna(i->timezone), have_time && n > 0 ? a : "n/a",
-               yes_no(i->ntp_synced),
-               i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
-               yes_no(i->rtc_local));
+        r = table_add_many(table,
+                           TABLE_STRING, "System clock synchronized:",
+                           TABLE_BOOLEAN, i->ntp_synced,
+                           TABLE_STRING, "NTP service:",
+                           TABLE_STRING, i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
+                           TABLE_STRING, "RTC in local TZ:",
+                           TABLE_BOOLEAN, i->rtc_local);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show table: %m");
 
         if (i->rtc_local)
                 printf("\n%s"
@@ -127,6 +168,8 @@ static void print_status_info(const StatusInfo *i) {
                        "         time is never updated, it relies on external facilities to maintain it.\n"
                        "         If at all possible, use RTC in UTC by calling\n"
                        "         'timedatectl set-local-rtc 0'.%s\n", ansi_highlight(), ansi_normal());
+
+        return 0;
 }
 
 static int show_status(int argc, char **argv, void *userdata) {
@@ -160,9 +203,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));
 
-        print_status_info(&info);
-
-        return r;
+        return print_status_info(&info);
 }
 
 static int show_properties(int argc, char **argv, void *userdata) {
@@ -350,12 +391,29 @@ static const char * const ntp_leap_table[4] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t);
 #pragma GCC diagnostic pop
 
-static void print_ntp_status_info(NTPStatusInfo *i) {
-        char ts[FORMAT_TIMESPAN_MAX], tmin[FORMAT_TIMESPAN_MAX], tmax[FORMAT_TIMESPAN_MAX];
+static int print_ntp_status_info(NTPStatusInfo *i) {
+        char ts[FORMAT_TIMESPAN_MAX], jitter[FORMAT_TIMESPAN_MAX],
+                tmin[FORMAT_TIMESPAN_MAX], tmax[FORMAT_TIMESPAN_MAX];
         usec_t delay, t14, t23, offset, root_distance;
+        _cleanup_(table_unrefp) Table *table = NULL;
         bool offset_sign;
+        TableCell *cell;
+        int r;
 
         assert(i);
+
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        assert_se(cell = table_get_cell(table, 0, 0));
+        (void) table_set_ellipsize_percent(table, cell, 100);
+        (void) table_set_align_percent(table, cell, 100);
+
+        assert_se(cell = table_get_cell(table, 0, 1));
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         /*
          * "Timestamp Name          ID   When Generated
@@ -369,21 +427,46 @@ static void print_ntp_status_info(NTPStatusInfo *i) {
          *  d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2"
          */
 
-        printf("       Server: %s (%s)\n",
-               i->server_address, i->server_name);
-        printf("Poll interval: %s (min: %s; max %s)\n",
-               format_timespan(ts, sizeof(ts), i->poll_interval, 0),
-               format_timespan(tmin, sizeof(tmin), i->poll_min, 0),
-               format_timespan(tmax, sizeof(tmax), i->poll_max, 0));
+        r = table_add_cell(table, NULL, TABLE_STRING, "Server:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s (%s)", i->server_address, i->server_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Poll interval:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s (min: %s; max %s)",
+                                   format_timespan(ts, sizeof(ts), i->poll_interval, 0),
+                                   format_timespan(tmin, sizeof(tmin), i->poll_min, 0),
+                                   format_timespan(tmax, sizeof(tmax), i->poll_max, 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
 
         if (i->packet_count == 0) {
-                printf(" Packet count: 0\n");
-                return;
+                r = table_add_many(table,
+                                   TABLE_STRING, "Packet count:",
+                                   TABLE_STRING, "0");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add cell(s): %m");
+
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to show table: %m");
+
+                return 0;
         }
 
         if (i->dest < i->origin || i->trans < i->recv || i->dest - i->origin < i->trans - i->recv) {
                 log_error("Invalid NTP response");
-                return;
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to show table: %m");
+
+                return 0;
         }
 
         delay = (i->dest - i->origin) - (i->trans - i->recv);
@@ -395,34 +478,79 @@ static void print_ntp_status_info(NTPStatusInfo *i) {
 
         root_distance = i->root_delay / 2 + i->root_dispersion;
 
-        printf("         Leap: %s\n"
-               "      Version: %" PRIu32 "\n"
-               "      Stratum: %" PRIu32 "\n",
-               ntp_leap_to_string(i->leap),
-               i->version,
-               i->stratum);
-        if (i->stratum <= 1)
-                printf("    Reference: %s\n", i->reference.str);
-        else
-                printf("    Reference: %" PRIX32 "\n", be32toh(i->reference.val));
-        printf("    Precision: %s (%" PRIi32 ")\n",
-               format_timespan(ts, sizeof(ts), DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
-               i->precision);
-        printf("Root distance: %s (max: %s)\n",
-               format_timespan(ts, sizeof(ts), root_distance, 0),
-               format_timespan(tmax, sizeof(tmax), i->root_distance_max, 0));
-        printf("       Offset: %s%s\n",
-               offset_sign ? "+" : "-",
-               format_timespan(ts, sizeof(ts), offset, 0));
-        printf("        Delay: %s\n",
-               format_timespan(ts, sizeof(ts), delay, 0));
-        printf("       Jitter: %s\n",
-               format_timespan(ts, sizeof(ts), i->jitter, 0));
-        printf(" Packet count: %" PRIu64 "\n", i->packet_count);
+        r = table_add_many(table,
+                           TABLE_STRING, "Leap:",
+                           TABLE_STRING, ntp_leap_to_string(i->leap),
+                           TABLE_STRING, "Version:",
+                           TABLE_UINT32, i->version,
+                           TABLE_STRING, "Stratum:",
+                           TABLE_UINT32, i->stratum,
+                           TABLE_STRING, "Reference:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
 
-        if (!i->spike)
-                printf("    Frequency: %+.3fppm\n",
-                       (double) i->freq / 0x10000);
+        if (i->stratum <= 1)
+                r = table_add_cell(table, NULL, TABLE_STRING, i->reference.str);
+        else
+                r = table_add_cell_stringf(table, NULL, "%" PRIX32, be32toh(i->reference.val));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Precision:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s (%" PRIi32 ")",
+                                   format_timespan(ts, sizeof(ts), DIV_ROUND_UP((nsec_t) (exp2(i->precision) * NSEC_PER_SEC), NSEC_PER_USEC), 0),
+                                   i->precision);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Root distance:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s (max: %s)",
+                                   format_timespan(ts, sizeof(ts), root_distance, 0),
+                                   format_timespan(tmax, sizeof(tmax), i->root_distance_max, 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell(table, NULL, TABLE_STRING, "Offset:");
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_cell_stringf(table, NULL, "%s%s",
+                                   offset_sign ? "+" : "-",
+                                   format_timespan(ts, sizeof(ts), offset, 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        r = table_add_many(table,
+                           TABLE_STRING, "Delay:",
+                           TABLE_STRING, format_timespan(ts, sizeof(ts), delay, 0),
+                           TABLE_STRING, "Jitter:",
+                           TABLE_STRING, format_timespan(jitter, sizeof(jitter), i->jitter, 0),
+                           TABLE_STRING, "Packet count:",
+                           TABLE_UINT64, i->packet_count);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add cell(s): %m");
+
+        if (!i->spike) {
+                r = table_add_cell(table, NULL, TABLE_STRING, "Frequency:");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add cell(s): %m");
+
+                r = table_add_cell_stringf(table, NULL, "%+.3fppm", (double) i->freq / 0x10000);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add cell(s): %m");
+        }
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                log_error_errno(r, "Failed to show table: %m");
+
+        return 0;
 }
 
 static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
