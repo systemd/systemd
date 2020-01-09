@@ -136,11 +136,25 @@
     has the alias <filename>dbus-org.freedesktop.network1.service</filename>, created during installation as
     a symlink, so when <command>systemd</command> is asked through D-Bus to load
     <filename>dbus-org.freedesktop.network1.service</filename>, it'll load
-    <filename>systemd-networkd.service</filename>. Alias names may be used in commands like
-    <command>disable</command>, <command>start</command>, <command>stop</command>, <command>status</command>,
-    and similar, and in all unit dependency directives, including <varname>Wants=</varname>,
-    <varname>Requires=</varname>, <varname>Before=</varname>, <varname>After=</varname>. Aliases cannot be
-    used with the <command>preset</command> command.</para>
+    <filename>systemd-networkd.service</filename>. As another example, <filename>default.target</filename> —
+    the default system target started at boot — is commonly symlinked (aliased) to either
+    <filename>multi-user.target</filename> or <filename>graphical.target</filename> to select what is started
+    by default. Alias names may be used in commands like <command>disable</command>,
+    <command>start</command>, <command>stop</command>, <command>status</command>, and similar, and in all
+    unit dependency directives, including <varname>Wants=</varname>, <varname>Requires=</varname>,
+    <varname>Before=</varname>, <varname>After=</varname>. Aliases cannot be used with the
+    <command>preset</command> command.</para>
+
+    <para>Aliases obey the following restrictions: a unit of a certain type (<literal>.service</literal>,
+    <literal>.socket</literal>, …) can only be aliased by a name with the same type suffix. A plain unit (not
+    a template or an instance), may only be aliased by a plain name. A template instance may only be aliased
+    by another template instance, and the instance part must be identical. A template may be aliased by
+    another template (in which case the alias applies to all instances of the template). As a special case, a
+    template instance (e.g. <literal>alias@inst.service</literal>) may be a symlink to different template
+    (e.g. <literal>template@inst.service</literal>). In that case, just this specific instance is aliased,
+    while other instances of the template (e.g. <literal>alias@foo.service</literal>,
+    <literal>alias@bar.service</literal>) are not aliased. Those rule preserve the requirement that the
+    instance (if any) is always uniquely defined for a given unit and all its aliases.</para>
 
     <para>Unit files may specify aliases through the <varname>Alias=</varname> directive in the [Install]
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
@@ -183,6 +197,16 @@
     further down the prefix hierarchy override those further up,
     i.e. <filename>foo-bar-.service.d/10-override.conf</filename> overrides
     <filename>foo-.service.d/10-override.conf</filename>.</para>
+
+    <para>In cases of unit aliases (described above), dropins for the aliased name and all aliases are
+    loaded. In the example of <filename>default.target</filename> aliasing
+    <filename>graphical.target</filename>, <filename>default.target.d/</filename>,
+    <filename>default.target.wants/</filename>, <filename>default.target.requires/</filename>,
+    <filename>graphical.target.d/</filename>, <filename>graphical.target.wants/</filename>,
+    <filename>graphical.target.requires/</filename> would all be read. For templates, dropins for the
+    template, any template aliases, the template instance, and all alias instances are read. When just a
+    specific template instance is aliased, then the dropins for the target template, the target template
+    instance, and the alias template instance are read.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d/</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or
