@@ -118,7 +118,7 @@ int bind_remount_recursive_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         _cleanup_set_free_free_ Set *done = NULL;
-        _cleanup_free_ char *cleaned = NULL;
+        _cleanup_free_ char *simplified = NULL;
         int r;
 
         assert(proc_self_mountinfo);
@@ -134,11 +134,11 @@ int bind_remount_recursive_with_mountinfo(
          * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the blacklist for the top-level path. */
 
-        cleaned = strdup(prefix);
-        if (!cleaned)
+        simplified = strdup(prefix);
+        if (!simplified)
                 return -ENOMEM;
 
-        path_simplify(cleaned, false);
+        path_simplify(simplified, false);
 
         done = set_new(&path_hash_ops);
         if (!done)
@@ -177,26 +177,26 @@ int bind_remount_recursive_with_mountinfo(
                         if (!path || !type)
                                 continue;
 
-                        if (!path_startswith(path, cleaned))
+                        if (!path_startswith(path, simplified))
                                 continue;
 
                         /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount
                          * we shall operate on. */
-                        if (!path_equal(path, cleaned)) {
+                        if (!path_equal(path, simplified)) {
                                 bool blacklisted = false;
                                 char **i;
 
                                 STRV_FOREACH(i, blacklist) {
-                                        if (path_equal(*i, cleaned))
+                                        if (path_equal(*i, simplified))
                                                 continue;
 
-                                        if (!path_startswith(*i, cleaned))
+                                        if (!path_startswith(*i, simplified))
                                                 continue;
 
                                         if (path_startswith(path, *i)) {
                                                 blacklisted = true;
                                                 log_debug("Not remounting %s blacklisted by %s, called for %s",
-                                                          path, *i, cleaned);
+                                                          path, *i, simplified);
                                                 break;
                                         }
                                 }
@@ -211,7 +211,7 @@ int bind_remount_recursive_with_mountinfo(
                          * already triggered, then we will find
                          * another entry for this. */
                         if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(path, cleaned);
+                                top_autofs = top_autofs || path_equal(path, simplified);
                                 continue;
                         }
 
@@ -226,25 +226,25 @@ int bind_remount_recursive_with_mountinfo(
                  * the root is either already done, or an autofs, we
                  * are done */
                 if (set_isempty(todo) &&
-                    (top_autofs || set_contains(done, cleaned)))
+                    (top_autofs || set_contains(done, simplified)))
                         return 0;
 
-                if (!set_contains(done, cleaned) &&
-                    !set_contains(todo, cleaned)) {
+                if (!set_contains(done, simplified) &&
+                    !set_contains(todo, simplified)) {
                         /* The prefix directory itself is not yet a mount, make it one. */
-                        if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
+                        if (mount(simplified, simplified, NULL, MS_BIND|MS_REC, NULL) < 0)
                                 return -errno;
 
                         orig_flags = 0;
-                        (void) get_mount_flags(cleaned, &orig_flags, table);
+                        (void) get_mount_flags(simplified, &orig_flags, table);
                         orig_flags &= ~MS_RDONLY;
 
-                        if (mount(NULL, cleaned, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
+                        if (mount(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        r = set_put_strdup(done, cleaned);
+                        r = set_put_strdup(done, simplified);
                         if (r < 0)
                                 return r;
                 }
