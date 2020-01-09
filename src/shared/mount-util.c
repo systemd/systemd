@@ -76,35 +76,57 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
-/* Get the mount flags for the mountpoint at "path" from "table" */
-static int get_mount_flags(const char *path, unsigned long *flags, struct libmnt_table *table) {
-        struct statvfs buf = {};
-        struct libmnt_fs *fs = NULL;
-        const char *opts = NULL;
+static int get_mount_flags(
+                struct libmnt_table *table,
+                const char *path,
+                unsigned long *ret) {
+        struct libmnt_fs *fs;
+        struct statvfs buf;
+        const char *opts;
         int r = 0;
+
+        /* Get the mount flags for the mountpoint at "path" from "table". We have a fallback using statvfs()
+         * in place (which provides us with mostly the same info), but it's just a fallback, since using it
+         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly. */
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
-                log_warning("Could not find '%s' in mount table", path);
+                log_debug("Could not find '%s' in mount table, ignoring.", path);
                 goto fallback;
         }
 
         opts = mnt_fs_get_vfs_options(fs);
-        r = mnt_optstr_get_flags(opts, flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+        if (!opts) {
+                *ret = 0;
+                return 0;
+        }
+
+        r = mnt_optstr_get_flags(opts, ret, mnt_get_builtin_optmap(MNT_LINUX_MAP));
         if (r != 0) {
-                log_warning_errno(r, "Could not get flags for '%s': %m", path);
+                log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                 goto fallback;
         }
 
-        /* relatime is default and trying to set it in an unprivileged container causes EPERM */
-        *flags &= ~MS_RELATIME;
+        /* MS_RELATIME is default and trying to set it in an unprivileged container causes EPERM */
+        *ret &= ~MS_RELATIME;
         return 0;
 
 fallback:
         if (statvfs(path, &buf) < 0)
                 return -errno;
 
-        *flags = buf.f_flag;
+        /* The statvfs() flags and the mount flags mostly have the same values, but for some cases do
+         * not. Hence map the flags manually. (Strictly speaking, ST_RELATIME/MS_RELATIME is the most
+         * prominent one that doesn't match, but that's the one we mask away anyway, see above.) */
+
+        *ret =
+                FLAGS_SET(buf.f_flag, ST_RDONLY) * MS_RDONLY |
+                FLAGS_SET(buf.f_flag, ST_NODEV) * MS_NODEV |
+                FLAGS_SET(buf.f_flag, ST_NOEXEC) * MS_NOEXEC |
+                FLAGS_SET(buf.f_flag, ST_NOSUID) * MS_NOSUID |
+                FLAGS_SET(buf.f_flag, ST_NOATIME) * MS_NOATIME |
+                FLAGS_SET(buf.f_flag, ST_NODIRATIME) * MS_NODIRATIME;
+
         return 0;
 }
 
@@ -236,7 +258,7 @@ int bind_remount_recursive_with_mountinfo(
                                 return -errno;
 
                         orig_flags = 0;
-                        (void) get_mount_flags(simplified, &orig_flags, table);
+                        (void) get_mount_flags(table, simplified, &orig_flags);
 
                         if (mount(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
@@ -277,7 +299,7 @@ int bind_remount_recursive_with_mountinfo(
 
                         /* Try to reuse the original flag set */
                         orig_flags = 0;
-                        (void) get_mount_flags(x, &orig_flags, table);
+                        (void) get_mount_flags(table, x, &orig_flags);
 
                         if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
