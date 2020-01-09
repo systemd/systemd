@@ -873,7 +873,7 @@
 
         <listitem><para>When specified without an argument or with a true argument,
         enables the usage of
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">unified cgroup hierarchy</ulink>
+        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
         (a.k.a. cgroups-v2). When specified with a false argument, fall back to
         hybrid or full legacy cgroup hierarchy.</para>
 
