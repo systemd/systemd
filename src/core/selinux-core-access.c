@@ -114,7 +114,8 @@ int _mac_selinux_instance_access_check_internal(
 
         /* skip check if variant does not serve permission */
         if (!verb) {
-                log_debug("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
                 return 0;
         }
 
@@ -154,7 +155,8 @@ int _mac_selinux_unit_access_check_internal(
 
         /* skip check if variant does not serve permission */
         if (!verb) {
-                log_debug("SELinux unit access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux unit access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
                 return 0;
         }
 
