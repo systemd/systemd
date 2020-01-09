@@ -45,6 +45,7 @@ enum {
 
 static bool arg_no_block = false;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -90,6 +91,7 @@ static int help(void) {
                "     --version                    Show package version\n"
                "     --no-block                   Do not wait until operation finished\n"
                "     --no-pager                   Do not pipe output into a pager\n"
+               "     --no-legend                  Do not show the headers\n"
                "     --no-ask-password            Do not prompt for password\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "     --user                       Run as user unit\n"
@@ -125,6 +127,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_BLOCK,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -146,6 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
                 { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
                 { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
                 { "user",               no_argument,       NULL, ARG_USER               },
@@ -194,6 +198,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1388,6 +1396,8 @@ static int list_devices(void) {
         r = table_set_sort(table, 0, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort index: %m");
+
+        table_set_header(table, arg_legend);
 
         FOREACH_DEVICE(e, d) {
                 for (c = 0; c < _COLUMN_MAX; c++) {
