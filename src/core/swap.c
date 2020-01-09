@@ -63,7 +63,6 @@ static void swap_unset_proc_swaps(Swap *s) {
                 return;
 
         s->parameters_proc_swaps.what = mfree(s->parameters_proc_swaps.what);
-
         s->from_proc_swaps = false;
 }
 
@@ -116,9 +115,6 @@ static void swap_init(Unit *u) {
 
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
-
-        s->parameters_proc_swaps.priority = s->parameters_fragment.priority = 0;
-        s->parameters_fragment.priority_set = false;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
