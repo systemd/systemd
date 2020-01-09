@@ -777,8 +777,10 @@ static void swap_enter_activating(Swap *s) {
                                 r = asprintf(&opts, "%s,pri=%i", s->parameters_fragment.options, s->parameters_fragment.priority);
                         else
                                 r = asprintf(&opts, "pri=%i", s->parameters_fragment.priority);
-                        if (r < 0)
+                        if (r < 0) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
                 }
         }
 
