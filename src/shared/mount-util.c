@@ -143,6 +143,7 @@ int bind_remount_recursive_with_mountinfo(
         _cleanup_free_ char *simplified = NULL;
         int r;
 
+        assert(prefix);
         assert(proc_self_mountinfo);
 
         /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
@@ -309,7 +310,12 @@ int bind_remount_recursive_with_mountinfo(
         }
 }
 
-int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist) {
+int bind_remount_recursive(
+                const char *prefix,
+                unsigned long new_flags,
+                unsigned long flags_mask,
+                char **blacklist) {
+
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int r;
 
