@@ -12,16 +12,23 @@
 #include "unit.h"
 
 static int swap_get_priority(Swap *s) {
-        if (s->from_proc_swaps)
+        assert(s);
+
+        if (s->from_proc_swaps && s->parameters_proc_swaps.priority_set)
                 return s->parameters_proc_swaps.priority;
-        if (s->from_fragment)
+
+        if (s->from_fragment && s->parameters_fragment.priority_set)
                 return s->parameters_fragment.priority;
+
         return -1;
 }
 
 static const char *swap_get_options(Swap *s) {
+        assert(s);
+
         if (s->from_fragment)
                 return s->parameters_fragment.options;
+
         return NULL;
 }
 
