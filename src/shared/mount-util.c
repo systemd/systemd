@@ -237,7 +237,6 @@ int bind_remount_recursive_with_mountinfo(
 
                         orig_flags = 0;
                         (void) get_mount_flags(simplified, &orig_flags, table);
-                        orig_flags &= ~MS_RDONLY;
 
                         if (mount(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
@@ -279,7 +278,6 @@ int bind_remount_recursive_with_mountinfo(
                         /* Try to reuse the original flag set */
                         orig_flags = 0;
                         (void) get_mount_flags(x, &orig_flags, table);
-                        orig_flags &= ~MS_RDONLY;
 
                         if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
