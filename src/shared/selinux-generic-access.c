@@ -268,8 +268,10 @@ int mac_selinux_generic_access_check(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline='%s' func=%s result=%m",
-                        scon, fcon, class, permission, enforce ? "enforcing" : "permissive", strna(path), cl, func);
+        // TODO(cgzones): revert to debug
+        log_warning_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline='%s' func=%s result=%m",
+                          scon, fcon, class, permission, enforce ? "enforcing" : "permissive", strna(path), cl, func);
+
         return enforce ? r : 0;
 }
 
