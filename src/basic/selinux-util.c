@@ -73,7 +73,7 @@ bool mac_selinux_polcap_overhaul_enabled(void) {
 
 #if HAVE_SELINUX
 /* TODO: replace with security_is_policy_capability_enabled() from libselinux > 3.0 in the future */
-#define MAC_SELINUX_POLCAP_NAME "systemd_overhaul"
+#define MAC_SELINUX_POLCAP_NAME "cgroup_seclabel" // TODO(cgzones): replace polcap 'cgroup_seclabel' with 'systemd_overhaul'
 #include <unistd.h> // read(), close()
 static bool is_overhaul_policy_capability_enabled(void)
 {

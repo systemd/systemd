@@ -258,7 +258,8 @@ static int mac_selinux_generic_access_check(
         if (r < 0)
                 r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
 
-        log_debug("SELinux access check scon=%s tcon=%s class=%s perm=%s path=%s cmdline=%s func=%s ret=%i", scon, fcon, class, permission, strna(path), cl, func, r);
+        // TODO(cgzones): revert to debug
+        log_warning("SELinux access check scon=%s tcon=%s class=%s perm=%s path=%s cmdline=%s func=%s ret=%i", scon, fcon, class, permission, strna(path), cl, func, r);
 
 finish:
         freecon(fcon);
@@ -300,7 +301,8 @@ int mac_selinux_access_check(
 
         /* skip check if variant does not serve permission */
         if (!permission) {
-                log_debug("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
                 return 0;
         }
 
@@ -338,7 +340,8 @@ int mac_selinux_unit_access_check(
 
         /* skip check if variant does not serve permission */
         if (!permission) {
-                log_debug("SELinux unit access check skipped (overhaul=%d funk=%s)", mac_selinux_overhaul_enabled(), func);
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux unit access check skipped (overhaul=%d funk=%s)", mac_selinux_overhaul_enabled(), func);
                 return 0;
         }
 
