@@ -29,6 +29,7 @@ static const UnitActiveState state_translation_table[_DEVICE_STATE_MAX] = {
 
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata);
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask);
+static void device_found_changed(Device *d, DeviceFound previous, DeviceFound now);
 
 static void device_unset_sysfs(Device *d) {
         Hashmap *devices;
@@ -156,28 +157,42 @@ static int device_coldplug(Unit *u) {
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
-        /* First, let's put the deserialized state and found mask into effect, if we have it. */
+        /* During the "coldplug" phase (called after the enumeration and deserialization
+         * ones) no unit state change events are generated, thus the deserialized state
+         * won't pull in new deps */
 
-        if (d->deserialized_state < 0 ||
-            (d->deserialized_state == d->state &&
-             d->deserialized_found == d->found))
+        /* Device appeared while PID1 stopped listening for new kernel events, which
+         * happens while it is reexecuting */
+        if (d->deserialized_state < 0)
                 return 0;
 
-        d->found = d->deserialized_found;
+        if (d->deserialized_state == DEVICE_DEAD &&
+            d->deserialized_found == DEVICE_NOT_FOUND)
+                return 0;
+
         device_set_state(d, d->deserialized_state);
         return 0;
 }
 
 static void device_catchup(Unit *u) {
+        Manager *m = u->manager;
         Device *d = DEVICE(u);
 
         assert(d);
 
-        /* Second, let's update the state with the enumerated state if it's different */
-        if (d->enumerated_found == d->found)
+        /* During the "catchup" phase, the manager is up and running thus the enumerated
+         * state will pull new deps if any */
+
+        /* If we can't trust the device enumeration, simply restore the old flag if it was
+         * previously set */
+        if (!m->trust_device_enumeration)
+                d->found |= d->deserialized_found & DEVICE_FOUND_UDEV;
+
+        /* Let's update the state with the enumerated state if it's different */
+        if (d->found == d->deserialized_found)
                 return;
 
-        device_update_found_one(d, d->enumerated_found, DEVICE_FOUND_MASK);
+        device_found_changed(d, d->deserialized_found, d->found);
 }
 
 static const struct {
@@ -666,30 +681,23 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
+        DeviceFound n;
         Manager *m;
 
         assert(d);
 
         m = UNIT(d)->manager;
 
-        if (MANAGER_IS_RUNNING(m) && (m->honor_device_enumeration || MANAGER_IS_USER(m))) {
-                DeviceFound n, previous;
+        n = (d->found & ~mask) | (found & mask);
+        if (n == d->found)
+                return;
 
-                /* When we are already running, then apply the new mask right-away, and trigger state changes
-                 * right-away */
+        if (MANAGER_IS_RUNNING(m))
+                /* When we are already running, then apply the new mask right-away, and
+                 * trigger state changes right-away */
+                device_found_changed(d, d->found, n);
 
-                n = (d->found & ~mask) | (found & mask);
-                if (n == d->found)
-                        return;
-
-                previous = d->found;
-                d->found = n;
-
-                device_found_changed(d, previous, n);
-        } else
-                /* We aren't running yet, let's apply the new mask to the shadow variable instead, which we'll apply as
-                 * soon as we catch-up with the state. */
-                d->enumerated_found = (d->enumerated_found & ~mask) | (found & mask);
+        d->found = n;
 }
 
 static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
@@ -857,8 +865,17 @@ static void device_enumerate(Manager *m) {
                 goto fail;
         }
 
+        /* At this point we don't really know if udev is running and has populated its DB
+         * because reload of PID1 can happen at anytime especially early during the boot
+         * process. So in order to figure this out, we simply assume that if the DB is
+         * fully populated, we should at least enumerate one device otherwise we consider
+         * that the device enumeration hasn't happened yet hence we shouldn't trust it */
+        m->trust_device_enumeration = false;
+
         FOREACH_DEVICE(e, dev) {
                 const char *sysfs;
+
+                m->trust_device_enumeration = true;
 
                 if (!device_is_ready(dev))
                         continue;
