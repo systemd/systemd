@@ -117,7 +117,8 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
-        size_t width;  /* If != (size_t) -1 the width to format this table in */
+        size_t width;  /* If == 0 format this as wide as necessary. If (size_t) -1 format this to console
+                        * width or less wide, but not wider. Otherwise the width to format this table in. */
 
         TableData **data;
         size_t n_allocated;
@@ -1619,9 +1620,9 @@ int table_print(Table *t, FILE *f) {
         }
 
         /* Calculate effective table width */
-        if (t->width != (size_t) -1)
+        if (t->width != 0 && t->width != (size_t) -1)
                 table_effective_width = t->width;
-        else if (pager_have() || !isatty(STDOUT_FILENO))
+        else if (t->width == 0 || pager_have() || !isatty(STDOUT_FILENO))
                 table_effective_width = table_requested_width;
         else
                 table_effective_width = MIN(table_requested_width, columns());
