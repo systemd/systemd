@@ -326,6 +326,38 @@ int bind_remount_recursive(
         return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, blacklist, proc_self_mountinfo);
 }
 
+int bind_remount_one_with_mountinfo(
+                const char *path,
+                unsigned long new_flags,
+                unsigned long flags_mask,
+                FILE *proc_self_mountinfo) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        unsigned long orig_flags = 0;
+        int r;
+
+        assert(path);
+        assert(proc_self_mountinfo);
+
+        rewind(proc_self_mountinfo);
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        /* Try to reuse the original flag set */
+        (void) get_mount_flags(table, path, &orig_flags);
+
+        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int mount_move_root(const char *path) {
         assert(path);
 
