@@ -1796,32 +1796,25 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
 static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
         Unit *slice;
 
-        /* This adds the siblings of the specified unit and the
-         * siblings of all parent units to the cgroup queue. (But
-         * neither the specified unit itself nor the parents.) */
+        /* This adds the siblings of the specified unit and the siblings of all parent units to the cgroup
+         * queue. (But neither the specified unit itself nor the parents.) */
 
         while ((slice = UNIT_DEREF(u->slice))) {
                 Iterator i;
                 Unit *m;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
-                        if (m == u)
-                                continue;
-
-                        /* Skip units that have a dependency on the slice
-                         * but aren't actually in it. */
+                HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
+                        /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
                                 continue;
 
-                        /* No point in doing cgroup application for units
-                         * without active processes. */
+                        /* No point in doing cgroup application for units without active processes. */
                         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
                                 continue;
 
-                        /* If the unit doesn't need any new controllers
-                         * and has current ones realized, it doesn't need
-                         * any changes. */
+                        /* If the unit doesn't need any new controllers and has current ones realized, it
+                         * doesn't need any changes. */
                         if (unit_has_mask_realized(m,
                                                    unit_get_target_mask(m),
                                                    unit_get_enable_mask(m),
