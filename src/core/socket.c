@@ -3220,7 +3220,12 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         assert(other);
 
         /* Filter out invocations with bogus state */
-        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
+        if (!IN_SET(other->load_state,
+                    UNIT_LOADED,
+                    UNIT_NOT_FOUND,
+                    UNIT_BAD_SETTING,
+                    UNIT_ERROR,
+                    UNIT_MASKED) || other->type != UNIT_SERVICE)
                 return;
 
         /* Don't propagate state changes from the service if we are already down */
