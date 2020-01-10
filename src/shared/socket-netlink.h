@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-netlink.h"
+
 #include "in-addr-util.h"
 #include "macro.h"
 #include "socket-util.h"
+
+int resolve_ifname(sd_netlink **rtnl, const char *name);
 
 int make_socket_fd(int log_level, const char* address, int type, int flags);
 

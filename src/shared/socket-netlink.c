@@ -10,10 +10,25 @@
 #include "extract-word.h"
 #include "log.h"
 #include "memory-util.h"
+#include "netlink-util.h"
 #include "parse-util.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
+
+int resolve_ifname(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        /* Like if_nametoindex, but resolves "alternative names" too. */
+
+        assert(name);
+
+        r = if_nametoindex(name);
+        if (r > 0)
+                return r;
+
+        return rtnl_resolve_link_alternative_name(rtnl, name);
+}
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         _cleanup_free_ char *n = NULL;
@@ -140,15 +155,12 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 a->sockaddr.in.sin_port = htobe16(port);
                                 a->size = sizeof(struct sockaddr_in);
                         } else {
-                                unsigned idx;
-
-                                if (strlen(n) > IF_NAMESIZE-1)
-                                        return -EINVAL;
+                                int idx;
 
                                 /* Uh, our last resort, an interface name */
-                                idx = if_nametoindex(n);
-                                if (idx == 0)
-                                        return -EINVAL;
+                                idx = resolve_ifname(NULL, n);
+                                if (idx < 0)
+                                        return idx;
 
                                 a->sockaddr.in6.sin6_family = AF_INET6;
                                 a->sockaddr.in6.sin6_port = htobe16(port);
