@@ -1113,13 +1113,11 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
                 if (u->time <= 0)
                         continue;
 
-                r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &u->time);
+                r = table_add_many(table,
+                                   TABLE_TIMESPAN_MSEC, &u->time,
+                                   TABLE_STRING, u->name);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, u->name);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         (void) pager_open(arg_pager_flags);
@@ -1630,7 +1628,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
                                            TABLE_INT, (int) i,
                                            TABLE_STRING, exit_status_class(i));
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
         else
                 for (int i = 1; i < argc; i++) {
@@ -1646,7 +1644,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
                                            TABLE_INT, status,
                                            TABLE_STRING, exit_status_class(status) ?: "-");
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
         (void) pager_open(arg_pager_flags);
@@ -1853,33 +1851,23 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, "Original:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "Original:",
+                                   TABLE_STRING, *input_timespan);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, *input_timespan);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = table_add_cell_stringf(table, NULL, "%ss:", special_glyph(SPECIAL_GLYPH_MU));
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
-                r = table_add_cell(table, NULL, TABLE_UINT64, &output_usecs);
+                r = table_add_many(table,
+                                   TABLE_UINT64, &output_usecs,
+                                   TABLE_STRING, "Human:",
+                                   TABLE_TIMESPAN, &output_usecs,
+                                   TABLE_SET_COLOR, ansi_highlight());
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, "Human:");
-                if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, &cell, TABLE_TIMESPAN, &output_usecs);
-                if (r < 0)
-                        return r;
-
-                r = table_set_color(table, cell, ansi_highlight());
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = table_print(table, NULL);
                 if (r < 0)
@@ -1925,57 +1913,42 @@ static int test_timestamp_one(const char *p) {
         if (r < 0)
                 return r;
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+        r = table_add_many(table,
+                           TABLE_STRING, "Original form:",
+                           TABLE_STRING, p,
+                           TABLE_STRING, "Normalized form:",
+                           TABLE_TIMESTAMP, &usec,
+                           TABLE_SET_COLOR, ansi_highlight_blue());
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, p);
-        if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
-        if (r < 0)
-                return r;
-
-        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &usec);
-        if (r < 0)
-                return r;
-
-        r = table_set_color(table, cell, ansi_highlight_blue());
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         if (!in_utc_timezone()) {
-                r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                r = table_add_many(table,
+                                   TABLE_STRING, "(in UTC):",
+                                   TABLE_TIMESTAMP_UTC, &usec);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, &cell, TABLE_TIMESTAMP_UTC, &usec);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         r = table_add_cell(table, NULL, TABLE_STRING, "UNIX seconds:");
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         if (usec % USEC_PER_SEC == 0)
-                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC,
+                r = table_add_cell_stringf(table, NULL, "@%"PRI_USEC,
                                            usec / USEC_PER_SEC);
         else
-                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC".%06"PRI_USEC"",
+                r = table_add_cell_stringf(table, NULL, "@%"PRI_USEC".%06"PRI_USEC"",
                                            usec / USEC_PER_SEC,
                                            usec % USEC_PER_SEC);
         if (r < 0)
                 return r;
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+        r = table_add_many(table,
+                           TABLE_STRING, "From now:",
+                           TABLE_TIMESTAMP_RELATIVE, &usec);
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, &cell, TABLE_TIMESTAMP_RELATIVE, &usec);
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         return table_print(table, NULL);
 }
@@ -2035,22 +2008,18 @@ static int test_calendar_one(usec_t n, const char *p) {
                 return r;
 
         if (!streq(t, p)) {
-                r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "Original form:",
+                                   TABLE_STRING, p);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, p);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        r = table_add_many(table,
+                           TABLE_STRING, "Normalized form:",
+                           TABLE_STRING, t);
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, t);
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         for (unsigned i = 0; i < arg_iterations; i++) {
                 usec_t next;
@@ -2058,17 +2027,12 @@ static int test_calendar_one(usec_t n, const char *p) {
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
                         if (i == 0) {
-                                r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                                r = table_add_many(table,
+                                                   TABLE_STRING, "Next elapse:",
+                                                   TABLE_STRING, "never",
+                                                   TABLE_SET_COLOR, ansi_highlight_yellow());
                                 if (r < 0)
-                                        return r;
-
-                                r = table_add_cell(table, &cell, TABLE_STRING, "never");
-                                if (r < 0)
-                                        return r;
-
-                                r = table_set_color(table, cell, ansi_highlight_yellow());
-                                if (r < 0)
-                                        return r;
+                                        return table_log_add_error(r);
                         }
                         break;
                 }
@@ -2076,17 +2040,12 @@ static int test_calendar_one(usec_t n, const char *p) {
                         return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
 
                 if (i == 0) {
-                        r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                        r = table_add_many(table,
+                                           TABLE_STRING, "Next elapse:",
+                                           TABLE_TIMESTAMP, &next,
+                                           TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
-                                return r;
-
-                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
-                        if (r < 0)
-                                return r;
-
-                        r = table_set_color(table, cell, ansi_highlight_blue());
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 } else {
                         int k = DECIMAL_STR_WIDTH(i + 1);
 
@@ -2097,34 +2056,28 @@ static int test_calendar_one(usec_t n, const char *p) {
 
                         r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
 
-                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        r = table_add_many(table,
+                                           TABLE_TIMESTAMP, &next,
+                                           TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
-                                return r;
-
-                        r = table_set_color(table, cell, ansi_highlight_blue());
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (!in_utc_timezone()) {
-                        r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                        r = table_add_many(table,
+                                           TABLE_STRING, "(in UTC):",
+                                           TABLE_TIMESTAMP_UTC, &next);
                         if (r < 0)
-                                return r;
-
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_UTC, &next);
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
-                r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "From now:",
+                                   TABLE_TIMESTAMP_RELATIVE, &next);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &next);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 n = next;
         }

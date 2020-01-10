@@ -518,6 +518,9 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
+        if (arg_full)
+                table_set_width(table, 0);
+
         table_set_header(table, arg_legend);
 
         assert_se(cell = table_get_cell(table, 0, 0));
@@ -554,7 +557,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, strna(setup_state),
                                    TABLE_SET_COLOR, on_color_setup);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         r = table_print(table, NULL);
@@ -729,7 +732,7 @@ static int dump_gateways(
                                    TABLE_EMPTY,
                                    TABLE_STRING, i == 0 ? "Gateway:" : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
@@ -755,7 +758,7 @@ static int dump_gateways(
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, with_description ?: gateway);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         return 0;
@@ -786,7 +789,7 @@ static int dump_addresses(
                                    TABLE_EMPTY,
                                    TABLE_STRING, i == 0 ? "Address:" : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
                 if (r < 0)
@@ -809,7 +812,7 @@ static int dump_addresses(
                 } else
                         r = table_add_cell(table, NULL, TABLE_STRING, pretty);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         return 0;
@@ -838,7 +841,10 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         table = table_new("label", "prefix/prefixlen");
         if (!table)
-                return -ENOMEM;
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         r = table_set_sort(table, 0, SIZE_MAX);
         if (r < 0)
@@ -883,14 +889,18 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
                 r = table_add_cell(table, NULL, TABLE_UINT32, &label);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = table_add_cell_stringf(table, NULL, "%s/%u", pretty, prefixlen);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
-        return table_print(table, NULL);
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
+
+        return 0;
 }
 
 static int list_address_labels(int argc, char *argv[], void *userdata) {
@@ -982,7 +992,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                                    TABLE_EMPTY,
                                    TABLE_STRING, c == 0 ? prefix : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                 (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
@@ -995,7 +1005,7 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                                            strempty(port_description),
                                            isempty(port_description) ? "" : ")");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 c++;
         }
@@ -1018,7 +1028,7 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
                                    TABLE_STRING, c == 0 ? prefix : "",
                                    TABLE_IFINDEX, ifindexes[c]);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         return 0;
@@ -1037,7 +1047,7 @@ static int dump_list(Table *table, const char *prefix, char **l) {
                                    TABLE_STRING, i == l ? prefix : "",
                                    TABLE_STRING, *i);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         return 0;
@@ -1048,12 +1058,12 @@ static int dump_list(Table *table, const char *prefix, char **l) {
                            TABLE_EMPTY,                                 \
                            TABLE_STRING, name ":");                     \
         if (r < 0)                                                      \
-                return r;                                               \
+                return table_log_add_error(r);                                               \
         r = table_add_cell(table, NULL,                                 \
                            info->has_stats64 ? TABLE_UINT64 : TABLE_UINT32, \
                            info->has_stats64 ? (void*) &info->stats64.val_name : (void*) &info->stats.val_name); \
         if (r < 0)                                                      \
-                return r;
+                return table_log_add_error(r);
 
 static int dump_statistics(Table *table, const LinkInfo *info) {
         int r;
@@ -1195,7 +1205,10 @@ static int link_status_one(
 
         table = table_new("dot", "key", "value");
         if (!table)
-                return -ENOMEM;
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -1209,10 +1222,10 @@ static int link_status_one(
                            TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
                            TABLE_SET_COLOR, on_color_operational);
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
         r = table_add_cell_stringf(table, &cell, "%i: %s", info->ifindex, info->name);
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
         (void) table_set_align_percent(table, cell, 0);
 
         r = table_add_many(table,
@@ -1230,14 +1243,14 @@ static int link_status_one(
                            TABLE_EMPTY,
                            TABLE_STRING, "State:");
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
         r = table_add_cell_stringf(table, NULL, "%s%s%s (%s%s%s)",
                                    on_color_operational, strna(operational_state), off_color_operational,
                                    on_color_setup, strna(setup_state), off_color_setup);
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
-        STRV_FOREACH(p, info->alternative_names)
+        STRV_FOREACH(p, info->alternative_names) {
                 if (p == info->alternative_names)
                         r = table_add_many(table,
                                            TABLE_EMPTY,
@@ -1248,6 +1261,9 @@ static int link_status_one(
                                            TABLE_EMPTY,
                                            TABLE_EMPTY,
                                            TABLE_STRING, *p);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (path) {
                 r = table_add_many(table,
@@ -1255,7 +1271,7 @@ static int link_status_one(
                                    TABLE_STRING, "Path:",
                                    TABLE_STRING, path);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
         if (driver) {
                 r = table_add_many(table,
@@ -1263,7 +1279,7 @@ static int link_status_one(
                                    TABLE_STRING, "Driver:",
                                    TABLE_STRING, driver);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
         if (vendor) {
                 r = table_add_many(table,
@@ -1271,7 +1287,7 @@ static int link_status_one(
                                    TABLE_STRING, "Vendor:",
                                    TABLE_STRING, vendor);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
         if (model) {
                 r = table_add_many(table,
@@ -1279,7 +1295,7 @@ static int link_status_one(
                                    TABLE_STRING, "Model:",
                                    TABLE_STRING, model);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->has_mac_address) {
@@ -1292,14 +1308,14 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "HW Address:");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
                                            ether_addr_to_string(&info->mac_address, ea),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->has_permanent_mac_address) {
@@ -1312,14 +1328,14 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "HW Permanent Address:");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
                                            ether_addr_to_string(&info->permanent_mac_address, ea),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->mtu > 0) {
@@ -1332,7 +1348,7 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "MTU:");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "%s%s%s%s%s%s%s",
                                            info->mtu,
                                            info->min_mtu > 0 || info->max_mtu > 0 ? " (" : "",
@@ -1343,7 +1359,7 @@ static int link_status_one(
                                            info->max_mtu > 0 ? max_str : "",
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (streq_ptr(info->netdev_kind, "bridge")) {
@@ -1370,7 +1386,7 @@ static int link_status_one(
                                    TABLE_STRING, "Multicast IGMP Version:",
                                    TABLE_UINT8, info->mcast_igmp_version);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
         } else if (streq_ptr(info->netdev_kind, "vxlan")) {
                 if (info->vxlan_info.vni > 0) {
@@ -1379,7 +1395,7 @@ static int link_status_one(
                                            TABLE_STRING, "VNI:",
                                            TABLE_UINT32, info->vxlan_info.vni);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (IN_SET(info->vxlan_info.group_family, AF_INET, AF_INET6)) {
@@ -1389,7 +1405,7 @@ static int link_status_one(
                                            info->vxlan_info.group_family == AF_INET ? TABLE_IN_ADDR : TABLE_IN6_ADDR,
                                            &info->vxlan_info.group);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (IN_SET(info->vxlan_info.local_family, AF_INET, AF_INET6)) {
@@ -1399,7 +1415,7 @@ static int link_status_one(
                                            info->vxlan_info.local_family == AF_INET ? TABLE_IN_ADDR : TABLE_IN6_ADDR,
                                            &info->vxlan_info.local);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (info->vxlan_info.dest_port > 0) {
@@ -1408,7 +1424,7 @@ static int link_status_one(
                                            TABLE_STRING, "Destination Port:",
                                            TABLE_UINT16, be16toh(info->vxlan_info.dest_port));
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (info->vxlan_info.link > 0) {
@@ -1417,7 +1433,7 @@ static int link_status_one(
                                            TABLE_STRING, "Underlying Device:",
                                            TABLE_IFINDEX, info->vxlan_info.link);
                         if (r < 0)
-                                 return r;
+                                 return table_log_add_error(r);
                 }
         }
 
@@ -1429,7 +1445,7 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "WiFi access point:");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 if (info->ssid)
                         esc = cescape(info->ssid);
@@ -1438,7 +1454,7 @@ static int link_status_one(
                                            strnull(esc),
                                            ether_addr_to_string(&info->bssid, buf));
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->has_bitrates) {
@@ -1448,12 +1464,12 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Bit Rate (Tx/Rx):");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%sbps/%sbps",
                                            format_bytes_full(tx, sizeof tx, info->tx_bitrate, 0),
                                            format_bytes_full(rx, sizeof rx, info->rx_bitrate, 0));
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->has_tx_queues || info->has_rx_queues) {
@@ -1461,10 +1477,10 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Queue Length (Tx/Rx):");
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%" PRIu32 "/%" PRIu32, info->tx_queues, info->rx_queues);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         if (info->has_ethtool_link_info) {
@@ -1477,7 +1493,7 @@ static int link_status_one(
                                            TABLE_STRING, "Auto negotiation:",
                                            TABLE_BOOLEAN, info->autonegotiation == AUTONEG_ENABLE);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (info->speed > 0) {
@@ -1486,7 +1502,7 @@ static int link_status_one(
                                            TABLE_STRING, "Speed:",
                                            TABLE_BPS, (uint64_t) info->speed);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (duplex) {
@@ -1495,7 +1511,7 @@ static int link_status_one(
                                            TABLE_STRING, "Duplex:",
                                            TABLE_STRING, duplex);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (port) {
@@ -1504,7 +1520,7 @@ static int link_status_one(
                                            TABLE_STRING, "Port:",
                                            TABLE_STRING, port);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
         }
 
@@ -1540,7 +1556,7 @@ static int link_status_one(
                                    TABLE_STRING, "Time Zone:",
                                    TABLE_STRING, tz);
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         r = dump_lldp_neighbors(table, "Connected To:", info->ifindex);
@@ -1553,7 +1569,7 @@ static int link_status_one(
 
         r = table_print(table, NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to print table: %m");
 
         return show_logs(info);
 }
@@ -1573,7 +1589,10 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         table = table_new("dot", "key", "value");
         if (!table)
-                return -ENOMEM;
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -1590,6 +1609,8 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                            TABLE_STRING, "State:",
                            TABLE_STRING, strna(operational_state),
                            TABLE_SET_COLOR, on_color_operational);
+        if (r < 0)
+                return table_log_add_error(r);
 
         r = dump_addresses(rtnl, table, 0);
         if (r < 0)
@@ -1620,7 +1641,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to print table: %m");
 
         return show_logs(NULL);
 }
@@ -1740,7 +1761,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                           "port id",
                           "port description");
         if (!table)
-                return -ENOMEM;
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
 
@@ -1829,7 +1853,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                                            TABLE_STRING, strna(port_id),
                                            TABLE_STRING, strna(port_description));
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
 
                         m++;
                 }
@@ -1837,7 +1861,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to print table: %m");
 
         if (arg_legend) {
                 lldp_capabilities_legend(all);

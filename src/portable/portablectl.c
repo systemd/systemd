@@ -511,8 +511,6 @@ static int list_images(int argc, char *argv[], void *userdata) {
         for (;;) {
                 const char *name, *type, *state;
                 uint64_t crtime, mtime, usage;
-                TableCell *cell;
-                bool ro_bool;
                 int ro_int;
 
                 r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
@@ -523,37 +521,16 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, name,
-                                   TABLE_STRING, type);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
-
-                ro_bool = ro_int;
-                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
-
-                if (ro_bool) {
-                        r = table_set_color(table, cell, ansi_highlight_red());
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set table cell color: %m");
-                }
-
-                r = table_add_many(table,
+                                   TABLE_STRING, type,
+                                   TABLE_BOOLEAN, ro_int,
+                                   TABLE_SET_COLOR, ro_int ? ansi_highlight_red() : NULL,
                                    TABLE_TIMESTAMP, crtime,
                                    TABLE_TIMESTAMP, mtime,
-                                   TABLE_SIZE, usage);
+                                   TABLE_SIZE, usage,
+                                   TABLE_STRING, state,
+                                   TABLE_SET_COLOR, !streq(state, "detached") ? ansi_highlight_green() : NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
-
-                r = table_add_cell(table, &cell, TABLE_STRING, state);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
-
-                if (!streq(state, "detached")) {
-                        r = table_set_color(table, cell, ansi_highlight_green());
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set table cell color: %m");
-                }
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
