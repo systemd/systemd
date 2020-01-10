@@ -388,6 +388,15 @@
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--full</option></term>
+
+        <listitem>
+          <para>Do not ellipsize the output in <command>list</command> command.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="help" />

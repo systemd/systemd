@@ -38,6 +38,7 @@ static enum {
 } arg_json = JSON_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static bool arg_full = false;
 static const char *arg_address = NULL;
 static bool arg_unique = false;
 static bool arg_acquired = false;
@@ -194,6 +195,9 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         table = table_new("activatable", "name", "pid", "process", "user", "connection", "unit", "session", "description", "machine");
         if (!table)
                 return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
         if (r < 0)
@@ -2251,6 +2255,7 @@ static int help(void) {
                "     --version             Show package version\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-legend           Do not show the headers and footers\n"
+               "  -l --full                Do not ellipsize output\n"
                "     --system              Connect to system bus\n"
                "     --user                Connect to user bus\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
@@ -2323,6 +2328,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                         no_argument,       NULL, ARG_VERSION                         },
                 { "no-pager",                        no_argument,       NULL, ARG_NO_PAGER                        },
                 { "no-legend",                       no_argument,       NULL, ARG_NO_LEGEND                       },
+                { "full",                            no_argument,       NULL, 'l'                                 },
                 { "system",                          no_argument,       NULL, ARG_SYSTEM                          },
                 { "user",                            no_argument,       NULL, ARG_USER                            },
                 { "address",                         required_argument, NULL, ARG_ADDRESS                         },
@@ -2370,6 +2376,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case 'l':
+                        arg_full = true;
                         break;
 
                 case ARG_USER:
