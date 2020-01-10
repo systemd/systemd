@@ -1484,7 +1484,6 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
 
                 if (details_table) {
                         const char *checkmark, *description, *color = NULL;
-                        TableCell *cell;
 
                         if (badness == UINT64_MAX) {
                                 checkmark = " ";
@@ -1507,13 +1506,12 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                         if (d)
                                 description = d;
 
-                        r = table_add_cell_full(details_table, &cell, TABLE_STRING, checkmark, 1, 1, 0, 0, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add cell to table: %m");
-                        if (color)
-                                (void) table_set_color(details_table, cell, color);
-
                         r = table_add_many(details_table,
+                                           TABLE_STRING, checkmark,
+                                           TABLE_SET_MINIMUM_WIDTH, 1,
+                                           TABLE_SET_MAXIMUM_WIDTH, 1,
+                                           TABLE_SET_ELLIPSIZE_PERCENT, 0,
+                                           TABLE_SET_COLOR, color,
                                            TABLE_STRING, a->id, TABLE_SET_URL, a->url,
                                            TABLE_STRING, description,
                                            TABLE_UINT64, a->weight, TABLE_SET_ALIGN_PERCENT, 100,
@@ -1521,7 +1519,7 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
                                            TABLE_UINT64, a->range, TABLE_SET_ALIGN_PERCENT, 100,
                                            TABLE_EMPTY, TABLE_SET_ALIGN_PERCENT, 100);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add cells to table: %m");
+                                return table_log_add_error(r);
                 }
         }
 
@@ -1597,35 +1595,26 @@ static int assess(const struct security_info *info, Table *overview_table, Analy
 
         if (overview_table) {
                 char buf[DECIMAL_STR_MAX(uint64_t) + 1 + DECIMAL_STR_MAX(uint64_t) + 1];
-                TableCell *cell;
+                _cleanup_free_ char *url = NULL;
 
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, info->id);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add cell to table: %m");
                 if (info->fragment_path) {
-                        _cleanup_free_ char *url = NULL;
-
                         r = file_url_from_path(info->fragment_path, &url);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate URL from path: %m");
-
-                        (void) table_set_url(overview_table, cell, url);
                 }
 
                 xsprintf(buf, "%" PRIu64 ".%" PRIu64, exposure / 10, exposure % 10);
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, buf);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add cell to table: %m");
-                (void) table_set_align_percent(overview_table, cell, 100);
 
-                r = table_add_cell(overview_table, &cell, TABLE_STRING, badness_table[i].name);
+                r = table_add_many(overview_table,
+                                   TABLE_STRING, info->id,
+                                   TABLE_SET_URL, url,
+                                   TABLE_STRING, buf,
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, badness_table[i].name,
+                                   TABLE_SET_COLOR, strempty(badness_table[i].color),
+                                   TABLE_STRING, special_glyph(badness_table[i].smiley));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add cell to table: %m");
-                (void) table_set_color(overview_table, cell, strempty(badness_table[i].color));
-
-                r = table_add_cell(overview_table, NULL, TABLE_STRING, special_glyph(badness_table[i].smiley));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add cell to table: %m");
+                        return table_log_add_error(r);
         }
 
         return 0;
