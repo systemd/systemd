@@ -35,7 +35,7 @@ __get_slices() {
 
 __get_machines() {
     local a b
-    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 __get_env() {

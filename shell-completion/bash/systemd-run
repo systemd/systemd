@@ -26,7 +26,7 @@ __get_slice_units () { __systemctl $1 list-units --all -t slice \
 
 __get_machines() {
     local a b
-    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 _systemd_run() {
