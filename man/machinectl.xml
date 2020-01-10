@@ -680,7 +680,7 @@
         <term><option>-l</option></term>
         <term><option>--full</option></term>
 
-        <listitem><para>Do not ellipsize process tree entries.</para>
+        <listitem><para>Do not ellipsize process tree entries or table.</para>
         </listitem>
       </varlistentry>
 

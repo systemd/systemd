@@ -306,6 +306,9 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
+        if (arg_full)
+                table_set_width(table, 0);
+
         r = sd_bus_message_enter_container(reply, 'a', "(ssso)");
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -385,6 +388,9 @@ static int list_images(int argc, char *argv[], void *userdata) {
         table = table_new("name", "type", "ro", "usage", "created", "modified");
         if (!table)
                 return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(3), 100);
 
