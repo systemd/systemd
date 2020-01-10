@@ -317,7 +317,7 @@ int setup_veth_extra(
 
                 r = generate_mac(machine_name, &mac_host, VETH_EXTRA_HOST_HASH_KEY, idx);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
+                        return log_error_errno(r, "Failed to generate predictable MAC address for host side of extra veth link: %m");
 
                 r = add_veth(rtnl, pid, *a, NULL, &mac_host, *b, &mac_container);
                 if (r < 0)
