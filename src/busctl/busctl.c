@@ -237,7 +237,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                         TABLE_EMPTY,
                                         TABLE_EMPTY);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to fill line: %m");
+                                return table_log_add_error(r);
 
                         continue;
                 }
@@ -254,7 +254,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                    TABLE_INT, PTR_TO_INT(v),
                                    TABLE_STRING, k);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add name %s to table: %m", k);
+                        return table_log_add_error(r);
 
                 r = sd_bus_get_name_creds(
                                 bus, k,
@@ -283,7 +283,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         } else
                                 r = table_add_many(table, TABLE_EMPTY, TABLE_EMPTY);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add fields to table: %m");
+                                return table_log_add_error(r);
 
                         r = sd_bus_creds_get_euid(creds, &uid);
                         if (r >= 0) {
@@ -297,7 +297,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         } else
                                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add field to table: %m");
+                                return table_log_add_error(r);
 
                         (void) sd_bus_creds_get_unique_name(creds, &unique);
                         (void) sd_bus_creds_get_unit(creds, &unit);
@@ -312,7 +312,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                                         TABLE_STRING, cn);
                 }
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add fields to table: %m");
+                        return table_log_add_error(r);
 
                 if (arg_show_machine) {
                         sd_id128_t mid;
@@ -325,7 +325,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
 
                                 r = table_add_cell(table, NULL, TABLE_STRING, sd_id128_to_string(mid, m));
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to add field to table: %m");
+                                        return table_log_add_error(r);
 
                                 continue; /* line fully filled, no need to fill the remainder below */
                         }

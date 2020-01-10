@@ -1446,7 +1446,7 @@ static int list_devices(void) {
 
                         r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, strna(x));
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add cell: %m");
+                                return table_log_add_error(r);
                 }
         }
 

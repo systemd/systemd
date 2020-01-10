@@ -189,7 +189,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, seat,
                                    TABLE_STRING, strna(tty));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
@@ -246,7 +246,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
@@ -298,7 +298,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
 
                 r = table_add_cell(table, NULL, TABLE_STRING, seat);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
