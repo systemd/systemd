@@ -168,12 +168,14 @@ int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifn
 }
 
 int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         int r, ret;
 
-        assert(rtnl);
         assert(name);
 
+        if (!rtnl)
+                rtnl = &our_rtnl;
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
