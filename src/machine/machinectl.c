@@ -341,7 +341,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 0,
                                 "",
                                 " ",
-                                arg_addrs,
+                                arg_full ? ALL_IP_ADDRESSES : arg_addrs,
                                 &addresses);
 
                 r = table_add_many(table,
