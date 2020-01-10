@@ -42,12 +42,12 @@
 #endif
 
 static const char* const socket_address_type_table[] = {
-        [SOCK_STREAM] = "Stream",
-        [SOCK_DGRAM] = "Datagram",
-        [SOCK_RAW] = "Raw",
-        [SOCK_RDM] = "ReliableDatagram",
+        [SOCK_STREAM] =    "Stream",
+        [SOCK_DGRAM] =     "Datagram",
+        [SOCK_RAW] =       "Raw",
+        [SOCK_RDM] =       "ReliableDatagram",
         [SOCK_SEQPACKET] = "SequentialPacket",
-        [SOCK_DCCP] = "DatagramCongestionControl",
+        [SOCK_DCCP] =      "DatagramCongestionControl",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_type, int);
