@@ -105,7 +105,6 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(unit_file_type, UnitFileType);
 
 static int in_search_path(const LookupPaths *p, const char *path) {
         _cleanup_free_ char *parent = NULL;
-        char **i;
 
         assert(path);
 
@@ -113,11 +112,7 @@ static int in_search_path(const LookupPaths *p, const char *path) {
         if (!parent)
                 return -ENOMEM;
 
-        STRV_FOREACH(i, p->search_path)
-                if (path_equal(parent, *i))
-                        return true;
-
-        return false;
+        return path_strv_contains(p->search_path, parent);
 }
 
 static const char* skip_root(const LookupPaths *p, const char *path) {

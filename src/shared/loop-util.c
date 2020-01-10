@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
@@ -157,14 +158,30 @@ int loop_device_make(
 
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
         _cleanup_close_ int fd = -1;
+        int r;
 
         assert(path);
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (fd < 0)
-                return -errno;
+        /* Passing < 0 as open_flags here means we'll try to open the device writable if we can, retrying
+         * read-only if we cannot. */
+
+        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(open_flags >= 0 ? open_flags : O_RDWR));
+        if (fd < 0) {
+                r = -errno;
+
+                /* Retry read-only? */
+                if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
+                        return r;
+
+                fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                if (fd < 0)
+                        return r; /* Propagate original error */
+
+                open_flags = O_RDONLY;
+        } else if (open_flags < 0)
+                open_flags = O_RDWR;
 
         return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
 }

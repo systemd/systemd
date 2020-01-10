@@ -1115,3 +1115,13 @@ bool empty_or_root(const char *root) {
 
         return root[strspn(root, "/")] == 0;
 }
+
+bool path_strv_contains(char **l, const char *path) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                if (path_equal(*i, path))
+                        return true;
+
+        return false;
+}

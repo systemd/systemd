@@ -1190,6 +1190,57 @@ static void normalize_mounts(const char *root_directory, MountEntry *mounts, siz
         drop_nop(mounts, n_mounts);
 }
 
+static bool root_read_only(
+                char **read_only_paths,
+                ProtectSystem protect_system) {
+
+        /* Determine whether the root directory is going to be read-only given the configured settings. */
+
+        if (protect_system == PROTECT_SYSTEM_STRICT)
+                return true;
+
+        if (path_strv_contains(read_only_paths, "/"))
+                return true;
+
+        return false;
+}
+
+static bool home_read_only(
+                char** read_only_paths,
+                char** inaccessible_paths,
+                char** empty_directories,
+                const BindMount *bind_mounts,
+                size_t n_bind_mounts,
+                const TemporaryFileSystem *temporary_filesystems,
+                size_t n_temporary_filesystems,
+                ProtectHome protect_home) {
+
+        size_t i;
+
+        /* Determine whether the /home directory is going to be read-only given the configured settings. Yes,
+         * this is a bit sloppy, since we don't bother checking for cases where / is affected by multiple
+         * settings. */
+
+        if (protect_home != PROTECT_HOME_NO)
+                return true;
+
+        if (path_strv_contains(read_only_paths, "/home") ||
+            path_strv_contains(inaccessible_paths, "/home") ||
+            path_strv_contains(empty_directories, "/home"))
+                return true;
+
+        for (i = 0; i < n_temporary_filesystems; i++)
+                if (path_equal(temporary_filesystems[i].path, "/home"))
+                        return true;
+
+        /* If /home is overmounted with some dir from the host it's not writable. */
+        for (i = 0; i < n_bind_mounts; i++)
+                if (path_equal(bind_mounts[i].destination, "/home"))
+                        return true;
+
+        return false;
+}
+
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
@@ -1228,13 +1279,17 @@ int setup_namespace(
         if (root_image) {
                 dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
 
-                if (protect_system == PROTECT_SYSTEM_STRICT &&
-                    protect_home != PROTECT_HOME_NO &&
+                /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
+                if (root_read_only(read_only_paths,
+                                   protect_system) &&
+                    home_read_only(read_only_paths, inaccessible_paths, empty_directories,
+                                   bind_mounts, n_bind_mounts, temporary_filesystems, n_temporary_filesystems,
+                                   protect_home) &&
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
                 r = loop_device_make_by_path(root_image,
-                                             dissect_image_flags & DISSECT_IMAGE_READ_ONLY ? O_RDONLY : O_RDWR,
+                                             FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
                                              LO_FLAGS_PARTSCAN,
                                              &loop_device);
                 if (r < 0)
