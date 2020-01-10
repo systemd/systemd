@@ -46,6 +46,7 @@ enum {
 static bool arg_no_block = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static bool arg_full = false;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -92,6 +93,7 @@ static int help(void) {
                "     --no-block                   Do not wait until operation finished\n"
                "     --no-pager                   Do not pipe output into a pager\n"
                "     --no-legend                  Do not show the headers\n"
+               "  -l --full                       Do not ellipsize output\n"
                "     --no-ask-password            Do not prompt for password\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "     --user                       Run as user unit\n"
@@ -150,6 +152,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
                 { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
                 { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
+                { "full",               no_argument,       NULL, 'l'                    },
                 { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
                 { "user",               no_argument,       NULL, ARG_USER               },
@@ -182,7 +185,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (strstr(program_invocation_short_name, "systemd-umount"))
                         arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuG", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGl", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -202,6 +205,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case 'l':
+                        arg_full = true;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1392,6 +1399,9 @@ static int list_devices(void) {
         table = table_new("NODE", "PATH", "MODEL", "WWN", "TYPE", "LABEL", "UUID");
         if (!table)
                 return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         r = table_set_sort(table, 0, SIZE_MAX);
         if (r < 0)
