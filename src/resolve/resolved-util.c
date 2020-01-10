@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "in-addr-util.h"
 #include "macro.h"
 #include "resolved-util.h"
+#include "socket-netlink.h"
 
 int in_addr_ifindex_name_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex, char **server_name) {
         _cleanup_free_ char *buf = NULL, *name = NULL;

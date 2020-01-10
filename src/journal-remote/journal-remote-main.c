@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"

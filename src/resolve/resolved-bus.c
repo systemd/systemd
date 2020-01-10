@@ -12,6 +12,7 @@
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "socket-netlink.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"

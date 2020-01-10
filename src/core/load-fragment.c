@@ -48,6 +48,7 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
