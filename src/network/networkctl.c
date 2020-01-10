@@ -518,6 +518,9 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
+        if (arg_full)
+                table_set_width(table, 0);
+
         table_set_header(table, arg_legend);
 
         assert_se(cell = table_get_cell(table, 0, 0));
@@ -839,6 +842,9 @@ static int dump_address_labels(sd_netlink *rtnl) {
         table = table_new("label", "prefix/prefixlen");
         if (!table)
                 return -ENOMEM;
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         r = table_set_sort(table, 0, SIZE_MAX);
         if (r < 0)
@@ -1196,6 +1202,9 @@ static int link_status_one(
         table = table_new("dot", "key", "value");
         if (!table)
                 return -ENOMEM;
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
@@ -1575,6 +1584,9 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (!table)
                 return -ENOMEM;
 
+        if (arg_full)
+                table_set_width(table, 0);
+
         assert_se(cell = table_get_cell(table, 0, 0));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
@@ -1741,6 +1753,9 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                           "port description");
         if (!table)
                 return -ENOMEM;
+
+        if (arg_full)
+                table_set_width(table, 0);
 
         table_set_header(table, arg_legend);
 

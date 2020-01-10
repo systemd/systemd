@@ -316,7 +316,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--full</option></term>
 
         <listitem>
-          <para>Do not ellipsize the logs in <command>status</command> command.</para>
+          <para>Do not ellipsize the output.</para>
         </listitem>
       </varlistentry>
 
