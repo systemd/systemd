@@ -368,23 +368,62 @@ def restart_networkd(sleep_sec=0, show_logs=True, remove_state_files=True):
     stop_networkd(show_logs, remove_state_files)
     start_networkd(sleep_sec)
 
-def get_operstate(link, show_status=True, setup_state='configured'):
-    output = check_output(*networkctl_cmd, '-n', '0', 'status', link, env=env)
-    if show_status:
-        print(output)
-    for line in output.splitlines():
-        if 'State:' in line and (not setup_state or setup_state in line):
-            return line.split()[1]
-    return None
 
 class Utilities():
     def check_link_exists(self, link):
         self.assertTrue(link_exists(link))
 
-    def check_operstate(self, link, expected, show_status=True, setup_state='configured'):
-        self.assertRegex(get_operstate(link, show_status, setup_state), expected)
+    def wait_operstate(self, link, operstate='degraded', setup_state='configured', setup_timeout=5, fail_assert=True):
+        """Wait for the link to reach the specified operstate and/or setup state.
+
+        Specify None or '' for either operstate or setup_state to ignore that state.
+        This will recheck until the state conditions are met or the timeout expires.
+
+        If the link successfully matches the requested state, this returns True.
+        If this times out waiting for the link to match, the behavior depends on the
+        'fail_assert' parameter; if True, this causes a test assertion failure,
+        otherwise this returns False.  The default is to cause assertion failure.
+
+        Note that this function matches on *exactly* the given operstate and setup_state.
+        To wait for a link to reach *or exceed* a given operstate, use wait_online().
+        """
+        if not operstate:
+            operstate = r'\S+'
+        if not setup_state:
+            setup_state = r'\S+'
+
+        for secs in range(setup_timeout + 1):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', link, env=env)
+            print(output)
+            if re.search(rf'(?m)^\s*State:\s+{operstate}\s+\({setup_state}\)\s*$', output):
+                return True
+            # don't bother sleeping if time is up
+            if secs < setup_timeout:
+                time.sleep(1)
+        if fail_assert:
+            self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
+        return False
 
     def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, setup_state='configured', setup_timeout=5):
+        """Wait for the link(s) to reach the specified operstate and/or setup state.
+
+        This is similar to wait_operstate() but can be used for multiple links,
+        and it also calls systemd-networkd-wait-online to wait for the given operstate.
+        The operstate should be specified in the link name, like 'eth0:degraded'.
+        If just a link name is provided, wait-online's default operstate to wait for is degraded.
+
+        The 'timeout' parameter controls the systemd-networkd-wait-online timeout, and the
+        'setup_timeout' controls the per-link timeout waiting for the setup_state.
+
+        Set 'bool_any' to True to wait for any (instead of all) of the given links.
+        If this is set, no setup_state checks are done.
+
+        Note that this function waits for the link(s) to reach *or exceed* the given operstate.
+        However, the setup_state, if specified, must be matched *exactly*.
+
+        This returns if the link(s) reached the requested operstate/setup_state; otherwise it
+        raises CalledProcessError or fails test assertion.
+        """
         args = wait_online_cmd + [f'--timeout={timeout}'] + [f'--interface={link}' for link in links_with_operstate]
         if bool_any:
             args += ['--any']
@@ -396,22 +435,8 @@ class Utilities():
                 print(output)
             raise
         if not bool_any and setup_state:
-            # check at least once now, then once per sec for setup_timeout secs
-            for secs in range(setup_timeout + 1):
-                for link in links_with_operstate:
-                    output = check_output(*networkctl_cmd, '-n', '0', 'status', link.split(':')[0])
-                    print(output)
-                    if not re.search(rf'(?m)^\s*State:.*({setup_state}).*$', output):
-                        # this link isn't in the right state; break into the sleep below
-                        break
-                else:
-                    # all the links were in the right state; break to exit the timer loop
-                    break
-                # don't bother sleeping if time is up
-                if secs < setup_timeout:
-                    time.sleep(1)
-            else:
-                self.fail(f'link {link} state does not match {setup_state}')
+            for link in links_with_operstate:
+                self.wait_operstate(link.split(':')[0], None, setup_state, setup_timeout)
 
     def wait_address(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
         for i in range(timeout_sec):
@@ -490,9 +515,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         copy_unit_to_networkd_unit_path('11-dummy.netdev')
         check_output(*networkctl_cmd, 'reload', env=env)
-        time.sleep(3)
-        self.check_link_exists('test1')
-        self.check_operstate('test1', 'off', setup_state='unmanaged')
+        self.wait_operstate('test1', 'off', setup_state='unmanaged')
 
         copy_unit_to_networkd_unit_path('11-dummy.network')
         check_output(*networkctl_cmd, 'reload', env=env)
@@ -500,16 +523,15 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         remove_unit_from_networkd_path(['11-dummy.network'])
         check_output(*networkctl_cmd, 'reload', env=env)
-        time.sleep(1)
-        self.check_operstate('test1', 'degraded', setup_state='unmanaged')
+        self.wait_operstate('test1', 'degraded', setup_state='unmanaged')
 
         remove_unit_from_networkd_path(['11-dummy.netdev'])
         check_output(*networkctl_cmd, 'reload', env=env)
-        self.check_operstate('test1', 'degraded', setup_state='unmanaged')
+        self.wait_operstate('test1', 'degraded', setup_state='unmanaged')
 
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
         check_output(*networkctl_cmd, 'reload', env=env)
-        self.check_operstate('test1', 'degraded')
+        self.wait_operstate('test1', 'degraded')
 
     def test_glob(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '11-dummy.network')
@@ -807,8 +829,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
 
-        self.check_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
-        self.check_operstate('test1', 'degraded')
+        self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
+        self.wait_operstate('test1', 'degraded')
 
     def test_bridge(self):
         copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge-configure-without-carrier.network')
@@ -1885,7 +1907,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.check_link_exists('dummy98')
 
-        self.check_operstate('dummy98', 'off', setup_state='unmanaged')
+        self.wait_operstate('dummy98', 'off', setup_state='unmanaged')
 
     def test_ipv6_address_label(self):
         copy_unit_to_networkd_unit_path('25-ipv6-address-label-section.network', '12-dummy.netdev')
@@ -2081,7 +2103,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.check_operstate('test1', 'routable')
+        self.wait_operstate('test1', 'routable')
 
         check_output('ip link add dummy99 type dummy')
         check_output('ip link set dummy99 up')
@@ -2090,7 +2112,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.check_operstate('test1', 'routable')
+        self.wait_operstate('test1', 'routable')
 
         check_output('ip link del dummy98')
         time.sleep(2)
@@ -2098,7 +2120,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.check_operstate('test1', 'routable')
+        self.wait_operstate('test1', 'routable')
 
         check_output('ip link set dummy99 down')
         time.sleep(2)
@@ -2107,7 +2129,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'DOWN')
         self.assertNotRegex(output, '192.168.10')
-        self.check_operstate('test1', 'off')
+        self.wait_operstate('test1', 'off')
 
         check_output('ip link set dummy99 up')
         time.sleep(2)
@@ -2115,7 +2137,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
-        self.check_operstate('test1', 'routable')
+        self.wait_operstate('test1', 'routable')
 
     def test_domain(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
@@ -2348,39 +2370,29 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'MASTER,UP,LOWER_UP')
 
-        self.check_operstate('dummy98', 'enslaved')
-        self.check_operstate('test1', 'enslaved')
-        self.check_operstate('bond99', 'routable')
+        self.wait_operstate('dummy98', 'enslaved')
+        self.wait_operstate('test1', 'enslaved')
+        self.wait_operstate('bond99', 'routable')
 
         check_output('ip link set dummy98 down')
-        time.sleep(2)
 
-        self.check_operstate('dummy98', 'off')
-        self.check_operstate('test1', 'enslaved')
-        self.check_operstate('bond99', 'degraded-carrier')
+        self.wait_operstate('dummy98', 'off')
+        self.wait_operstate('test1', 'enslaved')
+        self.wait_operstate('bond99', 'degraded-carrier')
 
         check_output('ip link set dummy98 up')
-        time.sleep(2)
 
-        self.check_operstate('dummy98', 'enslaved')
-        self.check_operstate('test1', 'enslaved')
-        self.check_operstate('bond99', 'routable')
+        self.wait_operstate('dummy98', 'enslaved')
+        self.wait_operstate('test1', 'enslaved')
+        self.wait_operstate('bond99', 'routable')
 
         check_output('ip link set dummy98 down')
         check_output('ip link set test1 down')
-        time.sleep(2)
 
-        self.check_operstate('dummy98', 'off')
-        self.check_operstate('test1', 'off')
+        self.wait_operstate('dummy98', 'off')
+        self.wait_operstate('test1', 'off')
 
-        for trial in range(30):
-            if trial > 0:
-                time.sleep(1)
-            output = check_output('ip address show bond99')
-            print(output)
-            if get_operstate('bond99') == 'no-carrier':
-                break
-        else:
+        if not self.wait_operstate('bond99', 'no-carrier', setup_timeout=30, fail_assert=False):
             # Huh? Kernel does not recognize that all slave interfaces are down?
             # Let's confirm that networkd's operstate is consistent with ip's result.
             self.assertNotRegex(output, 'NO-CARRIER')
@@ -2491,14 +2503,12 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ff00::/8 table local metric 256 pref medium')
 
         self.assertEqual(call('ip link del test1'), 0)
-        time.sleep(3)
 
-        self.check_operstate('bridge99', 'degraded-carrier')
+        self.wait_operstate('bridge99', 'degraded-carrier')
 
         check_output('ip link del dummy98')
-        time.sleep(3)
 
-        self.check_operstate('bridge99', 'no-carrier')
+        self.wait_operstate('bridge99', 'no-carrier')
 
         output = check_output('ip address show bridge99')
         print(output)
