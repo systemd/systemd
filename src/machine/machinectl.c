@@ -352,7 +352,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, empty_to_dash(version_id),
                                    TABLE_STRING, empty_to_dash(addresses));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
@@ -401,8 +401,6 @@ static int list_images(int argc, char *argv[], void *userdata) {
         for (;;) {
                 uint64_t crtime, mtime, size;
                 const char *name, *type;
-                TableCell *cell;
-                bool ro_bool;
                 int ro_int;
 
                 r = sd_bus_message_read(reply, "(ssbttto)", &name, &type, &ro_int, &crtime, &mtime, &size, NULL);
@@ -416,27 +414,14 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, name,
-                                   TABLE_STRING, type);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
-
-                ro_bool = ro_int;
-                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &ro_bool);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add table cell: %m");
-
-                if (ro_bool) {
-                        r = table_set_color(table, cell, ansi_highlight_red());
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set table cell color: %m");
-                }
-
-                r = table_add_many(table,
+                                   TABLE_STRING, type,
+                                   TABLE_BOOLEAN, ro_int,
+                                   TABLE_SET_COLOR, ro_int ? ansi_highlight_red() : NULL,
                                    TABLE_SIZE, size,
                                    TABLE_TIMESTAMP, crtime,
                                    TABLE_TIMESTAMP, mtime);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);
