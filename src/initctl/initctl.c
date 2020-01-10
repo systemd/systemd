@@ -221,7 +221,7 @@ static void fifo_free(Fifo *f) {
 
         if (f->fd >= 0) {
                 if (f->server)
-                        epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
+                        (void) epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
 
                 safe_close(f->fd);
         }
