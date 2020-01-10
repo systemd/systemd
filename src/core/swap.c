@@ -63,7 +63,6 @@ static void swap_unset_proc_swaps(Swap *s) {
                 return;
 
         s->parameters_proc_swaps.what = mfree(s->parameters_proc_swaps.what);
-
         s->from_proc_swaps = false;
 }
 
@@ -116,9 +115,6 @@ static void swap_init(Unit *u) {
 
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
-
-        s->parameters_proc_swaps.priority = s->parameters_fragment.priority = 0;
-        s->parameters_fragment.priority_set = false;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
@@ -772,17 +768,19 @@ static void swap_enter_activating(Swap *s) {
 
                 r = fstab_find_pri(s->parameters_fragment.options, &priority);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
-                else if (r == 1 && s->parameters_fragment.priority_set)
-                        log_warning("Duplicate swap priority configuration by Priority and Options fields.");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
+                else if (r > 0 && s->parameters_fragment.priority_set)
+                        log_unit_warning(UNIT(s), "Duplicate swap priority configuration by Priority= and Options= fields.");
 
                 if (r <= 0 && s->parameters_fragment.priority_set) {
                         if (s->parameters_fragment.options)
                                 r = asprintf(&opts, "%s,pri=%i", s->parameters_fragment.options, s->parameters_fragment.priority);
                         else
                                 r = asprintf(&opts, "pri=%i", s->parameters_fragment.priority);
-                        if (r < 0)
+                        if (r < 0) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
                 }
         }
 
@@ -792,7 +790,7 @@ static void swap_enter_activating(Swap *s) {
 
         if (s->parameters_fragment.options || opts) {
                 r = exec_command_append(s->control_command, "-o",
-                                opts ? : s->parameters_fragment.options, NULL);
+                                opts ?: s->parameters_fragment.options, NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -808,7 +806,6 @@ static void swap_enter_activating(Swap *s) {
                 goto fail;
 
         swap_set_state(s, SWAP_ACTIVATING);
-
         return;
 
 fail:

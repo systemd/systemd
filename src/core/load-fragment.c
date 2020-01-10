@@ -5002,3 +5002,51 @@ int config_parse_crash_chvt(
 
         return 0;
 }
+
+int config_parse_swap_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Swap *s = userdata;
+        int r, priority;
+
+        assert(s);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                s->parameters_fragment.priority = -1;
+                s->parameters_fragment.priority_set = false;
+                return 0;
+        }
+
+        r = safe_atoi(rvalue, &priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid swap pririty '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        if (priority < -1) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Sorry, swap priorities smaller than -1 may only be assigned by the kernel itself, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (priority > 32767) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Swap priority out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        s->parameters_fragment.priority = priority;
+        s->parameters_fragment.priority_set = true;
+        return 0;
+}

@@ -121,6 +121,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
 CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
 CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
 CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
+CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
