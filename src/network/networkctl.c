@@ -2007,7 +2007,8 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m", format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
+                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
                 }
         }
 
