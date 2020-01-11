@@ -30,6 +30,30 @@ int resolve_ifname(sd_netlink **rtnl, const char *name) {
         return rtnl_resolve_link_alternative_name(rtnl, name);
 }
 
+int resolve_interface(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        /* Like resolve_ifname, but resolves interface numbers too. */
+
+        assert(name);
+
+        r = parse_ifindex(name);
+        if (r > 0)
+                return r;
+        assert(r < 0);
+
+        return resolve_ifname(rtnl, name);
+}
+
+int resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        r = resolve_interface(rtnl, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
+        return r;
+}
+
 int socket_address_parse(SocketAddress *a, const char *s) {
         _cleanup_free_ char *n = NULL;
         char *e;
@@ -318,7 +342,7 @@ int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_u
         if (suffix) {
                 if (ret_ifindex) {
                         /* If we shall return the interface index, try to parse it */
-                        ifindex = parse_ifindex_or_ifname(suffix + 1);
+                        ifindex = resolve_interface(NULL, suffix + 1);
                         if (ifindex < 0)
                                 return ifindex;
                 }

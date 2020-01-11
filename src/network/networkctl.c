@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
@@ -63,21 +64,6 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
-
-static int resolve_ifname(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        r = parse_ifindex_or_ifname(name);
-        if (r > 0)
-                return r;
-        assert(r < 0);
-
-        r = rtnl_resolve_link_alternative_name(rtnl, name);
-        if (r > 0)
-                return r;
-        assert(r < 0);
-        return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
-}
 
 static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t, *devtype;
@@ -1895,7 +1881,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                index = resolve_ifname(&rtnl, argv[i]);
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -1948,7 +1934,7 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (i = 1; i < argc; i++) {
-                index = resolve_ifname(&rtnl, argv[i]);
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
@@ -2000,7 +1986,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                index = resolve_ifname(&rtnl, argv[i]);
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 

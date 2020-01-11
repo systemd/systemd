@@ -12,6 +12,7 @@
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -1646,7 +1647,7 @@ int config_parse_multipath_route(
         m->gateway.family = family;
 
         if (dev) {
-                r = parse_ifindex_or_ifname(dev);
+                r = resolve_interface(NULL, dev);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Invalid interface name or index, ignoring assignment: %s", dev);

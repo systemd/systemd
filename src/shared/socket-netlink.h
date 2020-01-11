@@ -8,6 +8,8 @@
 #include "socket-util.h"
 
 int resolve_ifname(sd_netlink **rtnl, const char *name);
+int resolve_interface(sd_netlink **rtnl, const char *name);
+int resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
 
 int make_socket_fd(int log_level, const char* address, int type, int flags);
 

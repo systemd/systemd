@@ -94,14 +94,14 @@ int ifname_mangle(const char *s) {
         if (!iface)
                 return log_oom();
 
-        ifi = parse_ifindex_or_ifname(iface);
+        ifi = resolve_interface(NULL, iface);
         if (ifi < 0) {
                 if (ifi == -ENODEV && arg_ifindex_permissive) {
                         log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
                         return 0; /* done */
                 }
 
-                return log_error_errno(ifi, "Unknown interface '%s': %m", iface);
+                return log_error_errno(ifi, "Failed to resolve interface \"%s\": %m", iface);
         }
 
         if (arg_ifindex > 0 && arg_ifindex != ifi)
@@ -1828,9 +1828,9 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 STRV_FOREACH(ifname, argv + 1) {
                         int ifindex, q;
 
-                        ifindex = parse_ifindex_or_ifname(*ifname);
+                        ifindex = resolve_interface(NULL, *ifname);
                         if (ifindex < 0) {
-                                log_warning_errno(ifindex, "Unknown interface '%s', ignoring: %m", *ifname);
+                                log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
                                 continue;
                         }
 

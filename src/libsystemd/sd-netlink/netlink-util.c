@@ -191,6 +191,8 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
                 return r;
 
         r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r == -EINVAL)
+                return -ENODEV; /* The device doesn't exist */
         if (r < 0)
                 return r;
 
