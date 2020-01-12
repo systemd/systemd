@@ -800,12 +800,13 @@ char **strv_shell_escape(char **l, const char *bad) {
         return l;
 }
 
-bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
-        char* const* p;
-
-        STRV_FOREACH(p, patterns)
-                if (fnmatch(*p, s, flags) == 0)
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos) {
+        for (size_t i = 0; patterns && patterns[i]; i++)
+                if (fnmatch(patterns[i], s, flags) == 0) {
+                        if (matched_pos)
+                                *matched_pos = i;
                         return true;
+                }
 
         return false;
 }
