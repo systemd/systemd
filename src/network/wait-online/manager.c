@@ -29,7 +29,7 @@ static bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignore, link->ifname, 0);
+        return strv_fnmatch(m->ignore, link->ifname);
 }
 
 static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {

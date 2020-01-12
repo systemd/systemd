@@ -1162,9 +1162,9 @@ static int graph_one_property(
         assert(prop);
         assert(color);
 
-        match_patterns = strv_fnmatch(patterns, u->id, 0);
+        match_patterns = strv_fnmatch(patterns, u->id);
 
-        if (!strv_isempty(from_patterns) && !match_patterns && !strv_fnmatch(from_patterns, u->id, 0))
+        if (!strv_isempty(from_patterns) && !match_patterns && !strv_fnmatch(from_patterns, u->id))
                 return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
@@ -1174,9 +1174,9 @@ static int graph_one_property(
         STRV_FOREACH(unit, units) {
                 bool match_patterns2;
 
-                match_patterns2 = strv_fnmatch(patterns, *unit, 0);
+                match_patterns2 = strv_fnmatch(patterns, *unit);
 
-                if (!strv_isempty(to_patterns) && !match_patterns2 && !strv_fnmatch(to_patterns, *unit, 0))
+                if (!strv_isempty(to_patterns) && !match_patterns2 && !strv_fnmatch(to_patterns, *unit))
                         continue;
 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)

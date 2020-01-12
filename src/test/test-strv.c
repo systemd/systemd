@@ -928,7 +928,7 @@ static void test_strv_fnmatch(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a", 0));
+        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a"));
 
         v = strv_new("xxx", "*\\*", "yyy");
         assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
