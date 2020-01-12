@@ -128,3 +128,26 @@ If you decide to reimplement one of the APIs for which "Reimplementable independ
 This is not an attempt to comprehensively list all users of these APIs. We are just listing the most obvious/prominent ones which come to our mind.
 
 Of course, one last thing I can't make myself not ask you before we finish here, and before you start reimplementing these APIs in your distribution: are you sure it's time well spent if you work on reimplementing all this code instead of just spending it on adopting systemd on your distro as well?
+
+## Independent operation of systemd programs
+
+Some programs in the systemd suite are indended to operate independently of the
+running init process (or even without an init process, for example when
+creating system installation chroots). They can be safely called on systems with
+a different init process or for example in package installation scriptlets.
+
+The following programs currently and in the future will support operation
+without communicating with the `systemd` process:
+`systemd-escape`,
+`systemd-id128`,
+`systemd-path`,
+`systemd-tmpfiles`,
+`systemd-sysctl`,
+`systemd-sysusers`.
+
+Many other programs support operation without the system manager except when
+the specific functionality requires such communication. For example
+`journalctl` operates almost independently, but will query the boot id when
+`--boot` option is used. `systemd-journal-remote`, `systemd-journal-upload`,
+`systemd-journal-gatewayd`, `coredumpctl`, `busctl`, `systemctl --root` also
+fall into this category.
