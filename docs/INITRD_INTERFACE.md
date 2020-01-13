@@ -19,7 +19,7 @@ interfaces are currently used by dracut and the ArchLinux initrds.
 
 * The initrd should mount `/run/` as a tmpfs and pass it pre-mounted when
   jumping into the main system when executing systemd. The mount options should
-  be `mode=755,nodev,nosuid,strictatime`
+  be `mode=755,nodev,nosuid,strictatime`.
 
 * It's highly recommended that the initrd also mounts `/usr/` (if split off) as
   appropriate and passes it pre-mounted to the main system, to avoid the
