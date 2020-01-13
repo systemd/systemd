@@ -1063,14 +1063,6 @@ static int apply_mount(
         return 0;
 }
 
-/* Change per-mount flags on an existing mount */
-static int bind_remount_one(const char *path, unsigned long orig_flags, unsigned long new_flags, unsigned long flags_mask) {
-        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask) | MS_REMOUNT | MS_BIND | new_flags, NULL) < 0)
-                return -errno;
-
-        return 0;
-}
-
 static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
         bool submounts = false;
@@ -1102,7 +1094,7 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, blacklist, proc_self_mountinfo);
         else
-                r = bind_remount_one(mount_entry_path(m), m->flags, new_flags, flags_mask);
+                r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
 
         /* Not that we only turn on the MS_RDONLY flag here, we never turn it off. Something that was marked
          * read-only already stays this way. This improves compatibility with container managers, where we
