@@ -655,9 +655,9 @@ static int lookup_block_device(const char *p, dev_t *ret) {
                 if (stat(p, &st) < 0)
                         return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
 
-                rdev = (dev_t)st.st_rdev;
-                dev = (dev_t)st.st_dev;
                 mode = st.st_mode;
+                rdev = st.st_rdev;
+                dev = st.st_dev;
         } else if (r < 0)
                 return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
 
