@@ -38,6 +38,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "sort-util.h"
 #include "sparse-endian.h"
@@ -1904,12 +1905,9 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
@@ -1960,12 +1958,9 @@ static int link_renew(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = link_renew_one(bus, index, argv[i]);
                 if (r < 0 && k >= 0)
@@ -2015,12 +2010,9 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (i = 1; i < argc; i++) {
-                r = parse_ifindex_or_ifname(argv[i], &index);
-                if (r < 0) {
-                        r = rtnl_resolve_link_alternative_name(&rtnl, argv[i], &index);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to resolve interface %s", argv[i]);
-                }
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
 
                 r = set_put(indexes, INT_TO_PTR(index));
                 if (r < 0)
@@ -2039,7 +2031,8 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m", format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
+                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
                 }
         }
 

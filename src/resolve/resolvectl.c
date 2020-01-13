@@ -16,7 +16,6 @@
 #include "escape.h"
 #include "format-util.h"
 #include "gcrypt-util.h"
-#include "in-addr-util.h"
 #include "main-func.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -27,6 +26,8 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "socket-netlink.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -80,7 +81,7 @@ typedef enum StatusMode {
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
         const char *dot;
-        int ifi, r;
+        int ifi;
 
         assert(s);
 
@@ -94,14 +95,14 @@ int ifname_mangle(const char *s) {
         if (!iface)
                 return log_oom();
 
-        r = parse_ifindex_or_ifname(iface, &ifi);
-        if (r < 0) {
-                if (r == -ENODEV && arg_ifindex_permissive) {
+        ifi = resolve_interface(NULL, iface);
+        if (ifi < 0) {
+                if (ifi == -ENODEV && arg_ifindex_permissive) {
                         log_debug("Interface '%s' not found, but -f specified, ignoring.", iface);
                         return 0; /* done */
                 }
 
-                return log_error_errno(r, "Unknown interface '%s': %m", iface);
+                return log_error_errno(ifi, "Failed to resolve interface \"%s\": %m", iface);
         }
 
         if (arg_ifindex > 0 && arg_ifindex != ifi)
@@ -1382,8 +1383,8 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_clear) struct link_info link_info = {};
-        _cleanup_free_ char *ifi = NULL, *p = NULL;
-        char ifname[IF_NAMESIZE + 1] = "";
+        _cleanup_free_ char *p = NULL;
+        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE + 1] = "";
         char **i;
         int r;
 
@@ -1397,9 +1398,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 name = ifname;
         }
 
-        if (asprintf(&ifi, "%i", ifindex) < 0)
-                return log_oom();
-
+        xsprintf(ifi, "%i", ifindex);
         r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
         if (r < 0)
                 return log_oom();
@@ -1819,18 +1818,19 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
 static int verb_status(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        int q, r = 0;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r = 0;
 
         if (argc > 1) {
                 char **ifname;
                 bool empty_line = false;
 
                 STRV_FOREACH(ifname, argv + 1) {
-                        int ifindex;
+                        int ifindex, q;
 
-                        q = parse_ifindex_or_ifname(*ifname, &ifindex);
-                        if (q < 0) {
-                                log_error_errno(q, "Unknown interface '%s', ignoring: %m", *ifname);
+                        ifindex = resolve_interface(&rtnl, *ifname);
+                        if (ifindex < 0) {
+                                log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
                                 continue;
                         }
 

@@ -362,6 +362,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-socket-netlink.c'],
+         [],
+         []],
+
         [['src/test/test-in-addr-util.c'],
          [],
          []],

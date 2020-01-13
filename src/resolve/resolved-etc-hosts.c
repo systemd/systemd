@@ -9,6 +9,7 @@
 #include "hostname-util.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
+#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"

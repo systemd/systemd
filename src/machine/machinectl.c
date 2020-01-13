@@ -591,11 +591,9 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                 printf("\t    Root: %s\n", i->root_directory);
 
         if (i->n_netif > 0) {
-                size_t c;
-
                 fputs("\t   Iface:", stdout);
 
-                for (c = 0; c < i->n_netif; c++) {
+                for (size_t c = 0; c < i->n_netif; c++) {
                         char name[IF_NAMESIZE+1];
 
                         if (format_ifname(i->netif[c], name)) {
@@ -737,7 +735,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
         sd_bus *bus = userdata;
-        int r = 0, i;
+        int r = 0;
 
         assert(bus);
 
@@ -754,7 +752,7 @@ static int show_machine(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 const char *path = NULL;
 
                 r = sd_bus_call_method(bus,
@@ -1075,7 +1073,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool properties, new_line = false;
         sd_bus *bus = userdata;
-        int r = 0, i;
+        int r = 0;
 
         assert(bus);
 
@@ -1096,7 +1094,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 const char *path = NULL;
 
                 r = sd_bus_call_method(
@@ -1127,7 +1125,7 @@ static int show_image(int argc, char *argv[], void *userdata) {
 static int kill_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
@@ -1136,7 +1134,7 @@ static int kill_machine(int argc, char *argv[], void *userdata) {
         if (!arg_kill_who)
                 arg_kill_who = "all";
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1170,13 +1168,13 @@ static int poweroff_machine(int argc, char *argv[], void *userdata) {
 static int terminate_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 r = sd_bus_call_method(
                                 bus,
                                 "org.freedesktop.machine1",
@@ -1541,13 +1539,13 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 
 static int remove_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
@@ -1709,7 +1707,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
@@ -1720,7 +1718,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ char *unit = NULL;
                 const char *object;
@@ -1772,7 +1770,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         size_t n_changes = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
@@ -1794,7 +1792,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 _cleanup_free_ char *unit = NULL;
 
                 r = make_service_name(argv[i], &unit);
@@ -2435,7 +2433,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
-        size_t n_transfers = 0, n_allocated = 0, j;
+        size_t n_transfers = 0, n_allocated = 0;
         const char *type, *remote, *local;
         sd_bus *bus = userdata;
         uint32_t id, max_id = 0;
@@ -2505,7 +2503,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
                        (int) max_local, "LOCAL",
                        (int) max_remote, "REMOTE");
 
-        for (j = 0; j < n_transfers; j++)
+        for (size_t j = 0; j < n_transfers; j++)
 
                 if (transfers[j].progress < 0)
                         printf("%*" PRIu32 " %*s %-*s %-*s %-*s\n",
@@ -2535,13 +2533,13 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
 static int cancel_transfer(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int r, i;
+        int r;
 
         assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        for (i = 1; i < argc; i++) {
+        for (int i = 1; i < argc; i++) {
                 uint32_t id;
 
                 r = safe_atou32(argv[i], &id);
@@ -3031,7 +3029,6 @@ static int parse_argv(int argc, char *argv[]) {
 done:
         if (shell >= 0) {
                 char *t;
-                int i;
 
                 /* We found the "shell" verb while processing the argument list. Since we turned off reordering of the
                  * argument list initially let's readjust it now, and move the "shell" verb to the back. */
@@ -3039,7 +3036,7 @@ done:
                 optind -= 1; /* place the option index where the "shell" verb will be placed */
 
                 t = argv[shell];
-                for (i = shell; i < optind; i++)
+                for (int i = shell; i < optind; i++)
                         argv[i] = argv[i+1];
                 argv[optind] = t;
         }

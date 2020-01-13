@@ -36,6 +36,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
+#include "socket-netlink.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"

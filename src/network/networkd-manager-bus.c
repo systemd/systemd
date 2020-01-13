@@ -7,12 +7,12 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
-#include "netlink-util.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "path-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -66,12 +66,9 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        index = if_nametoindex(name);
-        if (index <= 0) {
-                r = rtnl_resolve_link_alternative_name(&manager->rtnl, name, &index);
-                if (r < 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
-        }
+        index = resolve_ifname(&manager->rtnl, name);
+        if (index < 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s cannot be resolved", name);
 
         link = hashmap_get(manager->links, INT_TO_PTR(index));
         if (!link)

@@ -18,6 +18,7 @@
 #include "nspawn-network.h"
 #include "parse-util.h"
 #include "siphash24.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -280,7 +281,8 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return r;
 
-        u = if_nametoindex(n);
+        u = if_nametoindex(n); /* We don't need to use resolve_ifname() here because the
+                                * name we assigned is always the main name. */
         if (u == 0)
                 return log_error_errno(errno, "Failed to resolve interface %s: %m", n);
 
@@ -337,9 +339,9 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        r = parse_ifindex_or_ifname(bridge_name, &bridge_ifi);
-        if (r < 0)
-                return r;
+        bridge_ifi = resolve_interface(&rtnl, bridge_name);
+        if (bridge_ifi < 0)
+                return bridge_ifi;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0)
@@ -472,16 +474,6 @@ int remove_bridge(const char *bridge_name) {
         return remove_one_link(rtnl, bridge_name);
 }
 
-static int parse_interface(const char *name) {
-        int ifi, r;
-
-        r = parse_ifindex_or_ifname(name, &ifi);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface %s: %m", name);
-
-        return ifi;
-}
-
 int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         int ifi, r;
@@ -492,7 +484,7 @@ int test_network_interface_initialized(const char *name) {
 
         /* udev should be around. */
 
-        ifi = parse_interface(name);
+        ifi = resolve_interface_or_warn(NULL, name);
         if (ifi < 0)
                 return ifi;
 
@@ -532,7 +524,7 @@ int move_network_interfaces(int netns_fd, char **ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -571,7 +563,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 struct ether_addr mac;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -657,7 +649,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 _cleanup_free_ char *n = NULL, *a = NULL;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 

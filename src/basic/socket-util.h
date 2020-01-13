@@ -41,6 +41,8 @@ union sockaddr_union {
         uint8_t un_buffer[sizeof(struct sockaddr_un) + 1];
 };
 
+#define SUN_PATH_LEN (sizeof(((struct sockaddr_un){}).sun_path))
+
 typedef struct SocketAddress {
         union sockaddr_union sockaddr;
 
@@ -68,12 +70,6 @@ typedef enum SocketAddressBindIPv6Only {
 const char* socket_address_type_to_string(int t) _const_;
 int socket_address_type_from_string(const char *s) _pure_;
 
-int socket_address_parse(SocketAddress *a, const char *s);
-int socket_address_parse_and_warn(SocketAddress *a, const char *s);
-int socket_address_parse_netlink(SocketAddress *a, const char *s);
-int socket_address_print(const SocketAddress *a, char **p);
-int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
-
 int sockaddr_un_unlink(const struct sockaddr_un *sa);
 
 static inline int socket_address_unlink(const SocketAddress *a) {
@@ -94,11 +90,9 @@ int socket_address_listen(
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label);
-int make_socket_fd(int log_level, const char* address, int type, int flags);
 
-bool socket_address_is(const SocketAddress *a, const char *s, int type);
-bool socket_address_is_netlink(const SocketAddress *a, const char *s);
-
+int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
+int socket_address_print(const SocketAddress *a, char **p);
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;

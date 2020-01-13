@@ -51,7 +51,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, int *ret);
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);

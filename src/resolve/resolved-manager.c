@@ -1466,7 +1466,6 @@ void manager_reset_server_features(Manager *m) {
 void manager_cleanup_saved_user(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        int r;
 
         assert(m);
 
@@ -1494,8 +1493,8 @@ void manager_cleanup_saved_user(Manager *m) {
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                r = parse_ifindex(de->d_name, &ifindex);
-                if (r < 0) /* Probably some temporary file from a previous run. Delete it */
+                ifindex = parse_ifindex(de->d_name);
+                if (ifindex < 0) /* Probably some temporary file from a previous run. Delete it */
                         goto rm;
 
                 l = hashmap_get(m->links, INT_TO_PTR(ifindex));

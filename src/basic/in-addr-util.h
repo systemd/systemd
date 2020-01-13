@@ -42,7 +42,7 @@ int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned 
 int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret);
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
 int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret);
-int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex);
+
 unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr);
 struct in_addr* in4_addr_prefixlen_to_netmask(struct in_addr *addr, unsigned char prefixlen);
 int in4_addr_default_prefixlen(const struct in_addr *addr, unsigned char *prefixlen);

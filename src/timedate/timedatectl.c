@@ -829,7 +829,7 @@ static int show_timesync(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
+static int parse_ifindex_bus(sd_bus *bus, const char *str) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int32_t i;
@@ -837,11 +837,11 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
 
         assert(bus);
         assert(str);
-        assert(ret);
 
-        r = parse_ifindex(str, ret);
-        if (r >= 0)
-                return 0;
+        r = parse_ifindex(str);
+        if (r > 0)
+                return r;
+        assert(r < 0);
 
         r = sd_bus_call_method(
                         bus,
@@ -859,8 +859,7 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str, int *ret) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        *ret = i;
-        return 0;
+        return i;
 }
 
 static int verb_ntp_servers(int argc, char **argv, void *userdata) {
@@ -871,9 +870,9 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = parse_ifindex_bus(bus, argv[1], &ifindex);
-        if (r < 0)
-                return r;
+        ifindex = parse_ifindex_bus(bus, argv[1]);
+        if (ifindex < 0)
+                return ifindex;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -909,9 +908,9 @@ static int verb_revert(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = parse_ifindex_bus(bus, argv[1], &ifindex);
-        if (r < 0)
-                return r;
+        ifindex = parse_ifindex_bus(bus, argv[1]);
+        if (ifindex < 0)
+                return ifindex;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 

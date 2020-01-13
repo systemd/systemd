@@ -167,14 +167,15 @@ int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifn
         return 0;
 }
 
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, int *ret) {
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        int r;
+        int r, ret;
 
-        assert(rtnl);
         assert(name);
-        assert(ret);
 
+        if (!rtnl)
+                rtnl = &our_rtnl;
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
                 if (r < 0)
@@ -190,10 +191,16 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, int 
                 return r;
 
         r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r == -EINVAL)
+                return -ENODEV; /* The device doesn't exist */
         if (r < 0)
                 return r;
 
-        return sd_rtnl_message_link_get_ifindex(reply, ret);
+        r = sd_rtnl_message_link_get_ifindex(reply, &ret);
+        if (r < 0)
+                return r;
+        assert(ret > 0);
+        return ret;
 }
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret) {
