@@ -2302,7 +2302,15 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
         Unit *slice;
 
         /* This adds the siblings of the specified unit and the siblings of all parent units to the cgroup
-         * queue. (But neither the specified unit itself nor the parents.) */
+         * queue. (But neither the specified unit itself nor the parents.)
+         *
+         * Propagation of realization "side-ways" (i.e. towards siblings) is in relevant on cgroup-v1 where
+         * scheduling become very weird if two units that own processes reside in the same slice, but one is
+         * realized in the "cpu" hierarchy and once is not (for example because one has CPUWeight= set and
+         * the other does not), because that means processes need to be scheduled against groups. Let's avoid
+         * this asymmetry by always ensuring that units below a slice that are realized at all are hence
+         * always realized in *all* their hierarchies, and it is sufficient for a unit's sibling to be
+         * realized for a unit to be realized too. */
 
         while ((slice = UNIT_DEREF(u->slice))) {
                 Iterator i;
@@ -2310,12 +2318,18 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
+
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
                                 continue;
 
                         /* No point in doing cgroup application for units without active processes. */
                         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
+                                continue;
+
+                        /* We only enqueue siblings if they were realized once at least, in the main
+                         * hierarchy. */
+                        if (!m->cgroup_realized)
                                 continue;
 
                         /* If the unit doesn't need any new controllers and has current ones realized, it
@@ -2615,6 +2629,7 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
         /* Let's verify that the cgroup is really empty */
         if (!u->cgroup_path)
                 return;
+
         r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
         if (r < 0) {
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", u->cgroup_path);
