@@ -1074,3 +1074,60 @@ char* string_erase(char *x) {
         explicit_bzero_safe(x, strlen(x));
         return x;
 }
+
+int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
+        const char *p = s, *e = s;
+        bool truncation_applied = false;
+        char *copy;
+        size_t n = 0;
+
+        assert(s);
+
+        /* Truncate after the specified number of lines. Returns > 0 if a truncation was applied or == 0 if
+         * there were fewer lines in the string anyway. Trailing newlines on input are ignored, and not
+         * generated either. */
+
+        for (;;) {
+                size_t k;
+
+                k = strcspn(p, "\n");
+
+                if (p[k] == 0) {
+                        if (k == 0) /* final empty line */
+                                break;
+
+                        if (n >= n_lines) /* above threshold */
+                                break;
+
+                        e = p + k; /* last line to include */
+                        break;
+                }
+
+                assert(p[k] == '\n');
+
+                if (n >= n_lines)
+                        break;
+
+                if (k > 0)
+                        e = p + k;
+
+                p += k + 1;
+                n++;
+        }
+
+        /* e points after the last character we want to keep */
+        if (isempty(e))
+                copy = strdup(s);
+        else {
+                if (!in_charset(e, "\n")) /* We only consider things truncated if we remove something that
+                                           * isn't a new-line or a series of them */
+                        truncation_applied = true;
+
+                copy = strndup(s, e - s);
+        }
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return truncation_applied;
+}

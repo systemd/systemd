@@ -563,6 +563,77 @@ static void test_memory_startswith_no_case(void) {
         assert_se(memory_startswith_no_case((char[2]){'X', 'X'}, 2, "XX"));
 }
 
+static void test_string_truncate_lines_one(const char *input, size_t n_lines, const char *output, bool truncation) {
+        _cleanup_free_ char *b = NULL;
+        int k;
+
+        assert_se((k = string_truncate_lines(input, n_lines, &b)) >= 0);
+        assert_se(streq(b, output));
+        assert_se(!!k == truncation);
+}
+
+static void test_string_truncate_lines(void) {
+        test_string_truncate_lines_one("", 0, "", false);
+        test_string_truncate_lines_one("", 1, "", false);
+        test_string_truncate_lines_one("", 2, "", false);
+        test_string_truncate_lines_one("", 3, "", false);
+
+        test_string_truncate_lines_one("x", 0, "", true);
+        test_string_truncate_lines_one("x", 1, "x", false);
+        test_string_truncate_lines_one("x", 2, "x", false);
+        test_string_truncate_lines_one("x", 3, "x", false);
+
+        test_string_truncate_lines_one("x\n", 0, "", true);
+        test_string_truncate_lines_one("x\n", 1, "x", false);
+        test_string_truncate_lines_one("x\n", 2, "x", false);
+        test_string_truncate_lines_one("x\n", 3, "x", false);
+
+        test_string_truncate_lines_one("x\ny", 0, "", true);
+        test_string_truncate_lines_one("x\ny", 1, "x", true);
+        test_string_truncate_lines_one("x\ny", 2, "x\ny", false);
+        test_string_truncate_lines_one("x\ny", 3, "x\ny", false);
+
+        test_string_truncate_lines_one("x\ny\n", 0, "", true);
+        test_string_truncate_lines_one("x\ny\n", 1, "x", true);
+        test_string_truncate_lines_one("x\ny\n", 2, "x\ny", false);
+        test_string_truncate_lines_one("x\ny\n", 3, "x\ny", false);
+
+        test_string_truncate_lines_one("x\ny\nz", 0, "", true);
+        test_string_truncate_lines_one("x\ny\nz", 1, "x", true);
+        test_string_truncate_lines_one("x\ny\nz", 2, "x\ny", true);
+        test_string_truncate_lines_one("x\ny\nz", 3, "x\ny\nz", false);
+
+        test_string_truncate_lines_one("x\ny\nz\n", 0, "", true);
+        test_string_truncate_lines_one("x\ny\nz\n", 1, "x", true);
+        test_string_truncate_lines_one("x\ny\nz\n", 2, "x\ny", true);
+        test_string_truncate_lines_one("x\ny\nz\n", 3, "x\ny\nz", false);
+
+        test_string_truncate_lines_one("\n", 0, "", false);
+        test_string_truncate_lines_one("\n", 1, "", false);
+        test_string_truncate_lines_one("\n", 2, "", false);
+        test_string_truncate_lines_one("\n", 3, "", false);
+
+        test_string_truncate_lines_one("\n\n", 0, "", false);
+        test_string_truncate_lines_one("\n\n", 1, "", false);
+        test_string_truncate_lines_one("\n\n", 2, "", false);
+        test_string_truncate_lines_one("\n\n", 3, "", false);
+
+        test_string_truncate_lines_one("\n\n\n", 0, "", false);
+        test_string_truncate_lines_one("\n\n\n", 1, "", false);
+        test_string_truncate_lines_one("\n\n\n", 2, "", false);
+        test_string_truncate_lines_one("\n\n\n", 3, "", false);
+
+        test_string_truncate_lines_one("\nx\n\n", 0, "", true);
+        test_string_truncate_lines_one("\nx\n\n", 1, "", true);
+        test_string_truncate_lines_one("\nx\n\n", 2, "\nx", false);
+        test_string_truncate_lines_one("\nx\n\n", 3, "\nx", false);
+
+        test_string_truncate_lines_one("\n\nx\n", 0, "", true);
+        test_string_truncate_lines_one("\n\nx\n", 1, "", true);
+        test_string_truncate_lines_one("\n\nx\n", 2, "", true);
+        test_string_truncate_lines_one("\n\nx\n", 3, "\n\nx", false);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -595,6 +666,7 @@ int main(int argc, char *argv[]) {
         test_strlen_ptr();
         test_memory_startswith();
         test_memory_startswith_no_case();
+        test_string_truncate_lines();
 
         return 0;
 }
