@@ -2514,7 +2514,7 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
                                 if (usec > arg_until)
-                                        goto finish;
+                                        break;
                         }
 
                         if (arg_since_set && arg_reverse) {
@@ -2526,7 +2526,7 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
                                 if (usec < arg_since)
-                                        goto finish;
+                                        break;
                         }
 
                         if (!arg_merge && !arg_quiet) {
@@ -2632,29 +2632,6 @@ int main(int argc, char *argv[]) {
                 if (!arg_follow) {
                         if (n_shown == 0 && !arg_quiet)
                                 printf("-- No entries --\n");
-
-                        if (arg_show_cursor || arg_cursor_file) {
-                                _cleanup_free_ char *cursor = NULL;
-
-                                r = sd_journal_get_cursor(j, &cursor);
-                                if (r < 0 && r != -EADDRNOTAVAIL)
-                                        log_error_errno(r, "Failed to get cursor: %m");
-                                else if (r >= 0) {
-                                        if (arg_show_cursor)
-                                                printf("-- cursor: %s\n", cursor);
-
-                                        if (arg_cursor_file) {
-                                                r = write_string_file(arg_cursor_file, cursor,
-                                                                      WRITE_STRING_FILE_CREATE |
-                                                                      WRITE_STRING_FILE_ATOMIC);
-                                                if (r < 0)
-                                                        log_error_errno(r,
-                                                                        "Failed to write new cursor to %s: %m",
-                                                                        arg_cursor_file);
-                                        }
-                                }
-                        }
-
                         break;
                 }
 
@@ -2665,6 +2642,28 @@ int main(int argc, char *argv[]) {
                         goto finish;
 
                 first_line = false;
+        }
+
+        if (arg_show_cursor || arg_cursor_file) {
+                _cleanup_free_ char *cursor = NULL;
+
+                r = sd_journal_get_cursor(j, &cursor);
+                if (r < 0 && r != -EADDRNOTAVAIL)
+                        log_error_errno(r, "Failed to get cursor: %m");
+                else if (r >= 0) {
+                        if (arg_show_cursor)
+                                printf("-- cursor: %s\n", cursor);
+
+                        if (arg_cursor_file) {
+                                r = write_string_file(arg_cursor_file, cursor,
+                                                      WRITE_STRING_FILE_CREATE |
+                                                      WRITE_STRING_FILE_ATOMIC);
+                                if (r < 0)
+                                        log_error_errno(r,
+                                                        "Failed to write new cursor to %s: %m",
+                                                        arg_cursor_file);
+                        }
+                }
         }
 
 finish:
