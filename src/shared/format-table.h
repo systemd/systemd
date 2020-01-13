@@ -96,6 +96,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...);
 
 void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
+void table_set_cell_height_max(Table *t, size_t height);
 int table_set_empty_string(Table *t, const char *empty);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
