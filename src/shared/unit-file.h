@@ -39,6 +39,7 @@ enum UnitFileScope {
 bool unit_type_may_alias(UnitType type) _const_;
 bool unit_type_may_template(UnitType type) _const_;
 
+int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
 
 int unit_file_build_name_map(

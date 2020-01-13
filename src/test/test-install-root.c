@@ -1043,6 +1043,168 @@ static void test_preset_multiple_instances(const char *root) {
         unit_file_changes_free(changes, n_changes);
 }
 
+static void verify_one(
+                const UnitFileInstallInfo *i,
+                const char *alias,
+                int expected,
+                const char *updated_name) {
+        int r;
+        static const UnitFileInstallInfo *last_info = NULL;
+        _cleanup_free_ char *alias2 = NULL;
+
+        if (i != last_info)
+                log_info("-- %s --", (last_info = i)->name);
+
+        r = unit_file_verify_alias(i, alias, &alias2);
+        log_info_errno(r, "alias %s ← %s: %d/%m (expected %d)%s%s%s",
+                       i->name, alias, r, expected,
+                       alias2 ? " [" : "", alias2 ?: "", alias2 ? "]" : "");
+        assert(r == expected);
+
+        /* This is is test for "instance propagation". This propagation matters mostly for WantedBy= and
+         * RequiredBy= settings, and less so for Alias=. The only case where it should happen is when we have
+         * an Alias=alias@.service an instantiated template template@instance. In that case the instance name
+         * should be propagated into the alias as alias@instance. */
+        assert(streq_ptr(alias2, updated_name));
+}
+
+static void test_verify_alias(void) {
+        const UnitFileInstallInfo
+                plain_service    = { .name = (char*) "plain.service" },
+                bare_template    = { .name = (char*) "template1@.service" },
+                di_template      = { .name = (char*) "template2@.service",
+                                     .default_instance = (char*) "di" },
+                inst_template    = { .name = (char*) "template3@inst.service" },
+                di_inst_template = { .name = (char*) "template4@inst.service",
+                                     .default_instance = (char*) "di" };
+
+        verify_one(&plain_service, "alias.service", 0, NULL);
+        verify_one(&plain_service, "alias.socket", -EXDEV, NULL);
+        verify_one(&plain_service, "alias@.service", -EXDEV, NULL);
+        verify_one(&plain_service, "alias@inst.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.wants/plain.service", 0, NULL);
+        verify_one(&plain_service, "foo.target.wants/plain.socket", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.wants/plain@.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.wants/service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.requires/plain.service", 0, NULL);
+        verify_one(&plain_service, "foo.target.requires/plain.socket", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.requires/service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
+        verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, NULL); /* invalid unit name component */
+
+        verify_one(&bare_template, "alias.service", -EXDEV, NULL);
+        verify_one(&bare_template, "alias.socket", -EXDEV, NULL);
+        verify_one(&bare_template, "alias@.socket", -EXDEV, NULL);
+        verify_one(&bare_template, "alias@inst.socket", -EXDEV, NULL);
+        /* A general alias alias@.service → template1@.service. */
+        verify_one(&bare_template, "alias@.service", 0, NULL);
+        /* Only a specific instance is aliased, see the discussion in https://github.com/systemd/systemd/pull/13119. */
+        verify_one(&bare_template, "alias@inst.service", 0, NULL);
+        verify_one(&bare_template, "foo.target.wants/plain.service", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
+         /* Name mistmatch: we cannot allow this, because plain@foo.service would be pulled in by foo.taget,
+          * but would not be resolvable on its own, since systemd doesn't know how to load the fragment. */
+        verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.wants/template1@foo.service", 0, NULL);
+        verify_one(&bare_template, "foo.target.wants/service", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.requires/plain.service", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.requires/plain.socket", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.requires/plain@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&bare_template, "foo.target.requires/template1@inst.service", 0, NULL);
+        verify_one(&bare_template, "foo.target.requires/service", -EXDEV, NULL);
+        verify_one(&bare_template, "foo.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@inst.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&bare_template, "FOO@.target.requires/template1@.service", 0, NULL); /* instance propagated */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&bare_template, "FOO@inst.target.requires/template1@inst.service", 0, NULL); /* instance provided */
+
+        verify_one(&di_template, "alias.service", -EXDEV, NULL);
+        verify_one(&di_template, "alias.socket", -EXDEV, NULL);
+        verify_one(&di_template, "alias@.socket", -EXDEV, NULL);
+        verify_one(&di_template, "alias@inst.socket", -EXDEV, NULL);
+        verify_one(&di_template, "alias@inst.service", 0, NULL);
+        verify_one(&di_template, "alias@.service", 0, NULL);
+        verify_one(&di_template, "alias@di.service", 0, NULL);
+        verify_one(&di_template, "foo.target.wants/plain.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.wants/plain@di.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.wants/template2@di.service", 0, NULL);
+        verify_one(&di_template, "foo.target.wants/service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/plain.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/plain.socket", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/plain@di.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/plain@foo.service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.requires/template2@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&di_template, "foo.target.requires/template2@di.service", 0, NULL);
+        verify_one(&di_template, "foo.target.requires/service", -EXDEV, NULL);
+        verify_one(&di_template, "foo.target.conf/plain.service", -EXDEV, NULL);
+
+        verify_one(&inst_template, "alias.service", -EXDEV, NULL);
+        verify_one(&inst_template, "alias.socket", -EXDEV, NULL);
+        verify_one(&inst_template, "alias@.socket", -EXDEV, NULL);
+        verify_one(&inst_template, "alias@inst.socket", -EXDEV, NULL);
+        verify_one(&inst_template, "alias@inst.service", 0, NULL);
+        verify_one(&inst_template, "alias@.service", 0, "alias@inst.service");
+        verify_one(&inst_template, "alias@di.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/plain.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/plain.socket", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@di.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/plain@inst.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/template3@foo.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.wants/template3@inst.service", 0, NULL);
+        verify_one(&inst_template, "bar.target.wants/service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/plain.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/plain.socket", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@di.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/template3@foo.service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.requires/template3@inst.service", 0, NULL);
+        verify_one(&inst_template, "bar.target.requires/service", -EXDEV, NULL);
+        verify_one(&inst_template, "bar.target.conf/plain.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@inst.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&inst_template, "BAR@.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@inst.service", 0, NULL); /* instance provided */
+        verify_one(&inst_template, "BAR@inst.target.requires/template3@ins2.service", -EXDEV, NULL); /* instance mismatch */
+
+        /* explicit alias overrides DefaultInstance */
+        verify_one(&di_inst_template, "alias.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "alias.socket", -EXDEV, NULL);
+        verify_one(&di_inst_template, "alias@.socket", -EXDEV, NULL);
+        verify_one(&di_inst_template, "alias@inst.socket", -EXDEV, NULL);
+        verify_one(&di_inst_template, "alias@inst.service", 0, NULL);
+        verify_one(&di_inst_template, "alias@.service", 0, "alias@inst.service");
+        verify_one(&di_inst_template, "alias@di.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain.socket", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain@.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/plain@di.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@foo.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@inst.service", 0, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/template4@di.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.wants/service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain.socket", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@di.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/plain@inst.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/template4@foo.service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/template4@inst.service", 0, NULL);
+        verify_one(&di_inst_template, "goo.target.requires/service", -EXDEV, NULL);
+        verify_one(&di_inst_template, "goo.target.conf/plain.service", -EXDEV, NULL);
+}
+
 int main(int argc, char *argv[]) {
         char root[] = "/tmp/rootXXXXXX";
         const char *p;
@@ -1079,6 +1241,8 @@ int main(int argc, char *argv[]) {
         test_with_dropin_template(root);
 
         assert_se(rm_rf(root, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+
+        test_verify_alias();
 
         return 0;
 }

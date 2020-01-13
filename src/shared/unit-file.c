@@ -31,6 +31,41 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
+int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation) {
+        _cleanup_free_ char *template = NULL;
+        int r, un_type1, un_type2;
+
+        un_type1 = unit_name_classify(symlink);
+
+        /* The straightforward case: the symlink name matches the target and we have a valid unit */
+        if (streq(symlink, target) &&
+            (un_type1 & (UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE)))
+                return 1;
+
+        r = unit_name_template(symlink, &template);
+        if (r == -EINVAL)
+                return 0; /* Not a template */
+        if (r < 0)
+                return r;
+
+        un_type2 = unit_name_classify(target);
+
+        /* An instance name points to a target that is just the template name */
+        if (un_type1 == UNIT_NAME_INSTANCE &&
+            un_type2 == UNIT_NAME_TEMPLATE &&
+            streq(template, target))
+                return 1;
+
+        /* foo@.target.requires/bar@.service: instance will be propagated */
+        if (instance_propagation &&
+            un_type1 == UNIT_NAME_TEMPLATE &&
+            un_type2 == UNIT_NAME_TEMPLATE &&
+            streq(template, target))
+                return 1;
+
+        return 0;
+}
+
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target) {
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;

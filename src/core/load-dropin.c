@@ -11,24 +11,6 @@
 #include "unit-name.h"
 #include "unit.h"
 
-static int unit_name_compatible(const char *a, const char *b) {
-        _cleanup_free_ char *template = NULL;
-        int r;
-
-        /* The straightforward case: the symlink name matches the target */
-        if (streq(a, b))
-                return 1;
-
-        r = unit_name_template(a, &template);
-        if (r == -EINVAL)
-                return 0; /* Not a template */
-        if (r < 0)
-                return r; /* OOM, or some other failure. Just skip the warning. */
-
-        /* An instance name points to a target that is just the template name */
-        return streq(template, b);
-}
-
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
         _cleanup_strv_free_ char **paths = NULL;
         char **p;
@@ -83,9 +65,10 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 
                 /* We don't treat this as an error, especially because we didn't check this for a
                  * long time. Nevertheless, we warn, because such mismatch can be mighty confusing. */
-                r = unit_name_compatible(entry, basename(target));
+                r = unit_symlink_name_compatible(entry, basename(target), u->instance);
                 if (r < 0) {
-                        log_unit_warning_errno(u, r, "Can't check if names %s and %s are compatible, ignoring: %m", entry, basename(target));
+                        log_unit_warning_errno(u, r, "Can't check if names %s and %s are compatible, ignoring: %m",
+                                               entry, basename(target));
                         continue;
                 }
                 if (r == 0)
