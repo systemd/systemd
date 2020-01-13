@@ -2222,6 +2222,13 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
         return 0;
 }
 
+static bool unit_not_using_cgroup(Unit *u) {
+        assert(u);
+
+        return u->type == UNIT_MOUNT ||
+               u->type == UNIT_SWAP;
+}
+
 /* Check if necessary controllers and attributes for a unit are in place.
  *
  * - If so, do nothing.
@@ -2278,6 +2285,9 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         enable_mask = unit_get_enable_mask(u);
 
         if (unit_has_mask_realized(u, target_mask, enable_mask))
+                return 0;
+
+        if (unit_not_using_cgroup(u))
                 return 0;
 
         /* Disable controllers below us, if there are any */
