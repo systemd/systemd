@@ -422,22 +422,24 @@
 
       <varlistentry>
         <term><varname>What=</varname></term>
-        <listitem><para>Takes an absolute path of a device node, file or other resource to mount. See <citerefentry
-        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details. If
-        this refers to a device node, a dependency on the respective device unit is automatically created. (See
-        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
-        information.) This option is mandatory. Note that the usual specifier expansion is applied to this setting,
-        literal percent characters should hence be written as <literal>%%</literal>.</para></listitem>
+        <listitem><para>Takes an absolute path of a device node, file or other resource to mount. See
+        <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details. If this refers to a device node, a dependency on the respective device unit is automatically
+        created. (See
+        <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information.) This option is mandatory. Note that the usual specifier expansion is applied
+        to this setting, literal percent characters should hence be written as <literal>%%</literal>. If this
+        mount is a bind mount and the specified path does not exist yet it is created as
+        directory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Where=</varname></term>
-        <listitem><para>Takes an absolute path of a directory for the
-        mount point; in particular, the destination cannot be a symbolic
-        link.  If the mount point does not exist at the time of
-        mounting, it is created. This string must be reflected in the
-        unit filename. (See above.) This option is
-        mandatory.</para></listitem>
+        <listitem><para>Takes an absolute path of a file or directory for the mount point; in particular, the
+        destination cannot be a symbolic link.  If the mount point does not exist at the time of mounting, it
+        is created as directory. This string must be reflected in the unit filename. (See above.) This option
+        is mandatory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
