@@ -3621,8 +3621,8 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
                 return r;
         if (r == 0)
                 return -ENODATA;
-        if (r > 0)
-                r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
+
+        r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
