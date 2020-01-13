@@ -117,6 +117,7 @@ static bool arg_dry_run = false;
 static bool arg_quiet = false;
 static bool arg_full = false;
 static bool arg_recursive = false;
+static bool arg_with_dependencies = false;
 static bool arg_show_transaction = false;
 static int arg_force = 0;
 static bool arg_ask_password = false;
@@ -799,6 +800,107 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
         return 0;
 }
 
+static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
+        _cleanup_strv_free_ char **deps = NULL;
+
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
+                [DEPENDENCY_FORWARD] = {
+                        { "Requires",    "as", NULL, 0 },
+                        { "Requisite",   "as", NULL, 0 },
+                        { "Wants",       "as", NULL, 0 },
+                        { "ConsistsOf",  "as", NULL, 0 },
+                        { "BindsTo",     "as", NULL, 0 },
+                        {}
+                },
+                [DEPENDENCY_REVERSE] = {
+                        { "RequiredBy",  "as", NULL, 0 },
+                        { "RequisiteOf", "as", NULL, 0 },
+                        { "WantedBy",    "as", NULL, 0 },
+                        { "PartOf",      "as", NULL, 0 },
+                        { "BoundBy",     "as", NULL, 0 },
+                        {}
+                },
+                [DEPENDENCY_AFTER] = {
+                        { "After",       "as", NULL, 0 },
+                        {}
+                },
+                [DEPENDENCY_BEFORE] = {
+                        { "Before",      "as", NULL, 0 },
+                        {}
+                },
+        };
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *dbus_path = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(ret);
+
+        dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
+                return log_oom();
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   dbus_path,
+                                   map[arg_dependency],
+                                   BUS_MAP_STRDUP,
+                                   &error,
+                                   NULL,
+                                   &deps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
+
+        *ret = TAKE_PTR(deps);
+
+        return 0;
+}
+
+static int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
+        _cleanup_strv_free_ char **with_deps = NULL;
+        char **name;
+
+        assert(bus);
+        assert(ret);
+
+        STRV_FOREACH(name, names) {
+                _cleanup_strv_free_ char **deps = NULL;
+
+                if (strv_extend(&with_deps, *name) < 0)
+                        return log_oom();
+
+                (void) list_dependencies_get_dependencies(bus, *name, &deps);
+
+                if (strv_extend_strv(&with_deps, deps, true) < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(with_deps);
+
+        return 0;
+}
+
+static int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
+        assert(bus);
+        assert(list);
+
+        if (arg_with_dependencies) {
+                int r;
+                _cleanup_strv_free_ char **list_with_deps = NULL;
+
+                r = append_unit_dependencies(bus, *list, &list_with_deps);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append unit dependencies: %m");
+
+                strv_free(*list);
+                *list = TAKE_PTR(list_with_deps);
+        }
+
+        return 0;
+}
+
 static int list_units(int argc, char *argv[], void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         _cleanup_(message_set_freep) Set *replies = NULL;
@@ -812,9 +914,21 @@ static int list_units(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
-        if (r < 0)
-                return r;
+        if (arg_with_dependencies) {
+                _cleanup_strv_free_ char **names = NULL;
+
+                r = append_unit_dependencies(bus, strv_skip(argv, 1), &names);
+                if (r < 0)
+                        return r;
+
+                r = get_unit_list_recursive(bus, names, &unit_infos, &replies, &machines);
+                if (r < 0)
+                        return r;
+        } else {
+                r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
+                if (r < 0)
+                        return r;
+        }
 
         typesafe_qsort(unit_infos, r, compare_unit_info);
         return output_units_list(unit_infos, r);
@@ -1588,9 +1702,21 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, strv_skip(argv, 1));
-                if (r < 0)
-                        return bus_log_create_error(r);
+                if (arg_with_dependencies) {
+                        _cleanup_strv_free_ char **names_with_deps = NULL;
+
+                        r = append_unit_dependencies(bus, strv_skip(argv, 1), &names_with_deps);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append unit dependencies: %m");
+
+                        r = sd_bus_message_append_strv(m, names_with_deps);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                } else {
+                        r = sd_bus_message_append_strv(m, strv_skip(argv, 1));
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 r = sd_bus_call(bus, m, 0, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
@@ -1691,79 +1817,6 @@ static int list_dependencies_print(const char *name, int level, unsigned branche
                 return log_oom();
 
         printf("%s\n", n);
-        return 0;
-}
-
-static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
-        struct DependencyStatusInfo {
-                char **dep[5];
-        } info = {};
-
-        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
-                [DEPENDENCY_FORWARD] = {
-                        { "Requires",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
-                        { "Requisite",   "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
-                        { "Wants",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
-                        { "ConsistsOf",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
-                        { "BindsTo",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
-                        {}
-                },
-                [DEPENDENCY_REVERSE] = {
-                        { "RequiredBy",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
-                        { "RequisiteOf", "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
-                        { "WantedBy",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
-                        { "PartOf",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
-                        { "BoundBy",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
-                        {}
-                },
-                [DEPENDENCY_AFTER] = {
-                        { "After",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
-                        {}
-                },
-                [DEPENDENCY_BEFORE] = {
-                        { "Before",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
-                        {}
-                },
-        };
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **ret = NULL;
-        _cleanup_free_ char *dbus_path = NULL;
-        int i, r;
-
-        assert(bus);
-        assert(name);
-        assert(deps);
-
-        dbus_path = unit_dbus_path_from_name(name);
-        if (!dbus_path)
-                return log_oom();
-
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.systemd1",
-                                   dbus_path,
-                                   map[arg_dependency],
-                                   BUS_MAP_STRDUP,
-                                   &error,
-                                   NULL,
-                                   &info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
-
-        if (IN_SET(arg_dependency, DEPENDENCY_AFTER, DEPENDENCY_BEFORE)) {
-                *deps = info.dep[0];
-                return 0;
-        }
-
-        for (i = 0; i < 5; i++) {
-                r = strv_extend_strv(&ret, info.dep[i], true);
-                if (r < 0)
-                        return log_oom();
-                info.dep[i] = strv_free(info.dep[i]);
-        }
-
-        *deps = TAKE_PTR(ret);
-
         return 0;
 }
 
@@ -5926,6 +5979,10 @@ static int show(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to expand names: %m");
 
+                        r = maybe_extend_with_unit_dependencies(bus, &names);
+                        if (r < 0)
+                                return r;
+
                         STRV_FOREACH(name, names) {
                                 _cleanup_free_ char *path;
 
@@ -5975,6 +6032,10 @@ static int cat(int argc, char *argv[], void *userdata) {
         r = expand_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
+
+        r = maybe_extend_with_unit_dependencies(bus, &names);
+        if (r < 0)
+                return r;
 
         (void) pager_open(arg_pager_flags);
 
@@ -7966,6 +8027,8 @@ static int systemctl_help(void) {
                "  -l --full              Don't ellipsize unit names on output\n"
                "  -r --recursive         Show unit list of host and local containers\n"
                "     --reverse           Show reverse dependencies with 'list-dependencies'\n"
+               "     --with-dependencies Show unit dependencies with 'status', 'cat',\n"
+               "                         'list-units', and 'list-unit-files'.\n"
                "     --job-mode=MODE     Specify how to deal with already queued jobs, when\n"
                "                         queueing a new job\n"
                "  -T --show-transaction  When enqueuing a unit job, show full transaction\n"
@@ -8259,6 +8322,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_LOADER_ENTRY,
                 ARG_NOW,
                 ARG_MESSAGE,
+                ARG_WITH_DEPENDENCIES,
                 ARG_WAIT,
                 ARG_WHAT,
         };
@@ -8305,6 +8369,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
                 { "state",               required_argument, NULL, ARG_STATE               },
                 { "recursive",           no_argument,       NULL, 'r'                     },
+                { "with-dependencies",   no_argument,       NULL, ARG_WITH_DEPENDENCIES   },
                 { "preset-mode",         required_argument, NULL, ARG_PRESET_MODE         },
                 { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
                 { "boot-loader-menu",    required_argument, NULL, ARG_BOOT_LOADER_MENU    },
@@ -8663,6 +8728,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'T':
                         arg_show_transaction = true;
+                        break;
+
+                case ARG_WITH_DEPENDENCIES:
+                        arg_with_dependencies = true;
                         break;
 
                 case ARG_WHAT: {
