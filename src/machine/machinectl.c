@@ -56,7 +56,7 @@
 #include "verbs.h"
 #include "web-util.h"
 
-#define ALL_IP_ADDRESSES -1
+#define ALL_ADDRESSES -1
 
 static char **arg_property = NULL;
 static bool arg_all = false;
@@ -79,7 +79,7 @@ static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
-static int arg_addrs = 1;
+static int arg_max_addresses = 1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -160,12 +160,17 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
         return 0;
 }
 
-static int call_get_addresses(sd_bus *bus, const char *name, int ifi, const char *prefix, const char *prefix2, int n_addr, char **ret) {
+static int call_get_addresses(
+                sd_bus *bus,
+                const char *name,
+                int ifi,
+                const char *prefix,
+                const char *prefix2,
+                char **ret) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *addresses = NULL;
-        bool truncate = false;
         unsigned n = 0;
         int r;
 
@@ -208,25 +213,19 @@ static int call_get_addresses(sd_bus *bus, const char *name, int ifi, const char
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (n_addr != 0) {
-                        if (family == AF_INET6 && ifi > 0)
-                                xsprintf(buf_ifi, "%%%i", ifi);
-                        else
-                                strcpy(buf_ifi, "");
+                if (family == AF_INET6 && ifi > 0)
+                        xsprintf(buf_ifi, "%%%i", ifi);
+                else
+                        strcpy(buf_ifi, "");
 
-                        if (!strextend(&addresses, prefix, inet_ntop(family, a, buffer, sizeof(buffer)), buf_ifi, NULL))
-                                return log_oom();
-                } else
-                        truncate = true;
+                if (!strextend(&addresses, prefix, inet_ntop(family, a, buffer, sizeof(buffer)), buf_ifi, NULL))
+                        return log_oom();
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
                 prefix = prefix2;
-
-                if (n_addr > 0)
-                        n_addr --;
 
                 n++;
         }
@@ -236,13 +235,6 @@ static int call_get_addresses(sd_bus *bus, const char *name, int ifi, const char
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
-
-        if (truncate) {
-
-                if (!strextend(&addresses, special_glyph(SPECIAL_GLYPH_ELLIPSIS), NULL))
-                        return -ENOMEM;
-
-        }
 
         *ret = TAKE_PTR(addresses);
         return (int) n;
@@ -306,6 +298,10 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
+        table_set_empty_string(table, "-");
+        if (!arg_full && arg_max_addresses != ALL_ADDRESSES)
+                table_set_cell_height_max(table, arg_max_addresses);
+
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -340,17 +336,16 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 name,
                                 0,
                                 "",
-                                " ",
-                                arg_full ? ALL_IP_ADDRESSES : arg_addrs,
+                                "\n",
                                 &addresses);
 
                 r = table_add_many(table,
-                                   TABLE_STRING, name,
-                                   TABLE_STRING, class,
-                                   TABLE_STRING, empty_to_dash(service),
-                                   TABLE_STRING, empty_to_dash(os),
-                                   TABLE_STRING, empty_to_dash(version_id),
-                                   TABLE_STRING, empty_to_dash(addresses));
+                                   TABLE_STRING, empty_to_null(name),
+                                   TABLE_STRING, empty_to_null(class),
+                                   TABLE_STRING, empty_to_null(service),
+                                   TABLE_STRING, empty_to_null(os),
+                                   TABLE_STRING, empty_to_null(version_id),
+                                   TABLE_STRING, empty_to_null(addresses));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -612,7 +607,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
         }
 
         if (call_get_addresses(bus, i->name, ifi,
-                               "\t Address: ", "\n\t          ", ALL_IP_ADDRESSES,
+                               "\t Address: ", "\n\t          ",
                                &addresses) > 0) {
                 fputs(addresses, stdout);
                 fputc('\n', stdout);
@@ -2777,7 +2772,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_FORMAT,
                 ARG_UID,
-                ARG_NUMBER_IPS,
+                ARG_MAX_ADDRESSES,
         };
 
         static const struct option options[] = {
@@ -2804,7 +2799,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "format",          required_argument, NULL, ARG_FORMAT          },
                 { "uid",             required_argument, NULL, ARG_UID             },
                 { "setenv",          required_argument, NULL, 'E'                 },
-                { "max-addresses",   required_argument, NULL, ARG_NUMBER_IPS      },
+                { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
                 {}
         };
 
@@ -3007,15 +3002,15 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
-                case ARG_NUMBER_IPS:
+                case ARG_MAX_ADDRESSES:
                         if (streq(optarg, "all"))
-                                arg_addrs = ALL_IP_ADDRESSES;
-                        else if (safe_atoi(optarg, &arg_addrs) < 0)
+                                arg_max_addresses = ALL_ADDRESSES;
+                        else if (safe_atoi(optarg, &arg_max_addresses) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid number of IPs");
-                        else if (arg_addrs < 0)
+                                                       "Invalid number of addresses: %s", optarg);
+                        else if (arg_max_addresses <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Number of IPs cannot be negative");
+                                                       "Number of IPs cannot be negative or zero: %s", optarg);
                         break;
 
                 case '?':
