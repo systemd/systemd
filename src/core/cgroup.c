@@ -1527,10 +1527,9 @@ CGroupMask unit_get_members_mask(Unit *u) {
                 Unit *member;
                 Iterator i;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
                         if (UNIT_DEREF(member->slice) == u)
                                 u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
-                }
         }
 
         u->cgroup_members_mask_valid = true;
@@ -3513,10 +3512,9 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 Iterator i;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
                         if (UNIT_DEREF(member->slice) == u)
                                 unit_invalidate_cgroup_bpf(member);
-                }
         }
 }
 
