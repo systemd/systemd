@@ -1550,11 +1550,10 @@ static int mount_setup_existing_unit(
                 const char *fstype,
                 MountProcFlags *ret_flags) {
 
-        MountProcFlags flags = MOUNT_PROC_IS_MOUNTED;
         int r;
 
         assert(u);
-        assert(flags);
+        assert(ret_flags);
 
         if (!MOUNT(u)->where) {
                 MOUNT(u)->where = strdup(where);
@@ -1562,13 +1561,27 @@ static int mount_setup_existing_unit(
                         return -ENOMEM;
         }
 
+        /* In case we have multiple mounts established on the same mount point, let's merge flags set already
+         * for the current unit. Note that the flags field is reset on each iteration of reading
+         * /proc/self/mountinfo, hence we know for sure anything already set here is from the current
+         * iteration and thus worthy of taking into account. */
+        MountProcFlags flags =
+                MOUNT(u)->proc_flags | MOUNT_PROC_IS_MOUNTED;
+
         r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
                 flags |= MOUNT_PROC_JUST_CHANGED;
 
-        if (!MOUNT(u)->from_proc_self_mountinfo || FLAGS_SET(MOUNT(u)->proc_flags, MOUNT_PROC_JUST_MOUNTED) || MOUNT(u)->state == MOUNT_MOUNTING)
+        /* There are two conditions when we consider a mount point just mounted: when we haven't seen it in
+         * /proc/self/mountinfo before or when MOUNT_MOUNTING is our current state. Why bother with the
+         * latter? Shouldn't that be covered by the former? No, during reload it is not because we might then
+         * encounter a new /proc/self/mountinfo in combination with an old mount unit state (since it stems
+         * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
+         * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
+         * actually seeing it established for the first time. */
+        if (!MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
