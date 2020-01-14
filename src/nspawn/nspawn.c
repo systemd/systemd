@@ -5112,14 +5112,14 @@ static int run(int argc, char *argv[]) {
                                 loop->fd,
                                 arg_image,
                                 arg_root_hash, arg_root_hash_size,
-                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK,
                                 &dissected_image);
                 if (r == -ENOPKG) {
                         /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
-                                   "    c) or follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n"
+                                   "    c) or follow https://systemd.io/DISCOVERABLE_PARTITIONS\n"
                                    "    d) or contain a file system without a partition table\n"
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;

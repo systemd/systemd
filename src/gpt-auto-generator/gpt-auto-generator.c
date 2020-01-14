@@ -710,6 +710,18 @@ static int enumerate_partitions(dev_t devnum) {
                         r = k;
         }
 
+        if (m->partitions[PARTITION_VAR].found) {
+                k = add_partition_mount(m->partitions + PARTITION_VAR, "var", "/var", "Variable Data Partition");
+                if (k < 0)
+                        r = k;
+        }
+
+        if (m->partitions[PARTITION_TMP].found) {
+                k = add_partition_mount(m->partitions + PARTITION_TMP, "var-tmp", "/var/tmp", "Temporary Data Partition");
+                if (k < 0)
+                        r = k;
+        }
+
         if (m->partitions[PARTITION_ROOT].found) {
                 k = add_root_rw(m->partitions + PARTITION_ROOT);
                 if (k < 0)

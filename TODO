@@ -19,6 +19,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* when dissecting images, warn about unrecognized partition flags
+
+* honour specifiers in unit files that resolve to some very basic
+  /etc/os-release data, such as ID, VERSION_ID, BUILD_ID, VARIANT_ID.
+
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
@@ -43,8 +48,6 @@ Features:
   that's outside of the LUKS encryption/verity verification, and we probably
   shouldn't operate in a volatile mode unless we got told so from a trusted
   source.
-
-* look for /var/tmp automatically via gpt auto discovery
 
 * figure out automatic partition discovery when combining writable root dir
   with immutable /usr
@@ -416,8 +419,6 @@ Features:
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
 
-* maybe introduce gpt auto discovery for /var/tmp?
-
 * maybe add gpt-partition-based user management: each user gets his own
   LUKS-encrypted GPT partition with a new GPT type. A small nss module
   enumerates users via udev partition enumeration. UIDs are assigned in a fixed
@@ -426,13 +427,6 @@ Features:
   LUKS partition password. Benefits: strong per-user security, compatibility
   with stateless/read-only/verity-enabled root. (other idea: do this based on
   loopback files in /home, without GPT involvement)
-
-* gpt-auto logic: introduce support for discovering /var matching an image. For
-  that, use a partition type UUID that is hashed from the OS name (as encoded
-  in /etc/os-release), the architecture, and 4 new bits from the gpt flags
-  field of the root partition. This way can easily support multiple OS
-  installations on the same GPT partition table, without problems with
-  unmatched /var partitions.
 
 * gpt-auto logic: related to the above, maybe support a "secondary" root
   partition, that is mounted to / and is writable, and where the actual root's

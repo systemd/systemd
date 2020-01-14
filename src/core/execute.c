@@ -2589,7 +2589,7 @@ static int apply_mount_namespace(
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
-                            DISSECT_IMAGE_DISCARD_ON_LOOP,
+                            DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK,
                             error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports

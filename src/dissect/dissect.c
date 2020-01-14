@@ -22,7 +22,7 @@ static enum {
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
-static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP;
+static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK;
 static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
 
