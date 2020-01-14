@@ -39,172 +39,26 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 
 ## Defined Partition Type UUIDs
 
-<table>
-
-<tr>
-<th>Partition Type UUID</th>
-<th>Name</th>
-<th>Allowed File Systems</th>
-<th>Explanation</th>
-</tr>
-
-<tr>
-<td><nobr><tt>44479540-f297-41b2-9af7-d131d5f0458a</tt></nobr></td>
-<td><nobr><i>Root Partition (x86)</i></nobr></td>
-<td rowspan="5">Any native, optionally in LUKS</td>
-<td rowspan="5">On systems with matching architecture, the first partition with
-this type UUID on the disk containing the active EFI ESP is automatically
-mounted to the root directory <tt>/</tt>.  If the partition is encrypted with
-LUKS or has dm-verity integrity data (see below), the device mapper file will
-be named <tt>/dev/mapper/root</tt>.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</tt></nobr></td>
-<td><nobr><i>Root Partition (x86-64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>69dad710-2ce4-4e3c-b16c-21a1d49abed3</tt></nobr></td>
-<td><nobr><i>Root Partition (32-bit ARM)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>b921b045-1df0-41c3-af44-4c6f280d3fae</tt></nobr></td>
-<td><nobr><i>Root Partition (64-bit ARM/AArch64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>993d8d3d-f80e-4225-855a-9daf8ed7ea97</tt></nobr></td>
-<td><nobr><i>Root Partition (Itanium/IA-64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>d13c5d3b-b5d1-422a-b29f-9454fdc89d76</tt></nobr></td>
-<td><nobr><i>Root Verity Partition (x86)</i></nobr></td>
-<td rowspan="5">A dm-verity superblock followed by hash data</td>
-<td rowspan="5">On systems with matching architecture, contains dm-verity
-integrity hash data for the matching root partition. If this feature is used
-the partition UUID of the root partition should be the first 128bit of the root
-hash of the dm-verity hash data, and the partition UUID of this dm-verity
-partition should be the final 128bit of it, so that the root partition and its
-verity partition can be discovered easily, simply by specifying the root
-hash.</td>
-</tr>
-
-
-<tr>
-<td><nobr><tt>2c7357ed-ebd2-46d9-aec1-23d437ec2bf5</tt></nobr></td>
-<td><nobr><i>Root Verity Partition (x86-64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>7386cdf2-203c-47a9-a498-f2ecce45a2d6</tt></nobr></td>
-<td><nobr><i>Root Verity Partition (32-bit ARM)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>df3300ce-d69f-4c92-978c-9bfb0f38d820</tt></nobr></td>
-<td><nobr><i>Root Verity Partition (64-bit ARM/AArch64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>86ed10d5-b607-45bb-8957-d350f23d0571</tt></nobr></td>
-<td><nobr><i>Root Verity Partition (Itanium/IA-64)</i></bobr></td>
-</tr>
-
-<tr>
-<td><nobr><tt>933ac7e1-2eb4-4f13-b844-0e14e2aef915</tt></nobr></td>
-<td><nobr><i>Home Partition</i></nobr></td>
-<td>Any native, optionally in LUKS</td>
-<td>The first partition with this type UUID on the disk containing the root
-partition is automatically mounted to <tt>/home/</tt>.  If the partition is encrypted
-with LUKS, the device mapper file will be named <tt>/dev/mapper/home</tt>.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</tt></nobr></td>
-<td><nobr><i>Server Data Partition</i></nobr></td>
-<td>Any native, optionally in LUKS</td>
-<td>The first partition with this type UUID on the disk containing the root
-partition is automatically mounted to <tt>/srv/</tt>.  If the partition is encrypted
-with LUKS, the device mapper file will be named <tt>/dev/mapper/srv</tt>.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>4d21b016-b534-45c2-a9fb-5c16e091fd2d</tt></nobr></td>
-<td><nobr><i>Variable Data Partition</i></nobr></td>
-<td>Any native, optionally in LUKS</td>
-<td>The first partition with this type UUID on the disk containing the root
-partition is automatically mounted to <tt>/var/</tt> — under the condition that
-its partition UUID matches the first 128 bit of <tt>HMAC-SHA256(machine-id,
-0x4d21b016b53445c2a9fb5c16e091fd2d)</tt> (i.e. the SHA256 HMAC hash of the
-binary type UUID keyed by the machine ID as read from <a
-href="https://www.freedesktop.org/software/systemd/man/machine-id.html"><tt>/etc/machine-id</tt></a>. This
-special requirement is made because <tt>/var/</tt> (unlike the other partition
-types listed here) is inherently private to a specific installation and cannot
-possibly be shared between multiple OS installations on the same disk, and thus
-should be bound to a specific instance of the OS, identified by its machine ID.
-If the partition is encrypted with LUKS, the device mapper file will be named
-<tt>/dev/mapper/var</tt>.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>7ec6f557-3bc5-4aca-b293-16ef5df639d1</tt></nobr></td>
-<td><nobr><i>Temporary Data Partition</i></nobr></td>
-<td>Any native, optionally in LUKS</td>
-<td>The first partition with this type UUID on the disk containing the root
-partition is automatically mounted to <tt>/var/tmp/</tt>.  If the partition is
-encrypted with LUKS, the device mapper file will be named
-<tt>/dev/mapper/tmp</tt>. Note that the intended mount point is indeed
-<tt>/var/tmp/</tt>, not <tt>/tmp/</tt>. The latter is typically maintained in
-memory via <tt>tmpfs</tt> and does not require a partition on disk. In some
-cases it might be desirable to make <tt>/tmp/</tt> persistent too, in which
-case it is recommended to make it a symlink or bind mount to
-<tt>/var/tmp/</tt>, thus not requiring its own partition type UUID.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</tt></nobr></td>
-<td><nobr><i>Swap</i></nobr></td>
-<td>Swap</td>
-<td>All swap partitions on the disk containing the root partition are automatically enabled.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</tt></nobr></td>
-<td><nobr><i>EFI System Partition</i></nobr></td>
-<td>VFAT</td>
-<td>The ESP used for the current boot is automatically mounted to
-<tt>/efi/</tt> (or <tt>/boot/</tt> as fallback), unless a different partition
-is mounted there (possibly via <tt>/etc/fstab</tt>, or because the Extended
-Boot Loader Partition — see below — exists) or the directory is non-empty on
-the root disk.  This partition type is defined by the <a
-href="http://www.uefi.org/specifications">UEFI Specification</a>.</td>
-</tr>
-
-<tr>
-<td><nobr><tt>bc13c2ff-59e6-4262-a352-b275fd6f7172</tt></nobr></td>
-<td><nobr><i>Extended Boot Loader Partition</i></nobr></td>
-<td>Typically VFAT</td>
-<td>The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is
-automatically mounted to <tt>/boot/</tt>, unless a different partition is
-mounted there (possibly via <tt>/etc/fstab</tt>) or the directory is non-empty
-on the root disk. This partition type is defined by the <a
-href="https://systemd.io/BOOT_LOADER_SPECIFICATION/">Boot Loader
-Specification</a>.</td> </tr>
-
-<tr>
-<td><nobr><tt>0fc63daf-8483-4772-8e79-3d69d8477de4</tt></nobr></td>
-<td><nobr><i>Other Data Partitions</i></nobr></td>
-<td>Any native, optionally in LUKS</td>
-<td>No automatic mounting takes place for other Linux data partitions. This
-partition type should be used for all partitions that carry Linux file
-systems. The installer needs to mount them explicitly via entries in
-<tt>/etc/fstab</tt>. Optionally, these partitions may be encrypted with LUKS.</td>
-</tr>
-
-</table>
+| Partition Type UUID | Name | Allowed File Systems | Explanation |
+|---------------------|------|----------------------|-------------|
+| `44479540-f297-41b2-9af7-d131d5f0458a` | _Root Partition (x86)_ | Any native, optionally in LUKS | On systems with matching architecture, the first partition with this type UUID on the disk containing the active EFI ESP is automatically mounted to the root directory <tt>/</tt>. If the partition is encrypted with LUKS or has dm-verity integrity data (see below), the device mapper file will be named `/dev/mapper/root`. |
+| `4f68bce3-e8cd-4db1-96e7-fbcaf984b709` | _Root Partition (x86-64)_ | ditto | ditto |
+| `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | _Root Partition (32-bit ARM)_ | ditto | ditto |
+| `b921b045-1df0-41c3-af44-4c6f280d3fae` | _Root Partition (64-bit ARM/AArch64)_ | ditto | ditto |
+| `993d8d3d-f80e-4225-855a-9daf8ed7ea97` | _Root Partition (Itanium/IA-64)_ | ditto | ditto |
+| `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | _Root Verity Partition (x86)_ | A dm-verity superblock followed by hash data | On systems with matching architecture, contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128bit of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128bit of it, so that the root partition and its verity partition can be discovered easily, simply by specifying the root hash. |
+| `2c7357ed-ebd2-46d9-aec1-23d437ec2bf5` | _Root Verity Partition (x86-64)_ | ditto | ditto |
+| `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | _Root Verity Partition (32-bit ARM)_ | ditto | ditto |
+| `df3300ce-d69f-4c92-978c-9bfb0f38d820` | _Root Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
+| `86ed10d5-b607-45bb-8957-d350f23d0571` | _Root Verity Partition (Itanium/IA-64)_  | ditto | ditto |
+| `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | _Home Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
+| `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | _Server Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
+| `4d21b016-b534-45c2-a9fb-5c16e091fd2d` | _Variable Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/` — under the condition that its partition UUID matches the first 128 bit of `HMAC-SHA256(machine-id, 0x4d21b016b53445c2a9fb5c16e091fd2d)` (i.e. the SHA256 HMAC hash of the binary type UUID keyed by the machine ID as read from [`/etc/machine-id`](https://www.freedesktop.org/software/systemd/man/machine-id.html). This special requirement is made because `/var/` (unlike the other partition types listed here) is inherently private to a specific installation and cannot possibly be shared between multiple OS installations on the same disk, and thus should be bound to a specific instance of the OS, identified by its machine ID. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/var`. |
+| `7ec6f557-3bc5-4aca-b293-16ef5df639d1` | _Temporary Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/tmp/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/tmp`. Note that the intended mount point is indeed `/var/tmp/`, not `/tmp/`. The latter is typically maintained in memory via <tt>tmpfs</tt> and does not require a partition on disk. In some cases it might be desirable to make `/tmp/` persistent too, in which case it is recommended to make it a symlink or bind mount to `/var/tmp/`, thus not requiring its own partition type UUID. |
+| `0657fd6d-a4ab-43c4-84e5-0933c84b4f4f` | _Swap_ | Swap | All swap partitions on the disk containing the root partition are automatically enabled. |
+| `c12a7328-f81f-11d2-ba4b-00a0c93ec93b` | _EFI System Partition_ | VFAT | The ESP used for the current boot is automatically mounted to `/efi/` (or `/boot/` as fallback), unless a different partition is mounted there (possibly via `/etc/fstab`, or because the Extended Boot Loader Partition — see below — exists) or the directory is non-empty on the root disk.  This partition type is defined by the [UEFI Specification](http://www.uefi.org/specifications). |
+| `bc13c2ff-59e6-4262-a352-b275fd6f7172` | _Extended Boot Loader Partition_ | Typically VFAT | The Extended Boot Loader Partition (XBOOTLDR) used for the current boot is automatically mounted to <tt>/boot/</tt>, unless a different partition is mounted there (possibly via <tt>/etc/fstab</tt>) or the directory is non-empty on the root disk. This partition type is defined by the [Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION). |
+| `0fc63daf-8483-4772-8e79-3d69d8477de4` | _Other Data Partitions_ | Any native, optionally in LUKS | No automatic mounting takes place for other Linux data partitions. This partition type should be used for all partitions that carry Linux file systems. The installer needs to mount them explicitly via entries in <tt>/etc/fstab</tt>. Optionally, these partitions may be encrypted with LUKS. |
 
 Other GPT type IDs might be used on Linux, for example to mark software RAID or
 LVM partitions. The definitions of those GPT types is outside of the scope of
