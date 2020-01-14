@@ -8,8 +8,6 @@ systemd provides aggressive parallelization capabilities, uses socket and D-Bus 
 
 Other parts include a logging daemon, utilities to control basic system configuration like the hostname, date, locale, maintain a list of logged-in users and running containers and virtual machines, system accounts, runtime directories and settings, and daemons to manage simple network configuration, network time synchronization, log forwarding, and name resolution.
 
-See the introductory blog story and three status updates for a longer introduction. Also see the [Wikipedia article](https://en.wikipedia.org/wiki/systemd).
-
 ---
 
 {% assign by_category = site.pages | group_by:"category" %}
@@ -24,3 +22,8 @@ See the introductory blog story and three status updates for a longer introducti
   {% endif %}
 {% endfor %}
 
+## See also
+
+* [Introductory blog story](http://0pointer.de/blog/projects/systemd.html)
+* [Three](http://0pointer.de/blog/projects/systemd-update.html) [status](http://0pointer.de/blog/projects/systemd-update-2.html) [updates](http://0pointer.de/blog/projects/systemd-update-3.html)
+* The [Wikipedia article](https://en.wikipedia.org/wiki/systemd).
