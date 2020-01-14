@@ -90,9 +90,9 @@ kernel threads are excluded too. Thus, a daemon which wants to take advantage
 of this logic needs to place the following at the top of its main() function:
 
 ```c
-…
+...
 [0][0] = '@';
-…
+...
 ```
 
 And that's already it. Note that this functionality is only to be used by
@@ -116,10 +116,10 @@ otherwise doesn't. Something like this:
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-        …
+        ...
         if (access("/etc/initrd-release", F_OK) >= 0)
                 argv[0][0] = '@';
-        …
+        ...
     }
 ```
 
@@ -190,4 +190,4 @@ few additional notes for supporting these setups:
   program consult this blog story: [Socket
   Activation](http://0pointer.de/blog/projects/socket-activation.html)
 
-* Consider having a look at the [initrd Interface of systemd](http://www.freedesktop.org/wiki/Software/systemd/InitrdInterface)
+* Consider having a look at the [initrd Interface of systemd](https://systemd.io/INITRD_INTERFACE/).

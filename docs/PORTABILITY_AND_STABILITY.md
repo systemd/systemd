@@ -155,6 +155,8 @@ without communicating with the `systemd` process:
 Many other programs support operation without the system manager except when
 the specific functionality requires such communication. For example
 `journalctl` operates almost independently, but will query the boot id when
-`--boot` option is used. `systemd-journal-remote`, `systemd-journal-upload`,
-`systemd-journal-gatewayd`, `coredumpctl`, `busctl`, `systemctl --root` also
-fall into this category.
+`--boot` option is used; it also requires `systemd-journald` (and thus
+`systemd`) to be running for options like `--flush` and `--sync`.
+`systemd-journal-remote`, `systemd-journal-upload`, `systemd-journal-gatewayd`,
+`coredumpctl`, `busctl`, `systemctl --root` also fall into this category of
+mostly-independent programs.
