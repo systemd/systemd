@@ -1,5 +1,5 @@
 ---
-title: The Container Interface
+title: Container Interface
 category: Interfaces
 layout: default
 ---

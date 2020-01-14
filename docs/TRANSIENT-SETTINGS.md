@@ -1,10 +1,10 @@
 ---
-title: What settings are currently available for transient units?
+title: What Settings Are Currently Available For Transient Units?
 category: Interfaces
 layout: default
 ---
 
-# What settings are currently available for transient units?
+# What Settings Are Currently Available For Transient Units?
 
 Our intention is to make all settings that are available as unit file settings
 also available for transient units, through the D-Bus API. At the moment,
