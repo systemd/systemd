@@ -1,5 +1,5 @@
 ---
-title: The Boot Loader Specification
+title: Boot Loader Specification
 category: Booting
 layout: default
 ---
