@@ -1106,6 +1106,10 @@ const UnitVTable automount_vtable = {
                 "Automount\0"
                 "Install\0",
 
+        .can_transient = true,
+        .can_fail = true,
+        .can_trigger = true,
+
         .init = automount_init,
         .load = automount_load,
         .done = automount_done,
@@ -1131,8 +1135,6 @@ const UnitVTable automount_vtable = {
 
         .bus_vtable = bus_automount_vtable,
         .bus_set_property = bus_automount_set_property,
-
-        .can_transient = true,
 
         .shutdown = automount_shutdown,
         .supported = automount_supported,

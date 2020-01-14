@@ -600,6 +600,15 @@ typedef struct UnitVTable {
         /* True if cgroup delegation is permissible */
         bool can_delegate:1;
 
+        /* True if the unit type triggers other units, i.e. can have a UNIT_TRIGGERS dependency */
+        bool can_trigger:1;
+
+        /* True if the unit type knows a failure state, and thus can be source of an OnFailure= dependency */
+        bool can_fail:1;
+
+        /* True if After= dependencies should be refused */
+        bool refuse_after:1;
+
         /* True if units of this type shall be startable only once and then never again */
         bool once_only:1;
 

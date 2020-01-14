@@ -2937,11 +2937,27 @@ int unit_add_dependency(
                 return 0;
         }
 
-        if ((d == UNIT_BEFORE && other->type == UNIT_DEVICE) ||
-            (d == UNIT_AFTER && u->type == UNIT_DEVICE)) {
-                log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
+        if (d == UNIT_AFTER && UNIT_VTABLE(u)->refuse_after) {
+                log_unit_warning(u, "Requested dependency After=%s ignored (%s units cannot be delayed).", other->id, unit_type_to_string(u->type));
                 return 0;
         }
+
+        if (d == UNIT_BEFORE && UNIT_VTABLE(other)->refuse_after) {
+                log_unit_warning(u, "Requested dependency Before=%s ignored (%s units cannot be delayed).", other->id, unit_type_to_string(other->type));
+                return 0;
+        }
+
+        if (d == UNIT_ON_FAILURE && !UNIT_VTABLE(u)->can_fail) {
+                log_unit_warning(u, "Requested dependency OnFailure=%s ignored (%s units cannot fail).", other->id, unit_type_to_string(u->type));
+                return 0;
+        }
+
+        if (d == UNIT_TRIGGERS && !UNIT_VTABLE(u)->can_trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency Triggers=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(u->type));
+        if (d == UNIT_TRIGGERED_BY && !UNIT_VTABLE(other)->can_trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency TriggeredBy=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(other->type));
 
         r = unit_add_dependency_hashmap(u->dependencies + d, other, mask, 0);
         if (r < 0)

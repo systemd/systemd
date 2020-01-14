@@ -2065,6 +2065,9 @@ const UnitVTable mount_vtable = {
                 "Install\0",
         .private_section = "Mount",
 
+        .can_transient = true,
+        .can_fail = true,
+
         .init = mount_init,
         .load = mount_load,
         .done = mount_done,
@@ -2102,8 +2105,6 @@ const UnitVTable mount_vtable = {
         .bus_commit_properties = bus_mount_commit_properties,
 
         .get_timeout = mount_get_timeout,
-
-        .can_transient = true,
 
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,

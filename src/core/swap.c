@@ -1590,6 +1590,8 @@ const UnitVTable swap_vtable = {
                 "Install\0",
         .private_section = "Swap",
 
+        .can_fail = true,
+
         .init = swap_init,
         .load = swap_load,
         .done = swap_done,

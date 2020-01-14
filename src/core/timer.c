@@ -895,6 +895,10 @@ const UnitVTable timer_vtable = {
                 "Install\0",
         .private_section = "Timer",
 
+        .can_transient = true,
+        .can_fail = true,
+        .can_trigger = true,
+
         .init = timer_init,
         .done = timer_done,
         .load = timer_load,
@@ -923,6 +927,4 @@ const UnitVTable timer_vtable = {
 
         .bus_vtable = bus_timer_vtable,
         .bus_set_property = bus_timer_set_property,
-
-        .can_transient = true,
 };
