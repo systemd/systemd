@@ -80,6 +80,7 @@ typedef struct TableData {
                 usec_t timespan;
                 uint64_t size;
                 char string[0];
+                char **strv;
                 int int_val;
                 int8_t int8;
                 int16_t int16;
@@ -207,6 +208,9 @@ static TableData *table_data_free(TableData *d) {
         free(d->formatted);
         free(d->url);
 
+        if (d->type == TABLE_STRV)
+                strv_free(d->strv);
+
         return mfree(d);
 }
 
@@ -241,6 +245,9 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_STRING:
         case TABLE_PATH:
                 return strlen(data) + 1;
+
+        case TABLE_STRV:
+                return sizeof(char **);
 
         case TABLE_BOOLEAN:
                 return sizeof(bool);
@@ -344,8 +351,8 @@ static TableData *table_data_new(
                 unsigned align_percent,
                 unsigned ellipsize_percent) {
 
+        _cleanup_free_ TableData *d = NULL;
         size_t data_size;
-        TableData *d;
 
         data_size = table_data_size(type, data);
 
@@ -360,9 +367,15 @@ static TableData *table_data_new(
         d->weight = weight;
         d->align_percent = align_percent;
         d->ellipsize_percent = ellipsize_percent;
-        memcpy_safe(d->data, data, data_size);
 
-        return d;
+        if (type == TABLE_STRV) {
+                d->strv = strv_copy(data);
+                if (!d->strv)
+                        return NULL;
+        } else
+                memcpy_safe(d->data, data, data_size);
+
+        return TAKE_PTR(d);
 }
 
 int table_add_cell_full(
@@ -778,6 +791,10 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = va_arg(ap, const char *);
                         break;
 
+                case TABLE_STRV:
+                        data = va_arg(ap, char * const *);
+                        break;
+
                 case TABLE_BOOLEAN:
                         buffer.b = va_arg(ap, int);
                         data = &buffer.b;
@@ -1055,6 +1072,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_PATH:
                         return path_compare(a->string, b->string);
 
+                case TABLE_STRV:
+                        return strv_compare(a->strv, b->strv);
+
                 case TABLE_BOOLEAN:
                         if (!a->boolean && b->boolean)
                                 return -1;
@@ -1184,6 +1204,17 @@ static const char *table_data_format(Table *t, TableData *d) {
                 }
 
                 return d->string;
+
+        case TABLE_STRV: {
+                char *p;
+
+                p = strv_join(d->strv, "\n");
+                if (!p)
+                        return NULL;
+
+                d->formatted = p;
+                break;
+        }
 
         case TABLE_BOOLEAN:
                 return yes_no(d->boolean);
@@ -2053,6 +2084,9 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_STRING:
         case TABLE_PATH:
                 return json_variant_new_string(ret, d->string);
+
+        case TABLE_STRV:
+                return json_variant_new_array_strv(ret, d->strv);
 
         case TABLE_BOOLEAN:
                 return json_variant_new_boolean(ret, d->boolean);
