@@ -207,6 +207,7 @@ All execution-related settings are available for transient units.
 ✓ ConfigurationDirectoryMode=
 ✓ ConfigurationDirectory=
 ✓ PAMName=
+✓ PAMSetCredentials=
 ✓ IgnoreSIGPIPE=
 ✓ UtmpIdentifier=
 ✓ UtmpMode=

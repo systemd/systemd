@@ -1124,8 +1124,10 @@ static int setup_pam(
                 uid_t uid,
                 gid_t gid,
                 const char *tty,
-                char ***env,
-                int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds,
+                ExecPamSetCredentials call_pam_setcred,
+                bool dynamic_user,
+                char ***env /* this argument is modified in-place */) {
 
 #if HAVE_PAM
 
@@ -1193,9 +1195,28 @@ static int setup_pam(
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
-        if (pam_code != PAM_SUCCESS)
-                goto fail;
+        /* In case PAMSetCredentials= is not configured explicitly, then enforce a heuristic on whether to
+         * call pam_setcred(): let's skip it if DynamicUser= is enabled or we are looking at a system
+         * user. That's because we define dynamic users ourselves, and we do not define a concept of
+         * authentication for them, as we spawn them off on our own choice exclusively, when the time is
+         * right and noone else should be able to authenticate against them. Thus, the authentication stack
+         * of PAM is unlikely to succeed for them (and pam_setcred() traverses through that), hence don't
+         * even bother. Similar, for system users: they are not typically authenticated against, hence don't
+         * use pam_setcred() for them either. */
+        if (call_pam_setcred < 0)
+                call_pam_setcred = dynamic_user || uid_is_system(uid) ?
+                        EXEC_PAM_SET_CREDENTIALS_NO :
+                        EXEC_PAM_SET_CREDENTIALS_IGNORE;
+
+        if (call_pam_setcred != EXEC_PAM_SET_CREDENTIALS_NO) {
+                pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
+                if (pam_code != PAM_SUCCESS) {
+                        if (call_pam_setcred != EXEC_PAM_SET_CREDENTIALS_IGNORE)
+                                goto fail;
+
+                        log_warning("Setting PAM credentials failed, ignoring: %s", pam_strerror(handle, pam_code));
+                }
+        }
 
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
@@ -3428,7 +3449,14 @@ static int exec_child(
                  * wins here. (See above.) */
 
                 if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
+                        r = setup_pam(context->pam_name,
+                                      username,
+                                      uid, gid,
+                                      context->tty_path,
+                                      fds, n_fds,
+                                      context->pam_set_credentials,
+                                      context->dynamic_user,
+                                      &accum_env);
                         if (r < 0) {
                                 *exit_status = EXIT_PAM;
                                 return log_unit_error_errno(unit, r, "Failed to set up PAM session: %m");
@@ -4051,6 +4079,7 @@ void exec_context_init(ExecContext *c) {
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
         numa_policy_reset(&c->numa_policy);
+        c->pam_set_credentials = _EXEC_PAM_SET_CREDENTIALS_INVALID;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -4692,6 +4721,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->pam_name)
                 fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
+        if (c->pam_set_credentials >= 0)
+                fprintf(f, "%sPAMSetCredentials: %s\n", prefix, exec_pam_set_credentials_to_string(c->pam_set_credentials));
 
         if (!strv_isempty(c->read_write_paths)) {
                 fprintf(f, "%sReadWritePaths:", prefix);
@@ -5692,3 +5723,11 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
+
+static const char* const exec_pam_set_credentials_table[_EXEC_PAM_SET_CREDENTIALS_MAX] = {
+        [EXEC_PAM_SET_CREDENTIALS_NO] = "no",
+        [EXEC_PAM_SET_CREDENTIALS_YES] = "yes",
+        [EXEC_PAM_SET_CREDENTIALS_IGNORE] = "ignore",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(exec_pam_set_credentials, ExecPamSetCredentials, EXEC_PAM_SET_CREDENTIALS_YES);

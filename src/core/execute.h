@@ -23,6 +23,14 @@ typedef struct Manager Manager;
 #include "nsflags.h"
 #include "time-util.h"
 
+typedef enum ExecPamSetCredentials {
+        EXEC_PAM_SET_CREDENTIALS_NO,
+        EXEC_PAM_SET_CREDENTIALS_YES,
+        EXEC_PAM_SET_CREDENTIALS_IGNORE,
+        _EXEC_PAM_SET_CREDENTIALS_MAX,
+        _EXEC_PAM_SET_CREDENTIALS_INVALID = -1
+} ExecPamSetCredentials;
+
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
 
 typedef enum ExecUtmpMode {
@@ -213,6 +221,7 @@ struct ExecContext {
         char **supplementary_groups;
 
         char *pam_name;
+        ExecPamSetCredentials pam_set_credentials;
 
         char *utmp_id;
         ExecUtmpMode utmp_mode;
@@ -422,3 +431,6 @@ ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
+
+const char* exec_pam_set_credentials_to_string(ExecPamSetCredentials i) _const_;
+ExecPamSetCredentials exec_pam_set_credentials_from_string(const char *s) _pure_;

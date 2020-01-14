@@ -323,6 +323,26 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PAMSetCredentials=</varname></term>
+
+        <listitem><para>Controls whether to invoke the <citerefentry
+        project='man-pages'><refentrytitle>pam_setcred</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        PAM function when initializing the PAM session. Only useful in combination with
+        <varname>PAMName=</varname>, see above. Takes a boolean or the special value
+        <option>ignore</option>. If <option>yes</option> the function call is made and if it fails process
+        execution is aborted, too. If <option>no</option> the function call is not made. If
+        <option>ignore</option> the call is made but execution of the process continues even if the function
+        call failed (though usually you'll find something about the attempted and failed call in the system
+        logs). If not set behaviour depends on the user identity used: if it is a system user or if
+        <varname>DynamicUser=</varname> is used, the option is disabled, and otherwise assumed to be
+        <option>ignore</option>. Rationale: the <function>pam_setcred()</function> is part of the
+        authentication mechanism of PAM. System and dynamic users are generally not subject to authentication
+        however, and simply used directly with no authentication by system services and thus
+        <function>pam_setcred()</function> typically fails for them.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

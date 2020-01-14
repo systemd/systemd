@@ -140,8 +140,10 @@ $1.ConfigurationDirectory,       config_parse_exec_directories,      0,         
 $1.TimeoutCleanSec,              config_parse_sec,                   0,                             offsetof($1, exec_context.timeout_clean_usec)
 $1.ProtectHostname,              config_parse_bool,                  0,                             offsetof($1, exec_context.protect_hostname)
 m4_ifdef(`HAVE_PAM',
-`$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)',
-`$1.PAMName,                     config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
+`$1.PAMName,                     config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.pam_name)
+$1.PAMSetCredentials,            config_parse_exec_pam_set_credentials, 0,                          offsetof($1, exec_context.pam_set_credentials)',
+`$1.PAMName,                     config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.PAMSetCredentials,            config_parse_warn_compat,           DISABLED_CONFIGURATION,        0')
 $1.IgnoreSIGPIPE,                config_parse_bool,                  0,                             offsetof($1, exec_context.ignore_sigpipe)
 $1.UtmpIdentifier,               config_parse_unit_string_printf,    0,                             offsetof($1, exec_context.utmp_id)
 $1.UtmpMode,                     config_parse_exec_utmp_mode,        0,                             offsetof($1, exec_context.utmp_mode)
