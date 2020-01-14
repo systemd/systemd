@@ -8,6 +8,7 @@
 bool network_is_online(void);
 
 typedef enum LinkOperationalState {
+        LINK_OPERSTATE_MISSING,
         LINK_OPERSTATE_OFF,
         LINK_OPERSTATE_NO_CARRIER,
         LINK_OPERSTATE_DORMANT,

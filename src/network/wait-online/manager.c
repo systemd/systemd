@@ -78,6 +78,11 @@ bool manager_configured(Manager *m) {
                         LinkOperationalStateRange *range = p;
 
                         l = hashmap_get(m->links_by_name, ifname);
+                        if (!l && range->min == LINK_OPERSTATE_MISSING) {
+                                one_ready = true;
+                                continue;
+                        }
+
                         if (!l) {
                                 log_debug("still waiting for %s", ifname);
                                 if (!m->any)

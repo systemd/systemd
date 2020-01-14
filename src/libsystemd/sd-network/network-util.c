@@ -26,6 +26,7 @@ bool network_is_online(void) {
 }
 
 static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
+        [LINK_OPERSTATE_MISSING]          = "missing",
         [LINK_OPERSTATE_OFF]              = "off",
         [LINK_OPERSTATE_NO_CARRIER]       = "no-carrier",
         [LINK_OPERSTATE_DORMANT]          = "dormant",
@@ -91,7 +92,7 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
                 return -EINVAL;
 
         if (range.min == _LINK_OPERSTATE_INVALID)
-                range.min = LINK_OPERSTATE_OFF;
+                range.min = LINK_OPERSTATE_MISSING;
         if (range.max == _LINK_OPERSTATE_INVALID)
                 range.max = LINK_OPERSTATE_ROUTABLE;
 
