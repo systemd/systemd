@@ -2,6 +2,8 @@
 title: Hacking on systemd
 category: Contributing
 layout: default
+redirect_from:
+  - HACKING/
 ---
 
 # Hacking on systemd
