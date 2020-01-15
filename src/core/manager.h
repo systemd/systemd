@@ -219,8 +219,6 @@ struct Manager {
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
 
-        sd_event_source *sync_bus_names_event_source;
-
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
         Hashmap *unit_id_map;
