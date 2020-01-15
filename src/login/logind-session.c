@@ -230,8 +230,8 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%i\n"
                 "STATE=%s\n"
                 "REMOTE=%i\n",
-                s->user->uid,
-                s->user->name,
+                s->user->user_record->uid,
+                s->user->user_record->user_name,
                 session_is_active(s),
                 s->user->display == s,
                 session_state_to_string(session_get_state(s)),
@@ -641,7 +641,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 if (!scope)
                         return log_oom();
 
-                description = strjoina("Session ", s->id, " of user ", s->user->name);
+                description = strjoina("Session ", s->id, " of user ", s->user->user_record->user_name);
 
                 r = manager_start_scope(
                                 s->manager,
@@ -657,7 +657,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                           "systemd-user-sessions.service",
                                           s->user->runtime_dir_service,
                                           s->user->service),
-                                s->user->home,
+                                user_record_home_directory(s->user->user_record),
                                 properties,
                                 error,
                                 &s->scope_job);
@@ -698,9 +698,9 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SESSION_START_STR,
                    "SESSION_ID=%s", s->id,
-                   "USER_ID=%s", s->user->name,
+                   "USER_ID=%s", s->user->user_record->user_name,
                    "LEADER="PID_FMT, s->leader,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name));
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_get(&s->timestamp);
@@ -750,7 +750,10 @@ static int session_stop_scope(Session *s, bool force) {
         s->scope_job = mfree(s->scope_job);
 
         /* Optionally, let's kill everything that's left now. */
-        if (force || manager_shall_kill(s->manager, s->user->name)) {
+        if (force ||
+            (s->user->user_record->kill_processes != 0 &&
+             (s->user->user_record->kill_processes > 0 ||
+              manager_shall_kill(s->manager, s->user->user_record->user_name)))) {
 
                 r = manager_stop_unit(s->manager, s->scope, &error, &s->scope_job);
                 if (r < 0) {
@@ -766,7 +769,7 @@ static int session_stop_scope(Session *s, bool force) {
                  * Session stop is quite significant on its own, let's log it. */
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "SESSION_ID=%s", s->id,
-                           "USER_ID=%s", s->user->name,
+                           "USER_ID=%s", s->user->user_record->user_name,
                            "LEADER="PID_FMT, s->leader,
                            LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
         }
@@ -824,7 +827,7 @@ int session_finalize(Session *s) {
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_SESSION_STOP_STR,
                            "SESSION_ID=%s", s->id,
-                           "USER_ID=%s", s->user->name,
+                           "USER_ID=%s", s->user->user_record->user_name,
                            "LEADER="PID_FMT, s->leader,
                            LOG_MESSAGE("Removed session %s.", s->id));
 
@@ -1189,7 +1192,7 @@ static int session_prepare_vt(Session *s) {
         if (vt < 0)
                 return vt;
 
-        r = fchown(vt, s->user->uid, -1);
+        r = fchown(vt, s->user->user_record->uid, -1);
         if (r < 0) {
                 r = log_error_errno(errno,
                                     "Cannot change owner of /dev/tty%u: %m",

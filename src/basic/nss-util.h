@@ -139,6 +139,38 @@ enum nss_status _nss_##module##_getgrgid_r(             \
                 char *buffer, size_t buflen,            \
                 int *errnop) _public_
 
+#define NSS_PWENT_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_endpwent(               \
+                void) _public_;                         \
+enum nss_status _nss_##module##_setpwent(               \
+                int stayopen) _public_;                 \
+enum nss_status _nss_##module##_getpwent_r(             \
+                struct passwd *result,                  \
+                char *buffer,                           \
+                size_t buflen,                          \
+                int *errnop) _public_;
+
+#define NSS_GRENT_PROTOTYPES(module)                    \
+enum nss_status _nss_##module##_endgrent(               \
+                void) _public_;                         \
+enum nss_status _nss_##module##_setgrent(               \
+                int stayopen) _public_;                 \
+enum nss_status _nss_##module##_getgrent_r(             \
+                struct group *result,                   \
+                char *buffer,                           \
+                size_t buflen,                          \
+                int *errnop) _public_;
+
+#define NSS_INITGROUPS_PROTOTYPE(module)                \
+enum nss_status _nss_##module##_initgroups_dyn(         \
+                const char *user,                       \
+                gid_t group,                            \
+                long int *start,                        \
+                long int *size,                         \
+                gid_t **groupsp,                        \
+                long int limit,                         \
+                int *errnop) _public_;
+
 typedef enum nss_status (*_nss_gethostbyname4_r_t)(
                 const char *name,
                 struct gaih_addrtuple **pat,

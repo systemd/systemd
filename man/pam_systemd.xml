@@ -32,6 +32,10 @@
     <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     and hence the systemd control group hierarchy.</para>
 
+    <para>The module also applies various resource management and runtime parameters to the new session, as
+    configured in the <ulink url="https://systemd.io/USER_RECORD">JSON User Record</ulink> of the user, when
+    one is defined.</para>
+
     <para>On login, this module — in conjunction with <filename>systemd-logind.service</filename> — ensures the
     following:</para>
 
@@ -48,7 +52,12 @@
       <listitem><para>A new systemd scope unit is created for the session. If this is the first concurrent session of
       the user, an implicit per-user slice unit below <filename>user.slice</filename> is automatically created and the
       scope placed into it. An instance of the system service <filename>user@.service</filename>, which runs the
-      systemd user manager instance, is started.  </para></listitem>
+      systemd user manager instance, is started.</para></listitem>
+
+      <listitem><para>The <literal>$TZ</literal>, <literal>$EMAIL</literal> and <literal>$LANG</literal>
+      environment variables are configured for the user, based on the respective data from the user's JSON
+      record (if it is defined). Moreover, any environment variables explicitly configured in the user record
+      are imported, and the umask, nice level, and resource limits initialized.</para></listitem>
     </orderedlist>
 
     <para>On logout, this module ensures the following:</para>
@@ -172,6 +181,15 @@
         is not set if the current user is not the original user of the session.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>$TZ</varname></term>
+        <term><varname>$EMAIL</varname></term>
+        <term><varname>$LANG</varname></term>
+
+        <listitem><para>If a JSON user record is known for the user logging in these variables are
+        initialized from the respective data in the record.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>The following environment variables are read by the module and may be used by the PAM service to pass
@@ -286,14 +304,23 @@ pam_set_data(handle, "systemd.runtime_max_sec", (void *)"3600", cleanup);
   <refsect1>
     <title>Example</title>
 
+    <para>Here's an example PAM configuration fragment that allows users sessions to be managed by
+    <filename>systemd-logind.service</filename>:</para>
+
     <programlisting>#%PAM-1.0
-auth       required     pam_unix.so
-auth       required     pam_nologin.so
-account    required     pam_unix.so
-password   required     pam_unix.so
-session    required     pam_unix.so
-session    required     pam_loginuid.so
-session    required     pam_systemd.so</programlisting>
+auth     sufficient pam_unix.so
+auth     required   pam_deny.so
+
+account  required   pam_nologin.so
+account  sufficient pam_unix.so
+account  required   pam_permit.so
+
+password sufficient pam_unix.so sha512 shadow try_first_pass try_authtok
+password required   pam_deny.so
+
+-session optional   pam_loginuid.so
+-session optional   pam_systemd.so
+session  required   pam_unix.so</programlisting>
   </refsect1>
 
   <refsect1>
@@ -303,6 +330,7 @@ session    required     pam_systemd.so</programlisting>
       <citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

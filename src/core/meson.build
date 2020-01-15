@@ -22,6 +22,8 @@ libcore_sources = '''
         bpf-firewall.h
         cgroup.c
         cgroup.h
+        core-varlink.c
+        core-varlink.h
         dbus-automount.c
         dbus-automount.h
         dbus-cgroup.c

@@ -86,6 +86,12 @@ shared_sources = files('''
         generator.c
         generator.h
         gpt.h
+        group-record-nss.c
+        group-record-nss.h
+        group-record-show.c
+        group-record-show.h
+        group-record.c
+        group-record.h
         id128-print.c
         id128-print.h
         ima-util.c
@@ -106,6 +112,8 @@ shared_sources = files('''
         json-internal.h
         json.c
         json.h
+        libcrypt-util.c
+        libcrypt-util.h
         libmount-util.h
         linux/auto_dev-ioctl.h
         linux/bpf.h
@@ -187,6 +195,14 @@ shared_sources = files('''
         uid-range.h
         unit-file.c
         unit-file.h
+        user-record-nss.c
+        user-record-nss.h
+        user-record-show.c
+        user-record-show.h
+        user-record.c
+        user-record.h
+        userdb.c
+        userdb.h
         utmp-wtmp.h
         varlink.c
         varlink.h
@@ -231,6 +247,13 @@ endif
 
 if conf.get('HAVE_KMOD') == 1
         shared_sources += files('module-util.c')
+endif
+
+if conf.get('HAVE_PAM') == 1
+        shared_sources += files('''
+        pam-util.c
+        pam-util.h
+'''.split())
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
@@ -279,6 +302,7 @@ libshared_deps = [threads,
                   libacl,
                   libblkid,
                   libcap,
+                  libcrypt,
                   libcryptsetup,
                   libgcrypt,
                   libidn,
@@ -288,6 +312,7 @@ libshared_deps = [threads,
                   libmount,
                   libopenssl,
                   libp11kit,
+                  libpam,
                   librt,
                   libseccomp,
                   libselinux,

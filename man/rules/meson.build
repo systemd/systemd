@@ -821,6 +821,7 @@ manpages = [
   ['systemd-update-utmp', 'systemd-update-utmp-runlevel.service'],
   'ENABLE_UTMP'],
  ['systemd-user-sessions.service', '8', ['systemd-user-sessions'], 'HAVE_PAM'],
+ ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],
  ['systemd-vconsole-setup.service',
   '8',
   ['systemd-vconsole-setup'],
@@ -952,6 +953,7 @@ manpages = [
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
  ['user@.service', '5', ['user-runtime-dir@.service'], ''],
+ ['userdbctl', '1', [], 'ENABLE_USERDB'],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE']
 ]
 # Really, do not edit.
