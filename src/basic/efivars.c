@@ -20,6 +20,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "virt.h"
 
 #if ENABLE_EFI
 
@@ -218,6 +219,41 @@ int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) 
                 return -ENOMEM;
 
         return efi_set_variable(vendor, name, u16, (char16_strlen(u16) + 1) * sizeof(char16_t));
+}
+
+bool is_efi_boot(void) {
+        if (detect_container() > 0)
+                return false;
+
+        return access("/sys/firmware/efi/", F_OK) >= 0;
+}
+
+static int read_flag(const char *varname) {
+        _cleanup_free_ void *v = NULL;
+        uint8_t b;
+        size_t s;
+        int r;
+
+        if (!is_efi_boot()) /* If this is not an EFI boot, assume the queried flags are zero */
+                return 0;
+
+        r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
+        if (r < 0)
+                return r;
+
+        if (s != 1)
+                return -EINVAL;
+
+        b = *(uint8_t *)v;
+        return !!b;
+}
+
+bool is_efi_secure_boot(void) {
+        return read_flag("SecureBoot") > 0;
+}
+
+bool is_efi_secure_boot_setup_mode(void) {
+        return read_flag("SetupMode") > 0;
 }
 
 int systemd_efi_options_variable(char **line) {
