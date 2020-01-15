@@ -2280,6 +2280,17 @@ if conf.get('ENABLE_COREDUMP') == 1
                    install : true,
                    install_dir : rootlibexecdir)
 
+        executable('systemd-coredumpd',
+                   systemd_coredumpd_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libacl,
+                                   libdw],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
         exe = executable('coredumpctl',
                          coredumpctl_sources,
                          include_directories : includes,

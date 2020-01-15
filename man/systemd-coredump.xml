@@ -18,31 +18,31 @@
 
   <refnamediv>
     <refname>systemd-coredump</refname>
-    <refname>systemd-coredump.socket</refname>
-    <refname>systemd-coredump@.service</refname>
+    <refname>systemd-coredumpd.socket</refname>
+    <refname>systemd-coredumpd@.service</refname>
     <refpurpose>Acquire, save and process core dumps</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename></para>
     <para><filename>/usr/lib/systemd/systemd-coredump</filename> <option>--backtrace</option></para>
-    <para><filename>systemd-coredump@.service</filename></para>
-    <para><filename>systemd-coredump.socket</filename></para>
+    <para><filename>systemd-coredumpd@.service</filename></para>
+    <para><filename>systemd-coredumpd.socket</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
-    <para><filename>systemd-coredump@.service</filename> is a system service that can acquire core
+    <para><filename>systemd-coredumpd@.service</filename> is a system service that can acquire core
     dumps from the kernel and handle them in various ways. The <command>systemd-coredump</command>
     executable does the actual work. It is invoked twice: once as the handler by the kernel, and the
-    second time in the <filename>systemd-coredump@.service</filename> to actually write the data to
+    second time in the <filename>systemd-coredumpd@.service</filename> to actually write the data to
     the journal.</para>
 
     <para>When the kernel invokes <command>systemd-coredump</command> to handle a core dump, it runs
     in privileged mode, and will connect to the socket created by the
-    <filename>systemd-coredump.socket</filename> unit, which in turn will spawn an unprivileged
-    <filename>systemd-coredump@.service</filename> instance to process the core dump. Hence
-    <filename>systemd-coredump.socket</filename> and <filename>systemd-coredump@.service</filename>
+    <filename>systemd-coredumpd.socket</filename> unit, which in turn will spawn an unprivileged
+    <filename>systemd-coredumpd@.service</filename> instance to process the core dump. Hence
+    <filename>systemd-coredumpd.socket</filename> and <filename>systemd-coredumpd@.service</filename>
     are helper units which do the actual processing of core dumps and are subject to normal service
     management.</para>
 

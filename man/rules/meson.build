@@ -671,7 +671,7 @@ manpages = [
  ['systemd-cgtop', '1', [], ''],
  ['systemd-coredump',
   '8',
-  ['systemd-coredump.socket', 'systemd-coredump@.service'],
+  ['systemd-coredumpd.socket', 'systemd-coredumpd@.service'],
   'ENABLE_COREDUMP'],
  ['systemd-cryptsetup-generator', '8', [], 'HAVE_LIBCRYPTSETUP'],
  ['systemd-cryptsetup@.service',
