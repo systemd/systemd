@@ -39,6 +39,18 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
+/* In SecureBoot mode this is probably not what you want. As your cmdline is
+ * cryptographically signed like when using Type #2 EFI Unified Kernel Images
+ * (https://systemd.io/BOOT_LOADER_SPECIFICATION/) The user's intention is then
+ * that the cmdline should not be modified.  You want to make sure that the
+ * system starts up as exactly specified in the signed artifact. */
+static int systemd_options_variable(char **line) {
+        if (is_efi_secure_boot())
+                return -ENODATA;
+
+        return systemd_efi_options_variable(line);
+}
+
 static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdlineFlags flags) {
         const char *q = *p;
         int r;
@@ -119,7 +131,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 
         /* We parse the EFI variable first, because later settings have higher priority. */
 
-        r = systemd_efi_options_variable(&line);
+        r = systemd_options_variable(&line);
         if (r < 0 && r != -ENODATA)
                 log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
 
@@ -250,7 +262,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
                 return r;
 
         line = mfree(line);
-        r = systemd_efi_options_variable(&line);
+        r = systemd_options_variable(&line);
         if (r == -ENODATA)
                 return false; /* Not found */
         if (r < 0)
