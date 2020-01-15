@@ -30,7 +30,7 @@ Other parts include a logging daemon, utilities to control basic system configur
 
 ---
 
-<pre style="color:white; background-color:black; font-size:smaller; width:45%; padding:6pt 8pt">
+<pre style="color:white; background-color:black; font-size:smaller; padding:6pt 8pt">
 Welcome to <span style="color:blue">Fedora 20 (Heisenbug)</span>!
 
 [  <span style="color:green">OK</span>  ] Reached target Remote File Systems.
