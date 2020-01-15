@@ -28,6 +28,10 @@ int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p);
 int efi_set_variable(sd_id128_t vendor, const char *name, const void *value, size_t size);
 int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p);
 
+bool is_efi_boot(void);
+bool is_efi_secure_boot(void);
+bool is_efi_secure_boot_setup_mode(void);
+
 int systemd_efi_options_variable(char **line);
 
 #else
@@ -50,6 +54,18 @@ static inline int efi_set_variable(sd_id128_t vendor, const char *name, const vo
 
 static inline int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *p) {
         return -EOPNOTSUPP;
+}
+
+static inline bool is_efi_boot(void) {
+        return false;
+}
+
+static inline bool is_efi_secure_boot(void) {
+        return false;
+}
+
+static inline bool is_efi_secure_boot_setup_mode(void) {
+        return false;
 }
 
 static inline int systemd_efi_options_variable(char **line) {
