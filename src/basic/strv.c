@@ -730,19 +730,26 @@ char **strv_sort(char **l) {
         return l;
 }
 
-bool strv_equal(char * const *a, char * const *b) {
+int strv_compare(char * const *a, char * const *b) {
+        int r;
 
-        if (strv_isempty(a))
-                return strv_isempty(b);
+        if (strv_isempty(a)) {
+                if (strv_isempty(b))
+                        return 0;
+                else
+                        return -1;
+        }
 
         if (strv_isempty(b))
-                return false;
+                return 1;
 
-        for ( ; *a || *b; ++a, ++b)
-                if (!streq_ptr(*a, *b))
-                        return false;
+        for ( ; *a || *b; ++a, ++b) {
+                r = strcmp_ptr(*a, *b);
+                if (r != 0)
+                        return r;
+        }
 
-        return true;
+        return 0;
 }
 
 void strv_print(char * const *l) {

@@ -14,6 +14,7 @@
 #include "bus-util.h"
 #include "dns-domain.h"
 #include "escape.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "gcrypt-util.h"
 #include "main-func.h"
@@ -984,6 +985,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
 static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_bus *bus = userdata;
         uint64_t n_current_transactions, n_total_transactions,
                 cache_size, n_cache_hit, n_cache_miss,
@@ -1025,14 +1027,6 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("%sTransactions%s\n"
-               "Current Transactions: %" PRIu64 "\n"
-               "  Total Transactions: %" PRIu64 "\n",
-               ansi_highlight(),
-               ansi_normal(),
-               n_current_transactions,
-               n_total_transactions);
-
         reply = sd_bus_message_unref(reply);
 
         r = sd_bus_get_property(bus,
@@ -1052,16 +1046,6 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                                 &n_cache_miss);
         if (r < 0)
                 return bus_log_parse_error(r);
-
-        printf("\n%sCache%s\n"
-               "  Current Cache Size: %" PRIu64 "\n"
-               "          Cache Hits: %" PRIu64 "\n"
-               "        Cache Misses: %" PRIu64 "\n",
-               ansi_highlight(),
-               ansi_normal(),
-               cache_size,
-               n_cache_hit,
-               n_cache_miss);
 
         reply = sd_bus_message_unref(reply);
 
@@ -1084,17 +1068,53 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        printf("\n%sDNSSEC Verdicts%s\n"
-               "              Secure: %" PRIu64 "\n"
-               "            Insecure: %" PRIu64 "\n"
-               "               Bogus: %" PRIu64 "\n"
-               "       Indeterminate: %" PRIu64 "\n",
-               ansi_highlight(),
-               ansi_normal(),
-               n_dnssec_secure,
-               n_dnssec_insecure,
-               n_dnssec_bogus,
-               n_dnssec_indeterminate);
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        r = table_add_many(table,
+                           TABLE_STRING, "Transactions",
+                           TABLE_SET_COLOR, ansi_highlight(),
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Current Transactions:",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_UINT64, n_current_transactions,
+                           TABLE_STRING, "Total Transactions:",
+                           TABLE_UINT64, n_total_transactions,
+                           TABLE_EMPTY, TABLE_EMPTY,
+                           TABLE_STRING, "Cache",
+                           TABLE_SET_COLOR, ansi_highlight(),
+                           TABLE_SET_ALIGN_PERCENT, 0,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Current Cache Size:",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_UINT64, cache_size,
+                           TABLE_STRING, "Cache Hits:",
+                           TABLE_UINT64, n_cache_hit,
+                           TABLE_STRING, "Cache Misses:",
+                           TABLE_UINT64, n_cache_miss,
+                           TABLE_EMPTY, TABLE_EMPTY,
+                           TABLE_STRING, "DNSSEC Verdicts",
+                           TABLE_SET_COLOR, ansi_highlight(),
+                           TABLE_SET_ALIGN_PERCENT, 0,
+                           TABLE_EMPTY,
+                           TABLE_STRING, "Secure:",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_UINT64, n_dnssec_secure,
+                           TABLE_STRING, "Insecure:",
+                           TABLE_UINT64, n_dnssec_insecure,
+                           TABLE_STRING, "Bogus:",
+                           TABLE_UINT64, n_dnssec_bogus,
+                           TABLE_STRING, "Indeterminate:",
+                           TABLE_UINT64, n_dnssec_indeterminate);
+        if (r < 0)
+                table_log_add_error(r);
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
 
         return 0;
 }
@@ -1365,6 +1385,21 @@ static void link_info_clear(struct link_info *p) {
         strv_free(p->ntas);
 }
 
+static int dump_list(Table *table, const char *prefix, char * const *l) {
+        int r;
+
+        if (strv_isempty(l))
+                return 0;
+
+        r = table_add_many(table,
+                           TABLE_STRING, prefix,
+                           TABLE_STRV, l);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",      NULL,                        offsetof(struct link_info, scopes_mask)      },
@@ -1383,9 +1418,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_clear) struct link_info link_info = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *p = NULL;
         char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE + 1] = "";
-        char **i;
         int r;
 
         assert(bus);
@@ -1471,49 +1506,80 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         printf("%sLink %i (%s)%s\n",
                ansi_highlight(), ifindex, name, ansi_normal());
 
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_header(table, false);
+
+        r = table_add_many(table,
+                           TABLE_STRING, "Current Scopes:",
+                           TABLE_SET_ALIGN_PERCENT, 100);
+        if (r < 0)
+                return table_log_add_error(r);
+
         if (link_info.scopes_mask == 0)
-                printf("      Current Scopes: none\n");
-        else
-                printf("      Current Scopes:%s%s%s%s%s\n",
-                       link_info.scopes_mask & SD_RESOLVED_DNS ? " DNS" : "",
-                       link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV4 ? " LLMNR/IPv4" : "",
-                       link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV6 ? " LLMNR/IPv6" : "",
-                       link_info.scopes_mask & SD_RESOLVED_MDNS_IPV4 ? " mDNS/IPv4" : "",
-                       link_info.scopes_mask & SD_RESOLVED_MDNS_IPV6 ? " mDNS/IPv6" : "");
+                r = table_add_cell(table, NULL, TABLE_STRING, "none");
+        else {
+                _cleanup_free_ char *buf = NULL;
+                size_t len;
 
-        printf("DefaultRoute setting: %s\n"
-               "       LLMNR setting: %s\n"
-               "MulticastDNS setting: %s\n"
-               "  DNSOverTLS setting: %s\n"
-               "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n",
-               yes_no(link_info.default_route),
-               strna(link_info.llmnr),
-               strna(link_info.mdns),
-               strna(link_info.dns_over_tls),
-               strna(link_info.dnssec),
-               yes_no(link_info.dnssec_supported));
+                if (asprintf(&buf, "%s%s%s%s%s",
+                             link_info.scopes_mask & SD_RESOLVED_DNS ? "DNS " : "",
+                             link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV4 ? "LLMNR/IPv4 " : "",
+                             link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV6 ? "LLMNR/IPv6 " : "",
+                             link_info.scopes_mask & SD_RESOLVED_MDNS_IPV4 ? "mDNS/IPv4 " : "",
+                             link_info.scopes_mask & SD_RESOLVED_MDNS_IPV6 ? "mDNS/IPv6 " : "") < 0)
+                        return log_oom();
 
-        if (link_info.current_dns)
-                printf("  Current DNS Server: %s\n", link_info.current_dns);
+                len = strlen(buf);
+                assert(len > 0);
+                buf[len - 1] = '\0';
 
-        STRV_FOREACH(i, link_info.dns) {
-                printf("         %s %s\n",
-                       i == link_info.dns ? "DNS Servers:" : "            ",
-                       *i);
+                r = table_add_cell(table, NULL, TABLE_STRING, buf);
+        }
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_STRING, "DefaultRoute setting:",
+                           TABLE_BOOLEAN, link_info.default_route,
+                           TABLE_STRING, "LLMNR setting:",
+                           TABLE_STRING, strna(link_info.llmnr),
+                           TABLE_STRING, "MulticastDNS setting:",
+                           TABLE_STRING, strna(link_info.mdns),
+                           TABLE_STRING, "DNSOverTLS setting:",
+                           TABLE_STRING, strna(link_info.dns_over_tls),
+                           TABLE_STRING, "DNSSEC setting:",
+                           TABLE_STRING, strna(link_info.dnssec),
+                           TABLE_STRING, "DNSSEC supported:",
+                           TABLE_BOOLEAN, link_info.dnssec_supported);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (link_info.current_dns) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Current DNS Server:",
+                                   TABLE_STRING, link_info.current_dns);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
-        STRV_FOREACH(i, link_info.domains) {
-                printf("          %s %s\n",
-                       i == link_info.domains ? "DNS Domain:" : "           ",
-                       *i);
-        }
+        r = dump_list(table, "DNS Servers:", link_info.dns);
+        if (r < 0)
+                return r;
 
-        STRV_FOREACH(i, link_info.ntas) {
-                printf("          %s %s\n",
-                       i == link_info.ntas ? "DNSSEC NTA:" : "           ",
-                       *i);
-        }
+        r = dump_list(table, "DNS Domain:", link_info.domains);
+        if (r < 0)
+                return r;
+
+        r = dump_list(table, "DNSSEC NTA:", link_info.ntas);
+        if (r < 0)
+                return r;
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
 
         if (empty_line)
                 *empty_line = true;
@@ -1653,7 +1719,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(global_info_clear) struct global_info global_info = {};
-        char **i;
+        _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
         assert(bus);
@@ -1711,44 +1777,55 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
 
-        printf("       LLMNR setting: %s\n"
-               "MulticastDNS setting: %s\n"
-               "  DNSOverTLS setting: %s\n"
-               "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n",
-               strna(global_info.llmnr),
-               strna(global_info.mdns),
-               strna(global_info.dns_over_tls),
-               strna(global_info.dnssec),
-               yes_no(global_info.dnssec_supported));
+        table = table_new("key", "value");
+        if (!table)
+                return log_oom();
 
-        if (global_info.current_dns)
-                printf("  Current DNS Server: %s\n", global_info.current_dns);
+        table_set_header(table, false);
 
-        STRV_FOREACH(i, global_info.dns) {
-                printf("         %s %s\n",
-                       i == global_info.dns ? "DNS Servers:" : "            ",
-                       *i);
+        r = table_add_many(table,
+                           TABLE_STRING, "LLMNR setting:",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_STRING, strna(global_info.llmnr),
+                           TABLE_STRING, "MulticastDNS setting:",
+                           TABLE_STRING, strna(global_info.mdns),
+                           TABLE_STRING, "DNSOverTLS setting:",
+                           TABLE_STRING, strna(global_info.dns_over_tls),
+                           TABLE_STRING, "DNSSEC setting:",
+                           TABLE_STRING, strna(global_info.dnssec),
+                           TABLE_STRING, "DNSSEC supported:",
+                           TABLE_BOOLEAN, global_info.dnssec_supported);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (global_info.current_dns) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "Current DNS Server:",
+                                   TABLE_STRING, global_info.current_dns);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
-        STRV_FOREACH(i, global_info.fallback_dns) {
-                printf("%s %s\n",
-                       i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ",
-                       *i);
-        }
+        r = dump_list(table, "DNS Servers:", global_info.dns);
+        if (r < 0)
+                return r;
 
-        STRV_FOREACH(i, global_info.domains) {
-                printf("          %s %s\n",
-                       i == global_info.domains ? "DNS Domain:" : "           ",
-                       *i);
-        }
+        r = dump_list(table, "Fallback DNS Servers:", global_info.fallback_dns);
+        if (r < 0)
+                return r;
+
+        r = dump_list(table, "DNS Domain:", global_info.domains);
+        if (r < 0)
+                return r;
 
         strv_sort(global_info.ntas);
-        STRV_FOREACH(i, global_info.ntas) {
-                printf("          %s %s\n",
-                       i == global_info.ntas ? "DNSSEC NTA:" : "           ",
-                       *i);
-        }
+        r = dump_list(table, "DNSSEC NTA:", global_info.ntas);
+        if (r < 0)
+                return r;
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
 
         *empty_line = true;
 

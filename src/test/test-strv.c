@@ -711,27 +711,33 @@ static void test_strv_push(void) {
         assert_se(streq_ptr(a[3], NULL));
 }
 
-static void test_strv_equal(void) {
+static void test_strv_compare(void) {
         _cleanup_strv_free_ char **a = NULL;
         _cleanup_strv_free_ char **b = NULL;
         _cleanup_strv_free_ char **c = NULL;
+        _cleanup_strv_free_ char **d = NULL;
 
         log_info("/* %s */", __func__);
 
         a = strv_new("one", "two", "three");
         assert_se(a);
         b = strv_new("one", "two", "three");
-        assert_se(a);
+        assert_se(b);
         c = strv_new("one", "two", "three", "four");
-        assert_se(a);
+        assert_se(c);
+        d = strv_new(NULL);
+        assert_se(d);
 
-        assert_se(strv_equal(a, a));
-        assert_se(strv_equal(a, b));
-        assert_se(strv_equal(NULL, NULL));
+        assert_se(strv_compare(a, a) == 0);
+        assert_se(strv_compare(a, b) == 0);
+        assert_se(strv_compare(d, d) == 0);
+        assert_se(strv_compare(d, NULL) == 0);
+        assert_se(strv_compare(NULL, NULL) == 0);
 
-        assert_se(!strv_equal(a, c));
-        assert_se(!strv_equal(b, c));
-        assert_se(!strv_equal(b, NULL));
+        assert_se(strv_compare(a, c) < 0);
+        assert_se(strv_compare(b, c) < 0);
+        assert_se(strv_compare(b, d) == 1);
+        assert_se(strv_compare(b, NULL) == 1);
 }
 
 static void test_strv_is_uniq(void) {
@@ -990,7 +996,7 @@ int main(int argc, char *argv[]) {
         test_strv_insert();
         test_strv_push_prepend();
         test_strv_push();
-        test_strv_equal();
+        test_strv_compare();
         test_strv_is_uniq();
         test_strv_reverse();
         test_strv_shell_escape();
