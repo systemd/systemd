@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "glob-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
@@ -267,7 +268,7 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         return 0;
 }
 
-static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
+static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, bool matched_patterns[]) {
         _cleanup_strv_free_ char **altnames = NULL;
         const char *name;
         int ifindex, r;
@@ -297,20 +298,26 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
 
         if (patterns) {
                 char str[DECIMAL_STR_MAX(int)];
+                size_t pos;
+
+                assert(matched_patterns);
 
                 xsprintf(str, "%i", ifindex);
-                if (!strv_fnmatch(patterns, str, 0) && !strv_fnmatch(patterns, name, 0)) {
+                if (!strv_fnmatch_full(patterns, str, 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
                         bool match = false;
                         char **p;
 
                         STRV_FOREACH(p, altnames)
-                                if (strv_fnmatch(patterns, *p, 0)) {
+                                if (strv_fnmatch_full(patterns, *p, 0, &pos)) {
                                         match = true;
                                         break;
                                 }
                         if (!match)
                                 return 0;
                 }
+
+                matched_patterns[pos] = true;
         }
 
         r = sd_rtnl_message_link_get_type(m, &info->iftype);
@@ -465,11 +472,18 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
+        _cleanup_free_ bool *matched_patterns = NULL;
+        if (patterns) {
+                matched_patterns = new0(bool, strv_length(patterns));
+                if (!matched_patterns)
+                        return log_oom();
+        }
+
         for (i = reply; i; i = sd_netlink_message_next(i)) {
                 if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
-                r = decode_link(i, links + c, patterns);
+                r = decode_link(i, links + c, patterns, matched_patterns);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -487,6 +501,20 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 c++;
         }
 
+        /* Look if we matched all our arguments that are not globs. It
+         * is OK for a glob to match nothing, but not for an exact argument. */
+        for (size_t pos = 0; pos < strv_length(patterns); pos++) {
+                if (matched_patterns[pos])
+                        continue;
+
+                if (string_is_glob(patterns[pos]))
+                        log_debug("Pattern \"%s\" doesn't match any interface, ignoring.",
+                                  patterns[pos]);
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "Interface \"%s\" not found.", patterns[pos]);
+        }
+
         typesafe_qsort(links, c, link_info_compare);
 
         if (bus)
@@ -494,6 +522,9 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                         (void) acquire_link_bitrates(bus, links + j);
 
         *ret = TAKE_PTR(links);
+
+        if (patterns && c == 0)
+                log_warning("No interfaces matched.");
 
         return (int) c;
 }

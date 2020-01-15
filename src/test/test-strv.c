@@ -924,14 +924,16 @@ static void test_foreach_string(void) {
 
 static void test_strv_fnmatch(void) {
         _cleanup_strv_free_ char **v = NULL;
+        size_t pos;
 
         log_info("/* %s */", __func__);
 
-        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a", 0));
+        assert_se(!strv_fnmatch(STRV_MAKE_EMPTY, "a"));
 
-        v = strv_new("*\\*");
-        assert_se(!strv_fnmatch(v, "\\", 0));
-        assert_se(strv_fnmatch(v, "\\", FNM_NOESCAPE));
+        v = strv_new("xxx", "*\\*", "yyy");
+        assert_se(!strv_fnmatch_full(v, "\\", 0, NULL));
+        assert_se(strv_fnmatch_full(v, "\\", FNM_NOESCAPE, &pos));
+        assert(pos == 1);
 }
 
 int main(int argc, char *argv[]) {
