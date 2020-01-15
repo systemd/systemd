@@ -6,6 +6,9 @@
 #include "strv.h"
 #include "user-record-nss.h"
 
+#define SET_IF(field, condition, value, fallback)  \
+        field = (condition) ? (value) : (fallback)
+
 int nss_passwd_to_user_record(
                 const struct passwd *pwd,
                 const struct spwd *spwd,
@@ -47,70 +50,50 @@ int nss_passwd_to_user_record(
         hr->uid = pwd->pw_uid;
         hr->gid = pwd->pw_gid;
 
-        if (spwd) {
-                if (hashed_password_valid(spwd->sp_pwdp)) {
-                        strv_free_erase(hr->hashed_password);
-                        hr->hashed_password = strv_new(spwd->sp_pwdp);
-                        if (!hr->hashed_password)
-                                return -ENOMEM;
-                } else
-                        hr->hashed_password = strv_free_erase(hr->hashed_password);
-
-                /* shadow-utils suggests using "chage -E 0" (or -E 1, depending on which man page you check)
-                 * for locking a whole account, hence check for that. Note that it also defines a way to lock
-                 * just a password instead of the whole account, but that's mostly pointless in times of
-                 * password-less authorization, hence let's not bother. */
-
-                if (spwd->sp_expire >= 0)
-                        hr->locked = spwd->sp_expire <= 1;
-                else
-                        hr->locked = -1;
-
-                if (spwd->sp_expire > 1 && (uint64_t) spwd->sp_expire < (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->not_after_usec = spwd->sp_expire * USEC_PER_DAY;
-                else
-                        hr->not_after_usec = UINT64_MAX;
-
-                if (spwd->sp_lstchg >= 0)
-                        hr->password_change_now = spwd->sp_lstchg == 0;
-                else
-                        hr->password_change_now = -1;
-
-                if (spwd->sp_lstchg > 0 && (uint64_t) spwd->sp_lstchg <= (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->last_password_change_usec = spwd->sp_lstchg * USEC_PER_DAY;
-                else
-                        hr->last_password_change_usec = UINT64_MAX;
-
-                if (spwd->sp_min > 0 && (uint64_t) spwd->sp_min <= (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->password_change_min_usec = spwd->sp_min * USEC_PER_DAY;
-                else
-                        hr->password_change_min_usec = UINT64_MAX;
-
-                if (spwd->sp_max > 0 && (uint64_t) spwd->sp_max <= (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->password_change_max_usec = spwd->sp_max * USEC_PER_DAY;
-                else
-                        hr->password_change_max_usec = UINT64_MAX;
-
-                if (spwd->sp_warn > 0 && (uint64_t) spwd->sp_warn <= (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->password_change_warn_usec = spwd->sp_warn * USEC_PER_DAY;
-                else
-                        hr->password_change_warn_usec = UINT64_MAX;
-
-                if (spwd->sp_inact > 0 && (uint64_t) spwd->sp_inact <= (UINT64_MAX-1)/USEC_PER_DAY)
-                        hr->password_change_inactive_usec = spwd->sp_inact * USEC_PER_DAY;
-                else
-                        hr->password_change_inactive_usec = UINT64_MAX;
-        } else {
+        if (spwd && hashed_password_valid(spwd->sp_pwdp)) {
+                strv_free_erase(hr->hashed_password);
+                hr->hashed_password = strv_new(spwd->sp_pwdp);
+                if (!hr->hashed_password)
+                        return -ENOMEM;
+        } else
                 hr->hashed_password = strv_free_erase(hr->hashed_password);
-                hr->locked = -1;
-                hr->not_after_usec = UINT64_MAX;
-                hr->password_change_now = -1,
-                hr->last_password_change_usec = UINT64_MAX;
-                hr->password_change_min_usec = UINT64_MAX;
-                hr->password_change_max_usec = UINT64_MAX;
-                hr->password_change_warn_usec = UINT64_MAX;
-                hr->password_change_inactive_usec = UINT64_MAX;
-        }
+
+        /* shadow-utils suggests using "chage -E 0" (or -E 1, depending on which man page you check)
+         * for locking a whole account, hence check for that. Note that it also defines a way to lock
+         * just a password instead of the whole account, but that's mostly pointless in times of
+         * password-less authorization, hence let's not bother. */
+
+         SET_IF(hr->locked,
+                spwd && spwd->sp_expire >= 0,
+                spwd->sp_expire <= 1, -1);
+
+         SET_IF(hr->not_after_usec,
+                spwd && spwd->sp_expire > 1 && (uint64_t) spwd->sp_expire < (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_expire * USEC_PER_DAY, UINT64_MAX);
+
+         SET_IF(hr->password_change_now,
+                spwd && spwd->sp_lstchg >= 0,
+                spwd->sp_lstchg == 0, -1);
+
+         SET_IF(hr->last_password_change_usec,
+                spwd && spwd->sp_lstchg > 0 && (uint64_t) spwd->sp_lstchg <= (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_lstchg * USEC_PER_DAY, UINT64_MAX);
+
+         SET_IF(hr->password_change_min_usec,
+                spwd && spwd->sp_min > 0 && (uint64_t) spwd->sp_min <= (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_min * USEC_PER_DAY, UINT64_MAX);
+
+         SET_IF(hr->password_change_max_usec,
+                spwd && spwd->sp_max > 0 && (uint64_t) spwd->sp_max <= (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_max * USEC_PER_DAY, UINT64_MAX);
+
+         SET_IF(hr->password_change_warn_usec,
+                spwd && spwd->sp_warn > 0 && (uint64_t) spwd->sp_warn <= (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_warn * USEC_PER_DAY, UINT64_MAX);
+
+         SET_IF(hr->password_change_inactive_usec,
+                spwd && spwd->sp_inact > 0 && (uint64_t) spwd->sp_inact <= (UINT64_MAX-1)/USEC_PER_DAY,
+                spwd->sp_inact * USEC_PER_DAY, UINT64_MAX);
 
         hr->json = json_variant_unref(hr->json);
         r = json_build(&hr->json, JSON_BUILD_OBJECT(
