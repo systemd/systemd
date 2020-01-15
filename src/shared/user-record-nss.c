@@ -31,29 +31,18 @@ int nss_passwd_to_user_record(
         if (r < 0)
                 return r;
 
-        if (isempty(pwd->pw_gecos) || streq_ptr(pwd->pw_gecos, hr->user_name))
-                hr->real_name = mfree(hr->real_name);
-        else {
-                r = free_and_strdup(&hr->real_name, pwd->pw_gecos);
-                if (r < 0)
-                        return r;
-        }
+        r = free_and_strdup(&hr->real_name,
+                            streq_ptr(pwd->pw_gecos, hr->user_name) ? NULL : empty_to_null(pwd->pw_gecos));
+        if (r < 0)
+                return r;
 
-        if (isempty(pwd->pw_dir))
-                hr->home_directory = mfree(hr->home_directory);
-        else {
-                r = free_and_strdup(&hr->home_directory, pwd->pw_dir);
-                if (r < 0)
-                        return r;
-        }
+        r = free_and_strdup(&hr->home_directory, empty_to_null(pwd->pw_dir));
+        if (r < 0)
+                return r;
 
-        if (isempty(pwd->pw_shell))
-                hr->shell = mfree(hr->shell);
-        else {
-                r = free_and_strdup(&hr->shell, pwd->pw_shell);
-                if (r < 0)
-                        return r;
-        }
+        r = free_and_strdup(&hr->shell, empty_to_null(pwd->pw_shell));
+        if (r < 0)
+                return r;
 
         hr->uid = pwd->pw_uid;
         hr->gid = pwd->pw_gid;
