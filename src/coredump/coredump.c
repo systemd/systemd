@@ -67,40 +67,26 @@
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 enum {
-        /* We use these as array indexes for either accessing the process metadata passed by
-         * the kernel via argv[] our the process metadata cached in meta[].
-         *
-         * Indices prefixed with META_ARGV_* can be interchangibly used with argv[] or with
-         * meta[] whereas those prefixed with META_* (ie with ARGV_) can only be used with
-         * meta[]. */
+        /* The following fields are mandatory and are passed by the kernel when running in handler
+         * mode. */
 
-        /* META_ARGV_* indices match the indices of the strings array passed by the kernel
-         * according to our pattern * defined in /proc/sys/kernel/core_pattern (see
-         * man:core(5)). */
-
-        _META_START = 1,
-
-        META_ARGV_PID = _META_START,  /* %P: as seen in the initial pid namespace */
-        META_ARGV_UID_IGNORED,        /* %u: as seen in the initial user namespace */
-        META_ARGV_GID_IGNORED,        /* %g: as seen in the initial user namespace */
-        META_ARGV_SIGNAL,             /* %s: number of signal causing dump */
-        META_ARGV_TIMESTAMP,          /* %t: time of dump, expressed as seconds since the Epoch */
-        META_ARGV_RLIMIT,             /* %c: core file size soft resource limit */
-        META_ARGV_HOSTNAME,           /* %h: hostname */
-
-        _META_ARGV_MAX,
+        META_PID,                /* %P: as seen in the initial pid namespace */
+        META_SIGNAL,             /* %s: number of signal causing dump */
+        META_TIMESTAMP,          /* %t: time of dump, expressed as seconds since the Epoch */
+        META_RLIMIT,             /* %c: core file size soft resource limit */
+        META_HOSTNAME,           /* %h: hostname */
 
         /* The following fields are cached since they're used for naming coredump files, and
          * attaching xattrs. Unlike the previous ones they are retrieved from /proc. */
 
-        META_COMM = _META_ARGV_MAX,
+        META_COMM,
         META_UID,
         META_GID,
 
         _META_MANDATORY_MAX,
 
-        /* The rest are similar to the previous ones except that we won't fail if one of
-         * them is missing. */
+        /* The rest are similar to the previous ones except that we won't fail if one of them is
+         * missing. */
 
         META_EXE = _META_MANDATORY_MAX,
         META_UNIT,
@@ -109,11 +95,11 @@ enum {
 };
 
 static const char * const meta_field_names[_META_MAX] = {
-        [META_ARGV_PID]          = "COREDUMP_PID=",
-        [META_ARGV_SIGNAL]       = "COREDUMP_SIGNAL=",
-        [META_ARGV_TIMESTAMP]    = "COREDUMP_TIMESTAMP=",
-        [META_ARGV_RLIMIT]       = "COREDUMP_RLIMIT=",
-        [META_ARGV_HOSTNAME]     = "COREDUMP_HOSTNAME=",
+        [META_PID]               = "COREDUMP_PID=",
+        [META_SIGNAL]            = "COREDUMP_SIGNAL=",
+        [META_TIMESTAMP]         = "COREDUMP_TIMESTAMP=",
+        [META_RLIMIT]            = "COREDUMP_RLIMIT=",
+        [META_HOSTNAME]          = "COREDUMP_HOSTNAME=",
         [META_COMM]              = "COREDUMP_COMM=",
         [META_UID]               = "COREDUMP_UID=",
         [META_GID]               = "COREDUMP_GID=",
@@ -226,15 +212,15 @@ static int fix_acl(int fd, uid_t uid) {
 static int fix_xattr(int fd, const Context *context) {
 
         static const char * const xattrs[_META_MAX] = {
-                [META_ARGV_PID]          = "user.coredump.pid",
-                [META_ARGV_SIGNAL]       = "user.coredump.signal",
-                [META_ARGV_TIMESTAMP]    = "user.coredump.timestamp",
-                [META_ARGV_RLIMIT]       = "user.coredump.rlimit",
-                [META_ARGV_HOSTNAME]     = "user.coredump.hostname",
-                [META_COMM]              = "user.coredump.comm",
-                [META_UID]               = "user.coredump.uid",
-                [META_GID]               = "user.coredump.gid",
-                [META_EXE]               = "user.coredump.exe",
+                [META_PID]          = "user.coredump.pid",
+                [META_SIGNAL]       = "user.coredump.signal",
+                [META_TIMESTAMP]    = "user.coredump.timestamp",
+                [META_RLIMIT]       = "user.coredump.rlimit",
+                [META_HOSTNAME]     = "user.coredump.hostname",
+                [META_COMM]         = "user.coredump.comm",
+                [META_UID]          = "user.coredump.uid",
+                [META_GID]          = "user.coredump.gid",
+                [META_EXE]          = "user.coredump.exe",
         };
 
         int r = 0;
@@ -330,11 +316,11 @@ static int make_filename(const Context *context, char **ret) {
         if (r < 0)
                 return r;
 
-        p = filename_escape(context->meta[META_ARGV_PID]);
+        p = filename_escape(context->meta[META_PID]);
         if (!p)
                 return -ENOMEM;
 
-        t = filename_escape(context->meta[META_ARGV_TIMESTAMP]);
+        t = filename_escape(context->meta[META_TIMESTAMP]);
         if (!t)
                 return -ENOMEM;
 
@@ -371,10 +357,10 @@ static int save_external_coredump(
         assert(ret_data_fd);
         assert(ret_size);
 
-        r = safe_atou64(context->meta[META_ARGV_RLIMIT], &rlimit);
+        r = safe_atou64(context->meta[META_RLIMIT], &rlimit);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse resource limit '%s': %m",
-                                       context->meta[META_ARGV_RLIMIT]);
+                                       context->meta[META_RLIMIT]);
         if (rlimit < page_size()) {
                 /* Is coredumping disabled? Then don't bother saving/processing the
                  * coredump.  Anything below PAGE_SIZE cannot give a readable coredump
@@ -382,7 +368,7 @@ static int save_external_coredump(
                  * is usually the same as PAGE_SIZE. */
                 return log_info_errno(SYNTHETIC_ERRNO(EBADSLT),
                                       "Resource limits disable core dumping for process %s (%s).",
-                                      context->meta[META_ARGV_PID], context->meta[META_COMM]);
+                                      context->meta[META_PID], context->meta[META_COMM]);
         }
 
         process_limit = MAX(arg_process_size_max, storage_size_max());
@@ -406,7 +392,7 @@ static int save_external_coredump(
         r = copy_bytes(input_fd, fd, max_size, 0);
         if (r < 0) {
                 log_error_errno(r, "Cannot store coredump of %s (%s): %m",
-                                context->meta[META_ARGV_PID], context->meta[META_COMM]);
+                                context->meta[META_PID], context->meta[META_COMM]);
                 goto fail;
         }
         *ret_truncated = r == 1;
@@ -779,7 +765,7 @@ static int submit_coredump(
 #endif
 
 log:
-        core_message = strjoina("Process ", context->meta[META_ARGV_PID],
+        core_message = strjoina("Process ", context->meta[META_PID],
                                 " (", context->meta[META_COMM], ") of user ",
                                 context->meta[META_UID], " dumped core.",
                                 context->is_journald && filename ? "\nCoredump diverted to " : NULL,
@@ -831,14 +817,13 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
 
         assert(context);
         assert(iovw);
-        assert(iovw->count >= _META_ARGV_MAX - 1);
 
         /* The context does not allocate any memory on its own */
 
         for (n = 0; n < iovw->count; n++) {
                 struct iovec *iovec = iovw->iovec + n;
 
-                for (i = _META_START; i < _META_MAX; i++) {
+                for (i = 0; i < _META_MAX; i++) {
                         char *p;
 
                         /* Note that these strings are NUL terminated, because we made sure that a
@@ -856,13 +841,13 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         }
 
         /* Check for the presence of pid and nspid */
-        if (!context->meta[META_ARGV_PID])
+        if (!context->meta[META_PID])
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to find the PID of crashing process");
 
-        r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
+        r = parse_pid(context->meta[META_PID], &context->pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+                return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_PID]);
 
         /* Cache uid and gid */
         if (context->meta[META_UID]) {
@@ -878,7 +863,7 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         }
 
         unit = context->meta[META_UNIT];
-        context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
+        context->is_pid1 = streq(context->meta[META_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
         context->is_journald = streq_ptr(unit, SPECIAL_JOURNALD_SERVICE);
 
         return 0;
@@ -978,7 +963,7 @@ static int process_socket(int fd) {
                 goto finish;
 
         /* Make sure we received at least all fields we need. */
-        for (i = _META_START; i < _META_MANDATORY_MAX; i++)
+        for (i = 0; i < _META_MANDATORY_MAX; i++)
                 if (!context.meta[i]) {
                         r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                             "A mandatory argument (%i) has not been sent, aborting.",
@@ -1058,59 +1043,49 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         return 0;
 }
 
-static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *context,
-                                         int argc, char **argv) {
-        _cleanup_free_ char *free_timestamp = NULL;
-        int i, r, signo;
-        char *t;
+static int gather_pid_metadata_from_strv(struct iovec_wrapper *iovw, Context *context, char **strv) {
+        char **s;
+        int r;
 
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
          * we'll forward to the socket unit */
 
-        if (argc < _META_ARGV_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Not enough arguments passed by the kernel (%i, expected %i).",
-                                       argc - 1, _META_ARGV_MAX - 1);
+        STRV_FOREACH(s, strv) {
+                char *p, *v;
 
-        for (i = _META_START; i < _META_ARGV_MAX; i++) {
+                p = *s;
+                v = strchr(p, '=');
+                if (!v || v[1] == '\0')
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Badly formatted parameter '%s'", p);
 
-                t = argv[i];
+                if (startswith(p, "_SIGNAL=")) {
+                        int signo;
 
-                switch (i) {
-                case META_ARGV_UID_IGNORED:
-                        log_debug("Ignoring UID passed by the kernel, we'll read it from /proc");
-                        continue;
+                        /* For signal, record its pretty name too */
+                        if (safe_atoi(v, &signo) >= 0 && SIGNAL_VALID(signo))
+                                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
+                                                             signal_to_string(signo));
 
-                case META_ARGV_GID_IGNORED:
-                        log_debug("Ignoring GID passed by the kernel, we'll read it from /proc");
-                        continue;
-
-                case META_ARGV_TIMESTAMP:
+                } else if (startswith(p, "_TIMESTAMP="))
                         /* The journal fields contain the timestamp padded with six
                          * zeroes, so that the kernel-supplied 1s granularity timestamps
                          * becomes 1µs granularity, i.e. the granularity systemd usually
                          * operates in. */
-                        t = free_timestamp = strjoin(argv[i], "000000");
-                        if (!t)
-                                return log_oom();
-                        break;
-                case META_ARGV_SIGNAL:
-                        /* For signal, record its pretty name too */
-                        if (safe_atoi(argv[i], &signo) >= 0 && SIGNAL_VALID(signo))
-                                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
-                                                             signal_to_string(signo));
-                        break;
-                default:
-                        break;
-                }
+                        p = strjoina(p, "000000");
 
-                r = iovw_put_string_field(iovw, meta_field_names[i], t);
-                if (r < 0)
+                p = (p[0] == '_') ? strjoin("COREDUMP", p) : strdup(p);
+                if (!p)
+                        return log_oom();
+
+                r = iovw_put(iovw, p, strlen(p));
+                if (r < 0) {
+                        free(p);
                         return r;
+                }
         }
 
         /* Cache some of the process metadata we collected so far and that we'll need to
-         * access soon */
+         * access soon. */
         return save_context(context, iovw);
 }
 
@@ -1238,7 +1213,7 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         return save_context(context, iovw);
 }
 
-static int process_kernel(int argc, char* argv[]) {
+static int process_kernel(char* argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         int r;
@@ -1253,7 +1228,7 @@ static int process_kernel(int argc, char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc, argv);
+        r = gather_pid_metadata_from_strv(iovw, &context, argv);
         if (r < 0)
                 goto finish;
 
@@ -1289,7 +1264,7 @@ static int process_kernel(int argc, char* argv[]) {
         return r;
 }
 
-static int process_backtrace(int argc, char *argv[]) {
+static int process_backtrace(char *argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
         char *message;
@@ -1307,7 +1282,7 @@ static int process_backtrace(int argc, char *argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed via argv[] */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc, argv);
+        r = gather_pid_metadata_from_strv(iovw, &context, argv);
         if (r < 0)
                 goto finish;
 
@@ -1330,10 +1305,10 @@ static int process_backtrace(int argc, char *argv[]) {
         if (journal_importer_eof(&importer)) {
                 log_warning("Did not receive a full journal entry on stdin, ignoring message sent by reporter");
 
-                message = strjoina("Process ", context.meta[META_ARGV_PID],
+                message = strjoina("Process ", context.meta[META_PID],
                                   " (", context.meta[META_COMM], ")"
                                   " of user ", context.meta[META_UID],
-                                  " failed with ", context.meta[META_ARGV_SIGNAL]);
+                                  " failed with ", context.meta[META_SIGNAL]);
 
                 r = iovw_put_string_field(iovw, "MESSAGE=", message);
                 if (r < 0)
@@ -1384,17 +1359,11 @@ static int run(int argc, char *argv[]) {
         /* If we got an fd passed, we are running in coredumpd mode. Otherwise we
          * are invoked from the kernel as coredump handler. */
         if (r == 0) {
-                if (streq_ptr(argv[1], "--backtrace")) {
-                        int i;
+                if (streq_ptr(argv[1], "--backtrace"))
+                        /* Skip --backtrace from the argument list */
+                        return process_backtrace(argv + 2);
 
-                        /* Drop --backtrace from the argument list */
-                        for (i = 1; i < argc; i++)
-                                argv[i] = argv[i + 1];
-                        argc--;
-
-                        return process_backtrace(argc, argv);
-                }
-                return process_kernel(argc, argv);
+                return process_kernel(argv + 1);
         } else if (r == 1)
                 return process_socket(SD_LISTEN_FDS_START);
 

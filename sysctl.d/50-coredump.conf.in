@@ -8,5 +8,8 @@
 # See sysctl.d(5) for the description of the files in this directory,
 # and systemd-coredump(8) and core(5) for the explanation of the
 # setting below.
+#
+# Note: the maximum size of /proc/sys/kernel/core_pattern is
+# currently 128 bytes.
 
-kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %P %u %g %s %t %c %h
+kernel.core_pattern=|@rootlibexecdir@/systemd-coredump _PID=%P _SIGNAL=%s _TIMESTAMP=%t _RLIMIT=%c _HOSTNAME=%h
