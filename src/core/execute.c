@@ -1125,7 +1125,7 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env,
-                int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds) {
 
 #if HAVE_PAM
 
@@ -2803,7 +2803,7 @@ static int close_remaining_fds(
                 int user_lookup_fd,
                 int socket_fd,
                 int exec_fd,
-                int *fds, size_t n_fds) {
+                const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 12];
