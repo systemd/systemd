@@ -1,10 +1,10 @@
 ---
-title: Users, Groups, UIDs and GIDs on `systemd` Systems
+title: Users, Groups, UIDs and GIDs on systemd Systems
 category: Concepts
 layout: default
 ---
 
-# Users, Groups, UIDs and GIDs on `systemd` Systems
+# Users, Groups, UIDs and GIDs on systemd Systems
 
 Here's a summary of the requirements `systemd` (and Linux) make on UID/GID
 assignments and their ranges.
