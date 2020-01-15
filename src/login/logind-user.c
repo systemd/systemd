@@ -405,35 +405,23 @@ static int user_update_slice(User *u) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (u->user_record->tasks_max != UINT64_MAX) {
-                r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", u->user_record->tasks_max);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
+        const struct {
+                const char *name;
+                uint64_t value;
+        } settings[] = {
+                { "TasksMax",   u->user_record->tasks_max   },
+                { "MemoryMax",  u->user_record->memory_max  },
+                { "MemoryHigh", u->user_record->memory_high },
+                { "CPUWeight",  u->user_record->cpu_weight  },
+                { "IOWeight",   u->user_record->io_weight   },
+        };
 
-        if (u->user_record->memory_max != UINT64_MAX) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryMax", "t", u->user_record->memory_max);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (u->user_record->memory_high != UINT64_MAX) {
-                r = sd_bus_message_append(m, "(sv)", "MemoryHigh", "t", u->user_record->memory_high);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (u->user_record->cpu_weight != UINT64_MAX) {
-                r = sd_bus_message_append(m, "(sv)", "CPUWeight", "t", u->user_record->cpu_weight);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (u->user_record->io_weight != UINT64_MAX) {
-                r = sd_bus_message_append(m, "(sv)", "IOWeight", "t", u->user_record->io_weight);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
+        for (size_t i = 0; i < ELEMENTSOF(settings); i++)
+                if (settings[i].value != UINT64_MAX) {
+                        r = sd_bus_message_append(m, "(sv)", settings[i].name, "t", settings[i].value);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
