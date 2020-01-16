@@ -72,9 +72,7 @@ A number of systemd's APIs expose Linux or systemd-specific features that cannot
 Note that not all of these interfaces are our invention (but most), we just adopted them in systemd to make them more prominently implemented. For example, we adopted many Debian facilities in systemd to push it into the other distributions as well.
 
 
-
 ---
-
 
 
 And now, here's the list of (hopefully) all APIs that we have introduced with systemd:
