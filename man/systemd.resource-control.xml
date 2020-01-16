@@ -462,6 +462,14 @@
 
           <para>This setting replaces <varname>BlockIODeviceWeight=</varname> and disables settings prefixed with
           <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+
+          <para>The specified device node should reference a block device that has an I/O scheduler
+          associated, i.e. should not refer to partition or loopback block devices, but to the originating,
+          physical device. When a path to a regular file or directory is specified it is attempted to
+          discover the correct originating device backing the file system of the specified path. This works
+          correctly only for simpler cases, where the file system is directly placed on a partition or
+          physical block device, or where simple 1:1 encryption using dm-crypt/LUKS is used. This discovery
+          does not cover complex storage and in particular RAID and volume management storage devices.</para>
         </listitem>
       </varlistentry>
 
@@ -486,6 +494,8 @@
           <para>These settings replace <varname>BlockIOReadBandwidth=</varname> and
           <varname>BlockIOWriteBandwidth=</varname> and disable settings prefixed with <varname>BlockIO</varname> or
           <varname>StartupBlockIO</varname>.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
@@ -509,6 +519,8 @@
 
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
@@ -528,6 +540,8 @@
           <para>Implies <literal>IOAccounting=yes</literal>.</para>
 
           <para>These settings are supported only if the unified control group hierarchy is used.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
