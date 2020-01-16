@@ -1125,7 +1125,7 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env,
-                int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds) {
 
 #if HAVE_PAM
 
@@ -1195,7 +1195,7 @@ static int setup_pam(
 
         pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                goto fail;
+                log_debug("pam_setcred() failed, ignoring: %s", pam_strerror(handle, pam_code));
 
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
@@ -2803,7 +2803,7 @@ static int close_remaining_fds(
                 int user_lookup_fd,
                 int socket_fd,
                 int exec_fd,
-                int *fds, size_t n_fds) {
+                const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 12];
