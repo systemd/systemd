@@ -70,7 +70,7 @@ static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = (uint64_t) -1;
 static uint64_t arg_max_use = (uint64_t) -1;
 
-int coredump_parse_config(void) {
+static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
                 { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
@@ -473,6 +473,9 @@ int coredump_submit(
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
+
+        /* Ignore all parse errors */
+        (void) parse_config();
 
         log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
         log_debug("Selected compression %s.", yes_no(arg_compress));

@@ -170,9 +170,6 @@ static int run(int argc, char *argv[]) {
          * usual. */
         log_setup_service();
 
-        /* Ignore all parse errors */
-        (void) coredump_parse_config();
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;

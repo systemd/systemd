@@ -585,9 +585,6 @@ static int run(int argc, char *argv[]) {
         /* Make sure we never enter a loop */
         (void) prctl(PR_SET_DUMPABLE, 0);
 
-        /* Ignore all parse errors */
-        (void) coredump_parse_config();
-
         if (streq_ptr(argv[1], "--backtrace"))
                 /* Skip --backtrace from the argument list */
                 return process_backtrace(argv + 2);

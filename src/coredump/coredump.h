@@ -41,6 +41,5 @@ typedef struct Context {
         bool is_coredumpd;
 } Context;
 
-int coredump_parse_config(void);
 int coredump_submit(Context *context, struct iovec_wrapper *iovw, int input_fd);
 int coredump_save_context(Context *context, const struct iovec_wrapper *iovw);
