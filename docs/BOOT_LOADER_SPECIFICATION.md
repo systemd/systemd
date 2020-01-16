@@ -91,6 +91,20 @@ from the user. Only entries matching the feature set of boot loader and system
 shall be considered and displayed. This allows image builders to put together
 images that transparently support multiple different architectures.
 
+Note that the `$BOOT` partition is not supposed to be exclusive territory of
+this specification. This specification only defines semantics of the `/loader/`
+directory inside the file system (see below), but it doesn't intend to define
+ownership of the whole file system exclusively. Boot loaders, firmware, and
+other software implementating this specification may choose to place other
+files and directories in the same file system. For example, boot loaders that
+implement this specification might install their own boot code into the `$BOOT`
+partition. On systems where `$BOOT` is the ESP this is a particularly common
+setup. Implementations of this specification must be able to operate correctly
+if files or directories other than `/loader/` are found in the top level
+directory. Implementations that add their own files or directories to the file
+systems should use well-named directories, to make name collisions between
+multiple users of the file system unlikely.
+
 ### Type #1 Boot Loader Specification Entries
 
 We define two directories below `$BOOT`:
