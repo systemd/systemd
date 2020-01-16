@@ -41,9 +41,8 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>halt</command>, <command>poweroff</command>,
-    <command>reboot</command> may be used to halt, power-off or reboot
-    the machine.</para>
+    <para><command>halt</command>, <command>poweroff</command>, <command>reboot</command> may be used to
+    halt, power-off, or reboot the machine. All three commands take the same options.</para>
 
   </refsect1>
 
@@ -137,12 +136,15 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>These commands are implemented in a way that preserves compatibility with
-    the original SysV commands.
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    verbs <command>halt</command>, <command>poweroff</command>,
-    <command>reboot</command> provide the same functionality with some additional
-    features.</para>
+    <para>These commands are implemented in a way that preserves basic compatibility with the original SysV
+    commands.  <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    verbs <command>halt</command>, <command>poweroff</command>, <command>reboot</command> provide the same
+    functionality with some additional features.</para>
+
+    <para>Note that on many SysV systems <command>halt</command> used to be synonymous to
+    <command>poweroff</command>, i.e. both commands would equally result in powering the machine off. systemd
+    is more accurate here, and <command>halt</command> results in halting the machine only (leaving power
+    on), and <command>poweroff</command> is required to actually power it off.</para>
   </refsect1>
 
   <refsect1>
