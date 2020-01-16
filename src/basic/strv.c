@@ -593,6 +593,27 @@ char **strv_remove(char **l, const char *s) {
         return l;
 }
 
+char **strv_remove_startswith(char **l, const char *s) {
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        assert(s);
+
+        /* Drops every strings starting with s in the string list, edits
+         * in-place. */
+
+        for (f = t = l; *f; f++)
+                if (startswith(*f, s))
+                        free(*f);
+                else
+                        *(t++) = *f;
+
+        *t = NULL;
+        return l;
+}
+
 char **strv_parse_nulstr(const char *s, size_t l) {
         /* l is the length of the input data, which will be split at NULs into
          * elements of the resulting strv. Hence, the number of items in the resulting strv
