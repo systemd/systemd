@@ -498,42 +498,51 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>LimitRTTIME=</varname></term>
 
         <listitem><para>Set soft and hard limits on various resources for executed processes. See
-        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details on
-        the resource limit concept. Resource limits may be specified in two formats: either as single value to set a
-        specific soft and hard limit to the same value, or as colon-separated pair <option>soft:hard</option> to set
-        both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).  Use the string <option>infinity</option> to
-        configure no limit on a specific resource. The multiplicative suffixes K, M, G, T, P and E (to the base 1024)
-        may be used for resource limits measured in bytes (e.g. LimitAS=16G). For the limits referring to time values,
-        the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details on the resource limit concept. Resource limits may be specified in two formats: either as
+        single value to set a specific soft and hard limit to the same value, or as colon-separated pair
+        <option>soft:hard</option> to set both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).
+        Use the string <option>infinity</option> to configure no limit on a specific resource. The
+        multiplicative suffixes K, M, G, T, P and E (to the base 1024) may be used for resource limits
+        measured in bytes (e.g. <literal>LimitAS=16G</literal>). For the limits referring to time values, the
+        usual time units ms, s, min, h and so on may be used (see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of seconds
-        is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is implied. Also, note
-        that the effective granularity of the limits might influence their enforcement. For example, time limits
-        specified for <varname>LimitCPU=</varname> will be rounded up implicitly to multiples of 1s. For
-        <varname>LimitNICE=</varname> the value may be specified in two syntaxes: if prefixed with <literal>+</literal>
-        or <literal>-</literal>, the value is understood as regular Linux nice value in the range -20..19. If not
-        prefixed like this the value is understood as raw resource limit parameter in the range 0..40 (with 0 being
-        equivalent to 1).</para>
+        details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of
+        seconds is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is
+        implied. Also, note that the effective granularity of the limits might influence their
+        enforcement. For example, time limits specified for <varname>LimitCPU=</varname> will be rounded up
+        implicitly to multiples of 1s. For <varname>LimitNICE=</varname> the value may be specified in two
+        syntaxes: if prefixed with <literal>+</literal> or <literal>-</literal>, the value is understood as
+        regular Linux nice value in the range -20..19. If not prefixed like this the value is understood as
+        raw resource limit parameter in the range 0..40 (with 0 being equivalent to 1).</para>
 
-        <para>Note that most process resource limits configured with these options are per-process, and processes may
-        fork in order to acquire a new set of resources that are accounted independently of the original process, and
-        may thus escape limits set. Also note that <varname>LimitRSS=</varname> is not implemented on Linux, and
-        setting it has no effect. Often it is advisable to prefer the resource controls listed in
+        <para>Note that most process resource limits configured with these options are per-process, and
+        processes may fork in order to acquire a new set of resources that are accounted independently of the
+        original process, and may thus escape limits set. Also note that <varname>LimitRSS=</varname> is not
+        implemented on Linux, and setting it has no effect. Often it is advisable to prefer the resource
+        controls listed in
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        over these per-process limits, as they apply to services as a whole, may be altered dynamically at runtime, and
-        are generally more expressive. For example, <varname>MemoryLimit=</varname> is a more powerful (and working)
-        replacement for <varname>LimitRSS=</varname>.</para>
-
-        <para>For system units these resource limits may be chosen freely. For user units however (i.e. units run by a
-        per-user instance of
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>), these limits are
-        bound by (possibly more restrictive) per-user limits enforced by the OS.</para>
+        over these per-process limits, as they apply to services as a whole, may be altered dynamically at
+        runtime, and are generally more expressive. For example, <varname>MemoryMax=</varname> is a more
+        powerful (and working) replacement for <varname>LimitRSS=</varname>.</para>
 
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
         if not configured there – the kernel or per-user defaults, as defined by the OS (the latter only for user
-        services, see above).</para>
+        services, see below).</para>
+
+        <para>For system units these resource limits may be chosen freely. When these settings are configured
+        in a user service (i.e. a service run by the per-user instance of the service manager) they cannot be
+        used to raise the limits above those set for the user manager itself when it was first invoked, as
+        the user's service manager generally lacks the privileges to do so. In user context these
+        configuration options are hence only useful to lower the limits passed in or to raise the soft limit
+        to the maximum of the hard limit as configured for the user. To raise the user's limits further, the
+        available configuration mechanisms differ between operating systems, but typically require
+        privileges. In most cases it is possible to configure higher per-user resource limits via PAM or by
+        setting limits on the system service encapsulating the user's service manager, i.e. the user's
+        instance of <filename>user@.service</filename>. After making such changes, make sure to restart the
+        user's service manager.</para>
 
         <table>
           <title>Resource limit directives, their equivalent <command>ulimit</command> shell commands and the unit used</title>
