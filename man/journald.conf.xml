@@ -365,7 +365,7 @@
         <term><varname>MaxLevelWall=</varname></term>
 
         <listitem><para>Controls the maximum log level of messages
-        that are stored on disk, forwarded to syslog, kmsg, the
+        that are stored in the journal, forwarded to syslog, kmsg, the
         console or wall (if that is enabled, see above). As argument,
         takes one of
         <literal>emerg</literal>,
@@ -381,8 +381,8 @@
         are stored/forwarded, messages above are dropped. Defaults to
         <literal>debug</literal> for <varname>MaxLevelStore=</varname>
         and <varname>MaxLevelSyslog=</varname>, to ensure that the all
-        messages are written to disk and forwarded to syslog. Defaults
-        to
+        messages are stored in the journal and forwarded to syslog.
+        Defaults to
         <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
         <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
         and <literal>emerg</literal> for
