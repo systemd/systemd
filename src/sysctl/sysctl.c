@@ -12,6 +12,7 @@
 
 #include "conf-files.h"
 #include "def.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -86,13 +87,15 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 k = sysctl_write(option->key, option->value);
                 if (k < 0) {
                         /* If the sysctl is not available in the kernel or we are running with reduced
-                         * privileges and cannot write it, then log about the issue at LOG_NOTICE level, and
-                         * proceed without failing. (EROFS is treated as a permission problem here, since
-                         * that's how container managers usually protected their sysctls.) In all other cases
-                         * log an error and make the tool fail. */
+                         * privileges and cannot write it, then log about the issue, and proceed without
+                         * failing. (EROFS is treated as a permission problem here, since that's how
+                         * container managers usually protected their sysctls.) In all other cases log an
+                         * error and make the tool fail. */
 
-                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT) || option->ignore_failure)
-                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
+                        if (option->ignore_failure || k == -EROFS || IN_SET(k, -EACCES, -EPERM))
+                                log_debug_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
+                        else if (k == -ENOENT)
+                                log_info_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
                         else {
                                 log_error_errno(k, "Couldn't write '%s' to '%s': %m", option->value, option->key);
                                 if (r == 0)
