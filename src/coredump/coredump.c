@@ -32,6 +32,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -454,6 +455,108 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         return coredump_save_context(context, iovw);
 }
 
+static int execute_handler_in_namespace(pid_t pid, const char *nspid, char *argv[]) {
+        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
+        _cleanup_strv_free_ char **new_argv = NULL;
+        pid_t child;
+        int r;
+
+        /* Invoke systemd-coredump in the container. We pass the same list of new_argv
+         * the kernel passed us but we make sure to translate any sensitive metadata */
+
+        log_debug("Invoking %s in the container...", argv[0]);
+
+        /* Copy the argument list now because namespace_fork() is going to replace child's
+         * argv[] completely */
+        new_argv = strv_copy(argv);
+        if (!new_argv)
+                return log_oom();
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        if (r < 0)
+                return log_error_errno(r, "Can't retrieve namespaces of crashing process: %m");
+
+        /* The child should be able to report errors to journald running in the host hence don't
+         * close any fds (which should be logging fds only) until the foreign handler is
+         * executed. */
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                static const char * const coredump_dirs[] = {
+                        "/usr/local/lib/systemd",
+                        "/usr/lib/systemd",
+                        "/lib/systemd",
+                        NULL
+                };
+                const char * const *d;
+                char *p;
+
+                /* Check for the presence of the socket, if it's missing it means that either the
+                 * container is not using systemd as system init or PID1 is not running. In these
+                 * cases fallback into the host. */
+                if (access("/run/systemd/coredump", F_OK) < 0) {
+                        log_error_errno(errno, "Coredump socket is missing. Is systemd installed and running ?");
+                        _exit(255);
+                }
+
+                /* We don't support invoking older versions of the handler as its interface changed
+                 * a couple of times in the past in an incompatible way. The new interface appeared
+                 * at the same time the daemon was splitted off and 'systemd-coredumpd' binary was
+                 * introduced. So let's check for the presence of this binary to figure out whether
+                 * coredump uses the new interface or not. */
+                STRV_FOREACH(d, coredump_dirs) {
+                        p = strjoina(*d, "/systemd-coredumpd");
+                        if (!access(p, F_OK))
+                                break;
+                }
+                if (!*d) {
+                        log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                        "systemd-coredump too old, support for container is missing");
+                        _exit(255);
+                }
+
+                /* Make sure to not leak PID as seen in the host pid namespace */
+                strv_remove_startswith(new_argv, "_PID=");
+                strv_remove_startswith(new_argv, "_NS_PID=");
+
+                r = strv_extend(&new_argv, strjoina("_PID=", nspid));
+                if (r < 0) {
+                        log_oom();
+                        _exit(255);
+                }
+
+                /* FIXME: Should we drop "_HOSTNAME" as this one is going to be redundant ? */
+
+                /* In the container the handler can be installed in various places */
+                p = strv_join((char **)coredump_dirs, ":");
+                if (!p) {
+                        log_oom();
+                        _exit(255);
+                }
+
+                r = setenv("PATH", p, 1);
+                if (r < 0) {
+                        log_oom();
+                        _exit(255);
+                }
+
+                log_close();
+
+                (void) execvp(basename(new_argv[0]), new_argv);
+                _exit(255);
+        }
+
+        r = wait_for_terminate_and_check("(sd-coredumpns)", child, WAIT_LOG);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
+        return 0;
+}
+
 static int process_kernel(char* argv[]) {
         Context context = {};
         struct iovec_wrapper *iovw;
@@ -475,9 +578,21 @@ static int process_kernel(char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = gather_pid_metadata_from_strv(iovw, &context, argv);
+        r = gather_pid_metadata_from_strv(iovw, &context, argv + 1);
         if (r < 0)
                 goto finish;
+
+        if (context.exec_in_namespace) {
+                /* It's not journald running in the host, hence let's use of it now. */
+                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                log_open();
+
+                r = execute_handler_in_namespace(context.pid, context.meta[META_NS_PID], argv);
+                if (r == 0)
+                        goto finish;
+
+                log_warning_errno(r, "Failed to execute handler in namespace, proceeding in host: %m");
+        }
 
         /* Collect the rest of the process metadata retrieved from the runtime */
         r = gather_pid_metadata(iovw, &context);
@@ -532,7 +647,7 @@ static int process_backtrace(char *argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed via argv[] */
-        r = gather_pid_metadata_from_strv(iovw, &context, argv);
+        r = gather_pid_metadata_from_strv(iovw, &context, argv + 2);
         if (r < 0)
                 goto finish;
 
@@ -590,10 +705,9 @@ static int run(int argc, char *argv[]) {
         (void) prctl(PR_SET_DUMPABLE, 0);
 
         if (streq_ptr(argv[1], "--backtrace"))
-                /* Skip --backtrace from the argument list */
-                return process_backtrace(argv + 2);
+                return process_backtrace(argv);
 
-        return process_kernel(argv + 1);
+        return process_kernel(argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);

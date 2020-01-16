@@ -12,4 +12,4 @@
 # Note: the maximum size of /proc/sys/kernel/core_pattern is
 # currently 128 bytes.
 
-kernel.core_pattern=|@rootlibexecdir@/systemd-coredump _PID=%P _SIGNAL=%s _TIMESTAMP=%t _RLIMIT=%c _HOSTNAME=%h
+kernel.core_pattern=|@rootlibexecdir@/systemd-coredump _PID=%P _NS_PID=%p _SIGNAL=%s _TIMESTAMP=%t _RLIMIT=%c _HOSTNAME=%h

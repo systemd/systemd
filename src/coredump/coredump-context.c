@@ -16,6 +16,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_GID]               = "COREDUMP_GID=",
         [META_EXE]               = "COREDUMP_EXE=",
         [META_UNIT]              = "COREDUMP_UNIT=",
+        [META_NS_PID]            = "COREDUMP_NS_PID=",
 };
 
 int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
@@ -55,6 +56,16 @@ int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_PID]);
+
+        /* If nspid is missing or invalid, we ignore it and still process the dump from the host */
+        if (context->meta[META_NS_PID]) {
+                r = parse_pid(context->meta[META_NS_PID], &context->ns_pid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse NS PID \"%s\", ignoring: %m",
+                                          context->meta[META_NS_PID]);
+                else
+                        context->exec_in_namespace = context->ns_pid != context->pid;
+        }
 
         /* Cache uid and gid */
         if (context->meta[META_UID]) {

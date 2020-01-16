@@ -27,18 +27,20 @@ enum {
 
         META_EXE = _META_MANDATORY_MAX,
         META_UNIT,
+        META_NS_PID,             /* %p: as seen in tne pid namespace of the crashing process */
 
         _META_MAX
 };
 
 typedef struct Context {
         const char *meta[_META_MAX];
-        pid_t pid;
+        pid_t pid, ns_pid;
         uid_t uid;
         gid_t gid;
         bool is_pid1;
         bool is_journald;
         bool is_coredumpd;
+        bool exec_in_namespace;
 } Context;
 
 int coredump_submit(Context *context, struct iovec_wrapper *iovw, int input_fd);
