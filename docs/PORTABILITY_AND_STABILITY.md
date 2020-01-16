@@ -134,7 +134,7 @@ This is not an attempt to comprehensively list all users of these APIs. We are j
 
 Of course, one last thing I can't make myself not ask you before we finish here, and before you start reimplementing these APIs in your distribution: are you sure it's time well spent if you work on reimplementing all this code instead of just spending it on adopting systemd on your distro as well?
 
-## Independent operation of systemd programs
+## Independent Operation of systemd Programs
 
 Some programs in the systemd suite are indended to operate independently of the
 running init process (or even without an init process, for example when
