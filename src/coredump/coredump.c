@@ -459,6 +459,12 @@ static int process_kernel(char* argv[]) {
         struct iovec_wrapper *iovw;
         int r;
 
+        /* First, log to a safe place, since we don't know what crashed and it might
+         * be journald which we'd rather not log to then. */
+
+        log_set_target(LOG_TARGET_KMSG);
+        log_open();
+
         log_debug("Processing coredump received from the kernel...");
 
         iovw = iovw_new();
@@ -505,12 +511,16 @@ static int process_kernel(char* argv[]) {
 }
 
 static int process_backtrace(char *argv[]) {
+        _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
         Context context = {};
         struct iovec_wrapper *iovw;
         char *message;
         size_t i;
         int r;
-         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
+
+        /* It cannot be journald in backtrace mode */
+        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+        log_open();
 
         log_debug("Processing backtrace on stdin...");
 
@@ -575,12 +585,6 @@ static int process_backtrace(char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-
-        /* First, log to a safe place, since we don't know what crashed and it might
-         * be journald which we'd rather not log to then. */
-
-        log_set_target(LOG_TARGET_KMSG);
-        log_open();
 
         /* Make sure we never enter a loop */
         (void) prctl(PR_SET_DUMPABLE, 0);
