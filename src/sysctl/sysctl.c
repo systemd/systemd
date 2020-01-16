@@ -11,6 +11,7 @@
 
 #include "conf-files.h"
 #include "def.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -85,13 +86,15 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                 k = sysctl_write(option->key, option->value);
                 if (k < 0) {
                         /* If the sysctl is not available in the kernel or we are running with reduced
-                         * privileges and cannot write it, then log about the issue at LOG_NOTICE level, and
-                         * proceed without failing. (EROFS is treated as a permission problem here, since
-                         * that's how container managers usually protected their sysctls.) In all other cases
-                         * log an error and make the tool fail. */
+                         * privileges and cannot write it, then log about the issue, and proceed without
+                         * failing. (EROFS is treated as a permission problem here, since that's how
+                         * container managers usually protected their sysctls.) In all other cases log an
+                         * error and make the tool fail. */
 
-                        if (IN_SET(k, -EPERM, -EACCES, -EROFS, -ENOENT) || option->ignore_failure)
-                                log_notice_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
+                        if (option->ignore_failure || k == -EROFS || ERRNO_IS_PRIVILEGE(k))
+                                log_debug_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
+                        else if (k == -ENOENT)
+                                log_info_errno(k, "Couldn't write '%s' to '%s', ignoring: %m", option->value, option->key);
                         else {
                                 log_error_errno(k, "Couldn't write '%s' to '%s': %m", option->value, option->key);
                                 if (r == 0)
@@ -122,7 +125,7 @@ static bool test_prefix(const char *p) {
         return false;
 }
 
-static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ignore_enoent) {
+static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned c = 0;
         int r;
@@ -183,7 +186,10 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                 if (!test_prefix(p))
                         continue;
 
-                existing = ordered_hashmap_get(sysctl_options, p);
+                if (ordered_hashmap_ensure_allocated(sysctl_options, &option_hash_ops) < 0)
+                        return log_oom();
+
+                existing = ordered_hashmap_get(*sysctl_options, p);
                 if (existing) {
                         if (streq(value, existing->value)) {
                                 existing->ignore_failure = existing->ignore_failure || ignore_failure;
@@ -191,14 +197,14 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                         }
 
                         log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
-                        option_free(ordered_hashmap_remove(sysctl_options, p));
+                        option_free(ordered_hashmap_remove(*sysctl_options, p));
                 }
 
                 new_option = option_new(p, value, ignore_failure);
                 if (!new_option)
                         return log_oom();
 
-                k = ordered_hashmap_put(sysctl_options, new_option->key, new_option);
+                k = ordered_hashmap_put(*sysctl_options, new_option->key, new_option);
                 if (k < 0)
                         return log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", p);
 
@@ -320,17 +326,13 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        sysctl_options = ordered_hashmap_new(&option_hash_ops);
-        if (!sysctl_options)
-                return log_oom();
-
         if (argc > optind) {
                 int i;
 
                 r = 0;
 
                 for (i = optind; i < argc; i++) {
-                        k = parse_file(sysctl_options, argv[i], false);
+                        k = parse_file(&sysctl_options, argv[i], false);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -349,7 +351,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 STRV_FOREACH(f, files) {
-                        k = parse_file(sysctl_options, *f, true);
+                        k = parse_file(&sysctl_options, *f, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
