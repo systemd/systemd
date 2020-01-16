@@ -2,6 +2,7 @@
 #include "parse-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 
 static const char * const meta_field_names[_META_MAX] = {
@@ -19,7 +20,6 @@ static const char * const meta_field_names[_META_MAX] = {
 
 int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
         unsigned n, i, count = 0;
-        const char *unit;
         int r;
 
         assert(context);
@@ -69,9 +69,24 @@ int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
                         return log_error_errno(r, "Failed to parse GID: %m");
         }
 
-        unit = context->meta[META_UNIT];
-        context->is_pid1 = streq(context->meta[META_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
-        context->is_journald = streq_ptr(unit, SPECIAL_JOURNALD_SERVICE);
+        if (streq(context->meta[META_PID], "1"))
+                context->is_pid1 = true;
+
+        else if (context->meta[META_UNIT]) {
+                const char *unit = context->meta[META_UNIT];
+
+                if (streq_ptr(unit, SPECIAL_INIT_SCOPE))
+                        context->is_pid1 = true;
+
+                else if (streq_ptr(unit, SPECIAL_JOURNALD_SERVICE))
+                        context->is_journald = true;
+
+                else {
+                        _cleanup_free_ char *t = NULL;
+                        (void) unit_name_template(unit, &t);
+                        context->is_coredumpd = streq_ptr(t, SPECIAL_COREDUMPD_SERVICE);
+                }
+        }
 
         return 0;
 }

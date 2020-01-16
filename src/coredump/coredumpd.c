@@ -170,9 +170,6 @@ static int run(int argc, char *argv[]) {
          * usual. */
         log_setup_service();
 
-        /* Make sure we never enter a loop */
-        (void) prctl(PR_SET_DUMPABLE, 0);
-
         /* Ignore all parse errors */
         (void) coredump_parse_config();
 

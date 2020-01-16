@@ -84,6 +84,8 @@
 #define SPECIAL_VOLATILE_ROOT_SERVICE "systemd-volatile-root.service"
 
 /* Services systemd relies on */
+#define SPECIAL_COREDUMPD_SERVICE "systemd-coredumpd@.service"
+#define SPECIAL_COREDUMPD_SOCKET "systemd-coredumpd.socket"
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
 #define SPECIAL_JOURNALD_SOCKET "systemd-journald.socket"

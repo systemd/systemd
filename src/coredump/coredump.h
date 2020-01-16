@@ -38,6 +38,7 @@ typedef struct Context {
         gid_t gid;
         bool is_pid1;
         bool is_journald;
+        bool is_coredumpd;
 } Context;
 
 int coredump_parse_config(void);

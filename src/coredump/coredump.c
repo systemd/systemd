@@ -487,15 +487,14 @@ static int process_kernel(char* argv[]) {
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
          *
-         * FIXME: maybe we should disable coredumps generation from the beginning and
-         * re-enable it only when we know it's either safe (ie we're not running OOM) or
-         * it's not pid1 ? */
+         * FIXME: instead of turning coredump collection off completely, shouldn't we restore the
+         * default value and let the kernel take over ? */
         if (context.is_pid1) {
                 log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                 disable_coredumps();
         }
 
-        if (context.is_journald || context.is_pid1)
+        if (context.is_journald || context.is_pid1 || context.is_coredumpd)
                 r = coredump_submit(&context, iovw, STDIN_FILENO);
         else
                 r = send_iovec(iovw, STDIN_FILENO);
