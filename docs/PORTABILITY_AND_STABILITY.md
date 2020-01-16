@@ -4,7 +4,7 @@ category: Interfaces
 layout: default
 ---
 
-# Interface Stability Promise
+# Interface Portability and Stability Promise
 
 systemd provides various interfaces developers and programs might rely on. Starting with version 26 (the first version released with Fedora 15) we promise to keep a number of them stable and compatible for the future.
 
@@ -41,7 +41,7 @@ What does this mean for you? When developing with systemd, don't use any of the 
 Note that this is a promise, not an eternal guarantee. These are our intentions, but if in the future there are very good reasons to change or get rid of an interface we have listed above as stable, then we might take the liberty to do so, despite this promise. However, if we do this, then we'll do our best to provide a smooth and reasonably long transition phase.
 
 
-# Interface Portability And Stability Chart
+## Interface Portability And Stability Chart
 
 systemd provides a number of APIs to applications. Below you'll find a table detailing which APIs are considered stable and how portable they are.
 
