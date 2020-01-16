@@ -756,7 +756,11 @@
         configured by <varname>Requires=</varname>, <varname>Wants=</varname>, <varname>Requisite=</varname>,
         or <varname>BindsTo=</varname>. It is a common pattern to include a unit name in both the
         <varname>After=</varname> and <varname>Wants=</varname> options, in which case the unit listed will
-        be started before the unit that is configured with these options.</para></listitem>
+        be started before the unit that is configured with these options.</para>
+
+        <para>Note that <varname>Before=</varname> dependencies on device units have no effect and are not
+        supported.  Devices generally become available as a result of an external hotplug event, and systemd
+        creates the corresponding device unit without delay.</para></listitem>
       </varlistentry>
 
       <varlistentry>
