@@ -225,7 +225,13 @@
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. To optimize power consumption, make sure to set
         this value as high as possible and as low as
-        necessary.</para></listitem>
+        necessary.</para>
+
+        <para>Note that this setting is primarily a power saving option that allows coalescing CPU
+        wake-ups. It should not be confused with <varname>RandomizedDelaySec=</varname> (see below) which
+        adds a random value to the time the timer shall elapse next and whose purpose is the opposite: to
+        stretch elapsing of timer events over a longer period to reduce workload spikes. For further details
+        and explanations and how both settings play together, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
