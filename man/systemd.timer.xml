@@ -163,7 +163,10 @@
         timers defined in the other directives.</para>
 
         <para>These are monotonic timers, independent of wall-clock time and timezones. If the computer is
-        temporarily suspended, the monotonic clock pauses, too.</para>
+        temporarily suspended, the monotonic clock generally pauses, too. Note that if
+        <varname>WakeSystem=</varname> is used, a different monotonic clock is selected that continues to
+        advance while the system is suspended and thus can be used as the trigger to resume the
+        system.</para>
 
         <para>If the empty string is assigned to any of these options, the list of timers is reset (both
         monotonic timers and <varname>OnCalendar=</varname> timers, see below), and all prior assignments
@@ -225,7 +228,13 @@
         <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. To optimize power consumption, make sure to set
         this value as high as possible and as low as
-        necessary.</para></listitem>
+        necessary.</para>
+
+        <para>Note that this setting is primarily a power saving option that allows coalescing CPU
+        wake-ups. It should not be confused with <varname>RandomizedDelaySec=</varname> (see below) which
+        adds a random value to the time the timer shall elapse next and whose purpose is the opposite: to
+        stretch elapsing of timer events over a longer period to reduce workload spikes. For further details
+        and explanations and how both settings play together, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -310,7 +319,16 @@
         <varname>false</varname>.</para>
 
         <para>Note that this functionality requires privileges and is thus generally only available in the
-        system service manager.</para></listitem>
+        system service manager.</para>
+
+        <para>Note that behaviour of monotonic clock timers (as configured with
+        <varname>OnActiveSec=</varname>, <varname>OnBootSec=</varname>, <varname>OnStartupSec=</varname>,
+        <varname>OnUnitActiveSec=</varname>, <varname>OnUnitInactiveSec=</varname>, see above) is altered
+        depending on this option. If false, a monotonic clock is used that is paused during system suspend
+        (<constant>CLOCK_MONOTONIC</constant>), if true a different monotonic clock is used that continues
+        advancing during system suspend (<constant>CLOCK_BOOTTIME</constant>), see
+        <citerefentry><refentrytitle>clock_getres</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>

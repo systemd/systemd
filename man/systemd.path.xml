@@ -52,6 +52,15 @@
     limitations as inotify, and for example cannot be used to monitor
     files or directories changed by other machines on remote NFS file
     systems.</para>
+
+    <para>When a service unit triggered by a path unit terminates (regardless whether it exited successfully
+    or failed), monitored paths are checked immediately again, and the service accordingly restarted
+    instantly. As protection against busy looping in this trigger/start cycle, a start rate limit is enforced
+    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
+    <varname>StartLimitBurst=</varname> in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Unlike
+    other service failures, the error condition that the start rate limit is hit is propagated from the
+    service unit to the path unit and causes the path unit to fail as well, thus ending the loop.</para>
   </refsect1>
 
   <refsect1>
