@@ -10,23 +10,10 @@
 #include "pretty-print.h"
 #include "terminal-util.h"
 
-int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
-        _cleanup_free_ char *man_link = NULL, *mod_link = NULL;
+int id128_pretty_print_sample(const char *name, sd_id128_t id) {
+       _cleanup_free_ char *man_link = NULL, *mod_link = NULL;
         const char *on, *off;
         unsigned i;
-
-        assert(mode >= 0);
-        assert(mode < _ID128_PRETTY_PRINT_MODE_MAX);
-
-        if (mode == ID128_PRINT_ID128) {
-                printf(SD_ID128_FORMAT_STR "\n",
-                       SD_ID128_FORMAT_VAL(id));
-                return 0;
-        } else if (mode == ID128_PRINT_UUID) {
-                printf(SD_ID128_UUID_FORMAT_STR "\n",
-                       SD_ID128_FORMAT_VAL(id));
-                return 0;
-        }
 
         on = ansi_highlight();
         off = ansi_normal();
@@ -42,22 +29,39 @@ int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
                "As UUID:\n"
                "%s" SD_ID128_UUID_FORMAT_STR "%s\n\n"
                "As %s macro:\n"
-               "%s#define XYZ SD_ID128_MAKE(",
+               "%s#define %s SD_ID128_MAKE(",
                on, SD_ID128_FORMAT_VAL(id), off,
                on, SD_ID128_FORMAT_VAL(id), off,
                man_link,
-               on);
+               on, name);
         for (i = 0; i < 16; i++)
                 printf("%02x%s", id.bytes[i], i != 15 ? "," : "");
         printf(")%s\n\n", off);
 
         printf("As Python constant:\n"
                ">>> import %s\n"
-               ">>> %sXYZ = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
+               ">>> %s%s = uuid.UUID('" SD_ID128_FORMAT_STR "')%s\n",
                mod_link,
-               on, SD_ID128_FORMAT_VAL(id), off);
+               on, name, SD_ID128_FORMAT_VAL(id), off);
 
         return 0;
+}
+
+
+int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode) {
+        assert(mode >= 0);
+        assert(mode < _ID128_PRETTY_PRINT_MODE_MAX);
+
+        if (mode == ID128_PRINT_ID128) {
+                printf(SD_ID128_FORMAT_STR "\n",
+                       SD_ID128_FORMAT_VAL(id));
+                return 0;
+        } else if (mode == ID128_PRINT_UUID) {
+                printf(SD_ID128_UUID_FORMAT_STR "\n",
+                       SD_ID128_FORMAT_VAL(id));
+                return 0;
+        } else
+                return id128_pretty_print_sample("XYZ", id);
 }
 
 int id128_print_new(Id128PrettyPrintMode mode) {
