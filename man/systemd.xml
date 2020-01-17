@@ -607,20 +607,6 @@
 
     <variablelist class='environment-variables'>
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
-        <listitem><para>systemd reads the log level from this
-        environment variable. This can be overridden with
-        <option>--log-level=</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
-        <listitem><para>systemd reads the log target from this
-        environment variable. This can be overridden with
-        <option>--log-target=</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
         <listitem><para>Controls whether systemd highlights important
         log messages. This can be overridden with
@@ -628,10 +614,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+        <listitem><para>systemd reads the log level from this
+        environment variable. This can be overridden with
+        <option>--log-level=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
         <listitem><para>Controls whether systemd prints the code
         location along with log messages. This can be overridden with
         <option>--log-location=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
+        <listitem><para>systemd reads the log target from this
+        environment variable. This can be overridden with
+        <option>--log-target=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -822,16 +822,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.log_target=</varname></term>
+        <term><varname>systemd.log_color</varname></term>
         <term><varname>systemd.log_level=</varname></term>
         <term><varname>systemd.log_location=</varname></term>
-        <term><varname>systemd.log_color</varname></term>
+        <term><varname>systemd.log_target=</varname></term>
 
         <listitem><para>Controls log output, with the same effect as the
-        <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <varname>$SYSTEMD_LOG_COLOR</varname>,
         <varname>$SYSTEMD_LOG_LEVEL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>,
-        <varname>$SYSTEMD_LOG_COLOR</varname> environment variables described above.
+        <varname>$SYSTEMD_LOG_TARGET</varname>, environment variables described above.
         <varname>systemd.log_color</varname> can be specified without an argument,
         with the same effect as a positive boolean.</para></listitem>
       </varlistentry>
@@ -1128,9 +1128,10 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--log-target=</option></term>
+          <term><option>--log-color</option></term>
 
-          <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
+          <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1140,17 +1141,16 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--log-color</option></term>
-
-          <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
-          </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--log-location</option></term>
 
           <listitem><para>Include code location in log messages. See <varname>systemd.log_location</varname>
           above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-target=</option></term>
+
+          <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
         </varlistentry>
 
         <varlistentry>
