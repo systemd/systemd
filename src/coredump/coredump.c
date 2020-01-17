@@ -558,8 +558,8 @@ static int execute_handler_in_namespace(pid_t pid, const char *nspid, char *argv
 }
 
 static int process_kernel(char* argv[]) {
+        _cleanup_iovw_free_free_ struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        struct iovec_wrapper *iovw;
         int r;
 
         /* First, log to a safe place, since we don't know what crashed and it might
@@ -580,7 +580,7 @@ static int process_kernel(char* argv[]) {
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_strv(iovw, &context, argv + 1);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (context.exec_in_namespace) {
                 /* It's not journald running in the host, hence let's use of it now. */
@@ -589,7 +589,7 @@ static int process_kernel(char* argv[]) {
 
                 r = execute_handler_in_namespace(context.pid, context.meta[META_NS_PID], argv);
                 if (r == 0)
-                        goto finish;
+                        return 0;
 
                 log_warning_errno(r, "Failed to execute handler in namespace, proceeding in host: %m");
         }
@@ -597,7 +597,7 @@ static int process_kernel(char* argv[]) {
         /* Collect the rest of the process metadata retrieved from the runtime */
         r = gather_pid_metadata(iovw, &context);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!context.is_journald) {
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
@@ -616,19 +616,15 @@ static int process_kernel(char* argv[]) {
         }
 
         if (context.is_journald || context.is_pid1 || context.is_coredumpd)
-                r = coredump_submit(&context, iovw, STDIN_FILENO);
-        else
-                r = send_iovec(iovw, STDIN_FILENO);
+                return coredump_submit(&context, iovw, STDIN_FILENO);
 
- finish:
-        iovw = iovw_free_free(iovw);
-        return r;
+        return send_iovec(iovw, STDIN_FILENO);
 }
 
 static int process_backtrace(char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
+        _cleanup_iovw_free_free_ struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        struct iovec_wrapper *iovw;
         char *message;
         size_t i;
         int r;
@@ -649,12 +645,12 @@ static int process_backtrace(char *argv[]) {
         /* Collect all process metadata passed via argv[] */
         r = gather_pid_metadata_from_strv(iovw, &context, argv + 2);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
         r = gather_pid_metadata(iovw, &context);
         if (r < 0)
-                goto finish;
+                return r;
 
         for (;;) {
                 r = journal_importer_process_data(&importer);
@@ -693,9 +689,8 @@ static int process_backtrace(char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to log backtrace: %m");
 
- finish:
+finish:
         iovw->count -= importer.iovw.count;
-        iovw = iovw_free_free(iovw);
         return r;
 }
 
