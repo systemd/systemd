@@ -21,3 +21,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=@rootbindir@/udevadm trigger --type=subsystems --action=add
 ExecStart=@rootbindir@/udevadm trigger --type=devices --action=add
+ExecStart=@rootbindir@/udevadm trigger --type=devices --action=bind --attr-match=driver
