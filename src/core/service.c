@@ -650,24 +650,37 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
-static void service_fix_output(Service *s) {
+static void service_fix_stdio(Service *s) {
         assert(s);
 
-        /* If nothing has been explicitly configured, patch default output in. If input is socket/tty we avoid this
-         * however, since in that case we want output to default to the same place as we read input from. */
-
-        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
-
-        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+        /* Note that EXEC_INPUT_NULL and EXEC_OUTPUT_INHERIT play a special role here: they are both the
+         * default value that is subject to automatic overriding triggered by other settings and an explicit
+         * choice the user can make. We don't distuingish between these cases currently. */
 
         if (s->exec_context.std_input == EXEC_INPUT_NULL &&
             s->exec_context.stdin_data_size > 0)
                 s->exec_context.std_input = EXEC_INPUT_DATA;
+
+        if (IN_SET(s->exec_context.std_input,
+                    EXEC_INPUT_TTY,
+                    EXEC_INPUT_TTY_FORCE,
+                    EXEC_INPUT_TTY_FAIL,
+                    EXEC_INPUT_SOCKET,
+                    EXEC_INPUT_NAMED_FD))
+                return;
+
+        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
+         * stdin to stdout/stderr makes sense and hence leaving EXEC_OUTPUT_INHERIT in place makes sense,
+         * too. Outputs such as regular files or sealed data memfds otoh don't really make sense to be
+         * duplicated for both input and output at the same time (since they then would cause a feedback
+         * loop), hence override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting.  */
+
+        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
+                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
+
+        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
+                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
 }
 
 static int service_setup_bus_name(Service *s) {
@@ -715,7 +728,7 @@ static int service_add_extras(Service *s) {
         if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
                 s->timeout_start_usec = USEC_INFINITY;
 
-        service_fix_output(s);
+        service_fix_stdio(s);
 
         r = unit_patch_contexts(UNIT(s));
         if (r < 0)
