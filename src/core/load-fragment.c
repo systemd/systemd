@@ -4702,7 +4702,9 @@ int unit_load_fragment(Unit *u) {
                         return r;
 
                 if (null_or_empty(&st)) {
-                        u->load_state = UNIT_MASKED;
+                        /* Unit file is masked */
+
+                        u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
                 } else {
                         u->load_state = UNIT_LOADED;
