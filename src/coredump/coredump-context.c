@@ -10,13 +10,13 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_SIGNAL]            = "COREDUMP_SIGNAL=",
         [META_TIMESTAMP]         = "COREDUMP_TIMESTAMP=",
         [META_RLIMIT]            = "COREDUMP_RLIMIT=",
-        [META_HOSTNAME]          = "COREDUMP_HOSTNAME=",
         [META_COMM]              = "COREDUMP_COMM=",
         [META_UID]               = "COREDUMP_UID=",
         [META_GID]               = "COREDUMP_GID=",
         [META_EXE]               = "COREDUMP_EXE=",
         [META_UNIT]              = "COREDUMP_UNIT=",
         [META_NS_PID]            = "COREDUMP_NS_PID=",
+        [META_HOSTNAME]          = "COREDUMP_HOSTNAME=",
 };
 
 int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {

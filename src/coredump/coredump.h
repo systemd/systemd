@@ -11,7 +11,6 @@ enum {
         META_SIGNAL,             /* %s: number of signal causing dump */
         META_TIMESTAMP,          /* %t: time of dump, expressed as seconds since the Epoch */
         META_RLIMIT,             /* %c: core file size soft resource limit */
-        META_HOSTNAME,           /* %h: hostname */
 
         /* The following fields are cached since they're used for naming coredump files, and
          * attaching xattrs. Unlike the previous ones they are retrieved from /proc. */
@@ -28,6 +27,7 @@ enum {
         META_EXE = _META_MANDATORY_MAX,
         META_UNIT,
         META_NS_PID,             /* %p: as seen in tne pid namespace of the crashing process */
+        META_HOSTNAME,           /* %h: hostname */
 
         _META_MAX
 };
