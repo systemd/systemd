@@ -227,6 +227,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.wanted-by=</option></term>
+        <term><option>x-systemd.required-by=</option></term>
+
+        <listitem><para>In the created mount unit, configures a
+        <varname>WantedBy=</varname> or <varname>RequiredBy=</varname>
+        dependency on another unit.  This option may be
+        specified more than once. If this is specified, the normal
+        automatic dependencies on the created mount unit, e.g.,
+        <filename>local-fs.target</filename>, are not automatically
+        created. See <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>x-systemd.requires-mounts-for=</option></term>
 
         <listitem><para>Configures a
