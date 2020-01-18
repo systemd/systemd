@@ -746,7 +746,7 @@ static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "ProtectControlGroups=",
                 .description_good = "Service cannot modify the control group file system",
-                .description_bad = "Service may modify to the control group file system",
+                .description_bad = "Service may modify the control group file system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectControlGroups=",
                 .weight = 1000,
                 .range = 1,
