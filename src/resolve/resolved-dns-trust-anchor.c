@@ -20,11 +20,6 @@
 
 static const char trust_anchor_dirs[] = CONF_PATHS_NULSTR("dnssec-trust-anchors.d");
 
-/* The first DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved December 2015 */
-static const uint8_t root_digest1[] =
-        { 0x49, 0xAA, 0xC1, 0x1D, 0x7B, 0x6F, 0x64, 0x46, 0x70, 0x2E, 0x54, 0xA1, 0x60, 0x73, 0x71, 0x60,
-          0x7A, 0x1A, 0x41, 0x85, 0x52, 0x00, 0xFD, 0x2C, 0xE1, 0xCD, 0xDE, 0x32, 0xF2, 0x4E, 0x8F, 0xB5 };
-
 /* The second DS RR from https://data.iana.org/root-anchors/root-anchors.xml, retrieved February 2017 */
 static const uint8_t root_digest2[] =
         { 0xE0, 0x6D, 0x44, 0xB8, 0x0B, 0x8F, 0x1D, 0x39, 0xA9, 0x5C, 0x0B, 0x0D, 0x7C, 0x65, 0xD0, 0x84,
@@ -96,11 +91,7 @@ static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         if (!answer)
                 return -ENOMEM;
 
-        /* Add the two RRs from https://data.iana.org/root-anchors/root-anchors.xml */
-        r = add_root_ksk(answer, key, 19036, DNSSEC_ALGORITHM_RSASHA256, DNSSEC_DIGEST_SHA256, root_digest1, sizeof(root_digest1));
-        if (r < 0)
-                return r;
-
+        /* Add the currently valid RRs from https://data.iana.org/root-anchors/root-anchors.xml */
         r = add_root_ksk(answer, key, 20326, DNSSEC_ALGORITHM_RSASHA256, DNSSEC_DIGEST_SHA256, root_digest2, sizeof(root_digest2));
         if (r < 0)
                 return r;
