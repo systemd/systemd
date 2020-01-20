@@ -247,6 +247,9 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
         if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
                 return -EIO;
 
+        if (curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L) != CURLE_OK)
+                return -EIO;
+
         if (curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 60L) != CURLE_OK)
                 return -EIO;
 
