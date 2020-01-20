@@ -7,7 +7,6 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "chattr-util.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -174,9 +173,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
+        (void) import_set_nocow_and_log(converted_fd, t);
 
         log_info("Unpacking QCOW2 file.");
 
@@ -259,10 +256,7 @@ static int raw_import_open_disk(RawImport *i) {
         if (i->output_fd < 0)
                 return log_error_errno(errno, "Failed to open destination %s: %m", i->temp_path);
 
-        r = chattr_fd(i->output_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s: %m", i->temp_path);
-
+        (void) import_set_nocow_and_log(i->output_fd, i->temp_path);
         return 0;
 }
 

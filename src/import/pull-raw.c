@@ -8,7 +8,6 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "chattr-util.h"
 #include "copy.h"
 #include "curl-util.h"
 #include "fd-util.h"
@@ -242,9 +241,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
+        (void) import_set_nocow_and_log(converted_fd, t);
 
         log_info("Unpacking QCOW2 file.");
 
@@ -354,13 +351,9 @@ static int raw_pull_make_local_copy(RawPull *i) {
         if (dfd < 0)
                 return log_error_errno(errno, "Failed to create writable copy of image: %m");
 
-        /* Turn off COW writing. This should greatly improve
-         * performance on COW file systems like btrfs, since it
-         * reduces fragmentation caused by not allowing in-place
-         * writes. */
-        r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s: %m", tp);
+        /* Turn off COW writing. This should greatly improve performance on COW file systems like btrfs,
+         * since it reduces fragmentation caused by not allowing in-place writes. */
+        (void) import_set_nocow_and_log(dfd, tp);
 
         r = copy_bytes(i->raw_job->disk_fd, dfd, (uint64_t) -1, COPY_REFLINK);
         if (r < 0) {
@@ -600,10 +593,7 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         if (r < 0)
                 return r;
 
-        r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", i->temp_path);
-
+        (void) import_set_nocow_and_log(j->disk_fd, i->temp_path);
         return 0;
 }
 
