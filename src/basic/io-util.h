@@ -90,3 +90,9 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value);
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new);
 size_t iovw_size(struct iovec_wrapper *iovw);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
+
+#define _cleanup_iovw_free_ _cleanup_(iovw_freep)
+#define _cleanup_iovw_free_free_ _cleanup_(iovw_free_freep)

@@ -2,6 +2,18 @@
 
 systemd_coredump_sources = files('''
         coredump.c
+        coredump.h
+        coredump-context.c
+        coredump-disk.c
+        coredump-vacuum.c
+        coredump-vacuum.h
+'''.split())
+
+systemd_coredumpd_sources = files('''
+        coredumpd.c
+        coredump.h
+        coredump-context.c
+        coredump-disk.c
         coredump-vacuum.c
         coredump-vacuum.h
 '''.split())
@@ -9,6 +21,9 @@ systemd_coredump_sources = files('''
 if conf.get('HAVE_ELFUTILS') == 1
         systemd_coredump_sources += files(['stacktrace.c',
                                            'stacktrace.h'])
+
+        systemd_coredumpd_sources += files(['stacktrace.c',
+                                            'stacktrace.h'])
 endif
 
 coredumpctl_sources = files('coredumpctl.c')
