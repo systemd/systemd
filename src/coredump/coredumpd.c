@@ -97,17 +97,10 @@ static int process_socket(int fd) {
         /* Make sure we got all data we really need */
         assert(input_fd >= 0);
 
-        r = coredump_save_context(&context, iovw);
+        r = coredump_context_save(iovw, &context, false);
         if (r < 0)
                 return r;
-#if 0
-        /* Make sure we received at least all fields we need. */
-        for (int i = 0; i < _META_MANDATORY_MAX; i++)
-                if (!context.meta[i])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Field '%s' has not been sent, aborting.",
-                                               meta_field_names[i]);
-#endif
+
         return coredump_submit(&context, iovw, input_fd);
 }
 

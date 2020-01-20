@@ -285,7 +285,7 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         return 0;
 }
 
-static int gather_pid_metadata_from_strv(struct iovec_wrapper *iovw, Context *context, char **strv) {
+static int gather_pid_metadata_from_strv(struct iovec_wrapper *iovw, char **strv) {
         char **s;
         int r;
 
@@ -326,23 +326,18 @@ static int gather_pid_metadata_from_strv(struct iovec_wrapper *iovw, Context *co
                 }
         }
 
-        /* Cache some of the process metadata we collected so far and that we'll need to
-         * access soon. */
-        return coredump_save_context(context, iovw);
+        return 0;
 }
 
-static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
+static int gather_pid_metadata(pid_t pid, struct iovec_wrapper *iovw) {
         uid_t uid, owner_uid;
         gid_t gid;
-        pid_t pid;
         char *t;
         const char *p;
         int r;
 
         /* Note that if we fail on oom later on, we do not roll-back changes to the iovec
          * structure. (It remains valid, with the first iovec fields initialized.) */
-
-        pid = context->pid;
 
         /* The following are mandatory */
         r = get_process_comm(pid, &t);
@@ -452,7 +447,7 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
 
         /* we successfully acquired all metadata */
-        return coredump_save_context(context, iovw);
+        return 0;
 }
 
 static int execute_handler_in_namespace(pid_t pid, const char *nspid, char *argv[]) {
@@ -460,6 +455,10 @@ static int execute_handler_in_namespace(pid_t pid, const char *nspid, char *argv
         _cleanup_strv_free_ char **new_argv = NULL;
         pid_t child;
         int r;
+
+        assert(pid);
+        assert(nspid);
+        assert(argv);
 
         /* Invoke systemd-coredump in the container. We pass the same list of new_argv
          * the kernel passed us but we make sure to translate any sensitive metadata */
@@ -578,7 +577,11 @@ static int process_kernel(char* argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = gather_pid_metadata_from_strv(iovw, &context, argv + 1);
+        r = gather_pid_metadata_from_strv(iovw, argv + 1);
+        if (r < 0)
+                return r;
+
+        r = coredump_context_save(iovw, &context, true);
         if (r < 0)
                 return r;
 
@@ -595,7 +598,11 @@ static int process_kernel(char* argv[]) {
         }
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata(context.pid, iovw);
+        if (r < 0)
+                return r;
+
+        r = coredump_context_save(iovw, &context, false);
         if (r < 0)
                 return r;
 
@@ -642,13 +649,18 @@ static int process_backtrace(char *argv[]) {
         (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
-        /* Collect all process metadata passed via argv[] */
-        r = gather_pid_metadata_from_strv(iovw, &context, argv + 2);
+        /* Collect all process metadata from argv[] and from runtime */
+        r = gather_pid_metadata_from_strv(iovw, argv + 2);
+        if (r < 0)
+                return r;
+        r = coredump_context_save(iovw, &context, true);
         if (r < 0)
                 return r;
 
-        /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata(context.pid, iovw);
+        if (r < 0)
+                return r;
+        r = coredump_context_save(iovw, &context, false);
         if (r < 0)
                 return r;
 

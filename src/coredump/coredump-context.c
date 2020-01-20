@@ -19,17 +19,11 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_HOSTNAME]          = "COREDUMP_HOSTNAME=",
 };
 
-int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
-        unsigned n, i, count = 0;
-        int r;
+static void load_context_meta(const struct iovec_wrapper *iovw, Context *context) {
+        unsigned int i, j;
 
-        assert(context);
-        assert(iovw);
-
-        /* The context does not allocate any memory on its own */
-
-        for (n = 0; n < iovw->count; n++) {
-                struct iovec *iovec = iovw->iovec + n;
+        for (j = 0; j < iovw->count; j++) {
+                struct iovec *iovec = iovw->iovec + j;
 
                 /* Note that these strings are NUL terminated, because we made sure that a
                  * trailing NUL byte is in the buffer, though not included in the iov_len
@@ -42,48 +36,66 @@ int coredump_save_context(Context *context, const struct iovec_wrapper *iovw) {
                         p = startswith(iovec->iov_base, meta_field_names[i]);
                         if (p) {
                                 context->meta[i] = p;
-                                count++;
                                 break;
                         }
                 }
         }
+}
 
-        /* Check for the presence of pid and nspid */
-        if (!context->meta[META_PID])
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to find the PID of crashing process");
+int coredump_context_save(const struct iovec_wrapper *iovw, Context *context, bool pids_only) {
+        int i, r;
 
-        r = parse_pid(context->meta[META_PID], &context->pid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_PID]);
+        assert(context);
+        assert(iovw);
 
-        /* If nspid is missing or invalid, we ignore it and still process the dump from the host */
-        if (context->meta[META_NS_PID]) {
-                r = parse_pid(context->meta[META_NS_PID], &context->ns_pid);
+        /* The context does not allocate any memory on its own */
+
+        load_context_meta(iovw, context);
+
+        /* Did we already parse the pid related metadata ? */
+        if (!context->pid) {
+                /* Check for the presence of pid and nspid */
+                if (!context->meta[META_PID])
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PID of crashing process is missing !");
+
+                r = parse_pid(context->meta[META_PID], &context->pid);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse NS PID \"%s\", ignoring: %m",
-                                          context->meta[META_NS_PID]);
-                else
-                        context->exec_in_namespace = context->ns_pid != context->pid;
+                        return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_PID]);
+
+                context->is_pid1 = context->pid == 1;
+
+                /* If nspid is missing or invalid, we ignore it and still
+                 * process the dump in the host */
+                if (context->meta[META_NS_PID]) {
+                        r = parse_pid(context->meta[META_NS_PID], &context->ns_pid);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse NS PID \"%s\", ignoring: %m",
+                                                  context->meta[META_NS_PID]);
+                        else
+                                context->exec_in_namespace = context->ns_pid != context->pid;
+                }
         }
+
+        if (pids_only)
+                return 0;
+
+        /* Make sure the mandatory metadata have been gathered somehow */
+        for (i = 0; i < _META_MANDATORY_MAX; i++)
+                if (!context->meta[i])
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Field '%s' has not been provided.",
+                                               meta_field_names[i]);
 
         /* Cache uid and gid */
-        if (context->meta[META_UID]) {
-                r = parse_uid(context->meta[META_UID], &context->uid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse UID: %m");
-        }
+        r = parse_uid(context->meta[META_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID: %m");
 
-        if (context->meta[META_GID]) {
-                r = parse_gid(context->meta[META_GID], &context->gid);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse GID: %m");
-        }
+        r = parse_gid(context->meta[META_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse GID: %m");
 
-        if (streq(context->meta[META_PID], "1"))
-                context->is_pid1 = true;
-
-        else if (context->meta[META_UNIT]) {
+        if (!context->is_pid1 && context->meta[META_UNIT]) {
                 const char *unit = context->meta[META_UNIT];
 
                 if (streq_ptr(unit, SPECIAL_INIT_SCOPE))
