@@ -815,12 +815,6 @@ int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_test_start_limit(Unit *u);
 
-void unit_unref_uid(Unit *u, bool destroy_now);
-int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
-
-void unit_unref_gid(Unit *u, bool destroy_now);
-int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc);
-
 int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid);
 void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
