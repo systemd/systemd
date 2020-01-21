@@ -170,7 +170,7 @@ typedef struct LinkInfo {
 
         /* ethtool info */
         int autonegotiation;
-        size_t speed;
+        uint64_t speed;
         Duplex duplex;
         NetDevPort port;
 
@@ -1495,7 +1495,7 @@ static int link_status_one(
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Speed:",
-                                           TABLE_BPS, (uint64_t) info->speed);
+                                           TABLE_BPS, info->speed);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }

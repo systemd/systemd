@@ -4771,7 +4771,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unsigned,              "UNSIGNED" },
                 { config_parse_iec_size,              "SIZE" },
                 { config_parse_iec_uint64,            "SIZE" },
-                { config_parse_si_size,               "SIZE" },
+                { config_parse_si_uint64,             "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },

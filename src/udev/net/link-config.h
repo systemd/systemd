@@ -53,7 +53,7 @@ struct link_config {
         char **alternative_names;
         char *alias;
         uint32_t mtu;
-        size_t speed;
+        uint64_t speed;
         Duplex duplex;
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];

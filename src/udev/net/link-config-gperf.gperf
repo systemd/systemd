@@ -40,7 +40,7 @@ Link.AlternativeName,            config_parse_ifnames,                  1,      
 Link.AlternativeNamesPolicy,     config_parse_alternative_names_policy, 0,                             offsetof(link_config, alternative_names_policy)
 Link.Alias,                      config_parse_ifalias,                  0,                             offsetof(link_config, alias)
 Link.MTUBytes,                   config_parse_mtu,                      AF_UNSPEC,                     offsetof(link_config, mtu)
-Link.BitsPerSecond,              config_parse_si_size,                  0,                             offsetof(link_config, speed)
+Link.BitsPerSecond,              config_parse_si_uint64,                0,                             offsetof(link_config, speed)
 Link.Duplex,                     config_parse_duplex,                   0,                             offsetof(link_config, duplex)
 Link.AutoNegotiation,            config_parse_tristate,                 0,                             offsetof(link_config, autonegotiation)
 Link.WakeOnLan,                  config_parse_wol,                      0,                             offsetof(link_config, wol)
