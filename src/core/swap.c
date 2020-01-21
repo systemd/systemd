@@ -184,21 +184,39 @@ static int swap_arm_timer(Swap *s, usec_t usec) {
         return 0;
 }
 
+static SwapParameters* swap_get_parameters(Swap *s) {
+        assert(s);
+
+        if (s->from_proc_swaps)
+                return &s->parameters_proc_swaps;
+
+        if (s->from_fragment)
+                return &s->parameters_fragment;
+
+        return NULL;
+}
+
 static int swap_add_device_dependencies(Swap *s) {
+        UnitDependencyMask mask;
+        SwapParameters *p;
+
         assert(s);
 
         if (!s->what)
                 return 0;
 
-        if (!s->from_fragment)
+        p = swap_get_parameters(s);
+        if (!p)
                 return 0;
 
-        if (is_device_path(s->what))
-                return unit_add_node_dependency(UNIT(s), s->what, UNIT_BINDS_TO, UNIT_DEPENDENCY_FILE);
+        mask = s->from_proc_swaps ? UNIT_DEPENDENCY_PROC_SWAP : UNIT_DEPENDENCY_FILE;
 
-        /* File based swap devices need to be ordered after systemd-remount-fs.service,
-         * since they might need a writable file system. */
-        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
+        if (is_device_path(p->what))
+                return unit_add_node_dependency(UNIT(s), p->what, UNIT_BINDS_TO, mask);
+
+        /* File based swap devices need to be ordered after systemd-remount-fs.service, since they might need
+         * a writable file system. */
+        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, mask);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
