@@ -982,7 +982,6 @@ static int show_seat(int argc, char *argv[], void *userdata) {
 static int activate(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        char *short_argv[3];
         int r, i;
 
         assert(bus);
@@ -991,12 +990,20 @@ static int activate(int argc, char *argv[], void *userdata) {
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         if (argc < 2) {
-                short_argv[0] = argv[0];
-                short_argv[1] = (char*) "";
-                short_argv[2] = NULL;
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1/session/auto",
+                                "org.freedesktop.login1.Session",
+                                streq(argv[0], "lock-session")      ? "Lock" :
+                                streq(argv[0], "unlock-session")    ? "Unlock" :
+                                streq(argv[0], "terminate-session") ? "Terminate" :
+                                                                      "Activate",
+                                &error, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
-                argv = short_argv;
-                argc = 2;
+                return 0;
         }
 
         for (i = 1; i < argc; i++) {
