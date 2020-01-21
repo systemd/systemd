@@ -446,7 +446,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
 
         value = strchr(line, '=');
         if (!value)
-                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
                                   "Key-value pair expected but got \"%s\", ignoring", line);
 
         value[0] = '\0';
@@ -457,7 +457,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
                 line++;
 
         if (isempty(line + 1) || isempty(value))
-                return log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                return log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
                                   "Empty %s in \"%s=%s\", ignoring",
                                   isempty(line + 1) ? "key" : "value",
                                   line, value);
@@ -517,9 +517,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                 break;
 
                         if (line[0] == ' ') {
-                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
-                                           "Match expected but got indented property \"%s\", ignoring line", line);
-                                r = -EINVAL;
+                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
+                                               "Match expected but got indented property \"%s\", ignoring line", line);
                                 break;
                         }
 
@@ -534,9 +533,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                 case HW_MATCH:
                         if (len == 0) {
-                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
-                                           "Property expected, ignoring record with no properties");
-                                r = -EINVAL;
+                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
+                                               "Property expected, ignoring record with no properties");
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
@@ -567,9 +565,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         }
 
                         if (line[0] != ' ') {
-                                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
-                                           "Property or empty line expected, got \"%s\", ignoring record", line);
-                                r = -EINVAL;
+                                r = log_syntax(NULL, LOG_WARNING, filename, line_number, SYNTHETIC_ERRNO(EINVAL),
+                                               "Property or empty line expected, got \"%s\", ignoring record", line);
                                 state = HW_NONE;
                                 match_list = strv_free(match_list);
                                 break;
@@ -583,7 +580,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         }
 
         if (state == HW_MATCH)
-                log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
+                log_syntax(NULL, LOG_WARNING, filename, line_number, 0,
                            "Property expected, ignoring record with no properties");
 
         return r;
