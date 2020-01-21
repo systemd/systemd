@@ -57,20 +57,15 @@ char *strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
-void strv_clear(char **l) {
+char **strv_free(char **l) {
         char **k;
 
         if (!l)
-                return;
+                return NULL;
 
         for (k = l; *k; k++)
                 free(*k);
 
-        *l = NULL;
-}
-
-char **strv_free(char **l) {
-        strv_clear(l);
         return mfree(l);
 }
 

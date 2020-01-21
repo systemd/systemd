@@ -543,7 +543,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                            "Property expected, ignoring record with no properties");
                                 r = -EINVAL;
                                 state = HW_NONE;
-                                strv_clear(match_list);
+                                match_list = strv_free(match_list);
                                 break;
                         }
 
@@ -571,7 +571,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         if (len == 0) {
                                 /* end of record */
                                 state = HW_NONE;
-                                strv_clear(match_list);
+                                match_list = strv_free(match_list);
                                 break;
                         }
 
@@ -580,7 +580,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                            "Property or empty line expected, got \"%s\", ignoring record", line);
                                 r = -EINVAL;
                                 state = HW_NONE;
-                                strv_clear(match_list);
+                                match_list = strv_free(match_list);
                                 break;
                         }
 
