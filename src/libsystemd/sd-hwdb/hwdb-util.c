@@ -477,7 +477,6 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **match_list = NULL;
         uint32_t line_number = 0;
-        char *match = NULL;
         int r = 0, err;
 
         f = fopen(filename, "re");
@@ -527,11 +526,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         /* start of record, first match */
                         state = HW_MATCH;
 
-                        match = strdup(line);
-                        if (!match)
-                                return -ENOMEM;
-
-                        err = strv_consume(&match_list, match);
+                        err = strv_extend(&match_list, line);
                         if (err < 0)
                                 return err;
 
@@ -549,11 +544,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 
                         if (line[0] != ' ') {
                                 /* another match */
-                                match = strdup(line);
-                                if (!match)
-                                        return -ENOMEM;
-
-                                err = strv_consume(&match_list, match);
+                                err = strv_extend(&match_list, line);
                                 if (err < 0)
                                         return err;
 
