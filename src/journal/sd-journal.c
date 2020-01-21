@@ -162,7 +162,7 @@ static int match_is_valid(const void *data, size_t size) {
         if (size < 2)
                 return false;
 
-        if (startswith(data, "__"))
+        if (((char*) data)[0] == '_' && ((char*) data)[1] == '_')
                 return false;
 
         b = data;
