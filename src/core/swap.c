@@ -212,7 +212,7 @@ static int swap_add_device_dependencies(Swap *s) {
         mask = s->from_proc_swaps ? UNIT_DEPENDENCY_PROC_SWAP : UNIT_DEPENDENCY_FILE;
 
         if (is_device_path(p->what))
-                return unit_add_node_dependency(UNIT(s), p->what, UNIT_BINDS_TO, mask);
+                return unit_add_node_dependency(UNIT(s), p->what, UNIT_REQUIRES, mask);
 
         /* File based swap devices need to be ordered after systemd-remount-fs.service, since they might need
          * a writable file system. */
