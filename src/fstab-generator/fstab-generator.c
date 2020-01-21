@@ -306,6 +306,7 @@ static int add_mount(
                 *automount_name = NULL,
                 *filtered = NULL,
                 *where_escaped = NULL;
+        _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -327,6 +328,14 @@ static int add_mount(
             mount_point_ignore(where))
                 return 0;
 
+        r = fstab_extract_values(opts, "x-systemd.wanted-by", &wanted_by);
+        if (r < 0)
+                return r;
+
+        r = fstab_extract_values(opts, "x-systemd.required-by", &required_by);
+        if (r < 0)
+                return r;
+
         if (path_equal(where, "/")) {
                 if (flags & NOAUTO)
                         log_warning("Ignoring \"noauto\" for root device");
@@ -334,7 +343,13 @@ static int add_mount(
                         log_warning("Ignoring \"nofail\" for root device");
                 if (flags & AUTOMOUNT)
                         log_warning("Ignoring automount option for root device");
+                if (!strv_isempty(wanted_by))
+                        log_warning("Ignoring \"x-systemd.wanted-by=\" for root device");
+                if (!strv_isempty(required_by))
+                        log_warning("Ignoring \"x-systemd.required-by=\" for root device");
 
+                required_by = strv_free(required_by);
+                wanted_by = strv_free(wanted_by);
                 SET_FLAG(flags, NOAUTO | NOFAIL | AUTOMOUNT, false);
         }
 
@@ -451,14 +466,28 @@ static int add_mount(
                         return r;
         }
 
-        if (!(flags & NOAUTO) && !(flags & AUTOMOUNT)) {
-                r = generator_add_symlink(dest, post,
-                                          (flags & NOFAIL) ? "wants" : "requires", name);
-                if (r < 0)
-                        return r;
-        }
+        if (!FLAGS_SET(flags, AUTOMOUNT)) {
+                if (!FLAGS_SET(flags, NOAUTO) && strv_isempty(wanted_by) && strv_isempty(required_by)) {
+                        r = generator_add_symlink(dest, post,
+                                                  (flags & NOFAIL) ? "wants" : "requires", name);
+                        if (r < 0)
+                                return r;
+                } else {
+                        char **s;
 
-        if (flags & AUTOMOUNT) {
+                        STRV_FOREACH(s, wanted_by) {
+                                r = generator_add_symlink(dest, *s, "wants", name);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        STRV_FOREACH(s, required_by) {
+                                r = generator_add_symlink(dest, *s, "requires", name);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        } else {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");

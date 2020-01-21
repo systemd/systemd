@@ -211,9 +211,9 @@
         <term><option>x-systemd.before=</option></term>
         <term><option>x-systemd.after=</option></term>
 
-        <listitem><para>Configures a <varname>Before=</varname>
-        dependency or <varname>After=</varname> between the created
-        mount unit and another systemd unit, such as a mount unit.
+        <listitem><para>In the created mount unit, configures a
+        <varname>Before=</varname> or <varname>After=</varname>
+        dependency on another systemd unit, such as a mount unit.
         The argument should be a unit name or an absolute path
         to a mount point. This option may be specified more than once.
         This option is particularly useful for mount point declarations
@@ -222,6 +222,21 @@
         start, for example, before <filename>local-fs.target</filename>
         unit.
         See <varname>Before=</varname> and <varname>After=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>x-systemd.wanted-by=</option></term>
+        <term><option>x-systemd.required-by=</option></term>
+
+        <listitem><para>In the created mount unit, configures a
+        <varname>WantedBy=</varname> or <varname>RequiredBy=</varname>
+        dependency on another unit.  This option may be
+        specified more than once. If this is specified, the normal
+        automatic dependencies on the created mount unit, e.g.,
+        <filename>local-fs.target</filename>, are not automatically
+        created. See <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
