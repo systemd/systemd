@@ -211,9 +211,9 @@
         <term><option>x-systemd.before=</option></term>
         <term><option>x-systemd.after=</option></term>
 
-        <listitem><para>Configures a <varname>Before=</varname>
-        dependency or <varname>After=</varname> between the created
-        mount unit and another systemd unit, such as a mount unit.
+        <listitem><para>In the created mount unit, configures a
+        <varname>Before=</varname> or <varname>After=</varname>
+        dependency on another systemd unit, such as a mount unit.
         The argument should be a unit name or an absolute path
         to a mount point. This option may be specified more than once.
         This option is particularly useful for mount point declarations
