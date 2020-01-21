@@ -2112,7 +2112,7 @@ Endpoint=wireguard.example.com:51820</programlisting>
 
     <example>
       <title>/etc/systemd/network/27-xfrm.netdev</title>
-      <programlisting>[Xfrm]
+      <programlisting>[NetDev]
 Name=xfrm0
 Kind=xfrm
 
