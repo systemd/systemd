@@ -18,7 +18,7 @@ The stable interfaces are:
 
 * Some of the **"special" unit names** and their semantics. To be precise the ones that are necessary for normal services, and not those required only for early boot and late shutdown, with very few exceptions. To list them here: `basic.target`, `shutdown.target`, `sockets.target`, `network.target`, `getty.target`, `graphical.target`, `multi-user.target`, `rescue.target`, `emergency.target`, `poweroff.target`, `reboot.target`, `halt.target`, `runlevel[1-5].target`.
 
-* **The D-Bus interfaces of the main service daemon and other daemons**. We try to always preserve backwards compatiblity, and intentational breakage is never introduced. Nevertheless, when we find bugs that mean that the existing interface was not useful, or when the implementation did something different than stated by the documentation and the implemented behaviour is not useful, we will fix the implementation and thus introduce a change in behaviour. But the API (parameter counts and types) is never changed, and existing attributes and methods will not be removed.
+* **The D-Bus interfaces of the main service daemon and other daemons**. We try to always preserve backwards compatibility, and intentional breakage is never introduced. Nevertheless, when we find bugs that mean that the existing interface was not useful, or when the implementation did something different than stated by the documentation and the implemented behaviour is not useful, we will fix the implementation and thus introduce a change in behaviour. But the API (parameter counts and types) is never changed, and existing attributes and methods will not be removed.
 
 * For a more comprehensive and authoritative list, consult the chart below.
 
@@ -136,7 +136,7 @@ Of course, one last thing I can't make myself not ask you before we finish here,
 
 ## Independent Operation of systemd Programs
 
-Some programs in the systemd suite are indended to operate independently of the
+Some programs in the systemd suite are intended to operate independently of the
 running init process (or even without an init process, for example when
 creating system installation chroots). They can be safely called on systems with
 a different init process or for example in package installation scriptlets.
