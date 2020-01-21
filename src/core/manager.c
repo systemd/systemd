@@ -4480,7 +4480,7 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = parse_uid(value, &uid);
         if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID reference serialization");
+                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
                 return;
         }
 
