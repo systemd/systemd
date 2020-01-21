@@ -199,6 +199,7 @@ static SwapParameters* swap_get_parameters(Swap *s) {
 static int swap_add_device_dependencies(Swap *s) {
         UnitDependencyMask mask;
         SwapParameters *p;
+        int r;
 
         assert(s);
 
@@ -211,8 +212,13 @@ static int swap_add_device_dependencies(Swap *s) {
 
         mask = s->from_proc_swaps ? UNIT_DEPENDENCY_PROC_SWAP : UNIT_DEPENDENCY_FILE;
 
-        if (is_device_path(p->what))
-                return unit_add_node_dependency(UNIT(s), p->what, UNIT_REQUIRES, mask);
+        if (is_device_path(p->what)) {
+                r = unit_add_node_dependency(UNIT(s), p->what, UNIT_REQUIRES, mask);
+                if (r < 0)
+                        return r;
+
+                return unit_add_blockdev_dependency(UNIT(s), p->what, mask);
+        }
 
         /* File based swap devices need to be ordered after systemd-remount-fs.service, since they might need
          * a writable file system. */

@@ -3846,8 +3846,8 @@ int unit_deserialize_skip(FILE *f) {
 }
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
-        Unit *device;
         _cleanup_free_ char *e = NULL;
+        Unit *device;
         int r;
 
         assert(u);
@@ -3859,8 +3859,7 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         if (!is_device_path(what))
                 return 0;
 
-        /* When device units aren't supported (such as in a
-         * container), don't create dependencies on them. */
+        /* When device units aren't supported (such as in a container), don't create dependencies on them. */
         if (!unit_type_supported(UNIT_DEVICE))
                 return 0;
 
@@ -3878,6 +3877,33 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         return unit_add_two_dependencies(u, UNIT_AFTER,
                                          MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                          device, true, mask);
+}
+
+int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask) {
+        _cleanup_free_ char *escaped = NULL, *target = NULL;
+        int r;
+
+        assert(u);
+
+        if (isempty(what))
+                return 0;
+
+        if (!path_startswith(what, "/dev/"))
+                return 0;
+
+        /* If we don't support devices, then also don't bother with blockdev@.target */
+        if (!unit_type_supported(UNIT_DEVICE))
+                return 0;
+
+        r = unit_name_path_escape(what, &escaped);
+        if (r < 0)
+                return r;
+
+        r = unit_name_build("blockdev", escaped, ".target", &target);
+        if (r < 0)
+                return r;
+
+        return unit_add_dependency_by_name(u, UNIT_AFTER, target, true, mask);
 }
 
 int unit_coldplug(Unit *u) {

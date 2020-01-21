@@ -350,11 +350,10 @@ static int mount_add_device_dependencies(Mount *m) {
         if (path_equal(m->where, "/"))
                 return 0;
 
-        /* Mount units from /proc/self/mountinfo are not bound to devices
-         * by default since they're subject to races when devices are
-         * unplugged. But the user can still force this dep with an
-         * appropriate option (or udev property) so the mount units are
-         * automatically stopped when the device disappears suddenly. */
+        /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
+         * races when devices are unplugged. But the user can still force this dep with an appropriate option
+         * (or udev property) so the mount units are automatically stopped when the device disappears
+         * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
@@ -364,7 +363,7 @@ static int mount_add_device_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
