@@ -20,6 +20,7 @@
 #include "string-util.h"
 #include "virt.h"
 
+#if defined(__i386__) || defined(__x86_64__)
 static const char *const vm_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_XEN]       = "XenVMMXenVMM",
         [VIRTUALIZATION_KVM]       = "KVMKVMKVM",
@@ -36,6 +37,7 @@ static const char *const vm_table[_VIRTUALIZATION_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(vm, int);
+#endif
 
 static int detect_vm_cpuid(void) {
 
