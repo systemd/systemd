@@ -160,9 +160,6 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (link->speed > UINT_MAX)
-                return -ERANGE;
-
         if (set_isempty(link->match_mac) && set_isempty(link->match_permanent_mac) &&
             strv_isempty(link->match_path) && strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
             strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)

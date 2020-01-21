@@ -177,7 +177,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
 }
 
 int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
-                          int *ret_autonegotiation, size_t *ret_speed,
+                          int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
@@ -734,7 +734,7 @@ int ethtool_set_glinksettings(
                 const char *ifname,
                 int autonegotiation,
                 uint32_t advertise[static N_ADVERTISE],
-                size_t speed,
+                uint64_t speed,
                 Duplex duplex,
                 NetDevPort port) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
