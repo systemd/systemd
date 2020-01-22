@@ -343,13 +343,15 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        q = new0(AsyncPolkitQuery, 1);
+        q = new(AsyncPolkitQuery, 1);
         if (!q)
                 return -ENOMEM;
 
-        q->request = sd_bus_message_ref(call);
-        q->callback = callback;
-        q->userdata = userdata;
+        *q = (AsyncPolkitQuery) {
+                .request = sd_bus_message_ref(call),
+                .callback = callback,
+                .userdata = userdata,
+        };
 
         q->action = strdup(action);
         if (!q->action) {
