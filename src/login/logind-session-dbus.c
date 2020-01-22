@@ -13,6 +13,7 @@
 #include "logind.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static int property_get_user(
@@ -181,6 +182,20 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
         assert(s);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = session_activate(s);
         if (r < 0)

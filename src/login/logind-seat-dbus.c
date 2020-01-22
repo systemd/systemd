@@ -174,6 +174,20 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
         if (session->seat != s)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = session_activate(session);
         if (r < 0)
                 return r;
@@ -194,7 +208,21 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (to <= 0)
-                return -EINVAL;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = seat_switch_to(s, to);
         if (r < 0)
@@ -210,6 +238,20 @@ static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(s);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = seat_switch_to_next(s);
         if (r < 0)
                 return r;
@@ -223,6 +265,20 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
 
         assert(message);
         assert(s);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = seat_switch_to_previous(s);
         if (r < 0)

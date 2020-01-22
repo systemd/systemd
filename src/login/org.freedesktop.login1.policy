@@ -357,4 +357,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.chvt">
+                <description gettext-domain="systemd">Change Session</description>
+                <message gettext-domain="systemd">Authentication is required for changing the virtual terminal.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>
