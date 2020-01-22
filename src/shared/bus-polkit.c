@@ -159,14 +159,13 @@ typedef struct AsyncPolkitQuery {
         char **details;
 
         sd_bus_message *request, *reply;
-        sd_bus_message_handler_t callback;
-        void *userdata;
         sd_bus_slot *slot;
+
         Hashmap *registry;
+        sd_event_source *defer_event_source;
 } AsyncPolkitQuery;
 
 static void async_polkit_query_free(AsyncPolkitQuery *q) {
-
         if (!q)
                 return;
 
@@ -181,7 +180,20 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
         free(q->action);
         strv_free(q->details);
 
+        sd_event_source_disable_unref(q->defer_event_source);
         free(q);
+}
+
+static int async_polkit_defer(sd_event_source *s, void *userdata) {
+        AsyncPolkitQuery *q = userdata;
+
+        assert(s);
+
+        /* This is called as idle event source after we processed the async polkit reply, hopefully after the
+         * method call we re-enqueued has been properly processed. */
+
+        async_polkit_query_free(q);
+        return 0;
 }
 
 static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
@@ -192,21 +204,46 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         assert(reply);
         assert(q);
 
+        assert(q->slot);
         q->slot = sd_bus_slot_unref(q->slot);
+
+        assert(!q->reply);
         q->reply = sd_bus_message_ref(reply);
 
+        /* Now, let's dispatch the original message a second time be re-enqueing. This will then traverse the
+         * whole message processing again, and thus re-validating and re-retrieving the "userdata" field
+         * again.
+         *
+         * We install an idle event loop event to clean-up the PolicyKit request data when we are idle again,
+         * i.e. after the second time the message is processed is complete. */
+
+        assert(!q->defer_event_source);
+        r = sd_event_add_defer(sd_bus_get_event(sd_bus_message_get_bus(reply)), &q->defer_event_source, async_polkit_defer, q);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(q->defer_event_source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_enabled(q->defer_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                goto fail;
+
         r = sd_bus_message_rewind(q->request, true);
-        if (r < 0) {
-                r = sd_bus_reply_method_errno(q->request, r, NULL);
-                goto finish;
-        }
+        if (r < 0)
+                goto fail;
 
-        r = q->callback(q->request, q->userdata, &error_buffer);
-        r = bus_maybe_reply_error(q->request, r, &error_buffer);
+        r = sd_bus_enqeue_for_read(sd_bus_message_get_bus(q->request), q->request);
+        if (r < 0)
+                goto fail;
 
-finish:
+        return 1;
+
+fail:
+        log_debug_errno(r, "Processing asynchronous PolicyKit reply failed, ignoring: %m");
+        (void) sd_bus_reply_method_errno(q->request, r, NULL);
         async_polkit_query_free(q);
-
         return r;
 }
 
@@ -225,11 +262,9 @@ int bus_verify_polkit_async(
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
-        const char *sender;
-        sd_bus_message_handler_t callback;
-        void *userdata;
         int c;
 #endif
+        const char *sender;
         int r;
 
         assert(call);
@@ -293,20 +328,11 @@ int bus_verify_polkit_async(
         else if (r > 0)
                 return 1;
 
-#if ENABLE_POLKIT
-        if (sd_bus_get_current_message(call->bus) != call)
-                return -EINVAL;
-
-        callback = sd_bus_get_current_handler(call->bus);
-        if (!callback)
-                return -EINVAL;
-
-        userdata = sd_bus_get_current_userdata(call->bus);
-
         sender = sd_bus_message_get_sender(call);
         if (!sender)
                 return -EBADMSG;
 
+#if ENABLE_POLKIT
         c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
                 return c;
@@ -349,8 +375,6 @@ int bus_verify_polkit_async(
 
         *q = (AsyncPolkitQuery) {
                 .request = sd_bus_message_ref(call),
-                .callback = callback,
-                .userdata = userdata,
         };
 
         q->action = strdup(action);
