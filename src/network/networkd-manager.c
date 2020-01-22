@@ -11,6 +11,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"

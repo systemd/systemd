@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "bus-label.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "copy.h"
 #include "dissect-image.h"

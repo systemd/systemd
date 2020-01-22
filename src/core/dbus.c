@@ -10,7 +10,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "dbus-automount.h"
 #include "dbus-cgroup.h"
 #include "dbus-device.h"
