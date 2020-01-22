@@ -30,6 +30,34 @@ static int check_good_user(sd_bus_message *m, uid_t good_user) {
         return sender_uid == good_user;
 }
 
+#if ENABLE_POLKIT
+static int bus_message_append_strv_key_value(
+                sd_bus_message *m,
+                const char **l) {
+
+        const char **k, **v;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_open_container(m, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(k, v, l) {
+                r = sd_bus_message_append(m, "{ss}", *k, *v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return r;
+}
+#endif
+
 int bus_test_polkit(
                 sd_bus_message *call,
                 int capability,
@@ -60,7 +88,7 @@ int bus_test_polkit(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
-                const char *sender, **k, **v;
+                const char *sender;
 
                 sender = sd_bus_message_get_sender(call);
                 if (!sender)
@@ -84,17 +112,7 @@ int bus_test_polkit(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_open_container(request, 'a', "{ss}");
-                if (r < 0)
-                        return r;
-
-                STRV_FOREACH_PAIR(k, v, details) {
-                        r = sd_bus_message_append(request, "{ss}", *k, *v);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = sd_bus_message_close_container(request);
+                r = bus_message_append_strv_key_value(request, details);
                 if (r < 0)
                         return r;
 
@@ -201,7 +219,7 @@ int bus_verify_polkit_async(
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
         AsyncPolkitQuery *q;
-        const char *sender, **k, **v;
+        const char *sender;
         sd_bus_message_handler_t callback;
         void *userdata;
         int c;
@@ -305,17 +323,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(pk, 'a', "{ss}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(k, v, details) {
-                r = sd_bus_message_append(pk, "{ss}", *k, *v);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(pk);
+        r = bus_message_append_strv_key_value(pk, details);
         if (r < 0)
                 return r;
 
