@@ -207,6 +207,7 @@ int sd_bus_process(sd_bus *bus, sd_bus_message **r);
 int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
+int sd_bus_enqeue_for_read(sd_bus *bus, sd_bus_message *m);
 
 sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus);
 sd_bus_message* sd_bus_get_current_message(sd_bus *bus);
