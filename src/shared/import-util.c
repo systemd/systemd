@@ -4,6 +4,8 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "chattr-util.h"
+#include "errno-util.h"
 #include "import-util.h"
 #include "log.h"
 #include "macro.h"
@@ -160,6 +162,18 @@ int import_assign_pool_quota_and_warn(const char *path) {
                 return log_error_errno(r, "Failed to set up default quota hierarchy for %s: %m", path);
         if (r > 0)
                 log_debug("Set up default quota hierarchy for %s.", path);
+
+        return 0;
+}
+
+int import_set_nocow_and_log(int fd, const char *path) {
+        int r;
+
+        r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
+        if (r < 0)
+                return log_full_errno(
+                                ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING,
+                                r, "Failed to set file attributes on %s: %m", path);
 
         return 0;
 }
