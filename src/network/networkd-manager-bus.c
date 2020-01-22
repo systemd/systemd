@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"

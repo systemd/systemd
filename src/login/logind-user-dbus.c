@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "format-util.h"
 #include "logind-dbus.h"

@@ -7,7 +7,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "def.h"
 #include "fd-util.h"
 #include "float.h"

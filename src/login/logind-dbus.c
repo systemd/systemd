@@ -14,6 +14,7 @@
 #include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"

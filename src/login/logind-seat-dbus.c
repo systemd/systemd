@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"

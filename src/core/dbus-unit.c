@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bpf-firewall.h"
 #include "bus-common-errors.h"
+#include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "condition.h"
 #include "dbus-job.h"
