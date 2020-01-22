@@ -493,15 +493,21 @@ int generator_hook_up_growfs(
                 "BindsTo=%%i.mount\n"
                 "Conflicts=shutdown.target\n"
                 "After=%%i.mount\n"
-                "Before=shutdown.target %s\n"
+                "Before=shutdown.target %s\n",
+                program_invocation_short_name,
+                target);
+
+        if (empty_or_root(where)) /* Make sure the root fs is actually writable before we resize it */
+                fprintf(f,
+                        "After=systemd-remount-fs.service\n");
+
+        fprintf(f,
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart="SYSTEMD_GROWFS_PATH " %s\n"
                 "TimeoutSec=0\n",
-                program_invocation_short_name,
-                target,
                 escaped);
 
         return generator_add_symlink(dir, where_unit, "wants", unit);
