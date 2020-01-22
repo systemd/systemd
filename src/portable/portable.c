@@ -365,8 +365,14 @@ static int portable_extract_by_path(
         if (r == -EISDIR) {
                 /* We can't turn this into a loop-back block device, and this returns EISDIR? Then this is a directory
                  * tree and not a raw device. It's easy then. */
+                /* Resolve the link to the directory tree. If it's a symlink, chase_symlink of path + "/etc/os-release"
+                 * as called by open_os_release will fail (see: #14634). */
+                _cleanup_free_ char *path_resolve = NULL;
 
-                r = extract_now(path, matches, -1, &os_release, &unit_files);
+                r = chase_symlinks(path, "/", CHASE_PREFIX_ROOT, &path_resolve, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to resolve image directory path %s: %m", path);
+                r = extract_now(path_resolve, matches, -1, &os_release, &unit_files);
                 if (r < 0)
                         return r;
 
