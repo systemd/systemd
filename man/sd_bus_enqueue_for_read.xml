@@ -1,0 +1,88 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_enqueue_for_read"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_enqueue_for_read</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_enqueue_for_read</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_enqueue_for_read</refname>
+
+    <refpurpose>Re-enqueue a bus message on a bus connection, for reading.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_enqueue_for_read</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_enqueue_for_read()</function> may be used to re-enqueue an incoming bus message on
+    the local read queue, so that it is processed and dispatched locally again, similar to how an incoming
+    message from the peer is processed. Takes a bus connection object and the message to enqueue. A reference
+    is taken of the message and the caller's reference thus remains in possession of the caller. The message
+    is enqueued at the end of the queue, thus will be dispatched after all other already queued messages are
+    dispatched.</para>
+
+    <para>This call is primarily useful for dealing with incoming method calls that may be processed only
+    after an additional asynchronous operation completes. One example are PolicyKit authorization requests
+    that are determined to be necessary to autorize a newly incoming method call: when the PolicyKit response
+    is received the original method call may be re-enqueued to process it again, this time with the
+    authorization result known.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this function return 0 or a positive integer. On failure, it returns a negative errno-style
+    error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection has been created in a different process.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+
+</refentry>
