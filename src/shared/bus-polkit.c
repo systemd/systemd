@@ -155,6 +155,9 @@ int bus_test_polkit(
 #if ENABLE_POLKIT
 
 typedef struct AsyncPolkitQuery {
+        char *action;
+        char **details;
+
         sd_bus_message *request, *reply;
         sd_bus_message_handler_t callback;
         void *userdata;
@@ -174,6 +177,9 @@ static void async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_bus_message_unref(q->request);
         sd_bus_message_unref(q->reply);
+
+        free(q->action);
+        strv_free(q->details);
 
         free(q);
 }
@@ -239,10 +245,16 @@ int bus_verify_polkit_async(
         if (q) {
                 int authorized, challenge;
 
-                /* This is the second invocation of this function, and
-                 * there's already a response from polkit, let's
-                 * process it */
+                /* This is the second invocation of this function, and there's already a response from
+                 * polkit, let's process it */
                 assert(q->reply);
+
+                /* If the operation we want to authenticate changed between the first and the second time,
+                 * let's not use this authentication, it might be out of date as the object and context we
+                 * operate on might have changed. */
+                if (!streq(q->action, action) ||
+                    !strv_equal(q->details, (char**) details))
+                        return -ESTALE;
 
                 if (sd_bus_message_is_method_error(q->reply, NULL)) {
                         const sd_bus_error *e;
@@ -338,6 +350,18 @@ int bus_verify_polkit_async(
         q->request = sd_bus_message_ref(call);
         q->callback = callback;
         q->userdata = userdata;
+
+        q->action = strdup(action);
+        if (!q->action) {
+                async_polkit_query_free(q);
+                return -ENOMEM;
+        }
+
+        q->details = strv_copy((char**) details);
+        if (!q->details) {
+                async_polkit_query_free(q);
+                return -ENOMEM;
+        }
 
         r = hashmap_put(*registry, call, q);
         if (r < 0) {
