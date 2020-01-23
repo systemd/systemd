@@ -5,6 +5,8 @@
 
 #include "sd-id128.h"
 
+#include "id128-util.h"
+
 /* We only support root disk discovery for x86, x86-64, Itanium and ARM for
  * now, since EFI for anything else doesn't really exist, and we only
  * care for root partitions on the same disk as the EFI ESP. */
@@ -65,3 +67,9 @@
 #define GPT_FLAG_NO_AUTO (1ULL << 63)
 
 #define GPT_LINUX_GENERIC SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
+
+const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
+const char *gpt_partition_type_uuid_to_string_harder(
+                sd_id128_t id,
+                char buffer[static ID128_UUID_STRING_MAX]);
+int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret);
