@@ -45,7 +45,7 @@ static char *indent(unsigned level, uint64_t flags) {
         return p;
 }
 
-int bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
+_public_ int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags) {
         unsigned level = 1;
         int r;
 

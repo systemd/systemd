@@ -1158,7 +1158,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
-        return bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+        return sd_bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 }
 
 static int message_pcap(sd_bus_message *m, FILE *f) {
@@ -2052,7 +2052,7 @@ static int call(int argc, char **argv, void *userdata) {
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = bus_message_dump(reply, stdout, 0);
+                        r = sd_bus_message_dump(reply, stdout, 0);
                         if (r < 0)
                                 return r;
                 } else {
@@ -2158,7 +2158,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+                        r = sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                         if (r < 0)
                                 return r;
                 } else {

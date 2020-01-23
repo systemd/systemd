@@ -19,6 +19,7 @@
 
 #include <inttypes.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -334,6 +335,8 @@ int sd_bus_message_verify_type(sd_bus_message *m, char type, const char *content
 int sd_bus_message_at_end(sd_bus_message *m, int complete);
 int sd_bus_message_rewind(sd_bus_message *m, int complete);
 int sd_bus_message_sensitive(sd_bus_message *m);
+
+int sd_bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags);
 
 /* Bus management */
 

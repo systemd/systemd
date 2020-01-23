@@ -685,6 +685,7 @@ global:
 
 LIBSYSTEMD_245 {
 global:
+        sd_bus_message_dump;
         sd_bus_message_sensitive;
         sd_event_add_child_pidfd;
         sd_event_source_get_child_pidfd;
