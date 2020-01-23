@@ -220,6 +220,8 @@ in_units = [
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
         ['systemd-volatile-root.service',        ''],
+        ['systemd-repart.service',               'ENABLE_REPART',
+         'sysinit.target.wants/ initrd-root-fs.target.wants/'],
         ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
 ]

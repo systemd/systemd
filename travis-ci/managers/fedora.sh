@@ -23,7 +23,10 @@ ADDITIONAL_DEPS=(dnf-plugins-core
                  libubsan
                  clang
                  llvm
-                 perl)
+                 perl
+                 libfdisk-devel
+                 openssl-devel
+                 p11-kit-devel)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
