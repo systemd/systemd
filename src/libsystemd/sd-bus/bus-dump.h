@@ -6,12 +6,7 @@
 
 #include "sd-bus.h"
 
-enum {
-        BUS_MESSAGE_DUMP_WITH_HEADER  = 1 << 0,
-        BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1 << 1,
-};
-
-int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags);
+int bus_message_dump(sd_bus_message *m, FILE *f, uint64_t flags);
 
 int bus_creds_dump(sd_bus_creds *c, FILE *f, bool terse);
 

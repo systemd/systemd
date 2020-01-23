@@ -105,6 +105,11 @@ enum {
         SD_BUS_NAME_QUEUE             = 1ULL << 2
 };
 
+enum {
+        SD_BUS_MESSAGE_DUMP_WITH_HEADER  = 1ULL << 0,
+        SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY = 1ULL << 1,
+};
+
 /* Callbacks */
 
 typedef int (*sd_bus_message_handler_t)(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
