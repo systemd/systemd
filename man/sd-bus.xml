@@ -58,6 +58,7 @@
 <citerefentry><refentrytitle>sd_bus_message_append_string_memfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_append_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_copy</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_message_dump</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_cookie</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_signature</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
