@@ -185,6 +185,8 @@ BindCarrier=
 VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [IPv6Prefix]
 Prefix=
 OnLink=

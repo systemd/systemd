@@ -117,6 +117,8 @@ struct Network {
         bool dhcp_route_table_set;
         bool dhcp_send_release;
         bool dhcp_send_decline;
+        bool dhcp_source_routing_enabled;
+        uint32_t dhcp_source_routing_rule_priority;
         DHCPUseDomains dhcp_use_domains;
         sd_ipv4acd *dhcp_acd;
         Set *dhcp_black_listed_ip;

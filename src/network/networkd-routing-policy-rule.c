@@ -145,7 +145,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
         }
 }
 
-static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b) {
         int r;
 
         r = CMP(a->family, b->family);

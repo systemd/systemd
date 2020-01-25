@@ -2922,7 +2922,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-ipv4-dhcp-settings.network',
         'dhcp-client-ipv4-only-ipv6-disabled.network',
         'dhcp-client-ipv4-only.network',
-        'dhcp-client-ipv4-use-routes-use-gateway.network',
+        'dhcp-client-ipv4-source-routing-rules.network',
         'dhcp-client-ipv6-only.network',
         'dhcp-client-ipv6-rapid-commit.network',
         'dhcp-client-keep-configuration-dhcp-on-stop.network',
@@ -2932,6 +2932,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-reassign-static-routes-ipv6.network',
         'dhcp-client-route-metric.network',
         'dhcp-client-route-table.network',
+        'dhcp-client-source-routing-rules.network',
         'dhcp-client-use-dns-ipv4-and-ra.network',
         'dhcp-client-use-dns-ipv4.network',
         'dhcp-client-use-dns-no.network',
@@ -3208,6 +3209,33 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'veth99 proto dhcp')
         self.assertRegex(output, '192.168.5.1')
+
+    def test_dhcp_source_routing_rules(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-ipv4-source-routing-rules.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        rule_regex = r'23:\s+from 192\.168\.5\.[0-9]* lookup 13'
+        output = check_output('ip rule list')
+        print(output)
+        self.assertRegex(output, rule_regex)
+
+        # Check that it cleans up as well (for dhcp4, lease gets released if we unmanage the network).
+        remove_unit_from_networkd_path(['dhcp-client-ipv4-source-routing-rules.network'])
+        copy_unit_to_networkd_unit_path('dhcp-client-ipv4-only.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+
+        for i in range(60):
+            if i > 0:
+                time.sleep(1)
+            output = check_output('ip rule list')
+            if not re.search(rule_regex, output):
+                break
+        else:
+            self.assertNotRegex(output, rule_regex)
+
 
     def test_dhcp_route_metric(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')
