@@ -3280,6 +3280,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_STOP_POST:
+
+                                if (control_pid_good(s) <= 0)
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+
+                                break;
+
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
 
@@ -3415,6 +3421,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_STOP_POST:
+                                if (main_pid_good(s) <= 0)
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                break;
+
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
                                 if (main_pid_good(s) <= 0)
