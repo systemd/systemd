@@ -225,6 +225,7 @@ DestinationPort=
 IPProtocol=
 InvertRule=
 Family=
+User=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=

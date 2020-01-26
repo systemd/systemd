@@ -49,6 +49,7 @@ struct RoutingPolicyRule {
 
         struct fib_rule_port_range sport;
         struct fib_rule_port_range dport;
+        struct fib_rule_uid_range uid_range;
 
         LIST_FIELDS(RoutingPolicyRule, rules);
 };
@@ -79,3 +80,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_port_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_ip_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);

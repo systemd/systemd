@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "ip-protocol-list.h"
 #include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
@@ -16,6 +17,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
@@ -26,6 +28,8 @@ int routing_policy_rule_new(RoutingPolicyRule **ret) {
 
         *rule = (RoutingPolicyRule) {
                 .table = RT_TABLE_MAIN,
+                .uid_range.start = UID_INVALID,
+                .uid_range.end = UID_INVALID,
         };
 
         *ret = rule;
@@ -93,6 +97,7 @@ static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *
         dest->protocol = src->protocol;
         dest->sport = src->sport;
         dest->dport = src->dport;
+        dest->uid_range = src->uid_range;
 
         return 0;
 }
@@ -122,6 +127,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
                 siphash24_compress(&rule->sport, sizeof(rule->sport), state);
                 siphash24_compress(&rule->dport, sizeof(rule->dport), state);
+                siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
 
                 if (rule->iif)
                         siphash24_compress(rule->iif, strlen(rule->iif), state);
@@ -195,6 +201,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = memcmp(&a->dport, &b->dport, sizeof(a->dport));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->uid_range, &b->uid_range, sizeof(a->uid_range));
                 if (r != 0)
                         return r;
 
@@ -552,6 +562,12 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 r = sd_netlink_message_append_data(m, FRA_DPORT_RANGE, &rule->dport, sizeof(rule->dport));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_DPORT_RANGE attribute: %m");
+        }
+
+        if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
+                r = sd_netlink_message_append_data(m, FRA_UID_RANGE, &rule->uid_range, sizeof(rule->uid_range));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_UID_RANGE attribute: %m");
         }
 
         if (rule->invert_rule) {
@@ -1056,6 +1072,51 @@ int config_parse_routing_policy_rule_family(
         return 0;
 }
 
+int config_parse_routing_policy_rule_uid_range(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        uid_t start, end;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = get_user_creds(&rvalue, &start, NULL, NULL, NULL, 0);
+        if (r >= 0)
+                end = start;
+        else {
+                r = parse_uid_range(rvalue, &start, &end);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid uid or uid range '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        n->uid_range.start = start;
+        n->uid_range.end = end;
+        n = NULL;
+        return 0;
+}
+
 static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t size;
@@ -1167,6 +1228,14 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         fprintf(f, "%sdestinationport=%"PRIu16"-%"PRIu16,
                                 space ? " " : "",
                                 rule->dport.start, rule->dport.end);
+                        space = true;
+                }
+
+                if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
+                        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+                        fprintf(f, "%suidrange="UID_FMT"-"UID_FMT,
+                                space ? " " : "",
+                                rule->uid_range.start, rule->uid_range.end);
                         space = true;
                 }
 
@@ -1294,7 +1363,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment:'%s'", b);
+                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1305,12 +1374,24 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment:'%s'", b);
+                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
                                 rule->dport.start = low;
                                 rule->dport.end = high;
+
+                        } else if (streq(a, "uidrange")) {
+                                uid_t lower, upper;
+
+                                r = parse_uid_range(b, &lower, &upper);
+                                if (r < 0) {
+                                        log_error_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
+                                        continue;
+                                }
+
+                                rule->uid_range.start = lower;
+                                rule->uid_range.end = upper;
                         }
                 }
 
