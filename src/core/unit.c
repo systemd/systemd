@@ -4287,6 +4287,9 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_kernel_logs)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
 
+                if (ec->protect_clock)
+                        ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) | (UINT64_C(1) << CAP_WAKE_ALARM));
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);
@@ -4342,6 +4345,12 @@ int unit_patch_contexts(Unit *u) {
 
                         /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices */
                         r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "modprobe@loop.service", true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ec->protect_clock) {
+                        r = cgroup_add_device_allow(cc, "char-rtc", "r");
                         if (r < 0)
                                 return r;
                 }

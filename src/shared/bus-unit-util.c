@@ -854,6 +854,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectKernelTunables",
                               "ProtectKernelModules",
                               "ProtectKernelLogs",
+                              "ProtectClock",
                               "ProtectControlGroups",
                               "MountAPIVFS",
                               "CPUSchedulingResetOnFork",
