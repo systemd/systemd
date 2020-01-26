@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 rules = files('''
+        53-storage-hardware.rules
+        56-fallback-scsi_id.rules
+        58-cdrom_id.rules
+        59-storage-content.rules
         60-block.rules
-        60-cdrom_id.rules
         60-drm.rules
         60-evdev.rules
         60-fido-id.rules

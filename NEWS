@@ -1,5 +1,35 @@
 systemd System and Service Manager
 
+        * The udev rules for persistent naming of block devices, in particular
+          SCSI devices, have been reorganized. The rules in
+          60-persistent-storage.rules used to do 3 different things: a) probe
+          hardware properties (and set related environment variables), b) probe
+          storage content with blkid, and c) add SYMLINK entries.  Only the
+          rules for c) remain in 60-persistent-storage.rules. The rules for a)
+          and b) are moved to 53-storage-hardware.rules and
+          59-storage-content.rules, respectively. This leaves space for SCSI
+          device detection (SCSI rules must be executed after low-level
+          hardware rules such as USB and ATA) at stage 55-56, and things that
+          need to be done after hardware probing but before content probing, at
+          stage 57-58.
+
+          SCSI scanning is now done using sg3_utils by default, at stage
+          55. The "scsi_id" tool, which is still shipped with systemd, is now
+          only considered a fallback for systems that don't have sg3_utils
+          installed. Udev rules calling scsi_id are moved to a fallback rule
+          set (56-fallback-scsi-id.rules), called after stage 55. Distributions
+          are encouraged to switch to sg3_utils, as scsi_id may be deprecated
+          and removed in a future release. The rationale for this is that
+          scsi_id hasn't been actively maintained for some time. Also, the
+          sg_inq tool from sg3_utils can retrieve hardware properties from
+          sysfs without device I/O, improving speed and reliablity of udev rule
+          processing.
+
+          Care has been taken for backward compatibility: if recent sg3_utils
+          1.45 with their udev rules are installed, the set of udev properties
+          and symlinks created by the new rules is identical to the result
+          obtained with scsi_id.
+
 CHANGES WITH 244:
 
         * Support for the cpuset cgroups v2 controller has been added.
