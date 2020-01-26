@@ -11,6 +11,7 @@
 #include <security/pam_modutil.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -219,10 +220,11 @@ static int socket_from_display(const char *display, char **path) {
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
         union sockaddr_union sa = {};
-        _cleanup_free_ char *p = NULL, *tty = NULL;
+        _cleanup_free_ char *p = NULL, *sys_path = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
         int v, r, salen;
+        dev_t display_ctty;
 
         assert(display);
         assert(vtnr);
@@ -251,7 +253,13 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         if (r < 0)
                 return r;
 
-        r = get_ctty(ucred.pid, NULL, &tty);
+        r = get_ctty_devnr(ucred.pid, &display_ctty);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&sys_path, "/sys/dev/char/%d:%d", major(display_ctty), minor(display_ctty)) < 0)
+                return -ENOMEM;
+        r = readlink_value(sys_path, &tty);
         if (r < 0)
                 return r;
 
