@@ -404,10 +404,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"random-seed-mode:       off\n");
                 break;
         case RANDOM_SEED_WITH_SYSTEM_TOKEN:
-                Print(L"random-seed-node:       with-system-token\n");
+                Print(L"random-seed-mode:       with-system-token\n");
                 break;
         case RANDOM_SEED_ALWAYS:
-                Print(L"random-seed-node:       always\n");
+                Print(L"random-seed-mode:       always\n");
                 break;
         default:
                 ;
