@@ -160,7 +160,7 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                 case _SD_BUS_VTABLE_SIGNAL:
                         fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
                         if (bus_vtable_has_names(vtable))
-                                names = strempty(v->x.method.names);
+                                names = strempty(v->x.signal.names);
                         introspect_write_arguments(i, strempty(v->x.signal.signature), &names, NULL);
                         introspect_write_flags(i, v->type, v->flags);
                         fputs("  </signal>\n", i->f);
