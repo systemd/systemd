@@ -360,14 +360,6 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
         return t - r;
 }
 
-int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
-        return cunescape_length_with_prefix(s, length, NULL, flags, ret);
-}
-
-int cunescape(const char *s, UnescapeFlags flags, char **ret) {
-        return cunescape_length(s, strlen(s), flags, ret);
-}
-
 char *xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits) {
         char *ans, *t, *prev, *prev2;
         const char *f;
