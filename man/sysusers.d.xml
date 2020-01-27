@@ -25,6 +25,16 @@
     <para><filename>/etc/sysusers.d/*.conf</filename></para>
     <para><filename>/run/sysusers.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
+
+    <programlisting>
+#Type Name       ID                   GECOS                 Home directory Shell
+u     user_name  uid                  "User Description"    /path/to/shell
+u     user_name  uid:gid              -                     -
+u     user_name  /file/owned/by/user  -                     -
+g     group_name gid                  "Group Description"
+g     group_name /file/owned/by/group -
+m     user_name  group_name
+r     -          lowest-highest</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
@@ -81,11 +91,13 @@
 
     <programlisting>#Type Name     ID             GECOS                 Home directory Shell
 u     httpd    404            "HTTP User"
-u     authd    /usr/bin/authd "Authorization user"
+u     _authd   /usr/bin/authd "Authorization user"
 u     postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
 g     input    -              -
-m     authd    input
-u     root     0              "Superuser"           /root          /bin/zsh</programlisting>
+m     _authd   input
+u     root     0              "Superuser"           /root          /bin/zsh
+r     -        500-900
+</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
@@ -109,7 +121,7 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
           <term><varname>g</varname></term>
           <listitem><para>Create a system group of the specified name
           should it not exist yet. Note that <varname>u</varname>
-          implicitly create a matching group. The group will be
+          implicitly creates a matching group. The group will be
           created with no password set.</para></listitem>
         </varlistentry>
 
