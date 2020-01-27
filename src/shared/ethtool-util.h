@@ -32,6 +32,8 @@ typedef enum WakeOnLan {
 } WakeOnLan;
 
 typedef enum NetDevFeature {
+        NET_DEV_FEAT_RX,
+        NET_DEV_FEAT_TX,
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
         NET_DEV_FEAT_LRO,
