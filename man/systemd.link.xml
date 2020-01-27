@@ -613,6 +613,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReceiveChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of ingress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TransmitChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of egress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the TCP Segmentation Offload (TSO) is enabled.
@@ -633,7 +647,7 @@
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
+      <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the Generic Receive Offload (GRO) is enabled.
