@@ -14,7 +14,7 @@ test_setup() {
         setup_basic_environment
 
         mask_supporting_services
-        dracut_install truncate sfdisk
+        dracut_install truncate sfdisk grep
 
         # setup the testsuite service
         cat >$initdir/etc/systemd/system/testsuite.service <<EOF

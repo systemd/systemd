@@ -15,7 +15,7 @@ SEED=e2a40bf9-73f1-4278-9160-49c031e7aef8
 
 systemd-repart /tmp/zzz --empty=force --dry-run=no --seed=$SEED
 
-sfdisk -d /tmp/zzz > /tmp/empty
+sfdisk -d /tmp/zzz | grep -v -e 'sector-size' -e '^$' > /tmp/empty
 
 cmp /tmp/empty - <<EOF
 label: gpt
@@ -24,7 +24,6 @@ device: /tmp/zzz
 unit: sectors
 first-lba: 2048
 last-lba: 2097118
-
 EOF
 
 mkdir /tmp/definitions
@@ -50,7 +49,7 @@ EOF
 
 systemd-repart /tmp/zzz --dry-run=no --seed=$SEED --definitions=/tmp/definitions
 
-sfdisk -d /tmp/zzz > /tmp/populated
+sfdisk -d /tmp/zzz | grep -v -e 'sector-size' -e '^$' > /tmp/populated
 
 cmp /tmp/populated - <<EOF
 label: gpt
@@ -59,7 +58,6 @@ device: /tmp/zzz
 unit: sectors
 first-lba: 2048
 last-lba: 2097118
-
 /tmp/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=A6005774-F558-4330-A8E5-D6D2C01C01D6, name="home"
 /tmp/zzz2 : start=      593904, size=      591856, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=CE9C76EB-A8F1-40FF-813C-11DCA6C0A55B, name="root-x86-64"
 /tmp/zzz3 : start=     1185760, size=      591864, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=AC60A837-550C-43BD-B5C4-9CB73B884E79, name="root-x86-64-2"
@@ -79,7 +77,7 @@ EOF
 
 systemd-repart /tmp/zzz --dry-run=no --seed=$SEED --definitions=/tmp/definitions
 
-sfdisk -d /tmp/zzz > /tmp/populated2
+sfdisk -d /tmp/zzz | grep -v -e 'sector-size' -e '^$' > /tmp/populated2
 
 cmp /tmp/populated2 - <<EOF
 label: gpt
@@ -88,7 +86,6 @@ device: /tmp/zzz
 unit: sectors
 first-lba: 2048
 last-lba: 2097118
-
 /tmp/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=A6005774-F558-4330-A8E5-D6D2C01C01D6, name="home"
 /tmp/zzz2 : start=      593904, size=      591856, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=CE9C76EB-A8F1-40FF-813C-11DCA6C0A55B, name="root-x86-64"
 /tmp/zzz3 : start=     1185760, size=      591864, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=AC60A837-550C-43BD-B5C4-9CB73B884E79, name="root-x86-64-2"
@@ -100,7 +97,7 @@ truncate -s 2G /tmp/zzz
 
 systemd-repart /tmp/zzz --dry-run=no --seed=$SEED --definitions=/tmp/definitions
 
-sfdisk -d /tmp/zzz > /tmp/populated3
+sfdisk -d /tmp/zzz | grep -v -e 'sector-size' -e '^$' > /tmp/populated3
 
 cmp /tmp/populated3 - <<EOF
 label: gpt
@@ -109,7 +106,6 @@ device: /tmp/zzz
 unit: sectors
 first-lba: 2048
 last-lba: 4194270
-
 /tmp/zzz1 : start=        2048, size=      591856, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=A6005774-F558-4330-A8E5-D6D2C01C01D6, name="home"
 /tmp/zzz2 : start=      593904, size=      591856, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=CE9C76EB-A8F1-40FF-813C-11DCA6C0A55B, name="root-x86-64"
 /tmp/zzz3 : start=     1185760, size=      591864, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=AC60A837-550C-43BD-B5C4-9CB73B884E79, name="root-x86-64-2"
