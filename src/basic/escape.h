@@ -29,12 +29,13 @@
 #define SHELL_NEED_ESCAPE_POSIX "\\\'"
 
 typedef enum UnescapeFlags {
-        UNESCAPE_RELAX = 1,
+        UNESCAPE_RELAX      = 1 << 0,
+        UNESCAPE_ACCEPT_NUL = 1 << 1,
 } UnescapeFlags;
 
 typedef enum EscapeStyle {
         ESCAPE_BACKSLASH = 1,
-        ESCAPE_POSIX = 2,
+        ESCAPE_POSIX     = 2,
 } EscapeStyle;
 
 char *cescape(const char *s);
@@ -48,7 +49,7 @@ static inline int cunescape_length(const char *s, size_t length, UnescapeFlags f
 static inline int cunescape(const char *s, UnescapeFlags flags, char **ret) {
         return cunescape_length(s, strlen(s), flags, ret);
 }
-int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit);
+int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul);
 
 char *xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits);
 static inline char *xescape(const char *s, const char *bad) {
