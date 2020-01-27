@@ -390,7 +390,7 @@ int config_parse_dhcp_send_option(
                 break;
         }
         case DHCP_OPTION_DATA_STRING:
-                sz = cunescape(p, 0, &q);
+                sz = cunescape(p, UNESCAPE_ACCEPT_NUL, &q);
                 if (sz < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, sz,
                                    "Failed to decode DHCPv4 option data, ignoring assignment: %s", p);
