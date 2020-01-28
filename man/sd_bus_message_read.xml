@@ -60,13 +60,13 @@
 
     <para>For each type specified in the type string, one or more arguments need to be specified
     after the <parameter>types</parameter> parameter, in the same order. The arguments must be
-    pointers to appropriate types (a pointer to <code>int8_t</code> for a <literal>y</literal> in
-    the type string, a pointer to <code>int32_t</code> for an <literal>i</literal>, a pointer to
-    <code>const char*</code> for an <literal>s</literal>, ...)  which are set based on the values in
+    pointers to appropriate types (a pointer to <type>int8_t</type> for a <literal>y</literal> in
+    the type string, a pointer to <type>int32_t</type> for an <literal>i</literal>, a pointer to
+    <type>const char*</type> for an <literal>s</literal>, ...)  which are set based on the values in
     the message. As an exception, in case or array and variant types, the first argument is an
     "input" argument that further specifies how the message should be read. See the table below for
     a complete list of allowed arguments and their types. Note that, if the basic type is a pointer
-    (e.g., <code>const char *</code> in the case of a string), the argument is a pointer to a
+    (e.g., <type>const char *</type> in the case of a string), the argument is a pointer to a
     pointer, and also the pointer value that is written is only borrowed and the contents must be
     copied if they are to be used after the end of the messages lifetime.</para>
 
@@ -99,7 +99,7 @@
             <entry><literal>a</literal></entry>
             <entry><constant>SD_BUS_TYPE_ARRAY</constant></entry>
             <entry>array</entry>
-            <entry>int, which specifies the expected length <parameter>n</parameter> of the array</entry>
+            <entry><type>int</type>, which specifies the expected length <parameter>n</parameter> of the array</entry>
             <entry><parameter>n</parameter> sets of arguments appropriate for the array element type</entry>
           </row>
 
@@ -173,6 +173,14 @@
 int64_t x;
 
 sd_bus_message_read(m, "x", &amp;x);</programlisting>
+
+    <para>Read a boolean value:</para>
+
+    <programlisting>sd_bus_message *m;
+int x; /* Do not use C99 'bool' type here, it's typically smaller
+          in memory and would cause memory corruption */
+
+sd_bus_message_read(m, "b", &amp;x);</programlisting>
 
     <para>Read all types of integers:</para>
 
