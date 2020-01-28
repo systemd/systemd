@@ -87,6 +87,7 @@ shared_sources = files('''
         fstab-util.h
         generator.c
         generator.h
+        gpt.c
         gpt.h
         group-record-nss.c
         group-record-nss.h
