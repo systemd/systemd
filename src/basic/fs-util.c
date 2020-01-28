@@ -797,6 +797,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (r < 0)
                         return r;
 
+                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
+                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
+                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
+                 * anyway. Moreover at the end of this function after processing everything we'll always turn
+                 * the empty string back to "/". */
+                delete_trailing_chars(root, "/");
+                path_simplify(root, true);
+
                 if (flags & CHASE_PREFIX_ROOT) {
                         /* We don't support relative paths in combination with a root directory */
                         if (!path_is_absolute(path))
@@ -832,11 +840,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                               "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                               path, root);
 
-                /* Make sure "done" ends without a slash */
                 done = strdup(root);
                 if (!done)
                         return -ENOMEM;
-                delete_trailing_chars(done, "/");
 
                 /* Make sure "todo" starts with a slash */
                 absolute = strjoin("/", e);
@@ -855,6 +861,15 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 /* Determine length of first component in the path */
                 n = strspn(todo, "/");                  /* The slashes */
+
+                if (n > 1) {
+                        /* If we are looking at more than a single slash then skip all but one, so that when
+                         * we are done with everything we have a normalized path with only single slashes
+                         * separating the path components. */
+                        todo += n - 1;
+                        n = 1;
+                }
+
                 m = n + strcspn(todo + n, "/");         /* The entire length of the component */
 
                 /* Extract the first component. */
@@ -1010,8 +1025,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         done = strdup(root);
                                         if (!done)
                                                 return -ENOMEM;
-
-                                        delete_trailing_chars(done, "/");
                                 }
 
                                 /* Prefix what's left to do with what we just read, and start the loop again, but
