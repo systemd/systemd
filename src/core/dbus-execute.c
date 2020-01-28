@@ -1284,6 +1284,9 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "ProtectKernelLogs"))
                 return bus_set_transient_bool(u, name, &c->protect_kernel_logs, message, flags, error);
 
+        if (streq(name, "ProtectClock"))
+                return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
+
         if (streq(name, "ProtectControlGroups"))
                 return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
