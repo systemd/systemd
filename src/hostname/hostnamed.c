@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "def.h"
 #include "env-file-label.h"
 #include "env-file.h"

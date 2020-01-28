@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"

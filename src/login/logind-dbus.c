@@ -12,13 +12,14 @@
 #include "bootspec.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "device-util.h"
 #include "dirent-util.h"
-#include "efivars.h"
 #include "efi-loader.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -1015,6 +1016,8 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
+        /* PolicyKit is done by bus_session_method_activate() */
+
         return bus_session_method_activate(message, session, error);
 }
 
@@ -1045,6 +1048,20 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
         if (session->seat != seat)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
                                          "Session %s not on seat %s", session_name, seat_name);
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &m->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = session_activate(session);
         if (r < 0)

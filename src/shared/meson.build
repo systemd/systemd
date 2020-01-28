@@ -27,6 +27,8 @@ shared_sources = files('''
         bus-unit-util.h
         bus-util.c
         bus-util.h
+        bus-polkit.c
+        bus-polkit.h
         bus-wait-for-jobs.c
         bus-wait-for-jobs.h
         bus-wait-for-units.c
