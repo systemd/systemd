@@ -48,6 +48,10 @@
     appropriate for the data type. The data is part of the message — it may not be modified and is
     valid only as long as the message is referenced. After this function returns, the "read pointer"
     points at the next element after the array.</para>
+
+    <para>Note that this function only supports arrays of trivial types, i.e. arrays of booleans, the various
+    integer types, as well as floating point numbers. In particular it may not be used for arrays of strings,
+    structures or similar.</para>
   </refsect1>
 
   <refsect1>
@@ -68,8 +72,8 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>Specified type is invalid or the message parameter or one of the output
-          parameters are <constant>NULL</constant>.</para></listitem>
+          <listitem><para>Specified type is invalid or not a trivial type (see above), or the message
+          parameter or one of the output parameters are <constant>NULL</constant>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
