@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-03-07 22:43+0100\n"
+"POT-Creation-Date: 2020-01-28 22:40+0100\n"
 "PO-Revision-Date: 2019-03-07 23:09+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -489,11 +489,20 @@ msgstr ""
 "actives."
 
 #: src/login/org.freedesktop.login1.policy:341
-msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Indiquer au micrologiciel de démarrer sur l'interface de configuration"
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "Définir la « raison » du redémarrage dans le noyau"
 
 #: src/login/org.freedesktop.login1.policy:342
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr ""
+"Authentification requise pour définir la « raison » du redémarrage dans "
+"le noyau."
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Indiquer au micrologiciel de démarrer sur l'interface de configuration"
+
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -501,23 +510,23 @@ msgstr ""
 "Authentification requise pour indiquer au micrologiciel de démarrer sur "
 "l'interface de configuration."
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Indiquer au programme d'amorçage d'afficher le menu au démarrage"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Authentification requise pour indiquer au programme d'amorçage d'afficher "
-"le menu au démarrage."
+"Authentification requise pour indiquer au programme d'amorçage d'afficher le "
+"menu au démarrage."
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Indiquer au programme d'amorçage de démarrer une entrée spécifique"
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
@@ -525,13 +534,21 @@ msgstr ""
 "Authentification requise pour indiquer au programme d'amorçage de démarrer "
 "une entrée spécifique."
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "Définir un message wall"
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Authentification requise pour définir un message wall."
+
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr "Changer de Session"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Authentication is required for changing the virtual terminal."
+msgstr "Authentification requise pour changer de terminal virtuel."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -612,6 +629,136 @@ msgstr ""
 "Authentification requise pour gérer les images locales de machines "
 "virtuelles (VM) et de conteneurs."
 
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "Définir les serveurs NTP"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "Authentification requise pour définir les serveurs NTP."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "Définir les serveurs DNS"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "Authentification requise pour définir les serveurs DNS."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "Définir les domaines"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "Authentification requise pour définir les domaines."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "Définir la route par défaut"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "Authentification requise pour définir la route par défaut."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "Activer/désactiver LLMNR"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Authentification requise pour activer ou désactiver LLMNR."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "Activer/désactiver la multidiffusion DNS"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr ""
+"Authentification requise pour activer ou désactiver la multidiffusion DNS."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "Activer/désactiver DNS sur TLS"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "Authentification requise pour activer ou désactiver DNS sur TLS."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "Activer/désactiver DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Authentification requise pour activer ou désactiver DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "Définir les Negative Trust Anchors DNSSEC"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr ""
+"Authentification requise pour définir les Negative Trust Anchors DNSSEC."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "Réinitialiser les paramètres NTP"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "Authentification requise pour réinitialiser les paramètres NTP."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "Réinitialiser les paramètres DNS"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "Authentification requise pour réinitialiser les paramètres DNS."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "Renew dynamic addresses"
+msgstr "Renouveler les adresses dynamiques"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Authentification requise pour renouveler les adresses dynamiques."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Reload network settings"
+msgstr "Recharger les paramètres réseau"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to reload network settings."
+msgstr "Authentification requise pour recharger les paramètres réseau."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reconfigure network interface"
+msgstr "Reconfigurer une interface réseau"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Authentification requise pour reconfigurer une interface réseau."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspecter une image de service portable"
@@ -658,6 +805,16 @@ msgstr "Retirer un service DNS-SD"
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Authentification requise pour retirer un service DNS-SD"
 
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "Réinitialiser les paramètres de résolution de noms"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"Authentification requise pour réinitialiser les paramètres de résolution "
+"de noms."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Définir l'heure du système"
@@ -700,23 +857,23 @@ msgstr ""
 "Authentification requise pour activer ou désactiver la synchronisation de "
 "l'heure avec le réseau."
 
-#: src/core/dbus-unit.c:326
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Authentification requise pour démarrer « $(unit) »."
 
-#: src/core/dbus-unit.c:327
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Authentification requise pour arrêter « $(unit) »."
 
-#: src/core/dbus-unit.c:328
+#: src/core/dbus-unit.c:357
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Authentification requise pour recharger « $(unit) »."
 
-#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
+#: src/core/dbus-unit.c:358 src/core/dbus-unit.c:359
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Authentification requise pour redémarrer « $(unit) »."
 
-#: src/core/dbus-unit.c:437
+#: src/core/dbus-unit.c:531
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -724,15 +881,23 @@ msgstr ""
 "Authentification requise pour envoyer un signal UNIX aux processus de "
 "« $(unit) »."
 
-#: src/core/dbus-unit.c:468
+#: src/core/dbus-unit.c:562
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Authentification requise pour réinitialiser l'état d'« échec » de "
 "« $(unit) »."
 
-#: src/core/dbus-unit.c:501
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Authentification requise pour définir des propriétés de « $(unit) »."
+
+#: src/core/dbus-unit.c:704
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Authentification requise pour supprimer les fichiers et les dossiers "
+"associés à '$(unit)'."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Authentification requise pour tuer « $(unit) »."
