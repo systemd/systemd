@@ -19,6 +19,11 @@ Janitorial Clean-ups:
 
 Features:
 
+* homed/userdb: distuingish passwords and recovery keys in the records, since
+  we probably want to use different PBKDF algorithms/settings for them:
+  passwords have low entropy but recovery keys should have good entropy key
+  hence we can make them quicker to work.
+
 * bootctl:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
@@ -56,8 +61,6 @@ Features:
   TPM-less mode, and set up linear DM mapping instead (inspired by kpartx), so
   that the device paths stay the same, regardless if crypto is used or not.
 
-* move discoverable partitions spec into markdown and our tree
-
 * systemd-repart: by default generate minimized partition tables (i.e. tables
   that only covere the space actually used, excluding any free space at the
   end), in order to maximize dd'ability. Requires libfdisk work, see
@@ -66,7 +69,9 @@ Features:
 * systemd-repart: optionally, allow specifiying a path to initialize new
   partitions from, i.e. an fs image file or a source device node. This would
   then turn systemd-repart into a simple installer: with a few .repart files
-  you could replicate the host system on another device.
+  you could replicate the host system on another device. a full installer would
+  then be: "systemd-repart /dev/sda && bootctl install /dev/sda &&
+  systemd-firstboot --image= …"
 
 * systemd-repart: MBR partition table support. Care needs to be taken regarding
   Type=, so that partition definitions can sanely apply to both the GPT and the
@@ -77,6 +82,32 @@ Features:
 
 * systemd-repart: allow sizing partitions as factor of available RAM, so that
   we can reasonably size swap partitions for hibernation.
+
+* systemd-repart: allow running mkfs before making partitions pop up +
+  encryption via LUKS to allow booting into an empty root with only /usr mounted in
+
+* systemd-repart: allow managing the gpt read-only partition flag + auto-mount flag
+
+* systemd-repart: allow disabling growing of specific partitions, or making
+  them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
+
+* systemd-repart: add specifier expansion, add especifier that refers to root
+  device node of current system, /usr device node, and matching verity, so that
+  an installer can be made a "copy" installer of the booted OS
+
+* systemd-repart: make it a static checker during early boot for existance and
+  absence of other partitions for trusted boot environments
+
+* systemd-repart: when no configuration is found, exit early do not check
+  partition table, so that it is safe to run in the initrd on any system
+
+* systemd-repart: allow config of partition uuid
+
+* userdb: allow username prefix searches in varlink API
+
+* userdb: allow existance checks
+
+* pid: activation by journal search expression
 
 * when switching root from initrd to host, set the machine_id env var so that
   if the host has no machine ID set yet we continue to use the random one the
