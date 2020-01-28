@@ -3023,9 +3023,6 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         Network *network;
         int r;
 
-        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
-                return 0;
-
         if (m) {
                 _cleanup_strv_free_ char **s = NULL;
 
@@ -3089,6 +3086,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
+        link_dirty(link);
 
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
          * link_configure() is called later asynchronously. */
@@ -3126,6 +3124,9 @@ static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *
 int link_reconfigure(Link *link, bool force) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
+
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
+                return 0;
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
                                      link->ifindex);
