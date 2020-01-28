@@ -739,7 +739,7 @@ static void test_rename_noreplace(void) {
                 STRV_FOREACH(b, (char**) table) {
                         _cleanup_free_ char *w = NULL;
 
-                        w = strjoin(w, *b);
+                        w = strjoin(z, *b);
                         assert_se(w);
 
                         if (access(w, F_OK) < 0) {
@@ -747,7 +747,7 @@ static void test_rename_noreplace(void) {
                                 continue;
                         }
 
-                        assert_se(rename_noreplace(AT_FDCWD, w, AT_FDCWD, y) == -EEXIST);
+                        assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, w) == -EEXIST);
                 }
 
                 y = strjoin(z, "/somethingelse");
