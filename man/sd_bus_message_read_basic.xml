@@ -93,7 +93,7 @@
             <entry><literal>b</literal></entry>
             <entry><constant>SD_BUS_TYPE_BOOLEAN</constant></entry>
             <entry>boolean</entry>
-            <entry><type>int *</type></entry>
+            <entry><type>int *</type> (NB: not <type>bool *</type>)</entry>
           </row>
 
           <row>
