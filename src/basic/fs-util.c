@@ -810,13 +810,40 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (r < 0)
                 return r;
 
-        fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
         if (flags & CHASE_SAFE) {
                 if (fstat(fd, &previous_stat) < 0)
                         return -errno;
+        }
+
+        if (root) {
+                _cleanup_free_ char *absolute = NULL;
+                const char *e;
+
+                /* If we are operating on a root directory, let's take the root directory as it is. */
+
+                e = path_startswith(buffer, root);
+                if (!e)
+                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                                              SYNTHETIC_ERRNO(ECHRNG),
+                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                              path, root);
+
+                /* Make sure "done" ends without a slash */
+                done = strdup(root);
+                if (!done)
+                        return -ENOMEM;
+                delete_trailing_chars(done, "/");
+
+                /* Make sure "todo" starts with a slash */
+                absolute = strjoin("/", e);
+                if (!absolute)
+                        return -ENOMEM;
+
+                free_and_replace(buffer, absolute);
         }
 
         todo = buffer;
@@ -930,7 +957,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_SAFE) &&
-                    (empty_or_root(root) || (size_t)(todo - buffer) > strlen(root)) &&
                     unsafe_transition(&previous_stat, &st))
                         return log_unsafe_transition(fd, child, path, flags);
 
@@ -961,7 +987,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                  * directory as base. */
 
                                 safe_close(fd);
-                                fd = open(root ?: "/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                                fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
                                 if (fd < 0)
                                         return -errno;
 
@@ -984,6 +1010,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         done = strdup(root);
                                         if (!done)
                                                 return -ENOMEM;
+
+                                        delete_trailing_chars(done, "/");
                                 }
 
                                 /* Prefix what's left to do with what we just read, and start the loop again, but
