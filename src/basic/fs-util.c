@@ -828,14 +828,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 /* Determine length of first component in the path */
                 n = strspn(todo, "/");                  /* The slashes */
-                m = n + strcspn(todo + n, "/");         /* The entire length of the component */
+                m = strcspn(todo + n, "/");             /* The length of the component without slashes */
 
                 /* Extract the first component. */
-                first = strndup(todo, m);
+                first = strndup(todo + n - (n > 0), m + (n > 0));
                 if (!first)
                         return -ENOMEM;
 
-                todo += m;
+                todo += m + n;
 
                 /* Empty? Then we reached the end. */
                 if (isempty(first))
@@ -902,7 +902,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 }
 
                 /* Otherwise let's see what this is. */
-                child = openat(fd, first + n, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                child = openat(fd, first + 1, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (child < 0) {
 
                         if (errno == ENOENT &&
@@ -949,7 +949,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         if (--max_follow <= 0)
                                 return -ELOOP;
 
-                        r = readlinkat_malloc(fd, first + n, &destination);
+                        r = readlinkat_malloc(fd, first + 1, &destination);
                         if (r < 0)
                                 return r;
                         if (isempty(destination))
