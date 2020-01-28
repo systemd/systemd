@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-cgroup.h"
 #include "dbus-device.h"
