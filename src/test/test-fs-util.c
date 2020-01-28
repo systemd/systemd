@@ -371,6 +371,15 @@ static void test_chase_symlinks(void) {
         assert_se(streq("/usr", result));
         result = mfree(result);
 
+        /* Make sure that symlinks in the "root" path are not resolved, but those below are */
+        p = strjoina("/etc/..", temp, "/self");
+        assert_se(symlink(".", p) >= 0);
+        q = strjoina(p, "/top/dot/dotdota");
+        r = chase_symlinks(q, p, 0, &result, NULL);
+        assert_se(r > 0);
+        assert_se(path_equal(path_startswith(result, p), "usr"));
+        result = mfree(result);
+
  cleanup:
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
