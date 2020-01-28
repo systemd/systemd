@@ -152,6 +152,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 if (r < 0)
                         return log_debug_errno(r, "sd-device: Failed to get target of '%s': %m", _syspath);
 
+                path_simplify(syspath, false);
                 if (!path_startswith(syspath, "/sys")) {
                         _cleanup_free_ char *real_sys = NULL, *new_syspath = NULL;
                         char *p;
@@ -172,7 +173,6 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                 return -ENOMEM;
 
                         free_and_replace(syspath, new_syspath);
-                        path_simplify(syspath, false);
                 }
 
                 if (path_startswith(syspath,  "/sys/devices/")) {
