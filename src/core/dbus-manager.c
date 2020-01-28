@@ -9,6 +9,7 @@
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
+#include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
