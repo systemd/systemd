@@ -148,6 +148,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result, NULL);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
+        assert_se(streq(result, "/usr")); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
         r = chase_symlinks(p, temp, 0, &result, NULL);
