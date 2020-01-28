@@ -2211,7 +2211,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc qdisc show dev dummy98')
         print(output)
         self.assertRegex(output, 'qdisc fq')
-        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511 quantum 1500 initial_quantum 13000 maxrate 1Mbit')
+        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
+        self.assertRegex(output, 'quantum 1500')
+        self.assertRegex(output, 'initial_quantum 13000')
+        self.assertRegex(output, 'maxrate 1Mbit')
         self.assertRegex(output, 'qdisc codel')
         self.assertRegex(output, 'limit 2000p target 10.0ms ce_threshold 100.0ms interval 50.0ms ecn')
 
