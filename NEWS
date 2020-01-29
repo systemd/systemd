@@ -1,5 +1,146 @@
 systemd System and Service Manager
 
+CHANGES WITH 245 in spe:
+
+        * When systemd-tmpfiles copies a file tree using the 'C' line type it
+          will now implicitly label every copied file matching the SELinux
+          database.
+
+        * When systemd/PID 1 detects it is used in the initrd it will now boot
+          into initrd.target rather than default.target by default. This should
+          make it simpler to build initrds with systemd as for many cases the
+          only difference between a host OS image and an initrd image now is
+          the /etc/initrd-release file that identifies the initrd as one.
+
+        * A new kernel command line option systemd.cpu_affinity= is now
+          understood. It's equivalent to the CPUAffinity= option in
+          /etc/systemd/system.conf and allows setting the CPU mask for PID 1
+          itself and the default for all forked off processes.
+
+        * When systemd/PID 1 is reloaded (with systemctl daemon-reload or an
+          equivalent tool) the SELinux database is now reloaded, ensuring that
+          sockets and other file system objects are generated taking the new
+          database into account.
+
+        * The sd-event.h API now has native support for the new Linux "pidfd"
+          concept. This permits watching processes using file descriptors
+          instead of PID numbers, which fixes a number of races and makes
+          process supervision more robust and more efficient. All of systemd's
+          components will now use pidfds if the kernel supports it for process
+          watching, with the exception of PID 1 itself, unfortunately. We hope
+          to move PID 1 to exclusively using pidfds too eventually, but this
+          requires some more kernel work first. (Background: PID 1 watches
+          processes using waitid() with the P_ALL flag, and that does not play
+          together nicely with pidfds yet.)
+
+        * Closely related to this, the sd-event.h API gained two new calls
+          sd_event_source_send_child_signal() (for sending a signal to a
+          watched process) and sd_event_source_get_child_process_own() (for
+          marking a process so that it is killed implicitly whenever the event
+          source watching it is freed).
+
+        * systemd-networkd gained support for configuring Token Buffer Filter
+          (TBF) parameters in its qdisc configuration support. Similar, support
+          for Stochastic Fairness Queuing (SFQ), Controlled-Delay Active
+          Queue Management (CoDel), Fair Queue (FQ) has been added.
+
+        * systemd-networkd gained support for Intermediate Functional Block
+          (IFB) network devices.
+
+        * systemd-networkd gained support for configuring multi-path IP routes,
+          using the new MultiPathRoute= setting in the [Route] section.
+
+        * systemd-networkd's DHCPv4 support has been updated to support a new
+          SendDecline= option. If enabled duplicate address detection is done
+          after a DHCP offer is received from a server. If a conflict is
+          detected the address is declined. The DHCPv4 support also gained
+          support for a new RouteMTUBytes= setting that allows to configure the
+          MTU size to be used for routes generated from DHCPv4 leases.
+
+        * The PrefixRoute= setting in systemd-networkd's [Address] section of
+          .network files has been deprecated, and replaced by AddPrefixRoute=,
+          with it's sense inverted.
+
+        * The Gateway= setting of [Route] sections of .network files gained
+          support for a special new value "dhcp". If set the configured static
+          route uses the gateway host configured via DHCP.
+
+        * sd-bus gained a new API call sd_bus_message_sensitive() for marking a
+          D-Bus message object as "sensitive". Objects that are marked that way
+          are erased from memory when they are freed. This concept is intended
+          to be used for messages that contain security sensitive data that
+          should be erased after use. A new flag SD_BUS_VTABLE_SENSITIVE has
+          been introduced as well that allows marking method calls in sd-bus
+          vtables like this, so that this new message flag is implicitly set
+          for incoming and outgoing messages of specific methods.
+
+        * systemd-resolved's DNS-over-TLS support gained SNI validation.
+
+        * systemd-growfs (i.e. the x-systemd.growfs mount option in /etc/fstab)
+          gained support for growing XFS partitions. Previously it supported
+          only ext4 and btrfs partitions.
+
+        * The support for /etc/crypttab gained a new x-initrd.attach option. If
+          set the specified encrypted volume is unlocked in the initrd
+          already. This concept corresponds to the x-initrd.mount option in
+          /etc/fstab.
+
+        * systemd-cryptsetup gained native support for unlocking encrypted
+          volumes utilizing PKCS#11 smartcards, i.e. for example to bind
+          encryption of volumes to YubiKeys.This is exposed in the new
+          pkcs11-uri= option in /etc/crypttab.
+
+        * The https://systemd.io/ web site has been relaunched, directly
+          populated with most of the documentation included in the systemd
+          repository. In particular, systemd acquired a new logo, thanks to
+          Tobias Bernard.
+
+        * systemd-udevd gained support for managing "alternative" network
+          interface names, as supported by new Linux kernels. For the first
+          time this permits assigning multiple (and longer!) names to a network
+          interface. systemd-udevd will now by default assign the names
+          generated via all supported naming schemes to each interface in
+          parallel. This may be further tweaked with .link drop-in files, and
+          the AlternativeName= and AlternativeNamesPolicy= settings. All other
+          components of systemd have been updated to support the new
+          alternative names too, wherever that is appropriate. For example,
+          systemd-nspawn will now generate alternative interface names for the
+          host-facing side of container veth links based on the full container
+          name without truncation.
+
+        * systemd-nspawn interface naming logic has been updated in another way
+          too: if the main interface name (i.e. as opposed to new-style
+          "alternative" names) is the truncated result of container name a
+          simple hashing scheme is used that ensures that multiple containers
+          whose name all begin the same are likely resulting in different
+          interface names. Since this changes the primary interface names
+          pointing to containers if truncation happens the old scheme may still
+          be requested by selecting a different naming scheme than the v245
+          one, via the net.naming-scheme= kernel command line option.
+
+        * PrivateUsers= now works in services run by the systemd --user
+          per-user instance of the service manager.
+
+        * The Discoverable Partitions Specification has been updated to support
+          /var and /var/tmp partition discovery. Support for this has been
+          added to systemd-gpt-auto-generator. For details see:
+
+          https://systemd.io/DISCOVERABLE_PARTITIONS
+
+        * "systemctl list-unit-files" has been updated to show a new column
+          with the suggested enablement state based on the vendor preset files
+          for the respective units.
+
+        * networkctl gained support for showing per-interface logs in its
+          "status" output.
+
+        * The [Match] section of .link and .network files now supports a new
+          option PermanentMACAddress= which may be used to check against the
+          permanent MAC address of a network device even if a randomized MAC
+          address is used.
+
+        …
+
 CHANGES WITH 244:
 
         * Support for the cpuset cgroups v2 controller has been added.
