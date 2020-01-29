@@ -19,6 +19,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
+  creates
+
 * homed/userdb: distuingish passwords and recovery keys in the records, since
   we probably want to use different PBKDF algorithms/settings for them:
   passwords have low entropy but recovery keys should have good entropy key
