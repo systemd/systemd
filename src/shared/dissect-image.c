@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsck-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -896,6 +897,49 @@ static int is_loop_device(const char *path) {
         return true;
 }
 
+static int run_fsck(const char *node, const char *fstype) {
+        int r, exit_status;
+        pid_t pid;
+
+        assert(node);
+        assert(fstype);
+
+        r = fsck_exists(fstype);
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't determine whether fsck for %s exists, proceeding anyway.", fstype);
+                return 0;
+        }
+        if (r == 0) {
+                log_debug("Not checking partition %s, as fsck for %s does not exist.", node, fstype);
+                return 0;
+        }
+
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_NULL_STDIO, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork off fsck: %m");
+        if (r == 0) {
+                /* Child */
+                execl("/sbin/fsck", "/sbin/fsck", "-aT", node, NULL);
+                log_debug_errno(errno, "Failed to execl() fsck: %m");
+                _exit(FSCK_OPERATIONAL_ERROR);
+        }
+
+        exit_status = wait_for_terminate_and_check("fsck", pid, 0);
+        if (exit_status < 0)
+                return log_debug_errno(exit_status, "Failed to fork off /sbin/fsck: %m");
+
+        if ((exit_status & ~FSCK_ERROR_CORRECTED) != FSCK_SUCCESS) {
+                log_debug("fsck failed with exit status %i.", exit_status);
+
+                if ((exit_status & (FSCK_SYSTEM_SHOULD_REBOOT|FSCK_ERRORS_LEFT_UNCORRECTED)) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "File system is corrupted, refusing.");
+
+                log_debug("Ignoring fsck error.");
+        }
+
+        return 0;
+}
+
 static int mount_partition(
                 DissectedPartition *m,
                 const char *where,
@@ -922,6 +966,12 @@ static int mount_partition(
                 return -ELOOP;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
+
+        if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
+                r = run_fsck(node, fstype);
+                if (r < 0)
+                        return r;
+        }
 
         if (directory) {
                 r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);

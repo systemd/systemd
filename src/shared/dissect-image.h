@@ -62,6 +62,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
         DISSECT_IMAGE_NO_UDEV             = 1 << 9,  /* Don't wait for udev initializing things */
         DISSECT_IMAGE_RELAX_VAR_CHECK     = 1 << 10, /* Don't insist that the UUID of /var is hashed from /etc/machine-id */
+        DISSECT_IMAGE_FSCK                = 1 << 11, /* File system check the partition before mounting (no effect when combined with DISSECT_IMAGE_READ_ONLY) */
 } DissectImageFlags;
 
 struct DissectedImage {
