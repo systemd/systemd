@@ -696,7 +696,7 @@ static void ipip_sit_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
-        t->fou_encap_type = FOU_ENCAP_DIRECT;
+        t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
         t->isatap = -1;
 }
 
@@ -738,7 +738,7 @@ static void gre_erspan_init(NetDev *n) {
 
         t->pmtudisc = true;
         t->gre_erspan_sequence = -1;
-        t->fou_encap_type = FOU_ENCAP_DIRECT;
+        t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
 }
 
 static void ip6gre_init(NetDev *n) {
