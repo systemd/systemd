@@ -20,7 +20,7 @@ Janitorial Clean-ups:
 Features:
 
 * cryptsetup/homed: also support FIDO2 HMAC password logic for unlocking
-  devices.
+  devices. (see: https://github.com/mjec/fido2-hmac-secret)
 
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates
