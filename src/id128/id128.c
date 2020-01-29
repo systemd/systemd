@@ -87,7 +87,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
         } else {
                 if (!*table) {
-                        *table = table_new("name", "uuid");
+                        *table = table_new("name", "id");
                         if (!*table)
                                 return log_oom();
                         table_set_width(*table, 0);
