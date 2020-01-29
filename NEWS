@@ -2,6 +2,53 @@ systemd System and Service Manager
 
 CHANGES WITH 245 in spe:
 
+        * A new tool "systemd-repart" has been added, that operates as an
+          idempotent, robust, incremental, elastic and declarative
+          repartitioner. It takes inspiration from
+          systemd-tmpfiles/systemd-sysusers but applies the algorithmic
+          concepts to GPT partition tables. Specifically, a set of partitions
+          that must or may exist can be configured via drop-in files, and
+          during every boot the partition table on disk is compared with these
+          files, creating missing partitions or growing existing ones based on
+          configurable relative and absolute size constraints. The tool is
+          strictly incremental, i.e. does not delete, shrink or move
+          partitions, but only adds and grows them. The primary use-case is OS
+          images that shall ship in minimized form, with only a minimal boot
+          and root partition, that on first boot is grown to the size of the
+          underlying block device or augmented with additional partitions. For
+          example, the root partition could be extended to cover the whole
+          disk, or a swap or /home partitions could be added implicitly on
+          first boot. It also has uses on systems that use an A/B update scheme
+          to allow shipping minimal images with just the A set of partition,
+          and with the B set added on first boot. The tool is primarily
+          intended to be run in the initrd, shortly before transitioning into
+          the host OS, but also can be run after the transition took place. It
+          automatically discovers the disk backing the root file system, and
+          should hence not require any additional configuration besides the
+          partition definition drop-ins.
+
+        * A new component "userdb" has been added, along with a small daemon
+          "systemd-userdb.service" and a client tool "userdbctl". The framework
+          allows defining rich user and group records in a JSON format,
+          extending on the classic "struct passwd" and "struct group"
+          structures. Various components in systemd have been updated to
+          process records in this format, including systemd-logind and
+          pam-systemd. The user records are intended to be extensible, and
+          allow setting various resource management, security and runtime
+          parameters that shall be applied to processes and sessions of the
+          user as they log in. This facility is intended to allow associating
+          such metadata directly with user/group records so that they can be
+          produced, extended and consumed in unified form. We hope that
+          eventually frameworks such as sssd will generate records this way, so
+          that for the first time resource management and various other
+          per-user settings can be configured in LDAP directories and then
+          provided to systemd (specifically to systemd-logind and pam-system)
+          to enforce on log-in. For further details see:
+
+          https://systemd.io/USER_RECORD
+          https://systemd.io/GROUP_RECORD
+          https://systemd.io/USER_GROUP_API
+
         * When systemd-tmpfiles copies a file tree using the 'C' line type it
           will now implicitly label every copied file matching the SELinux
           database.
@@ -90,6 +137,11 @@ CHANGES WITH 245 in spe:
           encryption of volumes to YubiKeys.This is exposed in the new
           pkcs11-uri= option in /etc/crypttab.
 
+        * The /etc/fstab support in systemd now supports two new mount options
+          x-systemd.{required,wanted}-by=, for explicitly configuring the units
+          that the specified mount shall be pulled in by, in place of
+          the usual local-fs.target/remote-fs.target.
+
         * The https://systemd.io/ web site has been relaunched, directly
           populated with most of the documentation included in the systemd
           repository. In particular, systemd acquired a new logo, thanks to
@@ -118,8 +170,20 @@ CHANGES WITH 245 in spe:
           be requested by selecting a different naming scheme than the v245
           one, via the net.naming-scheme= kernel command line option.
 
-        * PrivateUsers= now works in services run by the systemd --user
-          per-user instance of the service manager.
+        * PrivateUsers= in service files now works in services run by the
+          systemd --user per-user instance of the service manager.
+
+        * A new per-service sandboxing option ProtectClock= has been added that
+          locks down write access to the system clock. It takes away device
+          node access to /dev/rtc as well as the system calls that allow to set
+          the system clock. It also removes the CAP_SYS_TIME and CAP_WAKE_ALARM
+          capabilities. Note that this option does not affect access to
+          auxiliary services that allow changing the clock, for example access
+          to systemd-timedated.
+
+        * The systemd-id128 tool gained a new "show" verb for listing or
+          resolving a number of well-known UUIDs/128bit IDs, currently mostly
+          GPT partition table types.
 
         * The Discoverable Partitions Specification has been updated to support
           /var and /var/tmp partition discovery. Support for this has been
@@ -131,6 +195,10 @@ CHANGES WITH 245 in spe:
           with the suggested enablement state based on the vendor preset files
           for the respective units.
 
+        * "systemctl" gained a new option "--with-dependencies". If specified
+          commands such as "systemctl status" or "systemctl cat" will now show
+          all specified units along with all units they depend on.
+
         * networkctl gained support for showing per-interface logs in its
           "status" output.
 
@@ -138,6 +206,14 @@ CHANGES WITH 245 in spe:
           option PermanentMACAddress= which may be used to check against the
           permanent MAC address of a network device even if a randomized MAC
           address is used.
+
+       * systemd-logind will now validate access to the operation for changing
+         virtual terminals via a PolicyKit action. By default only users with
+         at least one session on a local VT will get access to the method call.
+
+       * When systemd sets up PAM sessions that invoked service processes shall
+         run in, the pam_setcred() API is now invoked, thus permitting PAM
+         modules to set additional credentials for the processes.
 
         …
 
