@@ -57,7 +57,9 @@
 #  define GPT_ROOT_NATIVE_VERITY GPT_ROOT_ARM_VERITY
 #endif
 
+#define GPT_FLAG_REQUIRED_PARTITION (1ULL << 0)
 #define GPT_FLAG_NO_BLOCK_IO_PROTOCOL (1ULL << 1)
+#define GPT_FLAG_LEGACY_BIOS_BOOTABLE (1ULL << 2)
 
 /* Flags we recognize on the root, swap, home and srv partitions when
  * doing auto-discovery. These happen to be identical to what
