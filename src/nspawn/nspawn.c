@@ -3309,10 +3309,12 @@ static int outer_child(
 
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
                                           DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0)|
+                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK)|
                                           (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image root file system: %m");
         }
 
         r = determine_uid_shift(directory);
@@ -3396,9 +3398,11 @@ static int outer_child(
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image file system: %m");
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
