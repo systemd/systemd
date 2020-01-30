@@ -71,11 +71,11 @@ the following extensions are envisioned:
 4. Default parameters for backup applications and similar
 
 Similar to JSON User Records there are also [JSON Group
-Records](https://systemd.io/GROUP_RECORD.md) that encapsulate UNIX groups.
+Records](https://systemd.io/GROUP_RECORD) that encapsulate UNIX groups.
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via Varlink](https://systemd.io/USER_GROUP_API.md).
+[User/Group Lookup API via Varlink](https://systemd.io/USER_GROUP_API).
 
 ## Why JSON?
 
