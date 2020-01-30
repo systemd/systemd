@@ -1,0 +1,4 @@
+# Ensure that a preexisting system group can be used as primary
+#
+#Type Name ID  GECOS HOMEDIR
+u aaa -:pre

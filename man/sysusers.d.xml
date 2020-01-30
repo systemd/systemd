@@ -101,8 +101,8 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
           <term><varname>u</varname></term>
           <listitem><para>Create a system user and group of the specified name should
           they not exist yet. The user's primary group will be set to the group
-          bearing the same name. The account will be created disabled, so that logins
-          are not allowed.</para></listitem>
+          bearing the same name unless the ID field specifies it. The account will be
+          created disabled, so that logins are not allowed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -166,9 +166,10 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
       binaries).
-      The syntax <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> is also supported to
-      allow creating user and group pairs with different numeric UID and GID values. The group with the indicated GID must get created explicitly before or it must already exist. Specifying <literal>-</literal> for the UID in this syntax
-      is also supported.
+      The syntaxes <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> and
+      <literal><replaceable>uid</replaceable>:<replaceable>groupname</replaceable></literal> are supported to
+      allow creating users with specific primary groups. The given group must be created explicitly, or it
+      must already exist. Specifying <literal>-</literal> for the UID in these syntaxes is also supported.
       </para>
 
       <para>For <varname>m</varname> lines, this field should contain
