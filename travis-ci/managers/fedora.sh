@@ -25,6 +25,7 @@ ADDITIONAL_DEPS=(dnf-plugins-core
                  llvm
                  perl
                  libfdisk-devel
+                 libpwquality-devel
                  openssl-devel
                  p11-kit-devel)
 

@@ -17,11 +17,12 @@
 #include "sd-messages.h"
 
 #include "btrfs-util.h"
+#include "bus-error.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -125,6 +126,49 @@ static int write_state(FILE **f, char **states) {
         return r;
 }
 
+static int lock_all_homes(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        /* Let's synchronously lock all home directories managed by homed that have been marked for it. This
+         * way the key material required to access these volumes is hopefully removed from memory. */
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to connect to system bus, ignoring: %m");
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m,
+                        "org.freedesktop.home1",
+                        "/org/freedesktop/home1",
+                        "org.freedesktop.home1.Manager",
+                        "LockAllHomes");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* If homed is not running it can't have any home directories active either. */
+        r = sd_bus_message_set_auto_start(m, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable auto-start of LockAllHomes() message: %m");
+
+        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+                        log_debug("systemd-homed is not running, skipping locking of home directories.");
+                        return 0;
+                }
+
+                return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
+        }
+
+        log_debug("Successfully requested for all home directories to be locked.");
+        return 0;
+}
+
 static int execute(char **modes, char **states) {
         char *arguments[] = {
                 NULL,
@@ -166,6 +210,7 @@ static int execute(char **modes, char **states) {
         }
 
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) lock_all_homes();
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,

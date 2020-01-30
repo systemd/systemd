@@ -195,6 +195,8 @@ in_units = [
         ['systemd-portabled.service',            'ENABLE_PORTABLED',
          'dbus-org.freedesktop.portable1.service'],
         ['systemd-userdbd.service',              'ENABLE_USERDB'],
+        ['systemd-homed.service',                'ENABLE_HOMED',
+         'multi-user.target.wants/ dbus-org.freedesktop.home1.service'],
         ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
         ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',
          'sysinit.target.wants/'],
