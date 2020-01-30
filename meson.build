@@ -3385,7 +3385,7 @@ foreach tuple : [
         ['libcryptsetup'],
         ['PAM'],
         ['pwquality'],
-        ['fdisk'],
+        ['libfdisk'],
         ['p11kit'],
         ['AUDIT'],
         ['IMA'],
