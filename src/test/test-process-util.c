@@ -572,10 +572,8 @@ static void test_pid_to_ptr(void) {
         assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MAX)) == INT16_MAX);
         assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MIN)) == INT16_MIN);
 
-#if SIZEOF_PID_T >= 4
         assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MAX)) == INT32_MAX);
         assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
-#endif
 }
 
 static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
