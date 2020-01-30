@@ -24,6 +24,13 @@
     <para><filename>/etc/sysctl.d/*.conf</filename></para>
     <para><filename>/run/sysctl.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
+
+    <programlisting>key.name.under.proc.sys = some value
+key/name/under/proc/sys = some value
+key/middle.part.with.dots/foo = 123
+key.middle/part/with/dots.foo = 123
+-key.that.will.not.fail = value
+</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
