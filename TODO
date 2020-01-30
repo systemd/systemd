@@ -104,7 +104,7 @@ Features:
   device node of current system, /usr device node, and matching verity, so that
   an installer can be made a "copy" installer of the booted OS
 
-* systemd-repart: make it a static checker during early boot for existance and
+* systemd-repart: make it a static checker during early boot for existence and
   absence of other partitions for trusted boot environments
 
 * systemd-repart: when no configuration is found, exit early do not check
@@ -114,7 +114,7 @@ Features:
 
 * userdb: allow username prefix searches in varlink API
 
-* userdb: allow existance checks
+* userdb: allow existence checks
 
 * pid: activation by journal search expression
 

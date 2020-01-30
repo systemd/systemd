@@ -1246,7 +1246,7 @@ static int userdb_thread_sockaddr(struct sockaddr_un *ret_sa, socklen_t *ret_sal
         assert(ret_sa);
         assert(ret_salen);
 
-        /* This calculates an AF_UNIX socket address in the abstract namespace whose existance works as an
+        /* This calculates an AF_UNIX socket address in the abstract namespace whose existence works as an
          * indicator whether to emulate NSS records for complex user records that are also available via the
          * varlink protocol. The name of the socket is picked in a way so that:
          *

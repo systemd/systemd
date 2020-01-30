@@ -547,7 +547,7 @@ msgid "Change Session"
 msgstr "Changer de Session"
 
 #: src/login/org.freedesktop.login1.policy:396
-msgid "Authentication is required for changing the virtual terminal."
+msgid "Authentication is required to change the virtual terminal."
 msgstr "Authentification requise pour changer de terminal virtuel."
 
 #: src/machine/org.freedesktop.machine1.policy:22

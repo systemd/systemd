@@ -47,11 +47,12 @@
         <listitem><para>Takes a boolean argument. If true, the home directory of the user will be suspended
         automatically during system suspend; if false it will remain active. Automatic suspending of the home
         directory improves security substantially as secret key material is automatically removed from memory
-        before the system is put to sleep and must be re-acquired (by user re-authentication) when coming
-        back from suspend. It is recommended to set this parameter for all PAM applications that have support
-        for automatically re-authenticating via PAM on system resume. If multiple sessions of the same user
-        are open in parallel the user's home directory will be left unsuspended on system suspend as soon as
-        at least one of the sessions does not set this parameter. Defaults to off.</para></listitem>
+        before the system is put to sleep and must be re-acquired (through user re-authentication) when
+        coming back from suspend. It is recommended to set this parameter for all PAM applications that have
+        support for automatically re-authenticating via PAM on system resume. If multiple sessions of the
+        same user are open in parallel the user's home directory will be left unsuspended on system suspend
+        as long as at least one of the sessions does not set this parameter. Defaults to
+        off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

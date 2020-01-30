@@ -527,7 +527,7 @@ msgid "Change Session"
 msgstr "Zmiana sesji"
 
 #: src/login/org.freedesktop.login1.policy:396
-msgid "Authentication is required for changing the virtual terminal."
+msgid "Authentication is required to change the virtual terminal."
 msgstr "Wymagane jest uwierzytelnienie, aby zmienić terminal wirtualny."
 
 #: src/machine/org.freedesktop.machine1.policy:22

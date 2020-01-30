@@ -12,10 +12,10 @@
 
 bool suitable_user_name(const char *name) {
 
-        /* Checks whether the specified name is suitable for management via homed. Note that our client side
-         * usually validate susing a simple valid_user_group_name(), while server side we are a bit more
-         * restrictive, so that we can change the rules server side without having to update things client
-         * side, too. */
+        /* Checks whether the specified name is suitable for management via homed. Note that client-side we
+         * usually validate with the simple valid_user_group_name(), while server-side we are a bit more
+         * restrictive, so that we can change the rules server-side without having to update things
+         * client-side too. */
 
         if (!valid_user_group_name(name))
                 return false;
