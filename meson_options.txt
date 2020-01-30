@@ -98,7 +98,7 @@ option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
 option('userdb', type : 'boolean',
        description : 'install the systemd-userdbd stack')
-option('homed', type : 'boolean',
+option('homed', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'install the systemd-homed stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
