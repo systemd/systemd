@@ -184,7 +184,7 @@ does not need to to be concerned with the `secret` section of user records, as
 the fields included therein are only useful when executing authentication
 operations natively against JSON user records.
 
-The `systemd-homed' manager uses all seven sections for various
+The `systemd-homed` manager uses all seven sections for various
 purposes. Inside the home directories (and if the LUKS2 backend is used, also
 in the LUKS2 header) a user record containing the `regular`, `privileged`,
 `perMachine` and `signature` sections is stored. `systemd-homed` also stores a
