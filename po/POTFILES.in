@@ -1,4 +1,5 @@
 src/core/org.freedesktop.systemd1.policy.in
+src/home/org.freedesktop.home1.policy
 src/hostname/org.freedesktop.hostname1.policy
 src/import/org.freedesktop.import1.policy
 src/locale/org.freedesktop.locale1.policy
