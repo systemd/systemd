@@ -87,11 +87,11 @@ systemd 38:
 Processes (run by the root user) whose first character of the zeroth command
 line argument is `@` are excluded from the killing spree, much the same way as
 kernel threads are excluded too. Thus, a daemon which wants to take advantage
-of this logic needs to place the following at the top of its main() function:
+of this logic needs to place the following at the top of its `main()` function:
 
 ```c
 ...
-[0][0] = '@';
+argv[0][0] = '@';
 ...
 ```
 
