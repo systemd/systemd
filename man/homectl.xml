@@ -39,18 +39,19 @@
     which manages home directories of users.</para>
 
     <para>Home directories managed by <filename>systemd-homed.service</filename> are self-contained, and thus
-    include the user's full metadata record in the home's data storage itself, making them easily migratable
-    between machines. In particular a home directory in itself describes a matching user record, and every
-    user record managed by <filename>systemd-homed.service</filename> also implies existance and
-    encapsulation of a home directory. The user account and home directory hence become the same concept. The
-    following backing storage mechanisms are supported:</para>
+    include the user's full metadata record in the home's data storage itself, making them easy to migrate
+    between machines. In particular, a home directory describes a matching user record, and every user record
+    managed by <filename>systemd-homed.service</filename> also implies existence and encapsulation of a home
+    directory. The user account and home directory become the same concept.</para>
+
+    <para>The following backing storage mechanisms are supported:</para>
 
     <itemizedlist>
-      <listitem><para>Individual LUKS2 encrypted loopback files for each user, located in
-      <filename>/home/*.home</filename>. At login the file systems contained in these files are mounted,
-      after the LUKS2 encrypted volume is attached. The user's password is identical to the encryption
+      <listitem><para>An individual LUKS2 encrypted loopback file for a user, stored in
+      <filename>/home/*.home</filename>. At login the file system contained in this files is mounted, after
+      the LUKS2 encrypted volume has been attached. The user's password is identical to the encryption
       passphrase of the LUKS2 volume. Access to data without preceeding user authentication is thus not
-      possible, not even for the systems administrator. This storage mechanism provides the strongest data
+      possible, even for the system administrator. This storage mechanism provides the strongest data
       security and is thus recommended.</para></listitem>
 
       <listitem><para>Similar, but the LUKS2 encrypted file system is located on regular block device, such
@@ -61,7 +62,7 @@
       <listitem><para>An encrypted directory using <literal>fscrypt</literal> on file systems that support it
       (at the moment this is primarily <literal>ext4</literal>), located in
       <filename>/home/*.homedir</filename>. This mechanism also provides encryption, but substantially
-      weaker than the two mechanisms described above, as most file system metadata is unprotected. Moreover
+      weaker than LUKS2, as most file system metadata is unprotected. Moreover
       it currently does not support changing user passwords once the home directory has been
       created.</para></listitem>
 
@@ -97,7 +98,7 @@
     <para>Home directories managed by <filename>systemd-homed.service</filename> are usually in one of two
     states, or in a transition state between them: when <literal>active</literal> they are unlocked and
     mounted, and thus accessible to the system and its programs; when <literal>inactive</literal> they are
-    not mounted and thus not accessible. Activation happens automatically at log-in of the user and usually
+    not mounted and thus not accessible. Activation happens automatically at login of the user and usually
     can only complete after a password (or other authentication token) has been supplied. Deactivation
     happens after the user fully logged out. A home directory remains active as long as the user is logged in
     at least once, i.e. has at least one login session. When the user logs in a second time simultaneously
@@ -155,10 +156,10 @@
         user on another host. <option>-E</option> is equivalent to <option>-j --export-format=stripped</option>,
         <option>-EE</option> to <option>-j --export-format=minimal</option>. Note that when replicating user
         accounts user records acquired in <literal>stripped</literal> mode will retain the original
-        cryptographic signatures and thus may only modified when the private key to update them is available
-        on the destination machine. When replicating users in <literal>minimal</literal> mode the signature
-        is remove during the replication and thus it is implicitly signed with the key of the destination
-        machine and thus may be updated there without any private key replication.</para></listitem>
+        cryptographic signatures and thus may only be modified when the private key to update them is available
+        on the destination machine. When replicating users in <literal>minimal</literal> mode, the signature
+        is removed during the replication and thus the record will be implicitly signed with the key of the destination
+        machine and may be updated there without any private key replication.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
