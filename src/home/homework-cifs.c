@@ -17,9 +17,6 @@ int home_prepare_cifs(
                 bool already_activated,
                 HomeSetup *setup) {
 
-        char **pw;
-        int r;
-
         assert(h);
         assert(setup);
         assert(user_record_storage(h) == USER_CIFS);
@@ -28,6 +25,8 @@ int home_prepare_cifs(
                 setup->root_fd = open(user_record_home_directory(h), O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         else {
                 bool mounted = false;
+                char **pw;
+                int r;
 
                 r = home_unshare_and_mount(NULL, NULL, false);
                 if (r < 0)
@@ -92,7 +91,7 @@ int home_prepare_cifs(
                 setup->root_fd = open("/run/systemd/user-home-mount", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
         }
         if (setup->root_fd < 0)
-                return log_error_errno(r, "Failed to open home directory: %m");
+                return log_error_errno(errno, "Failed to open home directory: %m");
 
         return 0;
 }

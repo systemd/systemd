@@ -314,7 +314,7 @@ static int manager_add_home_by_record(
                 const char *fname) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr;
+        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line, column;
         int r, is_signed;
         Home *h;
