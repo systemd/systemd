@@ -77,7 +77,7 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
 }
 
 int manager_new(Manager **ret) {
-        Manager *m;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         m = new(Manager, 1);
