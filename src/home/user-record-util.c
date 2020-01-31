@@ -737,6 +737,8 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
                         return r;
 
                 r = json_variant_set_field(&priv, "hashedPassword", new_array);
+                if (r < 0)
+                        return r;
         }
 
         r = json_variant_set_field(&h->json, "privileged", priv);
