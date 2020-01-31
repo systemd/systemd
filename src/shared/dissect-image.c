@@ -506,7 +506,7 @@ int dissect_image(
                         if (sd_id128_from_string(stype, &type_id) < 0)
                                 continue;
 
-                        if (sd_id128_equal(type_id, GPT_HOME)) {
+                        if (sd_id128_equal(type_id, (sd_id128_t) GPT_HOME)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -515,7 +515,7 @@ int dissect_image(
 
                                 designator = PARTITION_HOME;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
-                        } else if (sd_id128_equal(type_id, GPT_SRV)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_SRV)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -524,7 +524,7 @@ int dissect_image(
 
                                 designator = PARTITION_SRV;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
-                        } else if (sd_id128_equal(type_id, GPT_ESP)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_ESP)) {
 
                                 /* Note that we don't check the GPT_FLAG_NO_AUTO flag for the ESP, as it is not defined
                                  * there. We instead check the GPT_FLAG_NO_BLOCK_IO_PROTOCOL, as recommended by the
@@ -536,7 +536,7 @@ int dissect_image(
                                 designator = PARTITION_ESP;
                                 fstype = "vfat";
 
-                        } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_XBOOTLDR)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -547,7 +547,7 @@ int dissect_image(
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         }
 #ifdef GPT_ROOT_NATIVE
-                        else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+                        else if (sd_id128_equal(type_id, (sd_id128_t) GPT_ROOT_NATIVE)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -561,7 +561,7 @@ int dissect_image(
                                 designator = PARTITION_ROOT;
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_ROOT_NATIVE_VERITY)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -581,7 +581,7 @@ int dissect_image(
                         }
 #endif
 #ifdef GPT_ROOT_SECONDARY
-                        else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
+                        else if (sd_id128_equal(type_id, (sd_id128_t) GPT_ROOT_SECONDARY)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -595,7 +595,7 @@ int dissect_image(
                                 designator = PARTITION_ROOT_SECONDARY;
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
-                        } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_ROOT_SECONDARY_VERITY)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -614,7 +614,7 @@ int dissect_image(
                                 rw = false;
                         }
 #endif
-                        else if (sd_id128_equal(type_id, GPT_SWAP)) {
+                        else if (sd_id128_equal(type_id, (sd_id128_t) GPT_SWAP)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO);
 
@@ -623,7 +623,7 @@ int dissect_image(
 
                                 designator = PARTITION_SWAP;
                                 fstype = "swap";
-                        } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_LINUX_GENERIC)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -641,7 +641,7 @@ int dissect_image(
                                                 return -ENOMEM;
                                 }
 
-                        } else if (sd_id128_equal(type_id, GPT_TMP)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_TMP)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -651,7 +651,7 @@ int dissect_image(
                                 designator = PARTITION_TMP;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
 
-                        } else if (sd_id128_equal(type_id, GPT_VAR)) {
+                        } else if (sd_id128_equal(type_id, (sd_id128_t) GPT_VAR)) {
 
                                 check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
@@ -669,7 +669,7 @@ int dissect_image(
                                          * /etc/machine-id we can securely bind the partition to the
                                          * installation. */
 
-                                        r = sd_id128_get_machine_app_specific(GPT_VAR, &var_uuid);
+                                        r = sd_id128_get_machine_app_specific((sd_id128_t) GPT_VAR, &var_uuid);
                                         if (r < 0)
                                                 return r;
 

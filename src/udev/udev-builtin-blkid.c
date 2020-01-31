@@ -135,7 +135,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                 if (sd_id128_from_string(stype, &type) < 0)
                         continue;
 
-                if (sd_id128_equal(type, GPT_ESP)) {
+                if (sd_id128_equal(type, (sd_id128_t) GPT_ESP)) {
                         sd_id128_t id, esp;
 
                         /* We found an ESP, let's see if it matches
@@ -151,7 +151,7 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                         if (sd_id128_equal(id, esp))
                                 found_esp = true;
 
-                } else if (sd_id128_equal(type, GPT_ROOT_NATIVE)) {
+                } else if (sd_id128_equal(type, (sd_id128_t) GPT_ROOT_NATIVE)) {
                         unsigned long long flags;
 
                         flags = blkid_partition_get_flags(pp);
