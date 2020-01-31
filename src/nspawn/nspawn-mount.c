@@ -906,7 +906,7 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
 
         r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
         if (r < 0) {
-                umount_verbose(where);
+                (void) umount_verbose(where);
                 return m->graceful ? 0 : r;
         }
 
