@@ -737,7 +737,6 @@ install_config_files() {
     inst /etc/shells
     inst /etc/nsswitch.conf
     inst /etc/pam.conf || :
-    inst /etc/securetty || :
     inst /etc/os-release
     inst /etc/localtime
     # we want an empty environment
