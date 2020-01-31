@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<refentry id="repart.d">
+<refentry id="repart.d" conditional='ENABLE_REPART'>
 
   <refentryinfo>
     <title>repart.d</title>
