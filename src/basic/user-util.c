@@ -496,11 +496,9 @@ int getgroups_alloc(gid_t** gids) {
 
                 free(allocated);
 
-                allocated = new(gid_t, ngroups);
+                p = allocated = new(gid_t, ngroups);
                 if (!allocated)
                         return -ENOMEM;
-
-                p = allocated;
         }
 
         *gids = TAKE_PTR(p);
