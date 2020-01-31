@@ -1926,15 +1926,14 @@
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
-        <listitem><para><varname>DNS=</varname> specifies a list of recursive
-        DNS server IPv6 addresses that distributed via Router Advertisement
-        messages when <varname>EmitDNS=</varname> is true. If <varname>DNS=
-        </varname> is empty, DNS servers are read from the
-        <literal>[Network]</literal> section. If the
-        <literal>[Network]</literal> section does not contain any DNS servers
-        either, DNS servers from the uplink with the highest priority default
-        route are used. When <varname>EmitDNS=</varname> is false, no DNS server
-        information is sent in Router Advertisement messages.
+        <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses
+        that are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is
+        true. <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that
+        case the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS
+        servers are read from the <literal>[Network]</literal> section. If the
+        <literal>[Network]</literal> section does not contain any DNS servers either, DNS servers from
+        the uplink with the highest priority default route are used. When <varname>EmitDNS=</varname>
+        is false, no DNS server information is sent in Router Advertisement messages.
         <varname>EmitDNS=</varname> defaults to true.
         </para></listitem>
       </varlistentry>
