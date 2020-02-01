@@ -11,5 +11,5 @@ jobs:
   steps:
   - script: |
       set -e
-      ./travis-ci/managers/fuzzbuzz.sh
+      sudo ./travis-ci/managers/fuzzbuzz.sh
     displayName: 'This is where it gets darker'
