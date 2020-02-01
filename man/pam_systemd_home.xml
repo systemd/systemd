@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="pam_systemd_home" conditional='HAVE_PAM'>
+<refentry id="pam_systemd_home" conditional='ENABLE_PAM_HOME'>
 
   <refentryinfo>
     <title>pam_systemd_home</title>
