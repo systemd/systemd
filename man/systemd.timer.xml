@@ -269,6 +269,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FixedRandomDelay=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, some amount of time between 0 and
+        <varname>RandomizedDelaySec=</varname> is chosen and added as the delay for each timer iteration. As this
+        delay will not be recalculated on each run, this effectively creates a fixed offset for each iteration.
+        The distribution between 0 and <varname>RandomizedDelaySec=</varname> is deterministic and based on
+        a combination of the machine ID, whether the timer is run by the user/system manager, the service manager's
+        user ID, and the timer's unit name. Has no effect if
+        <varname>RandomizedDelaySec=</varname> is set to 0. Defaults to <option>false</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnClockChange=</varname></term>
         <term><varname>OnTimezoneChange=</varname></term>
 

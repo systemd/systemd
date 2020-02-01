@@ -131,6 +131,7 @@ const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Timer, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RandomizedDelayUSec", "t", bus_property_get_usec, offsetof(Timer, random_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FixedRandomDelay", "b", bus_property_get_bool, offsetof(Timer, fixed_random_delay), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterElapse", "b", bus_property_get_bool, offsetof(Timer, remain_after_elapse), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -231,6 +232,9 @@ static int bus_timer_set_transient_property(
 
         if (streq(name, "RandomizedDelayUSec"))
                 return bus_set_transient_usec(u, name, &t->random_usec, message, flags, error);
+
+        if (streq(name, "FixedRandomDelay"))
+                return bus_set_transient_bool(u, name, &t->fixed_random_delay, message, flags, error);
 
         if (streq(name, "WakeSystem"))
                 return bus_set_transient_bool(u, name, &t->wake_system, message, flags, error);

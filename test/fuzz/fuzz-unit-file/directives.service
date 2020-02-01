@@ -175,6 +175,7 @@ PipeSize=
 Priority=
 PropagatesReloadTo=
 RandomizedDelaySec=
+FixedRandomDelay=
 RebootArgument=
 ReceiveBuffer=
 RefuseManualStart=

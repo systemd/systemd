@@ -169,6 +169,36 @@ static int timer_setup_persistent(Timer *t) {
         return 0;
 }
 
+static uint64_t timer_get_fixed_delay_hash(Timer *t) {
+        static const uint8_t hash_key[] = {
+                0x51, 0x0a, 0xdb, 0x76, 0x29, 0x51, 0x42, 0xc2,
+                0x80, 0x35, 0xea, 0xe6, 0x8e, 0x3a, 0x37, 0xbd
+        };
+
+        struct siphash state;
+        sd_id128_t machine_id;
+        uid_t uid;
+        int r;
+
+        assert(t);
+
+        uid = getuid();
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0) {
+                log_unit_debug_errno(UNIT(t), r,
+                                     "Failed to get machine ID for the fixed delay calculation, proceeding with 0: %m");
+                machine_id = SD_ID128_NULL;
+        }
+
+        siphash24_init(&state, hash_key);
+        siphash24_compress(&machine_id, sizeof(sd_id128_t), &state);
+        siphash24_compress_boolean(MANAGER_IS_SYSTEM(UNIT(t)->manager), &state);
+        siphash24_compress(&uid, sizeof(uid_t), &state);
+        siphash24_compress_string(UNIT(t)->id, &state);
+
+        return siphash24_finalize(&state);
+}
+
 static int timer_load(Unit *u) {
         Timer *t = TIMER(u);
         int r;
@@ -215,6 +245,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sWakeSystem: %s\n"
                 "%sAccuracy: %s\n"
                 "%sRemainAfterElapse: %s\n"
+                "%sFixedRandomDelay: %s\n"
                 "%sOnClockChange: %s\n"
                 "%sOnTimeZoneChange: %s\n",
                 prefix, timer_state_to_string(t->state),
@@ -224,6 +255,7 @@ static void timer_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(t->wake_system),
                 prefix, format_timespan(buf, sizeof(buf), t->accuracy_usec, 1),
                 prefix, yes_no(t->remain_after_elapse),
+                prefix, yes_no(t->fixed_random_delay),
                 prefix, yes_no(t->on_clock_change),
                 prefix, yes_no(t->on_timezone_change));
 
@@ -332,7 +364,7 @@ static void add_random(Timer *t, usec_t *v) {
         if (*v == USEC_INFINITY)
                 return;
 
-        add = random_u64() % t->random_usec;
+        add = (t->fixed_random_delay ? timer_get_fixed_delay_hash(t) : random_u64()) % t->random_usec;
 
         if (*v + add < *v) /* overflow */
                 *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
