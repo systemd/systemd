@@ -6,7 +6,7 @@ typedef struct StdoutStream StdoutStream;
 #include "fdset.h"
 #include "journald-server.h"
 
-int server_open_stdout_socket(Server *s);
+int server_open_stdout_socket(Server *s, const char *stdout_socket);
 int server_restore_streams(Server *s, FDSet *fds);
 
 void stdout_stream_free(StdoutStream *s);

@@ -29,6 +29,8 @@
     <refname>SD_JOURNAL_SYSTEM</refname>
     <refname>SD_JOURNAL_CURRENT_USER</refname>
     <refname>SD_JOURNAL_OS_ROOT</refname>
+    <refname>SD_JOURNAL_ALL_NAMESPACES</refname>
+    <refname>SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE</refname>
     <refpurpose>Open the system journal for reading</refpurpose>
   </refnamediv>
 
@@ -39,6 +41,13 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_open</function></funcdef>
         <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+        <paramdef>int <parameter>flags</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_open_namespace</function></funcdef>
+        <paramdef>sd_journal **<parameter>ret</parameter></paramdef>
+        <paramdef>const char *<parameter>namespace</parameter></paramdef>
         <paramdef>int <parameter>flags</parameter></paramdef>
       </funcprototype>
 
@@ -100,6 +109,19 @@
     <constant>SD_JOURNAL_SYSTEM</constant> nor
     <constant>SD_JOURNAL_CURRENT_USER</constant> are specified, all
     journal file types will be opened.</para>
+
+    <para><function>sd_journal_open_namespace()</function> is similar to
+    <function>sd_journal_open()</function> but takes an additional <parameter>namespace</parameter> parameter
+    that specifies which journal namespace to operate on. If specified as <constant>NULL</constant> the call
+    is identical to <function>sd_journal_open()</function>. If non-<constant>NULL</constant> only data from
+    the namespace identified by the specified parameter is accessed. This call understands two additional
+    flags: if <constant>SD_JOURNAL_ALL_NAMESPACES</constant> is specified the
+    <parameter>namespace</parameter> parameter is ignored and all defined namespaces are accessed
+    simultaneously; if <constant>SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE</constant> the specified namespace and
+    the default namespace are accessed but no others (this flag has no effect when
+    <parameter>namespace</parameter> is passed as <constant>NULL</constant>). For details about journal
+    namespaces see
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para><function>sd_journal_open_directory()</function> is similar to <function>sd_journal_open()</function> but
     takes an absolute directory path as argument. All journal files in this directory will be opened and interleaved

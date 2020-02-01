@@ -250,6 +250,8 @@ struct ExecContext {
 
         int log_level_max;
 
+        char *log_namespace;
+
         bool private_tmp;
         bool private_network;
         bool private_devices;

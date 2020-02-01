@@ -1132,6 +1132,7 @@ static size_t namespace_calculate_mounts(
                 size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char* log_namespace,
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
@@ -1166,7 +1167,8 @@ static size_t namespace_calculate_mounts(
                 (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
-                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
+                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
+                !!log_namespace;
 }
 
 static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
@@ -1247,6 +1249,7 @@ int setup_namespace(
                 size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *log_namespace,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
@@ -1323,6 +1326,7 @@ int setup_namespace(
                         n_bind_mounts,
                         n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
+                        log_namespace,
                         protect_home, protect_system);
 
         if (n_mounts > 0) {
@@ -1425,6 +1429,23 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                        };
+                }
+
+                if (log_namespace) {
+                        _cleanup_free_ char *q;
+
+                        q = strjoin("/run/systemd/journal.", log_namespace);
+                        if (!q) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/systemd/journal",
+                                .mode = BIND_MOUNT_RECURSIVE,
+                                .read_only = true,
+                                .source_malloc = TAKE_PTR(q),
                         };
                 }
 
