@@ -41,6 +41,7 @@ struct Timer {
 
         usec_t accuracy_usec;
         usec_t random_usec;
+        usec_t random_value_usec;
 
         LIST_HEAD(TimerValue, values);
         usec_t next_elapse_realtime;
@@ -59,6 +60,7 @@ struct Timer {
         bool remain_after_elapse;
         bool on_clock_change;
         bool on_timezone_change;
+        bool randomize_first_run_only;
 
         char *stamp_path;
 };

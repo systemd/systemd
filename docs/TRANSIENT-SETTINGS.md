@@ -361,6 +361,7 @@ Most timer unit settings are available to transient units.
 ✓ RemainAfterElapse=
 ✓ AccuracySec=
 ✓ RandomizedDelaySec=
+✓ RandomizFirstRunOnly=
   Unit=
 ```
 

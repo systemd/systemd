@@ -332,7 +332,16 @@ static void add_random(Timer *t, usec_t *v) {
         if (*v == USEC_INFINITY)
                 return;
 
-        add = random_u64() % t->random_usec;
+        if (t->randomize_first_run_only) {
+                if (t->random_value_usec == USEC_INFINITY) {
+                        t->random_value_usec = random_u64() % t->random_usec;
+                        if (t->random_value_usec == USEC_INFINITY)
+                                t->random_value_usec -= 1; /* Highest possible value, that is not USEC_INFINITY */
+                }
+                add = t->random_value_usec;
+        }
+        else
+                add = random_u64() % t->random_usec;
 
         if (*v + add < *v) /* overflow */
                 *v = (usec_t) -2; /* Highest possible value, that is not USEC_INFINITY */
@@ -610,6 +619,7 @@ static int timer_start(Unit *u) {
                 return r;
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
+        t->random_value_usec = USEC_INFINITY;
 
         /* Reenable all timers that depend on unit activation time */
         LIST_FOREACH(value, v, t->values)
@@ -673,6 +683,9 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (t->last_trigger.monotonic > 0)
                 (void) serialize_usec(f, "last-trigger-monotonic", t->last_trigger.monotonic);
 
+        if (t->random_value_usec != USEC_INFINITY)
+                (void) serialize_usec(f, "random-timer-value", t->random_value_usec);
+
         return 0;
 }
 
@@ -706,6 +719,8 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
                 (void) deserialize_usec(value, &t->last_trigger.realtime);
         else if (streq(key, "last-trigger-monotonic"))
                 (void) deserialize_usec(value, &t->last_trigger.monotonic);
+        else if (streq(key, "random-timer-value"))
+                (void) deserialize_usec(value, &t->random_value_usec);
         else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 

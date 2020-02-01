@@ -269,6 +269,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RandomizeFirstRunOnly=</varname></term>
+
+        <listitem><para>Parameter takes boolean value and defaults to false.
+        If true the random delay from <varname>RandomizedDelaySec=</varname> is initilized
+        only once. After that the timer runs at specified intervals
+        with the same delay as the first run.
+        Effectively acts as a fixed random offset for the timer.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnClockChange=</varname></term>
         <term><varname>OnTimezoneChange=</varname></term>
 

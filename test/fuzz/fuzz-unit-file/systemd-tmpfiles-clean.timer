@@ -32,6 +32,7 @@ OnCalendar=Fri 2012-11-23 11:12:13
 Persistent=true
 AccuracySec=24h
 RandomizedDelaySec=234234234
+RandomizeFirstRunOnly=true
 
 Persistent=no
 Unit=foo.service

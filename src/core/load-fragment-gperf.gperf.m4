@@ -455,6 +455,7 @@ Timer.OnTimezoneChange,          config_parse_bool,                  0,         
 Timer.Persistent,                config_parse_bool,                  0,                             offsetof(Timer, persistent)
 Timer.WakeSystem,                config_parse_bool,                  0,                             offsetof(Timer, wake_system)
 Timer.RemainAfterElapse,         config_parse_bool,                  0,                             offsetof(Timer, remain_after_elapse)
+Timer.RandomizeFirstRunOnly,     config_parse_bool,                  0,                             offsetof(Timer, randomize_first_run_only)
 Timer.AccuracySec,               config_parse_sec,                   0,                             offsetof(Timer, accuracy_usec)
 Timer.RandomizedDelaySec,        config_parse_sec,                   0,                             offsetof(Timer, random_usec)
 Timer.Unit,                      config_parse_trigger_unit,          0,                             0
