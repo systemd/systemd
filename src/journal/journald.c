@@ -17,6 +17,7 @@ int main(int argc, char *argv[]) {
         const char *namespace;
         Server server;
         int r;
+        int k = 0x7fffffff;
 
         if (argc > 2) {
                 log_error("This program takes one or no arguments.");
@@ -108,9 +109,10 @@ int main(int argc, char *argv[]) {
                 server_maybe_warn_forward_syslog_missed(&server);
         }
 
-        if (server.namespace)
-                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace ?: "<system>");
-        else
+        if (server.namespace) {
+                k += argc;
+                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s' %d.", getpid_cached(), server.namespace ?: "<system>", k);
+         } else
                 log_debug("systemd-journald stopped as PID "PID_FMT" for the system.", getpid_cached());
 
         server_driver_message(&server, 0,
