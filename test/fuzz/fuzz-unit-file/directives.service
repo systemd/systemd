@@ -885,6 +885,7 @@ StandardOutput=
 StateDirectory=
 StateDirectoryMode=
 Storage=
+SuppressPrefixLength=
 SuspendKeyIgnoreInhibited=
 SyncIntervalSec=
 SyslogFacility=
