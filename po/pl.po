@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2020-01-29 16:25+0000\n"
-"PO-Revision-Date: 2020-01-29 17:28+0100\n"
+"POT-Creation-Date: 2020-01-30 15:31+0000\n"
+"PO-Revision-Date: 2020-02-02 13:20+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -68,6 +68,63 @@ msgstr "Ponowne wczytanie stanu systemd"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home"
+msgstr "Utworzenie katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required for creating a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby utworzyć katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home"
+msgstr "Usunięcie katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required for removing a user's home."
+msgstr "Wymagane jest uwierzytelnienie, aby usunąć katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home"
+msgstr "Sprawdzenie danych uwierzytelniających katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required for checking credentials against a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby sprawdzić dane uwierzytelniające "
+"katalogu domowego użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home"
+msgstr "Aktualizacja katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required for updating a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zaktualizować katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home"
+msgstr "Zmiana rozmiaru katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required for resizing a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zmienić rozmiar katalogu domowego "
+"użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home"
+msgstr "Zmiana hasła katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required for changing the password of a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zmienić hasło katalogu domowego "
+"użytkownika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
