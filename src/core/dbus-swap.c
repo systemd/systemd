@@ -36,6 +36,9 @@ static BUS_DEFINE_PROPERTY_GET(property_get_priority, "i", Swap, swap_get_priori
 static BUS_DEFINE_PROPERTY_GET(property_get_options, "s", Swap, swap_get_options);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, swap_result, SwapResult);
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_swap_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("What", "s", NULL, offsetof(Swap, what), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),

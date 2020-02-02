@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus.h"
@@ -45,7 +46,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
         assert(message);
         assert(j);
 
-        r = mac_selinux_unit_access_check(j->unit, message, "stop", error);
+        r = mac_selinux_unit_access_check(j->unit, message, "stop", MAC_SELINUX_UNIT_CANCEL, error, __func__);
         if (r < 0)
                 return r;
 
@@ -70,6 +71,10 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         _cleanup_free_ Job **list = NULL;
         Job *j = userdata;
         int r, i, n;
+
+        r = mac_selinux_unit_access_check(j->unit, message, "status", MAC_SELINUX_UNIT_GETWAITING_JOBS, error, __func__);
+        if (r < 0)
+                return r;
 
         if (strstr(sd_bus_message_get_member(message), "After"))
                 n = job_get_after(j, &list);
@@ -115,6 +120,9 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),

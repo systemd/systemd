@@ -2589,7 +2589,7 @@ static int unit_find_paths(
                 _cleanup_set_free_free_ Set *names = NULL;
 
                 if (!cached_name_map) {
-                        r = unit_file_build_name_map(lp, NULL, &cached_id_map, &cached_name_map, NULL);
+                        r = unit_file_build_name_map(lp, NULL, &cached_id_map, NULL, &cached_name_map, NULL);
                         if (r < 0)
                                 return r;
                 }
@@ -6844,23 +6844,23 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 flags = args_to_flags();
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                         carries_install_info = r;
                 } else if (streq(verb, "disable"))
-                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "preset")) {
-                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
-                } else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
+                else if (streq(verb, "preset"))
+                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes, NULL, NULL);
+                else if (streq(verb, "mask"))
+                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else if (streq(verb, "revert"))
-                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
+                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes, NULL, NULL);
                 else
                         assert_not_reached("Unknown verb");
 
@@ -7057,7 +7057,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 assert_not_reached("Unknown verb");
 
         if (install_client_side()) {
-                r = unit_file_add_dependency(arg_scope, args_to_flags(), arg_root, names, target, dep, &changes, &n_changes);
+                r = unit_file_add_dependency(arg_scope, args_to_flags(), arg_root, names, target, dep, &changes, &n_changes, NULL, NULL);
                 unit_file_dump_changes(r, "add dependency on", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -7119,7 +7119,7 @@ static int preset_all(int argc, char *argv[], void *userdata) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_preset_all(arg_scope, args_to_flags(), arg_root, arg_preset_mode, &changes, &n_changes);
+                r = unit_file_preset_all(arg_scope, args_to_flags(), arg_root, arg_preset_mode, &changes, &n_changes, NULL, NULL);
                 unit_file_dump_changes(r, "preset", changes, n_changes, arg_quiet);
 
                 if (r > 0)
@@ -7179,7 +7179,7 @@ static int show_installation_targets_client_side(const char *name) {
         flags = UNIT_FILE_DRY_RUN |
                 (arg_runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        r = unit_file_disable(UNIT_FILE_SYSTEM, flags, NULL, p, &changes, &n_changes, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 

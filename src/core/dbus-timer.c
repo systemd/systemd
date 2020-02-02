@@ -118,6 +118,9 @@ static int property_get_next_elapse_monotonic(
                                                                  TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC));
 }
 
+/* Note: when adding a SD_BUS_WRITABLE_PROPERTY or SD_BUS_METHOD add a TODO(selinux),
+ *       so the SELinux people can add a permission check.
+ */
 const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),

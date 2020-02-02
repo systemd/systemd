@@ -46,6 +46,7 @@ int unit_file_build_name_map(
                 const LookupPaths *lp,
                 usec_t *ret_time,
                 Hashmap **ret_unit_ids_map,
+                Hashmap **ret_unit_withdrawal_map,
                 Hashmap **ret_unit_names_map,
                 Set **ret_path_cache);
 

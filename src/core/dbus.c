@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-cgroup.h"
 #include "dbus-device.h"
@@ -214,7 +215,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         const char *verb, *path;
         Unit *u = NULL;
         Job *j;
-        int r;
+        int r, verb_pidone, verb_unit;
 
         assert(message);
 
@@ -222,20 +223,24 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
          * selinux checks, but the built-in interfaces need to be
          * protected too. */
 
-        if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set"))
+        if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set")) {
                 verb = "reload";
-        else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
+                verb_pidone = MAC_SELINUX_PIDONE_RAWSET;
+                verb_unit = MAC_SELINUX_UNIT_RAWSET;
+        } else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", NULL) ||
                  sd_bus_message_is_method_call(message, "org.freedesktop.DBus.ObjectManager", NULL) ||
-                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Peer", NULL))
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Peer", NULL)) {
                 verb = "status";
-        else
+                verb_pidone = MAC_SELINUX_PIDONE_RAWSTATUS;
+                verb_unit = MAC_SELINUX_UNIT_RAWSTATUS;
+        } else
                 return 0;
 
         path = sd_bus_message_get_path(message);
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-                r = mac_selinux_access_check(message, verb, error);
+                r = mac_selinux_access_check(message, verb, verb_pidone, error, __func__);
                 if (r < 0)
                         return r;
 
@@ -265,7 +270,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         if (!u)
                 return 0;
 
-        r = mac_selinux_unit_access_check(u, message, verb, error);
+        r = mac_selinux_unit_access_check(u, message, verb, verb_unit, error, __func__);
         if (r < 0)
                 return r;
 

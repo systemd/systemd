@@ -130,6 +130,7 @@ typedef struct Unit {
 
         char *fragment_path; /* if loaded from a config file this is the primary path to it */
         char *source_path; /* if converted, the source file */
+        char *withdrawal_path; /* if masked, path to withdrawal unit file (if existent) */
         char **dropin_paths;
 
         usec_t fragment_mtime;
@@ -841,7 +842,7 @@ int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
-const char *unit_label_path(Unit *u);
+const char *unit_label_path(const Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 

@@ -11,6 +11,9 @@
 bool mac_selinux_use(void);
 void mac_selinux_retest(void);
 
+bool mac_selinux_polcap_overhaul_enabled(void);
+bool mac_selinux_overhaul_enabled(void);
+
 int mac_selinux_init(void);
 void mac_selinux_finish(void);
 void mac_selinux_reload(void);

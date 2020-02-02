@@ -708,6 +708,7 @@ void unit_free(Unit *u) {
         strv_free(u->documentation);
         free(u->fragment_path);
         free(u->source_path);
+        free(u->withdrawal_path);
         strv_free(u->dropin_paths);
         free(u->instance);
 
@@ -1271,6 +1272,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (u->source_path)
                 fprintf(f, "%s\tSource Path: %s\n", prefix, u->source_path);
+
+        if (u->withdrawal_path)
+                fprintf(f, "%s\tWithdrawal Path: %s\n", prefix, u->withdrawal_path);
 
         STRV_FOREACH(j, u->dropin_paths)
                 fprintf(f, "%s\tDropIn Path: %s\n", prefix, *j);
@@ -5777,8 +5781,10 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-const char *unit_label_path(Unit *u) {
+const char *unit_label_path(const Unit *u) {
         const char *p;
+
+        assert(u);
 
         /* Returns the file system path to use for MAC access decisions, i.e. the file to read the SELinux label off
          * when validating access checks. */
@@ -5787,9 +5793,10 @@ const char *unit_label_path(Unit *u) {
         if (!p)
                 return NULL;
 
-        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense */
+        /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense.
+         * Instead try withdrawal path (which can be NULL) */
         if (path_equal(p, "/dev/null"))
-                return NULL;
+                return u->withdrawal_path;
 
         return p;
 }

@@ -16,10 +16,12 @@
 #include "alloc-util.h"
 #include "audit-fd.h"
 #include "bus-util.h"
+#include "dbus-callbackdata.h"
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "selinux-overhaul-permissions.h"
 #include "selinux-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -174,14 +176,16 @@ static int access_init(sd_bus_error *error) {
    If the machine is in permissive mode it will return ok.  Audit messages will
    still be generated if the access would be denied in enforcing mode.
 */
-int mac_selinux_generic_access_check(
+static int mac_selinux_generic_access_check(
                 sd_bus_message *message,
                 const char *path,
+                const char *class,
                 const char *permission,
-                sd_bus_error *error) {
+                sd_bus_error *error,
+                const char *func) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass = NULL, *scon = NULL;
+        const char *scon = NULL;
         struct audit_info audit_info = {};
         _cleanup_free_ char *cl = NULL;
         char *fcon = NULL;
@@ -191,6 +195,7 @@ int mac_selinux_generic_access_check(
         assert(message);
         assert(permission);
         assert(error);
+        assert(func);
 
         r = access_init(error);
         if (r <= 0)
@@ -223,19 +228,23 @@ int mac_selinux_generic_access_check(
 
                 r = getfilecon_raw(path, &fcon);
                 if (r < 0) {
+                        log_warning_errno(errno, "SELinux getfilecon_raw on '%s' failed: %m (class=%s perm=%s)", path, class, permission);
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                         goto finish;
                 }
 
-                tclass = "service";
+                if (!class)
+                        class = "service";
         } else {
                 r = getcon_raw(&fcon);
                 if (r < 0) {
+                        log_warning_errno(errno, "SELinux getcon_raw failed: %m (class=%s perm=%s)", class, permission);
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                         goto finish;
                 }
 
-                tclass = "system";
+                if (!class)
+                        class = "system";
         }
 
         sd_bus_creds_get_cmdline(creds, &cmdline);
@@ -245,11 +254,12 @@ int mac_selinux_generic_access_check(
         audit_info.path = path;
         audit_info.cmdline = cl;
 
-        r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
+        r = selinux_check_access(scon, fcon, class, permission, &audit_info);
         if (r < 0)
                 r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
 
-        log_debug("SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %i", scon, fcon, tclass, permission, path, cl, r);
+        // TODO(cgzones): revert to debug
+        log_warning("SELinux access check scon=%s tcon=%s class=%s perm=%s path=%s cmdline=%s func=%s ret=%i", scon, fcon, class, permission, strna(path), cl, func, r);
 
 finish:
         freecon(fcon);
@@ -262,15 +272,110 @@ finish:
         return r;
 }
 
-#else
-
-int mac_selinux_generic_access_check(
+int mac_selinux_access_check(
                 sd_bus_message *message,
-                const char *path,
-                const char *permission,
-                sd_bus_error *error) {
+                const char *old_permission,
+                enum mac_selinux_pidone_permissions overhaul_permission,
+                sd_bus_error *error,
+                const char *func) {
 
-        return 0;
+        const char *class;
+        const char *permission;
+
+        assert(message);
+        assert(overhaul_permission >= 0);
+        assert(overhaul_permission < MAC_SELINUX_PIDONE_PERMISSION_MAX);
+        assert(error);
+        assert(func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (mac_selinux_overhaul_enabled()) {
+                class = mac_selinux_overhaul_pidone_class;
+                permission = mac_selinux_overhaul_pidone_permissions[overhaul_permission];
+        } else {
+                class = NULL; /* will be set in mac_selinux_generic_access_check() */
+                permission = old_permission;
+        }
+
+        /* skip check if variant does not serve permission */
+        if (!permission) {
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux access check skipped (overhaul=%d func=%s)", mac_selinux_overhaul_enabled(), func);
+                return 0;
+        }
+
+        return mac_selinux_generic_access_check(message, NULL, class, permission, error, func);
+}
+
+int mac_selinux_unit_access_check(
+                const Unit *unit,
+                sd_bus_message *message,
+                const char *old_permission,
+                enum mac_selinux_unit_permissions overhaul_permission,
+                sd_bus_error *error,
+                const char *func) {
+
+        const char *class;
+        const char *permission;
+
+        assert(unit);
+        assert(message);
+        assert(overhaul_permission >= 0);
+        assert(overhaul_permission < MAC_SELINUX_UNIT_PERMISSION_MAX);
+        assert(error);
+        assert(func);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        if (mac_selinux_overhaul_enabled()) {
+                class = mac_selinux_overhaul_unit_class;
+                permission = mac_selinux_overhaul_unit_permissions[overhaul_permission];
+        } else {
+                class = NULL; /* will be set in mac_selinux_generic_access_check() */
+                permission = old_permission;
+        }
+
+        /* skip check if variant does not serve permission */
+        if (!permission) {
+                // TODO(cgzones): revert to debug
+                log_warning("SELinux unit access check skipped (overhaul=%d funk=%s)", mac_selinux_overhaul_enabled(), func);
+                return 0;
+        }
+
+        return mac_selinux_generic_access_check(message, unit_label_path(unit), class, permission, error, func);
+}
+
+int mac_selinux_callback_check(
+                const char *name,
+                struct mac_callback_userdata *userdata) {
+
+        const Unit *u;
+        const char *path = NULL;
+
+        assert(name);
+        assert(userdata);
+        assert(userdata->manager);
+        assert(userdata->message);
+        assert(userdata->error);
+        assert(userdata->func);
+        assert(userdata->selinux_permission >= 0);
+        assert(userdata->selinux_permission < MAC_SELINUX_UNIT_PERMISSION_MAX);
+
+        if (!mac_selinux_use())
+                return 0;
+
+        u = manager_get_unit(userdata->manager, name);
+        if (u)
+                path = unit_label_path(u);
+
+        /* maybe the unit is not loaded, e.g. a disabled user session unit */
+        if (!path)
+                path = manager_lookup_unit_path(userdata->manager, name);
+
+        return mac_selinux_generic_access_check(userdata->message, path, mac_selinux_overhaul_unit_class, mac_selinux_overhaul_unit_permissions[userdata->selinux_permission], userdata->error, userdata->func);
 }
 
 #endif

@@ -230,20 +230,23 @@ int unit_file_build_name_map(
                 const LookupPaths *lp,
                 usec_t *cache_mtime,
                 Hashmap **ret_unit_ids_map,
+                Hashmap **ret_unit_withdrawal_map,
                 Hashmap **ret_unit_names_map,
                 Set **ret_path_cache) {
 
-        /* Build two mappings: any name → main unit (i.e. the end result of symlink resolution), unit name →
-         * all aliases (i.e. the entry for a given key is a a list of all names which point to this key). The
-         * key is included in the value iff we saw a file or symlink with that name. In other words, if we
-         * have a key, but it is not present in the value for itself, there was an alias pointing to it, but
-         * the unit itself is not loadable.
+        /* Build three mappings:
+         *   - any name → main unit (i.e. the end result of symlink resolution)
+         *   - any name → withdrawal unit file path (in case the unit is masked)
+         *   - unit name → all aliases (i.e. the entry for a given key is a a list of all names which point to this key).
+         *     The key is included in the value iff we saw a file or symlink with that name. In other words, if we
+         *     have a key, but it is not present in the value for itself, there was an alias pointing to it, but
+         *     the unit itself is not loadable.
          *
          * At the same, build a cache of paths where to find units.
          */
 
-        _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
-        _cleanup_set_free_free_ Set *paths = NULL;
+        _cleanup_hashmap_free_ Hashmap *ids = NULL, *withdrawals = NULL, *names = NULL;
+        _cleanup_set_free_free_ Set *paths = NULL, *masked_ids = NULL;
         char **dir;
         int r;
         usec_t mtime = 0;
@@ -258,6 +261,10 @@ int unit_file_build_name_map(
                 if (!paths)
                         return log_oom();
         }
+
+        masked_ids = set_new(&string_hash_ops);
+        if (!masked_ids)
+                return log_oom();
 
         STRV_FOREACH(dir, (char**) lp->search_path) {
                 struct dirent *de;
@@ -283,6 +290,7 @@ int unit_file_build_name_map(
                         _cleanup_free_ char *_filename_free = NULL, *simplified = NULL;
                         const char *suffix, *dst = NULL;
                         bool valid_unit_name;
+                        bool revisit_masked;
 
                         valid_unit_name = unit_name_is_valid(de->d_name, UNIT_NAME_ANY);
 
@@ -311,8 +319,9 @@ int unit_file_build_name_map(
 
                         /* search_path is ordered by priority (highest first). If the name is already mapped
                          * to something (incl. itself), it means that we have already seen it, and we should
-                         * ignore it here. */
-                        if (hashmap_contains(ids, de->d_name))
+                         * ignore it here. Except the unit is masked, then try to get the withdrawal path */
+                        revisit_masked = hashmap_contains(ids, de->d_name);
+                        if (revisit_masked && !set_contains(masked_ids, de->d_name))
                                 continue;
 
                         dirent_ensure_type(d, de);
@@ -384,10 +393,27 @@ int unit_file_build_name_map(
                                 log_debug("%s: normal unit file: %s", __func__, dst);
                         }
 
-                        r = hashmap_put_strdup(&ids, de->d_name, dst);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
-                                                         de->d_name, dst);
+                        if (revisit_masked) {
+                                if (!null_or_empty_path(dst)) {
+                                        r = hashmap_put_strdup(&withdrawals, de->d_name, dst);
+                                        if (r < 0)
+                                                return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
+                                                                        de->d_name, dst);
+
+                                        set_remove(masked_ids, de->d_name);
+                                }
+                        } else {
+                                r = hashmap_put_strdup(&ids, de->d_name, dst);
+                                if (r < 0)
+                                        return log_warning_errno(r, "Failed to add entry to hashmap (%s→%s): %m",
+                                                                de->d_name, dst);
+
+                                if (null_or_empty_path(dst)) {
+                                        r = set_put_strdup(masked_ids, de->d_name);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+                        }
                 }
         }
 
@@ -418,6 +444,8 @@ int unit_file_build_name_map(
         if (cache_mtime)
                 *cache_mtime = mtime;
         *ret_unit_ids_map = TAKE_PTR(ids);
+        if (ret_unit_withdrawal_map)
+                *ret_unit_withdrawal_map = TAKE_PTR(withdrawals);
         *ret_unit_names_map = TAKE_PTR(names);
         if (ret_path_cache)
                 *ret_path_cache = TAKE_PTR(paths);
