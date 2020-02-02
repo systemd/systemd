@@ -1138,6 +1138,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 return 0;
         }
 
+        r = sd_netlink_message_read(message, FRA_UID_RANGE, sizeof(tmp->uid_range), &tmp->uid_range);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_UID_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
         (void) routing_policy_rule_get(m, tmp, &rule);
 
         if (DEBUG_LOGGING) {

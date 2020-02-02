@@ -19,6 +19,7 @@ static inline bool gid_is_valid(gid_t gid) {
 }
 
 int parse_uid(const char *s, uid_t* ret_uid);
+int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper);
 
 static inline int parse_gid(const char *s, gid_t *ret_gid) {
         return parse_uid(s, (uid_t*) ret_gid);

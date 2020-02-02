@@ -1084,6 +1084,13 @@
             <literal>ipv4</literal>.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>User=</varname></term>
+          <listitem>
+            <para>Takes a username, a user ID, or a range of user IDs separated by a dash. Defaults to
+            unset.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect1>
 

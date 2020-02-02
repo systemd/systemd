@@ -62,6 +62,29 @@ int parse_uid(const char *s, uid_t *ret) {
         return 0;
 }
 
+int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
+        uint32_t u, l;
+        int r;
+
+        assert(s);
+        assert(ret_lower);
+        assert(ret_upper);
+
+        r = parse_range(s, &l, &u);
+        if (r < 0)
+                return r;
+
+        if (l > u)
+                return -EINVAL;
+
+        if (!uid_is_valid(l) || !uid_is_valid(u))
+                return -ENXIO;
+
+        *ret_lower = l;
+        *ret_upper = u;
+        return 0;
+}
+
 char* getlogname_malloc(void) {
         uid_t uid;
         struct stat st;

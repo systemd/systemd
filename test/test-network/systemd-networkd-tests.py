@@ -100,6 +100,23 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
+def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
+    def f(func):
+        support = False
+        rc = call('ip rule add from 192.168.100.19 table 7 uidrange 200-300', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            ret = run('ip rule list from 192.168.100.19 table 7', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if ret.returncode == 0 and 'uidrange 200-300' in ret.stdout.rstrip():
+                support = True
+            call('ip rule del from 192.168.100.19 table 7 uidrange 200-300')
+
+        if support:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def expectedFailureIfLinkFileFieldIsNotSet():
     def f(func):
         support = False
@@ -1572,6 +1589,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
         '25-fibrule-port-range.network',
+        '25-fibrule-uidrange.network',
         '25-gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
@@ -1775,6 +1793,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
+
+    @expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable()
+    def test_routing_policy_rule_uidrange(self):
+        copy_unit_to_networkd_unit_path('25-fibrule-uidrange.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule')
+        print(output)
+        self.assertRegex(output, '111')
+        self.assertRegex(output, 'from 192.168.100.18')
+        self.assertRegex(output, 'lookup 7')
+        self.assertRegex(output, 'uidrange 100-200')
 
     def test_route_static(self):
         copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
