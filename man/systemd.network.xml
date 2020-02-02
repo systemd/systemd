@@ -1094,8 +1094,9 @@
         <varlistentry>
           <term><varname>SuppressPrefixLength=</varname></term>
           <listitem>
-            <para>Takes a number <replaceable>N</replaceable> and rejects routing decisions that have a
-            prefix length of <replaceable>N</replaceable> or less.</para>
+            <para>Takes a number <replaceable>N</replaceable> in the range 0-128 and rejects routing
+            decisions that have a prefix length of <replaceable>N</replaceable> or less. Defaults to
+            unset.</para>
           </listitem>
         </varlistentry>
       </variablelist>
