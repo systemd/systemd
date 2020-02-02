@@ -223,11 +223,9 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(r, "Can't fetch current mount namespace: %m");
 
         /* Switch to a new mount namespace, isolate ourself and unmount etc_machine_id in our new namespace */
-        if (unshare(CLONE_NEWNS) < 0)
-                return log_error_errno(errno, "Failed to enter new namespace: %m");
-
-        if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
-                return log_error_errno(errno, "Couldn't make-rslave / mountpoint in our private namespace: %m");
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
         if (umount(etc_machine_id) < 0)
                 return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
