@@ -1157,7 +1157,11 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         if (r < 0)
                 return r;
 
-        r = safe_atoi(rvalue, &n->suppress_prefixlen);
+        r = parse_ip_prefix_length(rvalue, &n->suppress_prefixlen);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
+                return 0;
+        }
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
                 return 0;
@@ -1445,7 +1449,11 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 rule->uid_range.start = lower;
                                 rule->uid_range.end = upper;
                         } else if (streq(a, "suppress_prefixlen")) {
-                                r = safe_atoi(b, &rule->suppress_prefixlen);
+                                r = parse_ip_prefix_length(b, &rule->suppress_prefixlen);
+                                if (r == -ERANGE) {
+                                        log_error_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
+                                        continue;
+                                }
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
                                         continue;
