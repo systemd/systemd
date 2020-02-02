@@ -233,6 +233,7 @@ manpages = [
   ''],
  ['sd_bus_message_append_strv', '3', [], ''],
  ['sd_bus_message_copy', '3', [], ''],
+ ['sd_bus_message_dump', '3', [], ''],
  ['sd_bus_message_get_cookie', '3', ['sd_bus_message_get_reply_cookie'], ''],
  ['sd_bus_message_get_monotonic_usec',
   '3',
