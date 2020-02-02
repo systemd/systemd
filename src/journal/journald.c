@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         server_flush_dev_kmsg(&server);
 
         if (server.namespace)
-                log_debug("systemd-journald running as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace ?: "<system>");
+                log_debug("systemd-journald running as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
         else
                 log_debug("systemd-journald running as PID "PID_FMT" for the system.", getpid_cached());
 
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (server.namespace)
-                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace ?: "<system>");
+                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
         else
                 log_debug("systemd-journald stopped as PID "PID_FMT" for the system.", getpid_cached());
 
