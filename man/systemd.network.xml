@@ -1071,7 +1071,7 @@
         <varlistentry>
           <term><varname>InvertRule=</varname></term>
           <listitem>
-            <para>A boolean. Specifies whether the rule to be inverted. Defaults to false.</para>
+            <para>A boolean. Specifies whether the rule is to be inverted. Defaults to false.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1088,6 +1088,14 @@
           <term><varname>User=</varname></term>
           <listitem>
             <para>Takes a username, a user ID, or a range of user IDs separated by a dash. Defaults to
+            unset.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SuppressPrefixLength=</varname></term>
+          <listitem>
+            <para>Takes a number <replaceable>N</replaceable> in the range 0-128 and rejects routing
+            decisions that have a prefix length of <replaceable>N</replaceable> or less. Defaults to
             unset.</para>
           </listitem>
         </varlistentry>

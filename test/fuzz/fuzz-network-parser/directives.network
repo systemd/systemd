@@ -225,6 +225,7 @@ DestinationPort=
 IPProtocol=
 InvertRule=
 Family=
+SuppressPrefixLength=
 User=
 [IPv6PrefixDelegation]
 RouterPreference=
