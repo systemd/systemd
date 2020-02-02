@@ -675,8 +675,7 @@ static int client_timeout_resend_expire(sd_event_source *s, uint64_t usec, void 
 }
 
 static usec_t client_timeout_compute_random(usec_t val) {
-        return val - val / 10 +
-                (random_u32() % (2 * USEC_PER_SEC)) * val / 10 / USEC_PER_SEC;
+        return val - (random_u32() % USEC_PER_SEC) * val / 10 / USEC_PER_SEC;
 }
 
 static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -686,7 +685,6 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         usec_t max_retransmit_duration = 0;
         uint8_t max_retransmit_count = 0;
         char time_string[FORMAT_TIMESPAN_MAX];
-        uint32_t expire = 0;
 
         assert(s);
         assert(client);
@@ -735,8 +733,9 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 max_retransmit_time = DHCP6_REB_MAX_RT;
 
                 if (event_source_is_enabled(client->timeout_resend_expire) <= 0) {
-                        r = dhcp6_lease_ia_rebind_expire(&client->lease->ia,
-                                                         &expire);
+                        uint32_t expire = 0;
+
+                        r = dhcp6_lease_ia_rebind_expire(&client->lease->ia, &expire);
                         if (r < 0) {
                                 client_stop(client, r);
                                 return 0;
@@ -751,7 +750,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                 return 0;
         }
 
-        if (max_retransmit_count &&
+        if (max_retransmit_count > 0 &&
             client->retransmit_count >= max_retransmit_count) {
                 client_stop(client, SD_DHCP6_CLIENT_EVENT_RETRANS_MAX);
                 return 0;
@@ -765,7 +764,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         if (r >= 0)
                 client->retransmit_count++;
 
-        if (!client->retransmit_time) {
+        if (client->retransmit_time == 0) {
                 client->retransmit_time =
                         client_timeout_compute_random(init_retransmit_time);
 
@@ -773,7 +772,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
                         client->retransmit_time += init_retransmit_time / 10;
 
         } else {
-                if (max_retransmit_time &&
+                if (max_retransmit_time > 0 &&
                     client->retransmit_time > max_retransmit_time / 2)
                         client->retransmit_time = client_timeout_compute_random(max_retransmit_time);
                 else
@@ -791,7 +790,7 @@ static int client_timeout_resend(sd_event_source *s, uint64_t usec, void *userda
         if (r < 0)
                 goto error;
 
-        if (max_retransmit_duration && event_source_is_enabled(client->timeout_resend_expire) <= 0) {
+        if (max_retransmit_duration > 0 && event_source_is_enabled(client->timeout_resend_expire) <= 0) {
 
                 log_dhcp6_client(client, "Max retransmission duration %"PRIu64" secs",
                                  max_retransmit_duration / USEC_PER_SEC);
