@@ -1893,8 +1893,8 @@ static VOID config_entry_add_linux(
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
                 CHAR8 *sections[] = {
-                        (UINT8 *)".osrel",
-                        (UINT8 *)".cmdline",
+                        (CHAR8 *)".osrel",
+                        (CHAR8 *)".cmdline",
                         NULL
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
