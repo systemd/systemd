@@ -49,6 +49,45 @@ CHANGES WITH 245 in spe:
           https://systemd.io/GROUP_RECORD
           https://systemd.io/USER_GROUP_API
 
+        * A small new service systemd-homed.service has been added, that may be
+          used to securely manage home directories, with built-in encryption
+          and unifying the user's own home directory data together with
+          complete user record data in a single place, thus making home
+          directories naturally migratable. Its primary back-end is based on
+          LUKS volumes, but it also supports fscrypt, plain directories and
+          more. It solves a couple of problems we saw with traditional ways to
+          manage home directories, in particular when it comes to
+          encryption. For further discussion of this, see the video of
+          Lennart's talk at AllSystemsGo! 2019:
+
+          https://media.ccc.de/v/ASG2019-164-reinventing-home-directories
+
+          For further details about the format and expectations on home
+          directories this new daemon makes, see:
+
+          https://systemd.io/HOME_DIRECTORY
+
+        * systemd-journald is now multi-instantiable. In addition to the main
+          instance systemd-journald.service there's now a template unit
+          systemd-journald@.service that can be instantiated multiple times,
+          each time defining a new named log 'namespace' (whose name is
+          specified via the instance part of the instance unit name). A new
+          unit file setting LogNamespace= has been added, taking such a
+          namespace name, that allows assigning services to such log
+          namespaces. As each log namespace is serviced by its own, independent
+          journal daemon this functionality may be use to improve performance
+          and increase isolation of applications, at the price of losing global
+          message ordering. Each daemon may have a separate set of
+          configuration files, with possibly different disk space settings and
+          such. journalctl has been updated to take a new option --namespace=
+          which allows viewing logs from a specific log namespace. The
+          sd-journal.h API gained sd_journal_open_namespace() for opening the
+          log stream of a specific log namespace. systemd-journald also gained
+          the ability to exit on idle, which is useful in the context of log
+          namespaces, as this means log daemons for log namespaces can be
+          activated automatically on demand and stop automatically when no
+          longer used, minimizing resource usage.
+
         * When systemd-tmpfiles copies a file tree using the 'C' line type it
           will now implicitly label every copied file matching the SELinux
           database.
@@ -112,6 +151,10 @@ CHANGES WITH 245 in spe:
           support for a special new value "dhcp". If set the configured static
           route uses the gateway host configured via DHCP.
 
+        * A new User= setting has been implemented for the [RoutingPolicyRule]
+          section of .network files for configuring source routing based on UID
+          ranges.
+
         * sd-bus gained a new API call sd_bus_message_sensitive() for marking a
           D-Bus message object as "sensitive". Objects that are marked that way
           are erased from memory when they are freed. This concept is intended
@@ -120,6 +163,13 @@ CHANGES WITH 245 in spe:
           been introduced as well that allows marking method calls in sd-bus
           vtables like this, so that this new message flag is implicitly set
           for incoming and outgoing messages of specific methods.
+
+        * sd-bus gained a new API call sd_bus_message_dump() for dumping the
+          contents of a message (or parts thereof) onto standard output, for
+          debugging purposes.
+
+        * systemd-sysusers gained support for creating users with primary
+          groups named differently than the user itself.
 
         * systemd-resolved's DNS-over-TLS support gained SNI validation.
 
