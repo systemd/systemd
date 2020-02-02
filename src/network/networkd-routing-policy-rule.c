@@ -1396,14 +1396,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {
-
                                 r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
                                 }
                         } else if (streq(a, "iif")) {
-
                                 if (free_and_strdup(&rule->iif, b) < 0)
                                         return log_oom();
 
@@ -1418,7 +1416,6 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
-
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
                                         log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
@@ -1427,9 +1424,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 rule->sport.start = low;
                                 rule->sport.end = high;
-
                         } else if (streq(a, "destinationport")) {
-
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
                                         log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
@@ -1450,7 +1445,6 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 rule->uid_range.start = lower;
                                 rule->uid_range.end = upper;
                         } else if (streq(a, "suppress_prefixlen")) {
-
                                 r = safe_atoi(b, &rule->suppress_prefixlen);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
