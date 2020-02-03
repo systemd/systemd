@@ -11,6 +11,7 @@ import time
 import os
 import tempfile
 import subprocess
+import sys
 
 from enum import Enum
 
@@ -23,6 +24,10 @@ class UnitFileChange(Enum):
     REMOVAL = 5
 
 class ExecutionResumeTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._journal_cursor_file = tempfile.mktemp()
+
     def setUp(self):
         self.unit = 'test-issue-518.service'
         self.unitfile_path = '/run/systemd/system/{0}'.format(self.unit)
@@ -80,6 +85,10 @@ class ExecutionResumeTest(unittest.TestCase):
         ExecStart=/bin/bash -c "echo baz >> {0}"
         '''.format(self.output_file)
         self.unit_files[UnitFileChange.REMOVAL] = unit_file_content
+
+        # Update journal's cursor file
+        subprocess.check_call(['journalctl', '--cursor-file', self._journal_cursor_file, '-n', '0', '-q'])
+        subprocess.check_call(['systemd-analyze', 'set-log-level', 'debug'])
 
     def reload(self):
         subprocess.check_call(['systemctl', 'daemon-reload'])
@@ -196,7 +205,18 @@ class ExecutionResumeTest(unittest.TestCase):
 
         self.assertTrue(subprocess.call("journalctl -b _PID=1  | grep -q 'Freezing execution'", shell=True) != 0)
 
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            os.remove(cls._journal_cursor_file)
+        except OSError:
+            pass
+
     def tearDown(self):
+        subprocess.check_call(['systemd-analyze', 'set-log-level', 'info'])
+        print(subprocess.check_output(['journalctl', '--no-pager', '--cursor-file', self._journal_cursor_file],
+                                      universal_newlines=True))
+
         for f in [self.output_file, self.unitfile_path]:
             try:
                 os.remove(f)
@@ -207,4 +227,4 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout, verbosity=3))
