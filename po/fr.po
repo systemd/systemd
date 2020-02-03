@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-01-28 22:40+0100\n"
+"POT-Creation-Date: 2020-02-03 01:21+0100\n"
 "PO-Revision-Date: 2019-03-07 23:09+0100\n"
 "Last-Translator: Sylvain Plantefève <sylvain.plantefeve@gmail.com>\n"
 "Language-Team: French\n"
@@ -66,6 +66,63 @@ msgstr "Recharger l'état de systemd"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Authentification requise pour recharger l'état de systemd"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home"
+msgstr "Créer un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required for creating a user's home."
+msgstr ""
+"Authentification requise pour créer l'espace personnel d'un utilisateur."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home"
+msgstr "Retirer un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required for removing a user's home."
+msgstr ""
+"Authentification requise pour retirer l'espace personnel d'un utilisateur."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home"
+msgstr "Vérifier les identifiants d'un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required for checking credentials against a user's home."
+msgstr ""
+"Authentification requise pour vérifier les identifiants de l'espace "
+"personnel d'un utilisateur."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home"
+msgstr "Mettre à jour un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required for updating a user's home."
+msgstr ""
+"Authentification requise pour mettre à jour l'espace personnel d'un "
+"utilisateur."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home"
+msgstr "Retailler un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required for resizing a user's home."
+msgstr "Authentification requise pour retailler un espace personnel."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home"
+msgstr "Changer le mot de passe d'un espace personnel"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required for changing the password of a user's home."
+msgstr ""
+"Authentification requise pour changer le mot de passe de l'espace personnel "
+"d'un utilisateur."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
@@ -495,8 +552,8 @@ msgstr "Définir la « raison » du redémarrage dans le noyau"
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
-"Authentification requise pour définir la « raison » du redémarrage dans "
-"le noyau."
+"Authentification requise pour définir la « raison » du redémarrage dans le "
+"noyau."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
@@ -812,8 +869,8 @@ msgstr "Réinitialiser les paramètres de résolution de noms"
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
 msgstr ""
-"Authentification requise pour réinitialiser les paramètres de résolution "
-"de noms."
+"Authentification requise pour réinitialiser les paramètres de résolution de "
+"noms."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -897,7 +954,7 @@ msgid ""
 "'$(unit)'."
 msgstr ""
 "Authentification requise pour supprimer les fichiers et les dossiers "
-"associés à '$(unit)'."
+"associés à « $(unit) »."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Authentification requise pour tuer « $(unit) »."
