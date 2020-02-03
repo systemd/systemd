@@ -6,7 +6,7 @@
 
 #include "macro.h"
 #include "stdio-util.h"
-#include "util.h"
+#include "string-util.h"
 
 char *sysctl_normalize(char *s);
 int sysctl_read(const char *property, char **value);

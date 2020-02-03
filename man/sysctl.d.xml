@@ -24,6 +24,16 @@
     <para><filename>/etc/sysctl.d/*.conf</filename></para>
     <para><filename>/run/sysctl.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
+
+    <programlisting>key.name.under.proc.sys = some value
+key/name/under/proc/sys = some value
+key/middle.part.with.dots/foo = 123
+key.middle/part/with/dots.foo = 123
+-key.that.will.not.fail = value
+key.pattern.*.with.glob = whatever
+-key.pattern.excluded.with.glob
+key.pattern.overriden.with.glob = custom
+</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
@@ -44,34 +54,32 @@
     first non-whitespace character is <literal>#</literal> or
     <literal>;</literal> are ignored.</para>
 
-    <para>Note that either <literal>/</literal> or
-    <literal>.</literal> may be used as separators within sysctl
-    variable names. If the first separator is a slash, remaining
-    slashes and dots are left intact. If the first separator is a dot,
-    dots and slashes are interchanged.
-    <literal>kernel.domainname=foo</literal> and
-    <literal>kernel/domainname=foo</literal> are equivalent and will
-    cause <literal>foo</literal> to be written to
+    <para>Note that either <literal>/</literal> or <literal>.</literal> may be used as separators within
+    sysctl variable names. If the first separator is a slash, remaining slashes and dots are left intact. If
+    the first separator is a dot, dots and slashes are interchanged.
+    <literal>kernel.domainname=foo</literal> and <literal>kernel/domainname=foo</literal> are equivalent and
+    will cause <literal>foo</literal> to be written to
     <filename>/proc/sys/kernel/domainname</filename>. Either
     <literal>net.ipv4.conf.enp3s0/200.forwarding</literal> or
-    <literal>net/ipv4/conf/enp3s0.200/forwarding</literal> may be used
-    to refer to
-    <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>.
-    </para>
+    <literal>net/ipv4/conf/enp3s0.200/forwarding</literal> may be used to refer to
+    <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>. A glob
+    <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry> pattern may be
+    used to write the same value to all matching keys. Keys for which an explicit pattern exists will be
+    excluded from any glob matching. In addition, a key may be explicitly excluded from being set by any
+    matching glob patterns by specifying the key name prefixed with a <literal>-</literal> character and not
+    followed by <literal>=</literal>, see SYNOPSIS.</para>
 
-    <para>Any access permission errors and attempts to write variables not defined on the local system are
-    logged, but do not cause the service to fail. Moreover, if a variable assignment is prefixed with a
-    single <literal>-</literal> character, failure to set the variable will be logged, but will not cause the
-    service to fail. All other errors when setting variables cause the service to return failure at the end
-    (other variables are still processed).</para>
+    <para>Any access permission errors and attempts to write variables not present on the local system are
+    logged, but do not cause the service to fail. Debug log level is used, which means that the message will
+    not show up at all by default. Moreover, if a variable assignment is prefixed with a single
+    <literal>-</literal> character, any failure to set the variable will be logged at debug level, but will
+    not cause the service to fail. All other errors when setting variables are logged with higher priority
+    and cause the service to return failure at the end (other variables are still processed).</para>
 
-    <para>The settings configured with <filename>sysctl.d</filename>
-    files will be applied early on boot. The network
-    interface-specific options will also be applied individually for
-    each network interface as it shows up in the system. (More
-    specifically, <filename>net.ipv4.conf.*</filename>,
-    <filename>net.ipv6.conf.*</filename>,
-    <filename>net.ipv4.neigh.*</filename> and
+    <para>The settings configured with <filename>sysctl.d</filename> files will be applied early on boot. The
+    network interface-specific options will also be applied individually for each network interface as it
+    shows up in the system. (More specifically, <filename>net.ipv4.conf.*</filename>,
+    <filename>net.ipv6.conf.*</filename>, <filename>net.ipv4.neigh.*</filename> and
     <filename>net.ipv6.neigh.*</filename>).</para>
 
     <para>Many sysctl parameters only become available when certain
@@ -148,6 +156,26 @@ net.bridge.bridge-nf-call-arptables = 0
       (starting with kernel 3.18), so simply not loading the module is
       sufficient to avoid filtering.</para>
     </example>
+
+    <example>
+      <title>Set network routing properties for all interfaces</title>
+      <para><filename>/etc/systemd/20-rp_filter.conf</filename>:</para>
+
+      <programlisting>net.ipv4.conf.default.rp_filter = 2
+net.ipv4.conf.*.rp_filter = 2
+-net.ipv4.conf.all.rp_filter
+net.ipv4.conf.hub0.rp_filter = 1
+</programlisting>
+
+      <para>The <option>rp_filter</option> key will be set to "2" for all interfaces, except "hub0". We set
+      <filename>net.ipv4.conf.default.rp_filter</filename> first, so any interfaces which are added
+      <emphasis>later</emphasis> will get this value (this also covers any interfaces detected while we're
+      running). The glob matches any interfaces which were detected <emphasis>earlier</emphasis>. The glob
+      will also match <filename>net.ipv4.conf.all.rp_filter</filename>, which we don't want to set at all, so
+      it is explicitly excluded. And "hub0" is excluded from the glob because it has an explicit setting.
+      </para>
+    </example>
+
   </refsect1>
 
   <refsect1>
