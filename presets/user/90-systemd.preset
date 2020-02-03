@@ -7,8 +7,15 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# These ones should be enabled by default, even if distributions
-# generally follow a default-off policy.
+# Settings for systemd units distributed with systemd itself. These should be
+# enabled by default, even if the distribution follows a general default-off
+# policy.
 
 enable systemd-tmpfiles-setup.service
 enable systemd-tmpfiles-clean.timer
+
+# Passive targets: always off by default, since they should only be pulled in
+# by dependent units.
+
+disable graphical-session-pre.target
+disable graphical-session.target
