@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-09-17 14:31+0000\n"
-"PO-Revision-Date: 2019-09-19 15:48+0200\n"
+"POT-Creation-Date: 2020-01-30 15:31+0000\n"
+"PO-Revision-Date: 2020-02-03 16:18+0100\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech\n"
 "Language: cs\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Poedit 2.2.3\n"
+"X-Generator: Poedit 2.2.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -64,7 +64,59 @@ msgstr "Znovu načíst stav systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "Pro znovu načtení stavu systemd je vyžadováno ověření."
+msgstr "Pro opětovné načtení stavu systemd je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home"
+msgstr "Vytvořit domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required for creating a user's home."
+msgstr "Pro vytvoření domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home"
+msgstr "Odebrat domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required for removing a user's home."
+msgstr "Pro odebrání domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home"
+msgstr "Zkontrolovat pověření domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required for checking credentials against a user's home."
+msgstr ""
+"Pro kontrolu pověření proti domovskému adresáři uživatele je vyžadováno "
+"ověření."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home"
+msgstr "Aktualizovat domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required for updating a user's home."
+msgstr "Pro aktualizaci domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home"
+msgstr "Změnit velikost domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required for resizing a user's home."
+msgstr ""
+"Pro změnu velikosti domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home"
+msgstr "Změnit heslo domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required for changing the password of a user's home."
+msgstr "Pro změnu hesla domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
@@ -505,6 +557,14 @@ msgstr "Nastavit zprávu všem uživatelům"
 msgid "Authentication is required to set a wall message"
 msgstr "K nastavení zprávy všem uživatelům je vyžadováno ověření"
 
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr "Změnit sezení"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Pro změnu virtuálního terminálu je vyžadováno ověření."
+
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
 msgstr "Přihlásit se do lokálního kontejneru"
@@ -680,6 +740,30 @@ msgstr "Vrátit změny nastavení DNS"
 msgid "Authentication is required to reset DNS settings."
 msgstr "Pro resetování nastavení DNS je vyžadováno ověření."
 
+#: src/network/org.freedesktop.network1.policy:143
+msgid "Renew dynamic addresses"
+msgstr "Obnovit dynamické adresy"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Pro obnovení dynamických adres je vyžadováno ověření."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Reload network settings"
+msgstr "Znovu načíst nastavení sítě"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to reload network settings."
+msgstr "Pro opětovné načtení nastavení sítě je vyžadováno ověření."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reconfigure network interface"
+msgstr "Přenastavit síťové rozhraní"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Pro přenastavení síťového rozhraní je vyžadováno ověření."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Prohlédnout obraz přenosné služby"
@@ -770,37 +854,37 @@ msgid ""
 "shall be enabled."
 msgstr "Pro kontrolu synchronizace času ze sítě je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Pro spuštění „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Pro vypnutí „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:357
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Pro znovu načtení „$(unit)” je vyžadováno ověření."
+msgstr "Pro opětovné načtení „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:358 src/core/dbus-unit.c:359
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Pro restart „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:530
+#: src/core/dbus-unit.c:531
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:561
+#: src/core/dbus-unit.c:562
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Pro resetování chybného stavu „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Pro nastavení vlastností na „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:703
+#: src/core/dbus-unit.c:704
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
