@@ -770,7 +770,7 @@ int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, con
 
                 if (creds->user && (!group || streq_ptr(user, group)))
                         creds->group = dynamic_user_ref(creds->user);
-                else {
+                else if (group) {
                         r = dynamic_user_acquire(m, group, &creds->group);
                         if (r < 0) {
                                 if (acquired)
