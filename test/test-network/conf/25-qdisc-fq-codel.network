@@ -5,7 +5,7 @@ Name=dummy98
 IPv6AcceptRA=no
 Address=10.1.2.3/16
 
-[FairQueueTrafficPolicing]
+[FairQueueing]
 Parent=root
 PacketLimit=1000
 FlowLimit=200

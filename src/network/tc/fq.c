@@ -12,7 +12,7 @@
 #include "util.h"
 
 static int fair_queue_traffic_policing_init(QDisc *qdisc) {
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
 
         assert(qdisc);
 
@@ -25,7 +25,7 @@ static int fair_queue_traffic_policing_init(QDisc *qdisc) {
 }
 
 static int fair_queue_traffic_policing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         int r;
 
         assert(link);
@@ -115,7 +115,7 @@ int config_parse_fair_queue_traffic_policing_u32(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         Network *network = data;
         uint32_t *p;
         int r;
@@ -178,7 +178,7 @@ int config_parse_fair_queue_traffic_policing_size(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         Network *network = data;
         uint64_t sz;
         uint32_t *p;
@@ -245,7 +245,7 @@ int config_parse_fair_queue_traffic_policing_bool(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         Network *network = data;
         int r;
 
@@ -297,7 +297,7 @@ int config_parse_fair_queue_traffic_policing_usec(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         Network *network = data;
         usec_t sec;
         int r;
@@ -356,7 +356,7 @@ int config_parse_fair_queue_traffic_policing_max_rate(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueueTrafficPolicing *fq;
+        FairQueueing *fq;
         Network *network = data;
         uint64_t sz;
         int r;
@@ -404,7 +404,7 @@ int config_parse_fair_queue_traffic_policing_max_rate(
 
 const QDiscVTable fq_vtable = {
         .init = fair_queue_traffic_policing_init,
-        .object_size = sizeof(FairQueueTrafficPolicing),
+        .object_size = sizeof(FairQueueing),
         .tca_kind = "fq",
         .fill_message = fair_queue_traffic_policing_fill_message,
 };

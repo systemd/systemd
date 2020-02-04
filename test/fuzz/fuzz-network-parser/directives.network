@@ -299,7 +299,7 @@ TargetSec=
 IntervalSec=
 CEThresholdSec=
 ECN=
-[FairQueueTrafficPolicing]
+[FairQueueing]
 Parent=
 PacketLimit=
 FlowLimit=

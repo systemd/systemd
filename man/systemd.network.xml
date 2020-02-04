@@ -2561,8 +2561,8 @@
   </refsect1>
 
   <refsect1>
-    <title>[FairQueueTrafficPolicing] Section Options</title>
-    <para>The <literal>[FairQueueTrafficPolicing]</literal> section manages the queueing discipline
+    <title>[FairQueueing] Section Options</title>
+    <para>The <literal>[FairQueueing]</literal> section manages the queueing discipline
     (qdisc) of fair queue traffic policing (FQ).</para>
 
     <variablelist class='network-directives'>
