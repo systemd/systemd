@@ -2,6 +2,7 @@
 Description=Test for CapabilityBoundingSet
 
 [Service]
-ExecStart=/bin/sh -x -c '! capsh --print | grep "^Bounding set .*cap_chown"'
+# sed: remove dropped capabilities (cap_xxx-[epi]) from the output
+ExecStart=/bin/sh -x -c '! capsh --print | sed -r "s/[^ ]+?\-[epi]+//g" | grep "^Bounding set .*cap_chown"'
 Type=oneshot
 CapabilityBoundingSet=~CAP_CHOWN
