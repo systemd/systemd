@@ -164,10 +164,10 @@ int network_verify(Network *network) {
             strv_isempty(network->match_path) && strv_isempty(network->match_driver) &&
             strv_isempty(network->match_type) && strv_isempty(network->match_name) &&
             strv_isempty(network->match_property) && strv_isempty(network->match_ssid) && !network->conditions)
-                log_warning("%s: No valid settings found in the [Match] section. "
-                            "The file will match all interfaces. "
-                            "If that is intended, please add Name=* in the [Match] section.",
-                            network->filename);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: No valid settings found in the [Match] section, ignoring file. "
+                                         "To match all interfaces, add Name=* in the [Match] section.",
+                                         network->filename);
 
         /* skip out early if configuration does not match the environment */
         if (!condition_test_list(network->conditions, NULL, NULL, NULL))
