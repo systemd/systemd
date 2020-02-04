@@ -597,7 +597,7 @@ static int journal_file_verify_header(JournalFile *f) {
         return 0;
 }
 
-static int journal_file_fstat(JournalFile *f) {
+int journal_file_fstat(JournalFile *f) {
         int r;
 
         assert(f);
