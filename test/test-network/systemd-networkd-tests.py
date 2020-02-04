@@ -498,7 +498,8 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
         check_output('udevadm control --reload')
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        #self.wait_online(['dummy98:degraded'])
+        time.sleep(5)
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'dummy98', env=env)
         self.assertRegex(output, 'hogehogehogehogehogehoge')
