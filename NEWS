@@ -3,29 +3,26 @@ systemd System and Service Manager
 CHANGES WITH 245 in spe:
 
         * A new tool "systemd-repart" has been added, that operates as an
-          idempotent, robust, incremental, elastic and declarative
-          repartitioner. It takes inspiration from
-          systemd-tmpfiles/systemd-sysusers but applies the algorithmic
-          concepts to GPT partition tables. Specifically, a set of partitions
-          that must or may exist can be configured via drop-in files, and
-          during every boot the partition table on disk is compared with these
-          files, creating missing partitions or growing existing ones based on
-          configurable relative and absolute size constraints. The tool is
-          strictly incremental, i.e. does not delete, shrink or move
-          partitions, but only adds and grows them. The primary use-case is OS
-          images that shall ship in minimized form, with only a minimal boot
-          and root partition, that on first boot is grown to the size of the
-          underlying block device or augmented with additional partitions. For
-          example, the root partition could be extended to cover the whole
-          disk, or a swap or /home partitions could be added implicitly on
-          first boot. It also has uses on systems that use an A/B update scheme
-          to allow shipping minimal images with just the A set of partition,
-          and with the B set added on first boot. The tool is primarily
-          intended to be run in the initrd, shortly before transitioning into
-          the host OS, but also can be run after the transition took place. It
-          automatically discovers the disk backing the root file system, and
-          should hence not require any additional configuration besides the
-          partition definition drop-ins.
+          idempotent declarative repartitioner for GPT partition tables.
+          Specifically, a set of partitions that must or may exist can be
+          configured via drop-in files, and during every boot the partition
+          table on disk is compared with these files, creating missing
+          partitions or growing existing ones based on configurable relative
+          and absolute size constraints. The tool is strictly incremental,
+          i.e. does not delete, shrink or move partitions, but only adds and
+          grows them. The primary use-case is OS images that ship in minimized
+          form, that on first boot are grown to the size of the underlying
+          block device or augmented with additional partitions. For example,
+          the root partition could be extended to cover the whole disk, or a
+          swap or /home partitions could be added on first boot. It can also be
+          used for systems that use an A/B update scheme but ship images with
+          just the A partition, with B added on first boot. The tool is
+          primarily intended to be run in the initrd, shortly before
+          transitioning into the host OS, but can also be run after the
+          transition took place. It automatically discovers the disk backing
+          the root file system, and should hence not require any additional
+          configuration besides the partition definition drop-ins. If no
+          configuration drop-ins are present, no action is taken.
 
         * A new component "userdb" has been added, along with a small daemon
           "systemd-userdb.service" and a client tool "userdbctl". The framework
@@ -43,22 +40,21 @@ CHANGES WITH 245 in spe:
           that for the first time resource management and various other
           per-user settings can be configured in LDAP directories and then
           provided to systemd (specifically to systemd-logind and pam-system)
-          to enforce on log-in. For further details see:
+          to apply on login. For further details see:
 
           https://systemd.io/USER_RECORD
           https://systemd.io/GROUP_RECORD
           https://systemd.io/USER_GROUP_API
 
         * A small new service systemd-homed.service has been added, that may be
-          used to securely manage home directories, with built-in encryption
-          and unifying the user's own home directory data together with
-          complete user record data in a single place, thus making home
-          directories naturally migratable. Its primary back-end is based on
-          LUKS volumes, but it also supports fscrypt, plain directories and
-          more. It solves a couple of problems we saw with traditional ways to
-          manage home directories, in particular when it comes to
-          encryption. For further discussion of this, see the video of
-          Lennart's talk at AllSystemsGo! 2019:
+          used to securely manage home directories with built-in encryption.
+          The complete user record data is unified with the home directory,
+          thus making home directories naturally migratable. Its primary
+          back-end is based on LUKS volumes, but fscrypt, plain directories,
+          and other storage schemes are also supported. This solves a couple of
+          problems we saw with traditional ways to manage home directories, in
+          particular when it comes to encryption. For further discussion of
+          this, see the video of Lennart's talk at AllSystemsGo! 2019:
 
           https://media.ccc.de/v/ASG2019-164-reinventing-home-directories
 
@@ -69,49 +65,49 @@ CHANGES WITH 245 in spe:
 
         * systemd-journald is now multi-instantiable. In addition to the main
           instance systemd-journald.service there's now a template unit
-          systemd-journald@.service that can be instantiated multiple times,
-          each time defining a new named log 'namespace' (whose name is
-          specified via the instance part of the instance unit name). A new
-          unit file setting LogNamespace= has been added, taking such a
-          namespace name, that allows assigning services to such log
-          namespaces. As each log namespace is serviced by its own, independent
-          journal daemon this functionality may be use to improve performance
-          and increase isolation of applications, at the price of losing global
-          message ordering. Each daemon may have a separate set of
-          configuration files, with possibly different disk space settings and
-          such. journalctl has been updated to take a new option --namespace=
-          which allows viewing logs from a specific log namespace. The
-          sd-journal.h API gained sd_journal_open_namespace() for opening the
-          log stream of a specific log namespace. systemd-journald also gained
-          the ability to exit on idle, which is useful in the context of log
-          namespaces, as this means log daemons for log namespaces can be
-          activated automatically on demand and stop automatically when no
-          longer used, minimizing resource usage.
+          systemd-journald@.service, with each instance defining a new named
+          log 'namespace' (whose name is specified via the instance part of the
+          unit name). A new unit file setting LogNamespace= has been added,
+          taking such a namespace name, that assigns services to the specified
+          log namespaces. As each log namespace is serviced by its own
+          independent journal daemon, this functionality may be used to improve
+          performance and increase isolation of applications, at the price of
+          losing global message ordering. Each instance of journald has a
+          separate set of configuration files, with possibly different disk
+          usage limitations and other settings.
+
+          journalctl now takes a new option --namespace= to show logs from a
+          specific log namespace. The sd-journal.h API gained
+          sd_journal_open_namespace() for opening the log stream of a specific
+          log namespace. systemd-journald also gained the ability to exit on
+          idle, which is useful in the context of log namespaces, as this means
+          log daemons for log namespaces can be activated automatically on
+          demand and will stop automatically when no longer used, minimizing
+          resource usage.
 
         * When systemd-tmpfiles copies a file tree using the 'C' line type it
-          will now implicitly label every copied file matching the SELinux
-          database.
+          will now label every copied file according to the SELinux database.
 
         * When systemd/PID 1 detects it is used in the initrd it will now boot
           into initrd.target rather than default.target by default. This should
           make it simpler to build initrds with systemd as for many cases the
           only difference between a host OS image and an initrd image now is
-          the /etc/initrd-release file that identifies the initrd as one.
+          the presence of the /etc/initrd-release file.
 
         * A new kernel command line option systemd.cpu_affinity= is now
           understood. It's equivalent to the CPUAffinity= option in
           /etc/systemd/system.conf and allows setting the CPU mask for PID 1
-          itself and the default for all forked off processes.
+          itself and the default for all other processes.
 
-        * When systemd/PID 1 is reloaded (with systemctl daemon-reload or an
-          equivalent tool) the SELinux database is now reloaded, ensuring that
+        * When systemd/PID 1 is reloaded (with systemctl daemon-reload or
+          equivalent), the SELinux database is now reloaded, ensuring that
           sockets and other file system objects are generated taking the new
           database into account.
 
-        * The sd-event.h API now has native support for the new Linux "pidfd"
+        * The sd-event.h API gained native support for the new Linux "pidfd"
           concept. This permits watching processes using file descriptors
           instead of PID numbers, which fixes a number of races and makes
-          process supervision more robust and more efficient. All of systemd's
+          process supervision more robust and efficient. All of systemd's
           components will now use pidfds if the kernel supports it for process
           watching, with the exception of PID 1 itself, unfortunately. We hope
           to move PID 1 to exclusively using pidfds too eventually, but this
@@ -122,13 +118,13 @@ CHANGES WITH 245 in spe:
         * Closely related to this, the sd-event.h API gained two new calls
           sd_event_source_send_child_signal() (for sending a signal to a
           watched process) and sd_event_source_get_child_process_own() (for
-          marking a process so that it is killed implicitly whenever the event
-          source watching it is freed).
+          marking a process so that it is killed automatically whenever the
+          event source watching it is freed).
 
         * systemd-networkd gained support for configuring Token Buffer Filter
-          (TBF) parameters in its qdisc configuration support. Similar, support
-          for Stochastic Fairness Queuing (SFQ), Controlled-Delay Active
-          Queue Management (CoDel), Fair Queue (FQ) has been added.
+          (TBF) parameters in its qdisc configuration support. Similarly,
+          support for Stochastic Fairness Queuing (SFQ), Controlled-Delay
+          Active Queue Management (CoDel), Fair Queue (FQ) has been added.
 
         * systemd-networkd gained support for Intermediate Functional Block
           (IFB) network devices.
@@ -136,40 +132,39 @@ CHANGES WITH 245 in spe:
         * systemd-networkd gained support for configuring multi-path IP routes,
           using the new MultiPathRoute= setting in the [Route] section.
 
-        * systemd-networkd's DHCPv4 support has been updated to support a new
-          SendDecline= option. If enabled duplicate address detection is done
-          after a DHCP offer is received from a server. If a conflict is
-          detected the address is declined. The DHCPv4 support also gained
+        * systemd-networkd's DHCPv4 client has been updated to support a new
+          SendDecline= option. If enabled, duplicate address detection is done
+          after a DHCP offer is received from the server. If a conflict is
+          detected, the address is declined. The DHCPv4 client also gained
           support for a new RouteMTUBytes= setting that allows to configure the
           MTU size to be used for routes generated from DHCPv4 leases.
 
         * The PrefixRoute= setting in systemd-networkd's [Address] section of
           .network files has been deprecated, and replaced by AddPrefixRoute=,
-          with it's sense inverted.
+          with its sense inverted.
 
         * The Gateway= setting of [Route] sections of .network files gained
           support for a special new value "dhcp". If set the configured static
           route uses the gateway host configured via DHCP.
 
         * A new User= setting has been implemented for the [RoutingPolicyRule]
-          section of .network files for configuring source routing based on UID
+          section of .network files to configure source routing based on UID
           ranges.
 
-        * sd-bus gained a new API call sd_bus_message_sensitive() for marking a
-          D-Bus message object as "sensitive". Objects that are marked that way
-          are erased from memory when they are freed. This concept is intended
-          to be used for messages that contain security sensitive data that
-          should be erased after use. A new flag SD_BUS_VTABLE_SENSITIVE has
-          been introduced as well that allows marking method calls in sd-bus
-          vtables like this, so that this new message flag is implicitly set
-          for incoming and outgoing messages of specific methods.
+        * sd-bus gained a new API call sd_bus_message_sensitive() that marks a
+          D-Bus message object as "sensitive". Those objects are erased from
+          memory when they are freed. This concept is intended to be used for
+          messages that contain security sensitive data. A new flag
+          SD_BUS_VTABLE_SENSITIVE has been introduced as well to mark methods
+          in sd-bus vtables, causing any incoming and outgoing messages of
+          those methods to be implicitly marked as "sensitive".
 
         * sd-bus gained a new API call sd_bus_message_dump() for dumping the
-          contents of a message (or parts thereof) onto standard output, for
+          contents of a message (or parts thereof) to standard output for
           debugging purposes.
 
-        * systemd-sysusers gained support for creating users with primary
-          groups named differently than the user itself.
+        * systemd-sysusers gained support for creating users with the primary
+          group named differently than the user.
 
         * systemd-resolved's DNS-over-TLS support gained SNI validation.
 
@@ -178,13 +173,13 @@ CHANGES WITH 245 in spe:
           only ext4 and btrfs partitions.
 
         * The support for /etc/crypttab gained a new x-initrd.attach option. If
-          set the specified encrypted volume is unlocked in the initrd
-          already. This concept corresponds to the x-initrd.mount option in
+          set, the specified encrypted volume is unlocked already in the
+          initrd. This concept corresponds to the x-initrd.mount option in
           /etc/fstab.
 
         * systemd-cryptsetup gained native support for unlocking encrypted
           volumes utilizing PKCS#11 smartcards, i.e. for example to bind
-          encryption of volumes to YubiKeys.This is exposed in the new
+          encryption of volumes to YubiKeys. This is exposed in the new
           pkcs11-uri= option in /etc/crypttab.
 
         * The /etc/fstab support in systemd now supports two new mount options
@@ -194,42 +189,41 @@ CHANGES WITH 245 in spe:
 
         * The https://systemd.io/ web site has been relaunched, directly
           populated with most of the documentation included in the systemd
-          repository. In particular, systemd acquired a new logo, thanks to
-          Tobias Bernard.
+          repository. systemd also acquired a new logo, thanks to Tobias
+          Bernard.
 
         * systemd-udevd gained support for managing "alternative" network
           interface names, as supported by new Linux kernels. For the first
           time this permits assigning multiple (and longer!) names to a network
           interface. systemd-udevd will now by default assign the names
-          generated via all supported naming schemes to each interface in
-          parallel. This may be further tweaked with .link drop-in files, and
-          the AlternativeName= and AlternativeNamesPolicy= settings. All other
-          components of systemd have been updated to support the new
-          alternative names too, wherever that is appropriate. For example,
-          systemd-nspawn will now generate alternative interface names for the
-          host-facing side of container veth links based on the full container
-          name without truncation.
+          generated via all supported naming schemes to each interface. This
+          may be further tweaked with .link files and the AlternativeName= and
+          AlternativeNamesPolicy= settings. Other components of systemd have
+          been updated to support the new alternative names wherever
+          appropriate. For example, systemd-nspawn will now generate
+          alternative interface names for the host-facing side of container
+          veth links based on the full container name without truncation.
 
         * systemd-nspawn interface naming logic has been updated in another way
           too: if the main interface name (i.e. as opposed to new-style
-          "alternative" names) is the truncated result of container name a
-          simple hashing scheme is used that ensures that multiple containers
-          whose name all begin the same are likely resulting in different
-          interface names. Since this changes the primary interface names
-          pointing to containers if truncation happens the old scheme may still
-          be requested by selecting a different naming scheme than the v245
-          one, via the net.naming-scheme= kernel command line option.
+          "alternative" names) based on the container name is truncated, a
+          simple hashing scheme is used to give different interface names to
+          multiple containers whose names all begin with the same prefix. Since
+          this changes the primary interface names pointing to containers if
+          truncation happens, the old scheme may still be requested by
+          selecting an older naming scheme, via the net.naming-scheme= kernel
+          command line option.
 
         * PrivateUsers= in service files now works in services run by the
           systemd --user per-user instance of the service manager.
 
         * A new per-service sandboxing option ProtectClock= has been added that
           locks down write access to the system clock. It takes away device
-          node access to /dev/rtc as well as the system calls that allow to set
-          the system clock. It also removes the CAP_SYS_TIME and CAP_WAKE_ALARM
-          capabilities. Note that this option does not affect access to
-          auxiliary services that allow changing the clock, for example access
-          to systemd-timedated.
+          node access to /dev/rtc as well as the system calls that set the
+          system clock and the CAP_SYS_TIME and CAP_WAKE_ALARM capabilities.
+          Note that this option does not affect access to auxiliary services
+          that allow changing the clock, for example access to
+          systemd-timedated.
 
         * The systemd-id128 tool gained a new "show" verb for listing or
           resolving a number of well-known UUIDs/128bit IDs, currently mostly
@@ -257,13 +251,13 @@ CHANGES WITH 245 in spe:
           permanent MAC address of a network device even if a randomized MAC
           address is used.
 
-        * systemd-logind will now validate access to the operation for changing
-          virtual terminals via a PolicyKit action. By default only users with
-          at least one session on a local VT will get access to the method call.
+        * systemd-logind will now validate access to the operation of changing
+          the virtual terminal via a PolicyKit action. By default, only users
+          with at least one session on a local VT are granted permission.
 
-        * When systemd sets up PAM sessions that invoked service processes shall
-          run in, the pam_setcred() API is now invoked, thus permitting PAM
-          modules to set additional credentials for the processes.
+        * When systemd sets up PAM sessions that invoked service processes
+          shall run in, the pam_setcred() API is now invoked, thus permitting
+          PAM modules to set additional credentials for the processes.
 
         …
 
@@ -7181,10 +7175,9 @@ CHANGES WITH 213:
         * A new fsck.repair= kernel option has been added to control
           how fsck shall deal with unclean file systems at boot.
 
-        * The (.ini) configuration file parser will now silently
-          ignore sections whose name begins with "X-". This may be
-          used to maintain application-specific extension sections in unit
-          files.
+        * The (.ini) configuration file parser will now silently ignore
+          sections whose names begin with "X-". This may be used to maintain
+          application-specific extension sections in unit files.
 
         * machined gained a new API to query the IP addresses of
           registered containers. "machinectl status" has been updated
