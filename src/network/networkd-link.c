@@ -1514,6 +1514,10 @@ static int link_acquire_ipv6_conf(Link *link) {
 
                 log_link_debug(link, "Starting IPv6 Router Advertisements");
 
+                r = radv_emit_dns(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to configure DNS or Domains in IPv6 Router Advertisement: %m");
+
                 r = sd_radv_start(link->radv);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");

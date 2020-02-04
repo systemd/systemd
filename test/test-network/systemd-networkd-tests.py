@@ -2646,6 +2646,11 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, 'fe80::')
+        self.assertRegex(output, '2002:da8:1::1')
+
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
