@@ -27,6 +27,7 @@ which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':
 
 networkd_bin=shutil.which('systemd-networkd', path=which_paths)
 resolved_bin=shutil.which('systemd-resolved', path=which_paths)
+udevd_bin=shutil.which('systemd-udevd', path=which_paths)
 wait_online_bin=shutil.which('systemd-networkd-wait-online', path=which_paths)
 networkctl_bin=shutil.which('networkctl', path=which_paths)
 resolvectl_bin=shutil.which('resolvectl', path=which_paths)
@@ -164,7 +165,7 @@ def setUpModule():
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'firewalld.service']:
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service', 'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
             check_output(f'systemctl stop {u}')
             running_units.append(u)
@@ -226,21 +227,34 @@ def setUpModule():
     with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
         f.write('\n'.join(drop_in))
 
+    drop_in = [
+        '[Service]',
+        'ExecStart=',
+        'ExecStart=!!' + udevd_bin,
+    ]
+
+    os.makedirs('/run/systemd/system/systemd-udevd.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w') as f:
+        f.write('\n'.join(drop_in))
+
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
     print(check_output('systemctl cat systemd-resolved.service'))
+    print(check_output('systemctl cat systemd-udevd.service'))
     check_output('systemctl restart systemd-resolved')
+    check_output('systemctl restart systemd-udevd')
 
 def tearDownModule():
     global running_units
 
     shutil.rmtree(networkd_ci_path)
 
-    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
+    for u in ['systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service']:
         check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
+    shutil.rmtree('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
 
     for u in running_units:
@@ -3568,6 +3582,7 @@ if __name__ == '__main__':
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
     parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
+    parser.add_argument('--udevd', help='Path to systemd-udevd', dest='udevd_bin')
     parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
     parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
@@ -3580,10 +3595,11 @@ if __name__ == '__main__':
     ns, args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.resolved_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
+        if ns.networkd_bin or ns.resolved_bin or ns.udevd_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
             print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, or --timedatectl options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
+        udevd_bin = os.path.join(ns.build_dir, 'systemd-udevd')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
@@ -3593,6 +3609,8 @@ if __name__ == '__main__':
             networkd_bin = ns.networkd_bin
         if ns.resolved_bin:
             resolved_bin = ns.resolved_bin
+        if ns.udevd_bin:
+            udevd_bin = ns.udevd_bin
         if ns.wait_online_bin:
             wait_online_bin = ns.wait_online_bin
         if ns.networkctl_bin:
