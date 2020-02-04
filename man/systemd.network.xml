@@ -1135,8 +1135,8 @@
         <varlistentry>
           <term><varname>Gateway=</varname></term>
           <listitem>
-            <para>Takes the gateway address or special value <literal>dhcp</literal>. If
-            <literal>dhcp</literal>, then the gateway address provided by DHCP (or in the IPv6 case,
+            <para>Takes the gateway address or special value <literal>_dhcp</literal>. If
+            <literal>_dhcp</literal>, then the gateway address provided by DHCP (or in the IPv6 case,
             provided by IPv6 RA) is used.</para>
           </listitem>
         </varlistentry>

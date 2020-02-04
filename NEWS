@@ -148,8 +148,8 @@ CHANGES WITH 245 in spe:
           with it's sense inverted.
 
         * The Gateway= setting of [Route] sections of .network files gained
-          support for a special new value "dhcp". If set the configured static
-          route uses the gateway host configured via DHCP.
+          support for a special new value "_dhcp". If set, the configured
+          static route uses the gateway host configured via DHCP.
 
         * A new User= setting has been implemented for the [RoutingPolicyRule]
           section of .network files for configuring source routing based on UID
