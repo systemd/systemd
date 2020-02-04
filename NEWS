@@ -257,13 +257,13 @@ CHANGES WITH 245 in spe:
           permanent MAC address of a network device even if a randomized MAC
           address is used.
 
-       * systemd-logind will now validate access to the operation for changing
-         virtual terminals via a PolicyKit action. By default only users with
-         at least one session on a local VT will get access to the method call.
+        * systemd-logind will now validate access to the operation for changing
+          virtual terminals via a PolicyKit action. By default only users with
+          at least one session on a local VT will get access to the method call.
 
-       * When systemd sets up PAM sessions that invoked service processes shall
-         run in, the pam_setcred() API is now invoked, thus permitting PAM
-         modules to set additional credentials for the processes.
+        * When systemd sets up PAM sessions that invoked service processes shall
+          run in, the pam_setcred() API is now invoked, thus permitting PAM
+          modules to set additional credentials for the processes.
 
         …
 
