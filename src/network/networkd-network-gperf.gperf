@@ -284,14 +284,14 @@ NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,
 NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
 StochasticFairnessQueueing.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.PerturbPeriodSec, config_parse_stochastic_fairness_queueing_perturb_period, QDISC_KIND_SFQ,                0
-TokenBufferFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_TBF,                0
-TokenBufferFilter.Rate,                      config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.Burst,                     config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.LimitSize,                 config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.MTUBytes,                  config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.MPUBytes,                  config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.PeakRate,                  config_parse_token_buffer_filter_size,                    QDISC_KIND_TBF,                0
-TokenBufferFilter.LatencySec,                config_parse_token_buffer_filter_latency,                 QDISC_KIND_TBF,                0
+TokenBucketFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_TBF,                0
+TokenBucketFilter.Rate,                      config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.Burst,                     config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.LimitSize,                 config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.MTUBytes,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.MPUBytes,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.PeakRate,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+TokenBucketFilter.LatencySec,                config_parse_token_bucket_filter_latency,                 QDISC_KIND_TBF,                0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
 DHCP.ClientIdentifier,                       config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)

@@ -487,7 +487,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "FairQueueingControlledDelay\0"
                               "NetworkEmulator\0"
                               "StochasticFairnessQueueing\0"
-                              "TokenBufferFilter\0",
+                              "TokenBucketFilter\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
         if (r < 0)

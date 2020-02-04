@@ -6,7 +6,7 @@
 #include "qdisc.h"
 #include "time-util.h"
 
-typedef struct TokenBufferFilter {
+typedef struct TokenBucketFilter {
         QDisc meta;
 
         uint64_t rate;
@@ -16,10 +16,10 @@ typedef struct TokenBufferFilter {
         usec_t latency;
         size_t limit;
         size_t mpu;
-} TokenBufferFilter;
+} TokenBucketFilter;
 
-DEFINE_QDISC_CAST(TBF, TokenBufferFilter);
+DEFINE_QDISC_CAST(TBF, TokenBucketFilter);
 extern const QDiscVTable tbf_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_token_buffer_filter_latency);
-CONFIG_PARSER_PROTOTYPE(config_parse_token_buffer_filter_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_latency);
+CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_size);

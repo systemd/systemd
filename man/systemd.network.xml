@@ -2321,9 +2321,9 @@
   </refsect1>
 
   <refsect1>
-    <title>[TokenBufferFilter] Section Options</title>
-    <para>The <literal>[TokenBufferFilter]</literal> section manages the queueing discipline (qdisc) of
-    token buffer filter (tbf).</para>
+    <title>[TokenBucketFilter] Section Options</title>
+    <para>The <literal>[TokenBucketFilter]</literal> section manages the queueing discipline (qdisc) of
+    token bucket filter (tbf).</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2338,7 +2338,7 @@
         <term><varname>LatencySec=</varname></term>
         <listitem>
           <para>Specifies the latency parameter, which specifies the maximum amount of time a
-          packet can sit in the Token Buffer Filter (TBF). Defaults to unset.</para>
+          packet can sit in the Token Bucket Filter (TBF). Defaults to unset.</para>
         </listitem>
       </varlistentry>
 

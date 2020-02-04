@@ -5,7 +5,7 @@ Name=test1
 IPv6AcceptRA=no
 Address=10.1.2.4/16
 
-[TokenBufferFilter]
+[TokenBucketFilter]
 Parent=root
 Rate=1G
 Burst=5K

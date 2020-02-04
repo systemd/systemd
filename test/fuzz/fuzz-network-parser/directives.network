@@ -277,7 +277,7 @@ DelayJitterSec=
 LossRate=
 DuplicateRate=
 PacketLimit=
-[TokenBufferFilter]
+[TokenBucketFilter]
 Parent=
 Rate=
 Burst=

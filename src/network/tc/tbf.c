@@ -15,10 +15,10 @@
 #include "tc-util.h"
 #include "util.h"
 
-static int token_buffer_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
+static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         uint32_t rtab[256], ptab[256];
         struct tc_tbf_qopt opt = {};
-        TokenBufferFilter *tbf;
+        TokenBucketFilter *tbf;
         int r;
 
         assert(link);
@@ -110,7 +110,7 @@ static int token_buffer_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         return 0;
 }
 
-int config_parse_token_buffer_filter_size(
+int config_parse_token_bucket_filter_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -124,7 +124,7 @@ int config_parse_token_buffer_filter_size(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
-        TokenBufferFilter *tbf;
+        TokenBucketFilter *tbf;
         uint64_t k;
         int r;
 
@@ -186,7 +186,7 @@ int config_parse_token_buffer_filter_size(
         return 0;
 }
 
-int config_parse_token_buffer_filter_latency(
+int config_parse_token_bucket_filter_latency(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -200,7 +200,7 @@ int config_parse_token_buffer_filter_latency(
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         Network *network = data;
-        TokenBufferFilter *tbf;
+        TokenBucketFilter *tbf;
         usec_t u;
         int r;
 
@@ -240,45 +240,45 @@ int config_parse_token_buffer_filter_latency(
         return 0;
 }
 
-static int token_buffer_filter_verify(QDisc *qdisc) {
-        TokenBufferFilter *tbf = TBF(qdisc);
+static int token_bucket_filter_verify(QDisc *qdisc) {
+        TokenBucketFilter *tbf = TBF(qdisc);
 
         if (tbf->limit > 0 && tbf->latency > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Specifying both LimitSize= and LatencySec= is not allowed. "
-                                         "Ignoring [TokenBufferFilter] section from line %u.",
+                                         "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         if (tbf->limit == 0 && tbf->latency == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Either LimitSize= or LatencySec= is required. "
-                                         "Ignoring [TokenBufferFilter] section from line %u.",
+                                         "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         if (tbf->rate == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Rate= is mandatory. "
-                                         "Ignoring [TokenBufferFilter] section from line %u.",
+                                         "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         if (tbf->burst == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Burst= is mandatory. "
-                                         "Ignoring [TokenBufferFilter] section from line %u.",
+                                         "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         if (tbf->peak_rate > 0 && tbf->mtu == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: MTUBytes= is mandatory when PeakRate= is specified. "
-                                         "Ignoring [TokenBufferFilter] section from line %u.",
+                                         "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         return 0;
 }
 
 const QDiscVTable tbf_vtable = {
-        .object_size = sizeof(TokenBufferFilter),
+        .object_size = sizeof(TokenBucketFilter),
         .tca_kind = "tbf",
-        .fill_message = token_buffer_filter_fill_message,
-        .verify = token_buffer_filter_verify
+        .fill_message = token_bucket_filter_fill_message,
+        .verify = token_bucket_filter_verify
 };
