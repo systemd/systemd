@@ -3371,6 +3371,12 @@ int config_parse_memory_limit(
         uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
+        if (STR_IN_SET(lvalue, "DefaultMemoryLow",
+                               "DefaultMemoryMin",
+                               "MemoryLow",
+                               "MemoryMin"))
+                bytes = CGROUP_LIMIT_MIN;
+
         if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
 
                 r = parse_permille(rvalue);
@@ -3391,17 +3397,11 @@ int config_parse_memory_limit(
         }
 
         if (streq(lvalue, "DefaultMemoryLow")) {
+                c->default_memory_low = bytes;
                 c->default_memory_low_set = true;
-                if (isempty(rvalue))
-                        c->default_memory_low = CGROUP_LIMIT_MIN;
-                else
-                        c->default_memory_low = bytes;
         } else if (streq(lvalue, "DefaultMemoryMin")) {
+                c->default_memory_min = bytes;
                 c->default_memory_min_set = true;
-                if (isempty(rvalue))
-                        c->default_memory_min = CGROUP_LIMIT_MIN;
-                else
-                        c->default_memory_min = bytes;
         } else if (streq(lvalue, "MemoryMin")) {
                 c->memory_min = bytes;
                 c->memory_min_set = true;
