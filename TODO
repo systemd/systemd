@@ -184,7 +184,7 @@ Features:
 
 * the a-posteriori stopping of units bound to units that disappeared logic
   should be reworked: there should be a queue of units, and we should only
-  enqeue stop jobs from a defer event that processes queue instead of
+  enqueue stop jobs from a defer event that processes queue instead of
   right-away when we find a unit that is bound to one that doesn't exist
   anymore. (similar to how the stop-unneeded queue has been reworked the same
   way)
