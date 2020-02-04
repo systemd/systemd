@@ -124,7 +124,7 @@ CHANGES WITH 245 in spe:
         * systemd-networkd gained support for configuring Token Buffer Filter
           (TBF) parameters in its qdisc configuration support. Similarly,
           support for Stochastic Fairness Queuing (SFQ), Controlled-Delay
-          Active Queue Management (CoDel), Fair Queue (FQ) has been added.
+          Active Queue Management (CoDel), and Fair Queue (FQ) has been added.
 
         * systemd-networkd gained support for Intermediate Functional Block
           (IFB) network devices.
@@ -250,6 +250,10 @@ CHANGES WITH 245 in spe:
           option PermanentMACAddress= which may be used to check against the
           permanent MAC address of a network device even if a randomized MAC
           address is used.
+
+        * The [TrafficControlQueueingDiscipline] section in .network files has
+          been renamed to [NetworkEmulator] with the "NetworkEmulator" prefix
+          dropped from the individual setting names.
 
         * Any .link and .network files that have an empty [Match] section (this
           also includes empty and commented-out files) will now be
