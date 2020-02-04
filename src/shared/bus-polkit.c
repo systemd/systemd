@@ -234,7 +234,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_enqeue_for_read(sd_bus_message_get_bus(q->request), q->request);
+        r = sd_bus_enqueue_for_read(sd_bus_message_get_bus(q->request), q->request);
         if (r < 0)
                 goto fail;
 

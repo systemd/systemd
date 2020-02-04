@@ -47,7 +47,7 @@
 
     <para>This call is primarily useful for dealing with incoming method calls that may be processed only
     after an additional asynchronous operation completes. One example are PolicyKit authorization requests
-    that are determined to be necessary to autorize a newly incoming method call: when the PolicyKit response
+    that are determined to be necessary to authorize a newly incoming method call: when the PolicyKit response
     is received the original method call may be re-enqueued to process it again, this time with the
     authorization result known.</para>
   </refsect1>
