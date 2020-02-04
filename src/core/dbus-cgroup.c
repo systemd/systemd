@@ -707,14 +707,112 @@ static int bus_cgroup_set_boolean(
                 return 1;                                               \
         }
 
+#define BUS_DEFINE_SET_CGROUP_PROTECTION(function, mask, scale)         \
+        static int bus_cgroup_set_##function(                           \
+                        Unit *u,                                        \
+                        const char *name,                               \
+                        uint64_t *p,                                    \
+                        bool *s,                                        \
+                        sd_bus_message *message,                        \
+                        UnitWriteFlags flags,                           \
+                        sd_bus_error *error) {                          \
+                                                                        \
+                uint64_t v = CGROUP_LIMIT_MIN;                          \
+                bool nonempty = true;                                   \
+                char type;                                              \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                assert(s);                                              \
+                                                                        \
+                r = sd_bus_message_peek_type(message, &type, NULL);     \
+                if (r < 0)                                              \
+                        return r;                                       \
+                if (type == SD_BUS_TYPE_BOOLEAN) {                      \
+                        r = sd_bus_message_read(message, "b", &nonempty); \
+                        if (r < 0)                                      \
+                                return r;                               \
+                        /* Bool is used to denote empty value only */   \
+                        if (nonempty)                                   \
+                                return -EINVAL;                         \
+                } else if (type != SD_BUS_TYPE_UINT64) {                \
+                        return -EINVAL;                                 \
+                } else {                                                \
+                        r = sd_bus_message_read(message, "t", &v);      \
+                        if (r < 0)                                      \
+                                return r;                               \
+                }                                                       \
+                                                                        \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
+                        *p = v;                                         \
+                        unit_invalidate_cgroup(u, mask);                \
+                        if (!nonempty) {                                \
+                                *s = false;                             \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=", name);       \
+                        } else if (v == CGROUP_LIMIT_MAX) {             \
+                                *s = true;                              \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=infinity", name); \
+                        } else {                                        \
+                                *s = true;                              \
+                                unit_write_settingf(u, flags, name,     \
+                                                    "%s=%" PRIu64, name, v); \
+                        }                                               \
+                }                                                       \
+                                                                        \
+                return 1;                                               \
+        }                                                               \
+        static int bus_cgroup_set_##function##_scale(                   \
+                        Unit *u,                                        \
+                        const char *name,                               \
+                        uint64_t *p,                                    \
+                        bool *s,                                        \
+                        sd_bus_message *message,                        \
+                        UnitWriteFlags flags,                           \
+                        sd_bus_error *error) {                          \
+                                                                        \
+                uint64_t v;                                             \
+                uint32_t raw;                                           \
+                int r;                                                  \
+                                                                        \
+                assert(p);                                              \
+                assert(s);                                              \
+                                                                        \
+                r = sd_bus_message_read(message, "u", &raw);            \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                v = scale(raw, UINT32_MAX);                             \
+                if (v >= UINT64_MAX)                                    \
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
+                                                 "Value specified in %s is out of range", name); \
+                                                                        \
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
+                        *p = v;                                         \
+                        unit_invalidate_cgroup(u, mask);                \
+                                                                        \
+                        /* Prepare to chop off suffix */                \
+                        assert_se(endswith(name, "Scale"));             \
+                                                                        \
+                        uint32_t scaled = DIV_ROUND_UP((uint64_t) raw * 1000, (uint64_t) UINT32_MAX); \
+                        unit_write_settingf(u, flags, name, "%.*s=%" PRIu32 ".%" PRIu32 "%%", \
+                                            (int)(strlen(name) - strlen("Scale")), name, \
+                                            scaled / 10, scaled % 10);  \
+                }                                                       \
+                                                                        \
+                *s = true;                                              \
+                return 1;                                               \
+        }
+
 DISABLE_WARNING_TYPE_LIMITS;
 BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_weight, CGROUP_MASK_CPU, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(cpu_shares, CGROUP_MASK_CPU, CGROUP_CPU_SHARES_IS_OK, CGROUP_CPU_SHARES_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(io_weight, CGROUP_MASK_IO, CGROUP_WEIGHT_IS_OK, CGROUP_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_WEIGHT(blockio_weight, CGROUP_MASK_BLKIO, CGROUP_BLKIO_WEIGHT_IS_OK, CGROUP_BLKIO_WEIGHT_INVALID);
 BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1);
-BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
+BUS_DEFINE_SET_CGROUP_PROTECTION(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale);
 REENABLE_WARNING;
 
 static int bus_cgroup_set_tasks_max(
@@ -840,33 +938,17 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_accounting, CGROUP_MASK_MEMORY, message, flags, error);
 
-        if (streq(name, "MemoryMin")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->memory_min, message, flags, error);
-                if (r > 0)
-                        c->memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryMin"))
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_min, &c->memory_min_set, message, flags, error);
 
-        if (streq(name, "MemoryLow")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->memory_low, message, flags, error);
-                if (r > 0)
-                        c->memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryLow"))
+                return bus_cgroup_set_memory_protection(u, name, &c->memory_low, &c->memory_low_set, message, flags, error);
 
-        if (streq(name, "DefaultMemoryMin")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, message, flags, error);
-                if (r > 0)
-                        c->default_memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "DefaultMemoryMin"))
+                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_min, &c->default_memory_min_set, message, flags, error);
 
-        if (streq(name, "DefaultMemoryLow")) {
-                r = bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, message, flags, error);
-                if (r > 0)
-                        c->default_memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "DefaultMemoryLow"))
+                return bus_cgroup_set_memory_protection(u, name, &c->default_memory_low, &c->default_memory_low_set, message, flags, error);
 
         if (streq(name, "MemoryHigh"))
                 return bus_cgroup_set_memory(u, name, &c->memory_high, message, flags, error);
@@ -880,33 +962,17 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLimit"))
                 return bus_cgroup_set_memory(u, name, &c->memory_limit, message, flags, error);
 
-        if (streq(name, "MemoryMinScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, message, flags, error);
-                if (r > 0)
-                        c->memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryMinScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_min, &c->memory_min_set, message, flags, error);
 
-        if (streq(name, "MemoryLowScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, message, flags, error);
-                if (r > 0)
-                        c->memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "MemoryLowScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->memory_low, &c->memory_low_set, message, flags, error);
 
-        if (streq(name, "DefaultMemoryMinScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, message, flags, error);
-                if (r > 0)
-                        c->default_memory_min_set = true;
-                return r;
-        }
+        if (streq(name, "DefaultMemoryMinScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_min, &c->default_memory_min_set, message, flags, error);
 
-        if (streq(name, "DefaultMemoryLowScale")) {
-                r = bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, message, flags, error);
-                if (r > 0)
-                        c->default_memory_low_set = true;
-                return r;
-        }
+        if (streq(name, "DefaultMemoryLowScale"))
+                return bus_cgroup_set_memory_protection_scale(u, name, &c->default_memory_low, &c->default_memory_low_set, message, flags, error);
 
         if (streq(name, "MemoryHighScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_high, message, flags, error);

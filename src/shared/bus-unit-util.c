@@ -494,16 +494,18 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         if (r < 0)
                                 return bus_log_create_error(r);
                         return 1;
+                } else if (isempty(eq) && STR_IN_SET(field, "DefaultMemoryLow",
+                                                            "DefaultMemoryMin",
+                                                            "MemoryLow",
+                                                            "MemoryMin")) {
+                        /* We can't use CGROUP_LIMIT_MIN nor CGROUP_LIMIT_MAX to convey the empty assignment
+                         * so marshall specially as a boolean. */
+                        r = sd_bus_message_append(m, "(sv)", field, "b", 0);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                        return 1;
                 } else if (isempty(eq)) {
-                        uint64_t empty_value = STR_IN_SET(field,
-                                                          "DefaultMemoryLow",
-                                                          "DefaultMemoryMin",
-                                                          "MemoryLow",
-                                                          "MemoryMin") ?
-                                               CGROUP_LIMIT_MIN :
-                                               CGROUP_LIMIT_MAX;
-
-                        r = sd_bus_message_append(m, "(sv)", field, "t", empty_value);
+                        r = sd_bus_message_append(m, "(sv)", field, "t", CGROUP_LIMIT_MAX);
                         if (r < 0)
                                 return bus_log_create_error(r);
                         return 1;
