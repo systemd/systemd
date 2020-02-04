@@ -72,7 +72,7 @@ static int test_default_memory_low(void) {
          *
          * 3. dml-discard.slice sets DefaultMemoryLow= with no rvalue. As such,
          *    dml-discard-empty.service should end up with a value of 0.
-         *    dml-discard-explicit-ml.service sets MemoryLow=70, and as such should have that override the
+         *    dml-discard-set-ml.service sets MemoryLow=15, and as such should have that override the
          *    reset DefaultMemoryLow value. dml-discard.slice should still have an eventual memory.low of 50.
          *
          *                           ┌───────────┐
