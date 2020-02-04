@@ -251,6 +251,11 @@ CHANGES WITH 245 in spe:
           permanent MAC address of a network device even if a randomized MAC
           address is used.
 
+        * Any .link and .network files that have an empty [Match] section (this
+          also includes empty and commented-out files) will now be
+          rejected. systemd-udev and systemd-networkd started warning about
+          such files in version 243.
+
         * systemd-logind will now validate access to the operation of changing
           the virtual terminal via a PolicyKit action. By default, only users
           with at least one session on a local VT are granted permission.
