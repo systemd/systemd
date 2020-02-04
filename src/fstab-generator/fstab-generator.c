@@ -118,10 +118,17 @@ static int add_swap(
 
         fprintf(f,
                 "[Unit]\n"
-                "SourcePath=%s\n"
-                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n\n"
-                "[Swap]\n",
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "SourcePath=%s\n",
                 fstab_path());
+
+        r = generator_write_blockdev_dependency(f, what);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "\n"
+                "[Swap]\n");
 
         r = write_what(f, what);
         if (r < 0)
@@ -174,8 +181,13 @@ static bool mount_in_initrd(struct mntent *me) {
                streq(me->mnt_dir, "/usr");
 }
 
-static int write_timeout(FILE *f, const char *where, const char *opts,
-                         const char *filter, const char *variable) {
+static int write_timeout(
+                FILE *f,
+                const char *where,
+                const char *opts,
+                const char *filter,
+                const char *variable) {
+
         _cleanup_free_ char *timeout = NULL;
         char timespan[FORMAT_TIMESPAN_MAX];
         usec_t u;
@@ -208,8 +220,12 @@ static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
                              "x-systemd.mount-timeout\0", "TimeoutSec");
 }
 
-static int write_dependency(FILE *f, const char *opts,
-                const char *filter, const char *format) {
+static int write_dependency(
+                FILE *f,
+                const char *opts,
+                const char *filter,
+                const char *format) {
+
         _cleanup_strv_free_ char **names = NULL, **units = NULL;
         _cleanup_free_ char *res = NULL;
         char **s;
@@ -230,6 +246,7 @@ static int write_dependency(FILE *f, const char *opts,
                 r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &x);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
+
                 r = strv_consume(&units, x);
                 if (r < 0)
                         return log_oom();
@@ -249,7 +266,8 @@ static int write_dependency(FILE *f, const char *opts,
 }
 
 static int write_after(FILE *f, const char *opts) {
-        return write_dependency(f, opts, "x-systemd.after", "After=%1$s\n");
+        return write_dependency(f, opts,
+                                "x-systemd.after", "After=%1$s\n");
 }
 
 static int write_requires_after(FILE *f, const char *opts) {
@@ -363,8 +381,8 @@ static int add_mount(
 
         fprintf(f,
                 "[Unit]\n"
-                "SourcePath=%s\n"
-                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
+                "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n"
+                "SourcePath=%s\n",
                 source);
 
         /* All mounts under /sysroot need to happen later, at initrd-fs.target time. IOW, it's not
@@ -411,7 +429,14 @@ static int add_mount(
                         return r;
         }
 
-        fprintf(f, "\n[Mount]\n");
+        r = generator_write_blockdev_dependency(f, what);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "\n"
+                "[Mount]\n");
+
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
 

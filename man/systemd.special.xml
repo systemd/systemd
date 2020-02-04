@@ -26,6 +26,7 @@
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
     <filename>ctrl-alt-del.target</filename>,
+    <filename>blockdev@.target</filename>,
     <filename>boot-complete.target</filename>,
     <filename>default.target</filename>,
     <filename>emergency.target</filename>,
@@ -845,6 +846,23 @@
       not useful as only unit within a transaction.</para>
 
       <variablelist>
+        <varlistentry>
+          <term><filename>blockdev@.target</filename></term>
+          <listitem><para>This template unit may be used to order mount units and other consumers of block
+          devices against services that synthesize these block devices. This is intended to be used to order
+          storage services (such as
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          that allocate and manage a virtual block device against mount units and other consumers of
+          it. Specifically, the storage services are supposed to be orderd before an instance of
+          <filename>blockdev@.target</filename>, and the mount unit (or other consuming unit, such as a swap
+          unit) after it. The ordering is particular relevant during shutdown, as it ensures that the mount
+          is deactivated first and the service backing the mount only deactivated after that completed. The
+          <filename>blockdev@.target</filename> instance should be pulled in via a <option>Wants=</option>
+          dependency of the storage daemon and thus generally not be part of any transaction unless a storage
+          daemon is used. The instance name for instances of this template unit is supposed to be the
+          properly escaped bock device node path, e.g. <filename>blockdev@dev-mapper-foobar.target</filename>
+          for a storage device <filename>/dev/mapper/foobar</filename>.</para></listitem>
+        </varlistentry>
         <varlistentry>
           <term><filename>cryptsetup-pre.target</filename></term>
           <listitem>

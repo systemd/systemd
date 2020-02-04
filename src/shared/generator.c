@@ -519,6 +519,103 @@ int generator_enable_remount_fs_service(const char *dir) {
                                      SYSTEM_DATA_UNIT_PATH "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
+int generator_write_blockdev_dependency(
+                FILE *f,
+                const char *what) {
+
+        _cleanup_free_ char *escaped = NULL;
+        int r;
+
+        assert(f);
+        assert(what);
+
+        if (!path_startswith(what, "/dev/"))
+                return 0;
+
+        r = unit_name_path_escape(what, &escaped);
+        if (r < 0)
+                return log_error_errno(r, "Failed to escape device node path %s: %m", what);
+
+        fprintf(f,
+                "After=blockdev@%s.target\n",
+                escaped);
+
+        return 0;
+}
+
+int generator_write_cryptsetup_unit_section(
+                FILE *f,
+                const char *source) {
+
+        assert(f);
+
+        fprintf(f,
+                "[Unit]\n"
+                "Description=Cryptography Setup for %%I\n"
+                "Documentation=man:crypttab(5) man:systemd-cryptsetup-generator(8) man:systemd-cryptsetup@.service(8)\n");
+
+        if (source)
+                fprintf(f, "SourcePath=%s\n", source);
+
+        fprintf(f,
+                "DefaultDependencies=no\n"
+                "IgnoreOnIsolate=true\n"
+                "After=cryptsetup-pre.target\n"
+                "Before=blockdev@dev-mapper-%%i.target\n"
+                "Wants=blockdev@dev-mapper-%%i.target\n");
+
+        return 0;
+}
+
+int generator_write_cryptsetup_service_section(
+                FILE *f,
+                const char *name,
+                const char *what,
+                const char *password,
+                const char *options) {
+
+        _cleanup_free_ char *name_escaped = NULL, *what_escaped = NULL, *password_escaped = NULL, *options_escaped = NULL;
+
+        assert(f);
+        assert(name);
+        assert(what);
+
+        name_escaped = specifier_escape(name);
+        if (!name_escaped)
+                return log_oom();
+
+        what_escaped = specifier_escape(what);
+        if (!what_escaped)
+                return log_oom();
+
+        if (password) {
+                password_escaped = specifier_escape(password);
+                if (!password_escaped)
+                        return log_oom();
+        }
+
+        if (options) {
+                options_escaped = specifier_escape(options);
+                if (!options_escaped)
+                        return log_oom();
+        }
+
+        fprintf(f,
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "RemainAfterExit=yes\n"
+                "TimeoutSec=0\n"          /* The binary handles timeouts on its own */
+                "KeyringMode=shared\n"    /* Make sure we can share cached keys among instances */
+                "OOMScoreAdjust=500\n"    /* Unlocking can allocate a lot of memory if Argon2 is used */
+                "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
+                "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
+                name_escaped, what_escaped, strempty(password_escaped), strempty(options_escaped),
+                name_escaped);
+
+        return 0;
+}
+
 void log_setup_generator(void) {
         log_set_prohibit_ipc(true);
         log_setup_service();
