@@ -5,14 +5,14 @@ Name=test1
 IPv6AcceptRA=no
 Address=10.1.2.4/16
 
-[TrafficControlQueueingDiscipline]
+[TokenBufferFilter]
 Parent=root
-TokenBufferFilterRate=1G
-TokenBufferFilterBurst=5K
-TokenBufferFilterLatencySec=70msec
-TokenBufferFilterPeakRate=100G
-TokenBufferFilterMTUBytes=1M
+Rate=1G
+Burst=5K
+LatencySec=70msec
+PeakRate=100G
+MTUBytes=1M
 
-[TrafficControlQueueingDiscipline]
+[StochasticFairnessQueueing]
 Parent=clsact
-StochasticFairnessQueueingPerturbPeriodSec=5sec
+PerturbPeriodSec=5sec

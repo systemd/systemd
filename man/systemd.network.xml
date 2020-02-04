@@ -2263,10 +2263,11 @@
   </refsect1>
 
   <refsect1>
-    <title>[TrafficControlQueueingDiscipline] Section Options</title>
-    <para>The <literal>[TrafficControlQueueingDiscipline]</literal> section manages the Traffic control. It can be used
-    to configure the kernel packet scheduler and simulate packet delay and loss for UDP or TCP applications,
-    or limit the bandwidth usage of a particular service to simulate internet connections.</para>
+    <title>[NetworkEmulator] Section Options</title>
+    <para>The <literal>[NetworkEmulator]</literal> section manages the queueing discipline (qdisc) of
+    the network emulator. It can be used to configure the kernel packet scheduler and simulate packet
+    delay and loss for UDP or TCP applications, or limit the bandwidth usage of a particular service to
+    simulate internet connections.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2278,7 +2279,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetworkEmulatorDelaySec=</varname></term>
+        <term><varname>DelaySec=</varname></term>
         <listitem>
           <para>Specifies the fixed amount of delay to be added to all packets going out of the
           interface. Defaults to unset.</para>
@@ -2286,7 +2287,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetworkEmulatorDelayJitterSec=</varname></term>
+        <term><varname>DelayJitterSec=</varname></term>
         <listitem>
           <para>Specifies the chosen delay to be added to the packets outgoing to the network
           interface. Defaults to unset.</para>
@@ -2294,7 +2295,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetworkEmulatorPacketLimit=</varname></term>
+        <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the maximum number of packets the qdisc may hold queued at a time.
           An unsigned integer ranges 0 to 4294967294. Defaults to 1000.</para>
@@ -2302,7 +2303,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetworkEmulatorLossRate=</varname></term>
+        <term><varname>LossRate=</varname></term>
         <listitem>
           <para>Specifies an independent loss probability to be added to the packets outgoing from the
           network interface. Takes a percentage value, suffixed with "%". Defaults to unset.</para>
@@ -2310,15 +2311,31 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>NetworkEmulatorDuplicateRate=</varname></term>
+        <term><varname>DuplicateRate=</varname></term>
         <listitem>
           <para>Specifies that the chosen percent of packets is duplicated before queuing them.
           Takes a percentage value, suffixed with "%". Defaults to unset.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[TokenBufferFilter] Section Options</title>
+    <para>The <literal>[TokenBufferFilter]</literal> section manages the queueing discipline (qdisc) of
+    token buffer filter (tbf).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterLatencySec=</varname></term>
+        <term><varname>LatencySec=</varname></term>
         <listitem>
           <para>Specifies the latency parameter, which specifies the maximum amount of time a
           packet can sit in the Token Buffer Filter (TBF). Defaults to unset.</para>
@@ -2326,7 +2343,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterLimitSize=</varname></term>
+        <term><varname>LimitSize=</varname></term>
         <listitem>
           <para>Takes the number of bytes that can be queued waiting for tokens to become available.
           When the size is suffixed with K, M, or G, it is parsed as Kilobytes, Megabytes, or Gigabytes,
@@ -2335,7 +2352,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterBurst=</varname></term>
+        <term><varname>Burst=</varname></term>
         <listitem>
           <para>Specifies the size of the bucket. This is the maximum amount of bytes that tokens
           can be available for instantaneous transfer. When the size is suffixed with K, M, or G, it is
@@ -2345,7 +2362,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterRate=</varname></term>
+        <term><varname>Rate=</varname></term>
         <listitem>
           <para>Specifies the device specific bandwidth. When suffixed with K, M, or G, the specified
           bandwidth is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000.
@@ -2354,7 +2371,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterMPUBytes=</varname></term>
+        <term><varname>MPUBytes=</varname></term>
         <listitem>
           <para>The Minimum Packet Unit (MPU) determines the minimal token usage (specified in bytes)
           for a packet. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
@@ -2363,7 +2380,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterPeakRate=</varname></term>
+        <term><varname>PeakRate=</varname></term>
         <listitem>
           <para>Takes the maximum depletion rate of the bucket. When suffixed with K, M, or G, the
           specified size is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of
@@ -2372,23 +2389,55 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TokenBufferFilterMTUBytes=</varname></term>
+        <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>Specifies the size of the peakrate bucket. When suffixed with K, M, or G, the specified
           size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1000.
           Defaults to unset.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>[StochasticFairnessQueueing] Section Options</title>
+    <para>The <literal>[StochasticFairnessQueueing]</literal> section manages the queueing discipline
+    (qdisc) of stochastic fairness queueing (sfq).</para>
+
+    <variablelist class='network-directives'>
       <varlistentry>
-        <term><varname>StochasticFairnessQueueingPerturbPeriodSec=</varname></term>
+        <term><varname>Parent=</varname></term>
         <listitem>
-          <para>Specifies the interval in seconds for queue algorithm perturbation. Defaults to unset.</para>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ControlledDelayPacketLimit=</varname></term>
+        <term><varname>PerturbPeriodSec=</varname></term>
+        <listitem>
+          <para>Specifies the interval in seconds for queue algorithm perturbation. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[ControlledDelay] Section Options</title>
+    <para>The <literal>[ControlledDelay]</literal> section manages the queueing discipline (qdisc) of
+    controlled delay (CoDel).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard lmit on the queue size in number of packets. When this limit is reached, incoming packets are
           dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
@@ -2396,7 +2445,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ControlledDelayTargetSec=</varname></term>
+        <term><varname>TargetSec=</varname></term>
         <listitem>
           <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
           Defaults to unset and kernel's default is used.</para>
@@ -2404,7 +2453,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ControlledDelayIntervalSec=</varname></term>
+        <term><varname>IntervalSec=</varname></term>
         <listitem>
           <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
           become too stale. Defaults to unset and kernel's default is used.</para>
@@ -2412,7 +2461,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ControlledDelayECN=</varname></term>
+        <term><varname>ECN=</varname></term>
         <listitem>
           <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
           unset and kernel's default is used.</para>
@@ -2420,15 +2469,31 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>ControlledDelayCEThresholdSec=</varname></term>
+        <term><varname>CEThresholdSec=</varname></term>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[FairQueueingControlledDelay] Section Options</title>
+    <para>The <literal>[FairQueueingControlledDelay]</literal> section manages the queueing discipline
+    (qdisc) of fair queuing controlled delay (FQ-CoDel).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayPacketLimit=</varname></term>
+        <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
           dropped. Defaults to unset and kernel's default is used.</para>
@@ -2436,7 +2501,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayMemoryLimit=</varname></term>
+        <term><varname>MemoryLimit=</varname></term>
         <listitem>
           <para>Specifies the limit on the total number of bytes that can be queued in this FQ-CoDel instance.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
@@ -2445,7 +2510,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayFlows=</varname></term>
+        <term><varname>Flows=</varname></term>
         <listitem>
           <para>Specifies the number of flows into which the incoming packets are classified.
           Defaults to unset and kernel's default is used.</para>
@@ -2453,7 +2518,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayTargetSec=</varname></term>
+        <term><varname>TargetSec=</varname></term>
         <listitem>
           <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
           Defaults to unset and kernel's default is used.</para>
@@ -2461,7 +2526,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayIntervalSec=</varname></term>
+        <term><varname>IntervalSec=</varname></term>
         <listitem>
           <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
           become too stale. Defaults to unset and kernel's default is used.</para>
@@ -2469,7 +2534,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayQuantum=</varname></term>
+        <term><varname>Quantum=</varname></term>
         <listitem>
           <para>Specifies the number of bytes used as 'deficit' in the fair queuing algorithmtimespan.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
@@ -2478,7 +2543,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayECN=</varname></term>
+        <term><varname>ECN=</varname></term>
         <listitem>
           <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
           unset and kernel's default is used.</para>
@@ -2486,15 +2551,31 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueuingControlledDelayCEThresholdSec=</varname></term>
+        <term><varname>CEThresholdSec=</varname></term>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[FairQueueTrafficPolicing] Section Options</title>
+    <para>The <literal>[FairQueueTrafficPolicing]</literal> section manages the queueing discipline
+    (qdisc) of fair queue traffic policing (FQ).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingPacketLimit=</varname></term>
+        <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
           dropped. Defaults to unset and kernel's default is used.</para>
@@ -2502,7 +2583,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingFlowLimit=</varname></term>
+        <term><varname>FlowLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the maximum number of packets queued per flow. Defaults to
           unset and kernel's default is used.</para>
@@ -2510,7 +2591,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingQuantum=</varname></term>
+        <term><varname>Quantum=</varname></term>
         <listitem>
           <para>Specifies the credit per dequeue RR round, i.e. the amount of bytes a flow is allowed
           to dequeue at once. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
@@ -2520,7 +2601,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingInitialQuantum=</varname></term>
+        <term><varname>InitialQuantum=</varname></term>
         <listitem>
           <para>Specifies the initial sending rate credit, i.e. the amount of bytes a new flow is
           allowed to dequeue initially. When suffixed with K, M, or G, the specified size is parsed as
@@ -2530,7 +2611,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingMaximumRate=</varname></term>
+        <term><varname>MaximumRate=</varname></term>
         <listitem>
           <para>Specifies the maximum sending rate of a flow. When suffixed with K, M, or G, the
           specified size is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of
@@ -2539,7 +2620,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingBuckets=</varname></term>
+        <term><varname>Buckets=</varname></term>
         <listitem>
           <para>Specifies the size of the hash table used for flow lookups. Defaults to unset and
           kernel's default is used.</para>
@@ -2547,7 +2628,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingOrphanMask=</varname></term>
+        <term><varname>OrphanMask=</varname></term>
         <listitem>
           <para>Takes an unsigned integer. For packets not owned by a socket, fq is able to mask a part
           of hash and reduce number of buckets associated with the traffic. Defaults to unset and
@@ -2556,7 +2637,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingPacing=</varname></term>
+        <term><varname>Pacing=</varname></term>
         <listitem>
           <para>Takes a boolean, and enables or disables flow pacing. Defaults to unset and kernel's
           default is used.</para>
@@ -2564,13 +2645,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>FairQueueTrafficPolicingCEThresholdSec=</varname></term>
+        <term><varname>CEThresholdSec=</varname></term>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
-
     </variablelist>
   </refsect1>
 

@@ -102,7 +102,7 @@ static int fair_queue_traffic_policing_fill_message(Link *link, QDisc *qdisc, sd
         return 0;
 }
 
-int config_parse_tc_fair_queue_traffic_policing_u32(
+int config_parse_fair_queue_traffic_policing_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -134,13 +134,13 @@ int config_parse_tc_fair_queue_traffic_policing_u32(
 
         fq = FQ(qdisc);
 
-        if (streq(lvalue, "FairQueueTrafficPolicingPacketLimit"))
+        if (streq(lvalue, "PacketLimit"))
                 p = &fq->packet_limit;
-        else if (streq(lvalue, "FairQueueTrafficPolicingFlowLimit"))
+        else if (streq(lvalue, "FlowLimit"))
                 p = &fq->flow_limit;
-        else if (streq(lvalue, "FairQueueTrafficPolicingBuckets"))
+        else if (streq(lvalue, "Buckets"))
                 p = &fq->buckets;
-        else if (streq(lvalue, "FairQueueTrafficPolicingOrphanMask"))
+        else if (streq(lvalue, "OrphanMask"))
                 p = &fq->orphan_mask;
         else
                 assert_not_reached("Invalid lvalue");
@@ -165,7 +165,7 @@ int config_parse_tc_fair_queue_traffic_policing_u32(
         return 0;
 }
 
-int config_parse_tc_fair_queue_traffic_policing_size(
+int config_parse_fair_queue_traffic_policing_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -198,9 +198,9 @@ int config_parse_tc_fair_queue_traffic_policing_size(
 
         fq = FQ(qdisc);
 
-        if (streq(lvalue, "FairQueueTrafficPolicingQuantum"))
+        if (streq(lvalue, "Quantum"))
                 p = &fq->quantum;
-        else if (streq(lvalue, "FairQueueTrafficPolicingInitialQuantum"))
+        else if (streq(lvalue, "InitialQuantum"))
                 p = &fq->initial_quantum;
         else
                 assert_not_reached("Invalid lvalue");
@@ -232,7 +232,7 @@ int config_parse_tc_fair_queue_traffic_policing_size(
         return 0;
 }
 
-int config_parse_tc_fair_queue_traffic_policing_bool(
+int config_parse_fair_queue_traffic_policing_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -284,7 +284,7 @@ int config_parse_tc_fair_queue_traffic_policing_bool(
         return 0;
 }
 
-int config_parse_tc_fair_queue_traffic_policing_usec(
+int config_parse_fair_queue_traffic_policing_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -343,7 +343,7 @@ int config_parse_tc_fair_queue_traffic_policing_usec(
         return 0;
 }
 
-int config_parse_tc_fair_queue_traffic_policing_max_rate(
+int config_parse_fair_queue_traffic_policing_max_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,

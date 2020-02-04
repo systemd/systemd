@@ -21,5 +21,5 @@ typedef struct TokenBufferFilter {
 DEFINE_QDISC_CAST(TBF, TokenBufferFilter);
 extern const QDiscVTable tbf_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_token_buffer_filter_latency);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_token_buffer_filter_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_token_buffer_filter_latency);
+CONFIG_PARSER_PROTOTYPE(config_parse_token_buffer_filter_size);
