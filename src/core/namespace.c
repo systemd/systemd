@@ -629,10 +629,9 @@ static int clone_device_node(
         }
 
         /* We're about to fallback to bind-mounting the device
-         * node. So create a dummy bind-mount target. */
-        mac_selinux_create_file_prepare(d, 0);
+         * node. So create a dummy bind-mount target.
+         * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);
-        mac_selinux_create_file_clear();
         if (r < 0 && errno != EEXIST)
                 return log_debug_errno(errno, "mknod() fallback failed for '%s': %m", d);
 
