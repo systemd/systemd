@@ -147,9 +147,9 @@ CHANGES WITH 245 in spe:
           support for a special new value "_dhcp". If set, the configured
           static route uses the gateway host configured via DHCP.
 
-        * A new User= setting has been implemented for the [RoutingPolicyRule]
-          section of .network files to configure source routing based on UID
-          ranges.
+        * New User= and SuppressPrefixLength= settings has been implemented
+          for the [RoutingPolicyRule] section of .network files to configure
+          source routing based on UID ranges and prefix length, respectively.
 
         * sd-bus gained a new API call sd_bus_message_sensitive() that marks a
           D-Bus message object as "sensitive". Those objects are erased from
