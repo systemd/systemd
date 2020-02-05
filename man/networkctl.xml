@@ -70,6 +70,12 @@
         <para>The operational status is one of the following:
             <variablelist>
               <varlistentry>
+                <term>missing</term>
+                <listitem>
+                    <para>the device is missing</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term>off</term>
                 <listitem>
                   <para>the device is powered down</para>

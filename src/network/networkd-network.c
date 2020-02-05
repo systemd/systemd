@@ -375,7 +375,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .n_ref = 1,
 
                 .required_for_online = true,
-                .required_operstate_for_online = LINK_OPERSTATE_DEGRADED,
+                .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
                 .dhcp = ADDRESS_FAMILY_NO,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
@@ -1306,18 +1306,18 @@ int config_parse_required_for_online(
                 void *userdata) {
 
         Network *network = data;
-        LinkOperationalState s;
+        LinkOperationalStateRange range;
         bool required = true;
         int r;
 
         if (isempty(rvalue)) {
                 network->required_for_online = true;
-                network->required_operstate_for_online = LINK_OPERSTATE_DEGRADED;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
                 return 0;
         }
 
-        s = link_operstate_from_string(rvalue);
-        if (s < 0) {
+        r = parse_operational_state_range(rvalue, &range);
+        if (r < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -1327,11 +1327,11 @@ int config_parse_required_for_online(
                 }
 
                 required = r;
-                s = LINK_OPERSTATE_DEGRADED;
+                range = LINK_OPERSTATE_RANGE_DEFAULT;
         }
 
         network->required_for_online = required;
-        network->required_operstate_for_online = s;
+        network->required_operstate_for_online = range;
 
         return 0;
 }
