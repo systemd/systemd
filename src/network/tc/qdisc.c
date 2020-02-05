@@ -218,15 +218,15 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         if (qdisc->parent == TC_H_ROOT) {
                 if (*has_root)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: More than one root TrafficControlQueueingDiscipline sections are defined. "
-                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 "%s: More than one root qdisc section is defined. "
+                                                 "Ignoring the qdisc section from line %u.",
                                                  qdisc->section->filename, qdisc->section->line);
                 *has_root = true;
         } else if (qdisc->parent == TC_H_CLSACT) { /* TC_H_CLSACT == TC_H_INGRESS */
                 if (*has_clsact)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: More than one clsact or ingress TrafficControlQueueingDiscipline sections are defined. "
-                                                 "Ignoring [TrafficControlQueueingDiscipline] section from line %u.",
+                                                 "%s: More than one clsact or ingress qdisc section is defined. "
+                                                 "Ignoring the qdisc section from line %u.",
                                                  qdisc->section->filename, qdisc->section->line);
                 *has_clsact = true;
         }
