@@ -381,9 +381,9 @@ that might have changed user identity), in bytes. Enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
 similar to `tasksMax`.
 
-`cpuWeight`/`ioWeight` → These take unsigned integers in the range 100…10000
-and configure the CPU and IO scheduling weights for the user's processes as a
-whole. Also enforced by
+`cpuWeight`/`ioWeight` → These take unsigned integers in the range 1…10000
+(defaults to 100) and configure the CPU and IO scheduling weights for the
+user's processes as a whole. Also enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
 similar to `tasksMax`, `memoryHigh` and `memoryMax`.
 
