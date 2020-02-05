@@ -1006,7 +1006,7 @@ int config_parse_gateway(
                 if (r < 0)
                         return r;
 
-                if (streq(rvalue, "dhcp")) {
+                if (streq(rvalue, "_dhcp")) {
                         n->gateway_from_dhcp = true;
                         TAKE_PTR(n);
                         return 0;
