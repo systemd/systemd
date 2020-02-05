@@ -201,6 +201,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:pvr*
  KEYBOARD_KEY_c1=!prog2                                 #graphics amplifier, undock-button event
  KEYBOARD_KEY_c2=!power                                 #graphics amplifier, surprise undock event
 
+# Alienware M17xR3 laptops
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pnM17xR3:*
+ KEYBOARD_KEY_89=ejectcd
+
 ###########################################################
 # Asus
 ###########################################################

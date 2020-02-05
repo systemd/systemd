@@ -167,6 +167,9 @@ usb:v03E7p2150*
 usb:v03E7p2485*
  ID_MODEL_FROM_DATABASE=Movidius MyriadX
 
+usb:v03E7pF63B*
+ ID_MODEL_FROM_DATABASE=Myriad VPU [Movidius Neural Compute Stick]
+
 usb:v03E8*
  ID_VENDOR_FROM_DATABASE=EndPoints, Inc.
 
@@ -698,6 +701,9 @@ usb:v03F0p0604*
 usb:v03F0p0605*
  ID_MODEL_FROM_DATABASE=ScanJet 2200c
 
+usb:v03F0p0610*
+ ID_MODEL_FROM_DATABASE=Z24i Monitor Hub
+
 usb:v03F0p0611*
  ID_MODEL_FROM_DATABASE=OfficeJet K60xi
 
@@ -763,6 +769,9 @@ usb:v03F0p0917*
 
 usb:v03F0p0924*
  ID_MODEL_FROM_DATABASE=Modular Smartcard Keyboard
+
+usb:v03F0p0941*
+ ID_MODEL_FROM_DATABASE=X500 Optical Mouse
 
 usb:v03F0p094A*
  ID_MODEL_FROM_DATABASE=Optical Mouse [672662-001]
@@ -2825,6 +2834,9 @@ usb:v0408p3000*
 usb:v0408p3001*
  ID_MODEL_FROM_DATABASE=Optical Touch Screen
 
+usb:v0408pA060*
+ ID_MODEL_FROM_DATABASE=HD Webcam
+
 usb:v0409*
  ID_VENDOR_FROM_DATABASE=NEC Corp.
 
@@ -3368,6 +3380,18 @@ usb:v040Ap402E*
 usb:v040Ap4034*
  ID_MODEL_FROM_DATABASE=805 Photo Printer
 
+usb:v040Ap4035*
+ ID_MODEL_FROM_DATABASE=7000 Photo Printer
+
+usb:v040Ap4037*
+ ID_MODEL_FROM_DATABASE=7010 Photo Printer
+
+usb:v040Ap4038*
+ ID_MODEL_FROM_DATABASE=7015 Photo Printer
+
+usb:v040Ap404D*
+ ID_MODEL_FROM_DATABASE=8810 Photo Printer
+
 usb:v040Ap404F*
  ID_MODEL_FROM_DATABASE=305 Photo Printer
 
@@ -3823,6 +3847,9 @@ usb:v0416p7722*
 
 usb:v0416p7723*
  ID_MODEL_FROM_DATABASE=SD Card Reader
+
+usb:v0416pC141*
+ ID_MODEL_FROM_DATABASE=Barcode Scanner
 
 usb:v0417*
  ID_VENDOR_FROM_DATABASE=Symbios Logic
@@ -4770,7 +4797,7 @@ usb:v0423p1237*
  ID_MODEL_FROM_DATABASE=Andromeda Hub
 
 usb:v0424*
- ID_VENDOR_FROM_DATABASE=Standard Microsystems Corp.
+ ID_VENDOR_FROM_DATABASE=Microchip Technology, Inc. (formerly SMSC)
 
 usb:v0424p0001*
  ID_MODEL_FROM_DATABASE=Integrated Hub
@@ -4855,6 +4882,75 @@ usb:v0424p4060*
 
 usb:v0424p4064*
  ID_MODEL_FROM_DATABASE=Ultra Fast Media Reader
+
+usb:v0424p4712*
+ ID_MODEL_FROM_DATABASE=USB4712 high-speed hub
+
+usb:v0424p4713*
+ ID_MODEL_FROM_DATABASE=USB4715 high-speed hub (2 ports disabled)
+
+usb:v0424p4714*
+ ID_MODEL_FROM_DATABASE=USB4715 high-speed hub (1 port disabled)
+
+usb:v0424p4715*
+ ID_MODEL_FROM_DATABASE=USB4715 high-speed hub
+
+usb:v0424p4910*
+ ID_MODEL_FROM_DATABASE=USB491x hub integrated functions (primary)
+
+usb:v0424p4912*
+ ID_MODEL_FROM_DATABASE=USB4912 high-speed hub (1 port disabled)
+
+usb:v0424p4914*
+ ID_MODEL_FROM_DATABASE=USB4914 high-speed hub
+
+usb:v0424p4916*
+ ID_MODEL_FROM_DATABASE=USB4916 high-speed hub
+
+usb:v0424p4920*
+ ID_MODEL_FROM_DATABASE=USB491x hub integrated functions (secondary)
+
+usb:v0424p4925*
+ ID_MODEL_FROM_DATABASE=USB4925 high-speed hub (primary upstream)
+
+usb:v0424p4927*
+ ID_MODEL_FROM_DATABASE=USB4927 high-speed hub (primary upstream)
+
+usb:v0424p4931*
+ ID_MODEL_FROM_DATABASE=USB4925/4927 high-speed hub (secondary upstream)
+
+usb:v0424p4940*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB
+
+usb:v0424p4942*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated I2S audio port
+
+usb:v0424p4943*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated I2S audio + HID port
+
+usb:v0424p4944*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated serial port
+
+usb:v0424p4946*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated serial + I2S audio port
+
+usb:v0424p4947*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated serial + I2S audio + HID port
+
+usb:v0424p494A*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB + I2S audio port
+
+usb:v0424p494B*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB + I2S audio + HID port
+
+usb:v0424p494C*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB + serial port
+
+usb:v0424p494E*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB + serial + I2S audio port
+
+usb:v0424p494F*
+ ID_MODEL_FROM_DATABASE=USB47xx/49xx hub integrated WinUSB + serial + I2S audio + HID port
 
 usb:v0424p5434*
  ID_MODEL_FROM_DATABASE=Hub
@@ -4970,6 +5066,9 @@ usb:v0430p00A2*
 usb:v0430p0100*
  ID_MODEL_FROM_DATABASE=3-button Mouse
 
+usb:v0430p0502*
+ ID_MODEL_FROM_DATABASE=Panasonic CF-19 HID Touch Panel
+
 usb:v0430p100E*
  ID_MODEL_FROM_DATABASE=24.1" LCD Monitor v4 / FID-638 Mouse
 
@@ -5038,6 +5137,9 @@ usb:v0437*
 
 usb:v0438*
  ID_VENDOR_FROM_DATABASE=Advanced Micro Devices, Inc.
+
+usb:v0438p7900*
+ ID_MODEL_FROM_DATABASE=Root Hub
 
 usb:v0439*
  ID_VENDOR_FROM_DATABASE=Voice Technologies Group
@@ -5365,6 +5467,9 @@ usb:v043Dp008E*
 
 usb:v043Dp008F*
  ID_MODEL_FROM_DATABASE=X422
+
+usb:v043Dp0091*
+ ID_MODEL_FROM_DATABASE=Laser Printer E232
 
 usb:v043Dp0093*
  ID_MODEL_FROM_DATABASE=X5250
@@ -5870,8 +5975,35 @@ usb:v0451pE004*
 usb:v0451pE008*
  ID_MODEL_FROM_DATABASE=TI-84 Plus Silver Calculator
 
+usb:v0451pE00E*
+ ID_MODEL_FROM_DATABASE=TI-89 Titanium Presentation Link
+
+usb:v0451pE00F*
+ ID_MODEL_FROM_DATABASE=TI-84 Plus Presentation Link
+
+usb:v0451pE010*
+ ID_MODEL_FROM_DATABASE=TI SmartPad Keyboard
+
+usb:v0451pE011*
+ ID_MODEL_FROM_DATABASE=Nspire CAS+ prototype
+
 usb:v0451pE012*
  ID_MODEL_FROM_DATABASE=TI-Nspire Calculator
+
+usb:v0451pE013*
+ ID_MODEL_FROM_DATABASE=Network Bridge
+
+usb:v0451pE01C*
+ ID_MODEL_FROM_DATABASE=Data Collection Sled [Nspire Lab Cradle, Nspire Datatracker Cradle]
+
+usb:v0451pE01F*
+ ID_MODEL_FROM_DATABASE=Python Adapter (firmware install mode)
+
+usb:v0451pE020*
+ ID_MODEL_FROM_DATABASE=Python Adapter
+
+usb:v0451pE022*
+ ID_MODEL_FROM_DATABASE=Nspire CX II
 
 usb:v0451pF430*
  ID_MODEL_FROM_DATABASE=MSP-FET430UIF JTAG Tool
@@ -6041,6 +6173,9 @@ usb:v0458p0101*
 usb:v0458p011B*
  ID_MODEL_FROM_DATABASE=NetScroll T220
 
+usb:v0458p0186*
+ ID_MODEL_FROM_DATABASE=Genius DX-120 Mouse
+
 usb:v0458p1001*
  ID_MODEL_FROM_DATABASE=Joystick
 
@@ -6137,6 +6272,9 @@ usb:v0458p3019*
 usb:v0458p301A*
  ID_MODEL_FROM_DATABASE=MaxFire G-12U Vibration
 
+usb:v0458p301C*
+ ID_MODEL_FROM_DATABASE=Genius MaxFighter F-16U
+
 usb:v0458p301D*
  ID_MODEL_FROM_DATABASE=Genius MaxFire MiniPad
 
@@ -6151,6 +6289,15 @@ usb:v0458p5003*
 
 usb:v0458p5004*
  ID_MODEL_FROM_DATABASE=G-pen Tablet
+
+usb:v0458p5005*
+ ID_MODEL_FROM_DATABASE=Genius EasyPen M406
+
+usb:v0458p5012*
+ ID_MODEL_FROM_DATABASE=Genius EasyPen M406W
+
+usb:v0458p5014*
+ ID_MODEL_FROM_DATABASE=Genius EasyPen 340
 
 usb:v0458p505E*
  ID_MODEL_FROM_DATABASE=Genius iSlim 330
@@ -45435,7 +45582,7 @@ usb:v10C3p00A5*
  ID_MODEL_FROM_DATABASE=ULS Print Support
 
 usb:v10C4*
- ID_VENDOR_FROM_DATABASE=Cygnal Integrated Products, Inc.
+ ID_VENDOR_FROM_DATABASE=Silicon Labs
 
 usb:v10C4p0002*
  ID_MODEL_FROM_DATABASE=F32x USBXpress Device
@@ -45551,23 +45698,74 @@ usb:v10C4p89C6*
 usb:v10C4p89E1*
  ID_MODEL_FROM_DATABASE=C8051F38x HDMI Extender [UHBX-SW3-WP]
 
+usb:v10C4p89FB*
+ ID_MODEL_FROM_DATABASE=Qivicon ZigBee Stick
+
+usb:v10C4p8A3C*
+ ID_MODEL_FROM_DATABASE=C8051F38x HDBaseT Receiver [UHBX-R-XT]
+
+usb:v10C4p8A6C*
+ ID_MODEL_FROM_DATABASE=C8051F38x 4K HDMI Audio Extractor [EMX-AMP]
+
+usb:v10C4p8ACB*
+ ID_MODEL_FROM_DATABASE=C8051F38x HDBaseT Wall Plate Receiver with IR, RS-232, and PoH [UHBX-R-WP]
+
+usb:v10C4p8AF8*
+ ID_MODEL_FROM_DATABASE=C8051F38x 4K HDMI Audio Extractor w/Audio Amplifier, HDBT Input, Line Audio Input RS-232 Ports and IP Control [VSA-X21]
+
+usb:v10C4p8B8C*
+ ID_MODEL_FROM_DATABASE=C8051F38x 4K HDMI Audio Extractor w/Audio Amplifier, HDBT Input, Line Audio Input RS-232 Ports and IP Control [SC-3H]
+
+usb:v10C4p8DB5*
+ ID_MODEL_FROM_DATABASE=C8051F38x CATx HDMI Receiver with USB [EX-HDU-R]
+
+usb:v10C4p8DB6*
+ ID_MODEL_FROM_DATABASE=C8051F38x CATx HDMI Receiver
+
 usb:v10C4pEA60*
- ID_MODEL_FROM_DATABASE=CP2102/CP2109 UART Bridge Controller [CP210x family]
+ ID_MODEL_FROM_DATABASE=CP210x UART Bridge
 
 usb:v10C4pEA61*
  ID_MODEL_FROM_DATABASE=CP210x UART Bridge
 
-usb:v10C4pEA70*
+usb:v10C4pEA63*
  ID_MODEL_FROM_DATABASE=CP210x UART Bridge
 
+usb:v10C4pEA70*
+ ID_MODEL_FROM_DATABASE=CP2105 Dual UART Bridge
+
+usb:v10C4pEA71*
+ ID_MODEL_FROM_DATABASE=CP2108 Quad UART Bridge
+
 usb:v10C4pEA80*
- ID_MODEL_FROM_DATABASE=CP210x UART Bridge
+ ID_MODEL_FROM_DATABASE=CP2110 HID UART Bridge
+
+usb:v10C4pEA90*
+ ID_MODEL_FROM_DATABASE=CP2112 HID I2C Bridge
+
+usb:v10C4pEA91*
+ ID_MODEL_FROM_DATABASE=CP2112 HID SMBus/I2C Bridge for CP2614 Evaluation Kit
+
+usb:v10C4pEA93*
+ ID_MODEL_FROM_DATABASE=CP2112 HID SMBus/I2C Bridge for CP2615 Evaluation Kit
+
+usb:v10C4pEAB0*
+ ID_MODEL_FROM_DATABASE=CP2114 I2S Audio Bridge
+
+usb:v10C4pEAC0*
+ ID_MODEL_FROM_DATABASE=CP2614 MFi Accessory Digital Audio Bridge
+
+usb:v10C4pEAC1*
+ ID_MODEL_FROM_DATABASE=CP2615 I2S Audio Bridge
 
 usb:v10C4pEAC9*
  ID_MODEL_FROM_DATABASE=EFM8UB1 Bootloader
 
 usb:v10C4pEACA*
  ID_MODEL_FROM_DATABASE=EFM8UB2 Bootloader
+
+usb:v10C4pEACB*
+ ID_MODEL_FROM_DATABASE=EFM8UB3 Bootloader
 
 usb:v10C5*
  ID_VENDOR_FROM_DATABASE=Sanei Electric, Inc.
@@ -49582,6 +49780,9 @@ usb:v1493p001C*
 
 usb:v1493p001D*
  ID_MODEL_FROM_DATABASE=Greentit [Ambit2 R]
+
+usb:v1493p001E*
+ ID_MODEL_FROM_DATABASE=Ibisbill [Ambit3 Run]
 
 usb:v1497*
  ID_VENDOR_FROM_DATABASE=Panstrong Company Ltd.
@@ -56051,6 +56252,9 @@ usb:v1E7Dp2D50*
 usb:v1E7Dp2D51*
  ID_MODEL_FROM_DATABASE=Kone+ Mouse
 
+usb:v1E7Dp2E22*
+ ID_MODEL_FROM_DATABASE=Kone XTD Mouse
+
 usb:v1E7Dp30D4*
  ID_MODEL_FROM_DATABASE=Arvo Keyboard
 
@@ -57029,6 +57233,30 @@ usb:v2237*
 usb:v2237p4161*
  ID_MODEL_FROM_DATABASE=eReader White
 
+usb:v224F*
+ ID_VENDOR_FROM_DATABASE=APDM
+
+usb:v224Fp0001*
+ ID_MODEL_FROM_DATABASE=Access Point
+
+usb:v224Fp0002*
+ ID_MODEL_FROM_DATABASE=Docking Station
+
+usb:v224Fp0004*
+ ID_MODEL_FROM_DATABASE=V2 Opal ACM
+
+usb:v224Fp0005*
+ ID_MODEL_FROM_DATABASE=V2 Opal
+
+usb:v224Fp0006*
+ ID_MODEL_FROM_DATABASE=V2 Docking Station
+
+usb:v224Fp0007*
+ ID_MODEL_FROM_DATABASE=V2 Access Point ACM
+
+usb:v224Fp0008*
+ ID_MODEL_FROM_DATABASE=V2 Access Point
+
 usb:v225D*
  ID_VENDOR_FROM_DATABASE=Morpho
 
@@ -57977,6 +58205,39 @@ usb:v27B8*
 usb:v27B8p01ED*
  ID_MODEL_FROM_DATABASE=blink(1)
 
+usb:v27C6*
+ ID_VENDOR_FROM_DATABASE=Shenzhen Goodix Technology Co.,Ltd.
+
+usb:v27C6p5117*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5201*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5301*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p530C*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5385*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p538C*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5395*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5584*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p55B4*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
+usb:v27C6p5740*
+ ID_MODEL_FROM_DATABASE=Fingerprint Reader
+
 usb:v2821*
  ID_VENDOR_FROM_DATABASE=ASUSTek Computer Inc.
 
@@ -58258,6 +58519,12 @@ usb:v2C7Cp0306*
 
 usb:v2C7Cp0435*
  ID_MODEL_FROM_DATABASE=AG35 LTE modem
+
+usb:v2CDC*
+ ID_VENDOR_FROM_DATABASE=Sea & Sun Technology GmbH
+
+usb:v2CDCpF232*
+ ID_MODEL_FROM_DATABASE=CTD48Mc CTD Probe
 
 usb:v2DCF*
  ID_VENDOR_FROM_DATABASE=Dialog Semiconductor

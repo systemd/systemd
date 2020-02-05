@@ -479,6 +479,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapadY700-14ISK*
  EVDEV_ABS_35=::27
  EVDEV_ABS_36=::29
 
+# Lenovo Ideapad 310S-14ISK
+evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapad310S-14ISK*
+ EVDEV_ABS_00=113:3960:37
+ EVDEV_ABS_01=100:1959:27
+ EVDEV_ABS_35=113:3960:37
+ EVDEV_ABS_36=100:1959:27
+
 # Lenovo Ideapad 500S-13ISK
 evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoideapad500S-13ISK*
  EVDEV_ABS_00=125:3955:37
@@ -513,6 +520,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:*svnLENOVO:*pvrLenovoYoga500-14IBD*
  EVDEV_ABS_01=105:1960:26
  EVDEV_ABS_35=117:3952:36
  EVDEV_ABS_36=105:1960:26
+
+# Lenovo Thinkpad T490
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*:svnLENOVO:*pvrThinkPadT490:*
+ EVDEV_ABS_00=::57
+ EVDEV_ABS_01=::33
+ EVDEV_ABS_35=::57
+ EVDEV_ABS_36=::33
 
 #########################################
 # Razer

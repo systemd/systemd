@@ -1,6 +1,6 @@
 # This file is part of systemd.
 #
-# Data imported from: hwdb/sdio.ids
+# Data imported from: hwdb.d/sdio.ids
 
 sdio:c*v0020*
  ID_VENDOR_FROM_DATABASE=ST-Ericsson

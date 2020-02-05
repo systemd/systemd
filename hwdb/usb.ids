@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.08.21
-# Date:    2019-08-21 20:34:05
+# Version: 2020.01.09
+# Date:    2020-01-09 20:34:06
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -75,6 +75,7 @@
 03e7  Intel
 	2150  Myriad VPU [Movidius Neural Compute Stick]
 	2485  Movidius MyriadX
+	f63b  Myriad VPU [Movidius Neural Compute Stick]
 03e8  EndPoints, Inc.
 	0004  SE401 Webcam
 	0008  101 Ethernet [klsi]
@@ -252,6 +253,7 @@
 	0601  ScanJet 6300c
 	0604  DeskJet 840c
 	0605  ScanJet 2200c
+	0610  Z24i Monitor Hub
 	0611  OfficeJet K60xi
 	0612  business inkjet 3000
 	0624  Bluetooth Dongle
@@ -274,6 +276,7 @@
 	0912  Printing Support
 	0917  LaserJet 3330
 	0924  Modular Smartcard Keyboard
+	0941  X500 Optical Mouse
 	094a  Optical Mouse [672662-001]
 	0a01  ScanJet 2400c
 	0a17  color LaserJet 3700
@@ -961,6 +964,7 @@
 	1030  FV TouchCam N1 (Video)
 	3000  Optical dual-touch panel
 	3001  Optical Touch Screen
+	a060  HD Webcam
 0409  NEC Corp.
 	0011  PC98 Series Layout Keyboard Mouse
 	0012  ATerm IT75DSU ISDN TA
@@ -1142,6 +1146,10 @@
 	402b  Photo Printer 6850
 	402e  605 Photo Printer
 	4034  805 Photo Printer
+	4035  7000 Photo Printer
+	4037  7010 Photo Printer
+	4038  7015 Photo Printer
+	404d  8810 Photo Printer
 	404f  305 Photo Printer
 	4056  ESP 7200 Series AiO
 	4109  EasyShare Printer Dock Series 3
@@ -1294,6 +1302,7 @@
 	7721  Memory Stick Reader/Writer
 	7722  Memory Stick Reader/Writer
 	7723  SD Card Reader
+	c141  Barcode Scanner
 0417  Symbios Logic
 0418  AST Research
 0419  Samsung Info. Systems America, Inc.
@@ -1609,7 +1618,7 @@
 	0301  2500H Tracer Trainer
 	030a  PETracer x1
 	1237  Andromeda Hub
-0424  Standard Microsystems Corp.
+0424  Microchip Technology, Inc. (formerly SMSC)
 	0001  Integrated Hub
 	0140  LPC47M14x hub
 	0acd  Sitecom Internal Multi Memory reader/writer MD-005
@@ -1638,6 +1647,29 @@
 	4041  Hub and media card controller
 	4060  Ultra Fast Media Reader
 	4064  Ultra Fast Media Reader
+	4712  USB4712 high-speed hub
+	4713  USB4715 high-speed hub (2 ports disabled)
+	4714  USB4715 high-speed hub (1 port disabled)
+	4715  USB4715 high-speed hub
+	4910  USB491x hub integrated functions (primary)
+	4912  USB4912 high-speed hub (1 port disabled)
+	4914  USB4914 high-speed hub
+	4916  USB4916 high-speed hub
+	4920  USB491x hub integrated functions (secondary)
+	4925  USB4925 high-speed hub (primary upstream)
+	4927  USB4927 high-speed hub (primary upstream)
+	4931  USB4925/4927 high-speed hub (secondary upstream)
+	4940  USB47xx/49xx hub integrated WinUSB
+	4942  USB47xx/49xx hub integrated I2S audio port
+	4943  USB47xx/49xx hub integrated I2S audio + HID port
+	4944  USB47xx/49xx hub integrated serial port
+	4946  USB47xx/49xx hub integrated serial + I2S audio port
+	4947  USB47xx/49xx hub integrated serial + I2S audio + HID port
+	494a  USB47xx/49xx hub integrated WinUSB + I2S audio port
+	494b  USB47xx/49xx hub integrated WinUSB + I2S audio + HID port
+	494c  USB47xx/49xx hub integrated WinUSB + serial port
+	494e  USB47xx/49xx hub integrated WinUSB + serial + I2S audio port
+	494f  USB47xx/49xx hub integrated WinUSB + serial + I2S audio + HID port
 	5434  Hub
 	5534  Hub
 	5744  Hub
@@ -1676,6 +1708,7 @@
 	0083  109 Japanese Keyboard
 	00a2  Type 7 Keyboard
 	0100  3-button Mouse
+	0502  Panasonic CF-19 HID Touch Panel
 	100e  24.1" LCD Monitor v4 / FID-638 Mouse
 	36ba  Bus Powered Hub
 	a101  remote key/mouse for P3 chip
@@ -1699,6 +1732,7 @@
 	0005  CameraMate (DPCM_USB)
 0437  Framatome Connectors USA
 0438  Advanced Micro Devices, Inc.
+	7900  Root Hub
 0439  Voice Technologies Group
 043d  Lexmark International, Inc.
 	0001  Laser Printer
@@ -1808,6 +1842,7 @@
 	008c  to CF/SM/SD/MS Card Reader
 	008e  InkJet Color Printer
 	008f  X422
+	0091  Laser Printer E232
 	0093  X5250
 	0095  E220 Printer
 	0096  2200 series
@@ -1976,7 +2011,16 @@
 	e003  TI-84 Plus Calculator
 	e004  TI-89 Titanium Calculator
 	e008  TI-84 Plus Silver Calculator
+	e00e  TI-89 Titanium Presentation Link
+	e00f  TI-84 Plus Presentation Link
+	e010  TI SmartPad Keyboard
+	e011  Nspire CAS+ prototype
 	e012  TI-Nspire Calculator
+	e013  Network Bridge
+	e01c  Data Collection Sled [Nspire Lab Cradle, Nspire Datatracker Cradle]
+	e01f  Python Adapter (firmware install mode)
+	e020  Python Adapter
+	e022  Nspire CX II
 	f430  MSP-FET430UIF JTAG Tool
 	f432  eZ430 Development Tool
 	ffff  Bluetooth Device
@@ -2033,6 +2077,7 @@
 	0100  EasyPen Tablet
 	0101  CueCat
 	011b  NetScroll T220
+	0186  Genius DX-120 Mouse
 	1001  Joystick
 	1002  Game Pad
 	1003  Genius VideoCam
@@ -2065,11 +2110,15 @@
 	3018  Wireless 2.4Ghz Game Pad
 	3019  10-Button USB Joystick with Vibration
 	301a  MaxFire G-12U Vibration
+	301c  Genius MaxFighter F-16U
 	301d  Genius MaxFire MiniPad
 	400f  Genius TVGo DVB-T02Q MCE
 	4012  TVGo DVB-T03 [AF9015]
 	5003  G-pen 560 Tablet
 	5004  G-pen Tablet
+	5005  Genius EasyPen M406
+	5012  Genius EasyPen M406W
+	5014  Genius EasyPen 340
 	505e  Genius iSlim 330
 	6001  GF3000F Ethernet Adapter
 	7004  VideoCAM Express V2
@@ -15165,7 +15214,7 @@
 10c3  Universal Laser Systems, Inc.
 	00a4  ULS PLS Series Laser Engraver Firmware Loader
 	00a5  ULS Print Support
-10c4  Cygnal Integrated Products, Inc.
+10c4  Silicon Labs
 	0002  F32x USBXpress Device
 	0003  CommandIR
 	800a  SPORTident
@@ -15204,12 +15253,29 @@
 	8973  C8051F38x HDMI Extender [UHBX-8X]
 	89c6  SPORTident HID device
 	89e1  C8051F38x HDMI Extender [UHBX-SW3-WP]
-	ea60  CP2102/CP2109 UART Bridge Controller [CP210x family]
+	89fb  Qivicon ZigBee Stick
+	8a3c  C8051F38x HDBaseT Receiver [UHBX-R-XT]
+	8a6c  C8051F38x 4K HDMI Audio Extractor [EMX-AMP]
+	8acb  C8051F38x HDBaseT Wall Plate Receiver with IR, RS-232, and PoH [UHBX-R-WP]
+	8af8  C8051F38x 4K HDMI Audio Extractor w/Audio Amplifier, HDBT Input, Line Audio Input RS-232 Ports and IP Control [VSA-X21]
+	8b8c  C8051F38x 4K HDMI Audio Extractor w/Audio Amplifier, HDBT Input, Line Audio Input RS-232 Ports and IP Control [SC-3H]
+	8db5  C8051F38x CATx HDMI Receiver with USB [EX-HDU-R]
+	8db6  C8051F38x CATx HDMI Receiver
+	ea60  CP210x UART Bridge
 	ea61  CP210x UART Bridge
-	ea70  CP210x UART Bridge
-	ea80  CP210x UART Bridge
+	ea63  CP210x UART Bridge
+	ea70  CP2105 Dual UART Bridge
+	ea71  CP2108 Quad UART Bridge
+	ea80  CP2110 HID UART Bridge
+	ea90  CP2112 HID I2C Bridge
+	ea91  CP2112 HID SMBus/I2C Bridge for CP2614 Evaluation Kit
+	ea93  CP2112 HID SMBus/I2C Bridge for CP2615 Evaluation Kit
+	eab0  CP2114 I2S Audio Bridge
+	eac0  CP2614 MFi Accessory Digital Audio Bridge
+	eac1  CP2615 I2S Audio Bridge
 	eac9  EFM8UB1 Bootloader
 	eaca  EFM8UB2 Bootloader
+	eacb  EFM8UB3 Bootloader
 10c5  Sanei Electric, Inc.
 	819a  FM Radio
 10c6  Intec, Inc.
@@ -16548,6 +16614,7 @@
 	001b  Emu [Ambit3 Peak]
 	001c  Finch [Ambit3 Sport]
 	001d  Greentit [Ambit2 R]
+	001e  Ibisbill [Ambit3 Run]
 1497  Panstrong Company Ltd.
 1498  Microtek International Inc.
 	a090  DVB-T Tuner
@@ -18704,6 +18771,7 @@
 	2cf6  Pyra Mouse (wireless)
 	2d50  Kova+ Mouse
 	2d51  Kone+ Mouse
+	2e22  Kone XTD Mouse
 	30d4  Arvo Keyboard
 1ea7  SHARKOON Technologies GmbH
 	0066  [Mediatrack Edge Mini Keyboard]
@@ -19030,6 +19098,14 @@
 	6323  USB Electronic Scale
 2237  Kobo Inc.
 	4161  eReader White
+224f  APDM
+	0001  Access Point
+	0002  Docking Station
+	0004  V2 Opal ACM
+	0005  V2 Opal
+	0006  V2 Docking Station
+	0007  V2 Access Point ACM
+	0008  V2 Access Point
 225d  Morpho
 	0001  FINGER VP Multimodal Biometric Sensor
 	0008  CBM-E3 Fingerprint Sensor
@@ -19346,6 +19422,17 @@
 	930c  CCD Webcam(PC370R)
 27b8  ThingM
 	01ed  blink(1)
+27c6  Shenzhen Goodix Technology Co.,Ltd.
+	5117  Fingerprint Reader
+	5201  Fingerprint Reader
+	5301  Fingerprint Reader
+	530c  Fingerprint Reader
+	5385  Fingerprint Reader
+	538c  Fingerprint Reader
+	5395  Fingerprint Reader
+	5584  Fingerprint Reader
+	55b4  Fingerprint Reader
+	5740  Fingerprint Reader
 2821  ASUSTek Computer Inc.
 	0161  WL-161 802.11b Wireless Adapter [SiS 162U]
 	160f  WL-160g 802.11g Wireless Adapter [Envara WiND512]
@@ -19440,6 +19527,8 @@
 	0296  BG96 CAT-M1/NB-IoT modem
 	0306  EG06/EP06/EM06 LTE-A modem
 	0435  AG35 LTE modem
+2cdc  Sea & Sun Technology GmbH
+	f232  CTD48Mc CTD Probe
 2dcf  Dialog Semiconductor
 	c952  Audio Class 2.0 Devices
 2fb2  Fujitsu, Ltd
