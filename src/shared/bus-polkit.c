@@ -197,7 +197,6 @@ static int async_polkit_defer(sd_event_source *s, void *userdata) {
 }
 
 static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
         AsyncPolkitQuery *q = userdata;
         int r;
 
