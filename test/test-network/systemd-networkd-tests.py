@@ -1616,7 +1616,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
+        '25-qdisc-clsact-root-compat.network',
         '25-qdisc-fq-codel.network',
+        '25-qdisc-ingress-netem-compat.network',
+        '25-qdisc-ingress-root.network',
         '25-qdisc-netem-and-fqcodel.network',
         '25-qdisc-tbf-and-sfq.network',
         '25-route-ipv6-src.network',
@@ -2248,10 +2251,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'perturb 5sec')
 
     def test_qdisc2(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-fq-codel.network', '12-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-qdisc-fq-codel.network', '12-dummy.netdev',
+                                        '25-qdisc-ingress-root.network', '11-dummy.netdev')
         start_networkd()
 
-        self.wait_online(['dummy98:routable'])
+        self.wait_online(['dummy98:routable', 'test1:routable'])
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -2262,6 +2266,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'maxrate 1Mbit')
         self.assertRegex(output, 'qdisc codel')
         self.assertRegex(output, 'limit 2000p target 10.0ms ce_threshold 100.0ms interval 50.0ms ecn')
+        output = check_output('tc qdisc show dev test1')
+        print(output)
+        self.assertRegex(output, 'qdisc ingress')
+
+    def test_qdisc3(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-clsact-root-compat.network', '12-dummy.netdev',
+                                        '25-qdisc-ingress-netem-compat.network', '11-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable', 'test1:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc clsact')
+        output = check_output('tc qdisc show dev test1')
+        print(output)
+        self.assertRegex(output, 'qdisc netem')
+        self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
+        self.assertRegex(output, 'qdisc ingress')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
