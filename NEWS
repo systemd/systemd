@@ -147,7 +147,7 @@ CHANGES WITH 245 in spe:
           support for a special new value "_dhcp". If set, the configured
           static route uses the gateway host configured via DHCP.
 
-        * New User= and SuppressPrefixLength= settings has been implemented
+        * New User= and SuppressPrefixLength= settings have been implemented
           for the [RoutingPolicyRule] section of .network files to configure
           source routing based on UID ranges and prefix length, respectively.
 
@@ -245,6 +245,10 @@ CHANGES WITH 245 in spe:
 
         * networkctl gained support for showing per-interface logs in its
           "status" output.
+
+        * systemd-networkd-wait-online gain support for specifying the maximum
+          operational state to wait for, and to wait for interfaces to
+          disappear.
 
         * The [Match] section of .link and .network files now supports a new
           option PermanentMACAddress= which may be used to check against the
