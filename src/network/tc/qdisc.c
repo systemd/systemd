@@ -254,7 +254,6 @@ int config_parse_qdisc_parent(
         assert(lvalue);
         assert(rvalue);
         assert(data);
-        assert(ltype >= 0 && ltype < _QDISC_KIND_MAX);
 
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r < 0)

@@ -2271,6 +2271,21 @@
   </refsect1>
 
   <refsect1>
+    <title>[QDisc] Section Options</title>
+    <para>The <literal>[QDisc]</literal> section manages the traffic control queueing discipline (qdisc).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>clsact</literal>
+          or <literal>ingress</literal>. This is mandatory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[NetworkEmulator] Section Options</title>
     <para>The <literal>[NetworkEmulator]</literal> section manages the queueing discipline (qdisc) of
     the network emulator. It can be used to configure the kernel packet scheduler and simulate packet
