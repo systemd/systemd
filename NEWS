@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 245 in spe:
+CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an
           idempotent declarative repartitioner for GPT partition tables.
@@ -272,7 +272,28 @@ CHANGES WITH 245 in spe:
           shall run in, the pam_setcred() API is now invoked, thus permitting
           PAM modules to set additional credentials for the processes.
 
-        …
+        Contributions from: AJ Bagwell, Andreas Rammhold, Anita Zhang, Ansgar
+        Burchardt, Antonio Russo, Arian van Putten, Ashley Davis, Bart Willems,
+        Bastien Nocera, Benjamin Dahlhoff, Charles (Chas) Williams, cheese1,
+        Chris Down, Christian Ehrhardt, Christian Göttsche, cvoinf, Daan De
+        Meyer, Daniele Medri, Daniel Rusek, Daniel Shahaf, dann frazier, Dan
+        Streetman, Dariusz Gadomski, David Michael, Dimitri John Ledkov,
+        Emmanuel Bourg, Evgeny Vereshchagin, ezst036, Felipe Sateler, Filipe
+        Brandenburger, Florian Klink, Franck Bui, Fran Dieguez, Frantisek
+        Sumsal, Greg "GothAck" Miell, Guilhem Lettron, Hans de Goede, HATAYAMA
+        Daisuke, Iain Lane, Jan Alexander Steffens (heftig), Jérémy Rosen, Jin
+        Park, Jun'ichi Nomura, Kai Krakow, Kevin Kuehler, Lennart Poettering,
+        Leonid Bloch, Leonid Evdokimov, lothrond, Luca Boccassi, Michael Biebl,
+        Mike Auty, Mike Gilbert, mtron, nabijaczleweli, Naïm Favier, Paul
+        Davey, Piotr Drąg, Rafa Couto, Raphael, rhn, Robert Scheck, Sascha
+        Dewald, Shengjing Zhu, Slava Kardakov, Spencer Michaels, splantefeve,
+        Stanislav Angelovič, Susant Sahani, Thomas Haller, Thomas Schmitt, Timo
+        Schlüßler, Timo Wilken, Tobias Bernard, Tobias Klauser, Tobias
+        Stoeckmann, Topi Miettinen, WataruMatsuoka, Wieland Hoffmann, Wilhelm
+        Schuster, xduugu, Yong Cong Sin, Yu Watanabe, Zach Smith, Zbigniew
+        Jędrzejewski-Szmek, Zeyu DONG
+
+        – Warsaw, 2020-02-05
 
 CHANGES WITH 244:
 
