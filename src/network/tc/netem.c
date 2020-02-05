@@ -10,7 +10,7 @@
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "qdisc.h"
-#include "string-util.h"
+#include "strv.h"
 #include "tc-util.h"
 
 static int network_emulator_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
@@ -54,7 +54,7 @@ static int network_emulator_fill_message(Link *link, QDisc *qdisc, sd_netlink_me
         return 0;
 }
 
-int config_parse_tc_network_emulator_delay(
+int config_parse_network_emulator_delay(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -87,9 +87,9 @@ int config_parse_tc_network_emulator_delay(
         ne = NETEM(qdisc);
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "NetworkEmulatorDelaySec"))
+                if (STR_IN_SET(lvalue, "DelaySec", "NetworkEmulatorDelaySec"))
                         ne->delay = USEC_INFINITY;
-                else if (streq(lvalue, "NetworkEmulatorDelayJitterSec"))
+                else if (STR_IN_SET(lvalue, "DelayJitterSec", "NetworkEmulatorDelayJitterSec"))
                         ne->jitter = USEC_INFINITY;
 
                 qdisc = NULL;
@@ -104,9 +104,9 @@ int config_parse_tc_network_emulator_delay(
                 return 0;
         }
 
-        if (streq(lvalue, "NetworkEmulatorDelaySec"))
+        if (STR_IN_SET(lvalue, "DelaySec", "NetworkEmulatorDelaySec"))
                 ne->delay = u;
-        else if (streq(lvalue, "NetworkEmulatorDelayJitterSec"))
+        else if (STR_IN_SET(lvalue, "DelayJitterSec", "NetworkEmulatorDelayJitterSec"))
                 ne->jitter = u;
 
         qdisc = NULL;
@@ -114,7 +114,7 @@ int config_parse_tc_network_emulator_delay(
         return 0;
 }
 
-int config_parse_tc_network_emulator_rate(
+int config_parse_network_emulator_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -147,9 +147,9 @@ int config_parse_tc_network_emulator_rate(
         ne = NETEM(qdisc);
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "NetworkEmulatorLossRate"))
+                if (STR_IN_SET(lvalue, "LossRate", "NetworkEmulatorLossRate"))
                         ne->loss = 0;
-                else if (streq(lvalue, "NetworkEmulatorDuplicateRate"))
+                else if (STR_IN_SET(lvalue, "DuplicateRate", "NetworkEmulatorDuplicateRate"))
                         ne->duplicate = 0;
 
                 qdisc = NULL;
@@ -164,16 +164,16 @@ int config_parse_tc_network_emulator_rate(
                 return 0;
         }
 
-        if (streq(lvalue, "NetworkEmulatorLossRate"))
+        if (STR_IN_SET(lvalue, "LossRate", "NetworkEmulatorLossRate"))
                 ne->loss = rate;
-        else if (streq(lvalue, "NetworkEmulatorDuplicateRate"))
+        else if (STR_IN_SET(lvalue, "DuplicateRate", "NetworkEmulatorDuplicateRate"))
                 ne->duplicate = rate;
 
         qdisc = NULL;
         return 0;
 }
 
-int config_parse_tc_network_emulator_packet_limit(
+int config_parse_network_emulator_packet_limit(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -214,8 +214,8 @@ int config_parse_tc_network_emulator_packet_limit(
         r = safe_atou(rvalue, &ne->limit);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse 'NetworkEmulatorPacketLimit=', ignoring assignment: %s",
-                           rvalue);
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
                 return 0;
         }
 

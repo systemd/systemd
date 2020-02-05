@@ -63,7 +63,7 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_qdiscs_parent);
+CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 
 #include "codel.h"
 #include "fq-codel.h"

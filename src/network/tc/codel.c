@@ -74,7 +74,7 @@ static int controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_me
         return 0;
 }
 
-int config_parse_tc_controlled_delay_u32(
+int config_parse_controlled_delay_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -125,7 +125,7 @@ int config_parse_tc_controlled_delay_u32(
         return 0;
 }
 
-int config_parse_tc_controlled_delay_usec(
+int config_parse_controlled_delay_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -157,17 +157,17 @@ int config_parse_tc_controlled_delay_usec(
 
         cd = CODEL(qdisc);
 
-        if (streq(lvalue, "ControlledDelayTargetSec"))
+        if (streq(lvalue, "TargetSec"))
                 p = &cd->target_usec;
-        else if (streq(lvalue, "ControlledDelayIntervalSec"))
+        else if (streq(lvalue, "IntervalSec"))
                 p = &cd->interval_usec;
-        else if (streq(lvalue, "ControlledDelayCEThresholdSec"))
+        else if (streq(lvalue, "CEThresholdSec"))
                 p = &cd->ce_threshold_usec;
         else
                 assert_not_reached("Invalid lvalue");
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "ControlledDelayCEThresholdSec"))
+                if (streq(lvalue, "CEThresholdSec"))
                         *p = USEC_INFINITY;
                 else
                         *p = 0;
@@ -189,7 +189,7 @@ int config_parse_tc_controlled_delay_usec(
         return 0;
 }
 
-int config_parse_tc_controlled_delay_bool(
+int config_parse_controlled_delay_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,

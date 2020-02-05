@@ -125,10 +125,10 @@ CHANGES WITH 245 in spe:
           marking a process so that it is killed implicitly whenever the event
           source watching it is freed).
 
-        * systemd-networkd gained support for configuring Token Buffer Filter
+        * systemd-networkd gained support for configuring Token Bucket Filter
           (TBF) parameters in its qdisc configuration support. Similar, support
           for Stochastic Fairness Queuing (SFQ), Controlled-Delay Active
-          Queue Management (CoDel), Fair Queue (FQ) has been added.
+          Queue Management (CoDel), Fair Queueing (FQ) has been added.
 
         * systemd-networkd gained support for Intermediate Functional Block
           (IFB) network devices.
