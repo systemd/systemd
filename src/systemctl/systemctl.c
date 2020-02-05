@@ -4478,11 +4478,11 @@ static void print_status_info(
 
                         printf(" (");
                         if (i->memory_min > 0) {
-                                printf("%smin: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_min));
+                                printf("%smin: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_min));
                                 prefix = " ";
                         }
                         if (i->memory_low > 0) {
-                                printf("%slow: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_low));
+                                printf("%slow: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_low));
                                 prefix = " ";
                         }
                         if (i->memory_high != CGROUP_LIMIT_MAX) {

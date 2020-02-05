@@ -5,6 +5,7 @@
 #include <net/if.h>
 #include <stdbool.h>
 
+#include "cgroup-util.h"
 #include "macro.h"
 
 assert_cc(sizeof(pid_t) == sizeof(int32_t));
@@ -71,8 +72,15 @@ typedef enum {
         FORMAT_BYTES_TRAILING_B  = 1 << 2,
 } FormatBytesFlag;
 
-#define FORMAT_BYTES_MAX 8
+#define FORMAT_BYTES_MAX 16
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
 static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
+}
+static inline char *format_bytes_cgroup_protection(char *buf, size_t l, uint64_t t) {
+        if (t == CGROUP_LIMIT_MAX) {
+                (void) snprintf(buf, l, "%s", "infinity");
+                return buf;
+        }
+        return format_bytes(buf, l, t);
 }
