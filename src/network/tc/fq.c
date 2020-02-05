@@ -11,7 +11,7 @@
 #include "string-util.h"
 #include "util.h"
 
-static int fair_queue_traffic_policing_init(QDisc *qdisc) {
+static int fair_queueing_init(QDisc *qdisc) {
         FairQueueing *fq;
 
         assert(qdisc);
@@ -24,7 +24,7 @@ static int fair_queue_traffic_policing_init(QDisc *qdisc) {
         return 0;
 }
 
-static int fair_queue_traffic_policing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
+static int fair_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
         FairQueueing *fq;
         int r;
 
@@ -102,7 +102,7 @@ static int fair_queue_traffic_policing_fill_message(Link *link, QDisc *qdisc, sd
         return 0;
 }
 
-int config_parse_fair_queue_traffic_policing_u32(
+int config_parse_fair_queueing_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -165,7 +165,7 @@ int config_parse_fair_queue_traffic_policing_u32(
         return 0;
 }
 
-int config_parse_fair_queue_traffic_policing_size(
+int config_parse_fair_queueing_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -232,7 +232,7 @@ int config_parse_fair_queue_traffic_policing_size(
         return 0;
 }
 
-int config_parse_fair_queue_traffic_policing_bool(
+int config_parse_fair_queueing_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -284,7 +284,7 @@ int config_parse_fair_queue_traffic_policing_bool(
         return 0;
 }
 
-int config_parse_fair_queue_traffic_policing_usec(
+int config_parse_fair_queueing_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -343,7 +343,7 @@ int config_parse_fair_queue_traffic_policing_usec(
         return 0;
 }
 
-int config_parse_fair_queue_traffic_policing_max_rate(
+int config_parse_fair_queueing_max_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -403,8 +403,8 @@ int config_parse_fair_queue_traffic_policing_max_rate(
 }
 
 const QDiscVTable fq_vtable = {
-        .init = fair_queue_traffic_policing_init,
+        .init = fair_queueing_init,
         .object_size = sizeof(FairQueueing),
         .tca_kind = "fq",
-        .fill_message = fair_queue_traffic_policing_fill_message,
+        .fill_message = fair_queueing_fill_message,
 };
