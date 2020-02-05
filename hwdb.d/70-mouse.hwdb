@@ -449,11 +449,20 @@ mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
 mouse:bluetooth:v046dpb01a:name:MX Anywhere 2S Mouse:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
-# Logitech MX Master
+# Logitech MX Master (via Logitech Unifying Receiver)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:usb:v046dp4060:name:Logitech MX Master:
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
+ MOUSE_WHEEL_CLICK_ANGLE=15
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
+ MOUSE_WHEEL_CLICK_COUNT=24
+ MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
+# Logitech MX Master (via Bluetooth)
+# Horiz wheel has 14 stops, angle is rounded up
+mouse:bluetooth:v046dpb012:name:MX Master Mouse:
+ MOUSE_DPI=1000@2000
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
@@ -471,11 +480,15 @@ mouse:usb:v046dp4069:name:Logitech MX Master 2s:
 # Logitech MX Master 2S (via Bluetooth)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:
- MOUSE_DPI=2000@2000
+ MOUSE_DPI=1000@2000
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
  MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
+# Logitech MX Ergo (via Bluetooth)
+mouse:bluetooth:v046dpb01d:name:MX Ergo Mouse:
+ ID_INPUT_TRACKBALL=1
 
 ## Other ##
 
@@ -724,9 +737,9 @@ mouse:usb:v1038p1369:name:SteelSeries Sensei Raw Gaming Mouse:
 mouse:usb:v145fp01ac:name:HID-compliant Mouse Trust Gaming Mouse:
  MOUSE_DPI=*800@528 1200@537 1600@536 2400@521
 
- ##########################################
- # Zelotes
- ##########################################
+##########################################
+# Zelotes
+##########################################
 
 # Zelotes 5500 DPI 7 Button USB Wired Gaming Mouse
 mouse:usb:v1d57pad17:*

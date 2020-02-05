@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.11.05
-# Date:    2019-11-05 20:34:06
+# Version: 2020.01.09
+# Date:    2020-01-09 20:34:06
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -19098,6 +19098,14 @@
 	6323  USB Electronic Scale
 2237  Kobo Inc.
 	4161  eReader White
+224f  APDM
+	0001  Access Point
+	0002  Docking Station
+	0004  V2 Opal ACM
+	0005  V2 Opal
+	0006  V2 Docking Station
+	0007  V2 Access Point ACM
+	0008  V2 Access Point
 225d  Morpho
 	0001  FINGER VP Multimodal Biometric Sensor
 	0008  CBM-E3 Fingerprint Sensor
