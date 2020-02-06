@@ -326,3 +326,6 @@ NetworkEmulatorDelayJitterSec=
 NetworkEmulatorLossRate=
 NetworkEmulatorDuplicateRate=
 NetworkEmulatorPacketLimit=
+[TrivialLinkEqualizer]
+Parent=
+Id=

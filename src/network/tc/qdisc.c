@@ -20,6 +20,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_NETEM] = &netem_vtable,
         [QDISC_KIND_SFQ] = &sfq_vtable,
         [QDISC_KIND_TBF] = &tbf_vtable,
+        [QDISC_KIND_TEQL] = &teql_vtable,
 };
 
 static int qdisc_new(QDiscKind kind, QDisc **ret) {
@@ -176,13 +177,21 @@ int qdisc_configure(Link *link, QDisc *qdisc) {
         }
 
         if (QDISC_VTABLE(qdisc)) {
-                r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                if (QDISC_VTABLE(qdisc)->fill_tca_kind) {
+                        r = QDISC_VTABLE(qdisc)->fill_tca_kind(link, qdisc, req);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = sd_netlink_message_append_string(req, TCA_KIND, QDISC_VTABLE(qdisc)->tca_kind);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append TCA_KIND attribute: %m");
+                }
 
-                r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
-                if (r < 0)
-                        return r;
+                if (QDISC_VTABLE(qdisc)->fill_message) {
+                        r = QDISC_VTABLE(qdisc)->fill_message(link, qdisc, req);
+                        if (r < 0)
+                                return r;
+                }
         } else {
                 r = sd_netlink_message_append_string(req, TCA_KIND, qdisc->tca_kind);
                 if (r < 0)

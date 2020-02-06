@@ -123,6 +123,8 @@ sources = files('''
         tc/tbf.h
         tc/tc-util.c
         tc/tc-util.h
+        tc/teql.c
+        tc/teql.h
 '''.split())
 
 systemd_networkd_sources = files('networkd.c')
