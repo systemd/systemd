@@ -181,7 +181,7 @@ int mac_selinux_generic_access_check(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass = NULL, *scon = NULL;
+        const char *tclass, *scon;
         struct audit_info audit_info = {};
         _cleanup_free_ char *cl = NULL;
         char *fcon = NULL;
@@ -223,7 +223,7 @@ int mac_selinux_generic_access_check(
 
                 r = getfilecon_raw(path, &fcon);
                 if (r < 0) {
-                        log_warning_errno(errno, "SELinux getfilecon_raw on '%s' failed (tclass=%s perm=%s): %m", path, tclass, permission);
+                        log_warning_errno(errno, "SELinux getfilecon_raw on '%s' failed (perm=%s): %m", path, permission);
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                         goto finish;
                 }
@@ -232,7 +232,7 @@ int mac_selinux_generic_access_check(
         } else {
                 r = getcon_raw(&fcon);
                 if (r < 0) {
-                        log_warning_errno(errno, "SELinux getcon_raw failed (tclass=%s perm=%s): %m", tclass, permission);
+                        log_warning_errno(errno, "SELinux getcon_raw failed (perm=%s): %m", permission);
                         r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                         goto finish;
                 }
