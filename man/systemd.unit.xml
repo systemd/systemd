@@ -730,7 +730,7 @@
         <listitem><para>These two settings expect a space-separated list of unit names. They may be specified
         more than once, in which case dependencies for all listed names are created.</para>
 
-        <para>Those two setttings configure ordering dependencies between units. If unit
+        <para>Those two settings configure ordering dependencies between units. If unit
         <filename>foo.service</filename> contains the setting <option>Before=bar.service</option> and both
         units are being started, <filename>bar.service</filename>'s start-up is delayed until
         <filename>foo.service</filename> has finished starting up. <varname>After=</varname> is the inverse
