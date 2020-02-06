@@ -257,7 +257,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
 
                 existing = ordered_hashmap_get(*sysctl_options, p);
                 if (existing) {
-                        if (streq(value, existing->value)) {
+                        if (streq_ptr(value, existing->value)) {
                                 existing->ignore_failure = existing->ignore_failure || ignore_failure;
                                 continue;
                         }
