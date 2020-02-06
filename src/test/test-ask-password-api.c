@@ -8,7 +8,7 @@ static void test_ask_password(void) {
         int r;
         _cleanup_strv_free_ char **ret = NULL;
 
-        r = ask_password_tty(-1, "hello?", "da key", 0, 0, NULL, &ret);
+        r = ask_password_tty(-1, "hello?", "da key", 0, ASK_PASSWORD_CONSOLE_COLOR, NULL, &ret);
         if (r == -ECANCELED)
                 assert_se(ret == NULL);
         else {
