@@ -658,11 +658,15 @@ int ask_password_tty(
                 goto finish;
 
 skipped:
-        if (keyname)
-                (void) add_to_keyring_and_log(keyname, flags, l);
+        if (strv_isempty(l))
+                r = log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "Password query was cancelled.");
+        else {
+                if (keyname)
+                        (void) add_to_keyring_and_log(keyname, flags, l);
 
-        *ret = TAKE_PTR(l);
-        r = 0;
+                *ret = TAKE_PTR(l);
+                r = 0;
+        }
 
 finish:
         if (ttyfd >= 0 && reset_tty) {
