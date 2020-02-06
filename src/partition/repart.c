@@ -2938,15 +2938,18 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = find_root(&node);
-        if (r < 0)
-                return r;
-
         context = context_new(arg_seed);
         if (!context)
                 return log_oom();
 
         r = context_read_definitions(context, arg_definitions, arg_root);
+        if (r < 0)
+                return r;
+
+        if (context->n_partitions <= 0)
+                return 0;
+
+        r = find_root(&node);
         if (r < 0)
                 return r;
 
