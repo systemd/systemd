@@ -28,10 +28,7 @@
 #include "time-util.h"
 
 #if HAVE_SELINUX
-DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
 DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
-
-#define _cleanup_freecon_ _cleanup_(freeconp)
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
 static int cached_use = -1;
