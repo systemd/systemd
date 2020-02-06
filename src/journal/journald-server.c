@@ -2311,7 +2311,8 @@ int server_init(Server *s, const char *namespace) {
 
                         s->stdout_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/dev/log", 0) > 0 ||
+                           sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, 0) > 0) {
 
                         if (s->syslog_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
