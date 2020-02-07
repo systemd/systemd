@@ -529,7 +529,6 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         int r;
 
         assert(d);
-        assert(ret);
 
         /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the storage socket, and pushes it back in right-away. */
 
@@ -545,7 +544,9 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         if (r < 0)
                 return r;
 
-        *ret = uid;
+        if (ret)
+                *ret = uid;
+
         return 0;
 }
 
@@ -732,7 +733,6 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
 
         assert(m);
         assert(name);
-        assert(ret);
 
         /* A friendly call for translating a dynamic user's name into its UID */
 
@@ -770,7 +770,7 @@ int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, con
 
                 if (creds->user && (!group || streq_ptr(user, group)))
                         creds->group = dynamic_user_ref(creds->user);
-                else {
+                else if (group) {
                         r = dynamic_user_acquire(m, group, &creds->group);
                         if (r < 0) {
                                 if (acquired)

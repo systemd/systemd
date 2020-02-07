@@ -3,7 +3,6 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
 #include "manager.h"
 
 int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, const char *permission, sd_bus_error *error);

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
+
+        <action id="org.freedesktop.home1.create-home">
+                <description gettext-domain="systemd">Create a home</description>
+                <message gettext-domain="systemd">Authentication is required for creating a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.home1.remove-home">
+                <description gettext-domain="systemd">Remove a home</description>
+                <message gettext-domain="systemd">Authentication is required for removing a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.home1.authenticate-home">
+                <description gettext-domain="systemd">Check credentials of a home</description>
+                <message gettext-domain="systemd">Authentication is required for checking credentials against a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.home1.update-home">
+                <description gettext-domain="systemd">Update a home</description>
+                <message gettext-domain="systemd">Authentication is required for updating a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.home1.resize-home">
+                <description gettext-domain="systemd">Resize a home</description>
+                <message gettext-domain="systemd">Authentication is required for resizing a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.home1.passwd-home">
+                <description gettext-domain="systemd">Change password of a home</description>
+                <message gettext-domain="systemd">Authentication is required for changing the password of a user's home.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>

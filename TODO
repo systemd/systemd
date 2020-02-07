@@ -19,12 +19,109 @@ Janitorial Clean-ups:
 
 Features:
 
+* cryptsetup/homed: also support FIDO2 HMAC password logic for unlocking
+  devices. (see: https://github.com/mjec/fido2-hmac-secret)
+
+* systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
+  creates
+
+* homed/userdb: distuingish passwords and recovery keys in the records, since
+  we probably want to use different PBKDF algorithms/settings for them:
+  passwords have low entropy but recovery keys should have good entropy key
+  hence we can make them quicker to work.
+
+* bootctl:
+  - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
+  - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
+  - make it operate on loopback files, dissecting enough to find ESP to operate on
+
+* by default, in systemd --user service bump the OOMAdjust to 100, as privs
+  allow so that systemd survives
+
+* honour specifiers in unit files that resolve to some very basic
+  /etc/os-release data, such as ID, VERSION_ID, BUILD_ID, VARIANT_ID.
+
+* cryptsetup: allow encoding key directly in /etc/crypttab, maybe with a
+  "base64:" prefix. Useful in particular for pkcs11 mode.
+
+* cryptsetup: reimplement the mkswap/mke2fs in cryptsetup-generator to use
+  systemd-makefs.service instead.
+
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then actviate app thorugh that passing socket oveer
 
+* unify on openssl:
+  - port sd_id128_get_machine_app_specific() over from khash
+  - port resolved over from libgcrypt (DNSSEC code)
+  - port journald + fsprg over from libgcrypt
+  - port importd over from libgcrypt
+  - when that's done: kill khash.c
+  - when that's done: kill gnutls support in resolved
+
 * kill zenata, all hail weblate?
 
-* move discoverable partitions spec into markdown and our tree
+* when we resize disks (homed?) always round up to 4K sectors, not 512K
+
+* add growvol and makevol options for /etc/crypttab, similar to
+  x-systemd.growfs and x-systemd-makefs.
+
+* hook up the TPM to /etc/crypttab, with a new option that is similar to the
+  new PKCS#11 option in crypttab, and allows unlocking a LUKS volume via a key
+  unsealed from the TPM. Optionally, if TPM is not available fall back to
+  TPM-less mode, and set up linear DM mapping instead (inspired by kpartx), so
+  that the device paths stay the same, regardless if crypto is used or not.
+
+* systemd-repart: by default generate minimized partition tables (i.e. tables
+  that only covere the space actually used, excluding any free space at the
+  end), in order to maximize dd'ability. Requires libfdisk work, see
+  https://github.com/karelzak/util-linux/issues/907
+
+* systemd-repart: optionally, allow specifiying a path to initialize new
+  partitions from, i.e. an fs image file or a source device node. This would
+  then turn systemd-repart into a simple installer: with a few .repart files
+  you could replicate the host system on another device. a full installer would
+  then be: "systemd-repart /dev/sda && bootctl install /dev/sda &&
+  systemd-firstboot --image= …"
+
+* systemd-repart: MBR partition table support. Care needs to be taken regarding
+  Type=, so that partition definitions can sanely apply to both the GPT and the
+  MBR case. Idea: accept syntax "Type=gpt:home mbr:0x83" for setting the types
+  for the two partition types explicitly. And provide an internal mapping so
+  that "Type=linux-generic" maps to the right types for both partition tables
+  automatically.
+
+* systemd-repart: allow sizing partitions as factor of available RAM, so that
+  we can reasonably size swap partitions for hibernation.
+
+* systemd-repart: allow running mkfs before making partitions pop up +
+  encryption via LUKS to allow booting into an empty root with only /usr mounted in
+
+* systemd-repart: allow managing the gpt read-only partition flag + auto-mount flag
+
+* systemd-repart: allow disabling growing of specific partitions, or making
+  them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
+
+* systemd-repart: add specifier expansion, add especifier that refers to root
+  device node of current system, /usr device node, and matching verity, so that
+  an installer can be made a "copy" installer of the booted OS
+
+* systemd-repart: make it a static checker during early boot for existence and
+  absence of other partitions for trusted boot environments
+
+* systemd-repart: when no configuration is found, exit early do not check
+  partition table, so that it is safe to run in the initrd on any system
+
+* systemd-repart: allow config of partition uuid
+
+* userdb: allow username prefix searches in varlink API
+
+* userdb: allow existence checks
+
+* pid: activation by journal search expression
+
+* when switching root from initrd to host, set the machine_id env var so that
+  if the host has no machine ID set yet we continue to use the random one the
+  initrd had set.
 
 * sd-event: add native support for P_ALL waitid() watching, then move PID 1 to
   it fo reaping assigned but unknown children. This needs to some special care
@@ -43,8 +140,6 @@ Features:
   that's outside of the LUKS encryption/verity verification, and we probably
   shouldn't operate in a volatile mode unless we got told so from a trusted
   source.
-
-* look for /var/tmp automatically via gpt auto discovery
 
 * figure out automatic partition discovery when combining writable root dir
   with immutable /usr
@@ -78,10 +173,6 @@ Features:
   right) become genuine first class citizens, and we gain automatic, sane JSON
   output for them.
 
-* dissector: invoke fsck on the file systems we encounter, after all ext4 is
-  still pretty popular (and we mount the ESP too with it after all, which is
-  fat)
-
 * systemd-firstboot: teach it dissector magic, so that you can point it to some
   disk image and it will just set everything in it all behind the scenes.
 
@@ -103,6 +194,38 @@ Features:
 * logind: rework pam_logind to also do a bus call in case of invocation from
   user@.service, which returns the XDG_RUNTIME_DIR value, and make this
   behaviour selectable via pam module option.
+
+* homed:
+  - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
+  - hook up machined/nspawn users with a varlink user query interface
+  - rollback when resize fails mid-operation
+  - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
+  - resize on login?
+  - fstrim on logout?
+  - shrink fs on logout?
+  - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
+  - create on activate?
+  - properties: icon url?, preferred session type?, administrator bool (which translates to 'wheel' membership)?, address?, telephone?, vcard?, samba stuff?, parental controls?
+  - communicate clearly when usb stick is safe to remove. probably involves
+    beefing up logind to make pam session close hook synchronous and wait until
+    systemd --user is shut down.
+  - logind: maybe keep a "busy fd" as long as there's a non-released session around or the user@.service
+  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk images (think: time machine)
+  - distuingish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
+  - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
+  - fingerprint authentication, pattern authentication, …
+  - make sure "classic" user records can also be managed by homed
+  - description field for groups
+  - make size of $XDG_RUNTIME_DIR configurable in user record
+  - reuse pwquality magic in firstboot
+  - query password from kernel keyring first
+  - update even if record is "absent"
+  - add a "access mode" + "fstype" field to the "status" section of json identity records reflecting the actually used access mode and fstype, even on non-luks backends
+  - move acct mgmt stuff from pam_systemd_home to pam_systemd?
+  - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
+  - make slice for users configurable (requires logind rework)
+  - logind: populate auto-login list bus property from PKCS#11 token
+  - when determining state of a LUKS home directory, check DM suspended sysfs file
 
 * introduce a new per-process uuid, similar to the boot id, the machine id, the
   invocation id, that is derived from process creds, specifically a hashed
@@ -174,13 +297,6 @@ Features:
 
 * introduce per-unit (i.e. per-slice, per-service) journal log size limits.
 
-* optionally, if a per-partition GPT flag is set for the root/home/… partitions
-  format the partition on next boot and unset the flag, in order to implement
-  factory reset. also, add a second flag that simply indicates whether such a
-  scheme is supported. then, add a tool (or maybe beef up systemd-dissect) to
-  show state of these flags, and optionally trigger such a factory reset on
-  next boot by setting the flag.
-
 * sd-boot: automatically load EFI modules from some drop-in dir, so that people
   can add in file system drivers and such
 
@@ -212,7 +328,7 @@ Features:
 
 * the a-posteriori stopping of units bound to units that disappeared logic
   should be reworked: there should be a queue of units, and we should only
-  enqeue stop jobs from a defer event that processes queue instead of
+  enqueue stop jobs from a defer event that processes queue instead of
   right-away when we find a unit that is bound to one that doesn't exist
   anymore. (similar to how the stop-unneeded queue has been reworked the same
   way)
@@ -394,10 +510,6 @@ Features:
   yogas can be recognized as "convertible" too, even if they predate the DMI
   "convertible" form factor
 
-* Maybe add a small tool invoked early at boot, that adds in or resizes
-  partitions automatically, to be used when the media used is actually larger
-  than the image written onto it is.
-
 * Maybe add PrivatePIDs= as new unit setting, and do minimal PID namespacing
   after all. Be strict however, only support the equivalent of nspawn's
   --as-pid2 switch, and sanely proxy sd_notify() messages dropping stuff such
@@ -415,24 +527,6 @@ Features:
   execve() and turn off watchdog support. Then, use that to implement
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
-
-* maybe introduce gpt auto discovery for /var/tmp?
-
-* maybe add gpt-partition-based user management: each user gets his own
-  LUKS-encrypted GPT partition with a new GPT type. A small nss module
-  enumerates users via udev partition enumeration. UIDs are assigned in a fixed
-  way: the partition index is added as offset to some fixed base uid. User name
-  is stored in GPT partition name. A PAM module authenticates the user via the
-  LUKS partition password. Benefits: strong per-user security, compatibility
-  with stateless/read-only/verity-enabled root. (other idea: do this based on
-  loopback files in /home, without GPT involvement)
-
-* gpt-auto logic: introduce support for discovering /var matching an image. For
-  that, use a partition type UUID that is hashed from the OS name (as encoded
-  in /etc/os-release), the architecture, and 4 new bits from the gpt flags
-  field of the root partition. This way can easily support multiple OS
-  installations on the same GPT partition table, without problems with
-  unmatched /var partitions.
 
 * gpt-auto logic: related to the above, maybe support a "secondary" root
   partition, that is mounted to / and is writable, and where the actual root's
@@ -803,11 +897,6 @@ Features:
   - journald: when we drop syslog messages because the syslog socket is
     full, make sure to write how many messages are lost as first thing
     to syslog when it works again.
-  - change systemd-journal-flush into a service that stays around during
-    boot, and causes the journal to be moved back to /run on shutdown,
-    so that we do not keep /var busy. This needs to happen synchronously,
-    hence doing this via signals is not going to work.
-  - optionally support running journald from the command line for testing purposes in external projects
   - journald: allow per-priority and per-service retention times when rotating/vacuuming
   - journald: make use of uid-range.h to managed uid ranges to split
     journals in.

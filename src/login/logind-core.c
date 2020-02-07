@@ -27,6 +27,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+#include "userdb.h"
 
 void manager_reset_config(Manager *m) {
         assert(m);
@@ -137,21 +138,18 @@ int manager_add_session(Manager *m, const char *id, Session **ret_session) {
 
 int manager_add_user(
                 Manager *m,
-                uid_t uid,
-                gid_t gid,
-                const char *name,
-                const char *home,
+                UserRecord *ur,
                 User **ret_user) {
 
         User *u;
         int r;
 
         assert(m);
-        assert(name);
+        assert(ur);
 
-        u = hashmap_get(m->users, UID_TO_PTR(uid));
+        u = hashmap_get(m->users, UID_TO_PTR(ur->uid));
         if (!u) {
-                r = user_new(&u, m, uid, gid, name, home);
+                r = user_new(&u, m, ur);
                 if (r < 0)
                         return r;
         }
@@ -167,32 +165,35 @@ int manager_add_user_by_name(
                 const char *name,
                 User **ret_user) {
 
-        const char *home = NULL;
-        uid_t uid;
-        gid_t gid;
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int r;
 
         assert(m);
         assert(name);
 
-        r = get_user_creds(&name, &uid, &gid, &home, NULL, 0);
+        r = userdb_by_name(name, 0, &ur);
         if (r < 0)
                 return r;
 
-        return manager_add_user(m, uid, gid, name, home, ret_user);
+        return manager_add_user(m, ur, ret_user);
 }
 
-int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user) {
-        struct passwd *p;
+int manager_add_user_by_uid(
+                Manager *m,
+                uid_t uid,
+                User **ret_user) {
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        int r;
 
         assert(m);
+        assert(uid_is_valid(uid));
 
-        errno = 0;
-        p = getpwuid(uid);
-        if (!p)
-                return errno_or_else(ENOENT);
+        r = userdb_by_uid(uid, 0, &ur);
+        if (r < 0)
+                return r;
 
-        return manager_add_user(m, uid, p->pw_gid, p->pw_name, p->pw_dir, ret_user);
+        return manager_add_user(m, ur, ret_user);
 }
 
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret) {

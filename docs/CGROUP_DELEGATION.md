@@ -21,10 +21,10 @@ comprehensive up-to-date information about all this, particular in light of the
 poor implementations of the components interfacing with systemd of current
 container managers.
 
-Before you read on, please make sure you read the low-level [kernel
-documentation about
-cgroup v2](https://www.kernel.org/doc/Documentation/cgroup-v2.txt). This
-documentation then adds in the higher-level view from systemd.
+Before you read on, please make sure you read the low-level kernel
+documentation about the
+[unified cgroup hierarchy](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html).
+This document then adds in the higher-level view from systemd.
 
 This document augments the existing documentation we already have:
 

@@ -22,6 +22,7 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -194,7 +195,7 @@ struct Network {
         uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
-        size_t can_bitrate;
+        uint64_t can_bitrate;
         unsigned can_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;
@@ -218,8 +219,8 @@ struct Network {
         uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
         Set *ndisc_black_listed_prefix;
+        OrderedHashmap *ipv6_tokens;
 
-        union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         struct ether_addr *mac;
@@ -237,7 +238,7 @@ struct Network {
         bool iaid_set;
 
         bool required_for_online; /* Is this network required to be considered online? */
-        LinkOperationalState required_operstate_for_online;
+        LinkOperationalStateRange required_operstate_for_online;
 
         LLDPMode lldp_mode; /* LLDP reception */
         LLDPEmit lldp_emit; /* LLDP transmission */

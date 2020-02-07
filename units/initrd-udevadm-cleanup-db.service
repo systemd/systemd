@@ -1,0 +1,20 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Cleanup udevd DB
+DefaultDependencies=no
+ConditionPathExists=/etc/initrd-release
+Conflicts=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-trigger.service systemd-udev-settle.service
+After=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-trigger.service systemd-udev-settle.service
+Before=initrd-switch-root.target
+
+[Service]
+Type=oneshot
+ExecStart=-udevadm info --cleanup-db

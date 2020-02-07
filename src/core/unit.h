@@ -530,7 +530,7 @@ typedef struct UnitVTable {
         void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
-        void (*bus_name_owner_change)(Unit *u, const char *old_owner, const char *new_owner);
+        void (*bus_name_owner_change)(Unit *u, const char *new_owner);
 
         /* Called for each property that is being set */
         int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
@@ -599,6 +599,15 @@ typedef struct UnitVTable {
 
         /* True if cgroup delegation is permissible */
         bool can_delegate:1;
+
+        /* True if the unit type triggers other units, i.e. can have a UNIT_TRIGGERS dependency */
+        bool can_trigger:1;
+
+        /* True if the unit type knows a failure state, and thus can be source of an OnFailure= dependency */
+        bool can_fail:1;
+
+        /* True if After= dependencies should be refused */
+        bool refuse_after:1;
 
         /* True if units of this type shall be startable only once and then never again */
         bool once_only:1;
@@ -734,6 +743,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
+int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
@@ -806,12 +816,6 @@ int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_test_start_limit(Unit *u);
 
-void unit_unref_uid(Unit *u, bool destroy_now);
-int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
-
-void unit_unref_gid(Unit *u, bool destroy_now);
-int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc);
-
 int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid);
 void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
@@ -838,7 +842,7 @@ int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
-const char *unit_label_path(Unit *u);
+const char *unit_label_path(const Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 

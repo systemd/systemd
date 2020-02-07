@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "libcrypt-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -309,15 +310,19 @@ static void test_gid_lists_ops(void) {
         int nresult;
 
         nresult = merge_gid_lists(l2, ELEMENTSOF(l2), l3, ELEMENTSOF(l3), &res1);
+        assert_se(nresult >= 0);
         assert_se(memcmp_nn(res1, nresult, result1, ELEMENTSOF(result1)) == 0);
 
         nresult = merge_gid_lists(NULL, 0, l2, ELEMENTSOF(l2), &res2);
+        assert_se(nresult >= 0);
         assert_se(memcmp_nn(res2, nresult, l2, ELEMENTSOF(l2)) == 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l1, ELEMENTSOF(l1), &res3);
+        assert_se(nresult >= 0);
         assert_se(memcmp_nn(l1, ELEMENTSOF(l1), res3, nresult) == 0);
 
         nresult = merge_gid_lists(l1, ELEMENTSOF(l1), l4, ELEMENTSOF(l4), &res4);
+        assert_se(nresult >= 0);
         assert_se(memcmp_nn(result2, ELEMENTSOF(result2), res4, nresult) == 0);
 
         nresult = getgroups_alloc(&gids);

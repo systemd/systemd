@@ -62,6 +62,29 @@ int parse_uid(const char *s, uid_t *ret) {
         return 0;
 }
 
+int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
+        uint32_t u, l;
+        int r;
+
+        assert(s);
+        assert(ret_lower);
+        assert(ret_upper);
+
+        r = parse_range(s, &l, &u);
+        if (r < 0)
+                return r;
+
+        if (l > u)
+                return -EINVAL;
+
+        if (!uid_is_valid(l) || !uid_is_valid(u))
+                return -ENXIO;
+
+        *ret_lower = l;
+        *ret_upper = u;
+        return 0;
+}
+
 char* getlogname_malloc(void) {
         uid_t uid;
         struct stat st;
@@ -496,11 +519,9 @@ int getgroups_alloc(gid_t** gids) {
 
                 free(allocated);
 
-                allocated = new(gid_t, ngroups);
+                p = allocated = new(gid_t, ngroups);
                 if (!allocated)
                         return -ENOMEM;
-
-                p = allocated;
         }
 
         *gids = TAKE_PTR(p);
@@ -945,40 +966,3 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         return !!s;
 }
 #endif
-
-int make_salt(char **ret) {
-        static const char table[] =
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789"
-                "./";
-
-        uint8_t raw[16];
-        char *salt, *j;
-        size_t i;
-        int r;
-
-        /* This is a bit like crypt_gensalt_ra(), but doesn't require libcrypt, and doesn't do anything but
-         * SHA512, i.e. is legacy-free and minimizes our deps. */
-
-        assert_cc(sizeof(table) == 64U + 1U);
-
-        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
-        r = genuine_random_bytes(raw, sizeof(raw), RANDOM_BLOCK);
-        if (r < 0)
-                return r;
-
-        salt = new(char, 3+sizeof(raw)+1+1);
-        if (!salt)
-                return -ENOMEM;
-
-        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
-        j = stpcpy(salt, "$6$");
-        for (i = 0; i < sizeof(raw); i++)
-                j[i] = table[raw[i] & 63];
-        j[i++] = '$';
-        j[i] = 0;
-
-        *ret = salt;
-        return 0;
-}

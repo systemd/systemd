@@ -538,6 +538,7 @@ STP=
 Scope=
 SendHostname=
 Source=
+SuppressPrefixLength=
 TCP6SegmentationOffload=
 TCPSegmentationOffload=
 TOS=

@@ -230,8 +230,8 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%i\n"
                 "STATE=%s\n"
                 "REMOTE=%i\n",
-                s->user->uid,
-                s->user->name,
+                s->user->user_record->uid,
+                s->user->user_record->user_name,
                 session_is_active(s),
                 s->user->display == s,
                 session_state_to_string(session_get_state(s)),
@@ -641,7 +641,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 if (!scope)
                         return log_oom();
 
-                description = strjoina("Session ", s->id, " of user ", s->user->name);
+                description = strjoina("Session ", s->id, " of user ", s->user->user_record->user_name);
 
                 r = manager_start_scope(
                                 s->manager,
@@ -657,7 +657,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                           "systemd-user-sessions.service",
                                           s->user->runtime_dir_service,
                                           s->user->service),
-                                s->user->home,
+                                user_record_home_directory(s->user->user_record),
                                 properties,
                                 error,
                                 &s->scope_job);
@@ -698,9 +698,9 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SESSION_START_STR,
                    "SESSION_ID=%s", s->id,
-                   "USER_ID=%s", s->user->name,
+                   "USER_ID=%s", s->user->user_record->user_name,
                    "LEADER="PID_FMT, s->leader,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name));
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_get(&s->timestamp);
@@ -750,7 +750,10 @@ static int session_stop_scope(Session *s, bool force) {
         s->scope_job = mfree(s->scope_job);
 
         /* Optionally, let's kill everything that's left now. */
-        if (force || manager_shall_kill(s->manager, s->user->name)) {
+        if (force ||
+            (s->user->user_record->kill_processes != 0 &&
+             (s->user->user_record->kill_processes > 0 ||
+              manager_shall_kill(s->manager, s->user->user_record->user_name)))) {
 
                 r = manager_stop_unit(s->manager, s->scope, &error, &s->scope_job);
                 if (r < 0) {
@@ -766,7 +769,7 @@ static int session_stop_scope(Session *s, bool force) {
                  * Session stop is quite significant on its own, let's log it. */
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "SESSION_ID=%s", s->id,
-                           "USER_ID=%s", s->user->name,
+                           "USER_ID=%s", s->user->user_record->user_name,
                            "LEADER="PID_FMT, s->leader,
                            LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
         }
@@ -824,7 +827,7 @@ int session_finalize(Session *s) {
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_SESSION_STOP_STR,
                            "SESSION_ID=%s", s->id,
-                           "USER_ID=%s", s->user->name,
+                           "USER_ID=%s", s->user->user_record->user_name,
                            "LEADER="PID_FMT, s->leader,
                            LOG_MESSAGE("Removed session %s.", s->id));
 
@@ -932,63 +935,57 @@ static int get_process_ctty_atime(pid_t pid, usec_t *atime) {
 }
 
 int session_get_idle_hint(Session *s, dual_timestamp *t) {
-        usec_t atime = 0, n;
+        usec_t atime = 0;
         int r;
 
         assert(s);
 
-        /* Explicit idle hint is set */
-        if (s->idle_hint) {
+        /* Graphical sessions have an explicit idle hint */
+        if (SESSION_TYPE_IS_GRAPHICAL(s->type)) {
                 if (t)
                         *t = s->idle_hint_timestamp;
 
                 return s->idle_hint;
         }
 
-        /* Graphical sessions should really implement a real
-         * idle hint logic */
-        if (SESSION_TYPE_IS_GRAPHICAL(s->type))
-                goto dont_know;
-
-        /* For sessions with an explicitly configured tty, let's check
-         * its atime */
+        /* For sessions with an explicitly configured tty, let's check its atime */
         if (s->tty) {
                 r = get_tty_atime(s->tty, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
 
-        /* For sessions with a leader but no explicitly configured
-         * tty, let's check the controlling tty of the leader */
+        /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
+         * the leader */
         if (pid_is_valid(s->leader)) {
                 r = get_process_ctty_atime(s->leader, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
 
-dont_know:
         if (t)
-                *t = s->idle_hint_timestamp;
+                *t = DUAL_TIMESTAMP_NULL;
 
-        return 0;
+        return false;
 
 found_atime:
         if (t)
                 dual_timestamp_from_realtime(t, atime);
 
-        n = now(CLOCK_REALTIME);
-
         if (s->manager->idle_action_usec <= 0)
-                return 0;
+                return false;
 
-        return atime + s->manager->idle_action_usec <= n;
+        return usec_add(atime, s->manager->idle_action_usec) <= now(CLOCK_REALTIME);
 }
 
-void session_set_idle_hint(Session *s, bool b) {
+int session_set_idle_hint(Session *s, bool b) {
         assert(s);
 
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+                return -ENOTTY;
+
         if (s->idle_hint == b)
-                return;
+                return 0;
 
         s->idle_hint = b;
         dual_timestamp_get(&s->idle_hint_timestamp);
@@ -1000,6 +997,8 @@ void session_set_idle_hint(Session *s, bool b) {
 
         user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
         manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
+
+        return 1;
 }
 
 int session_get_locked_hint(Session *s) {
@@ -1193,7 +1192,7 @@ static int session_prepare_vt(Session *s) {
         if (vt < 0)
                 return vt;
 
-        r = fchown(vt, s->user->uid, -1);
+        r = fchown(vt, s->user->user_record->uid, -1);
         if (r < 0) {
                 r = log_error_errno(errno,
                                     "Cannot change owner of /dev/tty%u: %m",

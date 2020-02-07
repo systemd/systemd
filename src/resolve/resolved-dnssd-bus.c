@@ -1,9 +1,10 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "missing_capability.h"
-#include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
+#include "resolved-dnssd.h"
 #include "resolved-link.h"
 #include "strv.h"
 #include "user-util.h"

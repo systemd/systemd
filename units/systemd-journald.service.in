@@ -16,7 +16,6 @@ After=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-a
 Before=sysinit.target
 
 [Service]
-OOMScoreAdjust=-250
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 DeviceAllow=char-* rw
 ExecStart=@rootlibexecdir@/systemd-journald
@@ -25,12 +24,15 @@ IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
+OOMScoreAdjust=-250
 Restart=always
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
+RuntimeDirectory=systemd/journal
+RuntimeDirectoryPreserve=yes
 Sockets=systemd-journald.socket systemd-journald-dev-log.socket systemd-journald-audit.socket
 StandardOutput=null
 SystemCallArchitectures=native

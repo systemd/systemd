@@ -469,9 +469,14 @@ printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush
 # 1
 # Let's workaround this by clearing the previously set LD_PRELOAD env variable,
 # so the libasan library is not loaded for this particular service
-REMOUNTFS_CONF_DIR=/etc/systemd/system/systemd-remount-fs.service.d
-mkdir -p "\$REMOUNTFS_CONF_DIR"
-printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$REMOUNTFS_CONF_DIR/env.conf"
+unset_ld_preload() {
+    local _dropin_dir="/etc/systemd/system/\$1.service.d"
+    mkdir -p "\$_dropin_dir"
+    printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$_dropin_dir/unset_ld_preload.conf"
+}
+
+unset_ld_preload systemd-remount-fs
+unset_ld_preload testsuite
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
@@ -732,7 +737,6 @@ install_config_files() {
     inst /etc/shells
     inst /etc/nsswitch.conf
     inst /etc/pam.conf || :
-    inst /etc/securetty || :
     inst /etc/os-release
     inst /etc/localtime
     # we want an empty environment

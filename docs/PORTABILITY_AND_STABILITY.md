@@ -4,7 +4,7 @@ category: Interfaces
 layout: default
 ---
 
-# Interface Stability Promise
+# Interface Portability and Stability Promise
 
 systemd provides various interfaces developers and programs might rely on. Starting with version 26 (the first version released with Fedora 15) we promise to keep a number of them stable and compatible for the future.
 
@@ -18,7 +18,7 @@ The stable interfaces are:
 
 * Some of the **"special" unit names** and their semantics. To be precise the ones that are necessary for normal services, and not those required only for early boot and late shutdown, with very few exceptions. To list them here: `basic.target`, `shutdown.target`, `sockets.target`, `network.target`, `getty.target`, `graphical.target`, `multi-user.target`, `rescue.target`, `emergency.target`, `poweroff.target`, `reboot.target`, `halt.target`, `runlevel[1-5].target`.
 
-* **The D-Bus interfaces of the main service daemon and other daemons**. We try to always preserve backwards compatiblity, and intentational breakage is never introduced. Nevertheless, when we find bugs that mean that the existing interface was not useful, or when the implementation did something different than stated by the documentation and the implemented behaviour is not useful, we will fix the implementation and thus introduce a change in behaviour. But the API (parameter counts and types) is never changed, and existing attributes and methods will not be removed.
+* **The D-Bus interfaces of the main service daemon and other daemons**. We try to always preserve backwards compatibility, and intentional breakage is never introduced. Nevertheless, when we find bugs that mean that the existing interface was not useful, or when the implementation did something different than stated by the documentation and the implemented behaviour is not useful, we will fix the implementation and thus introduce a change in behaviour. But the API (parameter counts and types) is never changed, and existing attributes and methods will not be removed.
 
 * For a more comprehensive and authoritative list, consult the chart below.
 
@@ -41,7 +41,7 @@ What does this mean for you? When developing with systemd, don't use any of the 
 Note that this is a promise, not an eternal guarantee. These are our intentions, but if in the future there are very good reasons to change or get rid of an interface we have listed above as stable, then we might take the liberty to do so, despite this promise. However, if we do this, then we'll do our best to provide a smooth and reasonably long transition phase.
 
 
-# Interface Portability And Stability Chart
+## Interface Portability And Stability Chart
 
 systemd provides a number of APIs to applications. Below you'll find a table detailing which APIs are considered stable and how portable they are.
 
@@ -72,9 +72,7 @@ A number of systemd's APIs expose Linux or systemd-specific features that cannot
 Note that not all of these interfaces are our invention (but most), we just adopted them in systemd to make them more prominently implemented. For example, we adopted many Debian facilities in systemd to push it into the other distributions as well.
 
 
-
 ---
-
 
 
 And now, here's the list of (hopefully) all APIs that we have introduced with systemd:
@@ -136,9 +134,9 @@ This is not an attempt to comprehensively list all users of these APIs. We are j
 
 Of course, one last thing I can't make myself not ask you before we finish here, and before you start reimplementing these APIs in your distribution: are you sure it's time well spent if you work on reimplementing all this code instead of just spending it on adopting systemd on your distro as well?
 
-## Independent operation of systemd programs
+## Independent Operation of systemd Programs
 
-Some programs in the systemd suite are indended to operate independently of the
+Some programs in the systemd suite are intended to operate independently of the
 running init process (or even without an init process, for example when
 creating system installation chroots). They can be safely called on systems with
 a different init process or for example in package installation scriptlets.
@@ -155,6 +153,8 @@ without communicating with the `systemd` process:
 Many other programs support operation without the system manager except when
 the specific functionality requires such communication. For example
 `journalctl` operates almost independently, but will query the boot id when
-`--boot` option is used. `systemd-journal-remote`, `systemd-journal-upload`,
-`systemd-journal-gatewayd`, `coredumpctl`, `busctl`, `systemctl --root` also
-fall into this category.
+`--boot` option is used; it also requires `systemd-journald` (and thus
+`systemd`) to be running for options like `--flush` and `--sync`.
+`systemd-journal-remote`, `systemd-journal-upload`, `systemd-journal-gatewayd`,
+`coredumpctl`, `busctl`, `systemctl --root` also fall into this category of
+mostly-independent programs.

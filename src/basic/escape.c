@@ -102,7 +102,7 @@ char *cescape(const char *s) {
         return cescape_length(s, strlen(s));
 }
 
-int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) {
+int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, bool accept_nul) {
         int r = 1;
 
         assert(p);
@@ -171,7 +171,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                         return -EINVAL;
 
                 /* Don't allow NUL bytes */
-                if (a == 0 && b == 0)
+                if (a == 0 && b == 0 && !accept_nul)
                         return -EINVAL;
 
                 *ret = (a << 4U) | b;
@@ -199,7 +199,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                 c = ((uint32_t) a[0] << 12U) | ((uint32_t) a[1] << 8U) | ((uint32_t) a[2] << 4U) | (uint32_t) a[3];
 
                 /* Don't allow 0 chars */
-                if (c == 0)
+                if (c == 0 && !accept_nul)
                         return -EINVAL;
 
                 *ret = c;
@@ -227,7 +227,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                     ((uint32_t) a[4] << 12U) | ((uint32_t) a[5] <<  8U) | ((uint32_t) a[6] <<  4U) |  (uint32_t) a[7];
 
                 /* Don't allow 0 chars */
-                if (c == 0)
+                if (c == 0 && !accept_nul)
                         return -EINVAL;
 
                 /* Don't allow invalid code points */
@@ -267,7 +267,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                         return -EINVAL;
 
                 /* don't allow NUL bytes */
-                if (a == 0 && b == 0 && c == 0)
+                if (a == 0 && b == 0 && c == 0 && !accept_nul)
                         return -EINVAL;
 
                 /* Don't allow bytes above 255 */
@@ -333,7 +333,7 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
                         return -EINVAL;
                 }
 
-                k = cunescape_one(f + 1, remaining - 1, &u, &eight_bit);
+                k = cunescape_one(f + 1, remaining - 1, &u, &eight_bit, flags & UNESCAPE_ACCEPT_NUL);
                 if (k < 0) {
                         if (flags & UNESCAPE_RELAX) {
                                 /* Invalid escape code, let's take it literal then */
@@ -358,14 +358,6 @@ int cunescape_length_with_prefix(const char *s, size_t length, const char *prefi
 
         *ret = r;
         return t - r;
-}
-
-int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret) {
-        return cunescape_length_with_prefix(s, length, NULL, flags, ret);
-}
-
-int cunescape(const char *s, UnescapeFlags flags, char **ret) {
-        return cunescape_length(s, strlen(s), flags, ret);
 }
 
 char *xescape_full(const char *s, const char *bad, size_t console_width, bool eight_bits) {

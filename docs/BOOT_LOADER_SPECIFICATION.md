@@ -1,5 +1,5 @@
 ---
-title: The Boot Loader Specification
+title: Boot Loader Specification
 category: Booting
 layout: default
 ---
@@ -60,7 +60,7 @@ Everything described below is located on a placeholder file system `$BOOT`. The 
   * Otherwise, if the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as `$BOOT`.
 * On disks with GPT disk labels
   * If the OS is installed on a disk with GPT disk label, and a partition with the GPT type GUID of `bc13c2ff-59e6-4262-a352-b275fd6f7172` already exists, it should be used as `$BOOT`.
-  * Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`) already exists and is large enough (let's say 250MB`) and otherwise qualifies, it should be used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of `c12a7328-f81f-11d2-ba4b-00a0c93ec93b`) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as `$BOOT`.
   * Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of `bc13c2ff-59e6-4262-a352-b275fd6f7172` shall be created and it should be used as `$BOOT`.
   * Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as `$BOOT`.
 
@@ -90,6 +90,20 @@ match the local platform and what the boot loader can support, and hide them
 from the user. Only entries matching the feature set of boot loader and system
 shall be considered and displayed. This allows image builders to put together
 images that transparently support multiple different architectures.
+
+Note that the `$BOOT` partition is not supposed to be exclusive territory of
+this specification. This specification only defines semantics of the `/loader/`
+directory inside the file system (see below), but it doesn't intend to define
+ownership of the whole file system exclusively. Boot loaders, firmware, and
+other software implementating this specification may choose to place other
+files and directories in the same file system. For example, boot loaders that
+implement this specification might install their own boot code into the `$BOOT`
+partition. On systems where `$BOOT` is the ESP this is a particularly common
+setup. Implementations of this specification must be able to operate correctly
+if files or directories other than `/loader/` are found in the top level
+directory. Implementations that add their own files or directories to the file
+systems should use well-named directories, to make name collisions between
+multiple users of the file system unlikely.
 
 ### Type #1 Boot Loader Specification Entries
 

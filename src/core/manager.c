@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
+#include "core-varlink.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -44,8 +45,8 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "io-util.h"
 #include "install.h"
+#include "io-util.h"
 #include "label.h"
 #include "locale-setup.h"
 #include "log.h"
@@ -1346,6 +1347,7 @@ Manager* manager_free(Manager *m) {
         lookup_paths_flush_generator(&m->lookup_paths);
 
         bus_done(m);
+        manager_varlink_done(m);
 
         exec_runtime_vacuum(m);
         hashmap_free(m->exec_runtime_by_id);
@@ -1373,7 +1375,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
-        sd_event_source_unref(m->sync_bus_names_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -1610,9 +1611,6 @@ static void manager_ready(Manager *m) {
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
 
-        /* Sync current state of bus names with our set of listening units */
-        (void) manager_enqueue_sync_bus_names(m);
-
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
 
@@ -1706,6 +1704,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
                 m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+
+                r = manager_varlink_init(m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set up Varlink server, ignoring: %m");
 
                 /* Third, fire things up! */
                 manager_coldplug(m);
@@ -4478,7 +4480,7 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = parse_uid(value, &uid);
         if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID reference serialization");
+                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
                 return;
         }
 

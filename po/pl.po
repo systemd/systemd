@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-10-26 14:02+0000\n"
-"PO-Revision-Date: 2019-10-26 16:05+0200\n"
+"POT-Creation-Date: 2020-01-30 15:31+0000\n"
+"PO-Revision-Date: 2020-02-02 13:20+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -68,6 +68,63 @@ msgstr "Ponowne wczytanie stanu systemd"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home"
+msgstr "Utworzenie katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required for creating a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby utworzyć katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home"
+msgstr "Usunięcie katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required for removing a user's home."
+msgstr "Wymagane jest uwierzytelnienie, aby usunąć katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home"
+msgstr "Sprawdzenie danych uwierzytelniających katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required for checking credentials against a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby sprawdzić dane uwierzytelniające "
+"katalogu domowego użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home"
+msgstr "Aktualizacja katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required for updating a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zaktualizować katalog domowy użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home"
+msgstr "Zmiana rozmiaru katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required for resizing a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zmienić rozmiar katalogu domowego "
+"użytkownika."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home"
+msgstr "Zmiana hasła katalogu domowego"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required for changing the password of a user's home."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby zmienić hasło katalogu domowego "
+"użytkownika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
@@ -522,6 +579,14 @@ msgstr "Ustawienie komunikatu wall"
 msgid "Authentication is required to set a wall message"
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić komunikat wall"
 
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr "Zmiana sesji"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Wymagane jest uwierzytelnienie, aby zmienić terminal wirtualny."
+
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
 msgstr "Logowanie do lokalnego kontenera"
@@ -830,25 +895,25 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:355
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:357
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:358 src/core/dbus-unit.c:359
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:530
+#: src/core/dbus-unit.c:531
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -856,18 +921,18 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:561
+#: src/core/dbus-unit.c:562
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:703
+#: src/core/dbus-unit.c:704
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."

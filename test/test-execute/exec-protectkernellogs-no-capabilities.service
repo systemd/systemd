@@ -3,5 +3,6 @@ Description=Test CAP_SYSLOG for ProtectKernelLogs=no
 
 [Service]
 ProtectKernelLogs=no
-ExecStart=/bin/sh -x -c 'capsh --print | grep cap_syslog'
+# sed: remove dropped capabilities (cap_xxx-[epi]) from the output
+ExecStart=/bin/sh -x -c 'capsh --print | sed -r "s/[^ ]+?\-[epi]+//g" | grep cap_syslog'
 Type=oneshot

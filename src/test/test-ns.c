@@ -72,6 +72,7 @@ int main(int argc, char *argv[]) {
                             &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
                             tmp_dir,
                             var_tmp_dir,
+                            NULL,
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
                             0,

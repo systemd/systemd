@@ -39,6 +39,7 @@ typedef struct Item {
         ItemType type;
 
         char *name;
+        char *group_name;
         char *uid_path;
         char *gid_path;
         char *description;
@@ -1085,18 +1086,15 @@ static int gid_is_ok(gid_t gid) {
         return 1;
 }
 
-static int add_group(Item *i) {
+static int get_gid_by_name(const char *name, gid_t *gid) {
         void *z;
-        int r;
 
-        assert(i);
+        assert(gid);
 
         /* Check the database directly */
-        z = hashmap_get(database_by_groupname, i->name);
+        z = hashmap_get(database_by_groupname, name);
         if (z) {
-                log_debug("Group %s already exists.", i->name);
-                i->gid = PTR_TO_GID(z);
-                i->gid_set = true;
+                *gid = PTR_TO_GID(z);
                 return 0;
         }
 
@@ -1105,15 +1103,30 @@ static int add_group(Item *i) {
                 struct group *g;
 
                 errno = 0;
-                g = getgrnam(i->name);
+                g = getgrnam(name);
                 if (g) {
-                        log_debug("Group %s already exists.", i->name);
-                        i->gid = g->gr_gid;
-                        i->gid_set = true;
+                        *gid = g->gr_gid;
                         return 0;
                 }
                 if (!IN_SET(errno, 0, ENOENT))
-                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
+                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", name);
+        }
+
+        return -ENOENT;
+}
+
+static int add_group(Item *i) {
+        int r;
+
+        assert(i);
+
+        r = get_gid_by_name(i->name, &i->gid);
+        if (r != -ENOENT) {
+                if (r < 0)
+                        return r;
+                log_debug("Group %s already exists.", i->name);
+                i->gid_set = true;
+                return 0;
         }
 
         /* Try to use the suggested numeric gid */
@@ -1214,13 +1227,21 @@ static int process_item(Item *i) {
         case ADD_USER: {
                 Item *j;
 
-                j = ordered_hashmap_get(groups, i->name);
+                j = ordered_hashmap_get(groups, i->group_name ?: i->name);
                 if (j && j->todo_group) {
-                        /* When the group with the same name is already in queue,
+                        /* When a group with the target name is already in queue,
                          * use the information about the group and do not create
                          * duplicated group entry. */
                         i->gid_set = j->gid_set;
                         i->gid = j->gid;
+                        i->id_set_strict = true;
+                } else if (i->group_name) {
+                        /* When a group name was given instead of a GID and it's
+                         * not in queue, then it must already exist. */
+                        r = get_gid_by_name(i->group_name, &i->gid);
+                        if (r < 0)
+                                return log_error_errno(r, "Group %s not found.", i->group_name);
+                        i->gid_set = true;
                         i->id_set_strict = true;
                 } else {
                         r = add_group(i);
@@ -1244,6 +1265,7 @@ static Item* item_free(Item *i) {
                 return NULL;
 
         free(i->name);
+        free(i->group_name);
         free(i->uid_path);
         free(i->gid_path);
         free(i->description);
@@ -1560,10 +1582,15 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
                                         r = parse_gid(gid, &i->gid);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
-                                        i->gid_set = true;
-                                        i->id_set_strict = true;
+                                        if (r < 0) {
+                                                if (valid_user_group_name(gid))
+                                                        i->group_name = TAKE_PTR(gid);
+                                                else
+                                                        return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
+                                        } else {
+                                                i->gid_set = true;
+                                                i->id_set_strict = true;
+                                        }
                                         free_and_replace(resolved_id, uid);
                                 }
                                 if (!streq(resolved_id, "-")) {

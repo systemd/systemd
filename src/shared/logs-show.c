@@ -1453,6 +1453,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
+                const char *log_namespace,
                 OutputMode mode,
                 unsigned n_columns,
                 usec_t not_before,
@@ -1473,7 +1474,7 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open(&j, journal_open_flags);
+        r = sd_journal_open_namespace(&j, log_namespace, journal_open_flags | SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 

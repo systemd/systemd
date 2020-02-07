@@ -1,5 +1,5 @@
 ---
-title: The Boot Loader Interface
+title: Boot Loader Interface
 category: Booting
 layout: default
 ---

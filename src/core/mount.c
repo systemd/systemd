@@ -217,7 +217,7 @@ static void mount_done(Unit *u) {
         m->timer_event_source = sd_event_source_unref(m->timer_event_source);
 }
 
-_pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
+static MountParameters* get_mount_parameters_fragment(Mount *m) {
         assert(m);
 
         if (m->from_fragment)
@@ -226,7 +226,7 @@ _pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
         return NULL;
 }
 
-_pure_ static MountParameters* get_mount_parameters(Mount *m) {
+static MountParameters* get_mount_parameters(Mount *m) {
         assert(m);
 
         if (m->from_proc_self_mountinfo)
@@ -342,20 +342,18 @@ static int mount_add_device_dependencies(Mount *m) {
         if (!is_device_path(p->what))
                 return 0;
 
-        /* /dev/root is a really weird thing, it's not a real device,
-         * but just a path the kernel exports for the root file system
-         * specified on the kernel command line. Ignore it here. */
-        if (path_equal(p->what, "/dev/root"))
+        /* /dev/root is a really weird thing, it's not a real device, but just a path the kernel exports for
+         * the root file system specified on the kernel command line. Ignore it here. */
+        if (PATH_IN_SET(p->what, "/dev/root", "/dev/nfs"))
                 return 0;
 
         if (path_equal(m->where, "/"))
                 return 0;
 
-        /* Mount units from /proc/self/mountinfo are not bound to devices
-         * by default since they're subject to races when devices are
-         * unplugged. But the user can still force this dep with an
-         * appropriate option (or udev property) so the mount units are
-         * automatically stopped when the device disappears suddenly. */
+        /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
+         * races when devices are unplugged. But the user can still force this dep with an appropriate option
+         * (or udev property) so the mount units are automatically stopped when the device disappears
+         * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
@@ -365,7 +363,7 @@ static int mount_add_device_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
 }
 
 static int mount_add_quota_dependencies(Mount *m) {
@@ -537,10 +535,9 @@ static int mount_verify(Mount *m) {
         }
 
         p = get_mount_parameters_fragment(m);
-        if (p && !p->what) {
-                log_unit_error(UNIT(m), "What= setting is missing. Refusing.");
-                return -ENOEXEC;
-        }
+        if (p && !p->what && !UNIT(m)->perpetual)
+                return log_unit_error_errno(UNIT(m), SYNTHETIC_ERRNO(ENOEXEC),
+                                            "What= setting is missing. Refusing.");
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(m), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
@@ -1550,11 +1547,10 @@ static int mount_setup_existing_unit(
                 const char *fstype,
                 MountProcFlags *ret_flags) {
 
-        MountProcFlags flags = MOUNT_PROC_IS_MOUNTED;
         int r;
 
         assert(u);
-        assert(flags);
+        assert(ret_flags);
 
         if (!MOUNT(u)->where) {
                 MOUNT(u)->where = strdup(where);
@@ -1562,13 +1558,27 @@ static int mount_setup_existing_unit(
                         return -ENOMEM;
         }
 
+        /* In case we have multiple mounts established on the same mount point, let's merge flags set already
+         * for the current unit. Note that the flags field is reset on each iteration of reading
+         * /proc/self/mountinfo, hence we know for sure anything already set here is from the current
+         * iteration and thus worthy of taking into account. */
+        MountProcFlags flags =
+                MOUNT(u)->proc_flags | MOUNT_PROC_IS_MOUNTED;
+
         r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
                 flags |= MOUNT_PROC_JUST_CHANGED;
 
-        if (!MOUNT(u)->from_proc_self_mountinfo || FLAGS_SET(MOUNT(u)->proc_flags, MOUNT_PROC_JUST_MOUNTED))
+        /* There are two conditions when we consider a mount point just mounted: when we haven't seen it in
+         * /proc/self/mountinfo before or when MOUNT_MOUNTING is our current state. Why bother with the
+         * latter? Shouldn't that be covered by the former? No, during reload it is not because we might then
+         * encounter a new /proc/self/mountinfo in combination with an old mount unit state (since it stems
+         * from the serialized state), and need to catch up. Since we know that the MOUNT_MOUNTING state is
+         * reached when we wait for the mount to appear we hence can assume that if we are in it, we are
+         * actually seeing it established for the first time. */
+        if (!MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->state == MOUNT_MOUNTING)
                 flags |= MOUNT_PROC_JUST_MOUNTED;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
@@ -2065,6 +2075,9 @@ const UnitVTable mount_vtable = {
                 "Install\0",
         .private_section = "Mount",
 
+        .can_transient = true,
+        .can_fail = true,
+
         .init = mount_init,
         .load = mount_load,
         .done = mount_done,
@@ -2102,8 +2115,6 @@ const UnitVTable mount_vtable = {
         .bus_commit_properties = bus_mount_commit_properties,
 
         .get_timeout = mount_get_timeout,
-
-        .can_transient = true,
 
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,

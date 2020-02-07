@@ -36,7 +36,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
                 assert_se(g = open_memstream_unlocked(&out, &out_size));
 
-        bus_message_dump(m, g ?: stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
+        sd_bus_message_dump(m, g ?: stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         r = sd_bus_message_rewind(m, true);
         assert_se(r >= 0);

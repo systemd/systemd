@@ -626,6 +626,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
                         show_journal_by_unit(
                                         stdout,
                                         i->unit,
+                                        NULL,
                                         arg_output,
                                         0,
                                         i->timestamp.monotonic,

@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "glob-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
@@ -169,7 +170,7 @@ typedef struct LinkInfo {
 
         /* ethtool info */
         int autonegotiation;
-        size_t speed;
+        uint64_t speed;
         Duplex duplex;
         NetDevPort port;
 
@@ -267,7 +268,7 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         return 0;
 }
 
-static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
+static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, bool matched_patterns[]) {
         _cleanup_strv_free_ char **altnames = NULL;
         const char *name;
         int ifindex, r;
@@ -297,20 +298,26 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns) {
 
         if (patterns) {
                 char str[DECIMAL_STR_MAX(int)];
+                size_t pos;
+
+                assert(matched_patterns);
 
                 xsprintf(str, "%i", ifindex);
-                if (!strv_fnmatch(patterns, str, 0) && !strv_fnmatch(patterns, name, 0)) {
+                if (!strv_fnmatch_full(patterns, str, 0, &pos) &&
+                    !strv_fnmatch_full(patterns, name, 0, &pos)) {
                         bool match = false;
                         char **p;
 
                         STRV_FOREACH(p, altnames)
-                                if (strv_fnmatch(patterns, *p, 0)) {
+                                if (strv_fnmatch_full(patterns, *p, 0, &pos)) {
                                         match = true;
                                         break;
                                 }
                         if (!match)
                                 return 0;
                 }
+
+                matched_patterns[pos] = true;
         }
 
         r = sd_rtnl_message_link_get_type(m, &info->iftype);
@@ -465,11 +472,18 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
+        _cleanup_free_ bool *matched_patterns = NULL;
+        if (patterns) {
+                matched_patterns = new0(bool, strv_length(patterns));
+                if (!matched_patterns)
+                        return log_oom();
+        }
+
         for (i = reply; i; i = sd_netlink_message_next(i)) {
                 if (!GREEDY_REALLOC0(links, allocated, c + 2)) /* We keep one trailing one as marker */
                         return -ENOMEM;
 
-                r = decode_link(i, links + c, patterns);
+                r = decode_link(i, links + c, patterns, matched_patterns);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -487,6 +501,20 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 c++;
         }
 
+        /* Look if we matched all our arguments that are not globs. It
+         * is OK for a glob to match nothing, but not for an exact argument. */
+        for (size_t pos = 0; pos < strv_length(patterns); pos++) {
+                if (matched_patterns[pos])
+                        continue;
+
+                if (string_is_glob(patterns[pos]))
+                        log_debug("Pattern \"%s\" doesn't match any interface, ignoring.",
+                                  patterns[pos]);
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "Interface \"%s\" not found.", patterns[pos]);
+        }
+
         typesafe_qsort(links, c, link_info_compare);
 
         if (bus)
@@ -494,6 +522,9 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                         (void) acquire_link_bitrates(bus, links + j);
 
         *ret = TAKE_PTR(links);
+
+        if (patterns && c == 0)
+                log_warning("No interfaces matched.");
 
         return (int) c;
 }
@@ -711,29 +742,41 @@ static int get_gateway_description(
         return -ENODATA;
 }
 
+static int dump_list(Table *table, const char *prefix, char * const *l) {
+        int r;
+
+        if (strv_isempty(l))
+                return 0;
+
+        r = table_add_many(table,
+                           TABLE_EMPTY,
+                           TABLE_STRING, prefix,
+                           TABLE_STRV, l);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        return 0;
+}
+
 static int dump_gateways(
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 Table *table,
                 int ifindex) {
         _cleanup_free_ struct local_address *local = NULL;
+        _cleanup_strv_free_ char **buf = NULL;
         int r, n, i;
 
         assert(rtnl);
         assert(table);
 
         n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
-        if (n < 0)
+        if (n <= 0)
                 return n;
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *gateway = NULL, *description = NULL, *with_description = NULL;
-
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, i == 0 ? "Gateway:" : "");
-                if (r < 0)
-                        return table_log_add_error(r);
+                char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &gateway);
                 if (r < 0)
@@ -741,28 +784,24 @@ static int dump_gateways(
 
                 r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
                 if (r < 0)
-                        log_debug_errno(r, "Could not get description of gateway: %m");
+                        log_debug_errno(r, "Could not get description of gateway, ignoring: %m");
 
                 if (description) {
                         with_description = strjoin(gateway, " (", description, ")");
                         if (!with_description)
-                                return -ENOMEM;
+                                return log_oom();
                 }
 
-                /* Show interface name for the entry if we show
-                 * entries for all interfaces */
-                if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
-
-                        r = table_add_cell_stringf(table, NULL, "%s on %s", with_description ?: gateway,
-                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
-                } else
-                        r = table_add_cell(table, NULL, TABLE_STRING, with_description ?: gateway);
+                /* Show interface name for the entry if we show entries for all interfaces */
+                r = strv_extendf(&buf, "%s%s%s",
+                                 with_description ?: gateway,
+                                 ifindex <= 0 ? " on " : "",
+                                 ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
-                        return table_log_add_error(r);
+                        return log_oom();
         }
 
-        return 0;
+        return dump_list(table, "Gateway:", buf);
 }
 
 static int dump_addresses(
@@ -772,25 +811,21 @@ static int dump_addresses(
 
         _cleanup_free_ struct local_address *local = NULL;
         _cleanup_free_ char *dhcp4_address = NULL;
+        _cleanup_strv_free_ char **buf = NULL;
         int r, n, i;
 
         assert(rtnl);
         assert(table);
 
         n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
-        if (n < 0)
+        if (n <= 0)
                 return n;
 
         (void) sd_network_link_get_dhcp4_address(ifindex, &dhcp4_address);
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
-
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, i == 0 ? "Address:" : "");
-                if (r < 0)
-                        return table_log_add_error(r);
+                char name[IF_NAMESIZE+1];
 
                 r = in_addr_to_string(local[i].family, &local[i].address, &pretty);
                 if (r < 0)
@@ -805,18 +840,15 @@ static int dump_addresses(
                                 return log_oom();
                 }
 
-                if (ifindex <= 0) {
-                        char name[IF_NAMESIZE+1];
-
-                        r = table_add_cell_stringf(table, NULL, "%s on %s", pretty,
-                                                   format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT));
-                } else
-                        r = table_add_cell(table, NULL, TABLE_STRING, pretty);
+                r = strv_extendf(&buf, "%s%s%s",
+                                 pretty,
+                                 ifindex <= 0 ? " on " : "",
+                                 ifindex <= 0 ? format_ifname_full(local[i].ifindex, name, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
-                        return table_log_add_error(r);
+                        return log_oom();
         }
 
-        return 0;
+        return dump_list(table, "Address:", buf);
 }
 
 static int dump_address_labels(sd_netlink *rtnl) {
@@ -966,8 +998,9 @@ static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
 }
 
 static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
+        _cleanup_strv_free_ char **buf = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        int r, c = 0;
+        int r;
 
         assert(table);
         assert(prefix);
@@ -989,29 +1022,21 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
                 if (r == 0)
                         break;
 
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, c == 0 ? prefix : "");
-                if (r < 0)
-                        return table_log_add_error(r);
-
                 (void) sd_lldp_neighbor_get_system_name(n, &system_name);
                 (void) sd_lldp_neighbor_get_port_id_as_string(n, &port_id);
                 (void) sd_lldp_neighbor_get_port_description(n, &port_description);
 
-                r = table_add_cell_stringf(table, NULL,
-                                           "%s on port %s%s%s%s",
-                                           strna(system_name), strna(port_id),
-                                           isempty(port_description) ? "" : " (",
-                                           strempty(port_description),
-                                           isempty(port_description) ? "" : ")");
+                r = strv_extendf(&buf, "%s on port %s%s%s%s",
+                                 strna(system_name),
+                                 strna(port_id),
+                                 isempty(port_description) ? "" : " (",
+                                 strempty(port_description),
+                                 isempty(port_description) ? "" : ")");
                 if (r < 0)
-                        return table_log_add_error(r);
-
-                c++;
+                        return log_oom();
         }
 
-        return c;
+        return dump_list(table, prefix, buf);
 }
 
 static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
@@ -1028,25 +1053,6 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
                                    TABLE_EMPTY,
                                    TABLE_STRING, c == 0 ? prefix : "",
                                    TABLE_IFINDEX, ifindexes[c]);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
-
-        return 0;
-}
-
-static int dump_list(Table *table, const char *prefix, char **l) {
-        char **i;
-        int r;
-
-        if (strv_isempty(l))
-                return 0;
-
-        STRV_FOREACH(i, l) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, i == l ? prefix : "",
-                                   TABLE_STRING, *i);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1166,7 +1172,6 @@ static int link_status_one(
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
-        char **p;
         int r;
 
         assert(rtnl);
@@ -1251,20 +1256,9 @@ static int link_status_one(
         if (r < 0)
                 return table_log_add_error(r);
 
-        STRV_FOREACH(p, info->alternative_names) {
-                if (p == info->alternative_names)
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, "Alternative Names:",
-                                           TABLE_STRING, *p);
-                else
-                        r = table_add_many(table,
-                                           TABLE_EMPTY,
-                                           TABLE_EMPTY,
-                                           TABLE_STRING, *p);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        r = dump_list(table, "Alternative Names:", info->alternative_names);
+        if (r < 0)
+                return r;
 
         if (path) {
                 r = table_add_many(table,
@@ -1501,7 +1495,7 @@ static int link_status_one(
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Speed:",
-                                           TABLE_BPS, (uint64_t) info->speed);
+                                           TABLE_BPS, info->speed);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }

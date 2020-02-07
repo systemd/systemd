@@ -25,6 +25,16 @@
     <para><filename>/etc/sysusers.d/*.conf</filename></para>
     <para><filename>/run/sysusers.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
+
+    <programlisting>
+#Type Name       ID                   GECOS                 Home directory Shell
+u     user_name  uid                  "User Description"    /path/to/shell
+u     user_name  uid:gid              -                     -
+u     user_name  /file/owned/by/user  -                     -
+g     group_name gid                  "Group Description"
+g     group_name /file/owned/by/group -
+m     user_name  group_name
+r     -          lowest-highest</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
@@ -81,11 +91,13 @@
 
     <programlisting>#Type Name     ID             GECOS                 Home directory Shell
 u     httpd    404            "HTTP User"
-u     authd    /usr/bin/authd "Authorization user"
+u     _authd   /usr/bin/authd "Authorization user"
 u     postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
 g     input    -              -
-m     authd    input
-u     root     0              "Superuser"           /root          /bin/zsh</programlisting>
+m     _authd   input
+u     root     0              "Superuser"           /root          /bin/zsh
+r     -        500-900
+</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
@@ -101,15 +113,15 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
           <term><varname>u</varname></term>
           <listitem><para>Create a system user and group of the specified name should
           they not exist yet. The user's primary group will be set to the group
-          bearing the same name. The account will be created disabled, so that logins
-          are not allowed.</para></listitem>
+          bearing the same name unless the ID field specifies it. The account will be
+          created disabled, so that logins are not allowed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>g</varname></term>
           <listitem><para>Create a system group of the specified name
           should it not exist yet. Note that <varname>u</varname>
-          implicitly create a matching group. The group will be
+          implicitly creates a matching group. The group will be
           created with no password set.</para></listitem>
         </varlistentry>
 
@@ -166,9 +178,10 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
       binaries).
-      The syntax <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> is also supported to
-      allow creating user and group pairs with different numeric UID and GID values. The group with the indicated GID must get created explicitly before or it must already exist. Specifying <literal>-</literal> for the UID in this syntax
-      is also supported.
+      The syntaxes <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> and
+      <literal><replaceable>uid</replaceable>:<replaceable>groupname</replaceable></literal> are supported to
+      allow creating users with specific primary groups. The given group must be created explicitly, or it
+      must already exist. Specifying <literal>-</literal> for the UID in these syntaxes is also supported.
       </para>
 
       <para>For <varname>m</varname> lines, this field should contain

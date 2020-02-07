@@ -29,10 +29,10 @@ static bool manager_ignore_link(Manager *m, Link *link) {
                 return true;
 
         /* ignore interfaces we explicitly are asked to ignore */
-        return strv_fnmatch(m->ignore, link->ifname, 0);
+        return strv_fnmatch(m->ignore, link->ifname);
 }
 
-static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {
+static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
         /* This returns the following:
          * -EAGAIN: not processed by udev or networkd
          *       0: operstate is not enough
@@ -46,13 +46,18 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalState s) {
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EAGAIN),
                                             "link is being processed by networkd");
 
-        if (s < 0)
-                s = m->required_operstate >= 0 ? m->required_operstate : l->required_operstate;
+        if (s.min < 0)
+                s.min = m->required_operstate.min >= 0 ? m->required_operstate.min
+                                                       : l->required_operstate.min;
 
-        if (l->operational_state < s) {
-                log_link_debug(l, "Operational state '%s' is below '%s'",
+        if (s.max < 0)
+                s.max = m->required_operstate.max >= 0 ? m->required_operstate.max
+                                                       : l->required_operstate.max;
+
+        if (l->operational_state < s.min || l->operational_state > s.max) {
+                log_link_debug(l, "Operational state '%s' is not in range ['%s':'%s']",
                                link_operstate_to_string(l->operational_state),
-                               link_operstate_to_string(s));
+                               link_operstate_to_string(s.min), link_operstate_to_string(s.max));
                 return 0;
         }
 
@@ -70,9 +75,14 @@ bool manager_configured(Manager *m) {
         if (!hashmap_isempty(m->interfaces)) {
                 /* wait for all the links given on the command line to appear */
                 HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
-                        LinkOperationalState s = PTR_TO_INT(p);
+                        LinkOperationalStateRange *range = p;
 
                         l = hashmap_get(m->links_by_name, ifname);
+                        if (!l && range->min == LINK_OPERSTATE_MISSING) {
+                                one_ready = true;
+                                continue;
+                        }
+
                         if (!l) {
                                 log_debug("still waiting for %s", ifname);
                                 if (!m->any)
@@ -80,7 +90,7 @@ bool manager_configured(Manager *m) {
                                 continue;
                         }
 
-                        if (manager_link_is_online(m, l, s) <= 0) {
+                        if (manager_link_is_online(m, l, *range) <= 0) {
                                 if (!m->any)
                                         return false;
                                 continue;
@@ -102,7 +112,9 @@ bool manager_configured(Manager *m) {
                         continue;
                 }
 
-                r = manager_link_is_online(m, l, _LINK_OPERSTATE_INVALID);
+                r = manager_link_is_online(m, l,
+                                           (LinkOperationalStateRange) { _LINK_OPERSTATE_INVALID,
+                                                                         _LINK_OPERSTATE_INVALID });
                 if (r < 0 && !m->any)
                         return false;
                 if (r > 0)
@@ -289,7 +301,7 @@ static int manager_network_monitor_listen(Manager *m) {
 }
 
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
-                LinkOperationalState required_operstate,
+                LinkOperationalStateRange required_operstate,
                 bool any, usec_t timeout) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;

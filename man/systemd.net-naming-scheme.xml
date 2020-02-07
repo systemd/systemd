@@ -79,7 +79,7 @@
           </row>
           <row>
             <entry><constant>sl</constant></entry>
-            <entry>serial line IP (slip)</entry>
+            <entry>Serial line IP (slip)</entry>
           </row>
           <row>
             <entry><constant>wl</constant></entry>

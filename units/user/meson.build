@@ -13,26 +13,14 @@ units = [
         'smartcard.target',
         'sockets.target',
         'sound.target',
-        'timers.target',
         'systemd-exit.service',
+        'systemd-tmpfiles-clean.service',
         'systemd-tmpfiles-clean.timer',
+        'systemd-tmpfiles-setup.service',
+        'timers.target',
 ]
 
 foreach file : units
         install_data(file,
-                     install_dir : userunitdir)
-endforeach
-
-in_units = [
-        'systemd-tmpfiles-clean.service',
-        'systemd-tmpfiles-setup.service',
-]
-
-foreach file : in_units
-        gen = configure_file(
-                input : file + '.in',
-                output : file,
-                configuration : substs)
-        install_data(gen,
                      install_dir : userunitdir)
 endforeach

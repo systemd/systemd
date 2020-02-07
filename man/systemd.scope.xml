@@ -45,6 +45,15 @@
     url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New
     Control Group Interfaces</ulink> for an introduction on how to make
     use of scope units from programs.</para>
+
+    <para>Note that, unlike service units, scope units have no "main" process: all processes in the scope are
+    equivalent. The lifecycle of the scope unit is thus not bound to the lifetime of one specific process,
+    but to the existence of at least one process in the scope. This also means that the exit statuses of
+    these processes are not relevant for the scope unit failure state. Scope units may still enter a failure
+    state, for example due to resource exhaustion or stop timeouts being reached, but not due to programs
+    inside of them terminating uncleanly. Since processes managed as scope units generally remain children of
+    the original process that forked them off, it is also the job of that process to collect their exit
+    statuses and act on them as needed.</para>
   </refsect1>
 
   <refsect1>

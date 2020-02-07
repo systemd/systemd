@@ -5,30 +5,18 @@
 #include <net/if.h>
 #include <stdbool.h>
 
-#if SIZEOF_PID_T == 4
-#  define PID_PRI PRIi32
-#elif SIZEOF_PID_T == 2
-#  define PID_PRI PRIi16
-#else
-#  error Unknown pid_t size
-#endif
+#include "cgroup-util.h"
+#include "macro.h"
+
+assert_cc(sizeof(pid_t) == sizeof(int32_t));
+#define PID_PRI PRIi32
 #define PID_FMT "%" PID_PRI
 
-#if SIZEOF_UID_T == 4
-#  define UID_FMT "%" PRIu32
-#elif SIZEOF_UID_T == 2
-#  define UID_FMT "%" PRIu16
-#else
-#  error Unknown uid_t size
-#endif
+assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+#define UID_FMT "%" PRIu32
 
-#if SIZEOF_GID_T == 4
-#  define GID_FMT "%" PRIu32
-#elif SIZEOF_GID_T == 2
-#  define GID_FMT "%" PRIu16
-#else
-#  error Unknown gid_t size
-#endif
+assert_cc(sizeof(gid_t) == sizeof(uint32_t));
+#define GID_FMT "%" PRIu32
 
 #if SIZEOF_TIME_T == 8
 #  define PRI_TIME PRIi64
@@ -84,8 +72,15 @@ typedef enum {
         FORMAT_BYTES_TRAILING_B  = 1 << 2,
 } FormatBytesFlag;
 
-#define FORMAT_BYTES_MAX 8
+#define FORMAT_BYTES_MAX 16
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
 static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
+}
+static inline char *format_bytes_cgroup_protection(char *buf, size_t l, uint64_t t) {
+        if (t == CGROUP_LIMIT_MAX) {
+                (void) snprintf(buf, l, "%s", "infinity");
+                return buf;
+        }
+        return format_bytes(buf, l, t);
 }

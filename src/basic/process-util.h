@@ -172,7 +172,6 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *pid
 
 int set_oom_score_adjust(int value);
 
-#if SIZEOF_PID_T == 4
 /* The highest possibly (theoretic) pid_t value on this architecture. */
 #define PID_T_MAX ((pid_t) INT32_MAX)
 /* The maximum number of concurrent processes Linux allows on this architecture, as well as the highest valid PID value
@@ -182,12 +181,6 @@ int set_oom_score_adjust(int value);
  * these values are documented in proc(5) we feel quite confident that they are stable enough for the near future at
  * least to define them here too. */
 #define TASKS_MAX 4194303U
-#elif SIZEOF_PID_T == 2
-#define PID_T_MAX ((pid_t) INT16_MAX)
-#define TASKS_MAX 32767U
-#else
-#error "Unknown pid_t size"
-#endif
 
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
 

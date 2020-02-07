@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 project('systemd', 'c',
-        version : '244',
+        version : '245',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.46',
        )
 
-libsystemd_version = '0.27.1'
-libudev_version = '1.6.16'
+libsystemd_version = '0.28.0'
+libudev_version = '1.6.17'
 
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
@@ -243,6 +243,8 @@ conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlib
 conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
+conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-homework'))
+conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
 conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
@@ -280,7 +282,6 @@ substs.set('userenvgeneratordir',                             userenvgeneratordi
 substs.set('systemshutdowndir',                               systemshutdowndir)
 substs.set('systemsleepdir',                                  systemsleepdir)
 substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
-substs.set('SYSTEMCTL',                                       join_paths(rootbindir, 'systemctl'))
 substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
 substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
 substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
@@ -448,9 +449,6 @@ conf.set('_GNU_SOURCE', true)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 conf.set10('HAVE_WSTRINGOP_TRUNCATION', has_wstringop_truncation)
 
-conf.set('SIZEOF_PID_T', cc.sizeof('pid_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_UID_T', cc.sizeof('uid_t', prefix : '#include <sys/types.h>'))
-conf.set('SIZEOF_GID_T', cc.sizeof('gid_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_TIME_T', cc.sizeof('time_t', prefix : '#include <sys/time.h>'))
@@ -873,6 +871,27 @@ endif
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
+want_libfdisk = get_option('fdisk')
+if want_libfdisk != 'false' and not skip_deps
+        libfdisk = dependency('fdisk',
+                              required : want_libfdisk == 'true')
+        have = libfdisk.found()
+else
+        have = false
+        libfdisk = []
+endif
+conf.set10('HAVE_LIBFDISK', have)
+
+want_pwquality = get_option('pwquality')
+if want_pwquality != 'false' and not skip_deps
+        libpwquality = dependency('pwquality', required : want_pwquality == 'true')
+        have = libpwquality.found()
+else
+        have = false
+        libpwquality = []
+endif
+conf.set10('HAVE_PWQUALITY', have)
+
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false' and not skip_deps
         libseccomp = dependency('libseccomp',
@@ -1000,6 +1019,9 @@ if want_libcryptsetup != 'false' and not skip_deps
                                    version : '>= 2.0.1',
                                    required : want_libcryptsetup == 'true')
         have = libcryptsetup.found()
+
+        conf.set10('HAVE_CRYPT_SET_METADATA_SIZE',
+                   have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup))
 else
         have = false
         libcryptsetup = []
@@ -1279,6 +1301,18 @@ conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
 substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
 
+want_repart = get_option('repart')
+if want_repart != 'false'
+        have = (conf.get('HAVE_OPENSSL') == 1 and
+                conf.get('HAVE_LIBFDISK') == 1)
+        if want_repart == 'true' and not have
+                error('repart support was requested, but dependencies are not available')
+        endif
+else
+        have = false
+endif
+conf.set10('ENABLE_REPART', have)
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
@@ -1292,6 +1326,22 @@ else
         have = false
 endif
 conf.set10('ENABLE_IMPORTD', have)
+
+want_homed = get_option('homed')
+if want_homed != 'false'
+        have = (conf.get('HAVE_OPENSSL') == 1 and
+                conf.get('HAVE_LIBFDISK') == 1 and
+                conf.get('HAVE_LIBCRYPTSETUP') == 1)
+        if want_homed == 'true' and not have
+                error('homed support was requested, but dependencies are not available')
+        endif
+else
+        have = false
+endif
+conf.set10('ENABLE_HOMED', have)
+
+have = have and conf.get('HAVE_PAM') == 1
+conf.set10('ENABLE_PAM_HOME', have)
 
 want_remote = get_option('remote')
 if want_remote != 'false'
@@ -1322,6 +1372,7 @@ foreach term : ['utmp',
                 'localed',
                 'machined',
                 'portabled',
+                'userdb',
                 'networkd',
                 'timedated',
                 'timesyncd',
@@ -1534,10 +1585,13 @@ subdir('src/coredump')
 subdir('src/pstore')
 subdir('src/hostname')
 subdir('src/import')
+subdir('src/partition')
 subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
 subdir('src/portable')
+subdir('src/userdb')
+subdir('src/home')
 subdir('src/nspawn')
 subdir('src/resolve')
 subdir('src/timedate')
@@ -1564,7 +1618,7 @@ test_dlopen = executable(
         build_by_default : want_tests != 'false')
 
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
-                 ['systemd',    'ENABLE_NSS_SYSTEMD'],
+                 ['systemd',    'ENABLE_NSS_SYSTEMD', 'src/nss-systemd/userdb-glue.c src/nss-systemd/userdb-glue.h'],
                  ['mymachines', 'ENABLE_NSS_MYMACHINES'],
                  ['resolve',    'ENABLE_NSS_RESOLVE']]
 
@@ -1575,9 +1629,14 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                 sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
                 version_script_arg = join_paths(project_source_root, sym)
 
+                sources = ['src/nss-@0@/nss-@0@.c'.format(module)]
+                if tuple.length() > 2
+                        sources += tuple[2].split()
+                endif
+
                 nss = shared_library(
                         'nss_' + module,
-                        'src/nss-@0@/nss-@0@.c'.format(module),
+                        sources,
                         disable_mempool_c,
                         version : '2',
                         include_directories : includes,
@@ -1974,6 +2033,97 @@ if conf.get('ENABLE_PORTABLED') == 1
         public_programs += exe
 endif
 
+if conf.get('ENABLE_USERDB') == 1
+        executable('systemd-userwork',
+                   systemd_userwork_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('systemd-userdbd',
+                   systemd_userdbd_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('userdbctl',
+                   userdbctl_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+endif
+
+if conf.get('ENABLE_HOMED') == 1
+        executable('systemd-homework',
+                   systemd_homework_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libcryptsetup,
+                                   libblkid,
+                                   libcrypt,
+                                   libopenssl,
+                                   libfdisk,
+                                   libp11kit],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('systemd-homed',
+                   systemd_homed_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libcrypt,
+                                   libopenssl,
+                                   libpwquality],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('homectl',
+                   homectl_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libcrypt,
+                                   libopenssl,
+                                   libp11kit,
+                                   libpwquality],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+
+        if conf.get('HAVE_PAM') == 1
+                version_script_arg = join_paths(project_source_root, pam_systemd_home_sym)
+                pam_systemd = shared_library(
+                        'pam_systemd_home',
+                        pam_systemd_home_c,
+                        name_prefix : '',
+                        include_directories : includes,
+                        link_args : ['-shared',
+                                     '-Wl,--version-script=' + version_script_arg],
+                        link_with : [libsystemd_static,
+                                     libshared_static],
+                        dependencies : [threads,
+                                        libpam,
+                                        libpam_misc,
+                                        libcrypt],
+                        link_depends : pam_systemd_home_sym,
+                        install : true,
+                        install_dir : pamlibdir)
+        endif
+endif
+
 foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
         meson.add_install_script(meson_make_symlink,
                                  join_paths(rootbindir, 'systemctl'),
@@ -2343,6 +2493,21 @@ if conf.get('ENABLE_BINFMT') == 1
                                  mkdir_p.format(binfmtdir))
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+endif
+
+if conf.get('ENABLE_REPART') == 1
+        executable('systemd-repart',
+                   systemd_repart_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads,
+                                   libcryptsetup,
+                                   libblkid,
+                                   libfdisk,
+                                   libopenssl],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
 endif
 
 if conf.get('ENABLE_VCONSOLE') == 1
@@ -3204,8 +3369,8 @@ if conf.get('ENABLE_EFI') == 1
                 status += [
                         'EFI machine type:                  @0@'.format(EFI_MACHINE_TYPE_NAME),
                         'EFI CC                             @0@'.format(' '.join(efi_cc)),
-                        'EFI lib directory:                 @0@'.format(efi_libdir),
-                        'EFI lds directory:                 @0@'.format(efi_ldsdir),
+                        'EFI lds:                           @0@'.format(efi_lds),
+                        'EFI crt0:                          @0@'.format(efi_crt0),
                         'EFI include directory:             @0@'.format(efi_incdir)]
         endif
 endif
@@ -3216,6 +3381,8 @@ missing = []
 foreach tuple : [
         ['libcryptsetup'],
         ['PAM'],
+        ['pwquality'],
+        ['libfdisk'],
         ['p11kit'],
         ['AUDIT'],
         ['IMA'],
@@ -3240,6 +3407,7 @@ foreach tuple : [
         ['libiptc'],
         ['elfutils'],
         ['binfmt'],
+        ['repart'],
         ['vconsole'],
         ['quotacheck'],
         ['tmpfiles'],
@@ -3252,6 +3420,8 @@ foreach tuple : [
         ['logind'],
         ['machined'],
         ['portabled'],
+        ['userdb'],
+        ['homed'],
         ['importd'],
         ['hostnamed'],
         ['timedated'],

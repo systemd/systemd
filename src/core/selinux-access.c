@@ -181,11 +181,11 @@ int mac_selinux_generic_access_check(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *tclass = NULL, *scon = NULL;
-        struct audit_info audit_info = {};
+        const char *tclass, *scon;
         _cleanup_free_ char *cl = NULL;
-        char *fcon = NULL;
+        _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
+        bool enforce = false; /* Will be set to the real value later if needed */
         int r = 0;
 
         assert(message);
@@ -204,7 +204,7 @@ int mac_selinux_generic_access_check(
                         SD_BUS_CREDS_AUGMENT /* get more bits from /proc */,
                         &creds);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* The SELinux context is something we really should have
          * gotten directly from the message or sender, and not be an
@@ -216,23 +216,39 @@ int mac_selinux_generic_access_check(
 
         r = sd_bus_creds_get_selinux_context(creds, &scon);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (path) {
                 /* Get the file context of the unit file */
 
-                r = getfilecon_raw(path, &fcon);
-                if (r < 0) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
-                        goto finish;
+                if (getfilecon_raw(path, &fcon) < 0) {
+                        r = -errno;
+                        enforce = security_getenforce() > 0;
+
+                        log_warning_errno(r, "SELinux getfilecon_raw on '%s' failed%s (perm=%s): %m",
+                                          path,
+                                          enforce ? "" : ", ignoring",
+                                          permission);
+                        if (!enforce)
+                                return 0;
+
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get file context on %s.", path);
                 }
 
                 tclass = "service";
+
         } else {
-                r = getcon_raw(&fcon);
-                if (r < 0) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
-                        goto finish;
+                if (getcon_raw(&fcon) < 0) {
+                        r = -errno;
+                        enforce = security_getenforce() > 0;
+
+                        log_warning_errno(r, "SELinux getcon_raw failed%s (perm=%s): %m",
+                                          enforce ? "" : ", ignoring",
+                                          permission);
+                        if (!enforce)
+                                return 0;
+
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to get current context.");
                 }
 
                 tclass = "system";
@@ -241,25 +257,24 @@ int mac_selinux_generic_access_check(
         sd_bus_creds_get_cmdline(creds, &cmdline);
         cl = strv_join(cmdline, " ");
 
-        audit_info.creds = creds;
-        audit_info.path = path;
-        audit_info.cmdline = cl;
+        struct audit_info audit_info = {
+                .creds = creds,
+                .path = path,
+                .cmdline = cl,
+        };
 
         r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
-        if (r < 0)
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
+        if (r < 0) {
+                r = errno_or_else(EPERM);
+                enforce = security_getenforce() > 0;
 
-        log_debug("SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %i", scon, fcon, tclass, permission, path, cl, r);
-
-finish:
-        freecon(fcon);
-
-        if (r < 0 && security_getenforce() != 1) {
-                sd_bus_error_free(error);
-                r = 0;
+                if (enforce)
+                        sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        return r;
+        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %m",
+                        scon, fcon, tclass, permission, path, cl);
+        return enforce ? r : 0;
 }
 
 #else

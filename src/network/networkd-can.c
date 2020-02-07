@@ -101,7 +101,7 @@ static int link_set_can(Link *link) {
                 };
 
                 if (link->network->can_bitrate > UINT32_MAX) {
-                        log_link_error(link, "bitrate (%zu) too big.", link->network->can_bitrate);
+                        log_link_error(link, "bitrate (%" PRIu64 ") too big.", link->network->can_bitrate);
                         return -ERANGE;
                 }
 

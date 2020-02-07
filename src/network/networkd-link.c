@@ -1514,6 +1514,10 @@ static int link_acquire_ipv6_conf(Link *link) {
 
                 log_link_debug(link, "Starting IPv6 Router Advertisements");
 
+                r = radv_emit_dns(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to configure DNS or Domains in IPv6 Router Advertisement: %m");
+
                 r = sd_radv_start(link->radv);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
@@ -1875,7 +1879,7 @@ static int link_new_bound_by_list(Link *link) {
                 if (strv_isempty(carrier->network->bind_carrier))
                         continue;
 
-                if (strv_fnmatch(carrier->network->bind_carrier, link->ifname, 0)) {
+                if (strv_fnmatch(carrier->network->bind_carrier, link->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_by_links);
                         if (r < 0)
                                 return r;
@@ -1917,7 +1921,7 @@ static int link_new_bound_to_list(Link *link) {
         m = link->manager;
 
         HASHMAP_FOREACH (carrier, m->links, i) {
-                if (strv_fnmatch(link->network->bind_carrier, carrier->ifname, 0)) {
+                if (strv_fnmatch(link->network->bind_carrier, carrier->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
                                 return r;
@@ -3023,9 +3027,6 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         Network *network;
         int r;
 
-        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
-                return 0;
-
         if (m) {
                 _cleanup_strv_free_ char **s = NULL;
 
@@ -3089,6 +3090,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
+        link_dirty(link);
 
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
          * link_configure() is called later asynchronously. */
@@ -3126,6 +3128,9 @@ static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *
 int link_reconfigure(Link *link, bool force) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
+
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
+                return 0;
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
                                      link->ifindex);
@@ -3952,8 +3957,14 @@ int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s\n",
-                        strempty(link_operstate_to_string(link->network->required_operstate_for_online)));
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s",
+                        strempty(link_operstate_to_string(link->network->required_operstate_for_online.min)));
+
+                if (link->network->required_operstate_for_online.max != LINK_OPERSTATE_RANGE_DEFAULT.max)
+                        fprintf(f, ":%s",
+                                strempty(link_operstate_to_string(link->network->required_operstate_for_online.max)));
+
+                fprintf(f, "\n");
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);

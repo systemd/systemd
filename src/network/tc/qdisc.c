@@ -234,7 +234,7 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact) {
         return 0;
 }
 
-int config_parse_tc_qdiscs_parent(
+int config_parse_qdisc_parent(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -254,8 +254,9 @@ int config_parse_tc_qdiscs_parent(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+        assert(ltype >= 0 && ltype < _QDISC_KIND_MAX);
 
-        r = qdisc_new_static(_QDISC_KIND_INVALID, network, filename, section_line, &qdisc);
+        r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r < 0)
                 return r;
 

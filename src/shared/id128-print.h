@@ -14,5 +14,6 @@ typedef enum Id128PrettyPrintMode {
         _ID128_PRETTY_PRINT_MODE_INVALID = -1
 } Id128PrettyPrintMode;
 
+int id128_pretty_print_sample(const char *name, sd_id128_t id);
 int id128_pretty_print(sd_id128_t id, Id128PrettyPrintMode mode);
 int id128_print_new(Id128PrettyPrintMode mode);

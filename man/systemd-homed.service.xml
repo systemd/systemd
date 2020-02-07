@@ -1,0 +1,57 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-homed.service" conditional='ENABLE_HOMED'>
+
+  <refentryinfo>
+    <title>systemd-homed.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-homed.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-homed.service</refname>
+    <refname>systemd-homed</refname>
+    <refpurpose>Home Directory/User Account Manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-homed.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-homed</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-homed</command> is a system service that may be used to create, remove, change or
+    inspect home directories.</para>
+
+    <para>Most of <command>systemd-homed</command>'s functionality is accessible through the
+    <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
+
+    <para>See the <ulink url="https://systemd.io/HOME_DIRECTORY">Home Directories</ulink> documentation for
+    details about the format and design of home directories managed by
+    <filename>systemd-homed.service</filename>.</para>
+
+    <para>Each home directory managed by <filename>systemd-homed.service</filename> synthesizes a local user
+    and group. These are made available to the system using the <ulink
+    url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and thus may be
+    browsed with
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

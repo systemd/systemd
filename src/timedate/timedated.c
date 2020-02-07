@@ -12,7 +12,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "def.h"

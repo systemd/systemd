@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "fd-util.h"
 #include "fileio.h"

@@ -14,7 +14,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"

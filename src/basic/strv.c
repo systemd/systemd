@@ -57,20 +57,15 @@ char *strv_find_startswith(char * const *l, const char *name) {
         return NULL;
 }
 
-void strv_clear(char **l) {
+char **strv_free(char **l) {
         char **k;
 
         if (!l)
-                return;
+                return NULL;
 
         for (k = l; *k; k++)
                 free(*k);
 
-        *l = NULL;
-}
-
-char **strv_free(char **l) {
-        strv_clear(l);
         return mfree(l);
 }
 
@@ -730,19 +725,26 @@ char **strv_sort(char **l) {
         return l;
 }
 
-bool strv_equal(char * const *a, char * const *b) {
+int strv_compare(char * const *a, char * const *b) {
+        int r;
 
-        if (strv_isempty(a))
-                return strv_isempty(b);
+        if (strv_isempty(a)) {
+                if (strv_isempty(b))
+                        return 0;
+                else
+                        return -1;
+        }
 
         if (strv_isempty(b))
-                return false;
+                return 1;
 
-        for ( ; *a || *b; ++a, ++b)
-                if (!streq_ptr(*a, *b))
-                        return false;
+        for ( ; *a || *b; ++a, ++b) {
+                r = strcmp_ptr(*a, *b);
+                if (r != 0)
+                        return r;
+        }
 
-        return true;
+        return 0;
 }
 
 void strv_print(char * const *l) {
@@ -800,12 +802,13 @@ char **strv_shell_escape(char **l, const char *bad) {
         return l;
 }
 
-bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
-        char* const* p;
-
-        STRV_FOREACH(p, patterns)
-                if (fnmatch(*p, s, flags) == 0)
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos) {
+        for (size_t i = 0; patterns && patterns[i]; i++)
+                if (fnmatch(patterns[i], s, flags) == 0) {
+                        if (matched_pos)
+                                *matched_pos = i;
                         return true;
+                }
 
         return false;
 }

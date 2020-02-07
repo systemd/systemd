@@ -26,6 +26,7 @@
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
     <filename>ctrl-alt-del.target</filename>,
+    <filename>blockdev@.target</filename>,
     <filename>boot-complete.target</filename>,
     <filename>default.target</filename>,
     <filename>emergency.target</filename>,
@@ -845,6 +846,22 @@
       not useful as only unit within a transaction.</para>
 
       <variablelist>
+        <varlistentry>
+          <term><filename>blockdev@.target</filename></term>
+          <listitem><para>This template unit is used to order mount units and other consumers of block
+          devices after services that synthesize these block devices. In particular, this is intended to be
+          used with storage services (such as
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          that allocate and manage a virtual block device. Storage services are ordered before an instance of
+          <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
+          particularly relevant during shutdown, as it ensures that the mount is deactivated first and the
+          service backing the mount later. The <filename>blockdev@.target</filename> instance should be
+          pulled in via a <option>Wants=</option> dependency of the storage daemon and thus generally not be
+          part of any transaction unless a storage daemon is used. The instance name for instances of this
+          template unit must be a properly escaped block device node path, e.g.
+          <filename>blockdev@dev-mapper-foobar.target</filename> for the storage device
+          <filename>/dev/mapper/foobar</filename>.</para></listitem>
+        </varlistentry>
         <varlistentry>
           <term><filename>cryptsetup-pre.target</filename></term>
           <listitem>

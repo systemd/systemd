@@ -10,8 +10,8 @@
 #include "qdisc.h"
 #include "string-util.h"
 
-static int fair_queuing_controlled_delay_init(QDisc *qdisc) {
-        FairQueuingControlledDelay *fqcd;
+static int fair_queueing_controlled_delay_init(QDisc *qdisc) {
+        FairQueueingControlledDelay *fqcd;
 
         assert(qdisc);
 
@@ -24,8 +24,8 @@ static int fair_queuing_controlled_delay_init(QDisc *qdisc) {
         return 0;
 }
 
-static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
-        FairQueuingControlledDelay *fqcd;
+static int fair_queueing_controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
+        FairQueueingControlledDelay *fqcd;
         int r;
 
         assert(link);
@@ -93,7 +93,7 @@ static int fair_queuing_controlled_delay_fill_message(Link *link, QDisc *qdisc, 
         return 0;
 }
 
-int config_parse_tc_fair_queuing_controlled_delay_u32(
+int config_parse_fair_queueing_controlled_delay_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -106,7 +106,7 @@ int config_parse_tc_fair_queuing_controlled_delay_u32(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueuingControlledDelay *fqcd;
+        FairQueueingControlledDelay *fqcd;
         Network *network = data;
         uint32_t *p;
         int r;
@@ -125,9 +125,9 @@ int config_parse_tc_fair_queuing_controlled_delay_u32(
 
         fqcd = FQ_CODEL(qdisc);
 
-        if (streq(lvalue, "FairQueuingControlledDelayPacketLimit"))
+        if (streq(lvalue, "PacketLimit"))
                 p = &fqcd->packet_limit;
-        else if (streq(lvalue, "FairQueuingControlledDelayFlows"))
+        else if (streq(lvalue, "Flows"))
                 p = &fqcd->flows;
         else
                 assert_not_reached("Invalid lvalue.");
@@ -152,7 +152,7 @@ int config_parse_tc_fair_queuing_controlled_delay_u32(
         return 0;
 }
 
-int config_parse_tc_fair_queuing_controlled_delay_usec(
+int config_parse_fair_queueing_controlled_delay_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -165,7 +165,7 @@ int config_parse_tc_fair_queuing_controlled_delay_usec(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueuingControlledDelay *fqcd;
+        FairQueueingControlledDelay *fqcd;
         Network *network = data;
         usec_t *p;
         int r;
@@ -184,17 +184,17 @@ int config_parse_tc_fair_queuing_controlled_delay_usec(
 
         fqcd = FQ_CODEL(qdisc);
 
-        if (streq(lvalue, "FairQueuingControlledDelayTargetSec"))
+        if (streq(lvalue, "TargetSec"))
                 p = &fqcd->target_usec;
-        else if (streq(lvalue, "FairQueuingControlledDelayIntervalSec"))
+        else if (streq(lvalue, "IntervalSec"))
                 p = &fqcd->interval_usec;
-        else if (streq(lvalue, "FairQueuingControlledDelayCEThresholdSec"))
+        else if (streq(lvalue, "CEThresholdSec"))
                 p = &fqcd->ce_threshold_usec;
         else
                 assert_not_reached("Invalid lvalue.");
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "FairQueuingControlledDelayCEThresholdSec"))
+                if (streq(lvalue, "CEThresholdSec"))
                         *p = USEC_INFINITY;
                 else
                         *p = 0;
@@ -216,7 +216,7 @@ int config_parse_tc_fair_queuing_controlled_delay_usec(
         return 0;
 }
 
-int config_parse_tc_fair_queuing_controlled_delay_bool(
+int config_parse_fair_queueing_controlled_delay_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -229,7 +229,7 @@ int config_parse_tc_fair_queuing_controlled_delay_bool(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueuingControlledDelay *fqcd;
+        FairQueueingControlledDelay *fqcd;
         Network *network = data;
         int r;
 
@@ -268,7 +268,7 @@ int config_parse_tc_fair_queuing_controlled_delay_bool(
         return 0;
 }
 
-int config_parse_tc_fair_queuing_controlled_delay_size(
+int config_parse_fair_queueing_controlled_delay_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -281,7 +281,7 @@ int config_parse_tc_fair_queuing_controlled_delay_size(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        FairQueuingControlledDelay *fqcd;
+        FairQueueingControlledDelay *fqcd;
         Network *network = data;
         uint64_t sz;
         uint32_t *p;
@@ -301,15 +301,15 @@ int config_parse_tc_fair_queuing_controlled_delay_size(
 
         fqcd = FQ_CODEL(qdisc);
 
-        if (streq(lvalue, "FairQueuingControlledDelayMemoryLimit"))
+        if (streq(lvalue, "MemoryLimit"))
                 p = &fqcd->memory_limit;
-        else if (streq(lvalue, "FairQueuingControlledDelayQuantum"))
+        else if (streq(lvalue, "Quantum"))
                 p = &fqcd->quantum;
         else
                 assert_not_reached("Invalid lvalue.");
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "FairQueuingControlledMemoryLimit"))
+                if (streq(lvalue, "MemoryLimit"))
                         *p = UINT32_MAX;
                 else
                         *p = 0;
@@ -339,8 +339,8 @@ int config_parse_tc_fair_queuing_controlled_delay_size(
 }
 
 const QDiscVTable fq_codel_vtable = {
-        .object_size = sizeof(FairQueuingControlledDelay),
+        .object_size = sizeof(FairQueueingControlledDelay),
         .tca_kind = "fq_codel",
-        .init = fair_queuing_controlled_delay_init,
-        .fill_message = fair_queuing_controlled_delay_fill_message,
+        .init = fair_queueing_controlled_delay_init,
+        .fill_message = fair_queueing_controlled_delay_fill_message,
 };

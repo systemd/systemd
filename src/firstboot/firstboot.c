@@ -4,19 +4,6 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#if HAVE_CRYPT_H
-/* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be
- * removed from glibc at some point. As part of the removal, defines for
- * crypt(3) are dropped from unistd.h, and we must include crypt.h instead.
- *
- * Newer versions of glibc (v2.0+) already ship crypt.h with a definition
- * of crypt(3) as well, so we simply include it if it is present.  MariaDB,
- * MySQL, PostgreSQL, Perl and some other wide-spread packages do it the
- * same way since ages without any problems.
- */
-#  include <crypt.h>
-#endif
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -28,6 +15,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "kbd-util.h"
+#include "libcrypt-util.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -562,10 +550,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
-                if (strv_length(a) != 1) {
-                        log_warning("Received multiple passwords, where we expected one.");
-                        return -EINVAL;
-                }
+                if (strv_length(a) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
                         log_warning("No password entered, skipping.");
@@ -575,6 +562,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
+                if (strv_length(b) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (!streq(*a, *b)) {
                         log_error("Entered passwords did not match, please try again.");

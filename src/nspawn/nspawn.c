@@ -3309,10 +3309,12 @@ static int outer_child(
 
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
                                           DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0)|
+                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK)|
                                           (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image root file system: %m");
         }
 
         r = determine_uid_shift(directory);
@@ -3396,9 +3398,11 @@ static int outer_child(
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image file system: %m");
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
@@ -5112,14 +5116,14 @@ static int run(int argc, char *argv[]) {
                                 loop->fd,
                                 arg_image,
                                 arg_root_hash, arg_root_hash_size,
-                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK,
                                 &dissected_image);
                 if (r == -ENOPKG) {
                         /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
-                                   "    c) or follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n"
+                                   "    c) or follow https://systemd.io/DISCOVERABLE_PARTITIONS\n"
                                    "    d) or contain a file system without a partition table\n"
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;

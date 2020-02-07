@@ -27,6 +27,7 @@ which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':
 
 networkd_bin=shutil.which('systemd-networkd', path=which_paths)
 resolved_bin=shutil.which('systemd-resolved', path=which_paths)
+udevd_bin=shutil.which('systemd-udevd', path=which_paths)
 wait_online_bin=shutil.which('systemd-networkd-wait-online', path=which_paths)
 networkctl_bin=shutil.which('networkctl', path=which_paths)
 resolvectl_bin=shutil.which('resolvectl', path=which_paths)
@@ -100,6 +101,23 @@ def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
 
     return f
 
+def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
+    def f(func):
+        support = False
+        rc = call('ip rule add from 192.168.100.19 table 7 uidrange 200-300', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            ret = run('ip rule list from 192.168.100.19 table 7', stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            if ret.returncode == 0 and 'uidrange 200-300' in ret.stdout.rstrip():
+                support = True
+            call('ip rule del from 192.168.100.19 table 7 uidrange 200-300')
+
+        if support:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def expectedFailureIfLinkFileFieldIsNotSet():
     def f(func):
         support = False
@@ -147,7 +165,7 @@ def setUpModule():
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'firewalld.service']:
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service', 'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
             check_output(f'systemctl stop {u}')
             running_units.append(u)
@@ -209,21 +227,34 @@ def setUpModule():
     with open('/run/systemd/system/systemd-resolved.service.d/00-override.conf', mode='w') as f:
         f.write('\n'.join(drop_in))
 
+    drop_in = [
+        '[Service]',
+        'ExecStart=',
+        'ExecStart=!!' + udevd_bin,
+    ]
+
+    os.makedirs('/run/systemd/system/systemd-udevd.service.d', exist_ok=True)
+    with open('/run/systemd/system/systemd-udevd.service.d/00-override.conf', mode='w') as f:
+        f.write('\n'.join(drop_in))
+
     check_output('systemctl daemon-reload')
     print(check_output('systemctl cat systemd-networkd.service'))
     print(check_output('systemctl cat systemd-resolved.service'))
+    print(check_output('systemctl cat systemd-udevd.service'))
     check_output('systemctl restart systemd-resolved')
+    check_output('systemctl restart systemd-udevd')
 
 def tearDownModule():
     global running_units
 
     shutil.rmtree(networkd_ci_path)
 
-    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
+    for u in ['systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service']:
         check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
+    shutil.rmtree('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
 
     for u in running_units:
@@ -1572,6 +1603,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
         '25-fibrule-port-range.network',
+        '25-fibrule-uidrange.network',
         '25-gre-tunnel-remote-any.netdev',
         '25-ip6gre-tunnel-remote-any.netdev',
         '25-ipv6-address-label-section.network',
@@ -1775,6 +1807,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
+
+    @expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable()
+    def test_routing_policy_rule_uidrange(self):
+        copy_unit_to_networkd_unit_path('25-fibrule-uidrange.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule')
+        print(output)
+        self.assertRegex(output, '111')
+        self.assertRegex(output, 'from 192.168.100.18')
+        self.assertRegex(output, 'lookup 7')
+        self.assertRegex(output, 'uidrange 100-200')
 
     def test_route_static(self):
         copy_unit_to_networkd_unit_path('25-route-static.network', '12-dummy.netdev')
@@ -2211,7 +2256,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc qdisc show dev dummy98')
         print(output)
         self.assertRegex(output, 'qdisc fq')
-        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511 quantum 1500 initial_quantum 13000 maxrate 1Mbit')
+        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
+        self.assertRegex(output, 'quantum 1500')
+        self.assertRegex(output, 'initial_quantum 13000')
+        self.assertRegex(output, 'maxrate 1Mbit')
         self.assertRegex(output, 'qdisc codel')
         self.assertRegex(output, 'limit 2000p target 10.0ms ce_threshold 100.0ms interval 50.0ms ecn')
 
@@ -2596,7 +2644,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
     units = [
         '25-veth.netdev',
         'ipv6-prefix.network',
-        'ipv6-prefix-veth.network']
+        'ipv6-prefix-veth.network',
+        'ipv6-prefix-veth-token-eui64.network',
+        'ipv6-prefix-veth-token-prefixstable.network']
 
     def setUp(self):
         remove_links(self.links)
@@ -2609,6 +2659,29 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     def test_ipv6_prefix_delegation(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+
+        output = check_output(*resolvectl_cmd, 'dns', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, 'fe80::')
+        self.assertRegex(output, '2002:da8:1::1')
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '2002:da8:1:0')
+
+    def test_ipv6_token_eui64(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-eui64.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '2002:da8:1:0:1a:2b:3c:4d')
+
+    def test_ipv6_token_prefixstable(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-prefixstable.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -3529,6 +3602,7 @@ if __name__ == '__main__':
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
     parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
     parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
+    parser.add_argument('--udevd', help='Path to systemd-udevd', dest='udevd_bin')
     parser.add_argument('--wait-online', help='Path to systemd-networkd-wait-online', dest='wait_online_bin')
     parser.add_argument('--networkctl', help='Path to networkctl', dest='networkctl_bin')
     parser.add_argument('--resolvectl', help='Path to resolvectl', dest='resolvectl_bin')
@@ -3541,10 +3615,11 @@ if __name__ == '__main__':
     ns, args = parser.parse_known_args(namespace=unittest)
 
     if ns.build_dir:
-        if ns.networkd_bin or ns.resolved_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
+        if ns.networkd_bin or ns.resolved_bin or ns.udevd_bin or ns.wait_online_bin or ns.networkctl_bin or ns.resolvectl_bin or ns.timedatectl_bin:
             print('WARNING: --networkd, --resolved, --wait-online, --networkctl, --resolvectl, or --timedatectl options are ignored when --build-dir is specified.')
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
+        udevd_bin = os.path.join(ns.build_dir, 'systemd-udevd')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
@@ -3554,6 +3629,8 @@ if __name__ == '__main__':
             networkd_bin = ns.networkd_bin
         if ns.resolved_bin:
             resolved_bin = ns.resolved_bin
+        if ns.udevd_bin:
+            udevd_bin = ns.udevd_bin
         if ns.wait_online_bin:
             wait_online_bin = ns.wait_online_bin
         if ns.networkctl_bin:

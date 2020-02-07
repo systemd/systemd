@@ -25,8 +25,6 @@ char **strv_free_erase(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
 #define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
 
-void strv_clear(char **l);
-
 char **strv_copy(char * const *l);
 size_t strv_length(char * const *l) _pure_;
 
@@ -51,7 +49,10 @@ char **strv_remove(char **l, const char *s);
 char **strv_uniq(char **l);
 bool strv_is_uniq(char * const *l);
 
-bool strv_equal(char * const *a, char * const *b);
+int strv_compare(char * const *a, char * const *b);
+static inline bool strv_equal(char * const *a, char * const *b) {
+        return strv_compare(a, b) == 0;
+}
 
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
@@ -177,12 +178,15 @@ void strv_print(char * const *l);
 char **strv_reverse(char **l);
 char **strv_shell_escape(char **l, const char *bad);
 
-bool strv_fnmatch(char* const* patterns, const char *s, int flags);
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos);
+static inline bool strv_fnmatch(char* const* patterns, const char *s) {
+        return strv_fnmatch_full(patterns, s, 0, NULL);
+}
 
 static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, int flags) {
         assert(s);
         return strv_isempty(patterns) ||
-               strv_fnmatch(patterns, s, flags);
+               strv_fnmatch_full(patterns, s, flags, NULL);
 }
 
 char ***strv_free_free(char ***l);

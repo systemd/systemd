@@ -15,7 +15,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-message.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "def.h"
 #include "keymap-util.h"
 #include "locale-util.h"
@@ -33,7 +33,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
         _cleanup_strv_free_ char **l_set = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t c_set, c_unset;
         LocaleVariable p;
         int r;

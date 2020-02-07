@@ -65,6 +65,7 @@ struct security_info {
         bool protect_kernel_modules;
         bool protect_kernel_tunables;
         bool protect_kernel_logs;
+        bool protect_clock;
 
         char *protect_home;
         char *protect_system;
@@ -746,7 +747,7 @@ static const struct security_assessor security_assessor_table[] = {
         {
                 .id = "ProtectControlGroups=",
                 .description_good = "Service cannot modify the control group file system",
-                .description_bad = "Service may modify to the control group file system",
+                .description_bad = "Service may modify the control group file system",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectControlGroups=",
                 .weight = 1000,
                 .range = 1,
@@ -782,6 +783,16 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 1,
                 .assess = assess_bool,
                 .offset = offsetof(struct security_info, protect_kernel_logs),
+        },
+        {
+                .id = "ProtectClock=",
+                .description_good = "Service cannot write to the hardware clock or system clock",
+                .description_bad = "Service may write to the hardware clock or system clock",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectClock=",
+                .weight = 1000,
+                .range = 1,
+                .assess = assess_bool,
+                .offset = offsetof(struct security_info, protect_clock),
         },
         {
                 .id = "ProtectHome=",
@@ -1907,6 +1918,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "ProtectKernelModules",    "b",       NULL,                                    offsetof(struct security_info, protect_kernel_modules)    },
                 { "ProtectKernelTunables",   "b",       NULL,                                    offsetof(struct security_info, protect_kernel_tunables)   },
                 { "ProtectKernelLogs",       "b",       NULL,                                    offsetof(struct security_info, protect_kernel_logs)       },
+                { "ProtectClock",            "b",       NULL,                                    offsetof(struct security_info, protect_clock)             },
                 { "ProtectSystem",           "s",       NULL,                                    offsetof(struct security_info, protect_system)            },
                 { "RemoveIPC",               "b",       NULL,                                    offsetof(struct security_info, remove_ipc)                },
                 { "RestrictAddressFamilies", "(bas)",   property_read_restrict_address_families, 0                                                         },
@@ -1983,6 +1995,10 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
 
         if (info->protect_kernel_logs)
                 info->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
+
+        if (info->protect_clock)
+                info->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) |
+                                                   (UINT64_C(1) << CAP_WAKE_ALARM));
 
         if (info->private_devices)
                 info->capability_bounding_set &= ~((UINT64_C(1) << CAP_MKNOD) |

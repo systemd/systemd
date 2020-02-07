@@ -1,0 +1,131 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="pam_systemd_home" conditional='ENABLE_PAM_HOME'>
+
+  <refentryinfo>
+    <title>pam_systemd_home</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>pam_systemd_home</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>pam_systemd_home</refname>
+    <refpurpose>Automatically mount home directories managed by <filename>systemd-homed.service</filename> on
+    login, and unmount them on logout</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>pam_systemd_home.so</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>pam_systemd_home</command> ensures that home directories managed by
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    are automatically activated (mounted) on user login, and are deactivated (unmounted) when the last
+    session of the user ends.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist class='pam-directives'>
+
+      <varlistentry>
+        <term><varname>suspend=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, the home directory of the user will be suspended
+        automatically during system suspend; if false it will remain active. Automatic suspending of the home
+        directory improves security substantially as secret key material is automatically removed from memory
+        before the system is put to sleep and must be re-acquired (through user re-authentication) when
+        coming back from suspend. It is recommended to set this parameter for all PAM applications that have
+        support for automatically re-authenticating via PAM on system resume. If multiple sessions of the
+        same user are open in parallel the user's home directory will be left unsuspended on system suspend
+        as long as at least one of the sessions does not set this parameter. Defaults to
+        off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>debug</varname><optional>=</optional></term>
+
+        <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
+        debugging information as it operates.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Module Types Provided</title>
+
+    <para>The module provides all four management operations: <option>auth</option>, <option>account</option>,
+    <option>session</option>, <option>password</option>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Environment</title>
+
+    <para>The following environment variables are initialized by the module and available to the processes of the
+    user's session:</para>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_HOME=1</varname></term>
+
+        <listitem><para>Indicates that the user's home directory is managed by <filename>systemd-homed.service</filename>.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Here's an example PAM configuration fragment that permits users managed by
+    <filename>systemd-homed.service</filename> to log in:</para>
+
+    <programlisting>#%PAM-1.0
+auth      sufficient pam_unix.so
+-auth     sufficient pam_systemd_home.so
+auth      required   pam_deny.so
+
+account   required   pam_nologin.so
+-account  sufficient pam_systemd_home.so
+account   sufficient pam_unix.so
+account   required   pam_permit.so
+
+-password sufficient pam_systemd_home.so
+password  sufficient pam_unix.so sha512 shadow try_first_pass try_authtok
+password  required   pam_deny.so
+
+-session  optional   pam_keyinit.so revoke
+-session  optional   pam_loginuid.so
+-session  optional   pam_systemd_home.so
+-session  optional   pam_systemd.so
+session   required   pam_unix.so</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pam.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pam.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -404,10 +404,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"random-seed-mode:       off\n");
                 break;
         case RANDOM_SEED_WITH_SYSTEM_TOKEN:
-                Print(L"random-seed-node:       with-system-token\n");
+                Print(L"random-seed-mode:       with-system-token\n");
                 break;
         case RANDOM_SEED_ALWAYS:
-                Print(L"random-seed-node:       always\n");
+                Print(L"random-seed-mode:       always\n");
                 break;
         default:
                 ;
@@ -1893,8 +1893,8 @@ static VOID config_entry_add_linux(
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
                 CHAR8 *sections[] = {
-                        (UINT8 *)".osrel",
-                        (UINT8 *)".cmdline",
+                        (CHAR8 *)".osrel",
+                        (CHAR8 *)".cmdline",
                         NULL
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};

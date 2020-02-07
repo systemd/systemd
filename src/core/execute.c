@@ -265,14 +265,26 @@ static int open_null_as(int flags, int nfd) {
         return move_fd(fd, nfd, false);
 }
 
-static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
-        static const union sockaddr_union sa = {
+static int connect_journal_socket(
+                int fd,
+                const char *log_namespace,
+                uid_t uid,
+                gid_t gid) {
+
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
         };
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
+        const char *j;
         int r;
+
+        j = log_namespace ?
+                strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
+                "/run/systemd/journal/stdout";
+        r = sockaddr_un_set_path(&sa.un, j);
+        if (r < 0)
+                return r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -328,7 +340,7 @@ static int connect_logger_as(
         if (fd < 0)
                 return -errno;
 
-        r = connect_journal_socket(fd, uid, gid);
+        r = connect_journal_socket(fd, context->log_namespace, uid, gid);
         if (r < 0)
                 return r;
 
@@ -1125,7 +1137,7 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env,
-                int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds) {
 
 #if HAVE_PAM
 
@@ -1195,7 +1207,7 @@ static int setup_pam(
 
         pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                goto fail;
+                log_debug("pam_setcred() failed, ignoring: %s", pam_strerror(handle, pam_code));
 
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
@@ -1402,6 +1414,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->restrict_realtime ||
                 c->restrict_suid_sgid ||
                 exec_context_restrict_namespaces_set(c) ||
+                c->protect_clock ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1564,6 +1577,19 @@ static int apply_protect_kernel_logs(const Unit *u, const ExecContext *c) {
         return seccomp_protect_syslog();
 }
 
+static int apply_protect_clock(const Unit *u, const ExecContext *c)  {
+        assert(u);
+        assert(c);
+
+        if (!c->protect_clock)
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "ProtectClock="))
+                return 0;
+
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), false);
+}
+
 static int apply_private_devices(const Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
@@ -1672,7 +1698,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-        our_env = new0(char*, 14 + _EXEC_DIRECTORY_TYPE_MAX);
+        our_env = new0(char*, 15 + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1776,6 +1802,14 @@ static int build_environment(
 
         if (journal_stream_dev != 0 && journal_stream_ino != 0) {
                 if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
+        if (c->log_namespace) {
+                x = strjoin("LOG_NAMESPACE=", c->log_namespace);
+                if (!x)
                         return -ENOMEM;
 
                 our_env[n_env++] = x;
@@ -1903,6 +1937,9 @@ static bool exec_needs_mount_namespace(
             (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
+        if (context->log_namespace)
                 return true;
 
         return false;
@@ -2503,6 +2540,9 @@ static bool insist_on_sandboxing(
                 if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
                         return true;
 
+        if (context->log_namespace)
+                return true;
+
         return false;
 }
 
@@ -2586,10 +2626,11 @@ static int apply_mount_namespace(
                             context->n_temporary_filesystems,
                             tmp,
                             var,
+                            context->log_namespace,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
-                            DISSECT_IMAGE_DISCARD_ON_LOOP,
+                            DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
@@ -2803,7 +2844,7 @@ static int close_remaining_fds(
                 int user_lookup_fd,
                 int socket_fd,
                 int exec_fd,
-                int *fds, size_t n_fds) {
+                const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
         int dont_close[n_fds + 12];
@@ -3797,6 +3838,12 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to apply kernel log restrictions: %m");
                 }
 
+                r = apply_protect_clock(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply clock restrictions: %m");
+                }
+
                 r = apply_private_devices(unit, context);
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
@@ -4120,6 +4167,8 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 
         c->network_namespace_path = mfree(c->network_namespace_path);
+
+        c->log_namespace = mfree(c->log_namespace);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -4437,6 +4486,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectKernelTunables: %s\n"
                 "%sProtectKernelModules: %s\n"
                 "%sProtectKernelLogs: %s\n"
+                "%sProtectClock: %s\n"
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
@@ -4458,6 +4508,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_kernel_logs),
+                prefix, yes_no(c->protect_clock),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),
@@ -4652,6 +4703,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('\n', f);
                 }
         }
+
+        if (c->log_namespace)
+                fprintf(f, "%sLogNamespace: %s\n", prefix, c->log_namespace);
 
         if (c->secure_bits) {
                 _cleanup_free_ char *str = NULL;

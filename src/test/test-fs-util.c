@@ -148,6 +148,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result, NULL);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
+        assert_se(streq(result, "/usr")); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
         r = chase_symlinks(p, temp, 0, &result, NULL);
@@ -369,6 +370,15 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks("/usr", NULL, CHASE_STEP, &result, NULL);
         assert_se(r > 0);
         assert_se(streq("/usr", result));
+        result = mfree(result);
+
+        /* Make sure that symlinks in the "root" path are not resolved, but those below are */
+        p = strjoina("/etc/..", temp, "/self");
+        assert_se(symlink(".", p) >= 0);
+        q = strjoina(p, "/top/dot/dotdota");
+        r = chase_symlinks(q, p, 0, &result, NULL);
+        assert_se(r > 0);
+        assert_se(path_equal(path_startswith(result, p), "usr"));
         result = mfree(result);
 
  cleanup:
@@ -729,7 +739,7 @@ static void test_rename_noreplace(void) {
                 STRV_FOREACH(b, (char**) table) {
                         _cleanup_free_ char *w = NULL;
 
-                        w = strjoin(w, *b);
+                        w = strjoin(z, *b);
                         assert_se(w);
 
                         if (access(w, F_OK) < 0) {
@@ -737,7 +747,7 @@ static void test_rename_noreplace(void) {
                                 continue;
                         }
 
-                        assert_se(rename_noreplace(AT_FDCWD, w, AT_FDCWD, y) == -EEXIST);
+                        assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, w) == -EEXIST);
                 }
 
                 y = strjoin(z, "/somethingelse");

@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "format-util.h"
 #include "logind-dbus.h"
@@ -14,6 +15,60 @@
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+static int property_get_uid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        User *u = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        return sd_bus_message_append(reply, "u", (uint32_t) u->user_record->uid);
+}
+
+static int property_get_gid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        User *u = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        return sd_bus_message_append(reply, "u", (uint32_t) u->user_record->gid);
+}
+
+static int property_get_name(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        User *u = userdata;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        return sd_bus_message_append(reply, "s", u->user_record->user_name);
+}
 
 static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", User, user_get_state, user_state_to_string);
 
@@ -152,7 +207,7 @@ int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
                         "org.freedesktop.login1.manage",
                         NULL,
                         false,
-                        u->uid,
+                        u->user_record->uid,
                         &u->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -181,7 +236,7 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
                         "org.freedesktop.login1.manage",
                         NULL,
                         false,
-                        u->uid,
+                        u->user_record->uid,
                         &u->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -206,9 +261,9 @@ int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
 const sd_bus_vtable user_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
-        SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(User, uid), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(User, gid), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(User, name), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UID", "u", property_get_uid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("GID", "u", property_get_gid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Name", "s", property_get_name, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(User, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimePath", "s", NULL, offsetof(User, runtime_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Service", "s", NULL, offsetof(User, service), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -276,7 +331,7 @@ char *user_bus_path(User *u) {
 
         assert(u);
 
-        if (asprintf(&s, "/org/freedesktop/login1/user/_"UID_FMT, u->uid) < 0)
+        if (asprintf(&s, "/org/freedesktop/login1/user/_"UID_FMT, u->user_record->uid) < 0)
                 return NULL;
 
         return s;
@@ -345,7 +400,7 @@ int user_send_signal(User *u, bool new_user) {
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         new_user ? "UserNew" : "UserRemoved",
-                        "uo", (uint32_t) u->uid, p);
+                        "uo", (uint32_t) u->user_record->uid, p);
 }
 
 int user_send_changed(User *u, const char *properties, ...) {

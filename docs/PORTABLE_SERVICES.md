@@ -165,7 +165,7 @@ requirements are made for an image that can be attached/detached with
    an image with a partition table understood by the Linux kernel with only a
    single partition defined, or alternatively, a GPT partition table with a set
    of properly marked partitions following the [Discoverable Partitions
-   Specification](https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/).
+   Specification](https://systemd.io/DISCOVERABLE_PARTITIONS).
 
 3. The image must at least contain one matching unit file, with the right name
    prefix and suffix (see above). The unit file is searched in the usual paths,

@@ -98,9 +98,13 @@
       <varlistentry>
         <term><varname>rootflags=</varname></term>
 
-        <listitem><para>Takes the root filesystem mount options to
-        use. <varname>rootflags=</varname> is honored by the
-        initrd.</para></listitem>
+        <listitem><para>Takes the root filesystem mount options to use. <varname>rootflags=</varname> is
+        honored by the initrd.</para>
+
+        <para>Note that unlike most kernel command line options this setting does not override settings made
+        in configuration files (specifically: the mount option string in
+        <filename>/etc/fstab</filename>). See
+        <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

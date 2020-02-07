@@ -9,6 +9,7 @@
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
+#include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -1663,7 +1664,7 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         assert(message);
         assert(m);
 
-        assert_cc(sizeof(uid) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         r = sd_bus_message_read_basic(message, 'u', &uid);
         if (r < 0)
                 return r;
