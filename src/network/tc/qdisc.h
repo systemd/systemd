@@ -14,6 +14,7 @@ typedef enum QDiscKind {
         QDISC_KIND_NETEM,
         QDISC_KIND_SFQ,
         QDISC_KIND_TBF,
+        QDISC_KIND_TEQL,
         _QDISC_KIND_MAX,
         _QDISC_KIND_INVALID = -1,
 } QDiscKind;
@@ -35,6 +36,7 @@ typedef struct QDiscVTable {
         const char *tca_kind;
         /* called in qdisc_new() */
         int (*init)(QDisc *qdisc);
+        int (*fill_tca_kind)(Link *link, QDisc *qdisc, sd_netlink_message *m);
         int (*fill_message)(Link *link, QDisc *qdisc, sd_netlink_message *m);
         int (*verify)(QDisc *qdisc);
 } QDiscVTable;
@@ -71,3 +73,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 #include "netem.h"
 #include "sfq.h"
 #include "tbf.h"
+#include "teql.h"

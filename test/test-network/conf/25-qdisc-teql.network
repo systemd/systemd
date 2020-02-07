@@ -1,0 +1,10 @@
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[TrivialLinkEqualizer]
+Parent=root
+Id=1

@@ -270,6 +270,8 @@ SendOption=
 [NextHop]
 Id=
 Gateway=
+[QDisc]
+Parent=
 [NetworkEmulator]
 Parent=
 DelaySec=
@@ -324,3 +326,6 @@ NetworkEmulatorDelayJitterSec=
 NetworkEmulatorLossRate=
 NetworkEmulatorDuplicateRate=
 NetworkEmulatorPacketLimit=
+[TrivialLinkEqualizer]
+Parent=
+Id=

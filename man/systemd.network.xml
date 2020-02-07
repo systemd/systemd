@@ -2271,6 +2271,21 @@
   </refsect1>
 
   <refsect1>
+    <title>[QDisc] Section Options</title>
+    <para>The <literal>[QDisc]</literal> section manages the traffic control queueing discipline (qdisc).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>clsact</literal>
+          or <literal>ingress</literal>. This is mandatory.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[NetworkEmulator] Section Options</title>
     <para>The <literal>[NetworkEmulator]</literal> section manages the queueing discipline (qdisc) of
     the network emulator. It can be used to configure the kernel packet scheduler and simulate packet
@@ -2657,6 +2672,31 @@
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[TrivialLinkEqualizer] Section Options</title>
+    <para>The <literal>[TrivialLinkEqualizer]</literal> section manages the queueing discipline (qdisc) of
+    trivial link equalizer (teql).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Id=</varname></term>
+        <listitem>
+          <para>Specifies the interface ID <literal>N</literal> of teql. Defaults to <literal>0</literal>.
+          Note that when teql is used, currently, the module <constant>sch_teql</constant> with
+          <constant>max_equalizers=N+1</constant> option must be loaded before
+          <command>systemd-networkd</command> is started.</para>
         </listitem>
       </varlistentry>
     </variablelist>
