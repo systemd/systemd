@@ -999,7 +999,13 @@ int config_parse_address_generation_type(
         else {
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
                 p = rvalue;
-       }
+        }
+
+        if (isempty(p)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid IPv6Token= , ignoring assignment: %s", rvalue);
+                return 0;
+        }
 
         r = in_addr_from_string(AF_INET6, p, &buffer);
         if (r < 0) {
