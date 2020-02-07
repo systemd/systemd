@@ -2946,7 +2946,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (context->n_partitions <= 0)
+        if (context->n_partitions <= 0 && arg_empty != EMPTY_FORCE)
                 return 0;
 
         r = find_root(&node);
