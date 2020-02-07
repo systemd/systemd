@@ -312,7 +312,7 @@
             the mechanism is present, the two parts must be separated with a colon
             <literal><replaceable>type</replaceable>:<replaceable>prefix</replaceable></literal>. The
             address generation mechanism may be either <constant>prefixstable</constant> or
-            <constant>eui64</constant>. If not specified, <constant>eui64</constant> is assumed. When
+            <constant>static</constant>. If not specified, <constant>static</constant> is assumed. When
             set to <literal>prefixstable</literal> a method for generating IPv6 Interface Identifiers to
             be used with IPv6 Stateless Address Autocon figuration (SLAAC). See
             <ulink url="https://tools.ietf.org/html/rfc7217">RFC 7217</ulink>. When IPv6 address is set,

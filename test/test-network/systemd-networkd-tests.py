@@ -2680,7 +2680,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         '25-veth.netdev',
         'ipv6-prefix.network',
         'ipv6-prefix-veth.network',
-        'ipv6-prefix-veth-token-eui64.network',
+        'ipv6-prefix-veth-token-static.network',
         'ipv6-prefix-veth-token-prefixstable.network']
 
     def setUp(self):
@@ -2706,8 +2706,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
-    def test_ipv6_token_eui64(self):
-        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-eui64.network')
+    def test_ipv6_token_static(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-static.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 

@@ -278,13 +278,13 @@ static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_
                                         break;
                                 }
                         }
-                } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_EUI64) {
+                } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
                         memcpy(((uint8_t *)&address->in_addr.in6) + 8, ((uint8_t *) &j->prefix) + 8, 8);
                         prefix = true;
                         break;
                 }
 
-        /* eui64 or fallback if prefixstable do not match */
+        /* fallback to eui64 if prefixstable or static do not match */
         if (!prefix) {
                 /* see RFC4291 section 2.5.1 */
                 address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
@@ -992,14 +992,20 @@ int config_parse_address_generation_type(
         if (r < 0)
                 return log_oom();
 
-        if (streq(word, "eui64"))
-                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_EUI64;
+        if (streq(word, "static"))
+                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
         else if (streq(word, "prefixstable"))
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE;
         else {
-                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_EUI64;
+                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
                 p = rvalue;
-       }
+        }
+
+        if (isempty(p)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid IPv6Token= , ignoring assignment: %s", rvalue);
+                return 0;
+        }
 
         r = in_addr_from_string(AF_INET6, p, &buffer);
         if (r < 0) {
