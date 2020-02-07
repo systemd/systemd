@@ -62,6 +62,9 @@ struct link_config {
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;
         netdev_ring_param ring;
+        int rx_flow_control;
+        int tx_flow_control;
+        int autoneg_flow_control;
 
         LIST_FIELDS(link_config, links);
 };

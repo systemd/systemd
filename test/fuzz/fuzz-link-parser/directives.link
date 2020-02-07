@@ -41,3 +41,6 @@ CombinedChannels=
 Advertise=
 RxBufferSize=
 TxBufferSize=
+RxFlowControl=
+TxFlowControl=
+AutoNegotiationFlowControl=

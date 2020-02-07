@@ -148,6 +148,9 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
                 .autonegotiation = -1,
+                .rx_flow_control = -1,
+                .tx_flow_control = -1,
+                .autoneg_flow_control = -1,
         };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
@@ -408,6 +411,10 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 if (r < 0)
                         log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
         }
+
+        r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+        if (r < 0)
+                log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
