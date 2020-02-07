@@ -851,6 +851,55 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
         return 0;
 }
 
+int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
+        struct ethtool_pauseparam ecmd = {
+                .cmd = ETHTOOL_GPAUSEPARAM
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (rx >= 0 && ecmd.rx_pause != (uint32_t) rx) {
+                ecmd.rx_pause = rx;
+                need_update = true;
+        }
+
+        if (tx >= 0 && ecmd.tx_pause != (uint32_t) tx) {
+                ecmd.tx_pause = tx;
+                need_update = true;
+        }
+
+        if (autoneg >= 0 && ecmd.autoneg != (uint32_t) autoneg) {
+                ecmd.autoneg = autoneg;
+                need_update = true;
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SPAUSEPARAM;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
 int config_parse_channel(const char *unit,
                          const char *filename,
                          unsigned line,

@@ -700,6 +700,30 @@
           <para>Takes a integer. Specifies the NIC transmit ring buffer size. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the receive flow control, also known as the ethernet
+          receive PAUSE message (generate and send ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the transmit flow control, also known as the ethernet
+          transmit PAUSE message (respond to received ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AutoNegotiationFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, the auto negotiation enables the interface to exchange state
+          advertisements with the connected peer so that the two devices can agree on the ethernet
+          PAUSE configuration. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
 
     </variablelist>
   </refsect1>
