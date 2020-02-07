@@ -17,3 +17,4 @@ ConditionCapability=CAP_SYS_MODULE
 [Service]
 Type=oneshot
 ExecStart=-/sbin/modprobe -abq %I
+RemainAfterExit=yes
