@@ -2290,10 +2290,19 @@ if conf.get('ENABLE_TIMEDATECTL') == 1
 endif
 
 if conf.get('ENABLE_TIMESYNCD') == 1
+        if get_option('link-timesyncd-shared')
+                timesyncd_link_with = [libshared]
+        else
+                timesyncd_link_with = [libsystemd_static,
+                                       libshared_static,
+                                       libjournal_client,
+                                       libbasic_gcrypt]
+        endif
+
         executable('systemd-timesyncd',
                    systemd_timesyncd_sources,
                    include_directories : includes,
-                   link_with : [libshared],
+                   link_with : [timesyncd_link_with],
                    dependencies : [threads,
                                    libm],
                    install_rpath : rootlibexecdir,
@@ -2303,7 +2312,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
         executable('systemd-time-wait-sync',
                    'src/time-wait-sync/time-wait-sync.c',
                    include_directories : includes,
-                   link_with : [libshared],
+                   link_with : [timesyncd_link_with],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
@@ -3467,6 +3476,7 @@ foreach tuple : [
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],
+        ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
 ]
 
         if tuple.length() >= 2
