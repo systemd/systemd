@@ -268,6 +268,11 @@ static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_
         ORDERED_HASHMAP_FOREACH(j, link->network->ipv6_tokens, i)
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
                     && memcmp(&j->prefix, &addr, FAMILY_ADDRESS_SIZE(address->family)) == 0) {
+                        /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
+                           does not actually attempt Duplicate Address Detection; the counter will be incremented
+                           only when the address generation algorithm produces an invalid address, and the loop
+                           may exit with an address which ends up being unusable due to duplication on the link.
+                        */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
                                 r = make_stableprivate_address(link, &j->prefix, prefixlen, j->dad_counter, &address->in_addr.in6);
                                 if (r < 0)
