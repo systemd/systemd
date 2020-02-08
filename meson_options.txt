@@ -18,6 +18,8 @@ option('link-systemctl-shared', type: 'boolean',
        description : 'link systemctl against libsystemd-shared.so')
 option('link-networkd-shared', type: 'boolean',
        description : 'link systemd-networkd and its helpers to libsystemd-shared.so')
+option('link-timesyncd-shared', type: 'boolean',
+       description : 'link systemd-timesyncd and its helpers to libsystemd-shared.so')
 option('static-libsystemd', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
        description : '''install a static library for libsystemd''')
