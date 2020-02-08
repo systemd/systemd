@@ -255,7 +255,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_t lifetime_preferred, Address *address) {
-        bool prefix = false;
+        bool have_address = false;
         struct in6_addr addr;
         IPv6Token *j;
         Iterator i;
@@ -274,18 +274,18 @@ static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_
                                         return r;
 
                                 if (stableprivate_address_is_valid(&address->in_addr.in6)) {
-                                        prefix = true;
+                                        have_address = true;
                                         break;
                                 }
                         }
                 } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
                         memcpy(((uint8_t *)&address->in_addr.in6) + 8, ((uint8_t *) &j->prefix) + 8, 8);
-                        prefix = true;
+                        have_address = true;
                         break;
                 }
 
-        /* fallback to eui64 if prefixstable or static do not match */
-        if (!prefix) {
+        /* fall back to EUI-64 if neither prefixstable nor static provide an address */
+        if (!have_address) {
                 /* see RFC4291 section 2.5.1 */
                 address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
                 address->in_addr.in6.s6_addr[8] ^= 1 << 1;
