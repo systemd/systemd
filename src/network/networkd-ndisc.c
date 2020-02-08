@@ -346,7 +346,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
         r = ndisc_router_generate_address(link, prefixlen, lifetime_preferred, address);
         if (r < 0)
-                return log_link_error_errno(link, r, "Falied to generate prefix stable address: %m");
+                return log_link_error_errno(link, r, "Failed to generate SLAAC address: %m");
 
         /* see RFC4862 section 5.5.3.e */
         r = address_get(link, address->family, &address->in_addr, address->prefixlen, &existing_address);
