@@ -269,6 +269,8 @@ DHCPv6Client=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
 BlackList=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [DHCPServer]
 EmitNTP=
 PoolSize=

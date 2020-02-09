@@ -2727,6 +2727,12 @@ static int link_drop_config(Link *link) {
                 link->dhcp4_source_routing_policy_rule = NULL;
         }
 
+        LIST_FOREACH_SAFE(rules, rule, next_rule, link->ipv6ndisc_source_routing_policy_rules) {
+                (void) routing_policy_rule_remove(rule, link, NULL);
+                routing_policy_rule_free(rule);
+        }
+        link->ipv6ndisc_source_routing_policy_rules = NULL;
+
         ndisc_flush(link);
 
         return 0;

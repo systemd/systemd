@@ -243,6 +243,8 @@ struct Network {
         uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_black_listed_prefix;
         OrderedHashmap *ipv6_tokens;
+        bool ipv6_accept_ra_source_routing_enabled;
+        uint32_t ipv6_accept_ra_source_routing_rule_priority;
 
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
