@@ -165,7 +165,9 @@ def setUpModule():
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service', 'firewalld.service']:
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service',
+              'systemd-udevd-kernel.socket', 'systemd-udevd-control.socket', 'systemd-udevd.service',
+              'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
             check_output(f'systemctl stop {u}')
             running_units.append(u)
@@ -249,13 +251,14 @@ def tearDownModule():
 
     shutil.rmtree(networkd_ci_path)
 
-    for u in ['systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service']:
+    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
         check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
     shutil.rmtree('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
 
     for u in running_units:
         check_output(f'systemctl start {u}')
