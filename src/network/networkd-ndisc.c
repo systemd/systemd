@@ -962,7 +962,6 @@ int config_parse_address_generation_type(
                 void *userdata) {
 
         _cleanup_free_ IPv6Token *token = NULL;
-        _cleanup_free_ char *word = NULL;
         union in_addr_union buffer;
         Network *network = data;
         const char *p;
@@ -978,33 +977,17 @@ int config_parse_address_generation_type(
                 return 0;
         }
 
-        p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Invalid IPv6Token= , ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
         r = ipv6token_new(&token);
         if (r < 0)
                 return log_oom();
 
-        if (streq(word, "static"))
+        if ((p = startswith(rvalue, "static:")))
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
-        else if (streq(word, "prefixstable"))
+        else if ((p = startswith(rvalue, "prefixstable:")))
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE;
         else {
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
                 p = rvalue;
-        }
-
-        if (isempty(p)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid IPv6Token= , ignoring assignment: %s", rvalue);
-                return 0;
         }
 
         r = in_addr_from_string(AF_INET6, p, &buffer);
