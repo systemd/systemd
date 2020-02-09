@@ -74,11 +74,11 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 /* It seems kernel does not support that the prefix route cannot be configured with
                  * route table. Let's once drop the config and reconfigure them later. */
 
-                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later: %m");
+                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later");
                 link->dhcp4_route_failed = true;
                 link->manager->dhcp4_prefix_root_cannot_set_table = true;
         } else if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route");
                 link_enter_failed(link);
                 return 1;
         }
