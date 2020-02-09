@@ -322,9 +322,6 @@
             using the EUI-64 algorithm. Because the interface identifier is static, if Duplicate Address Detection
             detects that the computed address is a duplicate (in use by another node on the link), then this
             mode will fail to provide an address for that prefix.
-
-            Note that if multiple <constant>static</constant> IPv6Token variables are supplied, only the first
-            one will be used to generate addresses.
             </para>
             <para>When the mode is set to <literal>prefixstable</literal> the RFC 7217 algorithm for generating
             interface identifiers will be used, but only when a prefix received in an RA message matches the supplied address.

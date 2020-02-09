@@ -2685,6 +2685,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         'ipv6-prefix-veth.network',
         'ipv6-prefix-veth-token-static.network',
         'ipv6-prefix-veth-token-static-explicit.network',
+        'ipv6-prefix-veth-token-static-multiple.network',
         'ipv6-prefix-veth-token-prefixstable.network']
 
     def setUp(self):
@@ -2727,6 +2728,16 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '2002:da8:1:0:1a:2b:3c:4d')
+
+    def test_ipv6_token_static_multiple(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-static-multiple.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '2002:da8:1:0:1a:2b:3c:4d')
+        self.assertRegex(output, '2002:da8:1:0:fa:de:ca:fe')
 
     def test_ipv6_token_prefixstable(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-prefixstable.network')
