@@ -12,6 +12,8 @@
 #include "qdisc.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
+#include "tc-util.h"
 
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_CODEL] = &codel_vtable,
@@ -279,19 +281,21 @@ int config_parse_qdisc_parent(
                 qdisc->parent = TC_H_INGRESS;
                 qdisc->handle = TC_H_MAKE(TC_H_INGRESS, 0);
         } else {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse 'Parent=', ignoring assignment: %s",
-                           rvalue);
-                return 0;
+                r = parse_handle(rvalue, &qdisc->parent);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse 'Parent=', ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
         }
 
-        if (streq(rvalue, "root"))
-                qdisc->tca_kind = mfree(qdisc->tca_kind);
-        else {
+        if (STR_IN_SET(rvalue, "clsact", "ingress")) {
                 r = free_and_strdup(&qdisc->tca_kind, rvalue);
                 if (r < 0)
                         return log_oom();
-        }
+        } else
+                qdisc->tca_kind = mfree(qdisc->tca_kind);
 
         qdisc = NULL;
 

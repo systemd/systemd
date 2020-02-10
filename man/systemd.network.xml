@@ -2322,7 +2322,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2386,7 +2388,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2473,7 +2477,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2504,7 +2510,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2568,7 +2576,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2658,7 +2668,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2760,7 +2772,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
