@@ -6,6 +6,7 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "tc.h"
 
 typedef enum QDiscKind {
         QDISC_KIND_CODEL,
@@ -21,6 +22,8 @@ typedef enum QDiscKind {
 } QDiscKind;
 
 typedef struct QDisc {
+        TrafficControl meta;
+
         NetworkConfigSection *section;
         Network *network;
 
@@ -65,6 +68,8 @@ int qdisc_configure(Link *link, QDisc *qdisc);
 int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
+
+DEFINE_TC_CAST(QDISC, QDisc);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
