@@ -1187,7 +1187,7 @@ int safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        bool block_signals = false;
+        bool block_signals = false, block_all = false;
         int prio, r;
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
@@ -1202,7 +1202,7 @@ int safe_fork_full(
                  * be sure that SIGTERMs are not lost we might send to the child. */
 
                 assert_se(sigfillset(&ss) >= 0);
-                block_signals = true;
+                block_signals = block_all = true;
 
         } else if (flags & FORK_WAIT) {
                 /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
@@ -1234,6 +1234,13 @@ int safe_fork_full(
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (flags & FORK_WAIT) {
+                        if (block_all) {
+                                /* undo everything except SIGCHLD */
+                                ss = saved_ss;
+                                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
+                                (void) sigprocmask(SIG_SETMASK, &ss, NULL);
+                        }
+
                         r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
                         if (r < 0)
                                 return r;
