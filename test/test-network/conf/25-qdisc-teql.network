@@ -7,4 +7,5 @@ Address=10.1.2.3/16
 
 [TrivialLinkEqualizer]
 Parent=root
+Handle=0002
 Id=1

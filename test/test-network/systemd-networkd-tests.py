@@ -2243,13 +2243,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc netem')
+        self.assertRegex(output, 'qdisc netem 1f:')
         self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
         self.assertRegex(output, 'qdisc fq_codel')
         self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10.0ms ce_threshold 100.0ms interval 200.0ms memory_limit 64Mb ecn')
         output = check_output('tc qdisc show dev test1')
         print(output)
-        self.assertRegex(output, 'qdisc tbf')
+        self.assertRegex(output, 'qdisc tbf 3f:')
         self.assertRegex(output, 'rate 1Gbit burst 5000b peakrate 100Gbit minburst 987500b lat 70.0ms')
         self.assertRegex(output, 'qdisc sfq')
         self.assertRegex(output, 'perturb 5sec')
@@ -2263,7 +2263,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc fq')
+        self.assertRegex(output, 'qdisc fq 3:')
         self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
         self.assertRegex(output, 'quantum 1500')
         self.assertRegex(output, 'initial_quantum 13000')
@@ -2299,7 +2299,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc teql1')
+        self.assertRegex(output, 'qdisc teql1 2:')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
