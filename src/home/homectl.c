@@ -3275,7 +3275,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         const char *field =
                                                   c == ARG_STORAGE ? "storage" :
-                                                  c == ARG_FS_TYPE ? "fileSytemType" :
+                                                  c == ARG_FS_TYPE ? "fileSystemType" :
                                               c == ARG_LUKS_CIPHER ? "luksCipher" :
                                          c == ARG_LUKS_CIPHER_MODE ? "luksCipherMode" :
                                           c == ARG_LUKS_PBKDF_TYPE ? "luksPbkdfType" :
