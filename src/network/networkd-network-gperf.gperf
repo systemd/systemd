@@ -285,6 +285,11 @@ FairQueueingControlledDelay.TargetSec,       config_parse_fair_queueing_controll
 FairQueueingControlledDelay.IntervalSec,     config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.CEThresholdSec,  config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.ECN,             config_parse_fair_queueing_controlled_delay_bool,         QDISC_KIND_FQ_CODEL,           0
+GenericRandomEarlyDetection.Parent,          config_parse_qdisc_parent,                                QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.Handle,          config_parse_qdisc_handle,                                QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.VirtualQueues,   config_parse_generic_random_early_detection_u32,          QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_generic_random_early_detection_u32,      QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.GenericRIO,      config_parse_generic_random_early_detection_bool,         QDISC_KIND_GRED,               0
 HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0
