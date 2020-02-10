@@ -109,6 +109,8 @@ sources = files('''
         networkd-wifi.h
         tc/codel.c
         tc/codel.h
+        tc/fifo.c
+        tc/fifo.h
         tc/fq.c
         tc/fq.h
         tc/fq-codel.c
