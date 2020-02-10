@@ -127,7 +127,7 @@ guidance in [CONTRIBUTING.md](CONTRIBUTING.md) on how to report a security vulne
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
 
-- https://github.com/google/oss-fuzz/blob/master/docs/new_project_guide.md
+- https://google.github.io/oss-fuzz/getting-started/new-project-guide/
 - https://llvm.org/docs/LibFuzzer.html
-- https://github.com/google/fuzzer-test-suite/blob/master/tutorial/libFuzzerTutorial.md
-- https://chromium.googlesource.com/chromium/src/testing/libfuzzer/+/HEAD/efficient_fuzzer.md
+- https://github.com/google/fuzzing/blob/master/tutorial/libFuzzerTutorial.md
+- https://chromium.googlesource.com/chromium/src/testing/libfuzzer/+/HEAD/efficient_fuzzing.md
