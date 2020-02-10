@@ -337,3 +337,7 @@ NetworkEmulatorPacketLimit=
 Parent=
 Handle=
 Id=
+[HierarchyTokenBucket]
+Parent=
+Handle=
+DefaultClass=

@@ -19,6 +19,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_CODEL] = &codel_vtable,
         [QDISC_KIND_FQ] = &fq_vtable,
         [QDISC_KIND_FQ_CODEL] = &fq_codel_vtable,
+        [QDISC_KIND_HTB] = &htb_vtable,
         [QDISC_KIND_NETEM] = &netem_vtable,
         [QDISC_KIND_SFQ] = &sfq_vtable,
         [QDISC_KIND_TBF] = &tbf_vtable,

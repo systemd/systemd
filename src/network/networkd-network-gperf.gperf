@@ -281,6 +281,9 @@ FairQueueingControlledDelay.TargetSec,       config_parse_fair_queueing_controll
 FairQueueingControlledDelay.IntervalSec,     config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.CEThresholdSec,  config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.ECN,             config_parse_fair_queueing_controlled_delay_bool,         QDISC_KIND_FQ_CODEL,           0
+HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
+HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
+HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0
 NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
