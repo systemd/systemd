@@ -351,3 +351,9 @@ CeilRate=
 Parent=
 Handle=
 PacketLimit=
+[GenericRandomEarlyDetection]
+Parent=
+Handle=
+VirtualQueues=
+DefaultVirtualQueue=
+GenericRIO=
