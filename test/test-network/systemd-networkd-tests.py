@@ -1626,7 +1626,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-ingress-root.network',
         '25-qdisc-netem-and-fqcodel.network',
         '25-qdisc-tbf-and-sfq.network',
-        '25-qdisc-teql.network',
+        '25-qdisc-teql-and-htb.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -2309,7 +2309,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc ingress')
 
     def test_qdisc4(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-teql.network', '12-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-qdisc-teql-and-htb.network', '12-dummy.netdev')
         check_output('modprobe sch_teql max_equalizers=2')
         start_networkd()
 
@@ -2317,7 +2317,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc teql1 2:')
+        self.assertRegex(output, 'qdisc teql1')
+        self.assertRegex(output, 'qdisc htb 2:')
+        self.assertRegex(output, r'default (0x30|30)')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
