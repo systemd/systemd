@@ -113,6 +113,8 @@ sources = files('''
         tc/fq.h
         tc/fq-codel.c
         tc/fq-codel.h
+        tc/htb.c
+        tc/htb.h
         tc/netem.c
         tc/netem.h
         tc/qdisc.c

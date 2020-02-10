@@ -486,6 +486,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "ControlledDelay\0"
                               "FairQueueing\0"
                               "FairQueueingControlledDelay\0"
+                              "HierarchyTokenBucket\0"
                               "NetworkEmulator\0"
                               "StochasticFairnessQueueing\0"
                               "TokenBucketFilter\0"

@@ -2799,6 +2799,40 @@
   </refsect1>
 
   <refsect1>
+    <title>[HierarchyTokenBucket] Section Options</title>
+    <para>The <literal>[HierarchyTokenBucket]</literal> section manages the queueing discipline (qdisc) of
+    hierarchy token bucket (htb).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultClass=</varname></term>
+        <listitem>
+          <para>Takes the minor id in hexadecimal of the default class. Unclassified traffic gets sent
+          to the class. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
       the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.
