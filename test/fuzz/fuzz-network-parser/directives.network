@@ -347,3 +347,7 @@ ClassId=
 Priority=
 Rate=
 CeilRate=
+[FIFO]
+Parent=
+Handle=
+PacketLimit=
