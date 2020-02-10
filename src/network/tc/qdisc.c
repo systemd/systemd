@@ -270,7 +270,8 @@ int config_parse_qdisc_parent(
 
         if (streq(rvalue, "root")) {
                 qdisc->parent = TC_H_ROOT;
-                qdisc->handle = TC_H_UNSPEC;
+                if (qdisc->handle == 0)
+                        qdisc->handle = TC_H_UNSPEC;
         } else if (streq(rvalue, "clsact")) {
                 qdisc->parent = TC_H_CLSACT;
                 qdisc->handle = TC_H_MAKE(TC_H_CLSACT, 0);
@@ -292,6 +293,52 @@ int config_parse_qdisc_parent(
                         return log_oom();
         }
 
+        qdisc = NULL;
+
+        return 0;
+}
+
+int config_parse_qdisc_handle(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        Network *network = data;
+        uint16_t n;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                qdisc->handle = TC_H_UNSPEC;
+                qdisc = NULL;
+                return 0;
+        }
+
+        r = safe_atou16_full(rvalue, 16, &n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse 'Handle=', ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        qdisc->handle = (uint32_t) n << 16;
         qdisc = NULL;
 
         return 0;
