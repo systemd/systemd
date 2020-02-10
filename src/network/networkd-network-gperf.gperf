@@ -252,13 +252,16 @@ CAN.SamplePoint,                             config_parse_permille,             
 CAN.RestartSec,                              config_parse_sec,                                         0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
+QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
 ControlledDelay.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_CODEL,              0
+ControlledDelay.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_CODEL,              0
 ControlledDelay.PacketLimit,                 config_parse_controlled_delay_u32,                        QDISC_KIND_CODEL,              0
 ControlledDelay.TargetSec,                   config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.IntervalSec,                 config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
+FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
 FairQueueing.FlowLimit,                      config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
 FairQueueing.Quantum,                        config_parse_fair_queueing_size,                          QDISC_KIND_FQ,                 0
@@ -269,6 +272,7 @@ FairQueueing.OrphanMask,                     config_parse_fair_queueing_u32,    
 FairQueueing.Pacing,                         config_parse_fair_queueing_bool,                          QDISC_KIND_FQ,                 0
 FairQueueing.CEThresholdSec,                 config_parse_fair_queueing_usec,                          QDISC_KIND_FQ,                 0
 FairQueueingControlledDelay.Parent,          config_parse_qdisc_parent,                                QDISC_KIND_FQ_CODEL,           0
+FairQueueingControlledDelay.Handle,          config_parse_qdisc_handle,                                QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.PacketLimit,     config_parse_fair_queueing_controlled_delay_u32,          QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.MemoryLimit,     config_parse_fair_queueing_controlled_delay_size,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.Flows,           config_parse_fair_queueing_controlled_delay_u32,          QDISC_KIND_FQ_CODEL,           0
@@ -278,14 +282,17 @@ FairQueueingControlledDelay.IntervalSec,     config_parse_fair_queueing_controll
 FairQueueingControlledDelay.CEThresholdSec,  config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.ECN,             config_parse_fair_queueing_controlled_delay_bool,         QDISC_KIND_FQ_CODEL,           0
 NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
+NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
 NetworkEmulator.DelayJitterSec,              config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
 NetworkEmulator.LossRate,                    config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
 StochasticFairnessQueueing.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_SFQ,                0
+StochasticFairnessQueueing.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.PerturbPeriodSec, config_parse_stochastic_fairness_queueing_perturb_period, QDISC_KIND_SFQ,                0
 TokenBucketFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_TBF,                0
+TokenBucketFilter.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_TBF,                0
 TokenBucketFilter.Rate,                      config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
 TokenBucketFilter.Burst,                     config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
 TokenBucketFilter.LimitSize,                 config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
@@ -294,6 +301,7 @@ TokenBucketFilter.MPUBytes,                  config_parse_token_bucket_filter_si
 TokenBucketFilter.PeakRate,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
 TokenBucketFilter.LatencySec,                config_parse_token_bucket_filter_latency,                 QDISC_KIND_TBF,                0
 TrivialLinkEqualizer.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_TEQL,               0
+TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_TEQL,               0
 TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)

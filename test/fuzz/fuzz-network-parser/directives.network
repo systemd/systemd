@@ -272,8 +272,10 @@ Id=
 Gateway=
 [QDisc]
 Parent=
+Handle=
 [NetworkEmulator]
 Parent=
+Handle=
 DelaySec=
 DelayJitterSec=
 LossRate=
@@ -281,6 +283,7 @@ DuplicateRate=
 PacketLimit=
 [TokenBucketFilter]
 Parent=
+Handle=
 Rate=
 Burst=
 LimitSize=
@@ -290,9 +293,11 @@ PeakRate=
 LatencySec=
 [StochasticFairnessQueueing]
 Parent=
+Handle=
 PerturbPeriodSec=
 [FairQueueingControlledDelay]
 Parent=
+Handle=
 PacketLimit=
 MemoryLimit=
 Flows=
@@ -303,6 +308,7 @@ CEThresholdSec=
 ECN=
 [FairQueueing]
 Parent=
+Handle=
 PacketLimit=
 FlowLimit=
 Quantum=
@@ -314,6 +320,7 @@ Pacing=
 CEThresholdSec=
 [ControlledDelay]
 Parent=
+Handle=
 PacketLimit=
 TargetSec=
 IntervalSec=
@@ -328,4 +335,5 @@ NetworkEmulatorDuplicateRate=
 NetworkEmulatorPacketLimit=
 [TrivialLinkEqualizer]
 Parent=
+Handle=
 Id=
