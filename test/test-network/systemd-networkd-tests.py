@@ -165,7 +165,9 @@ def setUpModule():
     shutil.rmtree(networkd_ci_path)
     copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_path)
 
-    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service', 'firewalld.service']:
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service',
+              'systemd-udevd-kernel.socket', 'systemd-udevd-control.socket', 'systemd-udevd.service',
+              'firewalld.service']:
         if call(f'systemctl is-active --quiet {u}') == 0:
             check_output(f'systemctl stop {u}')
             running_units.append(u)
@@ -249,13 +251,14 @@ def tearDownModule():
 
     shutil.rmtree(networkd_ci_path)
 
-    for u in ['systemd-networkd.service', 'systemd-resolved.service', 'systemd-udevd.service']:
+    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
         check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
     shutil.rmtree('/run/systemd/system/systemd-resolved.service.d')
     shutil.rmtree('/run/systemd/system/systemd-udevd.service.d')
     check_output('systemctl daemon-reload')
+    check_output('systemctl restart systemd-udevd.service')
 
     for u in running_units:
         check_output(f'systemctl start {u}')
@@ -2681,6 +2684,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         'ipv6-prefix.network',
         'ipv6-prefix-veth.network',
         'ipv6-prefix-veth-token-static.network',
+        'ipv6-prefix-veth-token-static-explicit.network',
         'ipv6-prefix-veth-token-prefixstable.network']
 
     def setUp(self):
@@ -2708,6 +2712,15 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     def test_ipv6_token_static(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-static.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, '2002:da8:1:0:1a:2b:3c:4d')
+
+    def test_ipv6_token_static_explicit(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'ipv6-prefix.network', 'ipv6-prefix-veth-token-static-explicit.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
