@@ -288,6 +288,9 @@ NetworkEmulator.DelayJitterSec,              config_parse_network_emulator_delay
 NetworkEmulator.LossRate,                    config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
+StochasticFairBlue.Parent,                   config_parse_qdisc_parent,                                QDISC_KIND_SFB,                0
+StochasticFairBlue.Handle,                   config_parse_qdisc_handle,                                QDISC_KIND_SFB,                0
+StochasticFairBlue.PacketLimit,              config_parse_stochastic_fair_blue_u32,                    QDISC_KIND_SFB,                0
 StochasticFairnessQueueing.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.PerturbPeriodSec, config_parse_stochastic_fairness_queueing_perturb_period, QDISC_KIND_SFQ,                0
