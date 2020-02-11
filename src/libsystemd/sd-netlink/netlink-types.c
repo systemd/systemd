@@ -825,16 +825,16 @@ static const NLTypeSystemUnion rtnl_tca_option_data_type_system_union = {
         .match = TCA_KIND,
 };
 
-static const NLType rtnl_qdisc_types[] = {
+static const NLType rtnl_tca_types[] = {
         [TCA_KIND]           = { .type = NETLINK_TYPE_STRING },
         [TCA_OPTIONS]        = { .type = NETLINK_TYPE_UNION, .type_system_union = &rtnl_tca_option_data_type_system_union },
         [TCA_INGRESS_BLOCK]  = { .type = NETLINK_TYPE_U32 },
         [TCA_EGRESS_BLOCK]   = { .type = NETLINK_TYPE_U32 },
 };
 
-static const NLTypeSystem rtnl_qdisc_type_system = {
-        .count = ELEMENTSOF(rtnl_qdisc_types),
-        .types = rtnl_qdisc_types,
+static const NLTypeSystem rtnl_tca_type_system = {
+        .count = ELEMENTSOF(rtnl_tca_types),
+        .types = rtnl_tca_types,
 };
 
 static const NLType error_types[] = {
@@ -875,9 +875,12 @@ static const NLType rtnl_types[] = {
         [RTM_NEWNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_DELNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
         [RTM_GETNEXTHOP]   = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_nexthop_type_system, .size = sizeof(struct nhmsg) },
-        [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
-        [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_qdisc_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_NEWQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_DELQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_GETQDISC]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_NEWTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_DELTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_GETTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
 };
 
 const NLTypeSystem rtnl_type_system_root = {
