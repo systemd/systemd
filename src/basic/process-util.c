@@ -1178,6 +1178,11 @@ int must_be_root(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
 
+static void restore_sigsetp(sigset_t **ssp) {
+        if (*ssp)
+                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
+}
+
 int safe_fork_full(
                 const char *name,
                 const int except_fds[],
@@ -1187,6 +1192,7 @@ int safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
+        _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false;
         int prio, r;
 
@@ -1212,22 +1218,18 @@ int safe_fork_full(
                 block_signals = true;
         }
 
-        if (block_signals)
+        if (block_signals) {
                 if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
                         return log_full_errno(prio, errno, "Failed to set signal mask: %m");
+                saved_ssp = &saved_ss;
+        }
 
         if (flags & FORK_NEW_MOUNTNS)
                 pid = raw_clone(SIGCHLD|CLONE_NEWNS);
         else
                 pid = fork();
-        if (pid < 0) {
-                r = -errno;
-
-                if (block_signals) /* undo what we did above */
-                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
-
-                return log_full_errno(prio, r, "Failed to fork: %m");
-        }
+        if (pid < 0)
+                return log_full_errno(prio, errno, "Failed to fork: %m");
         if (pid > 0) {
                 /* We are in the parent process */
 
@@ -1248,9 +1250,6 @@ int safe_fork_full(
                                 return -EPROTO;
                 }
 
-                if (block_signals) /* undo what we did above */
-                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
-
                 if (ret_pid)
                         *ret_pid = pid;
 
@@ -1258,6 +1257,9 @@ int safe_fork_full(
         }
 
         /* We are in the child process */
+
+        /* Restore signal mask manually */
+        saved_ssp = NULL;
 
         if (flags & FORK_REOPEN_LOG) {
                 /* Close the logs if requested, before we log anything. And make sure we reopen it if needed. */
