@@ -14,6 +14,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "qdisc.h"
+#include "tclass.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
