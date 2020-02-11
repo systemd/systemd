@@ -30,6 +30,7 @@ struct Manager {
         bool enumerating:1;
         bool dirty:1;
         bool restarting:1;
+        bool manage_foreign_routes;
 
         Set *dirty_links;
 

@@ -61,6 +61,15 @@
         <listitem><para>Specifies the time interval to calculate the traffic speed of each interface.
         If <varname>SpeedMeter=no</varname>, the value is ignored. Defaults to 10sec.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManageForeignRoutes=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will store any routes
+        configured by other tools in its memory. When false, <command>systemd-networkd</command> will
+        not manage the foreign routes, thus they are kept even if <varname>KeepConfiguration=</varname>
+        is false. Defaults to yes.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
