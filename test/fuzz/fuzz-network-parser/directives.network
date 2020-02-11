@@ -357,3 +357,7 @@ Handle=
 VirtualQueues=
 DefaultVirtualQueue=
 GenericRIO=
+[StochasticFairBlue]
+Parent=
+Handle=
+PacketLimit=
