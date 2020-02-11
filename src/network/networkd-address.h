@@ -67,6 +67,8 @@ int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
+extern const struct hash_ops address_hash_ops;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);
 CONFIG_PARSER_PROTOTYPE(config_parse_label);

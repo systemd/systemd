@@ -254,62 +254,109 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_router_generate_address(Link *link, unsigned prefixlen, uint32_t lifetime_preferred, Address *address) {
-        bool prefix = false;
+static int ndisc_router_generate_addresses(Link *link, unsigned prefixlen, uint32_t lifetime_preferred, Address *address, Set **ret) {
+        _cleanup_set_free_free_ Set *addresses = NULL;
         struct in6_addr addr;
         IPv6Token *j;
         Iterator i;
         int r;
 
-        assert(address);
         assert(link);
+        assert(address);
+        assert(ret);
+
+        addresses = set_new(&address_hash_ops);
+        if (!addresses)
+                return log_oom();
 
         addr = address->in_addr.in6;
-        ORDERED_HASHMAP_FOREACH(j, link->network->ipv6_tokens, i)
+        ORDERED_HASHMAP_FOREACH(j, link->network->ipv6_tokens, i) {
+                bool have_address = false;
+                _cleanup_(address_freep) Address *new_address = NULL;
+
+                r = address_new(&new_address);
+                if (r < 0)
+                        return log_oom();
+
+                *new_address = *address;
+
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
                     && memcmp(&j->prefix, &addr, FAMILY_ADDRESS_SIZE(address->family)) == 0) {
+                        /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
+                           does not actually attempt Duplicate Address Detection; the counter will be incremented
+                           only when the address generation algorithm produces an invalid address, and the loop
+                           may exit with an address which ends up being unusable due to duplication on the link.
+                        */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
-                                r = make_stableprivate_address(link, &j->prefix, prefixlen, j->dad_counter, &address->in_addr.in6);
+                                r = make_stableprivate_address(link, &j->prefix, prefixlen, j->dad_counter, &new_address->in_addr.in6);
                                 if (r < 0)
-                                        return r;
+                                        break;
 
-                                if (stableprivate_address_is_valid(&address->in_addr.in6)) {
-                                        prefix = true;
+                                if (stableprivate_address_is_valid(&new_address->in_addr.in6)) {
+                                        have_address = true;
                                         break;
                                 }
                         }
                 } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
-                        memcpy(((uint8_t *)&address->in_addr.in6) + 8, ((uint8_t *) &j->prefix) + 8, 8);
-                        prefix = true;
-                        break;
+                        memcpy(((uint8_t *)&new_address->in_addr.in6) + 8, ((uint8_t *) &j->prefix) + 8, 8);
+                        have_address = true;
                 }
 
-        /* fallback to eui64 if prefixstable or static do not match */
-        if (!prefix) {
-                /* see RFC4291 section 2.5.1 */
-                address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
-                address->in_addr.in6.s6_addr[8] ^= 1 << 1;
-                address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
-                address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
-                address->in_addr.in6.s6_addr[11] = 0xff;
-                address->in_addr.in6.s6_addr[12] = 0xfe;
-                address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
-                address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
-                address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
+                if (have_address) {
+                        new_address->prefixlen = prefixlen;
+                        new_address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+                        new_address->cinfo.ifa_prefered = lifetime_preferred;
+
+                        r = set_put(addresses, new_address);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Failed to store address: %m");
+                        TAKE_PTR(new_address);
+                }
         }
 
-        address->prefixlen = prefixlen;
-        address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
-        address->cinfo.ifa_prefered = lifetime_preferred;
+        /* fall back to EUI-64 if no tokens provided addresses */
+        if (set_isempty(addresses)) {
+                _cleanup_(address_freep) Address *new_address = NULL;
+
+                r = address_new(&new_address);
+                if (r < 0)
+                        return log_oom();
+
+                *new_address = *address;
+
+                /* see RFC4291 section 2.5.1 */
+                new_address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
+                new_address->in_addr.in6.s6_addr[8] ^= 1 << 1;
+                new_address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
+                new_address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
+                new_address->in_addr.in6.s6_addr[11] = 0xff;
+                new_address->in_addr.in6.s6_addr[12] = 0xfe;
+                new_address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
+                new_address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
+                new_address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
+                new_address->prefixlen = prefixlen;
+                new_address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
+                new_address->cinfo.ifa_prefered = lifetime_preferred;
+
+                r = set_put(addresses, new_address);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to store address: %m");
+                TAKE_PTR(new_address);
+        }
+
+        *ret = TAKE_PTR(addresses);
 
         return 0;
 }
+
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
+        _cleanup_set_free_free_ Set *addresses = NULL;
         _cleanup_(address_freep) Address *address = NULL;
-        Address *existing_address;
         unsigned prefixlen;
         usec_t time_now;
+        Address *existing_address, *a;
+        Iterator i;
         int r;
 
         assert(link);
@@ -344,36 +391,39 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        r = ndisc_router_generate_address(link, prefixlen, lifetime_preferred, address);
+        r = ndisc_router_generate_addresses(link, prefixlen, lifetime_preferred, address, &addresses);
         if (r < 0)
-                return log_link_error_errno(link, r, "Falied to generate prefix stable address: %m");
+                return log_link_error_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
-        /* see RFC4862 section 5.5.3.e */
-        r = address_get(link, address->family, &address->in_addr, address->prefixlen, &existing_address);
-        if (r > 0) {
-                lifetime_remaining = existing_address->cinfo.tstamp / 100 + existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
-                if (lifetime_valid > NDISC_PREFIX_LFT_MIN || lifetime_valid > lifetime_remaining)
-                        address->cinfo.ifa_valid = lifetime_valid;
-                else if (lifetime_remaining <= NDISC_PREFIX_LFT_MIN)
-                        address->cinfo.ifa_valid = lifetime_remaining;
+        SET_FOREACH(a, addresses, i) {
+                /* see RFC4862 section 5.5.3.e */
+                r = address_get(link, a->family, &a->in_addr, a->prefixlen, &existing_address);
+                if (r > 0) {
+                        lifetime_remaining = existing_address->cinfo.tstamp / 100 + existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
+                        if (lifetime_valid > NDISC_PREFIX_LFT_MIN || lifetime_valid > lifetime_remaining)
+                                a->cinfo.ifa_valid = lifetime_valid;
+                        else if (lifetime_remaining <= NDISC_PREFIX_LFT_MIN)
+                                a->cinfo.ifa_valid = lifetime_remaining;
+                        else
+                                a->cinfo.ifa_valid = NDISC_PREFIX_LFT_MIN;
+                } else if (lifetime_valid > 0)
+                        a->cinfo.ifa_valid = lifetime_valid;
                 else
-                        address->cinfo.ifa_valid = NDISC_PREFIX_LFT_MIN;
-        } else if (lifetime_valid > 0)
-                address->cinfo.ifa_valid = lifetime_valid;
-        else
-                return 0; /* see RFC4862 section 5.5.3.d */
+                        return 0; /* see RFC4862 section 5.5.3.d */
 
-        if (address->cinfo.ifa_valid == 0)
-                return 0;
+                if (a->cinfo.ifa_valid == 0)
+                        continue;
 
-        r = address_configure(address, link, ndisc_netlink_address_message_handler, true);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Could not set SLAAC address: %m");
-                link_enter_failed(link);
-                return r;
+                r = address_configure(a, link, ndisc_netlink_address_message_handler, true);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Could not set SLAAC address: %m");
+                        link_enter_failed(link);
+                        return r;
+                }
+
+                if (r > 0)
+                        link->ndisc_messages++;
         }
-        if (r > 0)
-                link->ndisc_messages++;
 
         return 0;
 }
