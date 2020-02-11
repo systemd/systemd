@@ -127,6 +127,8 @@ sources = files('''
         tc/tc-util.h
         tc/tc.c
         tc/tc.h
+        tc/tclass.c
+        tc/tclass.h
         tc/teql.c
         tc/teql.h
 '''.split())
