@@ -2278,6 +2278,13 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>Termination=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, the termination resistor will be selected for
+            the bias network. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>TripleSampling=</varname></term>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine

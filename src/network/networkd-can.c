@@ -9,6 +9,8 @@
 #include "networkd-manager.h"
 #include "string-util.h"
 
+#define CAN_TERMINATION_OHM_VALUE 120
+
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -150,6 +152,17 @@ static int link_set_can(Link *link) {
                 r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
+        }
+
+        if (link->network->can_termination >= 0) {
+
+                log_link_debug(link, "%sabling can-termination", link->network->can_termination ? "En" : "Dis");
+
+                r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION,
+                                link->network->can_termination ? CAN_TERMINATION_OHM_VALUE : 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_TERMINATION attribute: %m");
+
         }
 
         r = sd_netlink_message_close_container(m);
