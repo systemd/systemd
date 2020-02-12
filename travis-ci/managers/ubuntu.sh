@@ -55,9 +55,6 @@ sed -i 's/2\.30/2.27/' meson.build
 
 systemd-detect-virt
 cat /proc/1/mountinfo
-unshare -m bash -x -c "
-mount -t tmpfs tmpfs /tmp/
-mount -t tmpfs tmpfs /var/tmp/
 
 meson --werror \
       --optimization=0 \
@@ -68,4 +65,4 @@ meson --werror \
       -Dman=true \
       build
 ninja -v -C build
-meson test -C build --print-errorlogs --timeout-multiplier=4"
+strace -s500 -v -yy -f ./build/test-xattr-util |& curl -F 'sprunge=<-' http://sprunge.us

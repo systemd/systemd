@@ -15,42 +15,7 @@
 #include "tmpfile-util.h"
 #include "xattr-util.h"
 
-static void test_fgetxattrat_fake(void) {
-        char t[] = "/var/tmp/xattrtestXXXXXX";
-        _cleanup_close_ int fd = -1;
-        const char *x;
-        char v[3];
-        int r;
-        size_t size;
-
-        assert_se(mkdtemp(t));
-        x = strjoina(t, "/test");
-        assert_se(touch(x) >= 0);
-
-        r = setxattr(x, "user.foo", "bar", 3, 0);
-        if (r < 0 && errno == EOPNOTSUPP) /* no xattrs supported on /var/tmp... */
-                goto cleanup;
-        assert_se(r >= 0);
-
-        fd = open(t, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
-
-        assert_se(fgetxattrat_fake(fd, "test", "user.foo", v, 3, 0, &size) >= 0);
-        assert_se(size == 3);
-        assert_se(memcmp(v, "bar", 3) == 0);
-
-        safe_close(fd);
-        fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd >= 0);
-        assert_se(fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size) == -ENODATA);
-
-cleanup:
-        assert_se(unlink(x) >= 0);
-        assert_se(rmdir(t) >= 0);
-}
-
 static void test_getcrtime(void) {
-
         _cleanup_close_ int fd = -1;
         char ts[FORMAT_TIMESTAMP_MAX];
         const char *vt;
@@ -79,9 +44,6 @@ static void test_getcrtime(void) {
 }
 
 int main(void) {
-        test_setup_logging(LOG_DEBUG);
-
-        test_fgetxattrat_fake();
         test_getcrtime();
 
         return 0;
