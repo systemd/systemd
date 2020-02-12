@@ -34,6 +34,7 @@ PACKAGES=(clang
           quota
           strace
           unifont
+          expect
           util-linux)
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
@@ -64,6 +65,31 @@ EOF
 
 export LSAN_OPTIONS=suppressions=$LSAN_SUPPRESSIONS
 
+WRAPPER="$PWD/wrapper.sh"
+cat > "$WRAPPER" << EOF
+#!/bin/bash
+
+export ASAN_OPTIONS=$ASAN_OPTIONS
+export UBSAN_OPTIONS=$UBSAN_OPTIONS
+
+
+if [[ \$(basename "\$1") == 'test-systemd-tmpfiles.py' ]]; then
+    export SYSTEMD_LOG_LEVEL=debug
+    echo "--- STAGE 1 ---" >> /tmp/tmpfiles.log
+    timeout 10s python3 -uc 'print("hello world")' &>> /tmp/tmpfiles.log
+    echo "--- STAGE 2 ---" >> /tmp/tmpfiles.log
+    timeout 100s python3 -u -m trace -t "\$@" &>> /tmp/tmpfiles.log
+    return \$?
+
+    #export ASAN_OPTIONS=$ASAN_OPTIONS:detect_leaks=0
+    #exec timeout 60s strace -s 500 "\$@" &> /tmp/tmpfiles.log
+else
+    exec "\$@"
+fi
+EOF
+
+chmod +x "$WRAPPER"
+
 # Temporary workaround for bugged shiftfs used in Travis LXD containers
 # See:
 #   - https://github.com/systemd/systemd/issues/14861
@@ -73,7 +99,7 @@ mount -t tmpfs tmpfs /tmp/
 mount -t tmpfs tmpfs /var/tmp/
 
 meson --werror \
-      --optimization=0 \
+      --optimization=2 \
       --buildtype=debug \
       -Dc_args='-fno-omit-frame-pointer -ftrapv' \
       -Db_sanitize=address,undefined \
@@ -83,4 +109,25 @@ meson --werror \
       -Dman=true \
       build
 ninja -v -C build
-meson test -C build --print-errorlogs --timeout-multiplier=4"
+
+#time python3 -u /home/travis/build/systemd/systemd/src/test/test-systemd-tmpfiles.py /home/travis/build/systemd/systemd/build/systemd-tmpfiles
+
+export SYSTEMD_LOG_LEVEL=debug
+export ASAN_OPTIONS=$ASAN_OPTIONS:debug=true:atexit=true:print_stats=true
+echo 'f++ /too/many/plusses' > systemd-tmpfiles-test.conf
+time unbuffer /home/travis/build/systemd/systemd/build/systemd-tmpfiles --create \$PWD/systemd-tmpfiles-test.conf
+
+exit 1
+
+if ! meson test -C build --print-errorlogs --timeout-multiplier=4 --wrapper=$WRAPPER; then
+    tail -n500 /tmp/tmpfiles.log
+    EC=1
+else
+    tail -n500 /tmp/tmpfiles.log
+    EC=0
+fi
+
+time python3 -u /home/travis/build/systemd/systemd/src/test/test-systemd-tmpfiles.py /home/travis/build/systemd/systemd/build/systemd-tmpfiles
+
+exit \$EC
+"

@@ -26,86 +26,86 @@ stages:
 
 jobs:
     include:
-        - stage: Build & test
-          name: Debian Testing
-          language: bash
-          env:
-              - DEBIAN_RELEASE="testing"
-              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/debian.sh SETUP
-          script:
-              - set -e
-              # Build systemd
-              - $CI_MANAGERS/debian.sh RUN
-              - set +e
-          after_script:
-              - $CI_MANAGERS/debian.sh CLEANUP
-
-        - name: Debian Testing (ASan+UBSan)
-          language: bash
-          env:
-              - DEBIAN_RELEASE="testing"
-              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/debian.sh SETUP
-          script:
-              - set -e
-              - $CI_MANAGERS/debian.sh RUN_ASAN
-              - set +e
-          after_script:
-              - $CI_MANAGERS/debian.sh CLEANUP
-
-        - name: Debian Testing (clang)
-          language: bash
-          env:
-              - DEBIAN_RELEASE="testing"
-              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/debian.sh SETUP
-          script:
-              - set -e
-              - $CI_MANAGERS/debian.sh RUN_CLANG
-              - set +e
-          after_script:
-              - $CI_MANAGERS/debian.sh CLEANUP
-
-        - name: Debian Testing (clang ASan+UBSan)
-          language: bash
-          env:
-              - DEBIAN_RELEASE="testing"
-              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/debian.sh SETUP
-          script:
-              - set -e
-              - $CI_MANAGERS/debian.sh RUN_CLANG_ASAN
-              - set +e
-          after_script:
-              - $CI_MANAGERS/debian.sh CLEANUP
-
-        - name: Ubuntu Bionic (x86_64, ASan + UBSan)
-          language: bash
-          script:
-            - set -e
-            - sudo $CI_MANAGERS/ubuntu.sh bionic
-            - set +e
+          #- stage: Build & test
+          #          name: Debian Testing
+          #          language: bash
+          #          env:
+          #              - DEBIAN_RELEASE="testing"
+          #              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+          #              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          #          before_install:
+          #              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+          #              - docker --version
+          #          install:
+          #              - $CI_MANAGERS/debian.sh SETUP
+          #          script:
+          #              - set -e
+          #              # Build systemd
+          #              - $CI_MANAGERS/debian.sh RUN
+          #              - set +e
+          #          after_script:
+          #              - $CI_MANAGERS/debian.sh CLEANUP
+          #
+          #        - name: Debian Testing (ASan+UBSan)
+          #          language: bash
+          #          env:
+          #              - DEBIAN_RELEASE="testing"
+          #              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+          #              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          #          before_install:
+          #              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+          #              - docker --version
+          #          install:
+          #              - $CI_MANAGERS/debian.sh SETUP
+          #          script:
+          #              - set -e
+          #              - $CI_MANAGERS/debian.sh RUN_ASAN
+          #              - set +e
+          #          after_script:
+          #              - $CI_MANAGERS/debian.sh CLEANUP
+          #
+          #        - name: Debian Testing (clang)
+          #          language: bash
+          #          env:
+          #              - DEBIAN_RELEASE="testing"
+          #              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+          #              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          #          before_install:
+          #              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+          #              - docker --version
+          #          install:
+          #              - $CI_MANAGERS/debian.sh SETUP
+          #          script:
+          #              - set -e
+          #              - $CI_MANAGERS/debian.sh RUN_CLANG
+          #              - set +e
+          #          after_script:
+          #              - $CI_MANAGERS/debian.sh CLEANUP
+          #
+          #        - name: Debian Testing (clang ASan+UBSan)
+          #          language: bash
+          #          env:
+          #              - DEBIAN_RELEASE="testing"
+          #              - CONT_NAME="systemd-debian-$DEBIAN_RELEASE"
+          #              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
+          #          before_install:
+          #              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+          #              - docker --version
+          #          install:
+          #              - $CI_MANAGERS/debian.sh SETUP
+          #          script:
+          #              - set -e
+          #              - $CI_MANAGERS/debian.sh RUN_CLANG_ASAN
+          #              - set +e
+          #          after_script:
+          #              - $CI_MANAGERS/debian.sh CLEANUP
+          #
+          #        - name: Ubuntu Bionic (x86_64, ASan + UBSan)
+          #          language: bash
+          #          script:
+          #            - set -e
+          #            - sudo $CI_MANAGERS/ubuntu.sh bionic
+          #            - set +e
 
         - name: Ubuntu Bionic (arm64, ASan + UBSan)
           arch: arm64
@@ -131,21 +131,21 @@ jobs:
             - sudo $CI_MANAGERS/ubuntu.sh bionic
             - set +e
 
-        - stage: Fuzzit-Regression
-          name:  Continuous Fuzzing via Fuzzit (regression)
-          language: bash
-          script:
-            - set -e
-            - $CI_MANAGERS/fuzzit.sh regression
-            - set +e
-
-        - stage: Fuzzit-Fuzzing
-          name: Continuous Fuzzing via Fuzzit (fuzzing daily)
-          language: bash
-          script:
-            - set -e
-            - $CI_MANAGERS/fuzzit.sh fuzzing
-            - set +e
+              #        - stage: Fuzzit-Regression
+              #          name:  Continuous Fuzzing via Fuzzit (regression)
+              #          language: bash
+              #          script:
+              #            - set -e
+              #            - $CI_MANAGERS/fuzzit.sh regression
+              #            - set +e
+              #
+              #        - stage: Fuzzit-Fuzzing
+              #          name: Continuous Fuzzing via Fuzzit (fuzzing daily)
+              #          language: bash
+              #          script:
+              #            - set -e
+              #            - $CI_MANAGERS/fuzzit.sh fuzzing
+              #            - set +e
 
         - stage: Coverity
           language: bash
