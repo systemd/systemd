@@ -9,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -42,6 +43,7 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static bool arg_enable = false;
 static bool arg_now = false;
+static bool arg_no_block = false;
 
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
@@ -445,7 +447,7 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         return 0;
 }
 
-static int maybe_start_stop(sd_bus *bus, const char *path, bool start) {
+static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitForJobs *wait) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *name = (char *)basename(path), *job = NULL;
@@ -476,14 +478,28 @@ static int maybe_start_stop(sd_bus *bus, const char *path, bool start) {
         if (!arg_quiet)
                 log_info("Queued %s to %s portable service %s.", job, start ? "start" : "stop", name);
 
+        if (wait) {
+                r = bus_wait_for_jobs_add(wait, job);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch %s job for %s %s: %m",
+                                               job, start ? "starting" : "stopping", name);
+        }
+
         return 0;
 }
 
 static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
         int r;
 
         if (!arg_enable && !arg_now)
                 return 0;
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs_new(bus, &wait);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
+        }
 
         r = sd_bus_message_rewind(reply, true);
         if (r < 0)
@@ -503,7 +519,7 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
 
                 if (STR_IN_SET(type, "symlink", "copy") && ENDSWITH_SET(path, ".service", ".target", ".socket")) {
                         (void) maybe_enable_disable(bus, path, true);
-                        (void) maybe_start_stop(bus, path, true);
+                        (void) maybe_start_stop(bus, path, true, wait);
                 }
         }
 
@@ -511,10 +527,17 @@ static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
         if (r < 0)
                 return r;
 
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
 static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_strv_free_ char **matches = NULL;
@@ -526,6 +549,10 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         r = determine_matches(argv[1], argv + 2, true, &matches);
         if (r < 0)
                 return r;
+
+        r = bus_wait_for_jobs_new(bus, &wait);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
 
         r = sd_bus_message_new_method_call(
                                 bus,
@@ -578,13 +605,18 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                (void) maybe_start_stop(bus, name, false);
+                (void) maybe_start_stop(bus, name, false, wait);
                 (void) maybe_enable_disable(bus, name, false);
         }
 
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        /* Stopping must always block or the detach will fail if the unit is still running */
+        r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -997,6 +1029,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              after attach/detach\n"
                "     --now                    Immediately start/stop the portable service after\n"
                "                              attach/before detach\n"
+               "     --no-block               Don't block waiting for attach --now to complete\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -1020,6 +1053,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CAT,
                 ARG_ENABLE,
                 ARG_NOW,
+                ARG_NO_BLOCK,
         };
 
         static const struct option options[] = {
@@ -1038,6 +1072,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cat",             no_argument,       NULL, ARG_CAT             },
                 { "enable",          no_argument,       NULL, ARG_ENABLE          },
                 { "now",             no_argument,       NULL, ARG_NOW             },
+                { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
                 {}
         };
 
@@ -1130,6 +1165,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NOW:
                         arg_now = true;
+                        break;
+
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
                         break;
 
                 case '?':

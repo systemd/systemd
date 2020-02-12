@@ -135,7 +135,8 @@
         the service manager are seen by it.</para>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
-        immediately started and/or enabled after attaching the image.</para>
+        immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
+        attaching the image.</para>
         </listitem>
       </varlistentry>
 
@@ -150,8 +151,8 @@
         <command>detach</command>.</para></listitem>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
-        immediately started and/or enabled before detaching the image. Prefix(es) are also accepted, to be used in
-        case the unit names do not match the image name as described in the <command>attach</command>.</para>
+        immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
+        to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
       </varlistentry>
 
       <varlistentry>
@@ -328,6 +329,12 @@
         <term><option>--now</option></term>
 
         <listitem><para>Immediately start/stop the portable service after attaching/before detaching.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem><para>Don't block waiting for attach --now to complete.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
