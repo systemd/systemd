@@ -53,6 +53,17 @@ export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
 export CC=clang
 export CXX=clang++
 
+# Blacklist for leaking libmount on Ubuntu Bionic
+LSAN_SUPPRESSIONS="$PWD/lsan.supp"
+cat > "$LSAN_SUPPRESSIONS" << EOF
+# test-libmount
+leak:mnt_new_fs
+# test-umount
+leak:vsscanf
+EOF
+
+export LSAN_OPTIONS=suppressions=$LSAN_SUPPRESSIONS
+
 meson --werror \
       --optimization=0 \
       --buildtype=debug \
