@@ -781,7 +781,12 @@ static const NLType rtnl_tca_option_data_fq_codel_types[] = {
 };
 
 static const NLType rtnl_tca_option_data_htb_types[] = {
-        [TCA_HTB_INIT] = { .size = sizeof(struct tc_htb_glob) },
+        [TCA_HTB_PARMS]  = { .size = sizeof(struct tc_htb_opt) },
+        [TCA_HTB_INIT]   = { .size = sizeof(struct tc_htb_glob) },
+        [TCA_HTB_CTAB]   = { .size = TC_RTAB_SIZE },
+        [TCA_HTB_RTAB]   = { .size = TC_RTAB_SIZE },
+        [TCA_HTB_RATE64] = { .type = NETLINK_TYPE_U64 },
+        [TCA_HTB_CEIL64] = { .type = NETLINK_TYPE_U64 },
 };
 
 static const NLType rtnl_tca_option_data_tbf_types[] = {
