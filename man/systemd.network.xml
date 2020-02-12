@@ -2833,6 +2833,60 @@
   </refsect1>
 
   <refsect1>
+    <title>[HierarchyTokenBucketClass] Section Options</title>
+    <para>The <literal>[HierarchyTokenBucketClass]</literal> section manages the traffic control class of
+    hierarchy token bucket (htb).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          or a qdisc id. The qdisc id takes the major and minor number in hexadecimal ranges 1 to ffff
+          separated with a colon (<literal>major:minor</literal>). Defaults to <literal>root</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ClassId=</varname></term>
+        <listitem>
+          <para>Specifies the major and minur number of unique identifier of the class, known as the
+          class ID. Each number is in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the class. In the round-robin process, classes with the lowest
+          priority field are tried for packets first. This setting is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Rate=</varname></term>
+        <listitem>
+          <para>Specifies the maximum rate this class and all its children are guaranteed. When suffixed
+          with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits, respectively,
+          to the base of 1000. This setting is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CeilRate=</varname></term>
+        <listitem>
+          <para>Specifies the maximum rate at which a class can send, if its parent has bandwidth to spare.
+          When suffixed with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits,
+          respectively, to the base of 1000. When unset, the value specified with <varname>Rate=</varname>
+          is used.</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
       the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.

@@ -341,3 +341,9 @@ Id=
 Parent=
 Handle=
 DefaultClass=
+[HierarchyTokenBucketClass]
+Parent=
+ClassId=
+Priority=
+Rate=
+CeilRate=
