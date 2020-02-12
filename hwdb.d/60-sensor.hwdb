@@ -473,6 +473,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM800W560L:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM101W610L:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# Nuvision Encite Split 11. NES11-C432SSA
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnNuvision:pnNES11:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 #########################################
 # Onda
 #########################################
