@@ -64,6 +64,14 @@ EOF
 
 export LSAN_OPTIONS=suppressions=$LSAN_SUPPRESSIONS
 
+# Temporary workaround for bugged shiftfs used in Travis LXD containers
+# See:
+#   - https://github.com/systemd/systemd/issues/14861
+#   - https://github.com/systemd/systemd/pull/13785#issuecomment-585148492
+unshare -m bash -x -c "
+mount -t tmpfs tmpfs /tmp/
+mount -t tmpfs tmpfs /var/tmp/
+
 meson --werror \
       --optimization=0 \
       --buildtype=debug \
@@ -75,4 +83,4 @@ meson --werror \
       -Dman=true \
       build
 ninja -v -C build
-meson test -C build --print-errorlogs --timeout-multiplier=4
+meson test -C build --print-errorlogs --timeout-multiplier=4"
