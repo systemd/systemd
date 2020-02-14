@@ -207,7 +207,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set empty string: %m");
 
-        r = table_set_sort(table, COLUMN_NAME, (size_t) -1);
+        r = table_set_sort(table, (size_t) COLUMN_NAME, (size_t) -1);
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort column: %m");
 

@@ -112,8 +112,8 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, 7, 2, (size_t) -1);
-                (void) table_set_display(table, 0, 1, 2, 3, 4, 5, 6, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 7, (size_t) 2, (size_t) -1);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -260,8 +260,8 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
-                (void) table_set_sort(table, 3, 2, (size_t) -1);
-                (void) table_set_display(table, 0, 1, 2, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 2, (size_t) -1);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -400,7 +400,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_sort(table, 0, 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -489,7 +489,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_sort(t, 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
