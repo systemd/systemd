@@ -3826,25 +3826,9 @@ static bool generator_path_any(const char* const* paths) {
         return found;
 }
 
-static const char *const system_env_generator_binary_paths[] = {
-        "/run/systemd/system-environment-generators",
-        "/etc/systemd/system-environment-generators",
-        "/usr/local/lib/systemd/system-environment-generators",
-        SYSTEM_ENV_GENERATOR_PATH,
-        NULL
-};
-
-static const char *const user_env_generator_binary_paths[] = {
-        "/run/systemd/user-environment-generators",
-        "/etc/systemd/user-environment-generators",
-        "/usr/local/lib/systemd/user-environment-generators",
-        USER_ENV_GENERATOR_PATH,
-        NULL
-};
-
 static int manager_run_environment_generators(Manager *m) {
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
-        const char *const *paths;
+        _cleanup_strv_free_ char **paths = NULL;
         void* args[] = {
                 [STDOUT_GENERATE] = &tmp,
                 [STDOUT_COLLECT] = &tmp,
@@ -3855,13 +3839,15 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
+        paths = env_generator_binary_paths(MANAGER_IS_SYSTEM(m));
+        if (!paths)
+                return log_oom();
 
-        if (!generator_path_any(paths))
+        if (!generator_path_any((const char* const*) paths))
                 return 0;
 
         RUN_WITH_UMASK(0022)
-                r = execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment,
+                r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
                                         args, NULL, m->transient_environment, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         return r;
 }

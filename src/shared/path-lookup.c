@@ -837,3 +837,17 @@ char **generator_binary_paths(UnitFileScope scope) {
                 assert_not_reached("Hmm, unexpected scope.");
         }
 }
+
+char **env_generator_binary_paths(bool is_system) {
+
+        if (is_system)
+                return strv_new("/run/systemd/system-environment-generators",
+                                "/etc/systemd/system-environment-generators",
+                                "/usr/local/lib/systemd/system-environment-generators",
+                                SYSTEM_ENV_GENERATOR_PATH);
+        else
+                return strv_new("/run/systemd/user-environment-generators",
+                                "/etc/systemd/user-environment-generators",
+                                "/usr/local/lib/systemd/user-environment-generators",
+                                USER_ENV_GENERATOR_PATH);
+}
