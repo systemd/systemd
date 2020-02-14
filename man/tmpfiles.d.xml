@@ -61,8 +61,8 @@ x     /path-or-glob/to/ignore                  -    -    -     -           -
 X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
 r     /empty/dir/to/remove                     -    -    -     -           -
 R     /dir/to/remove/recursively               -    -    -     -           -
-z     /path-or-glob/to/adjust/mode             mode user group -           MAC context
-Z     /path-or-glob/to/adjust/mode/recursively mode user group -           MAC context
+z     /path-or-glob/to/adjust/mode             mode user group -           -
+Z     /path-or-glob/to/adjust/mode/recursively mode user group -           -
 t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
 T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattrs
 h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
