@@ -1101,7 +1101,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = table_set_sort(table, 0, SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
         if (r < 0)
                 return r;
 

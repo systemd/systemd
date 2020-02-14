@@ -1555,7 +1555,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                 return log_oom();
 
         if (!DEBUG_LOGGING)
-                (void) table_set_display(t, 0, 1, 2, 3, 4, 7, 9, (size_t) -1);
+                (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 7, (size_t) 9, (size_t) -1);
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
