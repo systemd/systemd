@@ -251,6 +251,7 @@ Prefix=
 UseDomains=
 RouteTable=
 UseDNS=
+DHCPv6Client=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
 BlackList=
