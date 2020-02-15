@@ -107,6 +107,7 @@ UseDNS=
 RapidCommit=
 ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
+WithoutRA=
 [Route]
 Destination=
 Protocol=

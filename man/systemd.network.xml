@@ -1689,6 +1689,14 @@
             a prefix-hint in the DHCPv6 solicitation. Prefix ranges 1-128. Defaults to unset.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>WithoutRA=</varname></term>
+          <listitem>
+            <para>When true, DHCPv6 client starts without router advertisements's managed or other address configuration flag.
+            Defaults to false.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
