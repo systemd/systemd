@@ -1763,6 +1763,14 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>DHCPv6Client=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When true (the default), the DHCPv6 client will be started when the
+            RA has the managed or other information flag.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
   </refsect1>
 
