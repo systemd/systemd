@@ -1553,6 +1553,17 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
         }
 
+        if (link_dhcp6_enabled(link) && link->network->dhcp6_without_ra) {
+                assert(link->dhcp6_client);
+                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+
+                r = dhcp6_request_address(link, true);
+                if (r < 0 && r != -EBUSY)
+                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+                else
+                        log_link_debug(link, "Acquiring DHCPv6 lease");
+        }
+
         (void) dhcp6_request_prefix_delegation(link);
 
         return 0;

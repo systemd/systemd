@@ -126,6 +126,7 @@ struct Network {
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;
         bool dhcp6_use_ntp;
+        bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
         struct in6_addr dhcp6_pd_address;
 
