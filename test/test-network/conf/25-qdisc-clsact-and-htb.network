@@ -148,3 +148,15 @@ Handle=0038
 VirtualQueues=12
 DefaultVirtualQueue=10
 GenericRIO=yes
+
+[HierarchyTokenBucketClass]
+Parent=root
+ClassId=0002:0039
+Priority=1
+Rate=1M
+CeilRate=0.5M
+
+[StochasticFairBlue]
+Parent=2:39
+Handle=0039
+PacketLimit=200000
