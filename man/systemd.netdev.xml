@@ -856,7 +856,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>DestinationPort=</varname></term>
+        <term><varname>UDPDestinationPort=</varname></term>
         <listitem>
           <para>Specifies destination port. When UDP encapsulation is selected it's mandotory. Ignored when ip
           encapsulation is selected.</para>
