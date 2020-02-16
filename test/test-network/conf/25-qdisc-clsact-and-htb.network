@@ -122,3 +122,15 @@ CeilRate=0.5M
 Parent=2:36
 Handle=0036
 PerturbPeriodSec=5sec
+
+[HierarchyTokenBucketClass]
+Parent=root
+ClassId=0002:0037
+Priority=1
+Rate=1M
+CeilRate=0.5M
+
+[PFIFO]
+Parent=2:37
+Handle=0037
+PacketLimit=100000

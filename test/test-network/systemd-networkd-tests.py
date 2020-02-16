@@ -2293,6 +2293,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc sfq 36: parent 2:36')
         self.assertRegex(output, 'perturb 5sec')
 
+        self.assertRegex(output, 'qdisc pfifo 37: parent 2:37')
+        self.assertRegex(output, 'limit 100000p')
+
         output = check_output('tc class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class htb 2:30 root leaf 30:')
@@ -2302,6 +2305,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class htb 2:34 root leaf 34:')
         self.assertRegex(output, 'class htb 2:35 root leaf 35:')
         self.assertRegex(output, 'class htb 2:36 root leaf 36:')
+        self.assertRegex(output, 'class htb 2:37 root leaf 37:')
         self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
