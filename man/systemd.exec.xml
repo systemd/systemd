@@ -706,10 +706,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Controls the CPU affinity of the executed processes. Takes a list of CPU indices or ranges
-        separated by either whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated
-        by a dash. This option may be specified more than once, in which case the specified CPU affinity masks are
-        merged. If the empty string is assigned, the mask is reset, all assignments prior to this will have no
-        effect. See
+        separated by either whitespace or commas. Alternatively, takes a special "numa" value in which case systemd
+        automatically derives allowed CPU range based on the value of <varname>NUMAMask=</varname> option. CPU ranges
+        are specified by the lower and upper CPU indices separated by a dash. This option may be specified more than
+        once, in which case the specified CPU affinity masks are merged. If the empty string is assigned, the mask
+        is reset, all assignments prior to this will have no effect. See
         <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>

@@ -218,12 +218,12 @@ static void test_parse_cpu_set_extend(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(parse_cpu_set_extend("1 3", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(parse_cpu_set_extend("1 3", &c, true, NULL, "fake", 1, "CPUAffinity") == 1);
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 2);
         assert_se(s1 = cpu_set_to_string(&c));
         log_info("cpu_set_to_string: %s", s1);
 
-        assert_se(parse_cpu_set_extend("4", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(parse_cpu_set_extend("4", &c, true, NULL, "fake", 1, "CPUAffinity") == 1);
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 3);
         assert_se(s2 = cpu_set_to_string(&c));
         log_info("cpu_set_to_string: %s", s2);
@@ -240,7 +240,7 @@ static void test_cpu_set_to_from_dbus(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(parse_cpu_set_extend("1 3 8 100-200", &c, true, NULL, "fake", 1, "CPUAffinity") == 0);
+        assert_se(parse_cpu_set_extend("1 3 8 100-200", &c, true, NULL, "fake", 1, "CPUAffinity") == 1);
         assert_se(s = cpu_set_to_string(&c));
         log_info("cpu_set_to_string: %s", s);
         assert_se(CPU_COUNT_S(c.allocated, c.set) == 104);

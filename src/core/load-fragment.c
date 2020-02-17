@@ -1251,13 +1251,25 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        return parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (streq(rvalue, "numa")) {
+                c->cpu_affinity_from_numa = true;
+                cpu_set_reset(&c->cpu_set);
+
+                return 0;
+        }
+
+        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (r >= 0)
+                c->cpu_affinity_from_numa = false;
+
+        return r;
 }
 
 int config_parse_capability_set(

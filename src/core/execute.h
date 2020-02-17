@@ -152,6 +152,7 @@ struct ExecContext {
 
         CPUSet cpu_set;
         NUMAPolicy numa_policy;
+        bool cpu_affinity_from_numa;
 
         ExecInput std_input;
         ExecOutput std_output;
@@ -374,6 +375,8 @@ int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
 void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_runtime_vacuum(Manager *m);
+
+bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

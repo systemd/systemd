@@ -12,12 +12,14 @@
 #include "cpu-set-util.h"
 #include "dirent-util.h"
 #include "extract-word.h"
+#include "fileio.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -179,7 +181,7 @@ int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
                                 return r;
                 }
 
-        return 0;
+        return 1;
 }
 
 int parse_cpu_set_full(
@@ -264,7 +266,7 @@ int parse_cpu_set_extend(
         if (!old->set) {
                 *old = cpuset;
                 cpuset = (CPUSet) {};
-                return 0;
+                return 1;
         }
 
         return cpu_set_add_all(old, &cpuset);
@@ -413,6 +415,43 @@ int apply_numa_policy(const NUMAPolicy *policy) {
         r = set_mempolicy(numa_policy_get_type(policy), nodes, maxnode);
         if (r < 0)
                 return -errno;
+
+        return 0;
+}
+
+int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
+        int r;
+        size_t i;
+        _cleanup_(cpu_set_reset) CPUSet s = {};
+
+        assert(policy);
+        assert(ret);
+
+        for (i = 0; i < policy->nodes.allocated * 8; i++) {
+                _cleanup_free_ char *l = NULL;
+                char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
+                _cleanup_(cpu_set_reset) CPUSet part = {};
+
+                if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
+                        continue;
+
+                xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", i);
+
+                r = read_one_line_file(p, &l);
+                if (r < 0)
+                        return r;
+
+                r = parse_cpu_set(l, &part);
+                if (r < 0)
+                        return r;
+
+                r = cpu_set_add_all(&s, &part);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = s;
+        s = (CPUSet) {};
 
         return 0;
 }
