@@ -1070,6 +1070,7 @@ int link_request_set_routes(Link *link) {
 
 void link_check_ready(Link *link) {
         Address *a;
+        Link *carrier;
         Iterator i;
         int r;
 
@@ -1142,6 +1143,16 @@ void link_check_ready(Link *link) {
 
         if (link->state != LINK_STATE_CONFIGURED)
                 link_enter_configured(link);
+
+        /* Reconfigure any running DHCP servers with information from the new
+         * link if necessary. */
+        HASHMAP_FOREACH(carrier, link->manager->links, i) {
+                if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {
+                        r = dhcp4_server_configure(carrier);
+                        if (r < 0)
+                                link_enter_failed(carrier);
+                }
+        }
 
         return;
 }
