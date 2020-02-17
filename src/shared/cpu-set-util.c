@@ -131,7 +131,7 @@ int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
                                 return r;
                 }
 
-        return 0;
+        return 1;
 }
 
 int parse_cpu_set_full(
@@ -216,7 +216,7 @@ int parse_cpu_set_extend(
         if (!old->set) {
                 *old = cpuset;
                 cpuset = (CPUSet) {};
-                return 0;
+                return 1;
         }
 
         return cpu_set_add_all(old, &cpuset);
