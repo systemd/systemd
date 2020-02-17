@@ -17,7 +17,7 @@ pip3 install meson
 cd $REPO_ROOT
 export PATH="$HOME/.local/bin/:$PATH"
 tools/oss-fuzz.sh
-timeout --preserve-status 5 ./out/fuzz-unit-file
+./out/fuzz-unit-file -max_total_time=5
 git clean -dxff
 
 wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
