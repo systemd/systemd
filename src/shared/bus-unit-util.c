@@ -21,6 +21,7 @@
 #include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
+#include "numa-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
