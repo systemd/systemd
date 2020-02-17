@@ -479,6 +479,36 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         return 0;
 }
 
+static int get_paths_from_environ(const char *var, char ***paths, bool *append) {
+        const char *e;
+        int r;
+
+        assert(var);
+        assert(paths);
+        assert(append);
+
+        *append = false;
+
+        e = getenv(var);
+        if (e) {
+                const char *k;
+
+                k = endswith(e, ":");
+                if (k) {
+                        e = strndupa(e, k - e);
+                        *append = true;
+                }
+
+                /* FIXME: empty components in other places should be rejected. */
+
+                r = path_split_and_make_absolute(e, paths);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int lookup_paths_init(
                 LookupPaths *p,
                 UnitFileScope scope,
@@ -496,7 +526,6 @@ int lookup_paths_init(
                 *persistent_attached = NULL, *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
-        const char *e;
         int r;
 
         assert(p);
@@ -562,22 +591,9 @@ int lookup_paths_init(
                 return r;
 
         /* First priority is whatever has been passed to us via env vars */
-        e = getenv("SYSTEMD_UNIT_PATH");
-        if (e) {
-                const char *k;
-
-                k = endswith(e, ":");
-                if (k) {
-                        e = strndupa(e, k - e);
-                        append = true;
-                }
-
-                /* FIXME: empty components in other places should be rejected. */
-
-                r = path_split_and_make_absolute(e, &paths);
-                if (r < 0)
-                        return r;
-        }
+        r = get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths, &append);
+        if (r < 0)
+                return r;
 
         if (!paths || append) {
                 /* Let's figure something out. */
