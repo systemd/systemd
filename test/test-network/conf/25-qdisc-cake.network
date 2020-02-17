@@ -1,0 +1,12 @@
+[Match]
+Name=dummy98
+
+[Network]
+IPv6AcceptRA=no
+Address=10.1.2.3/16
+
+[CAKE]
+Parent=root
+Handle=3a
+Overhead=128
+Bandwidth=500M

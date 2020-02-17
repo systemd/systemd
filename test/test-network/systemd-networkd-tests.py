@@ -156,6 +156,18 @@ def expectedFailureIfAlternativeNameIsNotAvailable():
 
     return f
 
+def expectedFailureIfCAKEIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root cake', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1620,6 +1632,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
+        '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
         '25-qdisc-ingress-netem-compat.network',
         '25-route-ipv6-src.network',
@@ -2315,6 +2328,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class htb 2:38 root leaf 38:')
         self.assertRegex(output, 'class htb 2:39 root leaf 39:')
         self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
+
+    @expectedFailureIfCAKEIsNotAvailable()
+    def test_qdisc_cake(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-cake.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc cake 3a: root')
+        self.assertRegex(output, 'bandwidth 500Mbit')
+        self.assertRegex(output, 'overhead 128')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
