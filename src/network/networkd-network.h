@@ -234,7 +234,7 @@ struct Network {
         KeepConfiguration keep_configuration;
         uint32_t iaid;
         DUID duid;
-
+        Set *ipv6_ula_subnets;
         bool iaid_set;
 
         bool required_for_online; /* Is this network required to be considered online? */
@@ -324,6 +324,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_ula_subnets);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

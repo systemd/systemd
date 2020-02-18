@@ -180,6 +180,7 @@ BindCarrier=
 VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
+IPv6ULASubnets=
 [IPv6Prefix]
 Prefix=
 OnLink=

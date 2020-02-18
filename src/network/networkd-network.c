@@ -626,6 +626,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_hostname);
         set_free(network->dhcp_black_listed_ip);
         set_free(network->dhcp_request_options);
+        set_free(network->ipv6_ula_subnets);
         free(network->mac);
 
         if (network->dhcp_acd)
@@ -1335,6 +1336,66 @@ int config_parse_required_for_online(
 
         network->required_for_online = required;
         network->required_operstate_for_online = range;
+
+        return 0;
+}
+
+int config_parse_ipv6_ula_subnets(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->ipv6_ula_subnets = set_free(network->ipv6_ula_subnets);
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                uint16_t i;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse IPv6 ULA subnet, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = safe_atou16(n, &i);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "IPv6 ULA subnet is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                r = set_ensure_allocated(&network->ipv6_ula_subnets, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(network->ipv6_ula_subnets, UINT16_TO_PTR(i));
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store IPv6 ULA subnet '%s', ignoring assignment: %m", n);
+        }
 
         return 0;
 }

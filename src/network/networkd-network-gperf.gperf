@@ -100,6 +100,7 @@ Network.BindCarrier,                         config_parse_strv,                 
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,                   config_parse_bool,                                        0,                             offsetof(Network, ignore_carrier_loss)
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
+Network.IPv6ULASubnets,                      config_parse_ipv6_ula_subnets,                            0,                             0
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0

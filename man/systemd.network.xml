@@ -840,6 +840,15 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+          <term><varname>IPv6ULASubnets=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of unsigned short integers ranges 0 to 65535. When subnets are supplied,
+            IPv6 addresses are generated using the subnets. See <ulink url="https://tools.ietf.org/html/rfc4193">RFC 4193</ulink>
+            for details. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
 
   </refsect1>

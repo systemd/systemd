@@ -1220,8 +1220,10 @@ static int link_set_bridge_fdb(Link *link) {
 }
 
 static int link_request_set_addresses(Link *link) {
+        void *ula_subnet;
         AddressLabel *label;
         Address *ad;
+        Iterator i;
         int r;
 
         assert(link);
@@ -1244,6 +1246,20 @@ static int link_request_set_addresses(Link *link) {
         r = link_request_set_neighbors(link);
         if (r < 0)
                 return r;
+
+        SET_FOREACH(ula_subnet, link->network->ipv6_ula_subnets, i) {
+                uint16_t subnet = PTR_TO_UINT16(ula_subnet);
+
+                r = generate_ipv6_ula_address(link, subnet, &ad);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to generate ULA address: %m");
+
+                r = address_configure(ad, link, address_handler, true);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set ULA address: %m");
+                if (r > 0)
+                        link->address_messages++;
+        }
 
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 bool update;

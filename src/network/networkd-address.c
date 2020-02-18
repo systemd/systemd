@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "firewall-util.h"
+#include "khash.h"
 #include "memory-util.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -19,6 +20,103 @@
 
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
+
+int generate_ipv6_eui_64_address(Link *link, uint8_t *ret) {
+        uint8_t eui64[8];
+
+        assert(link);
+        assert(ret);
+
+        eui64[0]  = link->mac.ether_addr_octet[0];
+        eui64[0] ^= 1 << 1;
+        eui64[1]  = link->mac.ether_addr_octet[1];
+        eui64[2]  = link->mac.ether_addr_octet[2];
+        eui64[3]  = 0xff;
+        eui64[4]  = 0xfe;
+        eui64[5]  = link->mac.ether_addr_octet[3];
+        eui64[6]  = link->mac.ether_addr_octet[4];
+        eui64[7]  = link->mac.ether_addr_octet[5];
+
+        memcpy(ret, &eui64, sizeof(eui64));
+
+        return 0;
+}
+
+/* Unique Local IPv6 Unicast Addresses https://tools.ietf.org/rfc/rfc4193.txt */
+int generate_ipv6_ula_address(Link *link, uint16_t subnet_id, Address **ret) {
+        _cleanup_(address_freep) Address *address = NULL;
+        _cleanup_(khash_unrefp) khash *h = NULL;
+        uint8_t key[16], global_id[5];
+        const void *p;
+        uint64_t ntp;
+        int r;
+
+        assert(link);
+        assert(subnet_id > 0);
+
+        r = address_new(&address);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate address: %m");
+
+        address->family = AF_INET6;
+
+        /* 1. Obtain the current time of day in 64-bit NTP format [NTP]. */
+        ntp = (uint64_t) now(CLOCK_MONOTONIC);
+        memcpy((uint8_t *) &key, &ntp, sizeof(uint64_t));
+
+        /* 2) Get EUI-64 from the interface specified
+         *  3) Concatenate the time of day with the system-specific identifier
+         *     in order to create a key.
+         */
+        r = generate_ipv6_eui_64_address(link, &key[8]);
+        if (r < 0)
+                return r;
+
+        /* 4) Compute an SHA-1 digest on the key as specified in [FIPS, SHA1];
+         *  the resulting value is 160 bits.
+         */
+        r = khash_new(&h, "sha1");
+        if (r < 0)
+                return r;
+
+        r = khash_put(h, &key, sizeof(key));
+        if (r < 0)
+                return r;
+
+        r = khash_digest_data(h, &p);
+        if (r < 0)
+                return r;
+
+        /* 5) Use the least significant 40 bits as the Global ID. Not exactly, just chop off. */
+        memcpy(&global_id, p, MIN(khash_get_size(h), sizeof(global_id)));
+
+        /* 6) Concatenate FC00::/7, the L bit set to 1, and the 40-bit Global
+         *    ID to create a Local IPv6 address prefix.
+         */
+        r = in_addr_prefix_from_string("fc00::/7", AF_INET6, &address->in_addr, &address->prefixlen);
+        if (r < 0)
+                return r;
+
+        /* 3.1.  Format
+         *      The Local IPv6 addresses are created using a pseudo-randomly
+         *       allocated global ID.  They have the following format:
+         *
+         *       | 7 bits |1|  40 bits   |  16 bits  |          64 bits           |
+         *       +--------+-+------------+-----------+----------------------------+
+         *       | Prefix |L| Global ID  | Subnet ID |        Interface ID        |
+         *       +--------+-+------------+-----------+----------------------------+
+         */
+        address->in_addr.in6.s6_addr[0] |= 0x01;
+        memcpy(&address->in_addr.in6.s6_addr[1], &global_id, sizeof(global_id));
+        memcpy(&address->in_addr.in6.s6_addr[7], &subnet_id, sizeof(subnet_id));
+        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6.s6_addr[8]);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(address);
+
+        return 0;
+}
 
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;

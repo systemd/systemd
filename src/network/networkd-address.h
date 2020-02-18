@@ -65,6 +65,9 @@ bool address_is_ready(const Address *a);
 int address_section_verify(Address *a);
 int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
 
+int generate_ipv6_ula_address(Link *link, uint16_t subnet_id, Address **ret);
+int generate_ipv6_eui_64_address(Link *link, uint8_t *ret);
+
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
 extern const struct hash_ops address_hash_ops;
