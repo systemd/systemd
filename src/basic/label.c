@@ -10,11 +10,11 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 
-int label_fix(const char *path, LabelFixFlags flags) {
+int label_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
         int r, q;
 
-        r = mac_selinux_fix(path, flags);
-        q = mac_smack_fix(path, flags);
+        r = mac_selinux_fix_container(path, inside_path, flags);
+        q = mac_smack_fix_container(path, inside_path, flags);
 
         if (r < 0)
                 return r;

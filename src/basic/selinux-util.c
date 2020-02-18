@@ -124,7 +124,7 @@ void mac_selinux_reload(void) {
 #endif
 }
 
-int mac_selinux_fix(const char *path, LabelFixFlags flags) {
+int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
 
 #if HAVE_SELINUX
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
@@ -151,7 +151,7 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode) < 0) {
+        if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
                 r = -errno;
 
                 /* If there's no label to set, then exit without warning */
@@ -185,7 +185,7 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
         return 0;
 
 fail:
-        log_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", path);
+        log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", path, inside_path);
         if (security_getenforce() == 1)
                 return r;
 #endif
