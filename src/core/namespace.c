@@ -690,6 +690,11 @@ static int mount_private_dev(MountEntry *m) {
                 r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
                 goto fail;
         }
+        r = label_fix_container(dev, "/dev", 0);
+        if (r < 0) {
+                log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
+                goto fail;
+        }
 
         devpts = strjoina(temporary_mount, "/dev/pts");
         (void) mkdir(devpts, 0755);

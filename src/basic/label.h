@@ -9,7 +9,10 @@ typedef enum LabelFixFlags {
         LABEL_IGNORE_EROFS  = 1 << 1,
 } LabelFixFlags;
 
-int label_fix(const char *path, LabelFixFlags flags);
+int label_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
+static inline int label_fix(const char *path, LabelFixFlags flags) {
+        return label_fix_container(path, path, flags);
+}
 
 int mkdir_label(const char *path, mode_t mode);
 int mkdirat_label(int dirfd, const char *path, mode_t mode);
