@@ -13,10 +13,10 @@ int main(int argc, char *argv[]) {
         char *path;
         char *c, *p;
 
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 1);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b") == 0);
-        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-c") == 0);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b") == 1);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-c") == 1);
         assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b", 0) == 0);
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
         assert_se(path_equal(path, "/test-a"));
         free(path);
 
-        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-d", 0) == 0);
+        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, "/test-b/test-d", 0) == 1);
 
         assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path) == 0);
         assert_se(path_equal(path, "/test-b/test-d"));
@@ -57,8 +57,10 @@ int main(int argc, char *argv[]) {
 
         cg_trim(SYSTEMD_CGROUP_CONTROLLER, "/", false);
 
-        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-b") < 0);
-        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") >= 0);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-b") == 0);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") < 0);
+        assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", SYSTEMD_CGROUP_CONTROLLER, "system.slice", 0) > 0);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
 
         assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
         assert_se(streq(c, "foobar"));
@@ -66,7 +68,7 @@ int main(int argc, char *argv[]) {
         free(c);
         free(p);
 
-        assert_se(cg_split_spec("foobar:", &c, &p) < 0);
+        assert_se(cg_split_spec("foobar:", &c, &p) == 0);
         assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
         assert_se(cg_split_spec(":///", &c, &p) < 0);
         assert_se(cg_split_spec(":", &c, &p) < 0);
