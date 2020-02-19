@@ -15,17 +15,24 @@ project('systemd', 'c',
 libsystemd_version = '0.23.0'
 libudev_version = '1.6.11'
 
+dist_version = get_option('version-tag')
+if dist_version == ''
+        dist_version = meson.project_version()
+else
+        dist_version = meson.project_version() + ' (' + dist_version + ')'
+endif
+
 # We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set_quoted('PACKAGE_STRING',  meson.project_name() + ' ' + meson.project_version())
-conf.set_quoted('PACKAGE_VERSION', meson.project_version())
+conf.set_quoted('PACKAGE_STRING',  meson.project_name() + ' ' + dist_version)
+conf.set_quoted('PACKAGE_VERSION', dist_version)
 
 substs = configuration_data()
 substs.set('PACKAGE_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
-substs.set('PACKAGE_VERSION',      meson.project_version())
+substs.set('PACKAGE_VERSION',      dist_version)
 
 #####################################################################
 
@@ -2871,7 +2878,7 @@ run_target(
 ############################################################
 
 status = [
-        '@0@ @1@'.format(meson.project_name(), meson.project_version()),
+        '@0@ @1@'.format(meson.project_name(), dist_version),
 
         'split /usr:                        @0@'.format(split_usr),
         'split bin-sbin:                    @0@'.format(split_bin),

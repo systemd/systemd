@@ -239,7 +239,10 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
         int err = 0;
 
         memzero(&ctrl_msg_wire, sizeof(struct udev_ctrl_msg_wire));
-        strcpy(ctrl_msg_wire.version, "udev-" PACKAGE_VERSION);
+        /* jsynacek: As PACKAGE_VERSION is populated from the spec file with %{version}-%{release},
+         * it might not fit entirely into the version field. */
+        strncpy(ctrl_msg_wire.version, "udev-" PACKAGE_VERSION, 16-5);
+        ctrl_msg_wire.version[15] = '\0';
         ctrl_msg_wire.magic = UDEV_CTRL_MAGIC;
         ctrl_msg_wire.type = type;
 
