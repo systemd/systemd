@@ -2,6 +2,7 @@
 
 #include "sd-dhcp-server.h"
 
+#include "event-util.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -189,10 +190,99 @@ static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         return sd_dhcp_server_set_sip(s, addresses, n_addresses);
 }
 
-int dhcp4_server_configure(Link *link) {
-        bool acquired_uplink = false;
-        sd_dhcp_option *p;
+static bool dhcp4_server_emit_servers(Link *link) {
         Link *uplink = NULL;
+        int r;
+
+        assert(link);
+
+        uplink = manager_find_uplink(link->manager, link);
+        if (!uplink) {
+                log_link_debug(link, "Not emitting DNS, NTP and SIP server information on link, couldn't find suitable uplink.");
+                return false;
+        }
+
+        if (link->network->dhcp_server_emit_dns && link->network->n_dhcp_server_dns > 0) {
+                r = sd_dhcp_server_set_dns(link->dhcp_server, link->network->dhcp_server_dns, link->network->n_dhcp_server_dns);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
+                        return false;
+                }
+
+                r = link_push_uplink_dns_to_dhcp_server(uplink, link->dhcp_server);
+                if (r < 0) {
+                        log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
+                        return false;
+                }
+        }
+
+        if (link->network->dhcp_server_emit_ntp && link->network->n_dhcp_server_ntp > 0) {
+                r = sd_dhcp_server_set_ntp(link->dhcp_server, link->network->dhcp_server_ntp, link->network->n_dhcp_server_ntp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
+                        return false;
+                }
+
+                r = link_push_uplink_ntp_to_dhcp_server(uplink, link->dhcp_server);
+                if (r < 0) {
+                        log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
+                        return false;
+                }
+        }
+
+        if (link->network->dhcp_server_emit_sip && link->network->n_dhcp_server_sip > 0) {
+                r = sd_dhcp_server_set_sip(link->dhcp_server, link->network->dhcp_server_sip, link->network->n_dhcp_server_sip);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to set SIP server for DHCP server, ignoring: %m");
+                        return false;
+                }
+
+                r = link_push_uplink_sip_to_dhcp_server(uplink, link->dhcp_server);
+                if (r < 0) {
+                        log_link_debug(link, "Not emitting sip server information on link, couldn't find suitable uplink.");
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+static int dhcp4_server_uplink_retry_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = userdata;
+        usec_t time_now;
+        int r;
+
+        assert(s);
+        assert(link);
+        assert(link->network->uplink_event);
+
+        if (!dhcp4_server_emit_servers(link)) {
+                assert_se(sd_event_now(link->network->uplink_event, clock_boottime_or_monotonic(), &time_now) >= 0);
+
+                r = event_reset_time(link->network->uplink_event, &link->network->uplink_timeout_event_source,
+                                     clock_boottime_or_monotonic(),
+                                     time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC,
+                                     dhcp4_server_uplink_retry_timeout, link,
+                                     link->network->uplink_event_priority, "dhcp-server-uplink-retry-timeout", true);
+                if (r < 0)
+                        goto fail;
+
+                return 0;
+        }
+
+        r = sd_dhcp_server_forcerenew(link->dhcp_server);
+        if (r < 0)
+                return r;
+
+ fail:
+        (void) event_source_disable(link->network->uplink_timeout_event_source);
+        link->network->uplink_timeout_event_source = sd_event_source_unref(link->network->uplink_timeout_event_source);
+
+        return 0;
+}
+
+int dhcp4_server_configure(Link *link) {
+        sd_dhcp_option *p;
         Address *address;
         Iterator i;
         int r;
@@ -228,57 +318,24 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
-        if (link->network->dhcp_server_emit_dns) {
-                if (link->network->n_dhcp_server_dns > 0)
-                        r = sd_dhcp_server_set_dns(link->dhcp_server, link->network->dhcp_server_dns, link->network->n_dhcp_server_dns);
-                else {
-                        uplink = manager_find_uplink(link->manager, link);
-                        acquired_uplink = true;
+        if (!dhcp4_server_emit_servers(link) && link->network->dhcp_server_retry_uplink) {
+                usec_t time_now;
 
-                        if (!uplink) {
-                                log_link_debug(link, "Not emitting DNS server information on link, couldn't find suitable uplink.");
-                                r = 0;
-                        } else
-                                r = link_push_uplink_dns_to_dhcp_server(uplink, link->dhcp_server);
-                }
+                r = sd_event_default(&link->network->uplink_event);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
-        }
+                        return log_link_error_errno(link, r, "Failed to allocate event loop: %m");
 
-        if (link->network->dhcp_server_emit_ntp) {
-                if (link->network->n_dhcp_server_ntp > 0)
-                        r = sd_dhcp_server_set_ntp(link->dhcp_server, link->network->dhcp_server_ntp, link->network->n_dhcp_server_ntp);
-                else {
-                        if (!acquired_uplink)
-                                uplink = manager_find_uplink(link->manager, link);
-
-                        if (!uplink) {
-                                log_link_debug(link, "Not emitting NTP server information on link, couldn't find suitable uplink.");
-                                r = 0;
-                        } else
-                                r = link_push_uplink_ntp_to_dhcp_server(uplink, link->dhcp_server);
-
-                }
+                r = sd_event_now(link->network->uplink_event, clock_boottime_or_monotonic(), &time_now);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to set NTP server for DHCP server, ignoring: %m");
-        }
+                        return r;
 
-        if (link->network->dhcp_server_emit_sip) {
-                if (link->network->n_dhcp_server_sip > 0)
-                        r = sd_dhcp_server_set_sip(link->dhcp_server, link->network->dhcp_server_sip, link->network->n_dhcp_server_sip);
-                else {
-                        if (!acquired_uplink)
-                                uplink = manager_find_uplink(link->manager, link);
-
-                        if (!uplink) {
-                                log_link_debug(link, "Not emitting sip server information on link, couldn't find suitable uplink.");
-                                r = 0;
-                        } else
-                                r = link_push_uplink_sip_to_dhcp_server(uplink, link->dhcp_server);
-
-                }
+                r = event_reset_time(link->network->uplink_event, &link->network->uplink_timeout_event_source,
+                                     clock_boottime_or_monotonic(),
+                                     time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC,
+                                     dhcp4_server_uplink_retry_timeout, link,
+                                     link->network->uplink_event_priority, "dhcp-server-uplink-retry-timeout", true);
                 if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to set SIP server for DHCP server, ignoring: %m");
+                        log_link_debug_errno(link, r, "Failed to set uplink retry timer for DHCP server. Ignoring: %m");
         }
 
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);

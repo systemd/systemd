@@ -267,6 +267,7 @@ DefaultLeaseTimeSec=
 EmitTimezone=
 DNS=
 SendOption=
+RetryUplink=
 [NextHop]
 Id=
 Gateway=

@@ -1899,6 +1899,14 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RetryUplink=</varname></term>
+
+        <listitem><para>Takes a boolean. When true, DHCPv4 server dynamically reconfigures DNS, SIP and NTP information
+        when uplink is available by sending a forcerenew message to DHCPv4 clients. Defaults to <literal>no</literal>.
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

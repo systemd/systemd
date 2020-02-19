@@ -151,6 +151,11 @@ struct Network {
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
 
+        bool dhcp_server_retry_uplink;
+        sd_event *uplink_event;
+        int uplink_event_priority;
+        sd_event_source *uplink_timeout_event_source;
+
         /* IPV4LL Support */
         AddressFamily link_local;
         bool ipv4ll_route;
