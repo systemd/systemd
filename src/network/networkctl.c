@@ -1964,6 +1964,48 @@ static int link_renew(int argc, char *argv[], void *userdata) {
         return k;
 }
 
+static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "ForceRenewLink",
+                        &error,
+                        NULL,
+                        "i", index);
+        if (r < 0)
+                return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
+                                       name, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int link_force_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int index, i, k = 0, r;
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        for (i = 1; i < argc; i++) {
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
+
+                r = link_force_renew_one(bus, index, argv[i]);
+                if (r < 0 && k >= 0)
+                        k = r;
+        }
+
+        return k;
+}
+
 static int verb_reload(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2050,6 +2092,7 @@ static int help(void) {
                "  label                  Show current address label entries in the kernel\n"
                "  delete DEVICES...      Delete virtual netdevs\n"
                "  renew DEVICES...       Renew dynamic configurations\n"
+               "  forcerenew DEVICES...  Trigger DHCP reconfiguration of all connected clients\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
                "\nOptions:\n"
@@ -2151,6 +2194,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
                 { "delete",      2,        VERB_ANY, 0,            link_delete         },
                 { "renew",       2,        VERB_ANY, 0,            link_renew          },
+                { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
                 { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
                 { "reload",      1,        1,        0,            verb_reload         },
                 {}
