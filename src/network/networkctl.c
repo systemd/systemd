@@ -2,8 +2,11 @@
 
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
+#include <linux/net_namespace.h>
 #include <net/if.h>
+#include <sched.h>
 #include <stdbool.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -20,12 +23,14 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
@@ -33,10 +38,12 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
 #include "socket-netlink.h"
@@ -2072,6 +2079,147 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_netns_create(int argc, char *argv[], void *userdata) {
+        int i, r;
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_make_absolute(argv[i], "/var/run/netns");
+                if (!path)
+                        return log_oom();
+
+                r = mkdir_parents(path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory /var/run/netns: %m");
+
+                r = touch(path);
+                if (r == -EPERM) {
+                        log_debug_errno(r, "Failed to create file %s, ignoring: %m", path);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create file %s: %m", path);
+
+                if (unshare(CLONE_NEWNET) < 0) {
+                        r = -errno;
+                        (void) unlink(path);
+                        return log_error_errno(r, "Failed to create network namespace: %m");
+                }
+
+                if (mount("/proc/self/ns/net", path, "none", MS_BIND, NULL) < 0) {
+                        r = -errno;
+                        (void) unlink(path);
+                        return log_error_errno(r, "Failed to mount network namespace at %s: %m", path);
+                }
+        }
+
+        return 0;
+}
+
+static int verb_netns_remove(int argc, char *argv[], void *userdata) {
+        int i;
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_make_absolute(argv[i], "/var/run/netns");
+                if (!path)
+                        return log_oom();
+
+                if (umount2(path, MNT_DETACH) < 0)
+                        log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
+
+                if (unlink(path) < 0)
+                        log_debug_errno(errno, "Failed to remove %s, ignoring: %m", path);
+        }
+
+        return 0;
+}
+
+static int verb_netns_list(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        char **directories, **p;
+        struct dirent *de;
+        int r;
+
+        if (argc <= 1)
+                directories = STRV_MAKE("/var/run/netns");
+        else
+                directories = argv + 1;
+
+        STRV_FOREACH(p, directories) {
+                d = opendir(*p);
+                if (!d) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to open directory %s: %m", *p);
+                }
+
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to netlink: %m");
+
+                FOREACH_DIRENT_ALL(de, d, log_error_errno(errno, "Failed to read directory %s: %m", *p)) {
+                        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+                        _cleanup_free_ char *path = NULL;
+                        _cleanup_close_ int fd = -1;
+                        int nsid;
+
+                        if (!IN_SET(de->d_type, DT_UNKNOWN, DT_REG))
+                                continue;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        path = path_join(*p, de->d_name);
+                        if (!path)
+                                return log_oom();
+
+                        fd = open(path, O_RDONLY);
+                        if (fd < 0) {
+                                log_debug_errno(errno, "Failed to open %s, ignoring: %m", path);
+                                continue;
+                        }
+
+                        r = sd_rtnl_message_new_netns(rtnl, &req, RTM_GETNSID);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate netlink message: %m");
+
+                        r = sd_netlink_message_append_u32(req, NETNSA_FD, fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append NETNSA_FD attribute: %m");
+
+                        r = sd_netlink_call(rtnl, req, 0, &reply);
+                        if (r == -EINVAL)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to call netlink message: %m");
+
+                        r = sd_netlink_message_read_s32(reply, NETNSA_NSID, &nsid);
+                        if (r == -ENODATA)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read NETNSA_NSID attribute: %m");
+
+                        if (nsid >= 0)
+                                r = strv_extendf(&names, "%s (nsid: %d)", path, nsid);
+                        else
+                                r = strv_extend(&names, path);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        strv_sort(names);
+        strv_print(names);
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2092,6 +2240,9 @@ static int help(void) {
                "  forcerenew DEVICES...  Trigger DHCP reconfiguration of all connected clients\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
+               "  create-netns NAME...   Create named network namespace\n"
+               "  remove-netns NAME...   Remove named network namespace\n"
+               "  list-netns [PATH...]   List named network namespace\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -2185,15 +2336,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
-                { "delete",      2,        VERB_ANY, 0,            link_delete         },
-                { "renew",       2,        VERB_ANY, 0,            link_renew          },
-                { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
-                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
-                { "reload",      1,        1,        0,            verb_reload         },
+                { "list",         VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
+                { "status",       VERB_ANY, VERB_ANY, 0,            link_status         },
+                { "lldp",         VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
+                { "label",        VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "delete",       2,        VERB_ANY, 0,            link_delete         },
+                { "renew",        2,        VERB_ANY, 0,            link_renew          },
+                { "forcerenew",   2,        VERB_ANY, 0,            link_force_renew    },
+                { "reconfigure",  2,        VERB_ANY, 0,            verb_reconfigure    },
+                { "reload",       1,        1,        0,            verb_reload         },
+                { "create-netns", 2,        VERB_ANY, 0,            verb_netns_create   },
+                { "remove-netns", 2,        VERB_ANY, 0,            verb_netns_remove   },
+                { "list-netns",   1,        VERB_ANY, 0,            verb_netns_list     },
                 {}
         };
 
