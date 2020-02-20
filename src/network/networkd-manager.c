@@ -144,29 +144,31 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
+        if (!m->namespace) {
+                r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
+                r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add link object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add link enumerator: %m");
+                r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add link enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add network object vtable: %m");
+                r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add network object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add network enumerator: %m");
+                r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add network enumerator: %m");
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request name: %m");
+                r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request name: %m");
+        }
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
@@ -1738,8 +1740,9 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_new(Manager **ret) {
+int manager_new(Manager **ret, const char *namespace) {
         _cleanup_(manager_freep) Manager *m = NULL;
+        const char *e;
         int r;
 
         m = new(Manager, 1);
@@ -1751,7 +1754,23 @@ int manager_new(Manager **ret) {
                 .manage_foreign_routes = true,
         };
 
-        m->state_file = strdup("/run/systemd/netif/state");
+        if (namespace) {
+                m->namespace = strdup(namespace);
+                if (!m->namespace)
+                        return -ENOMEM;
+        }
+
+        e = getenv("RUNTIME_DIRECTORY");
+        if (e)
+                m->runtime_directory = strdup(e);
+        else if (m->namespace)
+                m->runtime_directory = strjoin("/run/systemd/netif.", namespace);
+        else
+                m->runtime_directory = strdup("/run/systemd/netif");
+        if (!m->runtime_directory)
+                return -ENOMEM;
+
+        m->state_file = path_join(m->runtime_directory, "state");
         if (!m->state_file)
                 return -ENOMEM;
 
@@ -1811,6 +1830,8 @@ void manager_free(Manager *m) {
         if (!m)
                 return;
 
+        free(m->namespace);
+        free(m->runtime_directory);
         free(m->state_file);
 
         while ((a = hashmap_first_key(m->dhcp6_prefixes)))

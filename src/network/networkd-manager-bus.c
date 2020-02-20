@@ -264,7 +264,7 @@ int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
         assert(properties);
 
-        if (!manager->bus)
+        if (!manager->bus || manager->namespace)
                 return 0;
 
         return sd_bus_emit_properties_changed_strv(

@@ -626,13 +626,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
+        if (asprintf(&link->state_file, "%s/links/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
+        if (asprintf(&link->lease_file, "%s/leases/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
+        if (asprintf(&link->lldp_file, "%s/lldp/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
         r = hashmap_ensure_allocated(&manager->links, NULL);
@@ -3538,7 +3538,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        if (path_is_read_only_fs("/sys") <= 0) {
+        if (path_is_read_only_fs("/sys") <= 0 && !m->namespace) {
                 /* udev should be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 r = sd_device_new_from_device_id(&device, ifindex_str);
@@ -3572,6 +3572,17 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 if (r < 0)
                         goto failed;
         } else {
+                if (path_is_read_only_fs("/sys") <= 0) {
+                        sprintf(ifindex_str, "n%d", link->ifindex);
+                        r = sd_device_new_from_device_id(&device, ifindex_str);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Could not find device: %m");
+                                goto failed;
+                        }
+
+                        link->sd_device = sd_device_ref(device);
+                }
+
                 r = link_initialized_and_synced(link);
                 if (r < 0)
                         goto failed;

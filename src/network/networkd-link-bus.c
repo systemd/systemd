@@ -772,7 +772,7 @@ int link_send_changed_strv(Link *link, char **properties) {
         assert(link->manager);
         assert(properties);
 
-        if (!link->manager->bus)
+        if (!link->manager->bus || link->manager->namespace)
                 return 0;
 
         p = link_bus_path(link);

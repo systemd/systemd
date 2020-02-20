@@ -841,7 +841,18 @@ int netdev_load(Manager *manager, bool reload) {
         if (!reload)
                 hashmap_clear_with_destructor(manager->netdevs, netdev_unref);
 
-        r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
+        if (manager->namespace) {
+                _cleanup_strv_free_ char **dirs = NULL;
+                const char *p;
+
+                p = strjoina("@", manager->namespace);
+                r = strv_extend_strv_concat(&dirs, (char * const *) NETWORK_DIRS, p);
+                if (r < 0)
+                        return log_oom();
+
+                r = conf_files_list_strv(&files, ".netdev", NULL, 0, (const char * const *) dirs);
+        } else
+                r = conf_files_list_strv(&files, ".netdev", NULL, 0, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 

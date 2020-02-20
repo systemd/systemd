@@ -18,6 +18,9 @@
 #include "networkd-network.h"
 
 struct Manager {
+        char *namespace;
+        char *runtime_directory;
+
         sd_netlink *rtnl;
         /* lazy initialized */
         sd_netlink *genl;
@@ -70,7 +73,7 @@ struct Manager {
         bool dhcp4_prefix_root_cannot_set_table;
 };
 
-int manager_new(Manager **ret);
+int manager_new(Manager **ret, const char *namespace);
 void manager_free(Manager *m);
 
 int manager_connect_bus(Manager *m);

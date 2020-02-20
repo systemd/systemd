@@ -23,11 +23,20 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
-                                     CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
-                                     "Network\0DHCP\0",
-                                     config_item_perf_lookup, networkd_gperf_lookup,
-                                     CONFIG_PARSE_WARN, m);
+        if (m->namespace) {
+                const char *p;
+
+                p = strjoina(PKGSYSCONFDIR "/networkd@", m->namespace, ".conf");
+                r = config_parse(NULL, p, NULL,
+                                 "Network\0DHCP\0",
+                                 config_item_perf_lookup, networkd_gperf_lookup,
+                                 CONFIG_PARSE_WARN, m);
+        } else
+                r = config_parse_many_nulstr(PKGSYSCONFDIR "/networkd.conf",
+                                             CONF_PATHS_NULSTR("systemd/networkd.conf.d"),
+                                             "Network\0DHCP\0",
+                                             config_item_perf_lookup, networkd_gperf_lookup,
+                                             CONFIG_PARSE_WARN, m);
         if (r < 0)
                 return r;
 
