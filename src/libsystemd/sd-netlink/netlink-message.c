@@ -816,6 +816,82 @@ int sd_netlink_message_read_u32(sd_netlink_message *m, unsigned short type, uint
         return 0;
 }
 
+int sd_netlink_message_read_s8(sd_netlink_message *m, unsigned short type, int8_t *data) {
+        int r;
+        void *attr_data;
+
+        assert_return(m, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_S8);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+        else if ((size_t) r < sizeof(int8_t))
+                return -EIO;
+
+        if (data)
+                *data = *(int8_t *) attr_data;
+
+        return 0;
+}
+
+int sd_netlink_message_read_s16(sd_netlink_message *m, unsigned short type, int16_t *data) {
+        void *attr_data;
+        bool net_byteorder;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_S16);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, &net_byteorder);
+        if (r < 0)
+                return r;
+        else if ((size_t) r < sizeof(int16_t))
+                return -EIO;
+
+        if (data) {
+                if (net_byteorder)
+                        *data = be16toh(*(int16_t *) attr_data);
+                else
+                        *data = *(int16_t *) attr_data;
+        }
+
+        return 0;
+}
+
+int sd_netlink_message_read_s32(sd_netlink_message *m, unsigned short type, int32_t *data) {
+        void *attr_data;
+        bool net_byteorder;
+        int r;
+
+        assert_return(m, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_S32);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, &net_byteorder);
+        if (r < 0)
+                return r;
+        else if ((size_t) r < sizeof(int32_t))
+                return -EIO;
+
+        if (data) {
+                if (net_byteorder)
+                        *data = be32toh(*(int32_t *) attr_data);
+                else
+                        *data = *(int32_t *) attr_data;
+        }
+
+        return 0;
+}
+
 int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short type, struct ether_addr *data) {
         int r;
         void *attr_data;
