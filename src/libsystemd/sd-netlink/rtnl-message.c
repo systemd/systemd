@@ -1120,3 +1120,22 @@ int sd_rtnl_message_set_tclass_handle(sd_netlink_message *m, uint32_t handle) {
 
         return 0;
 }
+
+int sd_rtnl_message_new_netns(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type) {
+        struct rtgenmsg *rtgen;
+        int r;
+
+        assert_return(rtnl_message_type_is_netns(nlmsg_type), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = message_new(rtnl, ret, nlmsg_type);
+        if (r < 0)
+                return r;
+
+        (*ret)->hdr->nlmsg_flags = NLM_F_REQUEST;
+
+        rtgen = NLMSG_DATA((*ret)->hdr);
+        rtgen->rtgen_family = AF_UNSPEC;
+
+        return 0;
+}
