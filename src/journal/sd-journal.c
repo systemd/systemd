@@ -433,11 +433,12 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-_pure_ static int compare_with_location(JournalFile *f, Location *l) {
+_pure_ static int compare_with_location(const JournalFile *f, const Location *l, const JournalFile *current_file) {
         int r;
 
         assert(f);
         assert(l);
+        assert(current_file);
         assert(f->location_type == LOCATION_SEEK);
         assert(IN_SET(l->type, LOCATION_DISCRETE, LOCATION_SEEK));
 
@@ -446,7 +447,8 @@ _pure_ static int compare_with_location(JournalFile *f, Location *l) {
             l->realtime_set &&
             f->current_realtime == l->realtime &&
             l->xor_hash_set &&
-            f->current_xor_hash == l->xor_hash)
+            f->current_xor_hash == l->xor_hash &&
+            f != current_file)
                 return 0;
 
         if (l->seqnum_set &&
@@ -785,7 +787,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (j->current_location.type == LOCATION_DISCRETE) {
                         int k;
 
-                        k = compare_with_location(f, &j->current_location);
+                        k = compare_with_location(f, &j->current_location, j->current_file);
 
                         found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
