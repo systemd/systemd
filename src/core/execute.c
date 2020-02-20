@@ -2608,6 +2608,7 @@ static int apply_mount_namespace(
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
+                        .remount_sysfs = context->network_namespace_path,
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
