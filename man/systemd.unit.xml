@@ -598,7 +598,7 @@
         <para>Units listed in this option will be started if the configuring unit is. However, if the listed
         units fail to start or cannot be added to the transaction, this has no impact on the validity of the
         transaction as a whole, and this unit will still be started. This is the recommended way to hook
-        start-up of one unit to the start-up of another unit.</para>
+        the start-up of one unit to the start-up of another unit.</para>
 
         <para>Note that requirement dependencies do not influence the order in which services are started or
         stopped. This has to be configured independently with the <varname>After=</varname> or
