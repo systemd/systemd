@@ -78,6 +78,8 @@ units = [
          'sysinit.target.wants/'],
         ['sys-kernel-debug.mount',              '',
          'sysinit.target.wants/'],
+        ['sys-kernel-tracing.mount',            '',
+         'sysinit.target.wants/'],
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
         ['system-systemd\\x2dcryptsetup.slice', 'HAVE_LIBCRYPTSETUP'],
