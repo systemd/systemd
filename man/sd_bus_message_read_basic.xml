@@ -155,7 +155,7 @@
           <row>
             <entry><literal>o</literal></entry>
             <entry><constant>SD_BUS_TYPE_OBJECT_PATH</constant></entry>
-            <entry>D-Bus object path stringy</entry>
+            <entry>D-Bus object path string</entry>
             <entry><type>const char **</type></entry>
           </row>
 
