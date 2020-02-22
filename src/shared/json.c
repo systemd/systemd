@@ -4107,7 +4107,7 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         n = json_variant_string(variant);
-        if (!valid_user_group_name(n))
+        if (!valid_user_group_name_compat(n))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid user/group name.", strna(name));
 
         r = free_and_strdup(s, n);

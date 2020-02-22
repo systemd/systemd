@@ -600,7 +600,7 @@ int json_dispatch_user_group_list(const char *name, JsonVariant *variant, JsonDi
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
-                if (!valid_user_group_name(json_variant_string(e)))
+                if (!valid_user_group_name_compat(json_variant_string(e)))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a valid user/group name: %s", json_variant_string(e));
 
                 r = strv_extend(&l, json_variant_string(e));
