@@ -393,6 +393,32 @@ static int method_release_control(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Session *s = userdata;
+        const char *t;
+        SessionType type;
+        int r;
+
+        assert(message);
+        assert(s);
+
+        r = sd_bus_message_read(message, "s", &t);
+        if (r < 0)
+                return r;
+
+        type = session_type_from_string(t);
+        if (type < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid session type '%s'", t);
+
+        if (!session_is_controller(s, sd_bus_message_get_sender(message)))
+                return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set type");
+
+        session_set_type(s, type);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = userdata;
         uint32_t major, minor;
@@ -574,7 +600,7 @@ const sd_bus_vtable session_vtable[] = {
         SD_BUS_PROPERTY("Scope", "s", NULL, offsetof(Session, scope), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Leader", "u", bus_property_get_pid, offsetof(Session, leader), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Audit", "u", NULL, offsetof(Session, audit_id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Session, type), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Session, type), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Class", "s", property_get_class, offsetof(Session, class), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Active", "b", property_get_active, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("State", "s", property_get_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -633,6 +659,12 @@ const sd_bus_vtable session_vtable[] = {
                       NULL,
                       method_release_control,
                       SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetType",
+                                 "s",
+                                 SD_BUS_PARAM(type),
+                                 NULL,,
+                                 method_set_type,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("TakeDevice",
                                  "uu",
                                  SD_BUS_PARAM(major)

@@ -240,6 +240,9 @@ int session_save(Session *s) {
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
 
+        if (s->original_type >= 0)
+                fprintf(f, "ORIGINAL_TYPE=%s\n", session_type_to_string(s->original_type));
+
         if (s->class >= 0)
                 fprintf(f, "CLASS=%s\n", session_class_to_string(s->class));
 
@@ -402,6 +405,7 @@ int session_load(Session *s) {
                 *position = NULL,
                 *leader = NULL,
                 *type = NULL,
+                *original_type = NULL,
                 *class = NULL,
                 *uid = NULL,
                 *realtime = NULL,
@@ -433,6 +437,7 @@ int session_load(Session *s) {
                            "POSITION",       &position,
                            "LEADER",         &leader,
                            "TYPE",           &type,
+                           "ORIGINAL_TYPE",  &original_type,
                            "CLASS",          &class,
                            "UID",            &uid,
                            "REALTIME",       &realtime,
@@ -528,6 +533,16 @@ int session_load(Session *s) {
                 if (t >= 0)
                         s->type = t;
         }
+
+        if (original_type) {
+                SessionType ot;
+
+                ot = session_type_from_string(original_type);
+                if (ot >= 0)
+                        s->original_type = ot;
+        } else
+                /* Pre-v246 compat: initialize original_type if not set in the state file */
+                s->original_type = s->type;
 
         if (class) {
                 SessionClass c;
@@ -1018,6 +1033,18 @@ void session_set_locked_hint(Session *s, bool b) {
         session_send_changed(s, "LockedHint", NULL);
 }
 
+void session_set_type(Session *s, SessionType t) {
+        assert(s);
+
+        if (s->type == t)
+                return;
+
+        s->type = t;
+        session_save(s);
+
+        session_send_changed(s, "Type", NULL);
+}
+
 static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Session *s = userdata;
 
@@ -1385,6 +1412,7 @@ void session_drop_controller(Session *s) {
                 return;
 
         s->track = sd_bus_track_unref(s->track);
+        session_set_type(s, s->original_type);
         session_release_controller(s, false);
         session_save(s);
         session_restore_vt(s);
