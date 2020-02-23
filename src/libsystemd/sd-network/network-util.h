@@ -5,7 +5,7 @@
 
 #include "macro.h"
 
-bool network_is_online(void);
+bool network_is_online(const char *network_namespace);
 
 typedef enum LinkOperationalState {
         LINK_OPERSTATE_MISSING,

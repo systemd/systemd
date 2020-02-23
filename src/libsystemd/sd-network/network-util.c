@@ -6,15 +6,15 @@
 #include "string-table.h"
 #include "strv.h"
 
-bool network_is_online(void) {
+bool network_is_online(const char *network_namespace) {
         _cleanup_free_ char *carrier_state = NULL, *addr_state = NULL;
         int r;
 
-        r = sd_network_get_carrier_state(&carrier_state);
+        r = sd_network_get_carrier_state(network_namespace, &carrier_state);
         if (r < 0) /* if we don't know anything, we consider the system online */
                 return true;
 
-        r = sd_network_get_address_state(&addr_state);
+        r = sd_network_get_address_state(network_namespace, &addr_state);
         if (r < 0) /* if we don't know anything, we consider the system online */
                 return true;
 

@@ -950,7 +950,7 @@ static int manager_network_read_link_servers(Manager *m) {
 
         assert(m);
 
-        r = sd_network_get_ntp(&ntp);
+        r = sd_network_get_ntp(NULL, &ntp);
         if (r < 0) {
                 if (r == -ENOMEM)
                         log_oom();
@@ -1018,13 +1018,13 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         assert(m);
 
-        sd_network_monitor_flush(m->network_monitor);
+        sd_network_monitor_flush(m->network_monitor, NULL);
 
         /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
         changed = manager_network_read_link_servers(m);
 
         /* check if the machine is online */
-        online = network_is_online();
+        online = network_is_online(NULL);
 
         /* check if the client is currently connected */
         connected = manager_is_connected(m);
@@ -1052,7 +1052,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, NULL, NULL);
         if (r == -ENOENT) {
                 log_info("systemd does not appear to be running, not listening for systemd-networkd events.");
                 return 0;

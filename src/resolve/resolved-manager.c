@@ -273,7 +273,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         assert(m);
 
-        sd_network_monitor_flush(m->network_monitor);
+        sd_network_monitor_flush(m->network_monitor, NULL);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 r = link_update(l);
@@ -292,7 +292,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, NULL, NULL);
         if (r < 0)
                 return r;
 
