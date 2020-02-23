@@ -76,6 +76,7 @@ struct Network {
         LIST_HEAD(Condition, conditions);
 
         char *description;
+        char *namespace;
 
         NetDev *bridge;
         NetDev *bond;
@@ -326,6 +327,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
+CONFIG_PARSER_PROTOTYPE(config_parse_namespace);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

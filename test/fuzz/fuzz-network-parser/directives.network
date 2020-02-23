@@ -41,6 +41,7 @@ MACAddress=
 VLANId=
 MACAddress=
 Destination=
+Namespace=
 VNI=
 AssociatedWith=
 [DHCP]

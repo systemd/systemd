@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -648,6 +649,7 @@ static Network *network_free(Network *network) {
         condition_free_list(network->conditions);
 
         free(network->description);
+        free(network->namespace);
         free(network->dhcp_vendor_class_identifier);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
@@ -1363,6 +1365,34 @@ int config_parse_required_for_online(
         network->required_for_online = required;
         network->required_operstate_for_online = range;
 
+        return 0;
+}
+
+int config_parse_namespace(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        _cleanup_free_ char *p = NULL;
+
+        if (isempty(rvalue)) {
+                network->namespace = mfree(network->namespace);
+                return 0;
+        }
+
+        p = path_make_absolute(rvalue, "/var/run/netns");
+        if (!p)
+                return log_oom();
+
+        free_and_replace(network->namespace, p);
         return 0;
 }
 
