@@ -113,6 +113,7 @@ void mac_selinux_reload(void) {
                 return;
 
         backup_label_hnd = TAKE_PTR(label_hnd);
+        label_hnd = NULL; /* Force reload */
 
         /* try to initialize new handle
          *    on success close backup
