@@ -13,26 +13,6 @@
 #include "string-util.h"
 #include "hexdecoct.h"
 
-static void test_dnssec_canonicalize_one(const char *original, const char *canonical, int r) {
-        char canonicalized[DNSSEC_CANONICAL_HOSTNAME_MAX];
-
-        assert_se(dnssec_canonicalize(original, canonicalized, sizeof(canonicalized)) == r);
-        if (r < 0)
-                return;
-
-        assert_se(streq(canonicalized, canonical));
-}
-
-static void test_dnssec_canonicalize(void) {
-        test_dnssec_canonicalize_one("", ".", 1);
-        test_dnssec_canonicalize_one(".", ".", 1);
-        test_dnssec_canonicalize_one("foo", "foo.", 4);
-        test_dnssec_canonicalize_one("foo.", "foo.", 4);
-        test_dnssec_canonicalize_one("FOO.", "foo.", 4);
-        test_dnssec_canonicalize_one("FOO.bar.", "foo.bar.", 8);
-        test_dnssec_canonicalize_one("FOO..bar.", NULL, -EINVAL);
-}
-
 #if HAVE_GCRYPT
 
 static void test_dnssec_verify_dns_key(void) {
@@ -498,8 +478,6 @@ static void test_dnssec_nsec3_hash(void) {
 #endif
 
 int main(int argc, char *argv[]) {
-
-        test_dnssec_canonicalize();
 
 #if HAVE_GCRYPT
         test_dnssec_verify_dns_key();
