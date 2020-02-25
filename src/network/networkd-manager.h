@@ -51,8 +51,6 @@ struct Manager {
         Hashmap *dhcp6_prefixes;
         LIST_HEAD(AddressPool, address_pools);
 
-        usec_t network_dirs_ts_usec;
-
         DUID duid;
         sd_id128_t product_uuid;
         bool has_product_uuid;
@@ -84,7 +82,6 @@ int manager_start(Manager *m);
 
 int manager_load_config(Manager *m);
 int manager_reload(Manager *m);
-bool manager_should_reload(Manager *m);
 
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);
