@@ -86,7 +86,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m, namespace);
+        r = manager_new(&m, namespace, true);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 

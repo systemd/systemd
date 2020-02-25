@@ -238,7 +238,7 @@ int main(void) {
         test_address_equality();
         test_dhcp_hostname_shorten_overlong();
 
-        assert_se(manager_new(&manager, NULL) >= 0);
+        assert_se(manager_new(&manager, NULL, false) >= 0);
 
         r = test_load_config(manager);
         if (r == -EPERM)
