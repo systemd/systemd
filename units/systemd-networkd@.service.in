@@ -58,4 +58,4 @@ Also=systemd-networkd@%i.socket
 # is enabled. systemd-networkd-wait-online.service has
 # WantedBy=network-online.target, so enabling it only has an effect if
 # network-online.target itself is enabled or pulled in by some other unit.
-#Also=systemd-networkd-wait-online.service
+Also=systemd-networkd-wait-online@%i.service

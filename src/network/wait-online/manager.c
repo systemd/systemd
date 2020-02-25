@@ -261,7 +261,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         assert(m);
 
-        sd_network_monitor_flush(m->network_monitor, NULL);
+        sd_network_monitor_flush(m->network_monitor, m->namespace);
 
         HASHMAP_FOREACH(l, m->links, i) {
                 r = link_update_monitor(l);
@@ -280,7 +280,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
         assert(m);
 
-        r = sd_network_monitor_new(&m->network_monitor, NULL, NULL);
+        r = sd_network_monitor_new(&m->network_monitor, NULL, m->namespace);
         if (r < 0)
                 return r;
 
@@ -302,7 +302,7 @@ static int manager_network_monitor_listen(Manager *m) {
 
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 LinkOperationalStateRange required_operstate,
-                bool any, usec_t timeout) {
+                bool any, usec_t timeout, const char *namespace) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -318,6 +318,12 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
                 .required_operstate = required_operstate,
                 .any = any,
         };
+
+        if (namespace) {
+                m->namespace = strdup(namespace);
+                if (!m->namespace)
+                        return -ENOMEM;
+        }
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -354,6 +360,8 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
 void manager_free(Manager *m) {
         if (!m)
                 return;
+
+        free(m->namespace);
 
         hashmap_free_with_destructor(m->links, link_free);
         hashmap_free(m->links_by_name);
