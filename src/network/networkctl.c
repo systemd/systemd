@@ -58,6 +58,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "unit-def.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -1955,45 +1956,88 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int link_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int varlink_connect(Varlink **ret) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
+        _cleanup_free_ char *varlink_socket = NULL;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "RenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
+        assert(ret);
+
+        varlink_socket = arg_namespace ?
+                strjoin("/run/systemd/netif.", arg_namespace, "/io.systemd.network") :
+                strdup("/run/systemd/netif/io.systemd.network");
+        if (!varlink_socket)
+                return log_oom();
+
+        r = varlink_connect_address(&varlink, varlink_socket);
         if (r < 0)
-                return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to connect to %s: %m", varlink_socket);
+
+        (void) varlink_set_description(varlink, "journal");
+        (void) varlink_set_relative_timeout(varlink, USEC_INFINITY);
+
+        *ret = TAKE_PTR(varlink);
+        return 0;
+}
+
+static int link_renew_one(sd_bus *bus, Varlink *varlink, int index, const char *name) {
+        int r;
+
+        if (arg_namespace) {
+                const char *str_error;
+
+                r = varlink_callb(varlink, "io.systemd.Network.RenewLink", NULL, &str_error, NULL,
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (str_error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "RenewLink",
+                                &error,
+                                NULL,
+                                "i", index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
+                                               name, bus_error_message(&error, r));
+        }
 
         return 0;
 }
 
 static int link_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, i, k = 0, r;
 
-        if (arg_namespace)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "-N/--namespace option is not supported.");
-
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
+
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         for (i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_renew_one(bus, index, argv[i]);
+                r = link_renew_one(bus, varlink, index, argv[i]);
                 if (r < 0 && k >= 0)
                         k = r;
         }
@@ -2001,45 +2045,60 @@ static int link_renew(int argc, char *argv[], void *userdata) {
         return k;
 }
 
-static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int link_force_renew_one(sd_bus *bus, Varlink *varlink, int index, const char *name) {
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "ForceRenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
-        if (r < 0)
-                return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
+        if (arg_namespace) {
+                const char *str_error;
+
+                r = varlink_callb(varlink, "io.systemd.Network.RenewLink", NULL, &str_error, NULL,
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (str_error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "ForceRenewLink",
+                                &error,
+                                NULL,
+                                "i", index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
+                                               name, bus_error_message(&error, r));
+        }
 
         return 0;
 }
 
 static int link_force_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, i, k = 0, r;
 
-        if (arg_namespace)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "-N/--namespace option is not supported.");
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         for (i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_force_renew_one(bus, index, argv[i]);
+                r = link_force_renew_one(bus, varlink, index, argv[i]);
                 if (r < 0 && k >= 0)
                         k = r;
         }
@@ -2048,32 +2107,49 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        if (arg_namespace)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "-N/--namespace option is not supported.");
-
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "Reload",
-                        &error, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload network settings: %m");
+        if (arg_namespace) {
+                _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
+                const char *error;
+
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+
+                r = varlink_call(varlink, "io.systemd.Network.Reload", NULL, NULL, &error, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "Reload",
+                                &error, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to reload network settings: %m");
+        }
 
         return 0;
 }
 
 static int verb_reconfigure(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -2082,13 +2158,19 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         Iterator j;
         void *p;
 
-        if (arg_namespace)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "-N/--namespace option is not supported.");
-
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
+
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         indexes = set_new(NULL);
         if (!indexes)
@@ -2106,18 +2188,29 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 
         SET_FOREACH(p, indexes, j) {
                 index = PTR_TO_INT(p);
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "ReconfigureLink",
-                                &error, NULL, "i", index);
-                if (r < 0) {
-                        char ifname[IF_NAMESIZE + 1];
+                if (arg_namespace) {
+                        const char *str_error;
 
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
-                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        r = varlink_callb(varlink, "io.systemd.Network.ReconfigureLink", NULL, &str_error, NULL,
+                                          JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to execute varlink call: %m");
+                        if (str_error)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+                } else {
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.network1",
+                                        "/org/freedesktop/network1",
+                                        "org.freedesktop.network1.Manager",
+                                        "ReconfigureLink",
+                                        &error, NULL, "i", index);
+                        if (r < 0) {
+                                char ifname[IF_NAMESIZE + 1];
+
+                                return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
+                                                       format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        }
                 }
         }
 
