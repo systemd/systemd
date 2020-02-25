@@ -14,8 +14,10 @@ ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 # systemd-udevd.service can be dropped once tuntap is moved to netlink
 After=systemd-udevd.service network-pre.target systemd-sysusers.service systemd-sysctl.service
+After=systemd-networkd-varlink@%i.socket
 Before=network.target multi-user.target shutdown.target
 Conflicts=shutdown.target
+Requires=systemd-networkd-varlink@%i.socket
 Wants=network.target
 
 [Service]
