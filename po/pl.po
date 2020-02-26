@@ -71,59 +71,59 @@ msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr "Utworzenie katalogu domowego"
+msgstr "Utworzenie przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required for creating a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby utworzyć katalog domowy użytkownika."
+"Wymagane jest uwierzytelnienie, aby utworzyć przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr "Usunięcie katalogu domowego"
+msgstr "Usunięcie przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required for removing a user's home area."
-msgstr "Wymagane jest uwierzytelnienie, aby usunąć katalog domowy użytkownika."
+msgstr "Wymagane jest uwierzytelnienie, aby usunąć przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr "Sprawdzenie danych uwierzytelniających katalogu domowego"
+msgstr "Sprawdzenie danych uwierzytelniających przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required for checking credentials against a user's home area."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby sprawdzić dane uwierzytelniające "
-"katalogu domowego użytkownika."
+"przestrzeni domowej użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr "Aktualizacja katalogu domowego"
+msgstr "Aktualizacja przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required for updating a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zaktualizować katalog domowy użytkownika."
+"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr "Zmiana rozmiaru katalogu domowego"
+msgstr "Zmiana rozmiaru przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required for resizing a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zmienić rozmiar katalogu domowego "
+"Wymagane jest uwierzytelnienie, aby zmienić rozmiar przestrzeni domowej "
 "użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr "Zmiana hasła katalogu domowego"
+msgstr "Zmiana hasła przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required for changing the password of a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zmienić hasło katalogu domowego "
+"Wymagane jest uwierzytelnienie, aby zmienić hasło przestrzeni domowej "
 "użytkownika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
