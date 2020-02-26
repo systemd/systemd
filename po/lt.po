@@ -272,7 +272,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Leisti prijungti įrenginius prie darbo vietų"
 
 #: src/login/org.freedesktop.login1.policy:138
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
 
@@ -282,7 +282,7 @@ msgstr "Išvalyti įrenginių prijungimus prie darbo vietų"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Norint atstatyti tai, kaip įrenginiai yra prijungti prie darbo vietų, reikia "
 "nustatyti tapatybę."
@@ -292,7 +292,7 @@ msgid "Power off the system"
 msgstr "Išjungti sistemos maitinimą"
 
 #: src/login/org.freedesktop.login1.policy:159
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Norint išjungti sistemos maitinimą, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -301,20 +301,20 @@ msgstr "Išjungti sistemos maitinimą nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Norint išjungti sistemos maitinimą nepaisant kitų prisijungusių naudotojų, "
 "reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Išjungti sistemos maitinimą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Norint išjungti sistemos maitinimą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -324,7 +324,7 @@ msgid "Reboot the system"
 msgstr "Paleisti sistemą iš naujo"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Norint paleisti sistemą iš naujo, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -333,20 +333,20 @@ msgstr "Paleisti sistemą iš naujo nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Norint paleisti sistemą iš naujo nepaisant kitų prisijungusių naudotojų, "
 "reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Paleisti sistemą iš naujo, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Norint paleisti sistemą iš naujo, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -356,7 +356,7 @@ msgid "Halt the system"
 msgstr "Stabdyti sistemą"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "Norint stabdyti sistemą, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -365,19 +365,19 @@ msgstr "Stabdyti sistemą nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required for halting the system while other users are "
+"Authentication is required to halt the system while other users are "
 "logged in."
 msgstr ""
 "Norint stabdyti sistemą nepaisant kitų prisijungusių naudotojų, reikia "
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Stabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
+"Authentication is required to halt the system while an application asked "
 "to inhibit it."
 msgstr ""
 "Norint stabdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
@@ -388,7 +388,7 @@ msgid "Suspend the system"
 msgstr "Pristabdyti sistemą"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Norint pristabdyti sistemą, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:267
@@ -397,20 +397,20 @@ msgstr "Pristabdyti sistemą nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Norint pristabdyti sistemą nepaisant kitų prisijungusių naudotojų, reikia "
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Pristabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Norint pristabdyti sistemą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -420,7 +420,7 @@ msgid "Hibernate the system"
 msgstr "Užmigdyti sistemą"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Norint užmigdyti sistemą, reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:299
@@ -429,20 +429,20 @@ msgstr "Užmigdyti sistemą nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Norint užmigdyti sistemą nepaisant kitų prisijungusių naudotojų, reikia "
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Užmigdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Norint užmigdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
 "reikia nustatyti tapatybę."
@@ -453,7 +453,7 @@ msgstr "Tvarkyti aktyvius seansus, naudotojus ir darbo vietas"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Norint tvarkyti aktyvius seansus, naudotojus ir darbo vietas, reikia "
 "nustatyti tapatybę."

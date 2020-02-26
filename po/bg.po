@@ -282,7 +282,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Позволяване на закачане на устройства към работните места"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "За позволяване на закачане на устройства към работните места е необходима "
 "идентификация."
@@ -293,7 +293,7 @@ msgstr "Изчистване на връзките между устройств
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "За изчистване на връзките между устройствата и работните места е необходима "
 "идентификация."
@@ -303,7 +303,7 @@ msgid "Power off the system"
 msgstr "Изключване на системата"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "За изключване на системата е необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -312,20 +312,20 @@ msgstr "Изключване на системата, дори когато им
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "За изключване на системата, дори когато има други вписани потребители, е "
 "необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Изключване на системата, дори когато програма иска да предотврати това"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "За изключване на системата, дори когато програма иска да предотврати това, е "
 "необходима идентификация."
@@ -335,7 +335,7 @@ msgid "Reboot the system"
 msgstr "Рестартиране на системата"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "За рестартиране на системата е необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -344,21 +344,21 @@ msgstr "Рестартиране на системата, дори когато 
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "За рестартиране на системата, дори когато има други вписани потребители, е "
 "необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 "Рестартиране на системата, дори когато програма иска да предотврати това"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "За рестартиране на системата, дори когато програма иска да предотврати това, "
 "е необходима идентификация."
@@ -368,7 +368,7 @@ msgid "Suspend the system"
 msgstr "Приспиване на системата"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "За приспиване на системата е необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -377,20 +377,20 @@ msgstr "Приспиване на системата, дори когато им
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "За приспиване на системата, дори когато има други вписани потребители, е "
 "необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Приспиване на системата, дори когато програма иска да предотврати това"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "За приспиване на системата, дори когато програма иска да предотврати това, е "
 "необходима идентификация."
@@ -400,7 +400,7 @@ msgid "Hibernate the system"
 msgstr "Дълбоко приспиване на системата"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "За дълбоко приспиване на системата е необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -410,22 +410,22 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "За дълбоко приспиване на системата, дори когато има други вписани "
 "потребители, е необходима идентификация."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 "Дълбоко приспиване на системата, дори когато програма иска да предотврати "
 "това"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "За дълбоко приспиване на системата, дори когато програма иска да предотврати "
 "това, е необходима идентификация."
@@ -436,7 +436,7 @@ msgstr "Управление на работещите сесии, потреб�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "За управление на работещите сесии, потребители и работни места е необходима "
 "идентификация."

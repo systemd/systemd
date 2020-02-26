@@ -70,60 +70,60 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać stan systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
-msgstr "Utworzenie katalogu domowego"
+msgid "Create a home area"
+msgstr "Utworzenie przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required to creat a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby utworzyć katalog domowy użytkownika."
+"Wymagane jest uwierzytelnienie, aby utworzyć przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
-msgstr "Usunięcie katalogu domowego"
+msgid "Remove a home area"
+msgstr "Usunięcie przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
-msgstr "Wymagane jest uwierzytelnienie, aby usunąć katalog domowy użytkownika."
+msgid "Authentication is required to remov a user's home area."
+msgstr "Wymagane jest uwierzytelnienie, aby usunąć przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
-msgstr "Sprawdzenie danych uwierzytelniających katalogu domowego"
+msgid "Check credentials of a home area"
+msgstr "Sprawdzenie danych uwierzytelniających przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required to check credentials against a user's home area."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby sprawdzić dane uwierzytelniające "
-"katalogu domowego użytkownika."
+"przestrzeni domowej użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
-msgstr "Aktualizacja katalogu domowego"
+msgid "Update a home area"
+msgstr "Aktualizacja przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required to updat a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zaktualizować katalog domowy użytkownika."
+"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
-msgstr "Zmiana rozmiaru katalogu domowego"
+msgid "Resize a home area"
+msgstr "Zmiana rozmiaru przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required to resiz a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zmienić rozmiar katalogu domowego "
+"Wymagane jest uwierzytelnienie, aby zmienić rozmiar przestrzeni domowej "
 "użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
-msgstr "Zmiana hasła katalogu domowego"
+msgid "Change password of a home area"
+msgstr "Zmiana hasła przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required to chang the password of a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zmienić hasło katalogu domowego "
+"Wymagane jest uwierzytelnienie, aby zmienić hasło przestrzeni domowej "
 "użytkownika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
@@ -330,7 +330,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Zezwolenie na podłączanie urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:138
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby podłączyć urządzenie do stanowiska."
 
@@ -340,7 +340,7 @@ msgstr "Usunięcie podłączenia urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie ustawić sposób podłączenia "
 "urządzeń do stanowisk."
@@ -350,7 +350,7 @@ msgid "Power off the system"
 msgstr "Wyłączenie systemu"
 
 #: src/login/org.freedesktop.login1.policy:159
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Wymagane jest uwierzytelnienie, aby wyłączyć system."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -359,30 +359,29 @@ msgstr "Wyłączenie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy są zalogowani "
 "inni użytkownicy."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
-msgstr "Wyłączenie systemu, kiedy program zażądał jego wstrzymania"
+msgid "Power off the system while an application is inhibiting this"
+msgstr "Wyłączenie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program zażądał "
-"jego wstrzymania."
+"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program to wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
 msgstr "Ponowne uruchomienie systemu"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system."
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -391,30 +390,30 @@ msgstr "Ponowne uruchomienie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy są "
 "zalogowani inni użytkownicy."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
-msgstr "Ponowne uruchomienie systemu, kiedy program zażądał jego wstrzymania"
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "Ponowne uruchomienie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy program "
-"zażądał jego wstrzymania."
+"to wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Halt the system"
 msgstr "Zatrzymanie systemu"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać system."
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -423,19 +422,19 @@ msgstr "Zatrzymanie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required for halting the system while other users are "
+"Authentication is required to halt the system while other users are "
 "logged in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy są zalogowani "
 "inni użytkownicy."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
-msgstr "Zatrzymanie systemu, kiedy program zażądał jego wstrzymania"
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Zatrzymanie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
+"Authentication is required to halt the system while an application asked "
 "to inhibit it."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy program zażądał "
@@ -446,7 +445,7 @@ msgid "Suspend the system"
 msgstr "Uśpienie systemu"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Wymagane jest uwierzytelnienie, aby uśpić system."
 
 #: src/login/org.freedesktop.login1.policy:267
@@ -455,30 +454,29 @@ msgstr "Uśpienie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby uśpić system, kiedy są zalogowani inni "
 "użytkownicy."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
-msgstr "Uśpienie systemu, kiedy program zażądał jego wstrzymania"
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "Uśpienie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program zażądał jego "
-"wstrzymania."
+"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program to wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
 msgstr "Hibernacja systemu"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Wymagane jest uwierzytelnienie, aby zahibernować system."
 
 #: src/login/org.freedesktop.login1.policy:299
@@ -487,23 +485,23 @@ msgstr "Hibernacja systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy są zalogowani "
 "inni użytkownicy."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
-msgstr "Hibernacja systemu, kiedy program zażądał jej wstrzymania"
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "Hibernacja systemu, kiedy program ją wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy program "
-"zażądał jej wstrzymania."
+"to wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
@@ -511,7 +509,7 @@ msgstr "Zarządzanie aktywnymi sesjami, użytkownikami i stanowiskami"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać aktywnymi sesjami, "
 "użytkownikami i stanowiskami."

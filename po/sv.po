@@ -259,7 +259,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Tillåt att binda enheter till platser"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "Autentisering krävs för att binda en enhet till en plats."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
@@ -268,7 +268,7 @@ msgstr "Töm bindningar för enhet-till-plats"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Autentisering krävs för att återställa hur enheter är bundna till platser."
 
@@ -277,7 +277,7 @@ msgid "Power off the system"
 msgstr "Stäng av systemet"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Autentisering krävs för att stänga av systemet."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -286,20 +286,20 @@ msgstr "Stäng av systemet medan andra användare är inloggade"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Autentisering krävs för att stänga av systemet medan andra användare är "
 "inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Stäng av systemet även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att stänga av systemet även då ett program hindrar "
 "det."
@@ -309,7 +309,7 @@ msgid "Reboot the system"
 msgstr "Starta om systemet"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Autentisering krävs för att starta om systemet."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -318,20 +318,20 @@ msgstr "Starta om systemet medan andra användare är inloggade"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Autentisering krävs för att starta om systemet medan andra användare är "
 "inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Starta om systemet även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att starta om systemet även då ett program hindrar "
 "det."
@@ -341,7 +341,7 @@ msgid "Halt the system"
 msgstr "Stoppa systemet"
 
 #: src/login/org.freedesktop.login1.policy.in:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "Autentisering krävs för att stoppa systemet."
 
 #: src/login/org.freedesktop.login1.policy.in:235
@@ -350,19 +350,19 @@ msgstr "Stoppa systemet medan andra användare är inloggade"
 
 #: src/login/org.freedesktop.login1.policy.in:236
 msgid ""
-"Authentication is required for halting the system while other users are "
+"Authentication is required to halt the system while other users are "
 "logged in."
 msgstr ""
 "Autentisering krävs för att stoppa systemet medan andra användare är "
 "inloggade."
 
 #: src/login/org.freedesktop.login1.policy.in:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Stoppa systemet även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy.in:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
+"Authentication is required to halt the system while an application asked "
 "to inhibit it."
 msgstr ""
 "Autentisering krävs för att stoppa systemet även då ett program hindrar det."
@@ -372,7 +372,7 @@ msgid "Suspend the system"
 msgstr "Försätt system i vänteläge"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Autentisering krävs för att försätta system i vänteläge."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -381,20 +381,20 @@ msgstr "Försätt systemet i vänteläge medan andra användare är inloggade"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Autentisering krävs för att försätta systemet i vänteläge medan andra "
 "användare är inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Försätt systemet i vänteläge även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att försätta ett program i vänteläge även då ett "
 "program hindrar det."
@@ -404,7 +404,7 @@ msgid "Hibernate the system"
 msgstr "Försätt systemet i viloläge"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Autentisering krävs för att försätta systemet i viloläge."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -413,20 +413,20 @@ msgstr "Försätt systemet i viloläge medan andra användare är inloggade"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Autentisering krävs för att försätta systemet i viloläge medan andra "
 "användare är inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Försätt systemet i viloläge även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att försätta ett program i viloläge även då ett "
 "program hindrar det."
@@ -437,7 +437,7 @@ msgstr "Hantera aktiva sessioner, användare och platser"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Autentisering krävs för att hantera aktiva sessioner, användare och platser."
 

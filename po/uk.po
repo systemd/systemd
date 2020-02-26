@@ -71,55 +71,55 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Потрібна автентифікація, щоб перезапустити стан системи."
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
+msgid "Create a home area"
 msgstr "Створення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required to creat a user's home area."
 msgstr "Для створення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
+msgid "Remove a home area"
 msgstr "Вилучення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
+msgid "Authentication is required to remov a user's home area."
 msgstr "Для вилучення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
+msgid "Check credentials of a home area"
 msgstr "Перевірка реєстраційних даних для доступу до домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required to check credentials against a user's home area."
 msgstr ""
 "Для перевірки реєстраційних даних для доступу до домашньої теки користувача"
 " слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
+msgid "Update a home area"
 msgstr "Оновлення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required to updat a user's home area."
 msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
+msgid "Resize a home area"
 msgstr "Зміна розмірів домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required to resiz a user's home area."
 msgstr ""
 "Для зміни розмірів домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
+msgid "Change password of a home area"
 msgstr "Зміна пароля до домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required to chang the password of a user's home area."
 msgstr ""
 "Для зміни пароля для доступу до домашньої теки користувача слід пройти"
 " розпізнавання."
@@ -337,7 +337,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Дозволити під'єднання пристроїв до місць"
 
 #: src/login/org.freedesktop.login1.policy:138
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "Потрібна автентифікація, щоб під'єднувати пристрої до місць."
 
 #: src/login/org.freedesktop.login1.policy:148
@@ -346,7 +346,7 @@ msgstr "Очисний пристрій для під'єднань до місц
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Потрібна автентифікація, щоб перезапустити спосіб під'єднання до місць."
 
@@ -355,7 +355,7 @@ msgid "Power off the system"
 msgstr "Вимкнути систему"
 
 #: src/login/org.freedesktop.login1.policy:159
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Потрібна автентифікація, щоб вимкнути систему."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -364,19 +364,19 @@ msgstr "Вимкнути систему, коли інші користувач�
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Потрібна автентифікація, щоб вимкнути систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Вимкнути систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб вимкнути систему, коли програми намагаються "
 "перешкодити цьому."
@@ -386,7 +386,7 @@ msgid "Reboot the system"
 msgstr "Перезавантажити систему"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Для перезавантаження системи необхідна ідентифікація."
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -395,20 +395,20 @@ msgstr "Перезавантажити, якщо інші користувачі
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Потрібна автентифікація, щоб перезапустити систему, коли інші користувачі в "
 "ній."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Перезапустити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб перезапустити систему, коли програми "
 "намагаються перешкодити цьому."
@@ -418,7 +418,7 @@ msgid "Halt the system"
 msgstr "Зупинити систему"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "Потрібна автентифікація, щоб зупинити систему."
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -427,18 +427,18 @@ msgstr "Зупинити систему, коли інші користувач�
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required for halting the system while other users are "
+"Authentication is required to halt the system while other users are "
 "logged in."
 msgstr ""
 "Потрібна автентифікація, щоб зупинити систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Зупинити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
+"Authentication is required to halt the system while an application asked "
 "to inhibit it."
 msgstr ""
 "Потрібна автентифікація, щоб зупинити систему, коли програми намагаються "
@@ -449,7 +449,7 @@ msgid "Suspend the system"
 msgstr "Призупинити систему"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Потрібна автентифікація, щоб призупинити систему."
 
 #: src/login/org.freedesktop.login1.policy:267
@@ -458,20 +458,20 @@ msgstr "Призупинити систему, коли інші користу�
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Потрібна автентифікація, щоб призупинити систему, коли інші користувачі в "
 "ній."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Призупинити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб призупинити систему, коли програми намагаються "
 "перешкодити цьому."
@@ -481,7 +481,7 @@ msgid "Hibernate the system"
 msgstr "Приспати систему"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Потрібна автентифікація, щоб приспати систему."
 
 #: src/login/org.freedesktop.login1.policy:299
@@ -490,19 +490,19 @@ msgstr "Приспати систему, коли інші користувач�
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Потрібна автентифікація, щоб присипання систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Приспати систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб приспати систему, коли програми намагаються "
 "перешкодити цьому."
@@ -513,7 +513,7 @@ msgstr "Керувати сеансами, користувачами і роб�
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Потрібна автентифікація, щоб керувати сеансами, користувачами і робочими "
 "місцями."

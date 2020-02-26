@@ -256,7 +256,7 @@ msgstr "Tillad at montere af enheder til arbejdsstationer"
 
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Autentificering er nødvendig for at montere en enhed til en "
 "arbejdsstation."
@@ -269,7 +269,7 @@ msgstr "Nulstil enhed monteret til en arbejdsstation"
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Autentificering er nødvendig for at nulstille måden enheder er monteret "
 "arbejdsstationer."
@@ -279,7 +279,7 @@ msgid "Power off the system"
 msgstr "Sluk for systemet"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Autentificering er nødvendig for at slukke systemet"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
@@ -288,21 +288,21 @@ msgstr "Sluk systemet mens andre brugere er logget på"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Autentificering er nødvendig for at slukke systemet mens andre brugere "
 "er logget på."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 "Sluk for systemet mens en applikation har forespurgt at hæmme det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificering er nødvendig for at slukke systemet mens en applikation har "
 "forespurgt at hæmme det."
@@ -312,7 +312,7 @@ msgid "Reboot the system"
 msgstr "Genstart systemet"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Autentificering er nødvendig for at genstarte systemet."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
@@ -321,21 +321,21 @@ msgstr "Genstart systemet mens andre brugere er logget ind"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Autentificering er nødvendig for at genstarte systemet mens andre brugere "
 "er logget ind."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 "Genstart systemet mens en applikation har forespurgt at hæmme det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificering er nødvendig for at genstarte systemet mens en applikation "
 "har forespurgt at hæmme det."
@@ -345,7 +345,7 @@ msgid "Suspend the system"
 msgstr "Sæt systemet på standby"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Autentificering er nødvendig for at sætte systemet på standby"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
@@ -354,22 +354,22 @@ msgstr "Sæt systemet på standby mens andre brugere er logget på"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Autentificering er nødvendig for at sætte systemet på standby, mens andre "
 "brugere er logget på."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 "Sæt systemet på standby mens en applikation har forespurgt at hæmme"
 "det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificering er nødvendig for at sætte systemet på standby, mens en "
 "applikation har forespurgt at hæmme det."
@@ -379,7 +379,7 @@ msgid "Hibernate the system"
 msgstr "Sæt systemet i dvale"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr ""
 "Autentificering er nødvendig for at sætte systemet i dvale-tilstand."
 
@@ -390,21 +390,21 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Autentificering er nødvendig for at sætte systemet i dvale-tilstand, mens "
 "andre brugere er logget på."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Sæt systemet i dvale-tilstand mens en applikation har forespurgt at "
 "hæmme det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificering er nødvendig for at sætte systemet i dvale tilstand, mens "
 "en applikation har forespurgt at hæmme det."
@@ -416,7 +416,7 @@ msgstr "Håndtér aktive sessioner, brugere og arbejdsstationer"
 # www.freedesktop.org/wiki/Software/systemd/multiseat/
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Autentificering er nødvendig for at håndtere aktive sessioner, brugere "
 "og arbejdsstationer."

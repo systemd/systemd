@@ -10,8 +10,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.home1.create-home">
-                <description gettext-domain="systemd">Create a home</description>
-                <message gettext-domain="systemd">Authentication is required for creating a user's home.</message>
+                <description gettext-domain="systemd">Create a home area</description>
+                <message gettext-domain="systemd">Authentication is required to creat a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -20,8 +20,8 @@
         </action>
 
         <action id="org.freedesktop.home1.remove-home">
-                <description gettext-domain="systemd">Remove a home</description>
-                <message gettext-domain="systemd">Authentication is required for removing a user's home.</message>
+                <description gettext-domain="systemd">Remove a home area</description>
+                <message gettext-domain="systemd">Authentication is required to remov a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -30,8 +30,8 @@
         </action>
 
         <action id="org.freedesktop.home1.authenticate-home">
-                <description gettext-domain="systemd">Check credentials of a home</description>
-                <message gettext-domain="systemd">Authentication is required for checking credentials against a user's home.</message>
+                <description gettext-domain="systemd">Check credentials of a home area</description>
+                <message gettext-domain="systemd">Authentication is required to check credentials against a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -40,8 +40,8 @@
         </action>
 
         <action id="org.freedesktop.home1.update-home">
-                <description gettext-domain="systemd">Update a home</description>
-                <message gettext-domain="systemd">Authentication is required for updating a user's home.</message>
+                <description gettext-domain="systemd">Update a home area</description>
+                <message gettext-domain="systemd">Authentication is required to updat a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -50,8 +50,8 @@
         </action>
 
         <action id="org.freedesktop.home1.resize-home">
-                <description gettext-domain="systemd">Resize a home</description>
-                <message gettext-domain="systemd">Authentication is required for resizing a user's home.</message>
+                <description gettext-domain="systemd">Resize a home area</description>
+                <message gettext-domain="systemd">Authentication is required to resiz a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -60,8 +60,8 @@
         </action>
 
         <action id="org.freedesktop.home1.passwd-home">
-                <description gettext-domain="systemd">Change password of a home</description>
-                <message gettext-domain="systemd">Authentication is required for changing the password of a user's home.</message>
+                <description gettext-domain="systemd">Change password of a home area</description>
+                <message gettext-domain="systemd">Authentication is required to chang the password of a user's home area.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

@@ -285,7 +285,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Permitir conectar dispositivos em estações"
 
 #: src/login/org.freedesktop.login1.policy:138
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "É necessária autenticação para conectar um dispositivo em uma estação."
 
 #: src/login/org.freedesktop.login1.policy:148
@@ -294,7 +294,7 @@ msgstr "Liberar dispositivo para conexões da estação"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "É necessária autenticação para redefinir a quantidade de dispositivos "
 "conectados na estação."
@@ -304,7 +304,7 @@ msgid "Power off the system"
 msgstr "Desligar o sistema"
 
 #: src/login/org.freedesktop.login1.policy:159
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "É necessária autenticação para desligar o sistema."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -313,20 +313,20 @@ msgstr "Desligar o sistema enquanto outros usuários estão conectados"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "É necessária autenticação para desligar o sistema enquanto outros usuários "
 "estão conectados."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Desligar o sistema enquanto um aplicativo solicitou inibição"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "É necessária autenticação para desligar o sistema enquanto um aplicativo "
 "solicitou inibição."
@@ -336,7 +336,7 @@ msgid "Reboot the system"
 msgstr "Reiniciar o sistema"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "É necessária autenticação para reiniciar o sistema."
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -345,20 +345,20 @@ msgstr "Reiniciar o sistema enquanto outros usuários estiverem conectados"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "É necessária autenticação para reiniciar o sistema enquanto outros usuários "
 "estiverem conectados."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Reiniciar o sistema enquanto um aplicativo solicitou inibição"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "É necessária autenticação para reiniciar o sistema enquanto um aplicativo "
 "solicitou inibição."
@@ -368,7 +368,7 @@ msgid "Halt the system"
 msgstr "Parar o sistema"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "É necessária autenticação para parar o sistema."
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -377,19 +377,19 @@ msgstr "Parar o sistema enquanto outros usuários estão logados"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required for halting the system while other users are "
+"Authentication is required to halt the system while other users are "
 "logged in."
 msgstr ""
 "É necessária autenticação para parar o sistema enquanto outros usuários "
 "estejam logados."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Parar o sistema enquanto um aplicativo solicitou inibição"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
+"Authentication is required to halt the system while an application asked "
 "to inhibit it."
 msgstr ""
 "É necessária autenticação para parar o sistema enquanto um aplicativo "
@@ -400,7 +400,7 @@ msgid "Suspend the system"
 msgstr "Suspender o sistema"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "É necessária autenticação para suspender o sistema."
 
 #: src/login/org.freedesktop.login1.policy:267
@@ -409,20 +409,20 @@ msgstr "Suspender o sistema enquanto outros usuários estiverem conectados"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "É necessária autenticação para suspender o sistema enquanto outros usuários "
 "estiverem conectados."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspender o sistema enquanto um aplicativo solicitou inibição"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "É necessária autenticação para suspender o sistema enquanto um aplicativo "
 "solicitou inibição."
@@ -432,7 +432,7 @@ msgid "Hibernate the system"
 msgstr "Hibernar o sistema"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "É necessária autenticação para hibernar o sistema."
 
 #: src/login/org.freedesktop.login1.policy:299
@@ -441,20 +441,20 @@ msgstr "Hibernar o sistema enquanto outros usuários estiverem conectados"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "É necessária autenticação para hibernar o sistema enquanto outros usuários "
 "estiverem conectados."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernar o sistema enquanto um aplicativo solicitou inibição"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "É necessária autenticação para hibernar o sistema enquanto um aplicativo "
 "solicitou inibição."
@@ -465,7 +465,7 @@ msgstr "Gerenciar estações, usuários e sessões ativas"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "É necessária autenticação para gerenciar estações, usuários e sessões ativas."
 

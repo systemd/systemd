@@ -272,7 +272,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Dazvolić dalučać prylady da pracoŭnych miescaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia dalučennia prylad da pracoŭnych miescaŭ."
 
@@ -282,7 +282,7 @@ msgstr "Adkliučać prylady ad pracoŭnych miescaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia adkliučennia prylad ad pracoŭnych miescaŭ."
 
@@ -291,7 +291,7 @@ msgid "Power off the system"
 msgstr "Vykliučyć sistemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -300,20 +300,20 @@ msgstr "Vykliučyć sistemu pry prysutnasci inšych karystaĺnikaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy pry prysutnasci inšych "
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Vykliučyć sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -323,7 +323,7 @@ msgid "Reboot the system"
 msgstr "Pierazahruzić sistemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -332,20 +332,20 @@ msgstr "Pierazahruzić sistemu pry prysutnasci inšych karystaĺnikaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy pry prysutnasci "
 "inšych karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Pierazahruzić sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -355,7 +355,7 @@ msgid "Suspend the system"
 msgstr "Prypynić sistemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -364,20 +364,20 @@ msgstr "Prypynić sistemu pry prysutnasci inšych karystaĺnikaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy pry prysutnasci inšych "
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Prypynić sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -387,7 +387,7 @@ msgid "Hibernate the system"
 msgstr "Hibiernavać sistemu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -396,20 +396,20 @@ msgstr "Hibiernavać sistemu pry prysutnasci inšych karystaĺnikaŭ"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy pry prysutnasci inšych "
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibiernavać sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -420,7 +420,7 @@ msgstr "Kiravać aktyŭnymi siesijami, karystaĺnikami i pracoŭnymi miescami"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, "
 "karystaĺnikami i miescami."

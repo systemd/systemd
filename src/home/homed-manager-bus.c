@@ -611,8 +611,8 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetUserRecordByUID", "u", "sbo", method_get_user_record_by_uid, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD("ListHomes", NULL, "a(susussso)", method_list_homes, SD_BUS_VTABLE_UNPRIVILEGED),
 
-        /* The following methods directly execute an operation on a home, without ref-counting, queing or
-         * anything, and are accessible through homectl. */
+        /* The following methods directly execute an operation on a home area, without ref-counting, queing
+         * or anything, and are accessible through homectl. */
         SD_BUS_METHOD("ActivateHome", "ss", NULL, method_activate_home, SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD("DeactivateHome", "s", NULL, method_deactivate_home, 0),
         SD_BUS_METHOD("RegisterHome", "s", NULL, method_register_home, SD_BUS_VTABLE_UNPRIVILEGED),                                  /* Add JSON record to homed, but don't create actual $HOME */

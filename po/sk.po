@@ -251,7 +251,7 @@ msgid "Allow attaching devices to seats"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
@@ -260,7 +260,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
@@ -268,7 +268,7 @@ msgid "Power off the system"
 msgstr "Vypnutie systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Vyžaduje sa overenie totožnosti na vypnutie systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -277,20 +277,20 @@ msgstr "Vypnutie systému, pokiaľ sú prihlásení iní používatelia"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na vypnutie systému, pokiaľ sú prihlásení "
 "iní používatelia."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
@@ -298,7 +298,7 @@ msgid "Reboot the system"
 msgstr "Reštart systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Vyžaduje sa overenie totožnosti na reštartovanie systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -307,20 +307,20 @@ msgstr "Reštart systému, pokiaľ sú prihlásení iní používatelia"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na reštartovanie systému, pokiaľ sú "
 "prihlásení iní používatelia."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
@@ -328,7 +328,7 @@ msgid "Suspend the system"
 msgstr "Uspanie systému"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Vyžaduje sa overenie totožnosti na uspanie systému."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -337,20 +337,20 @@ msgstr "Uspanie systému, pokiaľ sú prihlásení iní používatelia"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na uspanie systému, pokiaľ sú prihlásení iní "
 "používatelia."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
@@ -358,7 +358,7 @@ msgid "Hibernate the system"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -367,18 +367,18 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51
@@ -387,7 +387,7 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:53
