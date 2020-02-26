@@ -1589,6 +1589,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         'ip6gretun97',
         'test1',
         'veth99',
+        'vrf99',
     ]
 
     units = [
@@ -1628,12 +1629,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-teql.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
+        '25-route-vrf.network',
         '25-gateway-static.network',
         '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         '25-veth-peer.network',
         '25-veth.netdev',
+        '25-vrf.netdev',
         '26-link-local-addressing-ipv6.network',
         'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
@@ -1909,6 +1912,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2001:1234:5:7fff:ff:ff:ff:ff')
         self.assertRegex(output, 'via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98')
         self.assertRegex(output, 'via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98')
+
+    @expectedFailureIfModuleIsNotAvailable('vrf')
+    def test_route_vrf(self):
+        copy_unit_to_networkd_unit_path('25-route-vrf.network', '12-dummy.netdev',
+                                        '25-vrf.netdev', '25-vrf.network')
+        start_networkd()
+        self.wait_online(['dummy98:routable', 'vrf99:carrier'])
+
+        output = check_output('ip route show vrf vrf99')
+        print(output)
+        self.assertRegex(output, 'default via 192.168.100.1')
+
+        output = check_output('ip route show')
+        print(output)
+        self.assertNotRegex(output, 'default via 192.168.100.1')
 
     def test_gateway_reconfigure(self):
         copy_unit_to_networkd_unit_path('25-gateway-static.network', '12-dummy.netdev')
