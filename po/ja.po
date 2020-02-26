@@ -62,52 +62,52 @@ msgstr "systemdの状態を再読込するには認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr "ホームディレクトリの作成"
+msgstr "ホーム領域の作成"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to creat a user's home area."
-msgstr "ユーザのホームディレクトリを作成するには認証が必要です。"
+msgstr "ユーザのホーム領域を作成するには認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr "ホームディレクトリの削除"
+msgstr "ホーム領域の削除"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remov a user's home area."
-msgstr "ユーザのホームディレクトリの削除には認証が必要です。"
+msgstr "ユーザのホーム領域の削除には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr "ホームディレクトリの認証情報の確認"
+msgstr "ホーム領域の認証情報の確認"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "ユーザのホームディレクトリに対する認証情報の確認には認証が必要です。"
+msgstr "ユーザのホーム領域に対する認証情報の確認には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr "ホームディレクトリの更新"
+msgstr "ホーム領域の更新"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to updat a user's home area."
-msgstr "ユーザのホームディレクトリの更新には認証が必要です。"
+msgstr "ユーザのホーム領域の更新には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr "ホームディレクトリのサイズ変更"
+msgstr "ホーム領域のサイズ変更"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resiz a user's home area."
-msgstr "ユーザのホームディレクトリのサイズ変更には認証が必要です。"
+msgstr "ユーザのホーム領域のサイズ変更には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr "ホームディレクトリのパスワード変更"
+msgstr "ホーム領域のパスワード変更"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to chang the password of a user's home area."
-msgstr "ユーザのホームディレクトリのパスワードを変更するには認証が必要です。"
+msgstr "ユーザのホーム領域のパスワードを変更するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
