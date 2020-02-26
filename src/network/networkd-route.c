@@ -17,7 +17,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
-#include "util.h"
+#include "vrf.h"
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
@@ -1698,6 +1698,11 @@ int route_section_verify(Route *route, Network *network) {
                                          "or PreferredSource= field configured. "
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
+        }
+
+        if (!route->table_set && network->vrf) {
+                route->table = VRF(network->vrf)->table;
+                route->table_set = true;
         }
 
         if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))
