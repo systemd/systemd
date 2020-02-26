@@ -700,12 +700,8 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
                 setpwent();
                 iterator->nss_iterating = true;
                 goto finish;
-        }
-
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE))
-                goto finish;
-
-        return r;
+        } else if (r < 0)
+                return r;
 
 finish:
         *ret = TAKE_PTR(iterator);
