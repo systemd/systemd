@@ -318,13 +318,13 @@ msgstr ""
 "utilizatori sunt autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Oprește sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru oprirea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -350,13 +350,13 @@ msgstr ""
 "utilizatori autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Repornește sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru repornirea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -382,13 +382,13 @@ msgstr ""
 "utilizatori autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspendă sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru suspendarea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -414,13 +414,13 @@ msgstr ""
 "utilizatori sunt autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernează sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru hibernarea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."

@@ -313,13 +313,13 @@ msgstr ""
 "корисници пријављени."
 
 #: src/login/org.freedesktop.login1.policy.in:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Искључи систем иако је програм затражио да се спречи гашење"
 
 #: src/login/org.freedesktop.login1.policy.in:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потребно је да се идентификујете да бисте искључили систем иако је програм "
 "затражио да се спречи гашење система."
@@ -345,13 +345,13 @@ msgstr ""
 "други корисници пријављени."
 
 #: src/login/org.freedesktop.login1.policy.in:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Поново покрени систем иако је програм затражио да се спречи гашење"
 
 #: src/login/org.freedesktop.login1.policy.in:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потребно је да се идентификујете да бисте поново покренули систем иако је "
 "програм затражио да се спречи гашење система."
@@ -377,7 +377,7 @@ msgstr ""
 "корисници пријављени."
 
 #: src/login/org.freedesktop.login1.policy.in:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Заустави систем иако програм тражи да се спречи заустављање"
 
 #: src/login/org.freedesktop.login1.policy.in:247
@@ -409,13 +409,13 @@ msgstr ""
 "корисници пријављени."
 
 #: src/login/org.freedesktop.login1.policy.in:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Обуставите систем иако програм тражи да се спречи обустава"
 
 #: src/login/org.freedesktop.login1.policy.in:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потребно је да се идентификујете да бисте обуставили систем иако је програм "
 "затражио да се спречи обустава система."
@@ -441,13 +441,13 @@ msgstr ""
 "корисници пријављени."
 
 #: src/login/org.freedesktop.login1.policy.in:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Успавај систем иако је програм затражио да се спречи спавање"
 
 #: src/login/org.freedesktop.login1.policy.in:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потребно је да се идентификујете да бисте успавали систем иако је програм "
 "затражио да се спречи успављивање система."

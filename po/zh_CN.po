@@ -263,13 +263,13 @@ msgid ""
 msgstr "存在其他已登录用户时关闭系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然关机"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "在其它应用程序阻止关机时关闭系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
@@ -291,13 +291,13 @@ msgid ""
 msgstr "存在其他已登录用户时重启系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然重启"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "在其它应用程序阻止重启时重启系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
@@ -319,13 +319,13 @@ msgid ""
 msgstr "存在其他已登录用户时挂起系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然挂起系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "在其它应用程序阻止挂起时挂起系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
@@ -347,13 +347,13 @@ msgid ""
 msgstr "存在其他已登录用户时进行休眠系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然休眠"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49

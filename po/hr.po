@@ -281,14 +281,14 @@ msgstr ""
 "prijavljeni."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 "Isključi sustav kada je aplikacija zatražila zaustavljanje isključivanja"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Potrebna je ovjera za isključivanje sustava kada je aplikacija zatražila "
 "zaustavljanje isključivanja."
@@ -314,7 +314,7 @@ msgstr ""
 "prijavljeni."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 "Ponovno pokreni sustav kada je aplikacija zatražila zaustavljanje ponovnog "
 "pokretanja"
@@ -322,7 +322,7 @@ msgstr ""
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Potrebna je ovjera za ponovno pokretanje sustava kada je aplikacija "
 "zatražila zaustavljanje ponovnog pokretanja."
@@ -348,14 +348,14 @@ msgstr ""
 "prijavljeni."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 "Suspendiraj sustav kada je aplikacija zatražila zaustavljanje suspendiranja"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Potrebna je ovjera za suspendiranje sustava kada je aplikacija zatražila "
 "zaustavljanje suspendiranja."
@@ -381,14 +381,14 @@ msgstr ""
 "prijavljeni."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 "Hiberniraj sustav kada je aplikacija zatražila zaustavljanje hibernacije"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Potrebna je ovjera za hibernaciju sustava kada je aplikacija zatražila "
 "zaustavljanje hibernacije."

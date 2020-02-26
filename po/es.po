@@ -307,13 +307,13 @@ msgstr ""
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Apagar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para apagar el sistema a pesar de que una "
 "aplicación lo impide."
@@ -339,13 +339,13 @@ msgstr ""
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Reiniciar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para reiniciar el sistema a pesar de que una "
 "aplicación lo impide."
@@ -371,13 +371,13 @@ msgstr ""
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspender el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para suspender el sistema a pesar de que una "
 "aplicación lo impide."
@@ -403,13 +403,13 @@ msgstr ""
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para hibernar el sistema a pesar de que una "
 "aplicación lo impide."

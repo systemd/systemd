@@ -307,13 +307,13 @@ msgstr ""
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Vykliučyć sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia vykliučennia sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -339,13 +339,13 @@ msgstr ""
 "inšych karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Pierazahruzić sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia pierazahruzki sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -371,13 +371,13 @@ msgstr ""
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Prypynić sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia prypyniennia sistemy, kali prahramy "
 "pieraškadžajuć hetamu."
@@ -403,13 +403,13 @@ msgstr ""
 "karystaĺnikaŭ."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibiernavać sistemu, kali prahramy pieraškadžajuć hetamu"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia hibiernacyi sistemy, kali prahramy "
 "pieraškadžajuć hetamu."

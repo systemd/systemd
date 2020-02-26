@@ -177,8 +177,8 @@
         </action>
 
         <action id="org.freedesktop.login1.power-off-ignore-inhibit">
-                <description gettext-domain="systemd">Power off the system while an application asked to inhibit it</description>
-                <message gettext-domain="systemd">Authentication is required to power off the system while an application asked to inhibit it.</message>
+                <description gettext-domain="systemd">Power off the system while an application is inhibiting this</description>
+                <message gettext-domain="systemd">Authentication is required to power off the system while an application is inhibiting this.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -210,8 +210,8 @@
         </action>
 
         <action id="org.freedesktop.login1.reboot-ignore-inhibit">
-                <description gettext-domain="systemd">Reboot the system while an application asked to inhibit it</description>
-                <message gettext-domain="systemd">Authentication is required to reboot the system while an application asked to inhibit it.</message>
+                <description gettext-domain="systemd">Reboot the system while an application is inhibiting this</description>
+                <message gettext-domain="systemd">Authentication is required to reboot the system while an application is inhibiting this.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -243,8 +243,8 @@
         </action>
 
         <action id="org.freedesktop.login1.halt-ignore-inhibit">
-                <description gettext-domain="systemd">Halt the system while an application asked to inhibit it</description>
-                <message gettext-domain="systemd">Authentication is required to halt the system while an application asked to inhibit it.</message>
+                <description gettext-domain="systemd">Halt the system while an application is inhibiting this</description>
+                <message gettext-domain="systemd">Authentication is required to halt the system while an application is inhibiting this.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -275,8 +275,8 @@
         </action>
 
         <action id="org.freedesktop.login1.suspend-ignore-inhibit">
-                <description gettext-domain="systemd">Suspend the system while an application asked to inhibit it</description>
-                <message gettext-domain="systemd">Authentication is required to suspend the system while an application asked to inhibit it.</message>
+                <description gettext-domain="systemd">Suspend the system while an application is inhibiting this</description>
+                <message gettext-domain="systemd">Authentication is required to suspend the system while an application is inhibiting this.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -307,8 +307,8 @@
         </action>
 
         <action id="org.freedesktop.login1.hibernate-ignore-inhibit">
-                <description gettext-domain="systemd">Hibernate the system while an application asked to inhibit it</description>
-                <message gettext-domain="systemd">Authentication is required to hibernate the system while an application asked to inhibit it.</message>
+                <description gettext-domain="systemd">Hibernate the system while an application is inhibiting this</description>
+                <message gettext-domain="systemd">Authentication is required to hibernate the system while an application is inhibiting this.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

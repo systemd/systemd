@@ -286,13 +286,13 @@ msgstr ""
 "sedang log masuk."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Matikan daya sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mematikan daya sistem ketika sebuah aplikasi "
 "meminta untuk mencegahnya."
@@ -318,13 +318,13 @@ msgstr ""
 "sedang log masuk."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Boot ulang sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mem-boot ulang sistem ketika sebuah aplikasi "
 "meminta untuk mencegahnya."
@@ -350,7 +350,7 @@ msgstr ""
 "masuk."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Halt sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -382,13 +382,13 @@ msgstr ""
 "log masuk."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspensikan sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mensuspensi sistem ketika suatu aplikasi meminta "
 "untuk mencegahnya."
@@ -414,13 +414,13 @@ msgstr ""
 "log masuk."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernasikan sistem ketika sebuah aplikasi meminta untuk mencegahnya."
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk menghibernasi sistem ketika sebuah aplikasi "
 "meminta mencegahnya."

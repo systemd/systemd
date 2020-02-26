@@ -308,13 +308,13 @@ msgstr ""
 "reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Išjungti sistemos maitinimą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Norint išjungti sistemos maitinimą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -340,13 +340,13 @@ msgstr ""
 "reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Paleisti sistemą iš naujo, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Norint paleisti sistemą iš naujo, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -372,7 +372,7 @@ msgstr ""
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Stabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -404,13 +404,13 @@ msgstr ""
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Pristabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Norint pristabdyti sistemą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -436,13 +436,13 @@ msgstr ""
 "nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Užmigdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Norint užmigdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
 "reikia nustatyti tapatybę."

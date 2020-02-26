@@ -350,13 +350,13 @@ msgstr ""
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Vypnout systém, i když aplikace požádala o zákaz vypnutí"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Pro vypnutí systému, když aplikace požádala o zákaz vypnutí je vyžadováno "
 "ověření."
@@ -382,13 +382,13 @@ msgstr ""
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Restartovat systém, i když aplikace požádala o zákaz restartu"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Pro restartování systému, když aplikace požádala o zákaz restartu je "
 "vyžadováno ověření."
@@ -414,7 +414,7 @@ msgstr ""
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Zastavit systém, i když aplikace požádala o zákaz zastavení"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -446,13 +446,13 @@ msgstr ""
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Uspat systém, i když aplikace požádala o zákaz uspání"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Pro uspání systému, když aplikace požádala o zákaz uspání je vyžadováno "
 "ověření."
@@ -478,13 +478,13 @@ msgstr ""
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernovat systém, i když aplikace požádala o zákaz hibernace"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Pro hibernaci systému, když aplikace požádala o zákaz hibernace je "
 "vyžadováno ověření."

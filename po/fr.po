@@ -379,13 +379,13 @@ msgstr ""
 "utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Éteindre le système alors qu'une application a demandé de l'empêcher"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Authentification requise pour éteindre le système alors qu'une application a "
 "demandé de l'empêcher."
@@ -411,13 +411,13 @@ msgstr ""
 "utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Redémarrer le système alors qu'une application a demandé de l'empêcher"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Authentification requise pour redémarrer le système alors qu'une application "
 "a demandé de l'empêcher."
@@ -443,7 +443,7 @@ msgstr ""
 "utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Arrêter le système alors qu'une application a demandé de l'empêcher"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -476,14 +476,14 @@ msgstr ""
 "utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 "Mettre le système en veille alors qu'une application a demandé de l'empêcher"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Authentification requise pour mettre le système en veille alors qu'une "
 "application a demandé de l'empêcher."
@@ -511,7 +511,7 @@ msgstr ""
 "d'autres utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 "Mettre le système en hibernation alors qu'une application a demandé de "
 "l'empêcher"
@@ -519,7 +519,7 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Authentification requise pour mettre le système en hibernation alors qu'une "
 "application a demandé de l'empêcher."

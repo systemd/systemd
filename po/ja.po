@@ -326,13 +326,13 @@ msgstr ""
 "他のユーザがログインしている状態でシステムの電源を切るには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムの電源を切る"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムの電源を切るには認証が必要で"
 "す。"
@@ -357,13 +357,13 @@ msgstr ""
 "他のユーザがログインしている状態でシステムを再起動するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムを再起動する"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムを再起動するには認証が必要で"
 "す。"
@@ -388,7 +388,7 @@ msgstr ""
 "他のユーザがログインしている状態でシステムを停止するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムを停止する"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -419,13 +419,13 @@ msgstr ""
 "す。"
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムをサスペンドする"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムをサスペンドするには認証が必要"
 "です。"
@@ -451,13 +451,13 @@ msgstr ""
 "す。"
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムをハイバネートする"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
 "要です。"

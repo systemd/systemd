@@ -370,13 +370,13 @@ msgstr ""
 "Потрібна автентифікація, щоб вимкнути систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Вимкнути систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб вимкнути систему, коли програми намагаються "
 "перешкодити цьому."
@@ -402,13 +402,13 @@ msgstr ""
 "ній."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Перезапустити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб перезапустити систему, коли програми "
 "намагаються перешкодити цьому."
@@ -433,7 +433,7 @@ msgstr ""
 "Потрібна автентифікація, щоб зупинити систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Зупинити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -465,13 +465,13 @@ msgstr ""
 "ній."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Призупинити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб призупинити систему, коли програми намагаються "
 "перешкодити цьому."
@@ -496,13 +496,13 @@ msgstr ""
 "Потрібна автентифікація, щоб присипання систему, коли інші користувачі в ній."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Приспати систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Потрібна автентифікація, щоб приспати систему, коли програми намагаються "
 "перешкодити цьому."

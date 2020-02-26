@@ -270,13 +270,13 @@ msgid ""
 msgstr "在有其他使用者登入時關閉系統電源需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "當應用程式阻止系統電源關閉時將其關閉"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "當應用程式阻止系統電源關閉時將系統電源關閉需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:191
@@ -298,13 +298,13 @@ msgid ""
 msgstr "在有其他使用者登入時重新啟動系統需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "當應用程式阻止重新啟動系統時將系統重新啟動"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "當應用程式阻止系統重新啟動時將系統重新啟動需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:224
@@ -326,7 +326,7 @@ msgid ""
 msgstr "在其他使用者登入時停止系統需要身份驗證。"
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "在應用程式阻止時停止系統"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -354,13 +354,13 @@ msgid ""
 msgstr "在有其他使用者登入時暫停系統需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "當應用程式阻止暫停系統時將系統暫停"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "當應用程式阻止系統暫停時將系統暫停需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:289
@@ -382,13 +382,13 @@ msgid ""
 msgstr "在有其他使用者登入時冬眠系統需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "當應用程式阻止冬眠系統時將系統冬眠"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr "當應用程式阻止系統冬眠時將系統冬眠需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:321

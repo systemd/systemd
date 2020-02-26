@@ -293,13 +293,13 @@ msgstr ""
 "inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Stäng av systemet även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att stänga av systemet även då ett program hindrar "
 "det."
@@ -325,13 +325,13 @@ msgstr ""
 "inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Starta om systemet även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att starta om systemet även då ett program hindrar "
 "det."
@@ -357,7 +357,7 @@ msgstr ""
 "inloggade."
 
 #: src/login/org.freedesktop.login1.policy.in:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Stoppa systemet även då ett program hindrar det"
 
 #: src/login/org.freedesktop.login1.policy.in:247
@@ -388,13 +388,13 @@ msgstr ""
 "användare är inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Försätt systemet i vänteläge även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att försätta ett program i vänteläge även då ett "
 "program hindrar det."
@@ -420,13 +420,13 @@ msgstr ""
 "användare är inloggade."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Försätt systemet i viloläge även då ett program hindrar det"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Autentisering krävs för att försätta ett program i viloläge även då ett "
 "program hindrar det."

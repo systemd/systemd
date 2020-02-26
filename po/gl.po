@@ -315,13 +315,13 @@ msgstr ""
 "sesión iniciada."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Apagar o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Requírese autenticación para apagar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
@@ -347,13 +347,13 @@ msgstr ""
 "teñen unha sesión iniciada."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Reiniciar o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Requírese autenticación para reiniciar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
@@ -379,7 +379,7 @@ msgstr ""
 "unha sesión iniciada."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Deter o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:247
@@ -411,13 +411,13 @@ msgstr ""
 "teñen unha sesión iniciada."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspender o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Requírese autenticación para suspender o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
@@ -443,13 +443,13 @@ msgstr ""
 "teñen unha sesión iniciada."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernar o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application "
-"asked to inhibit it."
+"is inhibiting this."
 msgstr ""
 "Requírese autenticación para hibernar o sistema mentres unha aplicación "
 "solicitou a súa inhibición."
