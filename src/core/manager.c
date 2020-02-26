@@ -89,6 +89,9 @@
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
+/* ##### Honor first shutdown request all the way to the end ##### */
+bool globalShutdownFlag = false;
+
 /* If there are more than 1K bus messages queue across our API and direct buses, then let's not add more on top until
  * the queue gets more empty. */
 #define MANAGER_BUS_BUSY_THRESHOLD 1024LU
@@ -1752,6 +1755,18 @@ int manager_add_job(
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
 
+        /* Anything that hints of restarting while shutdown is active, ignore. */
+        if ((type == JOB_START ||
+             type == JOB_RESTART ||
+             type == JOB_TRY_RESTART ||
+             type == JOB_RELOAD ||
+             type == JOB_TRY_RELOAD ||
+             type == JOB_RELOAD_OR_START) && globalShutdownFlag) {
+                log_info( "#####Trying to Add %s/%s to the job queue while shutdown is active#####",
+                          unit->id, job_type_to_string(type));
+                return -EINVAL;
+        }
+
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
         type = job_type_collapse(type, unit);
@@ -1781,6 +1796,14 @@ int manager_add_job(
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
                 goto tr_abort;
+
+        if ( (streq(unit->id, SPECIAL_REBOOT_TARGET) ||
+              streq(unit->id, SPECIAL_POWEROFF_TARGET) ||
+              streq(unit->id, SPECIAL_HALT_TARGET)) && (type == JOB_START) ) {
+                log_info( "#####Added %s/%s to the job queue#####", unit->id,
+                          job_type_to_string(type));
+                globalShutdownFlag = true;
+        }
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
@@ -4247,17 +4270,20 @@ ManagerState manager_state(Manager *m) {
 
         /* Did we ever finish booting? If not then we are still starting up */
         if (!MANAGER_IS_FINISHED(m)) {
-
-                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
-                if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                        return MANAGER_INITIALIZING;
-
+                if (!globalShutdownFlag) {
+                        u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+                        if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                                return MANAGER_INITIALIZING;
+                } else {
+                        log_info("#####MANAGER STATE STOPPING#####");
+                        return MANAGER_STOPPING;
+                }
                 return MANAGER_STARTING;
         }
 
         /* Is the special shutdown target active or queued? If so, we are in shutdown state */
         u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u && unit_active_or_pending(u))
+        if ((u && unit_active_or_pending(u)) || globalShutdownFlag)
                 return MANAGER_STOPPING;
 
         if (MANAGER_IS_SYSTEM(m)) {
