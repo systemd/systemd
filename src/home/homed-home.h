@@ -100,7 +100,7 @@ struct Home {
         /* Stores the raw, plaintext passwords, but only for short periods of time */
         UserRecord *secret;
 
-        /* When we create a home and that fails, we should possibly unregister the record altogether
+        /* When we create a home area and that fails, we should possibly unregister the record altogether
          * again, which is remembered in this boolean. */
         bool unregister_on_failure;
 

@@ -71,55 +71,55 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Потрібна автентифікація, щоб перезапустити стан системи."
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
+msgid "Create a home area"
 msgstr "Створення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required for creating a user's home area."
 msgstr "Для створення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
+msgid "Remove a home area"
 msgstr "Вилучення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
+msgid "Authentication is required for removing a user's home area."
 msgstr "Для вилучення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
+msgid "Check credentials of a home area"
 msgstr "Перевірка реєстраційних даних для доступу до домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required for checking credentials against a user's home area."
 msgstr ""
 "Для перевірки реєстраційних даних для доступу до домашньої теки користувача"
 " слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
+msgid "Update a home area"
 msgstr "Оновлення домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required for updating a user's home area."
 msgstr "Для оновлення домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
+msgid "Resize a home area"
 msgstr "Зміна розмірів домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required for resizing a user's home area."
 msgstr ""
 "Для зміни розмірів домашньої теки користувача слід пройти розпізнавання."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
+msgid "Change password of a home area"
 msgstr "Зміна пароля до домашньої теки"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required for changing the password of a user's home area."
 msgstr ""
 "Для зміни пароля для доступу до домашньої теки користувача слід пройти"
 " розпізнавання."

@@ -61,52 +61,52 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "systemdの状態を再読込するには認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
+msgid "Create a home area"
 msgstr "ホームディレクトリの作成"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required for creating a user's home area."
 msgstr "ユーザのホームディレクトリを作成するには認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
+msgid "Remove a home area"
 msgstr "ホームディレクトリの削除"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
+msgid "Authentication is required for removing a user's home area."
 msgstr "ユーザのホームディレクトリの削除には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
+msgid "Check credentials of a home area"
 msgstr "ホームディレクトリの認証情報の確認"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required for checking credentials against a user's home area."
 msgstr "ユーザのホームディレクトリに対する認証情報の確認には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
+msgid "Update a home area"
 msgstr "ホームディレクトリの更新"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required for updating a user's home area."
 msgstr "ユーザのホームディレクトリの更新には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
+msgid "Resize a home area"
 msgstr "ホームディレクトリのサイズ変更"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required for resizing a user's home area."
 msgstr "ユーザのホームディレクトリのサイズ変更には認証が必要です。"
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
+msgid "Change password of a home area"
 msgstr "ホームディレクトリのパスワード変更"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required for changing the password of a user's home area."
 msgstr "ユーザのホームディレクトリのパスワードを変更するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20

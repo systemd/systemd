@@ -68,58 +68,58 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Authentification requise pour recharger l'état de systemd"
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
+msgid "Create a home area"
 msgstr "Créer un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required for creating a user's home area."
 msgstr ""
 "Authentification requise pour créer l'espace personnel d'un utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
+msgid "Remove a home area"
 msgstr "Retirer un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
+msgid "Authentication is required for removing a user's home area."
 msgstr ""
 "Authentification requise pour retirer l'espace personnel d'un utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
+msgid "Check credentials of a home area"
 msgstr "Vérifier les identifiants d'un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required for checking credentials against a user's home area."
 msgstr ""
 "Authentification requise pour vérifier les identifiants de l'espace "
 "personnel d'un utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
+msgid "Update a home area"
 msgstr "Mettre à jour un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required for updating a user's home area."
 msgstr ""
 "Authentification requise pour mettre à jour l'espace personnel d'un "
 "utilisateur."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
+msgid "Resize a home area"
 msgstr "Retailler un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required for resizing a user's home area."
 msgstr "Authentification requise pour retailler un espace personnel."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
+msgid "Change password of a home area"
 msgstr "Changer le mot de passe d'un espace personnel"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required for changing the password of a user's home area."
 msgstr ""
 "Authentification requise pour changer le mot de passe de l'espace personnel "
 "d'un utilisateur."

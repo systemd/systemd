@@ -67,55 +67,55 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Pro opětovné načtení stavu systemd je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:13
-msgid "Create a home"
+msgid "Create a home area"
 msgstr "Vytvořit domovský adresář"
 
 #: src/home/org.freedesktop.home1.policy:14
-msgid "Authentication is required for creating a user's home."
+msgid "Authentication is required for creating a user's home area."
 msgstr "Pro vytvoření domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:23
-msgid "Remove a home"
+msgid "Remove a home area"
 msgstr "Odebrat domovský adresář"
 
 #: src/home/org.freedesktop.home1.policy:24
-msgid "Authentication is required for removing a user's home."
+msgid "Authentication is required for removing a user's home area."
 msgstr "Pro odebrání domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:33
-msgid "Check credentials of a home"
+msgid "Check credentials of a home area"
 msgstr "Zkontrolovat pověření domovského adresáře"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
-"Authentication is required for checking credentials against a user's home."
+"Authentication is required for checking credentials against a user's home area."
 msgstr ""
 "Pro kontrolu pověření proti domovskému adresáři uživatele je vyžadováno "
 "ověření."
 
 #: src/home/org.freedesktop.home1.policy:43
-msgid "Update a home"
+msgid "Update a home area"
 msgstr "Aktualizovat domovský adresář"
 
 #: src/home/org.freedesktop.home1.policy:44
-msgid "Authentication is required for updating a user's home."
+msgid "Authentication is required for updating a user's home area."
 msgstr "Pro aktualizaci domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:53
-msgid "Resize a home"
+msgid "Resize a home area"
 msgstr "Změnit velikost domovského adresáře"
 
 #: src/home/org.freedesktop.home1.policy:54
-msgid "Authentication is required for resizing a user's home."
+msgid "Authentication is required for resizing a user's home area."
 msgstr ""
 "Pro změnu velikosti domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:63
-msgid "Change password of a home"
+msgid "Change password of a home area"
 msgstr "Změnit heslo domovského adresáře"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required for changing the password of a user's home."
+msgid "Authentication is required for changing the password of a user's home area."
 msgstr "Pro změnu hesla domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
