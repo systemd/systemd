@@ -699,7 +699,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_services = strv_free(arg_services);
                         else {
-                                char **l;
+                                _cleanup_strv_free_ char **l = NULL;
 
                                 l = strv_split(optarg, ":");
                                 if (!l)
