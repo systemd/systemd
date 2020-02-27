@@ -903,15 +903,9 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
                 setgrent();
                 iterator->nss_iterating = true;
-                goto finish;
-        }
+        } if (r < 0)
+                  return r;
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE))
-                goto finish;
-
-        return r;
-
-finish:
         *ret = TAKE_PTR(iterator);
         return 0;
 }
