@@ -699,11 +699,9 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
                 setpwent();
                 iterator->nss_iterating = true;
-                goto finish;
         } else if (r < 0)
                 return r;
 
-finish:
         *ret = TAKE_PTR(iterator);
         return 0;
 }
