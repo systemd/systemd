@@ -3041,7 +3041,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 strv_free_and_replace(link->alternative_names, s);
         }
 
-        r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
+        r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
                         &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
@@ -3177,7 +3177,7 @@ static int link_initialized_and_synced(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
+                r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
                                 &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);

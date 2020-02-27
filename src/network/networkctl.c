@@ -16,7 +16,6 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
-#include "arphrd-list.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -35,6 +34,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "netlink-util.h"
+#include "network-internal.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -65,27 +65,6 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
-
-static char *link_get_type_string(unsigned short iftype, sd_device *d) {
-        const char *t, *devtype;
-        char *p;
-
-        if (d &&
-            sd_device_get_devtype(d, &devtype) >= 0 &&
-            !isempty(devtype))
-                return strdup(devtype);
-
-        t = arphrd_to_name(iftype);
-        if (!t)
-                return NULL;
-
-        p = strdup(t);
-        if (!p)
-                return NULL;
-
-        ascii_strlower(p);
-        return p;
-}
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         assert(on);
