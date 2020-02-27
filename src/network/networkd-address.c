@@ -1053,6 +1053,7 @@ int config_parse_address_scope(const char *unit,
                 }
         }
 
+        n->scope_set = true;
         n = NULL;
         return 0;
 }
@@ -1124,6 +1125,9 @@ int address_section_verify(Address *address) {
                                          "Ignoring [Address] section from line %u.",
                                          address->section->filename, address->section->line);
         }
+
+        if (!address->scope_set && in_addr_is_localhost(address->family, &address->in_addr) > 0)
+                address->scope = RT_SCOPE_HOST;
 
         return 0;
 }
