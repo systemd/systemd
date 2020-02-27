@@ -319,6 +319,46 @@ int config_parse_prefix_lifetime(const char *unit,
         return 0;
 }
 
+int config_parse_prefix_assign(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        p->assign = r;
+        p = NULL;
+
+        return 0;
+}
+
 int config_parse_route_prefix(const char *unit,
                               const char *filename,
                               unsigned line,

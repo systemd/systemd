@@ -186,6 +186,7 @@ OnLink=
 PreferredLifetimeSec=
 AddressAutoconfiguration=
 ValidLifetimeSec=
+Assign=
 [IPv6RoutePrefix]
 Route=
 LifetimeSec=

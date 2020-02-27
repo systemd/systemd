@@ -245,6 +245,7 @@ IPv6Prefix.OnLink,                           config_parse_prefix_flags,         
 IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_flags,                                0,                             0
 IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,                             0,                             0
 IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
+IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
 CAN.BitRate,                                 config_parse_si_uint64,                                   0,                             offsetof(Network, can_bitrate)

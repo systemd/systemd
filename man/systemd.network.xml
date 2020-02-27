@@ -2033,6 +2033,11 @@
         to 2592000 seconds (30 days).</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>Assign=</varname></term>
+        <listitem><para>Takes a boolean. When true, adds an address from the prefix. Default to false.
+        </para></listitem>
+      </varlistentry>
     </variablelist>
     </refsect1>
 
