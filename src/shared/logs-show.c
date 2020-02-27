@@ -20,6 +20,7 @@
 #include "id128-util.h"
 #include "io-util.h"
 #include "journal-internal.h"
+#include "journal-util.h"
 #include "json.h"
 #include "log.h"
 #include "logs-show.h"
@@ -1232,7 +1233,21 @@ int show_journal(
 
                         if (r > 0 && not_before < cutoff) {
                                 maybe_print_begin_newline(f, &flags);
-                                fprintf(f, "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
+
+                                /* If we logged *something* and no permission error happened, than we can
+                                 * reliably emit the warning about rotation. If we didn't log anything and
+                                 * access errors happened, emit hint about permissions. Otherwise, give a
+                                 * generic message, since we can't diagnose the issue. */
+
+                                bool noaccess = journal_access_blocked(j);
+
+                                if (line == 0 && noaccess)
+                                        fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
+                                else if (!noaccess)
+                                        fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
+                                else
+                                        fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
+                                                "files were not opened due to insufficient permissions, output may be incomplete.\n");
                         }
 
                         warn_cutoff = false;

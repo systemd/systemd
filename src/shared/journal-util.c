@@ -80,6 +80,10 @@ static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
         return 1;
 }
 
+int journal_access_blocked(sd_journal *j) {
+        return hashmap_contains(j->errors, INT_TO_PTR(-EACCES));
+}
+
 int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
         Iterator it;
         void *code;
@@ -95,7 +99,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                 return 0;
         }
 
-        if (hashmap_contains(j->errors, INT_TO_PTR(-EACCES))) {
+        if (journal_access_blocked(j)) {
                 if (!quiet)
                         (void) access_check_var_log_journal(j, want_other_users);
 
