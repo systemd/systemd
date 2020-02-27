@@ -829,6 +829,18 @@ _public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr 
         return 0;
 }
 
+_public_ int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
+                                       unsigned char *ret_prefixlen) {
+        assert_return(p, -EINVAL);
+        assert_return(ret_in6_addr, -EINVAL);
+        assert_return(ret_prefixlen, -EINVAL);
+
+        *ret_in6_addr = p->opt.in6_addr;
+        *ret_prefixlen = p->opt.prefixlen;
+
+        return 0;
+}
+
 _public_ int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink) {
         assert_return(p, -EINVAL);
 
