@@ -39,6 +39,7 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
+        bool scope_set:1;
         bool ip_masquerade_done:1;
         bool manage_temporary_address:1;
         bool home_address:1;
