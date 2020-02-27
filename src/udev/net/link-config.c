@@ -236,15 +236,24 @@ bool link_config_should_reload(link_config_ctx *ctx) {
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
         struct ether_addr permanent_mac = {};
+        unsigned short iftype = 0;
         link_config *link;
         const char *name;
-        int r;
+        int ifindex, r;
 
         assert(ctx);
         assert(device);
         assert(ret);
 
         r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = rtnl_get_link_iftype(&ctx->rtnl, ifindex, &iftype);
         if (r < 0)
                 return r;
 
@@ -255,7 +264,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
+                                     iftype, device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 

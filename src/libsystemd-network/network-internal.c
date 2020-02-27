@@ -8,6 +8,7 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "arphrd-list.h"
 #include "condition.h"
 #include "conf-parser.h"
 #include "device-util.h"
@@ -166,6 +167,27 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
 
+char *link_get_type_string(unsigned short iftype, sd_device *device) {
+        const char *t, *devtype;
+        char *p;
+
+        if (device &&
+            sd_device_get_devtype(device, &devtype) >= 0 &&
+            !isempty(devtype))
+                return strdup(devtype);
+
+        t = arphrd_to_name(iftype);
+        if (!t)
+                return NULL;
+
+        p = strdup(t);
+        if (!p)
+                return NULL;
+
+        ascii_strlower(p);
+        return p;
+}
+
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
                       char * const *match_paths,
@@ -176,6 +198,7 @@ bool net_match_config(Set *match_mac,
                       char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
+                      unsigned short iftype,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const struct ether_addr *dev_permanent_mac,
@@ -185,13 +208,14 @@ bool net_match_config(Set *match_mac,
                       const char *ssid,
                       const struct ether_addr *bssid) {
 
-        const char *dev_path = NULL, *dev_driver = NULL, *dev_type = NULL, *mac_str;
+        const char *dev_path = NULL, *dev_driver = NULL, *mac_str;
+        _cleanup_free_ char *dev_type;
+
+        dev_type = link_get_type_string(iftype, device);
 
         if (device) {
                 (void) sd_device_get_property_value(device, "ID_PATH", &dev_path);
                 (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
-                (void) sd_device_get_devtype(device, &dev_type);
-
                 if (!dev_name)
                         (void) sd_device_get_sysname(device, &dev_name);
                 if (!dev_mac &&

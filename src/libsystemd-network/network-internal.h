@@ -15,6 +15,7 @@
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63
 
+char *link_get_type_string(unsigned short iftype, sd_device *device);
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
                       char * const *match_path,
@@ -25,6 +26,7 @@ bool net_match_config(Set *match_mac,
                       char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
+                      unsigned short iftype,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const struct ether_addr *dev_permanent_mac,
