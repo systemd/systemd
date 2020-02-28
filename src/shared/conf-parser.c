@@ -334,6 +334,8 @@ int config_parse(const char *unit,
                         return r;
                 }
 
+                line++;
+
                 l = skip_leading_chars(buf, WHITESPACE);
                 if (*l != '\0' && strchr(COMMENTS, *l))
                         continue;
@@ -390,7 +392,7 @@ int config_parse(const char *unit,
 
                 r = parse_line(unit,
                                filename,
-                               ++line,
+                               line,
                                sections,
                                lookup,
                                table,
