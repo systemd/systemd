@@ -184,6 +184,7 @@ DHCPv4.SendDecline,                          config_parse_bool,                 
 DHCPv4.BlackList,                            config_parse_dhcp_black_listed_ip_address,                0,                             0
 DHCPv4.IPServiceType,                        config_parse_dhcp_ip_service_type,                        0,                             offsetof(Network, ip_service_type)
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_options)
+DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
 DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
 DHCPv6.UseDNS,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_dns)
 DHCPv6.UseNTP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_ntp)
@@ -211,6 +212,7 @@ DHCPServer.EmitTimezone,                     config_parse_bool,                 
 DHCPServer.Timezone,                         config_parse_timezone,                                    0,                             offsetof(Network, dhcp_server_timezone)
 DHCPServer.PoolOffset,                       config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                         config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_size)
+DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)

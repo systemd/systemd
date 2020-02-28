@@ -58,7 +58,8 @@ struct sd_dhcp_server {
         struct in_addr *ntp, *dns, *sip;
         unsigned n_ntp, n_dns, n_sip;
 
-        OrderedHashmap *raw_option;
+        OrderedHashmap *extra_options;
+        OrderedHashmap *vendor_options;
 
         bool emit_router;
 
