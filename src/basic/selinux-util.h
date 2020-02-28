@@ -22,11 +22,7 @@ int mac_selinux_init(void);
 void mac_selinux_finish(void);
 void mac_selinux_reload(void);
 
-int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);
-static inline int mac_selinux_fix(const char *path, LabelFixFlags flags) {
-        return mac_selinux_fix_container(path, path, flags);
-}
-
+int mac_selinux_fix(const char *path, LabelFixFlags flags);
 int mac_selinux_apply(const char *path, const char *label);
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **label);

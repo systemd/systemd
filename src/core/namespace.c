@@ -34,7 +34,6 @@
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
-#include "virt.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
@@ -691,22 +690,6 @@ static int mount_private_dev(MountEntry *m) {
                 r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
                 goto fail;
         }
-#if HAVE_SELINUX || ENABLE_SMACK
-        if (detect_container() <= 0) {
-                /* these could fail if inside container */
-                r = mac_selinux_init();
-                if (r < 0) {
-                        log_debug("Failed to reinitialize SELinux policy");
-                        goto fail;
-                }
-                r = label_fix_container(dev, "/dev", 0);
-                if (r < 0) {
-                        log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
-                        goto fail;
-                }
-                mac_selinux_finish();
-        }
-#endif
 
         devpts = strjoina(temporary_mount, "/dev/pts");
         (void) mkdir(devpts, 0755);
