@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>systemd-bless-boot.service</refname>
+    <refname>systemd-bless-boot</refname>
     <refpurpose>Mark current boot process as successful</refpurpose>
   </refnamediv>
 
