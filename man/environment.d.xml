@@ -36,11 +36,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <filename>environment.d</filename> directories contain a list of "global" environment
-    variable assignments for the user environment.
+    <para>The <filename>environment.d</filename> directories contain a list of environment variable
+    assignments for services started by the systemd user instance.
     <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    parses them and updates the environment exported by the systemd user instance to the services it
-    starts.</para>
+    parses them and updates the environment exported by the systemd user instance. See below for an
+    discussion of which processes inherit those variables.</para>
 
     <para>It is recommended to use numerical prefixes for file names to simplify ordering.</para>
 
@@ -87,6 +87,33 @@
         </programlisting>
       </example>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Applicability</title>
+
+    <para>Environment variables exported by the user manager (<command>systemd --user</command> instance
+    started in the <filename>user@<replaceable>uid</replaceable>.service</filename> system service) apply to
+    any services started by that manager. In particular, this may include services which run user shells. For
+    example in the Gnome environment, the graphical terminal emulator runs as the
+    <filename>gnome-terminal-server.service</filename> user unit, which in turn runs the user shell, so that
+    shell will inherit environment variables exported by the user manager. For other instances of the shell,
+    not launched by the user manager, the environment they inherit is defined by the program that starts
+    them. Hint: in general,
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    units contain programs launched by systemd, and
+    <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    units contain programs launched by something else.</para>
+
+    <para>Specifically, for ssh logins, the
+    <citerefentry project='die-net'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    service builds an environment that is a combination of variables forwarded from the remote system and
+    defined by <command>sshd</command>, see the discussion in
+    <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    A graphical display session will have an analogous mechanism to define the environment. Note that some
+    managers query the systemd user instance for the exported environment and inject this configuration into
+    programs they start, using <command>systemctl show-environment</command> or the underlying D-Bus call.
+    </para>
   </refsect1>
 
   <refsect1>
