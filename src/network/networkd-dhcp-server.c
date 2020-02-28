@@ -312,6 +312,14 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
         }
 
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options, i) {
+                r = sd_dhcp_server_add_vendor_option(link->dhcp_server, p);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
+        }
+
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0)

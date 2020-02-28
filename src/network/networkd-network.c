@@ -723,7 +723,9 @@ static Network *network_free(Network *network) {
         set_free_free(network->dnssec_negative_trust_anchors);
 
         ordered_hashmap_free(network->dhcp_client_send_options);
+        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         ordered_hashmap_free(network->dhcp_server_send_options);
+        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
         ordered_hashmap_free(network->ipv6_tokens);
 
         return mfree(network);

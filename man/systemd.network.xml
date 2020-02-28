@@ -1635,7 +1635,22 @@
         <varlistentry>
           <term><varname>SendOption=</varname></term>
           <listitem>
-            <para>Send an arbitrary option in the DHCPv4 request. Takes a DHCP option number, data type
+            <para>Send an arbitrary raw option in the DHCPv4 request. Takes a DHCP option number, data type
+            and data separated with a colon
+            (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+            The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
+            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
+            <literal>string</literal>. Special characters in the data string may be escaped using
+            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+            then all options specified earlier are cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SendVendorOption=</varname></term>
+          <listitem>
+            <para>Send an arbitrary vendor option in the DHCPv4 request. Takes a DHCP option number, data type
             and data separated with a colon
             (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
             The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
@@ -1916,6 +1931,20 @@
         <term><varname>SendOption=</varname></term>
         <listitem>
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type
+          and data (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+          The option number is an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
+          <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
+          <literal>string</literal>. Special characters in the data string may be escaped using
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+          escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+          then all options specified earlier are cleared. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SendVendorOption=</varname></term>
+        <listitem>
+          <para>Send a vendor option with value via DHCPv4 server. Takes a DHCP option number, data type
           and data (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
           The option number is an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
           <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or

@@ -53,6 +53,7 @@ int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], u
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
+int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);

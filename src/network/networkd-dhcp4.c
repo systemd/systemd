@@ -1430,7 +1430,17 @@ int dhcp4_configure(Link *link) {
         }
 
         ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options, i) {
-                r = sd_dhcp_client_set_dhcp_option(link->dhcp_client, send_option);
+                r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options, i) {
+                r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
+                if (r == -EEXIST)
+                        continue;
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
         }

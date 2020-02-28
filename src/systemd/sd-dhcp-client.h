@@ -179,7 +179,8 @@ int sd_dhcp_client_set_service_type(
                 sd_dhcp_client *client,
                 int type);
 
-int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v);
+int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
+int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
