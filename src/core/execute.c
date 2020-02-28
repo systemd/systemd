@@ -3511,13 +3511,17 @@ static int exec_child(
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_netns(runtime->netns_storage_socket);
-                        if (r < 0) {
+                        if (r == -EPERM)
+                                log_unit_warning_errno(unit, r,
+                                                       "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
                                 *exit_status = EXIT_NETWORK;
                                 return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
-                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP), "NetworkNamespacePath= is not supported, refusing.");
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "NetworkNamespacePath= is not supported, refusing.");
                 } else
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
