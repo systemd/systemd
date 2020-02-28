@@ -1254,7 +1254,7 @@ static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         int r;
 
-        if (IN_SET(arg_show_status, SHOW_STATUS_NO, SHOW_STATUS_AUTO))
+        if (!show_status_on(arg_show_status))
                 return 0;
 
         r = parse_os_release(NULL,
