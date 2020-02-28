@@ -1652,7 +1652,7 @@ static int link_configure_addrgen_mode(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
         else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
-                /* The file may not exist. And event if it exists, when stable_secret is unset,
+                /* The file may not exist. And even if it exists, when stable_secret is unset,
                  * reading the file fails with EIO. */
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
         else
