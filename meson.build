@@ -21,11 +21,13 @@ libudev_version = '1.6.17'
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
 conf = configuration_data()
-conf.set('PROJECT_VERSION',        meson.project_version())
+conf.set('PROJECT_VERSION',        meson.project_version(),
+         description : 'Numerical project version (used where a simple number is expected)')
 
 substs = configuration_data()
 substs.set('PROJECT_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
-substs.set('PROJECT_VERSION',      meson.project_version())
+substs.set('PROJECT_VERSION',      meson.project_version(),
+           description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
