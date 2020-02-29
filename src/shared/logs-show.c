@@ -1181,85 +1181,74 @@ int show_journal(
         }
 
         for (;;) {
-                for (;;) {
-                        usec_t usec;
+                usec_t usec;
 
-                        if (need_seek) {
-                                r = sd_journal_next(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to iterate through journal: %m");
-                        }
-
-                        if (r == 0)
-                                break;
-
-                        need_seek = true;
-
-                        if (not_before > 0) {
-                                r = sd_journal_get_monotonic_usec(j, &usec, NULL);
-
-                                /* -ESTALE is returned if the
-                                   timestamp is not from this boot */
-                                if (r == -ESTALE)
-                                        continue;
-                                else if (r < 0)
-                                        return log_error_errno(r, "Failed to get journal time: %m");
-
-                                if (usec < not_before)
-                                        continue;
-                        }
-
-                        line++;
-                        maybe_print_begin_newline(f, &flags);
-
-                        r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                if (need_seek) {
+                        r = sd_journal_next(j);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
                 }
 
-                if (warn_cutoff && line < how_many && not_before > 0) {
-                        sd_id128_t boot_id;
-                        usec_t cutoff = 0;
-
-                        /* Check whether the cutoff line is too early */
-
-                        r = sd_id128_get_boot(&boot_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get boot id: %m");
-
-                        r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get journal cutoff time: %m");
-
-                        if (r > 0 && not_before < cutoff) {
-                                maybe_print_begin_newline(f, &flags);
-
-                                /* If we logged *something* and no permission error happened, than we can
-                                 * reliably emit the warning about rotation. If we didn't log anything and
-                                 * access errors happened, emit hint about permissions. Otherwise, give a
-                                 * generic message, since we can't diagnose the issue. */
-
-                                bool noaccess = journal_access_blocked(j);
-
-                                if (line == 0 && noaccess)
-                                        fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
-                                else if (!noaccess)
-                                        fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
-                                else
-                                        fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
-                                                "files were not opened due to insufficient permissions, output may be incomplete.\n");
-                        }
-
-                        warn_cutoff = false;
-                }
-
-                if (!(flags & OUTPUT_FOLLOW))
+                if (r == 0)
                         break;
 
-                r = sd_journal_wait(j, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for journal: %m");
+                need_seek = true;
 
+                if (not_before > 0) {
+                        r = sd_journal_get_monotonic_usec(j, &usec, NULL);
+
+                        /* -ESTALE is returned if the timestamp is not from this boot */
+                        if (r == -ESTALE)
+                                continue;
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to get journal time: %m");
+
+                        if (usec < not_before)
+                                continue;
+                }
+
+                line++;
+                maybe_print_begin_newline(f, &flags);
+
+                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                if (r < 0)
+                        return r;
+        }
+
+        if (warn_cutoff && line < how_many && not_before > 0) {
+                sd_id128_t boot_id;
+                usec_t cutoff = 0;
+
+                /* Check whether the cutoff line is too early */
+
+                r = sd_id128_get_boot(&boot_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot id: %m");
+
+                r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get journal cutoff time: %m");
+
+                if (r > 0 && not_before < cutoff) {
+                        maybe_print_begin_newline(f, &flags);
+
+                        /* If we logged *something* and no permission error happened, than we can reliably
+                         * emit the warning about rotation. If we didn't log anything and access errors
+                         * happened, emit hint about permissions. Otherwise, give a generic message, since we
+                         * can't diagnose the issue. */
+
+                        bool noaccess = journal_access_blocked(j);
+
+                        if (line == 0 && noaccess)
+                                fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
+                        else if (!noaccess)
+                                fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
+                        else
+                                fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
+                                        "files were not opened due to insufficient permissions, output may be incomplete.\n");
+                }
+
+                warn_cutoff = false;
         }
 
         return 0;
