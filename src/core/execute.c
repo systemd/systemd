@@ -2565,17 +2565,6 @@ static int apply_mount_namespace(
 
         assert(context);
 
-        /* The runtime struct only contains the parent of the private /tmp,
-         * which is non-accessible to world users. Inside of it there's a /tmp
-         * that is sticky, and that's the one we want to use here. */
-
-        if (context->private_tmp && runtime) {
-                if (runtime->tmp_dir)
-                        tmp = strjoina(runtime->tmp_dir, "/tmp");
-                if (runtime->var_tmp_dir)
-                        var = strjoina(runtime->var_tmp_dir, "/tmp");
-        }
-
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -2588,7 +2577,18 @@ static int apply_mount_namespace(
                 return r;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
-        if (needs_sandboxing)
+        if (needs_sandboxing) {
+                /* The runtime struct only contains the parent of the private /tmp,
+                 * which is non-accessible to world users. Inside of it there's a /tmp
+                 * that is sticky, and that's the one we want to use here. */
+
+                if (context->private_tmp && runtime) {
+                        if (runtime->tmp_dir)
+                                tmp = strjoina(runtime->tmp_dir, "/tmp");
+                        if (runtime->var_tmp_dir)
+                                var = strjoina(runtime->var_tmp_dir, "/tmp");
+                }
+
                 ns_info = (NamespaceInfo) {
                         .ignore_protect_paths = false,
                         .private_dev = context->private_devices,
@@ -2600,7 +2600,7 @@ static int apply_mount_namespace(
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
                 };
-        else if (!context->dynamic_user && root_dir)
+        } else if (!context->dynamic_user && root_dir)
                 /*
                  * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
                  * sandbox info, otherwise enforce it, don't ignore protected paths and
