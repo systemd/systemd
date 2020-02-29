@@ -9,6 +9,7 @@
 
 typedef enum ShowStatus {
         SHOW_STATUS_NO,         /* printing of status is disabled */
+        SHOW_STATUS_ERROR,      /* only print errors */
         SHOW_STATUS_AUTO,       /* disabled but may flip to _TEMPORARY */
         SHOW_STATUS_TEMPORARY,  /* enabled temporarily, may flip back to _AUTO */
         SHOW_STATUS_YES,        /* printing of status is enabled */

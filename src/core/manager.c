@@ -4085,7 +4085,7 @@ void manager_recheck_journal(Manager *m) {
 
 void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
-        assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
+        assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
         if (!MANAGER_IS_SYSTEM(m))
                 return;
