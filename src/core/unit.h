@@ -9,6 +9,7 @@
 #include "condition.h"
 #include "emergency-action.h"
 #include "list.h"
+#include "show-status.h"
 #include "set.h"
 #include "unit-file.h"
 #include "cgroup.h"
@@ -748,7 +749,7 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
-void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) _printf_(4, 0);
 
 bool unit_need_daemon_reload(Unit *u);
 

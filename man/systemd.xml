@@ -800,10 +800,10 @@
 
         <listitem><para>Takes a boolean argument or the constant
         <constant>auto</constant>. Can be also specified without an argument, with
-        the same effect as a positive boolean.  If enabled, the systemd manager (PID
+        the same effect as a positive boolean. If enabled, the systemd manager (PID
         1) shows terse service status updates on the console during bootup.
-        <constant>auto</constant> behaves like <option>false</option> until a unit
-        fails or there is a significant delay in boot. Defaults to enabled, unless
+        <constant>auto</constant> behaves like <option>false</option> until
+        there is a significant delay in boot. Defaults to enabled, unless
         <option>quiet</option> is passed as kernel command line option, in which case
         it defaults to <constant>auto</constant>. If specified overrides the system
         manager configuration file option <option>ShowStatus=</option>, see

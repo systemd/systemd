@@ -56,6 +56,7 @@ typedef enum ManagerObjective {
 typedef enum StatusType {
         STATUS_TYPE_EPHEMERAL,
         STATUS_TYPE_NORMAL,
+        STATUS_TYPE_NOTICE,
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 

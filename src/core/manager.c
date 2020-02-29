@@ -4122,6 +4122,9 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
+        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
+                return true;
+
         return show_status_on(m->show_status);
 }
 
