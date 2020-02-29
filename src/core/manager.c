@@ -85,7 +85,8 @@
 #define CGROUPS_AGENT_RCVBUF_SIZE (8*1024*1024)
 
 /* Initial delay and the interval for printing status messages about running jobs */
-#define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
+#define JOBS_IN_PROGRESS_WAIT_USEC (2*USEC_PER_SEC)
+#define JOBS_IN_PROGRESS_QUIET_WAIT_USEC (25*USEC_PER_SEC)
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
@@ -109,6 +110,12 @@ static int manager_dispatch_timezone_change(sd_event_source *source, const struc
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
+static usec_t manager_watch_jobs_next_time(Manager *m) {
+        return usec_add(now(CLOCK_MONOTONIC),
+                        show_status_on(m->show_status) ? JOBS_IN_PROGRESS_WAIT_USEC :
+                                                         JOBS_IN_PROGRESS_QUIET_WAIT_USEC);
+}
+
 static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
         int r;
@@ -124,7 +131,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
         if (m->jobs_in_progress_event_source)
                 return;
 
-        next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
+        next = manager_watch_jobs_next_time(m);
         r = sd_event_add_time(
                         m->event,
                         &m->jobs_in_progress_event_source,
@@ -3773,8 +3780,8 @@ void manager_check_finished(Manager *m) {
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
-                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
-
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
+                                                        manager_watch_jobs_next_time(m));
                 return;
         }
 
