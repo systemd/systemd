@@ -49,8 +49,8 @@
 
     <para>The pstore service is independent of the kdump service. In cloud environments
     specifically, host and guest filesystems are on remote filesystems (eg. iSCSI
-    or NFS), thus kdump relies [implicitly and/or explicitly] upon proper operation
-    of networking software *and* hardware *and* infrastructure.  Thus it may not be
+    or NFS), thus kdump relies (implicitly and/or explicitly) upon proper operation
+    of networking software *and* hardware *and* infrastructure. Thus it may not be
     possible to capture a kernel coredump to a file since writes over the network
     may not be possible.</para>
 
@@ -59,9 +59,9 @@
     debugging.</para>
 
     <para>The <command>systemd-pstore</command> executable does the actual work. Upon starting,
-    the <filename>pstore.conf</filename> is read to obtain options, then the /sys/fs/pstore
+    the <filename>pstore.conf</filename> file is read and the <filename>/sys/fs/pstore</filename>
     directory contents are processed according to the options. Pstore files are written to the
-    journal, and optionally saved into /var/lib/systemd/pstore.</para>
+    journal, and optionally saved into <filename>/var/lib/systemd/pstore</filename>.</para>
   </refsect1>
 
   <refsect1>
