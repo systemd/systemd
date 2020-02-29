@@ -294,6 +294,7 @@ static void test_exec_privatetmp(Manager *m) {
 
         test(__func__, m, "exec-privatetmp-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(__func__, m, "exec-privatetmp-no.service", 0, CLD_EXITED);
+        test(__func__, m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
 
         unlink("/tmp/test-exec_privatetmp");
 }

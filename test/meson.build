@@ -109,6 +109,7 @@ test_data_files = '''
         test-execute/exec-privatenetwork-yes.service
         test-execute/exec-privatetmp-no.service
         test-execute/exec-privatetmp-yes.service
+        test-execute/exec-privatetmp-disabled-by-prefix.service
         test-execute/exec-protecthome-tmpfs-vs-protectsystem-strict.service
         test-execute/exec-protectkernellogs-yes-capabilities.service
         test-execute/exec-protectkernellogs-no-capabilities.service
