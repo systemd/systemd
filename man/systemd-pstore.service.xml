@@ -7,19 +7,19 @@
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>systemd-pstore</title>
+    <title>systemd-pstore.service</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-pstore</refentrytitle>
+    <refentrytitle>systemd-pstore.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-pstore</refname>
     <refname>systemd-pstore.service</refname>
-    <refpurpose>Tool to archive contents of the persistent storage filesystem</refpurpose>
+    <refname>systemd-pstore</refname>
+    <refpurpose>A service to archive contents of pstore</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

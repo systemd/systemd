@@ -772,7 +772,7 @@ manpages = [
  ['systemd-nspawn', '1', [], ''],
  ['systemd-path', '1', [], ''],
  ['systemd-portabled.service', '8', ['systemd-portabled'], 'ENABLE_PORTABLED'],
- ['systemd-pstore', '8', ['systemd-pstore.service'], 'ENABLE_PSTORE'],
+ ['systemd-pstore.service', '8', ['systemd-pstore'], 'ENABLE_PSTORE'],
  ['systemd-quotacheck.service',
   '8',
   ['systemd-quotacheck'],
