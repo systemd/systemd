@@ -711,7 +711,7 @@ static void set_manager_settings(Manager *m) {
         m->kexec_watchdog = arg_kexec_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
 
-        manager_set_show_status(m, arg_show_status);
+        manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
 }
 

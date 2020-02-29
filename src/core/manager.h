@@ -505,11 +505,11 @@ void disable_printk_ratelimit(void);
 void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
-void manager_set_show_status(Manager *m, ShowStatus mode);
+void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
 void manager_set_first_boot(Manager *m, bool b);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
-void manager_flip_auto_status(Manager *m, bool enable);
+void manager_flip_auto_status(Manager *m, bool enable, const char *reason);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 

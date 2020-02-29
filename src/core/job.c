@@ -862,7 +862,7 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
                 status = job_print_done_status_messages[result].word;
 
         if (result != JOB_DONE)
-                manager_flip_auto_status(u->manager, true);
+                manager_flip_auto_status(u->manager, true, "job failed");
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         unit_status_printf(u, status, format);

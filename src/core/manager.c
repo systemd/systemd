@@ -173,15 +173,15 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         }
 }
 
-void manager_flip_auto_status(Manager *m, bool enable) {
+void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
         assert(m);
 
         if (enable) {
                 if (m->show_status == SHOW_STATUS_AUTO)
-                        manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
+                        manager_set_show_status(m, SHOW_STATUS_TEMPORARY, reason);
         } else {
                 if (m->show_status == SHOW_STATUS_TEMPORARY)
-                        manager_set_show_status(m, SHOW_STATUS_AUTO);
+                        manager_set_show_status(m, SHOW_STATUS_AUTO, reason);
         }
 }
 
@@ -198,7 +198,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         assert(m);
         assert(m->n_running_jobs > 0);
 
-        manager_flip_auto_status(m, true);
+        manager_flip_auto_status(m, true, "delay");
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
@@ -2736,11 +2736,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
 
                 case 20:
-                        manager_set_show_status(m, SHOW_STATUS_YES);
+                        manager_set_show_status(m, SHOW_STATUS_YES, "signal");
                         break;
 
                 case 21:
-                        manager_set_show_status(m, SHOW_STATUS_NO);
+                        manager_set_show_status(m, SHOW_STATUS_NO, "signal");
                         break;
 
                 case 22:
@@ -3402,7 +3402,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (s < 0)
                                 log_notice("Failed to parse show-status flag '%s', ignoring.", val);
                         else
-                                manager_set_show_status(m, s);
+                                manager_set_show_status(m, s, "deserialization");
 
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
@@ -3778,7 +3778,7 @@ void manager_check_finished(Manager *m) {
                 return;
         }
 
-        manager_flip_auto_status(m, false);
+        manager_flip_auto_status(m, false, "boot finished");
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
@@ -4076,7 +4076,7 @@ void manager_recheck_journal(Manager *m) {
         log_open();
 }
 
-void manager_set_show_status(Manager *m, ShowStatus mode) {
+void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
         assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
 
@@ -4085,9 +4085,10 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
 
         bool enabled = show_status_on(mode);
         if (mode != m->show_status)
-                log_debug("%s showing of status (%s).",
+                log_debug("%s (%s) showing of status (%s).",
                           enabled ? "Enabling" : "Disabling",
-                          strna(show_status_to_string(mode)));
+                          strna(show_status_to_string(mode)),
+                          reason);
         m->show_status = mode;
 
         if (enabled)
