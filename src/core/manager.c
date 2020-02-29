@@ -4083,12 +4083,14 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         if (!MANAGER_IS_SYSTEM(m))
                 return;
 
-        bool enabled = show_status_on(mode);
-        if (mode != m->show_status)
-                log_debug("%s (%s) showing of status (%s).",
-                          enabled ? "Enabling" : "Disabling",
-                          strna(show_status_to_string(mode)),
-                          reason);
+        if (mode == m->show_status)
+                return;
+
+        bool enabled = IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+        log_debug("%s (%s) showing of status (%s).",
+                  enabled ? "Enabling" : "Disabling",
+                  strna(show_status_to_string(mode)),
+                  reason);
         m->show_status = mode;
 
         if (enabled)
