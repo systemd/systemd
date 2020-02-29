@@ -36,6 +36,8 @@ disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
 
+enable systemd-pstore.service
+
 # Passive targets: always off by default, since they should only be pulled in
 # by dependent units.
 
