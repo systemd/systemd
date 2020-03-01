@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2020-01-30 15:31+0000\n"
-"PO-Revision-Date: 2020-02-02 13:20+0100\n"
+"POT-Creation-Date: 2020-02-29 15:12+0000\n"
+"PO-Revision-Date: 2020-03-01 14:45+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
 "Language: pl\n"
@@ -84,7 +84,8 @@ msgstr "Usunięcie przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr "Wymagane jest uwierzytelnienie, aby usunąć przestrzeń domową użytkownika."
+msgstr ""
+"Wymagane jest uwierzytelnienie, aby usunąć przestrzeń domową użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -104,7 +105,8 @@ msgstr "Aktualizacja przestrzeni domowej"
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową użytkownika."
+"Wymagane jest uwierzytelnienie, aby zaktualizować przestrzeń domową "
+"użytkownika."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -121,7 +123,8 @@ msgid "Change password of a home area"
 msgstr "Zmiana hasła przestrzeni domowej"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
+msgid ""
+"Authentication is required to change the password of a user's home area."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zmienić hasło przestrzeni domowej "
 "użytkownika."
@@ -339,8 +342,7 @@ msgid "Flush device to seat attachments"
 msgstr "Usunięcie podłączenia urządzeń do stanowisk"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie ustawić sposób podłączenia "
 "urządzeń do stanowisk."
@@ -371,10 +373,11 @@ msgstr "Wyłączenie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program to wstrzymuje."
+"Wymagane jest uwierzytelnienie, aby wyłączyć system, kiedy program to "
+"wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
@@ -390,8 +393,8 @@ msgstr "Ponowne uruchomienie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy są "
 "zalogowani inni użytkownicy."
@@ -402,8 +405,8 @@ msgstr "Ponowne uruchomienie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić system, kiedy program "
 "to wstrzymuje."
@@ -422,8 +425,8 @@ msgstr "Zatrzymanie systemu, kiedy są zalogowani inni użytkownicy"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy są zalogowani "
 "inni użytkownicy."
@@ -434,11 +437,11 @@ msgstr "Zatrzymanie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy program zażądał "
-"jego wstrzymania."
+"Wymagane jest uwierzytelnienie, aby zatrzymać system, kiedy program to "
+"wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -466,10 +469,11 @@ msgstr "Uśpienie systemu, kiedy program je wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program to wstrzymuje."
+"Wymagane jest uwierzytelnienie, aby uśpić system, kiedy program to "
+"wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
@@ -497,19 +501,18 @@ msgstr "Hibernacja systemu, kiedy program ją wstrzymuje"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
-"Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy program "
-"to wstrzymuje."
+"Wymagane jest uwierzytelnienie, aby zahibernować system, kiedy program to "
+"wstrzymuje."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
 msgstr "Zarządzanie aktywnymi sesjami, użytkownikami i stanowiskami"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby zarządzać aktywnymi sesjami, "
 "użytkownikami i stanowiskami."
@@ -893,25 +896,25 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację "
 "czasu przez sieć."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:357
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:358
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:358 src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:359 src/core/dbus-unit.c:360
 msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:531
+#: src/core/dbus-unit.c:532
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -919,18 +922,18 @@ msgstr ""
 "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:562
+#: src/core/dbus-unit.c:563
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) "
 "jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:596
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:705
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
