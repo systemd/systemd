@@ -598,6 +598,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--facility=</option></term>
+
+        <listitem><para>Filter output by syslog facility. Takes a comma-separated list of numbers or facility
+        names. The names are the usual syslog facilities as documented in
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <option>--facility=help</option> may be used to display a list of known facility names and exit.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-g</option></term>
         <term><option>--grep=</option></term>
 

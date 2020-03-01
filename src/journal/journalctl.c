@@ -62,6 +62,7 @@
 #include "sigbus.h"
 #include "string-table.h"
 #include "strv.h"
+#include "stdio-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -101,6 +102,7 @@ static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
+static Set *arg_facilities = NULL;
 static char *arg_verify_key = NULL;
 #if HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
@@ -303,6 +305,21 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         return 1;
 }
 
+static int help_facilities(void) {
+        if (!arg_quiet)
+                puts("Available facilities:");
+
+        for (int i = 0; i < LOG_NFACILITIES; i++) {
+                _cleanup_free_ char *t = NULL;
+
+                if (log_facility_unshifted_to_string_alloc(i, &t))
+                        return log_oom();
+                puts(t);
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -332,6 +349,7 @@ static int help(void) {
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
+               "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
@@ -404,6 +422,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_ROOT,
                 ARG_HEADER,
+                ARG_FACILITY,
                 ARG_SETUP_KEYS,
                 ARG_FILE,
                 ARG_INTERVAL,
@@ -461,6 +480,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
+                { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
                 { "case-sensitive",       optional_argument, NULL, ARG_CASE_SENSITIVE       },
                 { "setup-keys",           no_argument,       NULL, ARG_SETUP_KEYS           },
@@ -827,6 +847,41 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 for (i = 0; i <= p; i++)
                                         arg_priorities |= 1 << i;
+                        }
+
+                        break;
+                }
+
+                case ARG_FACILITY: {
+                        const char *p;
+
+                        for (p = optarg;;) {
+                                _cleanup_free_ char *fac = NULL;
+                                int num;
+
+                                r = extract_first_word(&p, &fac, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse facilities: %s", optarg);
+                                if (r == 0)
+                                        break;
+
+                                if (streq(fac, "help")) {
+                                        help_facilities();
+                                        return 0;
+                                }
+
+                                num = log_facility_unshifted_from_string(fac);
+                                if (num < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Bad --facility= argument \"%s\".", fac);
+
+                                r = set_ensure_allocated(&arg_facilities, NULL);
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = set_put(arg_facilities, INT_TO_PTR(num));
+                                if (r < 0)
+                                        return log_oom();
                         }
 
                         break;
@@ -1676,6 +1731,24 @@ static int add_priorities(sd_journal *j) {
         return 0;
 }
 
+static int add_facilities(sd_journal *j) {
+        void *p;
+        Iterator it;
+        int r;
+
+        SET_FOREACH(p, arg_facilities, it) {
+                char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+
+                xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
+
+                r = sd_journal_add_match(j, match, strlen(match));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+        }
+
+        return 0;
+}
+
 static int add_syslog_identifier(sd_journal *j) {
         int r;
         char **i;
@@ -2314,6 +2387,10 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = add_facilities(j);
+        if (r < 0)
+                goto finish;
+
         r = add_matches(j, argv + optind);
         if (r < 0)
                 goto finish;
@@ -2681,6 +2758,7 @@ finish:
 
         strv_free(arg_file);
 
+        set_free(arg_facilities);
         strv_free(arg_syslog_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);
