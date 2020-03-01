@@ -494,7 +494,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
-                        arg_show_status = SHOW_STATUS_AUTO;
+                        arg_show_status = SHOW_STATUS_ERROR;
 
         } else if (streq(key, "debug") && !value) {
 
@@ -711,7 +711,7 @@ static void set_manager_settings(Manager *m) {
         m->kexec_watchdog = arg_kexec_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
 
-        manager_set_show_status(m, arg_show_status);
+        manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
 }
 
@@ -1254,7 +1254,7 @@ static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         int r;
 
-        if (IN_SET(arg_show_status, SHOW_STATUS_NO, SHOW_STATUS_AUTO))
+        if (!show_status_on(arg_show_status))
                 return 0;
 
         r = parse_os_release(NULL,

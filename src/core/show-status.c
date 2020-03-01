@@ -16,6 +16,7 @@
 
 static const char* const show_status_table[_SHOW_STATUS_MAX] = {
         [SHOW_STATUS_NO]        = "no",
+        [SHOW_STATUS_ERROR]     = "error",
         [SHOW_STATUS_AUTO]      = "auto",
         [SHOW_STATUS_TEMPORARY] = "temporary",
         [SHOW_STATUS_YES]       = "yes",

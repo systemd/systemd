@@ -677,9 +677,6 @@ Features:
 
 * merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
 
-* systemd.show_status= should probably have a mode where only failed
-  units are shown.
-
 * add systemd.abort_on_kill or some other such flag to send SIGABRT instead of SIGKILL
   (throughout the codebase, not only PID1)
 
