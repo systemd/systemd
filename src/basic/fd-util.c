@@ -976,3 +976,19 @@ int read_nr_open(void) {
         /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
         return 1024 * 1024;
 }
+
+int lockfp(int fd, int *fd_lock) {
+        assert(fd_lock);
+
+        if (lockf(fd, F_LOCK, 0) < 0)
+                return -errno;
+        *fd_lock = fd;
+        return 0;
+}
+
+void unlockfp(int *fd_lock) {
+        if (*fd_lock < 0)
+                return;
+        lockf(*fd_lock, F_ULOCK, 0);
+        *fd_lock = -1;
+}
