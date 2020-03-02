@@ -745,6 +745,12 @@ static const NLTypeSystem rtnl_nexthop_type_system = {
        .types = rtnl_nexthop_types,
 };
 
+static const NLType rtnl_tca_option_data_cake_types[] = {
+        [TCA_CAKE_BASE_RATE64] = { .type = NETLINK_TYPE_U64 },
+        [TCA_CAKE_OVERHEAD]    = { .type = NETLINK_TYPE_S32 },
+        [TCA_CAKE_MPU]         = { .type = NETLINK_TYPE_U32 },
+};
+
 static const NLType rtnl_tca_option_data_codel_types[] = {
         [TCA_CODEL_TARGET]        = { .type = NETLINK_TYPE_U32 },
         [TCA_CODEL_LIMIT]         = { .type = NETLINK_TYPE_U32 },
@@ -808,6 +814,7 @@ static const NLType rtnl_tca_option_data_tbf_types[] = {
 };
 
 static const char* const nl_union_tca_option_data_table[] = {
+        [NL_UNION_TCA_OPTION_DATA_CAKE] = "cake",
         [NL_UNION_TCA_OPTION_DATA_CODEL] = "codel",
         [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
@@ -820,6 +827,8 @@ static const char* const nl_union_tca_option_data_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(nl_union_tca_option_data, NLUnionTCAOptionData);
 
 static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
+        [NL_UNION_TCA_OPTION_DATA_CAKE] =        { .count = ELEMENTSOF(rtnl_tca_option_data_cake_types),
+                                                   .types = rtnl_tca_option_data_cake_types },
         [NL_UNION_TCA_OPTION_DATA_CODEL] =       { .count = ELEMENTSOF(rtnl_tca_option_data_codel_types),
                                                    .types = rtnl_tca_option_data_codel_types },
         [NL_UNION_TCA_OPTION_DATA_FQ] =          { .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),

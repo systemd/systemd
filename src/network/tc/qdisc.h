@@ -9,6 +9,7 @@
 #include "tc.h"
 
 typedef enum QDiscKind {
+        QDISC_KIND_CAKE,
         QDISC_KIND_CODEL,
         QDISC_KIND_FQ,
         QDISC_KIND_FQ_CODEL,
@@ -77,6 +78,7 @@ DEFINE_TC_CAST(QDISC, QDisc);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 
+#include "cake.h"
 #include "codel.h"
 #include "fifo.h"
 #include "fq-codel.h"

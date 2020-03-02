@@ -484,6 +484,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "TrafficControlQueueingDiscipline\0"
                               "CAN\0"
                               "QDisc\0"
+                              "CAKE\0"
                               "ControlledDelay\0"
                               "PFIFO\0"
                               "FairQueueing\0"

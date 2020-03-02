@@ -2562,7 +2562,49 @@
           incoming packets are dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>[CAKE] Section Options</title>
+    <para>The <literal>[CAKE]</literal> section manages the queueing discipline (qdisc) of
+    Common Applications Kept Enhanced (CAKE).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term><varname>Overhead=</varname></term>
+        <listitem>
+          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
+          Takes an integer ranges -64 to 256. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Bandwidth=</varname></term>
+        <listitem>
+          <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
+          parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
