@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
@@ -1699,6 +1700,33 @@ int config_parse_dhcp_request_options(
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
+
+        return 0;
+}
+
+int config_parse_dhcp_ip_service_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(rvalue, "CS4"))
+                *((int *)data) = IPTOS_CLASS_CS4;
+        else if (streq(rvalue, "CS6"))
+                *((int *)data) = IPTOS_CLASS_CS6;
+        else
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
 
         return 0;
 }
