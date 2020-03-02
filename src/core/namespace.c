@@ -1895,7 +1895,6 @@ int setup_netns(const int netns_storage_socket[static 2]) {
         netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
         if (netns == -EAGAIN) {
                 /* Nothing stored yet, so let's create a new namespace. */
-
                 if (unshare(CLONE_NEWNET) < 0)
                         return -errno;
 
@@ -1906,10 +1905,8 @@ int setup_netns(const int netns_storage_socket[static 2]) {
                         return -errno;
 
                 r = 1;
-
         } else if (netns < 0)
                 return netns;
-
         else {
                 /* Yay, found something, so let's join the namespace */
                 if (setns(netns, CLONE_NEWNET) < 0)
@@ -1923,6 +1920,52 @@ int setup_netns(const int netns_storage_socket[static 2]) {
                 return q;
 
         return r;
+}
+
+static int netns_create(const char *path) {
+        _cleanup_close_ int old_netns = -1, netns = -1;
+        int r;
+
+        r = mkdir_parents(path, 0755);
+        if (r < 0)
+                return r;
+
+        r = touch(path);
+        if (r < 0)
+                return r;
+
+        /* Save the current netns. */
+        old_netns = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
+        if (old_netns < 0)
+                return -errno;
+
+        /* Create a new netns */
+        if (unshare(CLONE_NEWNET) < 0)
+                return -errno;
+
+        (void) loopback_setup();
+
+        /* Mount the new netns onto the path. */
+        if (mount("/proc/self/ns/net", path, "none", MS_BIND, NULL) < 0) {
+                r = -errno;
+                (void) setns(old_netns, CLONE_NEWNET);
+                return r;
+        }
+
+        /* Open the new netns. */
+        netns = open("/proc/self/ns/net", O_RDONLY | O_CLOEXEC);
+        if (netns < 0) {
+                r = -errno;
+                (void) umount(path);
+                (void) setns(old_netns, CLONE_NEWNET);
+                return r;
+        }
+
+        /* Restore the original netns. */
+        if (setns(old_netns, CLONE_NEWNET) < 0)
+                return -errno;
+
+        return TAKE_FD(netns);
 }
 
 int open_netns_path(const int netns_storage_socket[static 2], const char *path) {
@@ -1946,16 +1989,22 @@ int open_netns_path(const int netns_storage_socket[static 2], const char *path) 
         netns = receive_one_fd(netns_storage_socket[0], MSG_DONTWAIT);
         if (netns == -EAGAIN) {
                 /* Nothing stored yet. Open the file from the file system. */
-
                 netns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netns < 0)
-                        return -errno;
+                if (netns < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
 
-                r = fd_is_network_ns(netns);
-                if (r == 0) /* Not a netns? Refuse early. */
-                        return -EINVAL;
-                if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
-                        return r;
+                        /* Not exists yet. Let's create a new namespace. */
+                        netns = netns_create(path);
+                        if (netns < 0)
+                                return netns;
+                } else {
+                        r = fd_is_network_ns(netns);
+                        if (r == 0) /* Not a netns? Refuse early. */
+                                return -EINVAL;
+                        if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
+                                return r;
+                }
 
                 r = 1;
 
