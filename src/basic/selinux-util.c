@@ -35,10 +35,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
+static int cached_enforcing = -1;
 static struct selabel_handle *label_hnd = NULL;
 
-#define log_enforcing(...) log_full(security_getenforce() == 1 ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
-#define log_enforcing_errno(r, ...) log_full_errno(security_getenforce() == 1 ? LOG_ERR : LOG_WARNING, r, __VA_ARGS__)
+#define log_enforcing(...) log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
+#define log_enforcing_errno(r, ...) log_full_errno(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, r, __VA_ARGS__)
 #endif
 
 bool mac_selinux_use(void) {
@@ -52,11 +53,36 @@ bool mac_selinux_use(void) {
 #endif
 }
 
+bool mac_selinux_enforcing(void) {
+#if HAVE_SELINUX
+        if (cached_enforcing < 0) {
+                cached_enforcing = security_getenforce();
+                if (cached_enforcing == -1) {
+                        log_error_errno(errno, "Failed to get SELinux enforced status: %m");
+                }
+        }
+
+        /* treat failure as enforced mode */
+        return (cached_enforcing != 0);
+#else
+        return false;
+#endif
+}
+
 void mac_selinux_retest(void) {
 #if HAVE_SELINUX
         cached_use = -1;
+        cached_enforcing = -1;
 #endif
 }
+
+#if HAVE_SELINUX
+static int setenforce_callback(int enforcing) {
+        cached_enforcing = enforcing;
+
+        return 0;
+}
+#endif
 
 int mac_selinux_init(void) {
         int r = 0;
@@ -66,6 +92,7 @@ int mac_selinux_init(void) {
         struct mallinfo before_mallinfo, after_mallinfo;
 
         selinux_set_callback(SELINUX_CB_POLICYLOAD, (union selinux_callback) mac_selinux_reload);
+        selinux_set_callback(SELINUX_CB_SETENFORCE, (union selinux_callback) setenforce_callback);
 
         if (label_hnd)
                 return 0;
@@ -79,7 +106,7 @@ int mac_selinux_init(void) {
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd) {
                 log_enforcing_errno(errno, "Failed to initialize SELinux context: %m");
-                r = security_getenforce() == 1 ? -errno : 0;
+                r = mac_selinux_enforcing() ? -errno : 0;
         } else  {
                 char timespan[FORMAT_TIMESPAN_MAX];
                 int l;
@@ -195,7 +222,7 @@ int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
 fail:
         log_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", path);
-        if (security_getenforce() == 1)
+        if (mac_selinux_enforcing())
                 return r;
 #endif
 
@@ -213,7 +240,7 @@ int mac_selinux_apply(const char *path, const char *label) {
 
         if (setfilecon(path, label) < 0) {
                 log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
-                if (security_getenforce() > 0)
+                if (mac_selinux_enforcing())
                         return -errno;
         }
 #endif
@@ -375,7 +402,7 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
                 log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
         }
 
-        if (security_getenforce() > 0)
+        if (mac_selinux_enforcing())
                 return -errno;
 
         return 0;
@@ -456,7 +483,7 @@ int mac_selinux_create_socket_prepare(const char *label) {
         if (setsockcreatecon(label) < 0) {
                 log_enforcing_errno(errno, "Failed to set SELinux security context %s for sockets: %m", label);
 
-                if (security_getenforce() == 1)
+                if (mac_selinux_enforcing())
                         return -errno;
         }
 #endif
@@ -530,13 +557,13 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                         goto skipped;
 
                 log_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", path);
-                if (security_getenforce() > 0)
+                if (mac_selinux_enforcing())
                         return -errno;
 
         } else {
                 if (setfscreatecon_raw(fcon) < 0) {
                         log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", fcon, path);
-                        if (security_getenforce() > 0)
+                        if (mac_selinux_enforcing())
                                 return -errno;
                 } else
                         context_changed = true;
