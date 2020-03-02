@@ -1056,7 +1056,10 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
 static int manager_listen_notify(Manager *m) {
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa;
+        union sockaddr_union sa = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/home/notify",
+        };
         int r;
 
         assert(m);
@@ -1065,10 +1068,6 @@ static int manager_listen_notify(Manager *m) {
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create listening socket: %m");
-
-        r = sockaddr_un_set_path(&sa.un, "/run/systemd/home/notify");
-        if (r < 0)
-                return log_error_errno(r, "Failed to set AF_UNIX socket path: %m");
 
         (void) mkdir_parents(sa.un.sun_path, 0755);
         (void) sockaddr_un_unlink(&sa.un);
