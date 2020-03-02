@@ -2519,7 +2519,7 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard lmit on the queue size in number of packets. When this limit is reached, incoming packets are
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
           dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
