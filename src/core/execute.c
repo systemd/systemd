@@ -271,9 +271,8 @@ static int connect_journal_socket(
                 uid_t uid,
                 gid_t gid) {
 
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa;
+        socklen_t sa_len;
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
         const char *j;
@@ -285,6 +284,7 @@ static int connect_journal_socket(
         r = sockaddr_un_set_path(&sa.un, j);
         if (r < 0)
                 return r;
+        sa_len = r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -302,7 +302,7 @@ static int connect_journal_socket(
                 }
         }
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0 ? -errno : 0;
+        r = connect(fd, &sa.sa, sa_len) < 0 ? -errno : 0;
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */

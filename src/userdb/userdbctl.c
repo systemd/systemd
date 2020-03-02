@@ -494,6 +494,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
                 union sockaddr_union sockaddr;
+                socklen_t sockaddr_len;
                 _cleanup_close_ int fd = -1;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
@@ -503,12 +504,13 @@ static int display_services(int argc, char *argv[], void *userdata) {
                 r = sockaddr_un_set_path(&sockaddr.un, j);
                 if (r < 0)
                         return log_error_errno(r, "Path %s does not fit in AF_UNIX socket address: %m", j);
+                sockaddr_len = r;
 
                 fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
                         return log_error_errno(r, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
 
-                if (connect(fd, &sockaddr.un, SOCKADDR_UN_LEN(sockaddr.un)) < 0) {
+                if (connect(fd, &sockaddr.un, sockaddr_len) < 0) {
                         no = strjoin("No (", errno_to_name(errno), ")");
                         if (!no)
                                 return log_oom();

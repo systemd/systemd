@@ -57,17 +57,19 @@ static const char *arg_device = NULL;
 static int send_passwords(const char *socket_name, char **passwords) {
         _cleanup_(erase_and_freep) char *packet = NULL;
         _cleanup_close_ int socket_fd = -1;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         size_t packet_length = 1;
         char **p, *d;
         ssize_t n;
-        int salen;
+        int r;
 
         assert(socket_name);
 
-        salen = sockaddr_un_set_path(&sa.un, socket_name);
-        if (salen < 0)
-                return salen;
+        r = sockaddr_un_set_path(&sa.un, socket_name);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
         STRV_FOREACH(p, passwords)
                 packet_length += strlen(*p) + 1;
@@ -86,7 +88,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         if (socket_fd < 0)
                 return log_debug_errno(errno, "socket(): %m");
 
-        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, salen);
+        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, sa_len);
         if (n < 0)
                 return log_debug_errno(errno, "sendto(): %m");
 

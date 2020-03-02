@@ -461,13 +461,13 @@ int server_open_syslog_socket(Server *s, const char *syslog_socket) {
         assert(syslog_socket);
 
         if (s->syslog_fd < 0) {
-                union sockaddr_union sa = {
-                        .un.sun_family = AF_UNIX,
-                };
+                union sockaddr_union sa;
+                socklen_t sa_len;
 
                 r = sockaddr_un_set_path(&sa.un, syslog_socket);
                 if (r < 0)
                         return log_error_errno(r, "Unable to use namespace path %s for AF_UNIX socket: %m", syslog_socket);
+                sa_len = r;
 
                 s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->syslog_fd < 0)
@@ -475,7 +475,7 @@ int server_open_syslog_socket(Server *s, const char *syslog_socket) {
 
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(s->syslog_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                r = bind(s->syslog_fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 

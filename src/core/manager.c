@@ -917,8 +917,8 @@ static int manager_setup_notify(Manager *m) {
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
-                union sockaddr_union sa = {};
-                int salen;
+                union sockaddr_union sa;
+                socklen_t sa_len;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -934,14 +934,16 @@ static int manager_setup_notify(Manager *m) {
                 if (!m->notify_socket)
                         return log_oom();
 
-                salen = sockaddr_un_set_path(&sa.un, m->notify_socket);
-                if (salen < 0)
-                        return log_error_errno(salen, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.", m->notify_socket);
+                r = sockaddr_un_set_path(&sa.un, m->notify_socket);
+                if (r < 0)
+                        return log_error_errno(r, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.",
+                                               m->notify_socket);
+                sa_len = r;
 
                 (void) mkdir_parents_label(m->notify_socket, 0755);
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(fd, &sa.sa, salen);
+                r = bind(fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
 

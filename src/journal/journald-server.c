@@ -1840,9 +1840,10 @@ static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata)
 }
 
 static int server_connect_notify(Server *s) {
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         const char *e;
-        int r, salen;
+        int r;
 
         assert(s);
         assert(s->notify_fd < 0);
@@ -1865,9 +1866,10 @@ static int server_connect_notify(Server *s) {
         if (!e)
                 return 0;
 
-        salen = sockaddr_un_set_path(&sa.un, e);
-        if (salen < 0)
-                return log_error_errno(salen, "NOTIFY_SOCKET set to invalid value '%s': %m", e);
+        r = sockaddr_un_set_path(&sa.un, e);
+        if (r < 0)
+                return log_error_errno(r, "NOTIFY_SOCKET set to invalid value '%s': %m", e);
+        sa_len = r;
 
         s->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (s->notify_fd < 0)
@@ -1875,7 +1877,7 @@ static int server_connect_notify(Server *s) {
 
         (void) fd_inc_sndbuf(s->notify_fd, NOTIFY_SNDBUF_SIZE);
 
-        r = connect(s->notify_fd, &sa.sa, salen);
+        r = connect(s->notify_fd, &sa.sa, sa_len);
         if (r < 0)
                 return log_error_errno(errno, "Failed to connect to notify socket: %m");
 
