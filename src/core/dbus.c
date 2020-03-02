@@ -865,9 +865,10 @@ int bus_init_system(Manager *m) {
 
 int bus_init_private(Manager *m) {
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         sd_event_source *s;
-        int r, salen;
+        int r;
 
         assert(m);
 
@@ -880,7 +881,7 @@ int bus_init_private(Manager *m) {
                 if (getpid_cached() != 1)
                         return 0;
 
-                salen = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
+                r = sockaddr_un_set_path(&sa.un, "/run/systemd/private");
         } else {
                 const char *e, *joined;
 
@@ -890,10 +891,11 @@ int bus_init_private(Manager *m) {
                                                "XDG_RUNTIME_DIR is not set, refusing.");
 
                 joined = strjoina(e, "/systemd/private");
-                salen = sockaddr_un_set_path(&sa.un, joined);
+                r = sockaddr_un_set_path(&sa.un, joined);
         }
-        if (salen < 0)
-                return log_error_errno(salen, "Can't set path for AF_UNIX socket to bind to: %m");
+        if (r < 0)
+                return log_error_errno(r, "Can't set path for AF_UNIX socket to bind to: %m");
+        sa_len = r;
 
         (void) mkdir_parents_label(sa.un.sun_path, 0755);
         (void) sockaddr_un_unlink(&sa.un);
@@ -902,7 +904,7 @@ int bus_init_private(Manager *m) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate private socket: %m");
 
-        r = bind(fd, &sa.sa, salen);
+        r = bind(fd, &sa.sa, sa_len);
         if (r < 0)
                 return log_error_errno(errno, "Failed to bind private socket: %m");
 

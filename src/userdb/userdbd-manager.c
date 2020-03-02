@@ -265,11 +265,10 @@ int manager_startup(Manager *m) {
         if (n == 1)
                 m->listen_fd = SD_LISTEN_FDS_START;
         else {
-                union sockaddr_union sockaddr;
-
-                r = sockaddr_un_set_path(&sockaddr.un, "/run/systemd/userdb/io.systemd.NameServiceSwitch");
-                if (r < 0)
-                        return log_error_errno(r, "Cannot assign socket path to socket address: %m");
+                union sockaddr_union sockaddr = {
+                        .un.sun_family = AF_UNIX,
+                        .un.sun_path = "/run/systemd/userdb/io.systemd.NameServiceSwitch",
+                };
 
                 r = mkdir_p("/run/systemd/userdb", 0755);
                 if (r < 0)

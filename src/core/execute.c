@@ -271,9 +271,8 @@ static int connect_journal_socket(
                 uid_t uid,
                 gid_t gid) {
 
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa;
+        socklen_t sa_len;
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
         const char *j;
@@ -285,6 +284,7 @@ static int connect_journal_socket(
         r = sockaddr_un_set_path(&sa.un, j);
         if (r < 0)
                 return r;
+        sa_len = r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -302,7 +302,7 @@ static int connect_journal_socket(
                 }
         }
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0 ? -errno : 0;
+        r = connect(fd, &sa.sa, sa_len) < 0 ? -errno : 0;
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
@@ -383,9 +383,10 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
-        int r, salen;
+        int r;
 
         assert(path);
 
@@ -398,20 +399,19 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
                 return -errno;
-        if (strlen(path) >= sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
-                return -ENXIO;
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
+
+        r = sockaddr_un_set_path(&sa.un, path);
+        if (r < 0)
+                return r == -EINVAL ? -ENXIO : r;
+        sa_len = r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return -errno;
 
-        salen = sockaddr_un_set_path(&sa.un, path);
-        if (salen < 0)
-                return salen;
-
-        if (connect(fd, &sa.sa, salen) < 0)
+        if (connect(fd, &sa.sa, sa_len) < 0)
                 return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
                                                            * indication that his wasn't an AF_UNIX socket after all */
 
@@ -420,7 +420,7 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         else if ((flags & O_ACCMODE) == O_WRONLY)
                 r = shutdown(fd, SHUT_RD);
         else
-                return TAKE_FD(fd);
+                r = 0;
         if (r < 0)
                 return -errno;
 

@@ -696,9 +696,10 @@ finish:
 
 static int create_socket(char **ret) {
         _cleanup_free_ char *path = NULL;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
-        int salen, r;
+        int r;
 
         assert(ret);
 
@@ -709,14 +710,14 @@ static int create_socket(char **ret) {
         if (asprintf(&path, "/run/systemd/ask-password/sck.%" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        salen = sockaddr_un_set_path(&sa.un, path);
-        if (salen < 0)
-                return salen;
+        r = sockaddr_un_set_path(&sa.un, path);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
-        RUN_WITH_UMASK(0177) {
-                if (bind(fd, &sa.sa, salen) < 0)
+        RUN_WITH_UMASK(0177)
+                if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
-        }
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)

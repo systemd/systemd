@@ -373,20 +373,21 @@ static int resolve_remote(Connection *c) {
                 .ai_flags = AI_ADDRCONFIG
         };
 
-        union sockaddr_union sa = {};
         const char *node, *service;
         int r;
 
         if (IN_SET(arg_remote_host[0], '/', '@')) {
-                int salen;
+                union sockaddr_union sa;
+                int sa_len;
 
-                salen = sockaddr_un_set_path(&sa.un, arg_remote_host);
-                if (salen < 0) {
-                        log_error_errno(salen, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
+                r = sockaddr_un_set_path(&sa.un, arg_remote_host);
+                if (r < 0) {
+                        log_error_errno(r, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
                         goto fail;
                 }
+                sa_len = r;
 
-                return connection_start(c, &sa.sa, salen);
+                return connection_start(c, &sa.sa, sa_len);
         }
 
         service = strrchr(arg_remote_host, ':');
