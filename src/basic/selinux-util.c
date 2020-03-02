@@ -233,6 +233,9 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
                 return -errno;
 
         sclass = string_to_security_class("process");
+        if (sclass == 0)
+                return -ENOSYS;
+
         r = security_compute_create_raw(mycon, fcon, sclass, label);
         if (r < 0)
                 return -errno;
@@ -312,6 +315,9 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
                 return -ENOMEM;
 
         sclass = string_to_security_class("process");
+        if (sclass == 0)
+                return -ENOSYS;
+
         r = security_compute_create_raw(mycon, fcon, sclass, label);
         if (r < 0)
                 return -errno;
