@@ -715,10 +715,9 @@ static int create_socket(char **ret) {
                 return r;
         sa_len = r;
 
-        RUN_WITH_UMASK(0177) {
+        RUN_WITH_UMASK(0177)
                 if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
-        }
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
