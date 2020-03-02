@@ -32,14 +32,11 @@ static void forward_syslog_iovec(
                 const struct ucred *ucred,
                 const struct timeval *tv) {
 
-        union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-        };
+        union sockaddr_union sa;
+
         struct msghdr msghdr = {
                 .msg_iov = (struct iovec *) iovec,
                 .msg_iovlen = n_iovec,
-                .msg_name = (struct sockaddr*) &sa.sa,
-                .msg_namelen = SOCKADDR_UN_LEN(sa.un),
         };
         struct cmsghdr *cmsg;
         union {
@@ -59,6 +56,9 @@ static void forward_syslog_iovec(
                 log_debug_errno(r, "Forwarding socket path %s too long for AF_UNIX, not forwarding: %m", j);
                 return;
         }
+
+        msghdr.msg_name = &sa.sa;
+        msghdr.msg_namelen = r;
 
         if (ucred) {
                 zero(control);
