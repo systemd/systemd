@@ -216,6 +216,9 @@ acpi:OVTI*:
 acpi:PEGA*:
  ID_VENDOR_FROM_DATABASE=Pegatron Corporation
 
+acpi:PHYT*:
+ ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
+
 acpi:QCOM*:
  ID_VENDOR_FROM_DATABASE=Qualcomm Inc
 

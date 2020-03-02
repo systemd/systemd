@@ -4301,6 +4301,72 @@ B96000-B96FFF     (base 16)		Oculii
 				MAUREPAS    78310
 				FR
 
+70-B3-D5   (hex)		NEUROPHET, Inc.
+E31000-E31FFF     (base 16)		NEUROPHET, Inc.
+				3rd Floor, 175, Yeoksam-ro, Gangnam-gu, seoul
+				Seoul  Province  06247
+				KR
+
+70-B3-D5   (hex)		Remote Diagnostic Technologies Ltd
+C99000-C99FFF     (base 16)		Remote Diagnostic Technologies Ltd
+				Pavilion C2 Ashwood Park, Ashwood Way
+				Basingstoke  Hampshire  RG23 8BG
+				GB
+
+70-B3-D5   (hex)		Gogo Business Aviation
+3E0000-3E0FFF     (base 16)		Gogo Business Aviation
+				105 Edgeview Dr., Suite 300
+				Broomfield  CO  80021
+				US
+
+70-B3-D5   (hex)		Chromateq
+944000-944FFF     (base 16)		Chromateq
+				191, allée de Lauzard, Bat. B, RDC 1 (Chromateq)
+				Saint Gély du Fesc    34980
+				FR
+
+70-B3-D5   (hex)		Elk Solutions, LLC
+1A7000-1A7FFF     (base 16)		Elk Solutions, LLC
+				12708 Misty Grove St
+				Moorpark  CA  93021
+				US
+
+70-B3-D5   (hex)		KAYA Instruments
+F3D000-F3DFFF     (base 16)		KAYA Instruments
+				20 HaMesila St.
+				Nesher     3688520
+				IL
+
+70-B3-D5   (hex)		Asiga Pty Ltd
+53E000-53EFFF     (base 16)		Asiga Pty Ltd
+				Unit 2, 19-21 Bourke Road
+				Alexandria  New South Wales  2015
+				AU
+
+70-B3-D5   (hex)		Salupo Sas
+898000-898FFF     (base 16)		Salupo Sas
+				Via Laganeto n. 129
+				Rocca di Capri Leone  Italia / ME / Sicilia  98070
+				IT
+
+70-B3-D5   (hex)		Nippon Safety co,ltd
+872000-872FFF     (base 16)		Nippon Safety co,ltd
+				1, suimeicho
+				Amagasaki  Hyogo  660-0082
+				JP
+
+70-B3-D5   (hex)		ENABLER LTD.
+15A000-15AFFF     (base 16)		ENABLER LTD.
+				29F Shiroyama Trust Tower 4-3-1 Toranomon 
+				Minato-ku  Tokyo  105-6029
+				JP
+
+70-B3-D5   (hex)		LINEAGE POWER PVT LTD.,
+62E000-62EFFF     (base 16)		LINEAGE POWER PVT LTD.,
+				30-A1, KIADB, 1ST PHASE INDUSTRIAL ESTATE,KUMBALGODU, BANGALORE-MYSORE ROAD
+				BANGALORE  KARNATAKA  560074
+				IN
+
 70-B3-D5   (hex)		EVCO SPA
 A80000-A80FFF     (base 16)		EVCO SPA
 				VIA FELTRE N. 81
@@ -8675,11 +8741,59 @@ EA5000-EA5FFF     (base 16)		LOTES TM OOO
 				Moscow    121309
 				RU
 
+70-B3-D5   (hex)		Ariston Thermo s.p.a.
+3D6000-3D6FFF     (base 16)		Ariston Thermo s.p.a.
+				Via Aristide Merloni 45
+				Fabriano  Ancona  60044
+				IT
+
 70-B3-D5   (hex)		Yi An Electronics Co., Ltd
 F28000-F28FFF     (base 16)		Yi An Electronics Co., Ltd
 				5F.-2, No. 81, Sec. 1, Xintai 5th Rd., Xizhi Dist
 				 New Taipei City    22101
 				TW
+
+70-B3-D5   (hex)		DORLET SAU
+639000-639FFF     (base 16)		DORLET SAU
+				Albert Eistein 34
+				Alava  SPAIN  01510
+				ES
+
+70-B3-D5   (hex)		OOO ORION-R
+047000-047FFF     (base 16)		OOO ORION-R
+				Novoselov str., 40A, room N200
+				Ryazan    390048
+				RU
+
+70-B3-D5   (hex)		MG s.r.l.
+130000-130FFF     (base 16)		MG s.r.l.
+				via Monte Bianco, 1
+				Solbiate Olona  VA  21058
+				IT
+
+70-B3-D5   (hex)		Postmark Incorporated 
+CBB000-CBBFFF     (base 16)		Postmark Incorporated 
+				3197 Duncan Lane
+				San Luis Obispo  CA  93401
+				US
+
+70-B3-D5   (hex)		Glory Technology Service Inc.
+801000-801FFF     (base 16)		Glory Technology Service Inc.
+				3F., No.43-1, Ln. 11, Sec. 6, Minquan E. Rd
+				Taipei City   Neihu Dist  114
+				TW
+
+70-B3-D5   (hex)		Toolplanet Co., Ltd.
+4B5000-4B5FFF     (base 16)		Toolplanet Co., Ltd.
+				43-2 Himigaike-cho
+				Gifu-shi  Gifu  500-8122
+				JP
+
+70-B3-D5   (hex)		Abbott Diagnostics Technologies AS
+53F000-53FFFF     (base 16)		Abbott Diagnostics Technologies AS
+				P. O.  Box 6863 Rodeløkka
+				Oslo  Oslo  0504
+				NO
 
 70-B3-D5   (hex)		System West dba ICS Electronics
 E06000-E06FFF     (base 16)		System West dba ICS Electronics
@@ -9001,12 +9115,6 @@ D36000-D36FFF     (base 16)		Insitu Inc.
 				901 E Bingen Point Way
 				Bingen  WA  98605
 				US
-
-70-B3-D5   (hex)		Pano0ramic Power
-669000-669FFF     (base 16)		Pano0ramic Power
-				15 Atir Yeda
-				Kfar Saba    4464312
-				IL
 
 00-1B-C5   (hex)		Private
 0B8000-0B8FFF     (base 16)		Private
@@ -13022,18 +13130,6 @@ C98000-C98FFF     (base 16)		Trust Automation
 				San Luis Obispo  CA  93401
 				US
 
-70-B3-D5   (hex)		ARCLAN'SYSTEM
-25C000-25CFFF     (base 16)		ARCLAN'SYSTEM
-				1140 rue Ampère - Actimart II - Lot 9
-				AIX EN PROVENCE    13290
-				FR
-
-70-B3-D5   (hex)		Taejin InfoTech
-A75000-A75FFF     (base 16)		Taejin InfoTech
-				40, Imi-ro, A-411
-				Uiwang-si  Gyeonggi-do  16006
-				KR
-
 70-B3-D5   (hex)		Coheros Oy
 D2E000-D2EFFF     (base 16)		Coheros Oy
 				Tammukkakatu 6
@@ -13057,6 +13153,78 @@ F6A000-F6AFFF     (base 16)		Guan Show Technologe Co., Ltd.
 				No.127, Jianguo 1st Rd., Lingya Dist.
 				 Kaohsiung City     802
 				TW
+
+70-B3-D5   (hex)		Taejin InfoTech
+A75000-A75FFF     (base 16)		Taejin InfoTech
+				40, Imi-ro, A-411
+				Uiwang-si  Gyeonggi-do  16006
+				KR
+
+70-B3-D5   (hex)		ARCLAN'SYSTEM
+25C000-25CFFF     (base 16)		ARCLAN'SYSTEM
+				1140 rue Ampère - Actimart II - Lot 9
+				AIX EN PROVENCE    13290
+				FR
+
+70-B3-D5   (hex)		LLC Sarov Innovative Technologies (WIZOLUTION)
+50F000-50FFFF     (base 16)		LLC Sarov Innovative Technologies (WIZOLUTION)
+				RUSSIAN FEDERATION, Nizhny Novgorod region, Varlamovskaya road, 7, build 2
+				Sarov  Nizhny Novgorod  607188
+				RU
+
+70-B3-D5   (hex)		SPX Radiodetection
+A77000-A77FFF     (base 16)		SPX Radiodetection
+				Western Drive
+				Bristol  Avon  BS14 0AF
+				GB
+
+70-B3-D5   (hex)		INVISSYS
+AD4000-AD4FFF     (base 16)		INVISSYS
+				25 rue marcel issartier
+				merignac    33700
+				FR
+
+70-B3-D5   (hex)		LM-Instruments Oy
+5AC000-5ACFFF     (base 16)		LM-Instruments Oy
+				Norrbyn rantatie 8
+				Parainen    21600
+				FI
+
+70-B3-D5   (hex)		Fuhr GmbH Filtertechnik
+DBB000-DBBFFF     (base 16)		Fuhr GmbH Filtertechnik
+				Am Weinkastell 14
+				Klein-Winternheim  Rheinland-Pfalz  55270
+				DE
+
+70-B3-D5   (hex)		Panoramic Power
+669000-669FFF     (base 16)		Panoramic Power
+				15 Atir Yeda
+				Kfar Saba    4464312
+				IL
+
+70-B3-D5   (hex)		Sanmina Israel
+C18000-C18FFF     (base 16)		Sanmina Israel
+				Koren Industrial Zone , POBox 102
+				Maalot  Israel  2101002
+				IL
+
+70-B3-D5   (hex)		Avlinkpro
+2C1000-2C1FFF     (base 16)		Avlinkpro
+				380 US Highway 46
+				Totowa  NJ  07512
+				US
+
+70-B3-D5   (hex)		Panoramic Power
+06D000-06DFFF     (base 16)		Panoramic Power
+				Atir Yeda 15
+				Kfar Saba    4464312
+				IL
+
+70-B3-D5   (hex)		DECYBEN
+683000-683FFF     (base 16)		DECYBEN
+				170 Rue Raymond Losserand
+				Paris    75014
+				FR
 
 70-B3-D5   (hex)		YUYAMA MFG Co.,Ltd
 BBB000-BBBFFF     (base 16)		YUYAMA MFG Co.,Ltd
@@ -17465,6 +17633,24 @@ D77000-D77FFF     (base 16)		Portrait Displays, Inc.
 				Irvine  CA  92614
 				US
 
+70-B3-D5   (hex)		Sprintshield d.o.o.
+B03000-B03FFF     (base 16)		Sprintshield d.o.o.
+				Marina Getaldi?a 3
+				Velika Gorica    10410
+				HR
+
+70-B3-D5   (hex)		KeyProd
+473000-473FFF     (base 16)		KeyProd
+				66 avenue des Champs Elysées
+				Paris    77008
+				FR
+
+70-B3-D5   (hex)		Mictrotrac Retsch GmbH
+F09000-F09FFF     (base 16)		Mictrotrac Retsch GmbH
+				Retsch-Allee 1-5
+				Haan  NRW  42781
+				DE
+
 70-B3-D5   (hex)		DISMUNTEL SAL
 92C000-92CFFF     (base 16)		DISMUNTEL SAL
 				Pol ind cotes
@@ -18970,12 +19156,6 @@ E18000-E18FFF     (base 16)		Plasmapp Co.,Ltd.
 				Dr.-Otto-Leich-Str. 16
 				Eckental  Bavaria  90542
 				DE
-
-70-B3-D5   (hex)		Pano0ramic Power
-53A000-53AFFF     (base 16)		Pano0ramic Power
-				15 Atir Yeda
-				Kfar Saba    4464312
-				IL
 
 70-B3-D5   (hex)		ND METER
 68C000-68CFFF     (base 16)		ND METER
@@ -21863,8 +22043,32 @@ DE1000-DE1FFF     (base 16)		Duplomatic MS spa
 				NanJing    211100
 				CN
 
+70-B3-D5   (hex)		PHYZHON Health Inc
+744000-744FFF     (base 16)		PHYZHON Health Inc
+				180 Blue Ravine Road, suite A
+				Folsom  CA  95630
+				US
+
 70-B3-D5   (hex)		thingdust AG
 3C1000-3C1FFF     (base 16)		thingdust AG
 				Moosstrasse 7
 				Lucerne  Lucerne  6003
 				CH
+
+70-B3-D5   (hex)		Panoramic Power
+53A000-53AFFF     (base 16)		Panoramic Power
+				15 Atir Yeda
+				Kfar Saba    4464312
+				IL
+
+70-B3-D5   (hex)		ALVAT s.r.o.
+369000-369FFF     (base 16)		ALVAT s.r.o.
+				Chodovska 228/3
+				Praha 4    14100
+				CZ
+
+70-B3-D5   (hex)		PCB Piezotronics
+4CA000-4CAFFF     (base 16)		PCB Piezotronics
+				3425 Walden Avenue
+				Depew  NY  14043
+				US
