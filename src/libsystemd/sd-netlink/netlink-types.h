@@ -9,6 +9,10 @@ enum {
         NETLINK_TYPE_U16,                       /* NLA_U16 */
         NETLINK_TYPE_U32,                       /* NLA_U32 */
         NETLINK_TYPE_U64,                       /* NLA_U64 */
+        NETLINK_TYPE_S8,                        /* NLA_S8 */
+        NETLINK_TYPE_S16,                       /* NLA_S16 */
+        NETLINK_TYPE_S32,                       /* NLA_S32 */
+        NETLINK_TYPE_S64,                       /* NLA_S64 */
         NETLINK_TYPE_STRING,                    /* NLA_STRING */
         NETLINK_TYPE_FLAG,                      /* NLA_FLAG */
         NETLINK_TYPE_IN_ADDR,
