@@ -182,30 +182,3 @@ int config_parse_duid_rawdata(
         ret->raw_data_len = count;
         return 0;
 }
-
-int config_parse_ip_service_type(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (streq(rvalue, "CS4"))
-                *((int *)data) = IPTOS_CLASS_CS4;
-        else if (streq(rvalue, "CS6"))
-                *((int *)data) = IPTOS_CLASS_CS6;
-        else
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
-
-        return 0;
-}
