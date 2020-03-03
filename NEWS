@@ -251,7 +251,7 @@ CHANGES WITH 245:
         * networkctl gained support for showing per-interface logs in its
           "status" output.
 
-        * systemd-networkd-wait-online gain support for specifying the maximum
+        * systemd-networkd-wait-online gained support for specifying the maximum
           operational state to wait for, and to wait for interfaces to
           disappear.
 
