@@ -1201,6 +1201,19 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
  KEYBOARD_KEY_0214=f23
 
 ###########################################################
+# Olimex
+###########################################################
+
+# Teres-I
+evdev:input:b0003v15BAp003C*
+ KEYBOARD_KEY_70066=sleep                               # Fn+F1
+ KEYBOARD_KEY_700f6=wlan                                # Fn+F2
+ KEYBOARD_KEY_700c7=f21                                 # Fn+F3 touchpad toggle
+ KEYBOARD_KEY_7006f=brightnessdown                      # Fn+F7
+ KEYBOARD_KEY_70070=brightnessup                        # Fn+F8
+ KEYBOARD_KEY_7006e=switchvideomode                     # Fn+F9
+
+###########################################################
 # OLPC
 ###########################################################
 
