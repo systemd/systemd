@@ -27,6 +27,7 @@ BuildPackages=
         gcc
         gettext
         git
+        glibc-minimal-langpack
         gnu-efi
         gnu-efi-devel
         gnutls-devel

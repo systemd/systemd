@@ -1378,7 +1378,7 @@
 
       <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
       --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
-      systemd passwd dnf fedora-release vim-minimal
+      systemd passwd dnf fedora-release vim-minimal glibc-minimal-langpack
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
