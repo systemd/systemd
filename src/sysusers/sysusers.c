@@ -199,7 +199,7 @@ static int load_group_database(void) {
 static int make_backup(const char *target, const char *x) {
         _cleanup_close_ int src = -1;
         _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_free_ char *temp = NULL;
+        _cleanup_free_ char *dst_tmp = NULL;
         char *backup;
         struct timespec ts[2];
         struct stat st;
@@ -216,7 +216,7 @@ static int make_backup(const char *target, const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        r = fopen_temporary_label(target, x, &dst, &temp);
+        r = fopen_temporary_label(target, x, &dst, &dst_tmp);
         if (r < 0)
                 return r;
 
@@ -230,7 +230,7 @@ static int make_backup(const char *target, const char *x) {
         backup = strjoina(x, "-");
 
         /* Copy over the access mask */
-        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
+        r = chmod_and_chown_unsafe(dst_tmp, st.st_mode & 07777, st.st_uid, st.st_gid);
         if (r < 0)
                 log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
@@ -243,7 +243,7 @@ static int make_backup(const char *target, const char *x) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp, backup) < 0) {
+        if (rename(dst_tmp, backup) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -251,7 +251,7 @@ static int make_backup(const char *target, const char *x) {
         return 0;
 
 fail:
-        (void) unlink(temp);
+        (void) unlink(dst_tmp);
         return r;
 }
 
@@ -345,13 +345,13 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 }
 #endif
 
-static int sync_rights(FILE *from, FILE *to) {
+static int sync_rights(FILE *from, const char *to) {
         struct stat st;
 
         if (fstat(fileno(from), &st) < 0)
                 return -errno;
 
-        return fchmod_and_chown(fileno(to), st.st_mode & 07777, st.st_uid, st.st_gid);
+        return chmod_and_chown_unsafe(to, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
 static int rename_and_apply_smack(const char *temp_path, const char *dest_path) {
@@ -389,7 +389,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         original = fopen(passwd_path, "re");
         if (original) {
 
-                r = sync_rights(original, passwd);
+                r = sync_rights(original, passwd_tmp);
                 if (r < 0)
                         return r;
 
@@ -491,7 +491,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         original = fopen(shadow_path, "re");
         if (original) {
 
-                r = sync_rights(original, shadow);
+                r = sync_rights(original, shadow_tmp);
                 if (r < 0)
                         return r;
 
@@ -588,7 +588,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         original = fopen(group_path, "re");
         if (original) {
 
-                r = sync_rights(original, group);
+                r = sync_rights(original, group_tmp);
                 if (r < 0)
                         return r;
 
@@ -687,7 +687,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         if (original) {
                 struct sgrp *sg;
 
-                r = sync_rights(original, gshadow);
+                r = sync_rights(original, gshadow_tmp);
                 if (r < 0)
                         return r;
 
