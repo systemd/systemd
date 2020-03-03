@@ -127,7 +127,8 @@ int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *i
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
                         *p = (cast_type) v;                             \
                         unit_write_settingf(u, flags, name,             \
-                                            "%s=%s", name, s);          \
+                                            "%s=%s",                    \
+                                            name, strempty(s));         \
                 }                                                       \
                                                                         \
                 return 1;                                               \
