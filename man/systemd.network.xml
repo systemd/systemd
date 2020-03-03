@@ -614,10 +614,12 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6AcceptRA=</varname></term>
-          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support
-          for the interface. If true, RAs are accepted; if false, RAs are ignored, independently of the
-          local forwarding state. When RAs are accepted, they may trigger the start of the DHCPv6
-          client if the relevant flags are set in the RA data, or if no routers are found on the link.</para>
+          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the
+          interface. If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they may
+          trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or if no
+          routers are found on the link. The default is to disable RA reception for bridge devices or when IP
+          forwarding is enabled, and to enable it otherwise. Cannot be enabled on bond devices and when link
+          local adressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>
