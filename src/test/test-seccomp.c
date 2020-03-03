@@ -190,7 +190,7 @@ static void test_restrict_namespace(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(namespace_flags_to_string(0, &s) == 0 && streq(s, ""));
+        assert_se(namespace_flags_to_string(0, &s) == 0 && isempty(s));
         s = mfree(s);
         assert_se(namespace_flags_to_string(CLONE_NEWNS, &s) == 0 && streq(s, "mnt"));
         s = mfree(s);

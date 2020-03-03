@@ -4881,7 +4881,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 r = namespace_flags_to_string(c->restrict_namespaces, &s);
                 if (r >= 0)
                         fprintf(f, "%sRestrictNamespaces: %s\n",
-                                prefix, s);
+                                prefix, strna(s));
         }
 
         if (c->network_namespace_path)
