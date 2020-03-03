@@ -41,11 +41,15 @@
 #
 # Allowed properties are:
 #    ACCEL_MOUNT_MATRIX=<matrix>
+#    PROXIMITY_NEAR_LEVEL=<value>
 #
 # where <matrix> is a mount-matrix in the format specified in the IIO
 # subsystem[1]. The default, when unset, is equivalent to:
 #   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
 # eg. the identity matrix.
+# and <value> is an integer value above which an object is considered
+# close by a proximity sensor:
+#   PROXIMITY_NEAR_LEVEL=100
 #
 # [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
 #

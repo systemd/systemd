@@ -128,6 +128,7 @@ def property_grammar():
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
              ('ACCEL_LOCATION', Or(('display', 'base'))),
+             ('PROXIMITY_NEAR_LEVEL', INTEGER),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
