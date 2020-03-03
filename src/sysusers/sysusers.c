@@ -94,6 +94,12 @@ STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(uid_range, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
+static int errno_is_not_exists(int code) {
+        /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
+         * not found. */
+        return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
+}
+
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *passwd_path;
@@ -971,7 +977,7 @@ static int add_user(Item *i) {
 
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
+                if (!errno_is_not_exists(errno))
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
         }
 
@@ -1108,7 +1114,7 @@ static int get_gid_by_name(const char *name, gid_t *gid) {
                         *gid = g->gr_gid;
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
+                if (!errno_is_not_exists(errno))
                         return log_error_errno(errno, "Failed to check if group %s already exists: %m", name);
         }
 
