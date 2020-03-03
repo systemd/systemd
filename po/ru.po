@@ -990,27 +990,3 @@ msgid ""
 msgstr ""
 "Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо"
 " пройти аутентификацию."
-
-#~ msgid ""
-#~ "Authentication is required to halt the system while an application asked "
-#~ "to inhibit it."
-#~ msgstr ""
-#~ "Чтобы остановить систему, несмотря на то, что приложение запросило "
-#~ "блокировку выключения, необходимо пройти аутентификацию."
-
-#~ msgid "Authentication is required to kill '$(unit)'."
-#~ msgstr "Чтобы убить юнит «$(unit)», необходимо пройти аутентификацию."
-
-#~ msgid "Press Ctrl+C to cancel all filesystem checks in progress"
-#~ msgstr ""
-#~ "Чтобы прервать все запущенные проверки файловых систем, нажмите Ctrl+C"
-
-# There is no difference between "на 2 дисках" (plural==1) and "на 5 дисках" (plural==2)
-#~ msgid "Checking in progress on %d disk (%3.1f%% complete)"
-#~ msgid_plural "Checking in progress on %d disks (%3.1f%% complete)"
-#~ msgstr[0] ""
-#~ "Проверяется целостность файловой системы на %d диске (выполнено %3.1f%%)"
-#~ msgstr[1] ""
-#~ "Проверяется целостность файловых систем на %d дисках (выполнено %3.1f%%)"
-#~ msgstr[2] ""
-#~ "Проверяется целостность файловых систем на %d дисках (выполнено %3.1f%%)"
