@@ -28,9 +28,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network setup is performed by
+    <para>A plain ini-style text file that encodes network configuration for matching network interfaces,
+    used by
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>The main network file must have the extension <filename>.network</filename>; other
     extensions are ignored. Networks are applied to links whenever the links appear.</para>
@@ -514,13 +516,14 @@
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>A list of domains which should be resolved using the DNS servers on this link. Each item in the list
-            should be a domain name, optionally prefixed with a tilde (<literal>~</literal>). The domains with the
-            prefix are called "routing-only domains". The domains without the prefix are called "search domains" and
-            are first used as search suffixes for extending single-label host names (host names containing no dots) to
-            become fully qualified domain names (FQDNs). If a single-label host name is resolved on this interface,
-            each of the specified search domains are appended to it in turn, converting it into a fully qualified
-            domain name, until one of them may be successfully resolved.</para>
+            <para>A whitespace-separated list of domains which should be resolved using the DNS servers on
+            this link. Each item in the list should be a domain name, optionally prefixed with a tilde
+            (<literal>~</literal>). The domains with the prefix are called "routing-only domains". The
+            domains without the prefix are called "search domains" and are first used as search suffixes for
+            extending single-label host names (host names containing no dots) to become fully qualified
+            domain names (FQDNs). If a single-label host name is resolved on this interface, each of the
+            specified search domains are appended to it in turn, converting it into a fully qualified domain
+            name, until one of them may be successfully resolved.</para>
 
             <para>Both "search" and "routing-only" domains are used for routing of DNS queries: look-ups for host names
             ending in those domains (hence also single label names, if any "search domains" are listed), are routed to
@@ -613,10 +616,12 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6AcceptRA=</varname></term>
-          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support
-          for the interface. If true, RAs are accepted; if false, RAs are ignored, independently of the
-          local forwarding state. When RAs are accepted, they may trigger the start of the DHCPv6
-          client if the relevant flags are set in the RA data, or if no routers are found on the link.</para>
+          <listitem><para>Takes a boolean. Controls IPv6 Router Advertisement (RA) reception support for the
+          interface. If true, RAs are accepted; if false, RAs are ignored. When RAs are accepted, they may
+          trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or if no
+          routers are found on the link. The default is to disable RA reception for bridge devices or when IP
+          forwarding is enabled, and to enable it otherwise. Cannot be enabled on bond devices and when link
+          local adressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>

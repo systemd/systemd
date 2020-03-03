@@ -749,7 +749,7 @@ static int mount_private_dev(MountEntry *m) {
 
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
         if (r < 0)
-                log_debug_errno(r, "Failed to setup basic device tree at '%s', ignoring: %m", temporary_mount);
+                log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
         /* Create the /dev directory if missing. It is more likely to be
          * missing when the service is started with RootDirectory. This is

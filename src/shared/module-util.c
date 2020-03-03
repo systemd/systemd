@@ -18,7 +18,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
         r = kmod_module_new_from_lookup(ctx, module, &modlist);
         if (r < 0)
                 return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
-                                      "Failed to lookup module alias '%s': %m", module);
+                                      "Failed to look up module alias '%s': %m", module);
 
         if (!modlist) {
                 log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,

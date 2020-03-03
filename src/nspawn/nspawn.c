@@ -3020,7 +3020,7 @@ static int inner_child(
 
                 r = setup_dev_console(console);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to setup /dev/console: %m");
+                        return log_error_errno(r, "Failed to set up /dev/console: %m");
 
                 r = send_one_fd(master_pty_socket, master, 0);
                 if (r < 0)

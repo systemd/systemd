@@ -212,7 +212,6 @@ loglevel=2 \
 init=$PATH_TO_INIT \
 console=$CONSOLE \
 selinux=0 \
-printk.devkmsg=on \
 $_cgroup_args \
 $KERNEL_APPEND \
 "

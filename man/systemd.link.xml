@@ -26,8 +26,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network link configuration is performed by the
-    <command>net_setup_link</command> udev builtin.</para>
+    <para>A plain ini-style text file that encodes configuration for matching network devices, used by
+    <citerefentry><refentrytitle>systemd-udev</refentrytitle><manvolnum>8</manvolnum></citerefentry> and in
+    particular its <command>net_setup_link</command> builtin. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
 
     <para>The link files are read from the files located in the system
     network directory <filename>/usr/lib/systemd/network</filename>,

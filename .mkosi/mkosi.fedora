@@ -10,7 +10,6 @@ Release=31
 [Output]
 Format=gpt_ext4
 Bootable=yes
-KernelCommandLine=printk.devkmsg=on
 
 [Partitions]
 RootSize=3G
@@ -27,6 +26,7 @@ BuildPackages=
         gcc
         gettext
         git
+        glibc-minimal-langpack
         gnu-efi
         gnu-efi-devel
         gnutls-devel
