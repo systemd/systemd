@@ -110,7 +110,7 @@ static int manager_send_request(Manager *m) {
 
         r = manager_listen_setup(m);
         if (r < 0)
-                return log_warning_errno(r, "Failed to setup connection socket: %m");
+                return log_warning_errno(r, "Failed to set up connection socket: %m");
 
         /*
          * Set transmit timestamp, remember it; the server will send that back

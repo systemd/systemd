@@ -1713,7 +1713,7 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
                 if (r == -EAGAIN) /* not realized yet? */
                         continue;
                 if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to lookup a dynamic user.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to look up a dynamic user.");
 
                 r = sd_bus_message_append(reply, "(us)", uid, d->name);
                 if (r < 0)

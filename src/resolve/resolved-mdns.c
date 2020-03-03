@@ -195,7 +195,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
 
                 r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to lookup key: %m");
+                        return log_debug_errno(r, "Failed to look up key: %m");
 
                 if (tentative && DNS_PACKET_NSCOUNT(p) > 0) {
                         /*

@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
                             0,
                             NULL);
         if (r < 0) {
-                log_error_errno(r, "Failed to setup namespace: %m");
+                log_error_errno(r, "Failed to set up namespace: %m");
 
                 log_info("Usage:\n"
                          "  sudo TEST_NS_PROJECTS=/home/lennart/projects ./test-ns\n"
