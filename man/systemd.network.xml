@@ -514,13 +514,14 @@
         <varlistentry>
           <term><varname>Domains=</varname></term>
           <listitem>
-            <para>A list of domains which should be resolved using the DNS servers on this link. Each item in the list
-            should be a domain name, optionally prefixed with a tilde (<literal>~</literal>). The domains with the
-            prefix are called "routing-only domains". The domains without the prefix are called "search domains" and
-            are first used as search suffixes for extending single-label host names (host names containing no dots) to
-            become fully qualified domain names (FQDNs). If a single-label host name is resolved on this interface,
-            each of the specified search domains are appended to it in turn, converting it into a fully qualified
-            domain name, until one of them may be successfully resolved.</para>
+            <para>A whitespace-separated list of domains which should be resolved using the DNS servers on
+            this link. Each item in the list should be a domain name, optionally prefixed with a tilde
+            (<literal>~</literal>). The domains with the prefix are called "routing-only domains". The
+            domains without the prefix are called "search domains" and are first used as search suffixes for
+            extending single-label host names (host names containing no dots) to become fully qualified
+            domain names (FQDNs). If a single-label host name is resolved on this interface, each of the
+            specified search domains are appended to it in turn, converting it into a fully qualified domain
+            name, until one of them may be successfully resolved.</para>
 
             <para>Both "search" and "routing-only" domains are used for routing of DNS queries: look-ups for host names
             ending in those domains (hence also single label names, if any "search domains" are listed), are routed to
