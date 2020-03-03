@@ -104,6 +104,11 @@ CHANGES WITH 245:
           sockets and other file system objects are generated taking the new
           database into account.
 
+        * systemd/PID 1 accepts a new "systemd.show-status=error" setting, and
+          "quiet" has been changed to imply that instead of
+          "systemd.show-status=auto". In this mode, only messages about errors
+          and significant delays in boot are shown on the console.
+
         * The sd-event.h API gained native support for the new Linux "pidfd"
           concept. This permits watching processes using file descriptors
           instead of PID numbers, which fixes a number of races and makes
@@ -271,6 +276,10 @@ CHANGES WITH 245:
         * When systemd sets up PAM sessions that invoked service processes
           shall run in, the pam_setcred() API is now invoked, thus permitting
           PAM modules to set additional credentials for the processes.
+
+        * portablectl attach/detach verbs now accept --now and --enable options
+          to combine attachment with enablement and invocation, or detachment
+          with stopping and disablement.
 
         Contributions from: AJ Bagwell, Alin Popa, Andreas Rammhold, Anita
         Zhang, Ansgar Burchardt, Antonio Russo, Arian van Putten, Ashley Davis,
