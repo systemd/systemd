@@ -28,9 +28,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network setup is performed by
+    <para>A plain ini-style text file that encodes network configuration for matching network interfaces,
+    used by
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>The main network file must have the extension <filename>.network</filename>; other
     extensions are ignored. Networks are applied to links whenever the links appear.</para>
