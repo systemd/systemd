@@ -193,11 +193,17 @@
       <varlistentry>
         <term><varname>DNSOverTLS=</varname></term>
         <listitem>
-        <para>Takes a boolean argument or <literal>opportunistic</literal>.
-        If true all connections to the server will be encrypted. Note that
-        this mode requires a DNS server that supports DNS-over-TLS and has
-        a valid certificate for it's IP. If the DNS server does not support
-        DNS-over-TLS all DNS requests will fail. When set to <literal>opportunistic</literal>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>. If
+        true all connections to the server will be encrypted. Note that this
+        mode requires a DNS server that supports DNS-over-TLS and has a valid
+        certificate. If the hostname was specified in <varname>DNS=</varname>
+        by using the format format <literal>address#server_name</literal> it
+        is used to validate its certificate and also to enable Server Name
+        Indication (SNI) when opening a TLS connection. Otherwise
+        the certificate is checked against the server's IP.
+        If the DNS server does not support DNS-over-TLS all DNS requests will fail.</para>
+
+        <para>When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
         If the DNS server does not support TLS, DNS-over-TLS is disabled.
         Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
@@ -213,9 +219,6 @@
         <para>Note that in <literal>opportunistic</literal> mode the
         resolver is not capable of authenticating the server, so it is
         vulnerable to "man-in-the-middle" attacks.</para>
-
-        <para>Server Name Indication (SNI) can be used when opening a TLS connection.
-        Entries in <varname>DNS=</varname> should be in format <literal>address#server_name</literal>.</para>
 
         <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
