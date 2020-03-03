@@ -17,7 +17,7 @@ test_setup() {
         eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
 
         setup_basic_environment
-        dracut_install mktemp
+        dracut_install mktemp awk
 
         # mask some services that we do not want to run in these tests
         ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service

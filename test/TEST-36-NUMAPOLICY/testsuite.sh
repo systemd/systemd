@@ -30,7 +30,7 @@ journalSleep=5
 sleepAfterStart=1
 
 # Journal cursor for easier navigation
-journalCursorFile="jounalCursorFile"
+journalCursor=""
 
 startStrace() {
     coproc strace -qq -p 1 -o $straceLog -e set_mempolicy -s 1024 $1
@@ -46,7 +46,7 @@ stopStrace() {
 
 startJournalctl() {
     # Save journal's cursor for later navigation
-    journalctl --no-pager --cursor-file="$journalCursorFile" -n0 -ocat
+    journalCursor="$(journalctl --no-pager --show-cursor -n0 -ocat | awk '{print $3}')"
 }
 
 stopJournalctl() {
@@ -55,7 +55,7 @@ stopJournalctl() {
     # the --sync wait until the synchronization is complete
     echo "Force journald to write all queued messages"
     journalctl --sync
-    journalctl -u $unit --cursor-file="$journalCursorFile" > "$journalLog"
+    journalctl -u $unit --after-cursor="$journalCursor" > "$journalLog"
 }
 
 checkNUMA() {
