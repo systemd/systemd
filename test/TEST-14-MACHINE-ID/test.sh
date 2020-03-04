@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="/etc/machine-id testing"
 TEST_NO_NSPAWN=1
@@ -29,7 +29,7 @@ Type=oneshot
 EOF
 
 cat >$initdir/test-machine-id-setup.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 set -x

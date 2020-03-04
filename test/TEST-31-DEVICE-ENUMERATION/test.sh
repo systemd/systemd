@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="plugged -> dead -> plugged issue #11997"
 TEST_NO_NSPAWN=1

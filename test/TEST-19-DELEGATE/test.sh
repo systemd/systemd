@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="test cgroup delegation in the unified hierarchy"
 TEST_NO_NSPAWN=1

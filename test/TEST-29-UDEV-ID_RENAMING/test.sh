@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="UDEV ID_RENAMING property"
 TEST_NO_NSPAWN=1

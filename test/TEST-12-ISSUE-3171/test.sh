@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3171"
 TEST_NO_QEMU=1
@@ -29,7 +29,7 @@ Type=oneshot
 EOF
 
         cat >$initdir/test-socket-group.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -x
 set -e
 set -o pipefail

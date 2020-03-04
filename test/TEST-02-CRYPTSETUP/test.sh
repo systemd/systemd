@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
 TEST_NO_NSPAWN=1

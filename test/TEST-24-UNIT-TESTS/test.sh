@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Run unit tests under containers"
 RUN_IN_UNPRIVILEGED_CONTAINER=yes

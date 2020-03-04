@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -v -x
 
 rm -f /test.log

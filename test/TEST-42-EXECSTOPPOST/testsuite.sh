@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
 systemd-analyze log-level debug
@@ -16,7 +16,7 @@ test -f /run/exec1
 test -f /run/exec2
 
 cat > /tmp/forking1.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 
@@ -32,7 +32,7 @@ systemd-run --unit=forking1.service --wait -p StandardOutput=tty -p StandardErro
 test -f /run/forking1
 
 cat > /tmp/forking2.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 
@@ -62,7 +62,7 @@ test -f /run/dbus1
 test -f /run/dbus2
 
 cat > /tmp/notify1.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 
