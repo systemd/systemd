@@ -1930,7 +1930,7 @@ static int initialize_runtime(
                         status_welcome();
                         hostname_setup();
                         machine_id_setup(NULL, arg_machine_id, NULL);
-                        loopback_setup();
+                        (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
                         test_usr();

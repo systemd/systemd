@@ -3000,7 +3000,7 @@ static int inner_child(
                 return log_error_errno(errno, "setsid() failed: %m");
 
         if (arg_private_network)
-                loopback_setup();
+                (void) loopback_setup();
 
         if (arg_expose_ports) {
                 r = expose_port_send_rtnl(rtnl_socket);
