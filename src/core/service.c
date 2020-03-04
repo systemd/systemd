@@ -4314,10 +4314,9 @@ static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
 
                 if (s->type == SERVICE_ONESHOT)
                         return "Finished %s.";
-                else
-                        return "Started %s.";
         }
 
+        /* Fall back to generic */
         return NULL;
 }
 
@@ -4468,7 +4467,6 @@ const UnitVTable service_vtable = {
                         [1] = "Stopping %s...",
                 },
                 .finished_start_job = {
-                        [JOB_DONE]       = NULL, /* handled specially in service_finished_job() */
                         [JOB_FAILED]     = "Failed to start %s.",
                         [JOB_SKIPPED]    = "Skipped %s.",
                 },

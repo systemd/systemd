@@ -798,16 +798,16 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
                 const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
-                format = t == JOB_START ?
-                        formats->finished_start_job[result] :
-                        formats->finished_stop_job[result];
-                if (format)
-                        return format;
                 if (formats->finished_job) {
                         format = formats->finished_job(u, t, result);
                         if (format)
                                 return format;
                 }
+                format = t == JOB_START ?
+                        formats->finished_start_job[result] :
+                        formats->finished_stop_job[result];
+                if (format)
+                        return format;
         }
 
         /* Return generic strings */

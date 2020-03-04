@@ -381,8 +381,8 @@ typedef struct UnitStatusMessageFormats {
         const char *starting_stopping[2];
         const char *finished_start_job[_JOB_RESULT_MAX];
         const char *finished_stop_job[_JOB_RESULT_MAX];
-        /* If an entry in finished_{start,stop}_job is NULL and this field isn't,
-         * it'll be called to provide a context-dependent format string, or NULL to fall back to generic. */
+        /* If this entry is present, it'll be called to provide a context-dependent format string,
+         * or NULL to fall back to finished_{start,stop}_job; if those are NULL too, fall back to generic. */
         const char *(*finished_job)(Unit *u, JobType t, JobResult result);
 } UnitStatusMessageFormats;
 
