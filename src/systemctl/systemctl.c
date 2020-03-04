@@ -785,6 +785,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
+        strv_uniq(deps); /* Sometimes a unit might have multiple deps on the other unit,
+                          * but we still want to show it just once. */
         *ret = TAKE_PTR(deps);
 
         return 0;
