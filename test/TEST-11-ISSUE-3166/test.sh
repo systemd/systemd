@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3166"
 TEST_NO_NSPAWN=1
@@ -41,7 +41,8 @@ EOF
 
 
         cat >$initdir/test-fail-on-restart.sh <<'EOF'
-#!/bin/bash -x
+#!/usr/bin/env bash
+set -x
 
 systemctl start fail-on-restart.service
 active_state=$(systemctl show --property ActiveState fail-on-restart.service)

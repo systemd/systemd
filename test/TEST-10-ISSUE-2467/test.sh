@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2467"
 

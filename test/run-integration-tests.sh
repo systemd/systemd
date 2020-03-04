@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
+set -e
 
 BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
 if [ $# -gt 0 ]; then

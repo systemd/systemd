@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
 # Check if repart is installed, and if it isn't bail out early instead of failing

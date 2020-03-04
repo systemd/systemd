@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="test ExecXYZEx= service unit dbus hookups"
 

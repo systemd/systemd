@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Test PrivateUsers=yes on user manager"
 . $TEST_BASE_DIR/test-functions

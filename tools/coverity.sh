@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # The official unmodified version of the script can be found at
 # https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh
