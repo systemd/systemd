@@ -507,17 +507,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>list-dependencies</command>
-            <optional><replaceable>UNIT</replaceable></optional>
+            <optional><replaceable>UNIT</replaceable>...</optional>
           </term>
 
           <listitem>
             <para>Shows units required and wanted by the specified
-            unit. This recursively lists units following the
+            units. This recursively lists units following the
             <varname>Requires=</varname>,
             <varname>Requisite=</varname>,
             <varname>ConsistsOf=</varname>,
             <varname>Wants=</varname>, <varname>BindsTo=</varname>
-            dependencies. If no unit is specified,
+            dependencies. If no units are specified,
             <filename>default.target</filename> is implied.</para>
 
             <para>By default, only target units are recursively
