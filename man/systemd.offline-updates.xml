@@ -110,7 +110,7 @@
         symlink in the distribution package, rather than depending on <command>systemctl
         enable</command> in the postinst scriptlets of your package. More specifically, for your
         update script create a .service file, without [Install] section, and then add a symlink like
-        <filename index="false">/usr/lib/systemd/system-update.target.wants/foobar.service</filename>
+        <filename index="false">/usr/lib/systemd/system/system-update.target.wants/foobar.service</filename>
         → <filename index="false">../foobar.service</filename> to your package.</para>
       </listitem>
 
