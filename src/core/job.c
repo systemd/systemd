@@ -797,9 +797,15 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
         assert(t < _JOB_TYPE_MAX);
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
+                const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
+                if (formats->finished_job) {
+                        format = formats->finished_job(u, t, result);
+                        if (format)
+                                return format;
+                }
                 format = t == JOB_START ?
-                        UNIT_VTABLE(u)->status_message_formats.finished_start_job[result] :
-                        UNIT_VTABLE(u)->status_message_formats.finished_stop_job[result];
+                        formats->finished_start_job[result] :
+                        formats->finished_stop_job[result];
                 if (format)
                         return format;
         }
