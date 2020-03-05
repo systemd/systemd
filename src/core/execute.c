@@ -3406,8 +3406,7 @@ static int exec_child(
                                    our_env,
                                    pass_env,
                                    context->environment,
-                                   files_env,
-                                   NULL);
+                                   files_env);
         if (!accum_env) {
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
