@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd.resource-control">
+<refentry id="systemd.resource-control" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.resource-control</title>
     <productname>systemd</productname>
@@ -847,9 +847,9 @@ DeviceAllow=/dev/loop-control
           hierarchy. Accordingly, access to the specified controllers will not be granted to unprivileged services on
           the legacy hierarchy, even when requested.</para>
 
-          <para>The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
-          <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
-          <option>pids</option>. Not all of these controllers are available on all kernels however, and some are
+          <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
+
+          <para>Not all of these controllers are available on all kernels however, and some are
           specific to the unified hierarchy while others are specific to the legacy hierarchy. Also note that the
           kernel might support further controllers, which aren't covered here yet as delegation is either not supported
           at all for them or not defined cleanly.</para>
@@ -876,8 +876,7 @@ DeviceAllow=/dev/loop-control
           to disable. Passing <varname>DisableControllers=</varname> by itself with no controller name present resets
           the disabled controller list.</para>
 
-          <para>Valid controllers are <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
-          <option>blkio</option>, <option>memory</option>, <option>devices</option>, and <option>pids</option>.</para>
+          <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
         </listitem>
       </varlistentry>
     </variablelist>
