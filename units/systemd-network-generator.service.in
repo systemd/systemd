@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Generate network units from Kernel command line
+Documentation=man:systemd-network-generator.service(8)
 DefaultDependencies=no
 Before=network-pre.target
 
