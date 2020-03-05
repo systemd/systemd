@@ -678,8 +678,8 @@ static int lookup_block_device(const char *p, dev_t *ret) {
                         return log_warning_errno(r, "Failed to determine block device backing btrfs file system '%s': %m", p);
         }
 
-        /* If this is a LUKS device, try to get the originating block device */
-        (void) block_get_originating(*ret, ret);
+        /* If this is a LUKS/DM device, recursively try to get the originating block device */
+        while (block_get_originating(*ret, ret) > 0);
 
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);
