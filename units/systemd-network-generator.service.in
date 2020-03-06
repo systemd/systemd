@@ -15,6 +15,7 @@ Before=network-pre.target
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-network-generator
 
 [Install]
