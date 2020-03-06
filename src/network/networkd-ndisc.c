@@ -324,16 +324,10 @@ static int ndisc_router_generate_addresses(Link *link, unsigned prefixlen, uint3
 
                 *new_address = *address;
 
-                /* see RFC4291 section 2.5.1 */
-                new_address->in_addr.in6.s6_addr[8]  = link->mac.ether_addr_octet[0];
-                new_address->in_addr.in6.s6_addr[8] ^= 1 << 1;
-                new_address->in_addr.in6.s6_addr[9]  = link->mac.ether_addr_octet[1];
-                new_address->in_addr.in6.s6_addr[10] = link->mac.ether_addr_octet[2];
-                new_address->in_addr.in6.s6_addr[11] = 0xff;
-                new_address->in_addr.in6.s6_addr[12] = 0xfe;
-                new_address->in_addr.in6.s6_addr[13] = link->mac.ether_addr_octet[3];
-                new_address->in_addr.in6.s6_addr[14] = link->mac.ether_addr_octet[4];
-                new_address->in_addr.in6.s6_addr[15] = link->mac.ether_addr_octet[5];
+                r = generate_ipv6_eui_64_address(link, &new_address->in_addr.in6);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to generate EUI64 address: %m");
+
                 new_address->prefixlen = prefixlen;
                 new_address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
                 new_address->cinfo.ifa_prefered = lifetime_preferred;

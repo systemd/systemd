@@ -20,6 +20,24 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret) {
+        assert(link);
+        assert(ret);
+
+        /* see RFC4291 section 2.5.1 */
+        ret->s6_addr[8]  = link->mac.ether_addr_octet[0];
+        ret->s6_addr[8] ^= 1 << 1;
+        ret->s6_addr[9]  = link->mac.ether_addr_octet[1];
+        ret->s6_addr[10] = link->mac.ether_addr_octet[2];
+        ret->s6_addr[11] = 0xff;
+        ret->s6_addr[12] = 0xfe;
+        ret->s6_addr[13] = link->mac.ether_addr_octet[3];
+        ret->s6_addr[14] = link->mac.ether_addr_octet[4];
+        ret->s6_addr[15] = link->mac.ether_addr_octet[5];
+
+        return 0;
+}
+
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 

@@ -3591,9 +3591,14 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
-        output = check_output('ip', '-6', 'route', 'show', 'dev', 'veth-peer')
+        output = check_output('ip -6 route show dev veth-peer')
         print(output)
         self.assertRegex(output, '2001:db8:0:1::/64 proto ra')
+
+        output = check_output('ip addr show dev veth99')
+        print(output)
+        self.assertNotRegex(output, '2001:db8:0:1')
+        self.assertRegex(output, '2001:db8:0:2')
 
 class NetworkdMTUTests(unittest.TestCase, Utilities):
     links = ['dummy98']

@@ -1222,6 +1222,7 @@ static int link_set_bridge_fdb(Link *link) {
 static int link_request_set_addresses(Link *link) {
         AddressLabel *label;
         Address *ad;
+        Prefix *p;
         int r;
 
         assert(link);
@@ -1256,6 +1257,35 @@ static int link_request_set_addresses(Link *link) {
                 if (r > 0)
                         link->address_messages++;
         }
+
+        if (IN_SET(link->network->router_prefix_delegation,
+                   RADV_PREFIX_DELEGATION_STATIC,
+                   RADV_PREFIX_DELEGATION_BOTH))
+                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+                        _cleanup_(address_freep) Address *address = NULL;
+
+                        if (!p->assign)
+                                continue;
+
+                        r = address_new(&address);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not allocate address: %m");
+
+                        r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+                        if (r < 0)
+                                return r;
+
+                        address->family = AF_INET6;
+                        r = address_configure(address, link, address_handler, true);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set addresses: %m");
+                        if (r > 0)
+                                link->address_messages++;
+                }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
                 r = address_label_configure(label, link, NULL, false);
