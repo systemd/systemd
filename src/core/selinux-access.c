@@ -143,16 +143,16 @@ static int access_init(sd_bus_error *error) {
                 return 1;
 
         if (avc_open(NULL, 0) != 0) {
-                int enforce, saved_errno = errno;
+                int saved_errno = errno;
+                const bool enforce = mac_selinux_enforcing();
 
-                enforce = security_getenforce();
-                log_full_errno(enforce != 0 ? LOG_ERR : LOG_WARNING, saved_errno, "Failed to open the SELinux AVC: %m");
+                log_full_errno(enforce ? LOG_ERR : LOG_WARNING, saved_errno, "Failed to open the SELinux AVC: %m");
 
                 /* If enforcement isn't on, then let's suppress this
                  * error, and just don't do any AVC checks. The
                  * warning we printed is hence all the admin will
                  * see. */
-                if (enforce == 0)
+                if (!enforce)
                         return 0;
 
                 /* Return an access denied error, if we couldn't load
@@ -185,7 +185,7 @@ int mac_selinux_generic_access_check(
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
-        bool enforce = false; /* Will be set to the real value later if needed */
+        const bool enforce = mac_selinux_enforcing();
         int r = 0;
 
         assert(message);
@@ -223,7 +223,6 @@ int mac_selinux_generic_access_check(
 
                 if (getfilecon_raw(path, &fcon) < 0) {
                         r = -errno;
-                        enforce = security_getenforce() > 0;
 
                         log_warning_errno(r, "SELinux getfilecon_raw on '%s' failed%s (perm=%s): %m",
                                           path,
@@ -240,7 +239,6 @@ int mac_selinux_generic_access_check(
         } else {
                 if (getcon_raw(&fcon) < 0) {
                         r = -errno;
-                        enforce = security_getenforce() > 0;
 
                         log_warning_errno(r, "SELinux getcon_raw failed%s (perm=%s): %m",
                                           enforce ? "" : ", ignoring",
@@ -266,7 +264,6 @@ int mac_selinux_generic_access_check(
         r = selinux_check_access(scon, fcon, tclass, permission, &audit_info);
         if (r < 0) {
                 r = errno_or_else(EPERM);
-                enforce = security_getenforce() > 0;
 
                 if (enforce)
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
