@@ -2348,7 +2348,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2412,7 +2414,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2490,6 +2494,38 @@
   </refsect1>
 
   <refsect1>
+    <title>[StochasticFairBlue] Section Options</title>
+    <para>The <literal>[StochasticFairBlue]</literal> section manages the queueing discipline
+    (qdisc) of stochastic fair blue (sfb).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
+          dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[StochasticFairnessQueueing] Section Options</title>
     <para>The <literal>[StochasticFairnessQueueing]</literal> section manages the queueing discipline
     (qdisc) of stochastic fairness queueing (sfq).</para>
@@ -2499,7 +2535,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2521,6 +2559,82 @@
   </refsect1>
 
   <refsect1>
+    <title>[PFIFO] Section Options</title>
+    <para>The <literal>[PFIFO]</literal> section manages the queueing discipline (qdisc) of
+    Packet First In First Out (pfifo).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the FIFO size in number of packets. The size limit (a buffer size) to prevent it
+          from overflowing in case it is unable to dequeue packets as quickly as it receives them. When this limit is reached,
+          incoming packets are dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[CAKE] Section Options</title>
+    <para>The <literal>[CAKE]</literal> section manages the queueing discipline (qdisc) of
+    Common Applications Kept Enhanced (CAKE).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+       <varlistentry>
+        <term><varname>Overhead=</varname></term>
+        <listitem>
+          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
+          Takes an integer ranges -64 to 256. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Bandwidth=</varname></term>
+        <listitem>
+          <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
+          parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[ControlledDelay] Section Options</title>
     <para>The <literal>[ControlledDelay]</literal> section manages the queueing discipline (qdisc) of
     controlled delay (CoDel).</para>
@@ -2530,7 +2644,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2585,6 +2701,53 @@
   </refsect1>
 
   <refsect1>
+    <title>[GenericRandomEarlyDetection] Section Options</title>
+    <para>The <literal>[GenericRandomEarlyDetection]</literal> section manages the queueing discipline
+    (qdisc) of Generic Random Early Detection (GRED).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VirtualQueues=</varname></term>
+        <listitem>
+          <para>Specifies the number of virtual queues. Takes a integer in the range 1-16. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultVirtualQueue=</varname></term>
+        <listitem>
+          <para>Specifies the number of default virtual queue. This must be less than <varname>VirtualQueue=</varname>.
+          Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>GenericRIO=</varname></term>
+        <listitem>
+          <para>Takes a boolean. It turns on the RIO-like buffering scheme. Defaults to
+          unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[FairQueueingControlledDelay] Section Options</title>
     <para>The <literal>[FairQueueingControlledDelay]</literal> section manages the queueing discipline
     (qdisc) of fair queuing controlled delay (FQ-CoDel).</para>
@@ -2594,7 +2757,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2684,7 +2849,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2786,7 +2953,9 @@
         <term><varname>Parent=</varname></term>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -2807,6 +2976,94 @@
           <command>systemd-networkd</command> is started.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[HierarchyTokenBucket] Section Options</title>
+    <para>The <literal>[HierarchyTokenBucket]</literal> section manages the queueing discipline (qdisc) of
+    hierarchy token bucket (htb).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
+          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
+          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultClass=</varname></term>
+        <listitem>
+          <para>Takes the minor id in hexadecimal of the default class. Unclassified traffic gets sent
+          to the class. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[HierarchyTokenBucketClass] Section Options</title>
+    <para>The <literal>[HierarchyTokenBucketClass]</literal> section manages the traffic control class of
+    hierarchy token bucket (htb).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          or a qdisc id. The qdisc id takes the major and minor number in hexadecimal ranges 1 to ffff
+          separated with a colon (<literal>major:minor</literal>). Defaults to <literal>root</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ClassId=</varname></term>
+        <listitem>
+          <para>Specifies the major and minur number of unique identifier of the class, known as the
+          class ID. Each number is in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>Specifies the priority of the class. In the round-robin process, classes with the lowest
+          priority field are tried for packets first. This setting is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Rate=</varname></term>
+        <listitem>
+          <para>Specifies the maximum rate this class and all its children are guaranteed. When suffixed
+          with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits, respectively,
+          to the base of 1000. This setting is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CeilRate=</varname></term>
+        <listitem>
+          <para>Specifies the maximum rate at which a class can send, if its parent has bandwidth to spare.
+          When suffixed with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits,
+          respectively, to the base of 1000. When unset, the value specified with <varname>Rate=</varname>
+          is used.</para>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

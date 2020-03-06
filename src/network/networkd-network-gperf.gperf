@@ -14,6 +14,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "qdisc.h"
+#include "tclass.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -256,6 +257,10 @@ CAN.RestartSec,                              config_parse_sec,                  
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
+CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
+CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
+CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
+CAKE.Overhead,                               config_parse_cake_overhead,                               QDISC_KIND_CAKE,               0
 ControlledDelay.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_CODEL,              0
 ControlledDelay.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_CODEL,              0
 ControlledDelay.PacketLimit,                 config_parse_controlled_delay_u32,                        QDISC_KIND_CODEL,              0
@@ -263,6 +268,9 @@ ControlledDelay.TargetSec,                   config_parse_controlled_delay_usec,
 ControlledDelay.IntervalSec,                 config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
+PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
+PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
+PFIFO.PacketLimit,                           config_parse_fifo_size,                                   QDISC_KIND_PFIFO,              0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
@@ -284,6 +292,19 @@ FairQueueingControlledDelay.TargetSec,       config_parse_fair_queueing_controll
 FairQueueingControlledDelay.IntervalSec,     config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.CEThresholdSec,  config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
 FairQueueingControlledDelay.ECN,             config_parse_fair_queueing_controlled_delay_bool,         QDISC_KIND_FQ_CODEL,           0
+GenericRandomEarlyDetection.Parent,          config_parse_qdisc_parent,                                QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.Handle,          config_parse_qdisc_handle,                                QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.VirtualQueues,   config_parse_generic_random_early_detection_u32,          QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_generic_random_early_detection_u32,      QDISC_KIND_GRED,               0
+GenericRandomEarlyDetection.GenericRIO,      config_parse_generic_random_early_detection_bool,         QDISC_KIND_GRED,               0
+HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
+HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
+HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0
+HierarchyTokenBucketClass.Parent,            config_parse_tclass_parent,                               TCLASS_KIND_HTB,               0
+HierarchyTokenBucketClass.ClassId,           config_parse_tclass_classid,                              TCLASS_KIND_HTB,               0
+HierarchyTokenBucketClass.Priority,          config_parse_hierarchy_token_bucket_u32,                  TCLASS_KIND_HTB,               0
+HierarchyTokenBucketClass.Rate,              config_parse_hierarchy_token_bucket_rate,                 TCLASS_KIND_HTB,               0
+HierarchyTokenBucketClass.CeilRate,          config_parse_hierarchy_token_bucket_rate,                 TCLASS_KIND_HTB,               0
 NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
 NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
@@ -291,6 +312,9 @@ NetworkEmulator.DelayJitterSec,              config_parse_network_emulator_delay
 NetworkEmulator.LossRate,                    config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
+StochasticFairBlue.Parent,                   config_parse_qdisc_parent,                                QDISC_KIND_SFB,                0
+StochasticFairBlue.Handle,                   config_parse_qdisc_handle,                                QDISC_KIND_SFB,                0
+StochasticFairBlue.PacketLimit,              config_parse_stochastic_fair_blue_u32,                    QDISC_KIND_SFB,                0
 StochasticFairnessQueueing.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_SFQ,                0
 StochasticFairnessQueueing.PerturbPeriodSec, config_parse_stochastic_fairness_queueing_perturb_period, QDISC_KIND_SFQ,                0

@@ -34,7 +34,6 @@
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wifi.h"
-#include "qdisc.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -42,6 +41,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "tc.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "util.h"
@@ -1116,7 +1116,7 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (!link->qdiscs_configured)
+        if (!link->tc_configured)
                 return;
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
@@ -2743,24 +2743,24 @@ static int link_configure_ipv4_dad(Link *link) {
         return 0;
 }
 
-static int link_configure_qdiscs(Link *link) {
-        QDisc *qdisc;
+static int link_configure_traffic_control(Link *link) {
+        TrafficControl *tc;
         Iterator i;
         int r;
 
-        link->qdiscs_configured = false;
-        link->qdisc_messages = 0;
+        link->tc_configured = false;
+        link->tc_messages = 0;
 
-        ORDERED_HASHMAP_FOREACH(qdisc, link->network->qdiscs_by_section, i) {
-                r = qdisc_configure(link, qdisc);
+        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section, i) {
+                r = traffic_control_configure(link, tc);
                 if (r < 0)
                         return r;
         }
 
-        if (link->qdisc_messages == 0)
-                link->qdiscs_configured = true;
+        if (link->tc_messages == 0)
+                link->tc_configured = true;
         else
-                log_link_debug(link, "Configuring queuing discipline (qdisc)");
+                log_link_debug(link, "Configuring traffic control");
 
         return 0;
 }
@@ -2772,7 +2772,7 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        r = link_configure_qdiscs(link);
+        r = link_configure_traffic_control(link);
         if (r < 0)
                 return r;
 

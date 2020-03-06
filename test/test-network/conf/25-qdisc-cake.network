@@ -5,7 +5,8 @@ Name=dummy98
 IPv6AcceptRA=no
 Address=10.1.2.3/16
 
-[TrivialLinkEqualizer]
+[CAKE]
 Parent=root
-Handle=0002
-Id=1
+Handle=3a
+Overhead=128
+Bandwidth=500M

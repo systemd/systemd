@@ -6,12 +6,18 @@
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
+#include "tc.h"
 
 typedef enum QDiscKind {
+        QDISC_KIND_CAKE,
         QDISC_KIND_CODEL,
         QDISC_KIND_FQ,
         QDISC_KIND_FQ_CODEL,
+        QDISC_KIND_GRED,
+        QDISC_KIND_HTB,
         QDISC_KIND_NETEM,
+        QDISC_KIND_PFIFO,
+        QDISC_KIND_SFB,
         QDISC_KIND_SFQ,
         QDISC_KIND_TBF,
         QDISC_KIND_TEQL,
@@ -20,6 +26,8 @@ typedef enum QDiscKind {
 } QDiscKind;
 
 typedef struct QDisc {
+        TrafficControl meta;
+
         NetworkConfigSection *section;
         Network *network;
 
@@ -65,13 +73,20 @@ int qdisc_section_verify(QDisc *qdisc, bool *has_root, bool *has_clsact);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(QDisc, qdisc_free);
 
+DEFINE_TC_CAST(QDISC, QDisc);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 
+#include "cake.h"
 #include "codel.h"
+#include "fifo.h"
 #include "fq-codel.h"
 #include "fq.h"
+#include "gred.h"
+#include "htb.h"
 #include "netem.h"
+#include "sfb.h"
 #include "sfq.h"
 #include "tbf.h"
 #include "teql.h"

@@ -22,6 +22,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tc.h"
 #include "util.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */
@@ -154,7 +155,7 @@ int network_verify(Network *network) {
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
-        QDisc *qdisc;
+        TrafficControl *tc;
         Iterator i;
 
         assert(network);
@@ -316,9 +317,9 @@ int network_verify(Network *network) {
                         routing_policy_rule_free(rule);
 
         bool has_root = false, has_clsact = false;
-        ORDERED_HASHMAP_FOREACH(qdisc, network->qdiscs_by_section, i)
-                if (qdisc_section_verify(qdisc, &has_root, &has_clsact) < 0)
-                        qdisc_free(qdisc);
+        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section, i)
+                if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
+                        traffic_control_free(tc);
 
         return 0;
 }
@@ -484,10 +485,16 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "TrafficControlQueueingDiscipline\0"
                               "CAN\0"
                               "QDisc\0"
+                              "CAKE\0"
                               "ControlledDelay\0"
+                              "PFIFO\0"
                               "FairQueueing\0"
                               "FairQueueingControlledDelay\0"
+                              "GenericRandomEarlyDetection\0"
+                              "HierarchyTokenBucket\0"
+                              "HierarchyTokenBucketClass\0"
                               "NetworkEmulator\0"
+                              "StochasticFairBlue\0"
                               "StochasticFairnessQueueing\0"
                               "TokenBucketFilter\0"
                               "TrivialLinkEqualizer\0",
@@ -691,7 +698,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        ordered_hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
+        ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
         if (network->manager &&
             network->manager->duids_requesting_uuid)

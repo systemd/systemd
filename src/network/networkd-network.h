@@ -30,7 +30,6 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
-#include "qdisc.h"
 #include "resolve-util.h"
 
 typedef enum IPv6PrivacyExtensions {
@@ -276,7 +275,7 @@ struct Network {
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
-        OrderedHashmap *qdiscs_by_section;
+        OrderedHashmap *tc_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;

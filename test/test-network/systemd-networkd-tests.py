@@ -157,6 +157,18 @@ def expectedFailureIfAlternativeNameIsNotAvailable():
 
     return f
 
+def expectedFailureIfCAKEIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root cake', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1621,13 +1633,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-neighbor-ip-dummy.network',
         '25-neighbor-ip.network',
         '25-nexthop.network',
-        '25-qdisc-clsact-root-compat.network',
-        '25-qdisc-fq-codel.network',
+        '25-qdisc-cake.network',
+        '25-qdisc-clsact-and-htb.network',
         '25-qdisc-ingress-netem-compat.network',
-        '25-qdisc-ingress-root.network',
-        '25-qdisc-netem-and-fqcodel.network',
-        '25-qdisc-tbf-and-sfq.network',
-        '25-qdisc-teql.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -2254,71 +2262,85 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.1')
 
     def test_qdisc(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-netem-and-fqcodel.network', '12-dummy.netdev',
-                                        '25-qdisc-tbf-and-sfq.network', '11-dummy.netdev')
-        start_networkd()
-
-        self.wait_online(['dummy98:routable', 'test1:routable'])
-
-        output = check_output('tc qdisc show dev dummy98')
-        print(output)
-        self.assertRegex(output, 'qdisc netem 1f:')
-        self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
-        self.assertRegex(output, 'qdisc fq_codel')
-        self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10.0ms ce_threshold 100.0ms interval 200.0ms memory_limit 64Mb ecn')
-        output = check_output('tc qdisc show dev test1')
-        print(output)
-        self.assertRegex(output, 'qdisc tbf 3f:')
-        self.assertRegex(output, 'rate 1Gbit burst 5000b peakrate 100Gbit minburst 987500b lat 70.0ms')
-        self.assertRegex(output, 'qdisc sfq')
-        self.assertRegex(output, 'perturb 5sec')
-
-    def test_qdisc2(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-fq-codel.network', '12-dummy.netdev',
-                                        '25-qdisc-ingress-root.network', '11-dummy.netdev')
-        start_networkd()
-
-        self.wait_online(['dummy98:routable', 'test1:routable'])
-
-        output = check_output('tc qdisc show dev dummy98')
-        print(output)
-        self.assertRegex(output, 'qdisc fq 3:')
-        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
-        self.assertRegex(output, 'quantum 1500')
-        self.assertRegex(output, 'initial_quantum 13000')
-        self.assertRegex(output, 'maxrate 1Mbit')
-        self.assertRegex(output, 'qdisc codel')
-        self.assertRegex(output, 'limit 2000p target 10.0ms ce_threshold 100.0ms interval 50.0ms ecn')
-        output = check_output('tc qdisc show dev test1')
-        print(output)
-        self.assertRegex(output, 'qdisc ingress')
-
-    def test_qdisc3(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-clsact-root-compat.network', '12-dummy.netdev',
+        copy_unit_to_networkd_unit_path('25-qdisc-clsact-and-htb.network', '12-dummy.netdev',
                                         '25-qdisc-ingress-netem-compat.network', '11-dummy.netdev')
+        check_output('modprobe sch_teql max_equalizers=2')
         start_networkd()
 
         self.wait_online(['dummy98:routable', 'test1:routable'])
 
-        output = check_output('tc qdisc show dev dummy98')
-        print(output)
-        self.assertRegex(output, 'qdisc clsact')
         output = check_output('tc qdisc show dev test1')
         print(output)
         self.assertRegex(output, 'qdisc netem')
         self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
         self.assertRegex(output, 'qdisc ingress')
 
-    def test_qdisc4(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-teql.network', '12-dummy.netdev')
-        check_output('modprobe sch_teql max_equalizers=2')
-        start_networkd()
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc clsact')
 
+        self.assertRegex(output, 'qdisc htb 2: root')
+        self.assertRegex(output, r'default (0x30|30)')
+
+        self.assertRegex(output, 'qdisc netem 30: parent 2:30')
+        self.assertRegex(output, 'limit 100 delay 50.0ms  10.0ms loss 20%')
+        self.assertRegex(output, 'qdisc fq_codel')
+        self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10.0ms ce_threshold 100.0ms interval 200.0ms memory_limit 64Mb ecn')
+
+        self.assertRegex(output, 'qdisc teql1 31: parent 2:31')
+
+        self.assertRegex(output, 'qdisc fq 32: parent 2:32')
+        self.assertRegex(output, 'limit 1000p flow_limit 200p buckets 512 orphan_mask 511')
+        self.assertRegex(output, 'quantum 1500')
+        self.assertRegex(output, 'initial_quantum 13000')
+        self.assertRegex(output, 'maxrate 1Mbit')
+
+        self.assertRegex(output, 'qdisc codel 33: parent 2:33')
+        self.assertRegex(output, 'limit 2000p target 10.0ms ce_threshold 100.0ms interval 50.0ms ecn')
+
+        self.assertRegex(output, 'qdisc fq_codel 34: parent 2:34')
+        self.assertRegex(output, 'limit 20480p flows 2048 quantum 1400 target 10.0ms ce_threshold 100.0ms interval 200.0ms memory_limit 64Mb ecn')
+
+        self.assertRegex(output, 'qdisc tbf 35: parent 2:35')
+        self.assertRegex(output, 'rate 1Gbit burst 5000b peakrate 100Gbit minburst 987500b lat 70.0ms')
+
+        self.assertRegex(output, 'qdisc sfq 36: parent 2:36')
+        self.assertRegex(output, 'perturb 5sec')
+
+        self.assertRegex(output, 'qdisc pfifo 37: parent 2:37')
+        self.assertRegex(output, 'limit 100000p')
+
+        self.assertRegex(output, 'qdisc gred 38: parent 2:38')
+        self.assertRegex(output, 'vqs 12 default 10 grio')
+
+        self.assertRegex(output, 'qdisc sfb 39: parent 2:39')
+        self.assertRegex(output, 'limit 200000')
+
+        output = check_output('tc class show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'class htb 2:30 root leaf 30:')
+        self.assertRegex(output, 'class htb 2:31 root leaf 31:')
+        self.assertRegex(output, 'class htb 2:32 root leaf 32:')
+        self.assertRegex(output, 'class htb 2:33 root leaf 33:')
+        self.assertRegex(output, 'class htb 2:34 root leaf 34:')
+        self.assertRegex(output, 'class htb 2:35 root leaf 35:')
+        self.assertRegex(output, 'class htb 2:36 root leaf 36:')
+        self.assertRegex(output, 'class htb 2:37 root leaf 37:')
+        self.assertRegex(output, 'class htb 2:38 root leaf 38:')
+        self.assertRegex(output, 'class htb 2:39 root leaf 39:')
+        self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
+
+    @expectedFailureIfCAKEIsNotAvailable()
+    def test_qdisc_cake(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-cake.network', '12-dummy.netdev')
+        start_networkd()
         self.wait_online(['dummy98:routable'])
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
-        self.assertRegex(output, 'qdisc teql1 2:')
+        self.assertRegex(output, 'qdisc cake 3a: root')
+        self.assertRegex(output, 'bandwidth 500Mbit')
+        self.assertRegex(output, 'overhead 128')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [

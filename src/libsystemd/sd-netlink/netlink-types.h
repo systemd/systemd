@@ -9,6 +9,10 @@ enum {
         NETLINK_TYPE_U16,                       /* NLA_U16 */
         NETLINK_TYPE_U32,                       /* NLA_U32 */
         NETLINK_TYPE_U64,                       /* NLA_U64 */
+        NETLINK_TYPE_S8,                        /* NLA_S8 */
+        NETLINK_TYPE_S16,                       /* NLA_S16 */
+        NETLINK_TYPE_S32,                       /* NLA_S32 */
+        NETLINK_TYPE_S64,                       /* NLA_S64 */
         NETLINK_TYPE_STRING,                    /* NLA_STRING */
         NETLINK_TYPE_FLAG,                      /* NLA_FLAG */
         NETLINK_TYPE_IN_ADDR,
@@ -92,9 +96,13 @@ const char *nl_union_link_info_data_to_string(NLUnionLinkInfoData p) _const_;
 NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
 
 typedef enum NLUnionTCAOptionData {
+        NL_UNION_TCA_OPTION_DATA_CAKE,
         NL_UNION_TCA_OPTION_DATA_CODEL,
         NL_UNION_TCA_OPTION_DATA_FQ,
         NL_UNION_TCA_OPTION_DATA_FQ_CODEL,
+        NL_UNION_TCA_OPTION_DATA_GRED,
+        NL_UNION_TCA_OPTION_DATA_HTB,
+        NL_UNION_TCA_OPTION_DATA_SFB,
         NL_UNION_TCA_OPTION_DATA_TBF,
         _NL_UNION_TCA_OPTION_DATA_MAX,
         _NL_UNION_TCA_OPTION_DATA_INVALID = -1,
