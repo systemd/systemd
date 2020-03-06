@@ -14,7 +14,7 @@ pairs, encoded as JSON. Specifically:
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images (see [Home
-   Directories](https://systemd.io/HOME_DIRECTORY)) for details.
+   Directories](https://systemd.io/HOME_DIRECTORY) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
