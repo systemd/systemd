@@ -541,7 +541,7 @@ below). It's undefined how precise the URI is: during log-in it is tested
 against all plugged in security tokens and if there's exactly one matching
 private key found with it it is used.
 
-`privileged` → An object, which contains the fields of he `privileged` section
+`privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
 `perMachine` → An array of objects, which contain the `perMachine` section of
