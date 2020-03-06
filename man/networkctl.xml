@@ -269,6 +269,14 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
       <varlistentry>
         <term>
+          <command>forcerenew</command>
+        </term>
+        <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
+        Takes interface name or index number.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
           <command>reconfigure</command>
         </term>
         <listitem><para>Reconfigure network interfaces. Takes interface name or index number.</para></listitem>

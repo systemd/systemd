@@ -191,6 +191,10 @@ static int bus_method_renew_link(sd_bus_message *message, void *userdata, sd_bus
         return call_link_method(userdata, message, bus_link_method_renew, error);
 }
 
+static int bus_method_force_renew_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_force_renew, error);
+}
+
 static int bus_method_reconfigure_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_reconfigure, error);
 }
@@ -249,6 +253,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RevertLinkNTP", "i", NULL, bus_method_revert_link_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertLinkDNS", "i", NULL, bus_method_revert_link_dns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RenewLink", "i", NULL, bus_method_renew_link, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ForceRenewLink", "i", NULL, bus_method_force_renew_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReconfigureLink", "i", NULL, bus_method_reconfigure_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reload", NULL, NULL, bus_method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
 
