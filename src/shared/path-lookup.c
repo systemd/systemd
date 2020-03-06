@@ -479,6 +479,36 @@ static int patch_root_prefix_strv(char **l, const char *root_dir) {
         return 0;
 }
 
+static int get_paths_from_environ(const char *var, char ***paths, bool *append) {
+        const char *e;
+        int r;
+
+        assert(var);
+        assert(paths);
+        assert(append);
+
+        *append = false;
+
+        e = getenv(var);
+        if (e) {
+                const char *k;
+
+                k = endswith(e, ":");
+                if (k) {
+                        e = strndupa(e, k - e);
+                        *append = true;
+                }
+
+                /* FIXME: empty components in other places should be rejected. */
+
+                r = path_split_and_make_absolute(e, paths);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int lookup_paths_init(
                 LookupPaths *p,
                 UnitFileScope scope,
@@ -496,7 +526,6 @@ int lookup_paths_init(
                 *persistent_attached = NULL, *runtime_attached = NULL;
         bool append = false; /* Add items from SYSTEMD_UNIT_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
-        const char *e;
         int r;
 
         assert(p);
@@ -562,22 +591,9 @@ int lookup_paths_init(
                 return r;
 
         /* First priority is whatever has been passed to us via env vars */
-        e = getenv("SYSTEMD_UNIT_PATH");
-        if (e) {
-                const char *k;
-
-                k = endswith(e, ":");
-                if (k) {
-                        e = strndupa(e, k - e);
-                        append = true;
-                }
-
-                /* FIXME: empty components in other places should be rejected. */
-
-                r = path_split_and_make_absolute(e, &paths);
-                if (r < 0)
-                        return r;
-        }
+        r = get_paths_from_environ("SYSTEMD_UNIT_PATH", &paths, &append);
+        if (r < 0)
+                return r;
 
         if (!paths || append) {
                 /* Let's figure something out. */
@@ -817,23 +833,90 @@ void lookup_paths_flush_generator(LookupPaths *p) {
 }
 
 char **generator_binary_paths(UnitFileScope scope) {
+        bool append = false; /* Add items from SYSTEMD_GENERATOR_PATH before normal directories */
+        _cleanup_strv_free_ char **paths = NULL;
+        int r;
 
-        switch (scope) {
+        /* First priority is whatever has been passed to us via env vars */
+        r = get_paths_from_environ("SYSTEMD_GENERATOR_PATH", &paths, &append);
+        if (r < 0)
+                return NULL;
 
-        case UNIT_FILE_SYSTEM:
-                return strv_new("/run/systemd/system-generators",
-                                "/etc/systemd/system-generators",
-                                "/usr/local/lib/systemd/system-generators",
-                                SYSTEM_GENERATOR_PATH);
+        if (!paths || append) {
+                _cleanup_strv_free_ char **add = NULL;
 
-        case UNIT_FILE_GLOBAL:
-        case UNIT_FILE_USER:
-                return strv_new("/run/systemd/user-generators",
-                                "/etc/systemd/user-generators",
-                                "/usr/local/lib/systemd/user-generators",
-                                USER_GENERATOR_PATH);
+                switch (scope) {
 
-        default:
-                assert_not_reached("Hmm, unexpected scope.");
+                case UNIT_FILE_SYSTEM:
+                        add = strv_new("/run/systemd/system-generators",
+                                       "/etc/systemd/system-generators",
+                                       "/usr/local/lib/systemd/system-generators",
+                                       SYSTEM_GENERATOR_PATH);
+                        break;
+
+                case UNIT_FILE_GLOBAL:
+                case UNIT_FILE_USER:
+                        add = strv_new("/run/systemd/user-generators",
+                                       "/etc/systemd/user-generators",
+                                       "/usr/local/lib/systemd/user-generators",
+                                       USER_GENERATOR_PATH);
+                        break;
+
+                default:
+                        assert_not_reached("Hmm, unexpected scope.");
+                }
+
+                if (!add)
+                        return NULL;
+
+                if (paths) {
+                        r = strv_extend_strv(&paths, add, true);
+                        if (r < 0)
+                                return NULL;
+                } else
+                        /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
+                         * and don't have to copy anything */
+                        paths = TAKE_PTR(add);
         }
+
+        return TAKE_PTR(paths);
+}
+
+char **env_generator_binary_paths(bool is_system) {
+        bool append = false; /* Add items from SYSTEMD_ENVIRONMENT_GENERATOR_PATH before normal directories */
+        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_strv_free_ char **add = NULL;
+        int r;
+
+        /* First priority is whatever has been passed to us via env vars */
+        r = get_paths_from_environ("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", &paths, &append);
+        if (r < 0)
+                return NULL;
+
+        if (!paths || append) {
+                if (is_system)
+                        add = strv_new("/run/systemd/system-environment-generators",
+                                        "/etc/systemd/system-environment-generators",
+                                        "/usr/local/lib/systemd/system-environment-generators",
+                                        SYSTEM_ENV_GENERATOR_PATH);
+                else
+                        add = strv_new("/run/systemd/user-environment-generators",
+                                       "/etc/systemd/user-environment-generators",
+                                       "/usr/local/lib/systemd/user-environment-generators",
+                                       USER_ENV_GENERATOR_PATH);
+
+                if (!add)
+                        return NULL;
+        }
+
+        if (paths) {
+                r = strv_extend_strv(&paths, add, true);
+                if (r < 0)
+                        return NULL;
+        } else
+                /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
+                 * and don't have to copy anything */
+                paths = TAKE_PTR(add);
+
+        return TAKE_PTR(paths);
 }
