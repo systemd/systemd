@@ -220,7 +220,7 @@ emergency.service    |              |              |
     so no filesystems can be mounted before the check is complete.
 
     When the root device becomes available,
-    <filename>initd-root-device.target</filename> is reached.
+    <filename>initrd-root-device.target</filename> is reached.
     If the root device can be mounted at
     <filename>/sysroot</filename>, the
     <filename>sysroot.mount</filename> unit becomes active and
