@@ -307,7 +307,7 @@ CHANGES WITH 245:
         Chornoivan, Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek, Zeyu
         DONG
 
-        – Warsaw, 2020-02-05
+        – Warsaw, 2020-03-06
 
 CHANGES WITH 244:
 
@@ -984,32 +984,33 @@ CHANGES WITH 243:
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Albrecht
         Lohofener, Andrej Valek, Anita Zhang, Arian van Putten, Balint Reczey,
         Bastien Nocera, Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris
-        Chiu, Chris Down, Christian Kellner, Clinton Roy, Connor Reeder, Daniel
-        Black, Daniele Medri, Dan Streetman, Dave Reisner, Dave Ross, David
-        Art, David Tardon, Debarshi Ray, Dimitri John Ledkov, Dominick Grift,
-        Donald Buczek, Douglas Christman, Eric DeVolder, EtherGraf, Evgeny
-        Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Francesco
-        Pennica, Franck Bui, Frantisek Sumsal, Franz Pletz, frederik, Hans
-        de Goede, Iago López Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer,
-        Jack, Jakob Unterwurzacher, Jan Chren, Jan Klötzke, Jan Losinski, Jan
-        Pokorný, Jan Synacek, Jan-Michael Brummer, Jeka Pats, Jeremy Soller,
-        Jérémy Rosen, Jiri Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann
-        B. Guðmundsson, Johannes Christ, Johannes Schmitz, Jonathan Rouleau,
-        Jorge Niedbalski, Kai Krakow, Kai Lüke, Karel Zak, Kashyap Chamarthy,
+        Chiu, Chris Down, Christian Göttsche, Christian Kellner, Clinton Roy,
+        Connor Reeder, Daniel Black, Daniel Lublin, Daniele Medri, Dan
+        Streetman, Dave Reisner, Dave Ross, David Art, David Tardon, Debarshi
+        Ray, Dimitri John Ledkov, Dominick Grift, Donald Buczek, Douglas
+        Christman, Eric DeVolder, EtherGraf, Evgeny Vereshchagin, Feldwor,
+        Felix Riemann, Florian Dollinger, Francesco Pennica, Franck Bui,
+        Frantisek Sumsal, Franz Pletz, frederik, Hans de Goede, Iago López
+        Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob
+        Unterwurzacher, Jan Chren, Jan Klötzke, Jan Losinski, Jan Pokorný, Jan
+        Synacek, Jan-Michael Brummer, Jeka Pats, Jeremy Soller, Jérémy Rosen,
+        Jiri Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
+        Johannes Christ, Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski,
+        Jörg Thalheim, Kai Krakow, Kai Lüke, Karel Zak, Kashyap Chamarthy,
         Krayushkin Konstantin, Lennart Poettering, Lubomir Rintel, Luca
         Boccassi, Luís Ferreira, Marc-André Lureau, Markus Felten, Martin Pitt,
         Matthew Leeds, Mattias Jernberg, Michael Biebl, Michael Olbrich,
         Michael Prokop, Michael Stapelberg, Michael Zhivich, Michal Koutný,
         Michal Sekletar, Mike Gilbert, Milan Broz, Miroslav Lichvar, mpe85,
         Mr-Foo, Network Silence, Oliver Harley, pan93412, Paul Menzel, pEJipE,
-        Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle, Roberto
-        Santalla, Ronan Pigott, root, RussianNeuroMancer, Sebastian Jennen,
-        shinygold, Shreyas Behera, Simon Schricker, Susant Sahani, Thadeu Lima
-        de Souza Cascardo, Theo Ouzhinski, Thiebaud Weksteen, Thomas Haller,
-        Thomas Weißschuh, Tomas Mraz, Tommi Rantala, Topi Miettinen, VD-Lycos,
-        ven, Wieland Hoffmann, William A. Kennington III, William Wold, Xi
-        Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
-        Jędrzejewski-Szmek, Zhang Xianwei
+        Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle, Robert
+        Scheck, Roberto Santalla, Ronan Pigott, root, RussianNeuroMancer,
+        Sebastian Jennen, shinygold, Shreyas Behera, Simon Schricker, Susant
+        Sahani, Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thiebaud
+        Weksteen, Thomas Haller, Thomas Weißschuh, Tomas Mraz, Tommi Rantala,
+        Topi Miettinen, VD-Lycos, ven, Vladimir Yerilov, Wieland Hoffmann,
+        William A. Kennington III, William Wold, Xi Ruoyao, Yuri Chornoivan,
+        Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek, Zhang Xianwei
 
         – Camerino, 2019-09-03
 
