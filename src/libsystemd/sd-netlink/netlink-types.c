@@ -316,6 +316,7 @@ static const NLType rtnl_link_info_data_can_types[] = {
         [IFLA_CAN_BITTIMING]            = { .size = sizeof(struct can_bittiming) },
         [IFLA_CAN_RESTART_MS]           = { .type = NETLINK_TYPE_U32 },
         [IFLA_CAN_CTRLMODE]             = { .size = sizeof(struct can_ctrlmode) },
+        [IFLA_CAN_TERMINATION]          = { .type = NETLINK_TYPE_U16 },
 };
 
 static const NLType rtnl_link_info_data_macsec_types[] = {

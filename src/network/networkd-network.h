@@ -199,6 +199,7 @@ struct Network {
         unsigned can_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;
+        int can_termination;
 
         AddressFamily ip_forward;
         bool ip_masquerade;

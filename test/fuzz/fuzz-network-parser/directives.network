@@ -200,6 +200,7 @@ SamplePoint=
 BitRate=
 RestartSec=
 TripleSampling=
+Termination=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=
