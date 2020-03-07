@@ -14,7 +14,7 @@ pairs, encoded as JSON. Specifically:
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images (see [Home
-   Directories](https://systemd.io/HOME_DIRECTORY)) for details.
+   Directories](https://systemd.io/HOME_DIRECTORY) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
@@ -541,7 +541,7 @@ below). It's undefined how precise the URI is: during log-in it is tested
 against all plugged in security tokens and if there's exactly one matching
 private key found with it it is used.
 
-`privileged` → An object, which contains the fields of he `privileged` section
+`privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
 `perMachine` → An array of objects, which contain the `perMachine` section of
