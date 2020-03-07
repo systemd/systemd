@@ -155,6 +155,8 @@ if have_gnu_efi
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
+        elif efi_arch == 'arm'
+                compile_args += ['-mgeneral-regs-only']
         endif
         if get_option('werror') == true
                 compile_args += ['-Werror']
