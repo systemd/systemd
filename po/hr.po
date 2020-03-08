@@ -910,6 +910,3 @@ msgid ""
 msgstr ""
 "Potrebna je ovjera za za brisanje datoteka i direktorija pridruženih sa "
 "'$(unit)'."
-
-#~ msgid "Authentication is required to kill '$(unit)'."
-#~ msgstr "Potrebna je ovjera za ubijanje '$(unit)'."
