@@ -215,31 +215,12 @@ void cgroup_context_done(CGroupContext *c) {
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
-        _cleanup_free_ char *raw_kval = NULL;
-        uint64_t kval;
-        int r;
-
         assert(u);
 
         if (!u->cgroup_realized)
                 return -EOWNERDEAD;
 
-        r = cg_get_attribute("memory", u->cgroup_path, file, &raw_kval);
-        if (r < 0)
-                return r;
-
-        if (streq(raw_kval, "max")) {
-                *ret = CGROUP_LIMIT_MAX;
-                return 0;
-        }
-
-        r = safe_atou64(raw_kval, &kval);
-        if (r < 0)
-                return r;
-
-        *ret = kval;
-
-        return 0;
+        return cg_get_attribute_as_uint64("memory", u->cgroup_path, file, ret);
 }
 
 static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_t *ret_unit_value, uint64_t *ret_kernel_value) {
@@ -3112,7 +3093,6 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 }
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
-        _cleanup_free_ char *v = NULL;
         int r;
 
         assert(u);
@@ -3134,22 +3114,11 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         r = cg_all_unified();
         if (r < 0)
                 return r;
-        if (r > 0)
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.current", &v);
-        else
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
 
-        return safe_atou64(v, ret);
+        return cg_get_attribute_as_uint64("memory", u->cgroup_path, r > 0 ? "memory.current" : "memory.usage_in_bytes", ret);
 }
 
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
-        _cleanup_free_ char *v = NULL;
-        int r;
-
         assert(u);
         assert(ret);
 
@@ -3166,17 +3135,10 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
 
-        r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-
-        return safe_atou64(v, ret);
+        return cg_get_attribute_as_uint64("pids", u->cgroup_path, "pids.current", ret);
 }
 
 static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
-        _cleanup_free_ char *v = NULL;
         uint64_t ns;
         int r;
 
@@ -3212,17 +3174,8 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
                         return r;
 
                 ns = us * NSEC_PER_USEC;
-        } else {
-                r = cg_get_attribute("cpuacct", u->cgroup_path, "cpuacct.usage", &v);
-                if (r == -ENOENT)
-                        return -ENODATA;
-                if (r < 0)
-                        return r;
-
-                r = safe_atou64(v, &ns);
-                if (r < 0)
-                        return r;
-        }
+        } else
+                return cg_get_attribute_as_uint64("cpuacct", u->cgroup_path, "cpuacct.usage", ret);
 
         *ret = ns;
         return 0;

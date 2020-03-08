@@ -1639,6 +1639,32 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
         return read_one_line_file(p, ret);
 }
 
+int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret) {
+        _cleanup_free_ char *value = NULL;
+        uint64_t v;
+        int r;
+
+        assert(ret);
+
+        r = cg_get_attribute(controller, path, attribute, &value);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        if (streq(value, "max")) {
+                *ret = CGROUP_LIMIT_MAX;
+                return 0;
+        }
+
+        r = safe_atou64(value, &v);
+        if (r < 0)
+                return r;
+
+        *ret = v;
+        return 0;
+}
+
 int cg_get_keyed_attribute(
                 const char *controller,
                 const char *path,

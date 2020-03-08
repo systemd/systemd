@@ -120,16 +120,9 @@ uint64_t system_tasks_max(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to determine cgroup root path, ignoring: %m");
         else {
-                _cleanup_free_ char *value = NULL;
-
-                r = cg_get_attribute("pids", root, "pids.max", &value);
+                r = cg_get_attribute_as_uint64("pids", root, "pids.max", &b);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read pids.max attribute of cgroup root, ignoring: %m");
-                else if (!streq(value, "max")) {
-                        r = safe_atou64(value, &b);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse pids.max attribute of cgroup root, ignoring: %m");
-                }
         }
 
         return MIN3(TASKS_MAX,
