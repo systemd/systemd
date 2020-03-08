@@ -254,7 +254,7 @@ static int allocate_scope(void) {
         return 0;
 }
 
-int enter_cgroup_subroot(char **ret_cgroup) {
+static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
         CGroupMask supported;
         int r;
@@ -268,7 +268,13 @@ int enter_cgroup_subroot(char **ret_cgroup) {
                 return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
         assert(r >= 0);
 
-        assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
+        if (enter_subroot)
+                assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
+        else {
+                cgroup_subroot = strdup(cgroup_root);
+                assert_se(cgroup_subroot != NULL);
+        }
+
         assert_se(cg_mask_supported(&supported) >= 0);
 
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
@@ -286,4 +292,12 @@ int enter_cgroup_subroot(char **ret_cgroup) {
                 *ret_cgroup = TAKE_PTR(cgroup_subroot);
 
         return 0;
+}
+
+int enter_cgroup_subroot(char **ret_cgroup) {
+        return enter_cgroup(ret_cgroup, true);
+}
+
+int enter_cgroup_root(char **ret_cgroup) {
+        return enter_cgroup(ret_cgroup, false);
 }
