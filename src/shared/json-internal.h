@@ -26,21 +26,34 @@ assert_cc(sizeof(JsonValue) == 16U);
 /* We use fake JsonVariant objects for some special values, in order to avoid memory allocations for them. Note that
  * effectively this means that there are multiple ways to encode the same objects: via these magic values or as
  * properly allocated JsonVariant. We convert between both on-the-fly as necessary. */
-#define JSON_VARIANT_MAGIC_TRUE ((JsonVariant*) 1)
-#define JSON_VARIANT_MAGIC_FALSE ((JsonVariant*) 2)
-#define JSON_VARIANT_MAGIC_NULL ((JsonVariant*) 3)
-#define JSON_VARIANT_MAGIC_ZERO_INTEGER ((JsonVariant*) 4)
-#define JSON_VARIANT_MAGIC_ZERO_UNSIGNED ((JsonVariant*) 5)
-#define JSON_VARIANT_MAGIC_ZERO_REAL ((JsonVariant*) 6)
-#define JSON_VARIANT_MAGIC_EMPTY_STRING ((JsonVariant*) 7)
-#define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((JsonVariant*) 8)
-#define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant*) 9)
-#define _JSON_VARIANT_MAGIC_MAX ((JsonVariant*) 10)
+enum
+{
+ _JSON_VARIANT_MAGIC_TRUE = 1,
+#define JSON_VARIANT_MAGIC_TRUE ((JsonVariant*) _JSON_VARIANT_MAGIC_TRUE)
+ _JSON_VARIANT_MAGIC_FALSE,
+#define JSON_VARIANT_MAGIC_FALSE ((JsonVariant*) _JSON_VARIANT_MAGIC_FALSE)
+ _JSON_VARIANT_MAGIC_NULL,
+#define JSON_VARIANT_MAGIC_NULL ((JsonVariant*) _JSON_VARIANT_MAGIC_NULL)
+ _JSON_VARIANT_MAGIC_ZERO_INTEGER,
+#define JSON_VARIANT_MAGIC_ZERO_INTEGER ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_INTEGER)
+ _JSON_VARIANT_MAGIC_ZERO_UNSIGNED,
+#define JSON_VARIANT_MAGIC_ZERO_UNSIGNED ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_UNSIGNED)
+ _JSON_VARIANT_MAGIC_ZERO_REAL,
+#define JSON_VARIANT_MAGIC_ZERO_REAL ((JsonVariant*) _JSON_VARIANT_MAGIC_ZERO_REAL)
+ _JSON_VARIANT_MAGIC_EMPTY_STRING,
+#define JSON_VARIANT_MAGIC_EMPTY_STRING ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_STRING)
+ _JSON_VARIANT_MAGIC_EMPTY_ARRAY,
+#define JSON_VARIANT_MAGIC_EMPTY_ARRAY ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_ARRAY)
+ _JSON_VARIANT_MAGIC_EMPTY_OBJECT,
+#define JSON_VARIANT_MAGIC_EMPTY_OBJECT ((JsonVariant*) _JSON_VARIANT_MAGIC_EMPTY_OBJECT)
+ __JSON_VARIANT_MAGIC_MAX
+#define _JSON_VARIANT_MAGIC_MAX ((JsonVariant*) __JSON_VARIANT_MAGIC_MAX)
+};
 
 /* This is only safe as long as we don't define more than 4K magic pointers, i.e. the page size of the simplest
  * architectures we support. That's because we rely on the fact that malloc() will never allocate from the first memory
  * page, as it is a faulting page for catching NULL pointer dereferences. */
-assert_cc((uintptr_t) _JSON_VARIANT_MAGIC_MAX < 4096U);
+assert_cc((unsigned) __JSON_VARIANT_MAGIC_MAX < 4096U);
 
 enum { /* JSON tokens */
         JSON_TOKEN_END,
