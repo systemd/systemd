@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-03-08 10:03+0100\n"
-"PO-Revision-Date: 2020-03-08 12:23+0100\n"
+"PO-Revision-Date: 2020-03-08 12:46+0100\n"
 "Last-Translator: gogo <linux.hr@protonmail.com>\n"
 "Language-Team: \n"
 "Language: hr\n"
@@ -155,7 +155,7 @@ msgstr "Dopusti aplikacijama spriječavanje isključivanja sustava"
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje isključivanja "
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju isključivanja "
 "sustava."
 
 #: ../src/login/org.freedesktop.login1.policy:33
@@ -165,7 +165,7 @@ msgstr "Dopusti aplikacijama odgodu isključivanja sustava"
 #: ../src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama odgode isključivanja sustava."
+"Potrebna je ovjera za dopuštanje aplikacijama u odgodi isključivanja sustava."
 
 #: ../src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -174,7 +174,8 @@ msgstr "Dopusti aplikacijama spriječavanje spavanja sustava"
 #: ../src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje spavanja sustava."
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju spavanja "
+"sustava."
 
 #: ../src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -193,7 +194,7 @@ msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje automatskog "
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju automatskog "
 "suspendiranja sustava."
 
 #: ../src/login/org.freedesktop.login1.policy:75
@@ -206,7 +207,7 @@ msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje rukovanja "
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju rukovanja "
 "sustava tipkom isključivanja."
 
 #: ../src/login/org.freedesktop.login1.policy:86
@@ -218,7 +219,7 @@ msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje rukovanja "
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju rukovanja "
 "sustava tipkom suspenzije."
 
 #: ../src/login/org.freedesktop.login1.policy:97
@@ -231,7 +232,7 @@ msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
 msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama spriječavanje rukovanja "
+"Potrebna je ovjera za dopuštanje aplikacijama u spriječavanju rukovanja "
 "sustava tipkom hibernacije."
 
 #: ../src/login/org.freedesktop.login1.policy:107
