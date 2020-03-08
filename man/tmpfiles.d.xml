@@ -94,7 +94,7 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <filename>systemd-tmpfiles-cleanup.service</filename>, and associated units.</para>
 
     <para>System daemons frequently require private runtime directories below <filename>/run</filename> to
-    store communication sockets and similar. For these, is is better to use
+    store communication sockets and similar. For these, it is better to use
     <varname>RuntimeDirectory=</varname> in their unit files (see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details), if the flexibility provided by <filename>tmpfiles.d</filename> is not required. The advantages
