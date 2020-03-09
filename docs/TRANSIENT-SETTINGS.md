@@ -270,6 +270,9 @@ All cgroup/resource control settings are available for transient units
 ✓ IPAccounting=
 ✓ IPAddressAllow=
 ✓ IPAddressDeny=
+✓ ManagedOOMSwap=
+✓ ManagedOOMMemoryPressure=
+✓ ManagedOOMMemoryPressureLimitPercent=
 ```
 
 ## Process Killing Settings

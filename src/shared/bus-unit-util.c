@@ -432,7 +432,11 @@ static int bus_append_ip_address_access(sd_bus_message *m, int family, const uni
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
-        if (STR_IN_SET(field, "DevicePolicy", "Slice"))
+        if (STR_IN_SET(field, "DevicePolicy",
+                              "Slice",
+                              "ManagedOOMSwap",
+                              "ManagedOOMMemoryPressure",
+                              "ManagedOOMMemoryPressureLimitPercent"))
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "CPUAccounting",

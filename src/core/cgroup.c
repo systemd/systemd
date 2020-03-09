@@ -128,6 +128,9 @@ void cgroup_context_init(CGroupContext *c) {
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
                 .tasks_max = TASKS_MAX_UNSET,
+
+                .moom_swap = MANAGED_OOM_AUTO,
+                .moom_mem_pressure = MANAGED_OOM_AUTO,
         };
 }
 
@@ -411,7 +414,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
-                "%sDelegate: %s\n",
+                "%sDelegate: %s\n"
+                "%sManagedOOMSwap: %s\n"
+                "%sManagedOOMMemoryPressure: %s\n"
+                "%sManagedOOMMemoryPressureLimitPercent: %d%%\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -441,7 +447,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
-                prefix, yes_no(c->delegate));
+                prefix, yes_no(c->delegate),
+                prefix, managed_oom_mode_to_string(c->moom_swap),
+                prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
+                prefix, c->moom_mem_pressure_limit);
 
         if (c->delegate) {
                 _cleanup_free_ char *t = NULL;

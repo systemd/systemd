@@ -275,3 +275,13 @@ CGroupController cgroup_controller_from_string(const char *s) _pure_;
 
 bool is_cgroup_fs(const struct statfs *s);
 bool fd_is_cgroup_fs(int fd);
+
+typedef enum ManagedOOMMode {
+        MANAGED_OOM_AUTO,
+        MANAGED_OOM_KILL,
+        _MANAGED_OOM_MODE_MAX,
+        _MANAGED_OOM_MODE_INVALID = -1,
+} ManagedOOMMode;
+
+const char* managed_oom_mode_to_string(ManagedOOMMode m) _const_;
+ManagedOOMMode managed_oom_mode_from_string(const char *s) _pure_;

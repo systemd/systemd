@@ -4533,6 +4533,7 @@ const UnitVTable service_vtable = {
         .can_transient = true,
         .can_delegate = true,
         .can_fail = true,
+        .can_set_managed_oom = true,
 
         .init = service_init,
         .done = service_done,

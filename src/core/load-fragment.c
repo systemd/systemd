@@ -3812,6 +3812,79 @@ int config_parse_delegate(
         return 0;
 }
 
+int config_parse_managed_oom_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ManagedOOMMode *mode = data, m;
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                *mode = MANAGED_OOM_AUTO;
+                return 0;
+        }
+
+        m = managed_oom_mode_from_string(rvalue);
+        if (m < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *mode = m;
+        return 0;
+}
+
+int config_parse_managed_oom_mem_pressure_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned *limit = data;
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                *limit = 0;
+                return 0;
+        }
+
+        r = parse_percent(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse limit percent value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *limit = r;
+        return 0;
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,

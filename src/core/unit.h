@@ -625,6 +625,9 @@ typedef struct UnitVTable {
 
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
+
+        /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroup(s)  */
+        bool can_set_managed_oom:1;
 } UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
