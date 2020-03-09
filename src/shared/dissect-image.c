@@ -425,10 +425,11 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
-                        r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
-                        if (r < 0)
-                                return r;
-
+                        if (!streq(usage, "filesystem")) {
+                                r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
+                                if (r < 0)
+                                        return r;
+                        }
                         *ret = TAKE_PTR(m);
 
                         return 0;
