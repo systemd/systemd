@@ -495,6 +495,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "HierarchyTokenBucket\0"
                               "HierarchyTokenBucketClass\0"
                               "NetworkEmulator\0"
+                              "PIE\0"
                               "StochasticFairBlue\0"
                               "StochasticFairnessQueueing\0"
                               "TokenBucketFilter\0"
