@@ -1114,7 +1114,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
                         continue;
 
                 r = table_add_many(table,
-                                   TABLE_TIMESPAN_MSEC, &u->time,
+                                   TABLE_TIMESPAN_MSEC, u->time,
                                    TABLE_STRING, u->name);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1862,9 +1862,9 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
 
                 r = table_add_many(table,
-                                   TABLE_UINT64, &output_usecs,
+                                   TABLE_UINT64, output_usecs,
                                    TABLE_STRING, "Human:",
-                                   TABLE_TIMESPAN, &output_usecs,
+                                   TABLE_TIMESPAN, output_usecs,
                                    TABLE_SET_COLOR, ansi_highlight());
                 if (r < 0)
                         return table_log_add_error(r);
@@ -1917,7 +1917,7 @@ static int test_timestamp_one(const char *p) {
                            TABLE_STRING, "Original form:",
                            TABLE_STRING, p,
                            TABLE_STRING, "Normalized form:",
-                           TABLE_TIMESTAMP, &usec,
+                           TABLE_TIMESTAMP, usec,
                            TABLE_SET_COLOR, ansi_highlight_blue());
         if (r < 0)
                 return table_log_add_error(r);
@@ -1925,7 +1925,7 @@ static int test_timestamp_one(const char *p) {
         if (!in_utc_timezone()) {
                 r = table_add_many(table,
                                    TABLE_STRING, "(in UTC):",
-                                   TABLE_TIMESTAMP_UTC, &usec);
+                                   TABLE_TIMESTAMP_UTC, usec);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1946,7 +1946,7 @@ static int test_timestamp_one(const char *p) {
 
         r = table_add_many(table,
                            TABLE_STRING, "From now:",
-                           TABLE_TIMESTAMP_RELATIVE, &usec);
+                           TABLE_TIMESTAMP_RELATIVE, usec);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -2042,7 +2042,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                 if (i == 0) {
                         r = table_add_many(table,
                                            TABLE_STRING, "Next elapse:",
-                                           TABLE_TIMESTAMP, &next,
+                                           TABLE_TIMESTAMP, next,
                                            TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -2059,7 +2059,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                                 return table_log_add_error(r);
 
                         r = table_add_many(table,
-                                           TABLE_TIMESTAMP, &next,
+                                           TABLE_TIMESTAMP, next,
                                            TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
                                 return table_log_add_error(r);
@@ -2068,14 +2068,14 @@ static int test_calendar_one(usec_t n, const char *p) {
                 if (!in_utc_timezone()) {
                         r = table_add_many(table,
                                            TABLE_STRING, "(in UTC):",
-                                           TABLE_TIMESTAMP_UTC, &next);
+                                           TABLE_TIMESTAMP_UTC, next);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
 
                 r = table_add_many(table,
                                    TABLE_STRING, "From now:",
-                                   TABLE_TIMESTAMP_RELATIVE, &next);
+                                   TABLE_TIMESTAMP_RELATIVE, next);
                 if (r < 0)
                         return table_log_add_error(r);
 
