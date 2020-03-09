@@ -123,6 +123,8 @@ sources = files('''
         tc/htb.h
         tc/netem.c
         tc/netem.h
+        tc/pie.c
+        tc/pie.h
         tc/qdisc.c
         tc/qdisc.h
         tc/sfb.c
