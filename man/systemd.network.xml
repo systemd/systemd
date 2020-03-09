@@ -1765,6 +1765,23 @@
             Defaults to false.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>EnableSourceRoutingRules=</varname></term>
+          <listitem>
+            <para>This option is used to configure source routing for an interface.
+            When combined with setting an explicit route table (with the <literal>RouteTable=</literal> option from the DHCPv4 section),
+            this causes routing policy rules to be automatically be created for the DHCP obtained address on the interface,
+            of the form "from $address lookup $routetable".</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SourceRoutingRulesPriority=</varname></term>
+          <listitem>
+            <para>When <literal>EnableSourceRoutingRules=</literal> is enabled, this controls the priority of the routing
+            policy rules that are created.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

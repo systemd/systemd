@@ -135,6 +135,8 @@ struct Network {
         uint8_t dhcp6_pd_length;
         char *dhcp6_mudurl;
         struct in6_addr dhcp6_pd_address;
+        bool dhcp6_source_routing_enabled;
+        uint32_t dhcp6_source_routing_rule_priority;
 
         /* DHCP Server Support */
         bool dhcp_server;

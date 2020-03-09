@@ -2733,6 +2733,12 @@ static int link_drop_config(Link *link) {
         }
         link->ipv6ndisc_source_routing_policy_rules = NULL;
 
+        LIST_FOREACH_SAFE(rules, rule, next_rule, link->dhcp6_source_routing_policy_rules) {
+                (void) routing_policy_rule_remove(rule, link, NULL);
+                routing_policy_rule_free(rule);
+        }
+        link->dhcp6_source_routing_policy_rules = NULL;
+
         ndisc_flush(link);
 
         return 0;

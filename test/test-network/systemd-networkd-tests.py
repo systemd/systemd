@@ -2925,6 +2925,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-ipv4-source-routing-rules.network',
         'dhcp-client-ipv6-only.network',
         'dhcp-client-ipv6-rapid-commit.network',
+        'dhcp-client-ipv6-source-routing-rules.network',
         'dhcp-client-keep-configuration-dhcp-on-stop.network',
         'dhcp-client-keep-configuration-dhcp.network',
         'dhcp-client-listen-port.network',
@@ -3236,6 +3237,31 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         else:
             self.assertNotRegex(output, rule_regex)
 
+    def test_dhcp6_source_routing_rules(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network', 'dhcp-client-ipv6-source-routing-rules.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        rule_regex = r'23:\s+from 2600::1[0-9a-f:]+ lookup 13'
+        output = check_output('ip -6 rule list')
+        self.assertRegex(output, rule_regex)
+
+        # Check that it cleans up as well.
+        remove_unit_from_networkd_path(['dhcp-client-ipv6-source-routing-rules.network'])
+        copy_unit_to_networkd_unit_path('dhcp-client-ipv6-only.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+
+
+        for i in range(60):
+            if i > 0:
+                time.sleep(1)
+            output = check_output('ip -6 rule list')
+            if not re.search(rule_regex, output):
+                break
+        else:
+            self.assertNotRegex(output, rule_regex)
 
     def test_dhcp_route_metric(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-v4-server-veth-peer.network', 'dhcp-client-route-metric.network')

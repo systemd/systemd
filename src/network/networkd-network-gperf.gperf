@@ -197,6 +197,8 @@ DHCPv6.MUDURL,                               config_parse_dhcp6_mud_url,        
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
 DHCPv6.WithoutRA,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_without_ra)
+DHCPv6.EnableSourceRoutingRules,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_source_routing_enabled)
+DHCPv6.SourceRoutingRulesPriority,           config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_source_routing_rule_priority)
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)

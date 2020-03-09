@@ -112,6 +112,8 @@ ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
 WithoutRA=
 MUDURL=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [Route]
 Destination=
 Protocol=
