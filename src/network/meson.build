@@ -127,6 +127,8 @@ sources = files('''
         tc/fq.h
         tc/fq-codel.c
         tc/fq-codel.h
+        tc/fq-pie.c
+        tc/fq-pie.h
         tc/gred.c
         tc/gred.h
         tc/hhf.c
