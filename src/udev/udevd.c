@@ -559,6 +559,14 @@ static void event_run(Manager *manager, struct event *event) {
         assert(manager);
         assert(event);
 
+        if (DEBUG_LOGGING) {
+                DeviceAction action;
+
+                r = device_get_action(event->dev, &action);
+                log_device_debug(event->dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) ready for processing",
+                                 event->seqnum, r >= 0 ? device_action_to_string(action) : "<unknown>");
+        }
+
         HASHMAP_FOREACH(worker, manager->workers, i) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -770,6 +778,9 @@ static int is_device_busy(Manager *manager, struct event *event) {
         return false;
 
 set_delaying_seqnum:
+        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
+                         event->seqnum, loop_event->seqnum);
+
         event->delaying_seqnum = loop_event->seqnum;
         return true;
 }
