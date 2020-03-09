@@ -2247,7 +2247,7 @@ static int setup_exec_directory(
 
                         if (type != EXEC_DIRECTORY_CONFIGURATION &&
                             readlink_and_make_absolute(p, &target) >= 0) {
-                                _cleanup_free_ char *q = NULL;
+                                _cleanup_free_ char *q = NULL, *q_resolved = NULL, *target_resolved = NULL;
 
                                 /* This already exists and is a symlink? Interesting. Maybe it's one created
                                  * by DynamicUser=1 (see above)?
@@ -2256,13 +2256,22 @@ static int setup_exec_directory(
                                  * since they all support the private/ symlink logic at least in some
                                  * configurations, see above. */
 
+                                r = chase_symlinks(target, NULL, 0, &target_resolved, NULL);
+                                if (r < 0)
+                                        goto fail;
+
                                 q = path_join(params->prefix[type], "private", *rt);
                                 if (!q) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
 
-                                if (path_equal(q, target)) {
+                                /* /var/lib or friends may be symlinks. So, let's chase them also. */
+                                r = chase_symlinks(q, NULL, CHASE_NONEXISTENT, &q_resolved, NULL);
+                                if (r < 0)
+                                        goto fail;
+
+                                if (path_equal(q_resolved, target_resolved)) {
 
                                         /* Hmm, apparently DynamicUser= was once turned on for this service,
                                          * but is no longer. Let's move the directory back up. */
