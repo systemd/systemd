@@ -280,6 +280,9 @@ DeficitRoundRobinSchedulerClass.Quantum,     config_parse_drr_size,             
 PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
 PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
 PFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO,              0
+PFIFOHeadDrop.Parent,                        config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
+PFIFOHeadDrop.Handle,                        config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
+PFIFOHeadDrop.PacketLimit,                   config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_HEAD_DROP,    0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0

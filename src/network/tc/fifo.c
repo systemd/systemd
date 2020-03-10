@@ -26,6 +26,9 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         case QDISC_KIND_BFIFO:
                 fifo = BFIFO(qdisc);
                 break;
+        case QDISC_KIND_PFIFO_HEAD_DROP:
+                fifo = PFIFO_HEAD_DROP(qdisc);
+                break;
         default:
                 assert_not_reached("Invalid QDisc kind.");
         }
@@ -61,14 +64,23 @@ int config_parse_pfifo_size(
         assert(rvalue);
         assert(data);
 
-        r = qdisc_new_static(QDISC_KIND_PFIFO, network, filename, section_line, &qdisc);
+        r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r,
                                   "More than one kind of queueing discipline, ignoring assignment: %m");
 
-        fifo = PFIFO(qdisc);
+        switch(qdisc->kind) {
+        case QDISC_KIND_PFIFO:
+                fifo = PFIFO(qdisc);
+                break;
+        case QDISC_KIND_PFIFO_HEAD_DROP:
+                fifo = PFIFO_HEAD_DROP(qdisc);
+                break;
+        default:
+                assert_not_reached("Invalid QDisc kind.");
+        }
 
         if (isempty(rvalue)) {
                 fifo->limit = 0;
@@ -147,7 +159,6 @@ int config_parse_bfifo_size(
         return 0;
 }
 
-
 const QDiscVTable pfifo_vtable = {
         .object_size = sizeof(FirstInFirstOut),
         .tca_kind = "pfifo",
@@ -157,5 +168,11 @@ const QDiscVTable pfifo_vtable = {
 const QDiscVTable bfifo_vtable = {
        .object_size = sizeof(FirstInFirstOut),
        .tca_kind = "bfifo",
+       .fill_message = fifo_fill_message,
+};
+
+const QDiscVTable pfifo_head_drop_vtable = {
+       .object_size = sizeof(FirstInFirstOut),
+       .tca_kind = "pfifo_head_drop",
        .fill_message = fifo_fill_message,
 };

@@ -2665,6 +2665,33 @@
   </refsect1>
 
   <refsect1>
+    <title>[PFIFOHeadDrop] Section Options</title>
+    <para>The <literal>[PFIFOHeadDrop]</literal> section manages the queueing discipline (qdisc) of
+    Packet First In First Out Head Drop (pfifo_head_drop).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>As in <literal>[PFIFO]</literal> section.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>As in <literal>[PFIFO]</literal> section..</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
+        <listitem>
+          <para>As in <literal>[PFIFO]</literal> section.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[CAKE] Section Options</title>
     <para>The <literal>[CAKE]</literal> section manages the queueing discipline (qdisc) of
     Common Applications Kept Enhanced (CAKE).</para>
