@@ -258,6 +258,9 @@ CAN.TripleSampling,                          config_parse_tristate,             
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
+BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0
+BFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_BFIFO,              0
+BFIFO.LimitSize,                             config_parse_bfifo_size,                                  QDISC_KIND_BFIFO,              0
 CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
 CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
 CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
@@ -276,7 +279,7 @@ DeficitRoundRobinSchedulerClass.ClassId,     config_parse_tclass_classid,       
 DeficitRoundRobinSchedulerClass.Quantum,     config_parse_drr_size,                                    TCLASS_KIND_DRR,               0
 PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
 PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
-PFIFO.PacketLimit,                           config_parse_fifo_size,                                   QDISC_KIND_PFIFO,              0
+PFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO,              0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0

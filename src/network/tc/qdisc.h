@@ -9,6 +9,7 @@
 #include "tc.h"
 
 typedef enum QDiscKind {
+        QDISC_KIND_BFIFO,
         QDISC_KIND_CAKE,
         QDISC_KIND_CODEL,
         QDISC_KIND_DRR,

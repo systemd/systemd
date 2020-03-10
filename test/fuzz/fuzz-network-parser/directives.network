@@ -356,6 +356,10 @@ ClassId=
 Priority=
 Rate=
 CeilRate=
+[BFIFO]
+Parent=
+Handle=
+LimitSize=
 [PFIFO]
 Parent=
 Handle=

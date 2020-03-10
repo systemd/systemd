@@ -19,7 +19,16 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         assert(qdisc);
         assert(req);
 
-        fifo = PFIFO(qdisc);
+        switch(qdisc->kind) {
+        case QDISC_KIND_PFIFO:
+                fifo = PFIFO(qdisc);
+                break;
+        case QDISC_KIND_BFIFO:
+                fifo = BFIFO(qdisc);
+                break;
+        default:
+                assert_not_reached("Invalid QDisc kind.");
+        }
 
         opt.limit = fifo->limit;
 
@@ -30,7 +39,7 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         return 0;
 }
 
-int config_parse_fifo_size(
+int config_parse_pfifo_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -80,8 +89,73 @@ int config_parse_fifo_size(
         return 0;
 }
 
+int config_parse_bfifo_size(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
+        Network *network = data;
+        FirstInFirstOut *fifo;
+        uint64_t u;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = qdisc_new_static(QDISC_KIND_BFIFO, network, filename, section_line, &qdisc);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r,
+                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+
+        fifo = BFIFO(qdisc);
+
+        if (isempty(rvalue)) {
+                fifo->limit = 0;
+
+                qdisc = NULL;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1000, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+        if (u > UINT32_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        fifo->limit = (uint32_t) u;
+
+        qdisc = NULL;
+        return 0;
+}
+
+
 const QDiscVTable pfifo_vtable = {
         .object_size = sizeof(FirstInFirstOut),
         .tca_kind = "pfifo",
         .fill_message = fifo_fill_message,
+};
+
+const QDiscVTable bfifo_vtable = {
+       .object_size = sizeof(FirstInFirstOut),
+       .tca_kind = "bfifo",
+       .fill_message = fifo_fill_message,
 };

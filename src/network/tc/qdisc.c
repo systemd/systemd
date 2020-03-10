@@ -16,6 +16,7 @@
 #include "tc-util.h"
 
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
+        [QDISC_KIND_BFIFO] = &bfifo_vtable,
         [QDISC_KIND_CAKE] = &cake_vtable,
         [QDISC_KIND_CODEL] = &codel_vtable,
         [QDISC_KIND_DRR] = &drr_vtable,
