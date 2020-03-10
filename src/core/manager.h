@@ -434,6 +434,8 @@ struct Manager {
         bool honor_device_enumeration;
 
         VarlinkServer *varlink_server;
+        /* Only systemd-oomd should be using this to subscribe to changes in ManagedOOM settings */
+        Varlink *managed_oom_varlink_request;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

@@ -15,6 +15,7 @@
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "core-varlink.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
@@ -2591,6 +2592,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
          * the bus queue, so that any job change signal queued will force out the unit change signal first. */
         unit_add_to_dbus_queue(u);
+
+        /* Update systemd-oomd on the property/state change */
+        if (os != ns) {
+                /* Always send an update if the unit is going into an inactive state so systemd-oomd knows to stop
+                 * monitoring.
+                 * Also send an update whenever the unit goes active; this is to handle a case where an override file
+                 * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
+                 * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
+                 * have the information on the property. Thus, indiscriminately send an update. */
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || ns == UNIT_ACTIVE)
+                        (void) manager_varlink_send_managed_oom_update(u);
+        }
 
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {

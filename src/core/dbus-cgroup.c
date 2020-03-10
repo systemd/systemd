@@ -8,6 +8,7 @@
 #include "bus-get-properties.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
+#include "core-varlink.h"
 #include "dbus-cgroup.h"
 #include "dbus-util.h"
 #include "errno-util.h"
@@ -1692,6 +1693,7 @@ int bus_cgroup_set_property(
                         unit_write_settingf(u, flags, name, "%s=%s", name, mode);
                 }
 
+                (void) manager_varlink_send_managed_oom_update(u);
                 return 1;
         }
 
@@ -1699,7 +1701,14 @@ int bus_cgroup_set_property(
                 if (!UNIT_VTABLE(u)->can_set_managed_oom)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set %s for this unit type", name);
 
-                return bus_set_transient_percent(u, name, &c->moom_mem_pressure_limit, message, flags, error);
+                r = bus_set_transient_percent(u, name, &c->moom_mem_pressure_limit, message, flags, error);
+                if (r < 0)
+                        return r;
+
+                if (c->moom_mem_pressure == MANAGED_OOM_KILL)
+                        (void) manager_varlink_send_managed_oom_update(u);
+
+                return 1;
         }
 
         if (streq(name, "DisableControllers") || (u->transient && u->load_state == UNIT_STUB))

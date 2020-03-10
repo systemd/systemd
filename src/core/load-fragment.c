@@ -26,6 +26,7 @@
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "conf-parser.h"
+#include "core-varlink.h"
 #include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -3823,7 +3824,7 @@ int config_parse_managed_oom_mode(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
+        Unit *u = userdata;
         ManagedOOMMode *mode = data, m;
         UnitType t;
 
@@ -3835,7 +3836,7 @@ int config_parse_managed_oom_mode(
 
         if (isempty(rvalue)) {
                 *mode = MANAGED_OOM_AUTO;
-                return 0;
+                goto finish;
         }
 
         m = managed_oom_mode_from_string(rvalue);
@@ -3843,8 +3844,10 @@ int config_parse_managed_oom_mode(
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax, ignoring: %s", rvalue);
                 return 0;
         }
-
         *mode = m;
+
+finish:
+        (void) manager_varlink_send_managed_oom_update(u);
         return 0;
 }
 
@@ -3859,8 +3862,8 @@ int config_parse_managed_oom_mem_pressure_limit(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
-        unsigned *limit = data;
+        Unit *u = userdata;
+        CGroupContext *c = data;
         UnitType t;
         int r;
 
@@ -3871,8 +3874,8 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
 
         if (isempty(rvalue)) {
-                *limit = 0;
-                return 0;
+                c->moom_mem_pressure_limit = 0;
+                goto finish;
         }
 
         r = parse_percent(rvalue);
@@ -3881,7 +3884,12 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return 0;
         }
 
-        *limit = r;
+        c->moom_mem_pressure_limit = r;
+
+finish:
+        /* Only update the limit if memory pressure detection is enabled because the information is irrelevant otherwise */
+        if (c->moom_mem_pressure == MANAGED_OOM_KILL)
+                (void) manager_varlink_send_managed_oom_update(u);
         return 0;
 }
 
