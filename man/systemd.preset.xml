@@ -71,8 +71,11 @@
     either the word <literal>enable</literal> or
     <literal>disable</literal> followed by a space and a unit name
     (possibly with shell style wildcards), separated by newlines.
-    Empty lines and lines whose first non-whitespace character is # or
-    ; are ignored.</para>
+    Empty lines and lines whose first non-whitespace character is <literal>#</literal> or
+    <literal>;</literal> are ignored. Multiple instance names for unit
+    templates may be specified as a space separated list at the end of
+    the line instead of the customary position between <literal>@</literal>
+    and the unit suffix.</para>
 
     <para>Presets must refer to the "real" unit file, and not to any aliases. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -123,6 +126,17 @@ disable *</programlisting>
     <para>This disables all units. Due to the filename prefix
     <literal>99-</literal>, it will be read last and hence can easily
     be overridden by spin or administrator preset policy.</para>
+
+    <example>
+      <title>Enable multiple template instances</title>
+
+      <programlisting># /usr/lib/systemd/system-preset/80-dirsrv.preset
+
+enable dirsrv@.service foo bar baz</programlisting>
+    </example>
+
+    <para>This enables all three of <filename>dirsrv@foo.service</filename>,
+    <filename>dirsrv@bar.service</filename> and <filename>dirsrv@baz.service</filename>.</para>
 
     <example>
       <title>A GNOME spin</title>
