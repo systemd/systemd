@@ -590,8 +590,7 @@ tests += [
 
         [['src/test/test-cgroup.c'],
          [],
-         [],
-         '', 'manual'],
+         []],
 
         [['src/test/test-cgroup-cpu.c'],
          [libcore,
