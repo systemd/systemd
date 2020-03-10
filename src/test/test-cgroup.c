@@ -21,6 +21,9 @@ static void test_cg_split_spec(void) {
         p = mfree(p);
 
         assert_se(cg_split_spec("foobar:", &c, &p) == 0);
+        c = mfree(c);
+        p = mfree(p);
+
         assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
         assert_se(cg_split_spec(":///", &c, &p) < 0);
         assert_se(cg_split_spec(":", &c, &p) < 0);
