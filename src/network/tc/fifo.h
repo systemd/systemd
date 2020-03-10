@@ -12,6 +12,10 @@ typedef struct FirstInFirstOut {
 } FirstInFirstOut;
 
 DEFINE_QDISC_CAST(PFIFO, FirstInFirstOut);
-extern const QDiscVTable pfifo_vtable;
+DEFINE_QDISC_CAST(BFIFO, FirstInFirstOut);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_fifo_size);
+extern const QDiscVTable pfifo_vtable;
+extern const QDiscVTable bfifo_vtable;
+
+CONFIG_PARSER_PROTOTYPE(config_parse_pfifo_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_bfifo_size);

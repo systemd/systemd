@@ -269,9 +269,12 @@ ControlledDelay.TargetSec,                   config_parse_controlled_delay_usec,
 ControlledDelay.IntervalSec,                 config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
+BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0
+BFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_BFIFO,              0
+BFIFO.PacketLimit,                           config_parse_bfifo_size,                                  QDISC_KIND_BFIFO,              0
 PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
 PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
-PFIFO.PacketLimit,                           config_parse_fifo_size,                                   QDISC_KIND_PFIFO,              0
+PFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO,              0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
