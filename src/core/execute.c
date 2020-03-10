@@ -5371,7 +5371,10 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
         if (!c->private_network && !c->private_tmp && !c->network_namespace_path)
                 return 0;
 
-        if (c->private_tmp) {
+        if (c->private_tmp &&
+            !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
+              (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
+               prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
                 r = setup_tmp_dirs(id, &tmp_dir, &var_tmp_dir);
                 if (r < 0)
                         return r;
