@@ -370,3 +370,7 @@ GenericRIO=
 Parent=
 Handle=
 PacketLimit=
+[DeficitRoundRobinScheduler]
+Parent=
+Handle=
+Quantum=
