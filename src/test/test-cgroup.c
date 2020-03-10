@@ -7,11 +7,41 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
-#include "util.h"
+#include "tests.h"
 
-int main(int argc, char *argv[]) {
-        char *path;
+static void test_cg_split_spec(void) {
         char *c, *p;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
+        assert_se(streq(c, "foobar"));
+        assert_se(streq(p, "/"));
+        c = mfree(c);
+        p = mfree(p);
+
+        assert_se(cg_split_spec("foobar:", &c, &p) == 0);
+        assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
+        assert_se(cg_split_spec(":///", &c, &p) < 0);
+        assert_se(cg_split_spec(":", &c, &p) < 0);
+        assert_se(cg_split_spec("", &c, &p) < 0);
+        assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
+
+        assert_se(cg_split_spec("/", &c, &p) >= 0);
+        assert_se(c == NULL);
+        assert_se(streq(p, "/"));
+        p = mfree(p);
+
+        assert_se(cg_split_spec("foo", &c, &p) >= 0);
+        assert_se(streq(c, "foo"));
+        assert_se(p == NULL);
+        c = mfree(c);
+}
+
+static void test_cg_create(void) {
+        char *path;
+
+        log_info("/* %s */", __func__);
 
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 1);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
@@ -61,29 +91,13 @@ int main(int argc, char *argv[]) {
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") < 0);
         assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, "/test-a", SYSTEMD_CGROUP_CONTROLLER, "system.slice", 0) > 0);
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, "/test-a") == 0);
+}
 
-        assert_se(cg_split_spec("foobar:/", &c, &p) == 0);
-        assert_se(streq(c, "foobar"));
-        assert_se(streq(p, "/"));
-        free(c);
-        free(p);
+int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
 
-        assert_se(cg_split_spec("foobar:", &c, &p) == 0);
-        assert_se(cg_split_spec("foobar:asdfd", &c, &p) < 0);
-        assert_se(cg_split_spec(":///", &c, &p) < 0);
-        assert_se(cg_split_spec(":", &c, &p) < 0);
-        assert_se(cg_split_spec("", &c, &p) < 0);
-        assert_se(cg_split_spec("fo/obar:/", &c, &p) < 0);
-
-        assert_se(cg_split_spec("/", &c, &p) >= 0);
-        assert_se(c == NULL);
-        assert_se(streq(p, "/"));
-        free(p);
-
-        assert_se(cg_split_spec("foo", &c, &p) >= 0);
-        assert_se(streq(c, "foo"));
-        assert_se(p == NULL);
-        free(c);
+        test_cg_split_spec();
+        test_cg_create();
 
         return 0;
 }
