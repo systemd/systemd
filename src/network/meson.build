@@ -111,6 +111,8 @@ sources = files('''
         tc/cake.h
         tc/codel.c
         tc/codel.h
+        tc/drr.c
+        tc/drr.h
         tc/fifo.c
         tc/fifo.h
         tc/fq.c

@@ -18,6 +18,7 @@
 const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_CAKE] = &cake_vtable,
         [QDISC_KIND_CODEL] = &codel_vtable,
+        [QDISC_KIND_DRR] = &drr_vtable,
         [QDISC_KIND_FQ] = &fq_vtable,
         [QDISC_KIND_FQ_CODEL] = &fq_codel_vtable,
         [QDISC_KIND_GRED] = &gred_vtable,
