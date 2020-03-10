@@ -760,6 +760,10 @@ static const NLType rtnl_tca_option_data_codel_types[] = {
         [TCA_CODEL_CE_THRESHOLD]  = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_drr_types[] = {
+        [TCA_DRR_QUANTUM] = { .type = NETLINK_TYPE_U32 },
+};
+
 static const NLType rtnl_tca_option_data_fq_types[] = {
         [TCA_FQ_PLIMIT]             = { .type = NETLINK_TYPE_U32 },
         [TCA_FQ_FLOW_PLIMIT]        = { .type = NETLINK_TYPE_U32 },
@@ -821,6 +825,7 @@ static const NLType rtnl_tca_option_data_tbf_types[] = {
 static const char* const nl_union_tca_option_data_table[] = {
         [NL_UNION_TCA_OPTION_DATA_CAKE] = "cake",
         [NL_UNION_TCA_OPTION_DATA_CODEL] = "codel",
+        [NL_UNION_TCA_OPTION_DATA_DRR] = "drr",
         [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
         [NL_UNION_TCA_OPTION_DATA_GRED] = "gred",
@@ -837,6 +842,8 @@ static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
                                                    .types = rtnl_tca_option_data_cake_types },
         [NL_UNION_TCA_OPTION_DATA_CODEL] =       { .count = ELEMENTSOF(rtnl_tca_option_data_codel_types),
                                                    .types = rtnl_tca_option_data_codel_types },
+        [NL_UNION_TCA_OPTION_DATA_DRR] =         { .count = ELEMENTSOF(rtnl_tca_option_data_drr_types),
+                                                   .types = rtnl_tca_option_data_drr_types },
         [NL_UNION_TCA_OPTION_DATA_FQ] =          { .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
                                                    .types = rtnl_tca_option_data_fq_types },
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),

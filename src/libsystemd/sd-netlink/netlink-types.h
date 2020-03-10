@@ -98,6 +98,7 @@ NLUnionLinkInfoData nl_union_link_info_data_from_string(const char *p) _pure_;
 typedef enum NLUnionTCAOptionData {
         NL_UNION_TCA_OPTION_DATA_CAKE,
         NL_UNION_TCA_OPTION_DATA_CODEL,
+        NL_UNION_TCA_OPTION_DATA_DRR,
         NL_UNION_TCA_OPTION_DATA_FQ,
         NL_UNION_TCA_OPTION_DATA_FQ_CODEL,
         NL_UNION_TCA_OPTION_DATA_GRED,
