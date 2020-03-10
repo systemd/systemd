@@ -1125,3 +1125,19 @@ bool path_strv_contains(char **l, const char *path) {
 
         return false;
 }
+
+bool prefixed_path_strv_contains(char **l, const char *path) {
+        char **i, *j;
+
+        STRV_FOREACH(i, l) {
+                j = *i;
+                if (*j == '-')
+                        j++;
+                if (*j == '+')
+                        j++;
+                if (path_equal(j, path))
+                        return true;
+        }
+
+        return false;
+}
