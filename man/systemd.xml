@@ -194,7 +194,7 @@
     <orderedlist>
       <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
       <listitem><para>It has a job queued for it</para></listitem>
-      <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
+      <listitem><para>It is a dependency, of some sort, of at least one other unit that is loaded into memory</para></listitem>
       <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
       a process is still lingering that ignored the request to be terminated)</para></listitem>
       <listitem><para>It has been pinned into memory programmatically by a D-Bus call</para></listitem>
