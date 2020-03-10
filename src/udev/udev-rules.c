@@ -921,7 +921,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         op = OP_ASSIGN;
                 }
 
-                r = rule_line_add_token(rule_line, TK_A_SECLABEL, op, value, NULL);
+                r = rule_line_add_token(rule_line, TK_A_SECLABEL, op, value, attr);
         } else if (streq(key, "RUN")) {
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
