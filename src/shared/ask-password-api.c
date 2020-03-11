@@ -469,7 +469,7 @@ int ask_password_tty(
                 (void) loop_write(ttyfd, message, strlen(message), false);
                 (void) loop_write(ttyfd, " ", 1, false);
 
-                if (!(flags & ASK_PASSWORD_SILENT)) {
+                if (!(flags & ASK_PASSWORD_SILENT) && !(flags & ASK_PASSWORD_ECHO)) {
                         if (use_color)
                                 (void) loop_write(ttyfd, ANSI_GREY, STRLEN(ANSI_GREY), false);
                         (void) loop_write(ttyfd, PRESS_TAB, strlen(PRESS_TAB), false);
