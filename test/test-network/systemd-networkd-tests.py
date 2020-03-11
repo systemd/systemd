@@ -1647,6 +1647,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-nexthop.network',
         '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
+        '25-qdisc-drr.network',
         '25-qdisc-ingress-netem-compat.network',
         '25-qdisc-pie.network',
         '25-route-ipv6-src.network',
@@ -2342,6 +2343,19 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class htb 2:38 root leaf 38:')
         self.assertRegex(output, 'class htb 2:39 root leaf 39:')
         self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
+
+    def test_qdisc2(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-drr.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc drr 2: root')
+        output = check_output('tc class show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'class drr 2:30 root quantum 2000b')
 
     @expectedFailureIfCAKEIsNotAvailable()
     def test_qdisc_cake(self):
