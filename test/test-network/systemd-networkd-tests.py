@@ -169,6 +169,18 @@ def expectedFailureIfCAKEIsNotAvailable():
 
     return f
 
+def expectedFailureIfPIEIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root pie', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1636,6 +1648,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
         '25-qdisc-ingress-netem-compat.network',
+        '25-qdisc-pie.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -2341,6 +2354,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc cake 3a: root')
         self.assertRegex(output, 'bandwidth 500Mbit')
         self.assertRegex(output, 'overhead 128')
+
+    @expectedFailureIfPIEIsNotAvailable()
+    def test_qdisc_pie(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-pie.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc pie 3a: root')
+        self.assertRegex(output, 'limit 200000')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [
