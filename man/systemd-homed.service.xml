@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-homed.service</refname>
     <refname>systemd-homed</refname>
-    <refpurpose>Home Directory/User Account Manager</refpurpose>
+    <refpurpose>Home Area/User Account Manager</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -30,13 +30,14 @@
     <title>Description</title>
 
     <para><command>systemd-homed</command> is a system service that may be used to create, remove, change or
-    inspect home directories.</para>
+    inspect home areas (directories and network mounts and real or loopback block devices with a filesystem,
+    optionally encrypted).</para>
 
     <para>Most of <command>systemd-homed</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> command.</para>
 
     <para>See the <ulink url="https://systemd.io/HOME_DIRECTORY">Home Directories</ulink> documentation for
-    details about the format and design of home directories managed by
+    details about the format and design of home areas managed by
     <filename>systemd-homed.service</filename>.</para>
 
     <para>Each home directory managed by <filename>systemd-homed.service</filename> synthesizes a local user

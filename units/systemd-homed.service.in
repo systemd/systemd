@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Home Manager
+Description=Home Area Manager
 Documentation=man:systemd-homed.service(8)
 RequiresMountsFor=/home
 
