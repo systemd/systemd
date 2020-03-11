@@ -1192,7 +1192,7 @@ static bool root_read_only(
         if (protect_system == PROTECT_SYSTEM_STRICT)
                 return true;
 
-        if (path_strv_contains(read_only_paths, "/"))
+        if (prefixed_path_strv_contains(read_only_paths, "/"))
                 return true;
 
         return false;
@@ -1217,9 +1217,9 @@ static bool home_read_only(
         if (protect_home != PROTECT_HOME_NO)
                 return true;
 
-        if (path_strv_contains(read_only_paths, "/home") ||
-            path_strv_contains(inaccessible_paths, "/home") ||
-            path_strv_contains(empty_directories, "/home"))
+        if (prefixed_path_strv_contains(read_only_paths, "/home") ||
+            prefixed_path_strv_contains(inaccessible_paths, "/home") ||
+            prefixed_path_strv_contains(empty_directories, "/home"))
                 return true;
 
         for (i = 0; i < n_temporary_filesystems; i++)
