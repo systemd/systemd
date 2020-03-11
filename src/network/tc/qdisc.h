@@ -15,6 +15,7 @@ typedef enum QDiscKind {
         QDISC_KIND_FQ_CODEL,
         QDISC_KIND_GRED,
         QDISC_KIND_HTB,
+        QDISC_KIND_HHF,
         QDISC_KIND_NETEM,
         QDISC_KIND_PFIFO,
         QDISC_KIND_SFB,
@@ -84,6 +85,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 #include "fq-codel.h"
 #include "fq.h"
 #include "gred.h"
+#include "hhf.h"
 #include "htb.h"
 #include "netem.h"
 #include "sfb.h"

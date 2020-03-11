@@ -370,3 +370,7 @@ GenericRIO=
 Parent=
 Handle=
 PacketLimit=
+[HeavyHitterFilter]
+Parent=
+Handle=
+PacketLimit=

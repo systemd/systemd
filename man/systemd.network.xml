@@ -3070,7 +3070,38 @@
           is used.</para>
         </listitem>
       </varlistentry>
+    </variablelist>
+  </refsect1>
 
+  <refsect1>
+    <title>[HeavyHitterFilter] Section Options</title>
+    <para>The <literal>[HeavyHitterFilter]</literal> section manages the queueing discipline
+    (qdisc) of Heavy Hitter Filter (hhf).</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Parent=</varname></term>
+        <listitem>
+          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
+          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Handle=</varname></term>
+        <listitem>
+          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
+          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
+          dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

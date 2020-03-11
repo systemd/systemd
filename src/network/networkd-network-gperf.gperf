@@ -298,6 +298,9 @@ GenericRandomEarlyDetection.Handle,          config_parse_qdisc_handle,         
 GenericRandomEarlyDetection.VirtualQueues,   config_parse_generic_random_early_detection_u32,          QDISC_KIND_GRED,               0
 GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_generic_random_early_detection_u32,      QDISC_KIND_GRED,               0
 GenericRandomEarlyDetection.GenericRIO,      config_parse_generic_random_early_detection_bool,         QDISC_KIND_GRED,               0
+HeavyHitterFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_HHF,                0
+HeavyHitterFilter.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_HHF,                0
+HeavyHitterFilter.PacketLimit,               config_parse_heavy_hitter_filter_packet_limit,            QDISC_KIND_HHF,                0
 HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0

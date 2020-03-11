@@ -119,6 +119,8 @@ sources = files('''
         tc/fq-codel.h
         tc/gred.c
         tc/gred.h
+        tc/hhf.c
+        tc/hhf.h
         tc/htb.c
         tc/htb.h
         tc/netem.c
