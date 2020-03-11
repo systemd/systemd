@@ -271,6 +271,9 @@ ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,
 ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
 DeficitRoundRobinScheduler.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_DRR,                0
 DeficitRoundRobinScheduler.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_DRR,                0
+DeficitRoundRobinSchedulerClass.Parent,      config_parse_tclass_parent,                               TCLASS_KIND_DRR,               0
+DeficitRoundRobinSchedulerClass.ClassId,     config_parse_tclass_classid,                              TCLASS_KIND_DRR,               0
+DeficitRoundRobinSchedulerClass.Quantum,     config_parse_drr_size,                                    TCLASS_KIND_DRR,               0
 PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
 PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
 PFIFO.PacketLimit,                           config_parse_fifo_size,                                   QDISC_KIND_PFIFO,              0

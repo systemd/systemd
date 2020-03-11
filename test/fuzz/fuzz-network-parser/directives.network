@@ -377,3 +377,7 @@ PacketLimit=
 [DeficitRoundRobinScheduler]
 Parent=
 Handle=
+[DeficitRoundRobinSchedulerClass]
+Parent=
+ClassId=
+Quantum=
