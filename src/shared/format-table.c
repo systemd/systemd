@@ -1010,6 +1010,24 @@ int table_set_empty_string(Table *t, const char *empty) {
         return free_and_strdup(&t->empty_string, empty);
 }
 
+int table_set_display_all(Table *t) {
+        size_t allocated;
+
+        assert(t);
+
+        allocated = t->n_display_map;
+
+        if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, allocated)))
+                return -ENOMEM;
+
+        for (size_t i = 0; i < t->n_columns; i++)
+                t->display_map[i] = i;
+
+        t->n_display_map = t->n_columns;
+
+        return 0;
+}
+
 int table_set_display(Table *t, size_t first_column, ...) {
         size_t allocated, column;
         va_list ap;
@@ -1065,6 +1083,34 @@ int table_set_sort(Table *t, size_t first_column, ...) {
                         break;
         }
         va_end(ap);
+
+        return 0;
+}
+
+int table_hide_column_from_display(Table *t, size_t column) {
+        size_t allocated, cur = 0;
+        int r;
+
+        assert(t);
+        assert(column < t->n_columns);
+
+        /* If the display map is empty, initialize it with all available columns */
+        if (!t->display_map) {
+                r = table_set_display_all(t);
+                if (r < 0)
+                        return r;
+        }
+
+        allocated = t->n_display_map;
+
+        for (size_t i = 0; i < allocated; i++) {
+                if (t->display_map[i] == column)
+                        continue;
+
+                t->display_map[cur++] = t->display_map[i];
+        }
+
+        t->n_display_map = cur;
 
         return 0;
 }
