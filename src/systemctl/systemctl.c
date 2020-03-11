@@ -400,6 +400,12 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
+        if (arg_no_legend) {
+                /* Hide the 'glyph' column when --no-legend is requested */
+                r = table_hide_column_from_display(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hide column: %m");
+        }
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -461,12 +467,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         if (job_count == 0) {
                 /* There's no data in the JOB column, so let's hide it */
-                /* Also, convert all number constants to size_t so va_arg()
-                 * in table_set_display() fetches a correct number of bytes from
-                 * the stack */
-                r = table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 6, (size_t) -1);
+                r = table_hide_column_from_display(table, 5);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set columns to display: %m");
+                        return log_error_errno(r, "Failed to hide column: %m");
         }
 
         r = table_print(table, NULL);
@@ -1980,6 +1983,12 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
+        if (arg_no_legend) {
+                /* Hide the 'glyph' column when --no-legend is requested */
+                r = table_hide_column_from_display(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hide column: %m");
+        }
         if (arg_full)
                 table_set_width(table, 0);
 
