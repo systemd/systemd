@@ -368,6 +368,10 @@ PacketLimit=
 Parent=
 Handle=
 PacketLimit=
+[PFIFOFast]
+Parent=
+Handle=
+PacketLimit=
 [GenericRandomEarlyDetection]
 Parent=
 Handle=

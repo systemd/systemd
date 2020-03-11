@@ -491,6 +491,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "BFIFO\0"
                               "PFIFO\0"
                               "PFIFOHeadDrop\0"
+                              "PFIFOFast\0"
                               "FairQueueing\0"
                               "FairQueueingControlledDelay\0"
                               "GenericRandomEarlyDetection\0"

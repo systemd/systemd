@@ -278,6 +278,9 @@ PFIFO.PacketLimit,                           config_parse_pfifo_size,           
 PFIFOHeadDrop.Parent,                        config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
 PFIFOHeadDrop.Handle,                        config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
 FFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_HEAD_DROP,    0
+PFIFOFast.Parent,                            config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_FAST,         0
+PFIFOFast.Handle,                            config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_FAST,         0
+PFIFOFast.PacketLimit,                       config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_FAST,         0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0

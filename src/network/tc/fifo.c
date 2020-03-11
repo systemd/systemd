@@ -29,8 +29,11 @@ static int fifo_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) 
         case QDISC_KIND_PFIFO_HEAD_DROP:
                 fifo = PFIFO_HEAD_DROP(qdisc);
                 break;
-        default:
+        case QDISC_KIND_PFIFO_FAST:
+                fifo = PFIFO_FAST(qdisc);
                 break;
+        default:
+                assert_not_reached("Unhandled option.");
         }
 
         opt.limit = fifo->limit;
@@ -68,6 +71,8 @@ int config_parse_pfifo_size(
                 r = qdisc_new_static(QDISC_KIND_PFIFO, network, filename, section_line, &qdisc);
         else  if (streq(section, "PFIFOHeadDrop"))
                 r = qdisc_new_static(QDISC_KIND_PFIFO_HEAD_DROP, network, filename, section_line, &qdisc);
+        else if (streq(section, "PFIFOFast"))
+                r = qdisc_new_static(QDISC_KIND_PFIFO_FAST, network, filename, section_line, &qdisc);
         else
                 return 0;
 
@@ -83,8 +88,11 @@ int config_parse_pfifo_size(
         case QDISC_KIND_PFIFO_HEAD_DROP:
                 fifo = PFIFO_HEAD_DROP(qdisc);
                 break;
-        default:
+        case QDISC_KIND_PFIFO_FAST:
+                fifo = PFIFO_FAST(qdisc);
                 break;
+        default:
+                assert_not_reached("Unhandled option.");
         }
 
         if (isempty(rvalue)) {
@@ -180,5 +188,11 @@ const QDiscVTable bfifo_vtable = {
 const QDiscVTable pfifo_head_drop_vtable = {
        .object_size = sizeof(FirstInFirstOut),
        .tca_kind = "pfifo_head_drop",
+       .fill_message = fifo_fill_message,
+};
+
+const QDiscVTable pfifo_fast_vtable = {
+       .object_size = sizeof(FirstInFirstOut),
+       .tca_kind = "pfifo_fast",
        .fill_message = fifo_fill_message,
 };
