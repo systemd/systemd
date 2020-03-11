@@ -392,3 +392,7 @@ Handle=
 Parent=
 ClassId=
 Quantum=
+[HeavyHitterFilter]
+Parent=
+Handle=
+PacketLimit=
