@@ -160,3 +160,15 @@ CeilRate=0.5M
 Parent=2:39
 Handle=0039
 PacketLimit=200000
+
+[HierarchyTokenBucketClass]
+Parent=root
+ClassId=0002:003a
+Priority=1
+Rate=1M
+CeilRate=0.5M
+
+[BFIFO]
+Parent=2:3a
+Handle=003a
+LimitSize=1M
