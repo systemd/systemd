@@ -27,6 +27,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_NETEM] = &netem_vtable,
         [QDISC_KIND_PIE] = &pie_vtable,
         [QDISC_KIND_PFIFO] = &pfifo_vtable,
+        [QDISC_KIND_PFIFO_FAST] = &pfifo_fast_vtable,
         [QDISC_KIND_PFIFO_HEAD_DROP] = &pfifo_head_drop_vtable,
         [QDISC_KIND_SFB] = &sfb_vtable,
         [QDISC_KIND_SFQ] = &sfq_vtable,

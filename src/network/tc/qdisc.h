@@ -19,6 +19,7 @@ typedef enum QDiscKind {
         QDISC_KIND_HTB,
         QDISC_KIND_NETEM,
         QDISC_KIND_PFIFO,
+        QDISC_KIND_PFIFO_FAST,
         QDISC_KIND_PFIFO_HEAD_DROP,
         QDISC_KIND_PIE,
         QDISC_KIND_SFB,

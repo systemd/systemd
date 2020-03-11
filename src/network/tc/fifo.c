@@ -176,3 +176,8 @@ const QDiscVTable pfifo_head_drop_vtable = {
        .tca_kind = "pfifo_head_drop",
        .fill_message = fifo_fill_message,
 };
+
+const QDiscVTable pfifo_fast_vtable = {
+       .object_size = sizeof(FirstInFirstOut),
+       .tca_kind = "pfifo_fast",
+};
