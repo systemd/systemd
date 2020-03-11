@@ -2046,7 +2046,10 @@ static int do_queue_default_job(
         } else if (r < 0) {
                 *ret_error_message = "Failed to isolate default target";
                 return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
-        }
+        } else
+                log_info("Queued %s job for default target %s.",
+                         job_type_to_string(job->type),
+                         unit_status_string(job->unit));
 
         m->default_unit_job_id = job->id;
 
