@@ -101,9 +101,11 @@ void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 void table_set_cell_height_max(Table *t, size_t height);
 int table_set_empty_string(Table *t, const char *empty);
+int table_set_display_all(Table *t);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
 int table_set_reverse(Table *t, size_t column, bool b);
+int table_hide_column_from_display(Table *t, size_t column);
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);
