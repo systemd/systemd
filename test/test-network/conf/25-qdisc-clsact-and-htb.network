@@ -172,3 +172,15 @@ CeilRate=0.5M
 Parent=2:3a
 Handle=003a
 LimitSize=1M
+
+[HierarchyTokenBucketClass]
+Parent=root
+ClassId=0002:003b
+Priority=1
+Rate=1M
+CeilRate=0.5M
+
+[PFIFOHeadDrop]
+Parent=2:3b
+Handle=003b
+PacketLimit=1023
