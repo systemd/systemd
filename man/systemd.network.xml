@@ -2333,13 +2333,7 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
     </variablelist>
   </refsect1>
 
@@ -2351,23 +2345,8 @@
     simulate internet connections.</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>DelaySec=</varname></term>
@@ -2417,23 +2396,8 @@
     token bucket filter (tbf).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>LatencySec=</varname></term>
@@ -2506,21 +2470,8 @@
     (qdisc) of Proportional Integral controller-Enhanced (PIE).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -2538,21 +2489,8 @@
     (qdisc) of stochastic fair blue (sfb).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -2570,23 +2508,8 @@
     (qdisc) of stochastic fairness queueing (sfq).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PerturbPeriodSec=</varname></term>
@@ -2603,21 +2526,8 @@
     Byte limited Packet First In First Out (bfifo).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>LimitSize=</varname></term>
@@ -2637,21 +2547,8 @@
     Packet First In First Out (pfifo).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -2670,18 +2567,8 @@
     Packet First In First Out Head Drop (pfifo_head_drop).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>As in <literal>[PFIFO]</literal> section.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>As in <literal>[PFIFO]</literal> section..</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -2697,18 +2584,8 @@
      Packet First In First Out Fast (pfifo_fast).</para>
 
      <variablelist class='network-directives'>
-       <varlistentry>
-         <term><varname>Parent=</varname></term>
-         <listitem>
-           <para>As in <literal>[PFIFO]</literal> section.</para></listitem>
-       </varlistentry>
-
-       <varlistentry>
-         <term><varname>Handle=</varname></term>
-         <listitem>
-           <para>As in <literal>[PFIFO]</literal> section..</para>
-         </listitem>
-       </varlistentry>
+       <xi:include href="tc.xml" xpointer="qdisc-parent" />
+       <xi:include href="tc.xml" xpointer="qdisc-handle" />
      </variablelist>
   </refsect1>
 
@@ -2718,31 +2595,16 @@
     Common Applications Kept Enhanced (CAKE).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
-
-       <varlistentry>
         <term><varname>Overhead=</varname></term>
         <listitem>
           <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
           Takes an integer ranges -64 to 256. Defaults to unset and kernel's default is used.</para>
         </listitem>
-       </varlistentry>
+      </varlistentry>
 
       <varlistentry>
         <term><varname>Bandwidth=</varname></term>
@@ -2761,23 +2623,8 @@
     controlled delay (CoDel).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -2827,23 +2674,8 @@
     Deficit Round Robin Scheduler (DRR).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
     </variablelist>
   </refsect1>
 
@@ -2853,23 +2685,8 @@
     Deficit Round Robin Scheduler (DRR).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>ClassId=</varname></term>
-        <listitem>
-          <para>Specifies the major and minur number of unique identifier of the class, known as the
-          class ID. Each number is in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="tclass-parent" />
+      <xi:include href="tc.xml" xpointer="tclass-classid" />
 
       <varlistentry>
         <term><varname>Quantum=</varname></term>
@@ -2889,21 +2706,8 @@
     (qdisc) of Generic Random Early Detection (GRED).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>VirtualQueues=</varname></term>
@@ -2936,23 +2740,8 @@
     (qdisc) of fair queuing controlled delay (FQ-CoDel).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -3028,23 +2817,8 @@
     (qdisc) of fair queue traffic policing (FQ).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
@@ -3132,23 +2906,8 @@
     trivial link equalizer (teql).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>Id=</varname></term>
@@ -3168,23 +2927,8 @@
     hierarchy token bucket (htb).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal>, <literal>ingress</literal> or a class id. The class id takes the
-          major and minor number in hexadecimal ranges 1 to ffff separated with a colon
-          (<literal>major:minor</literal>). Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>DefaultClass=</varname></term>
@@ -3202,23 +2946,8 @@
     hierarchy token bucket (htb).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          or a qdisc id. The qdisc id takes the major and minor number in hexadecimal ranges 1 to ffff
-          separated with a colon (<literal>major:minor</literal>). Defaults to <literal>root</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>ClassId=</varname></term>
-        <listitem>
-          <para>Specifies the major and minur number of unique identifier of the class, known as the
-          class ID. Each number is in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="tclass-parent" />
+      <xi:include href="tc.xml" xpointer="tclass-classid" />
 
       <varlistentry>
         <term><varname>Priority=</varname></term>
@@ -3255,21 +2984,8 @@
     (qdisc) of Heavy Hitter Filter (hhf).</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
-        <term><varname>Parent=</varname></term>
-        <listitem>
-          <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>root</literal>,
-          <literal>clsact</literal> or <literal>ingress</literal>. Defaults to <literal>root</literal>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>Handle=</varname></term>
-        <listitem>
-          <para>Specifies the major number of unique identifier of the qdisc, known as the handle.
-          Takes a number in hexadecimal ranges 1 to ffff. Defaults to unset.</para>
-        </listitem>
-      </varlistentry>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
