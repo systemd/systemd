@@ -9,6 +9,7 @@
 #include "tc.h"
 
 typedef enum TClassKind {
+        TCLASS_KIND_DRR,
         TCLASS_KIND_HTB,
         _TCLASS_KIND_MAX,
         _TCLASS_KIND_INVALID = -1,
@@ -64,4 +65,5 @@ DEFINE_TC_CAST(TCLASS, TClass);
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_tclass_classid);
 
+#include "drr.h"
 #include "htb.h"

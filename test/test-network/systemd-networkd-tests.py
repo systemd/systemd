@@ -169,6 +169,30 @@ def expectedFailureIfCAKEIsNotAvailable():
 
     return f
 
+def expectedFailureIfPIEIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root pie', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
+def expectedFailureIfHHFIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root hhf', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1635,7 +1659,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-nexthop.network',
         '25-qdisc-cake.network',
         '25-qdisc-clsact-and-htb.network',
+        '25-qdisc-drr.network',
+        '25-qdisc-hhf.network',
         '25-qdisc-ingress-netem-compat.network',
+        '25-qdisc-pie.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -2316,6 +2343,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc sfb 39: parent 2:39')
         self.assertRegex(output, 'limit 200000')
 
+        self.assertRegex(output, 'qdisc bfifo 3a: parent 2:3a')
+        self.assertRegex(output, 'limit 1000000')
+
+        self.assertRegex(output, 'qdisc pfifo_head_drop 3b: parent 2:3b')
+        self.assertRegex(output, 'limit 1023p')
+
+        self.assertRegex(output, 'qdisc pfifo_fast 3c: parent 2:3c')
+
         output = check_output('tc class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class htb 2:30 root leaf 30:')
@@ -2328,7 +2363,23 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class htb 2:37 root leaf 37:')
         self.assertRegex(output, 'class htb 2:38 root leaf 38:')
         self.assertRegex(output, 'class htb 2:39 root leaf 39:')
+        self.assertRegex(output, 'class htb 2:3a root leaf 3a:')
+        self.assertRegex(output, 'class htb 2:3b root leaf 3b:')
+        self.assertRegex(output, 'class htb 2:3c root leaf 3c:')
         self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
+
+    def test_qdisc2(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-drr.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc drr 2: root')
+        output = check_output('tc class show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'class drr 2:30 root quantum 2000b')
 
     @expectedFailureIfCAKEIsNotAvailable()
     def test_qdisc_cake(self):
@@ -2341,6 +2392,28 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc cake 3a: root')
         self.assertRegex(output, 'bandwidth 500Mbit')
         self.assertRegex(output, 'overhead 128')
+
+    @expectedFailureIfPIEIsNotAvailable()
+    def test_qdisc_pie(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-pie.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc pie 3a: root')
+        self.assertRegex(output, 'limit 200000')
+
+    @expectedFailureIfHHFIsNotAvailable()
+    def test_qdisc_hhf(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-hhf.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+        self.assertRegex(output, 'qdisc hhf 3a: root')
+        self.assertRegex(output, 'limit 1022p')
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [

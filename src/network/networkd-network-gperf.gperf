@@ -258,6 +258,9 @@ CAN.TripleSampling,                          config_parse_tristate,             
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
 QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
+BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0
+BFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_BFIFO,              0
+BFIFO.LimitSize,                             config_parse_bfifo_size,                                  QDISC_KIND_BFIFO,              0
 CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
 CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
 CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
@@ -269,9 +272,19 @@ ControlledDelay.TargetSec,                   config_parse_controlled_delay_usec,
 ControlledDelay.IntervalSec,                 config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
 ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
+DeficitRoundRobinScheduler.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_DRR,                0
+DeficitRoundRobinScheduler.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_DRR,                0
+DeficitRoundRobinSchedulerClass.Parent,      config_parse_tclass_parent,                               TCLASS_KIND_DRR,               0
+DeficitRoundRobinSchedulerClass.ClassId,     config_parse_tclass_classid,                              TCLASS_KIND_DRR,               0
+DeficitRoundRobinSchedulerClass.Quantum,     config_parse_drr_size,                                    TCLASS_KIND_DRR,               0
 PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
 PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
-PFIFO.PacketLimit,                           config_parse_fifo_size,                                   QDISC_KIND_PFIFO,              0
+PFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO,              0
+PFIFOFast.Parent,                            config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_FAST,         0
+PFIFOFast.Handle,                            config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_FAST,         0
+PFIFOHeadDrop.Parent,                        config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
+PFIFOHeadDrop.Handle,                        config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
+PFIFOHeadDrop.PacketLimit,                   config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_HEAD_DROP,    0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
@@ -298,6 +311,9 @@ GenericRandomEarlyDetection.Handle,          config_parse_qdisc_handle,         
 GenericRandomEarlyDetection.VirtualQueues,   config_parse_generic_random_early_detection_u32,          QDISC_KIND_GRED,               0
 GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_generic_random_early_detection_u32,      QDISC_KIND_GRED,               0
 GenericRandomEarlyDetection.GenericRIO,      config_parse_generic_random_early_detection_bool,         QDISC_KIND_GRED,               0
+HeavyHitterFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_HHF,                0
+HeavyHitterFilter.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_HHF,                0
+HeavyHitterFilter.PacketLimit,               config_parse_heavy_hitter_filter_packet_limit,            QDISC_KIND_HHF,                0
 HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
 HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0
@@ -313,6 +329,9 @@ NetworkEmulator.DelayJitterSec,              config_parse_network_emulator_delay
 NetworkEmulator.LossRate,                    config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
 NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
+PIE.Parent,                                  config_parse_qdisc_parent,                                QDISC_KIND_PIE,                0
+PIE.Handle,                                  config_parse_qdisc_handle,                                QDISC_KIND_PIE,                0
+PIE.PacketLimit,                             config_parse_pie_packet_limit,                            QDISC_KIND_PIE,                0
 StochasticFairBlue.Parent,                   config_parse_qdisc_parent,                                QDISC_KIND_SFB,                0
 StochasticFairBlue.Handle,                   config_parse_qdisc_handle,                                QDISC_KIND_SFB,                0
 StochasticFairBlue.PacketLimit,              config_parse_stochastic_fair_blue_u32,                    QDISC_KIND_SFB,                0

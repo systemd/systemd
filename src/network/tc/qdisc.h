@@ -9,14 +9,20 @@
 #include "tc.h"
 
 typedef enum QDiscKind {
+        QDISC_KIND_BFIFO,
         QDISC_KIND_CAKE,
         QDISC_KIND_CODEL,
+        QDISC_KIND_DRR,
         QDISC_KIND_FQ,
         QDISC_KIND_FQ_CODEL,
         QDISC_KIND_GRED,
+        QDISC_KIND_HHF,
         QDISC_KIND_HTB,
         QDISC_KIND_NETEM,
         QDISC_KIND_PFIFO,
+        QDISC_KIND_PFIFO_FAST,
+        QDISC_KIND_PFIFO_HEAD_DROP,
+        QDISC_KIND_PIE,
         QDISC_KIND_SFB,
         QDISC_KIND_SFQ,
         QDISC_KIND_TBF,
@@ -84,8 +90,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 #include "fq-codel.h"
 #include "fq.h"
 #include "gred.h"
+#include "hhf.h"
 #include "htb.h"
+#include "pie.h"
 #include "netem.h"
+#include "drr.h"
 #include "sfb.h"
 #include "sfq.h"
 #include "tbf.h"

@@ -111,6 +111,8 @@ sources = files('''
         tc/cake.h
         tc/codel.c
         tc/codel.h
+        tc/drr.c
+        tc/drr.h
         tc/fifo.c
         tc/fifo.h
         tc/fq.c
@@ -119,10 +121,14 @@ sources = files('''
         tc/fq-codel.h
         tc/gred.c
         tc/gred.h
+        tc/hhf.c
+        tc/hhf.h
         tc/htb.c
         tc/htb.h
         tc/netem.c
         tc/netem.h
+        tc/pie.c
+        tc/pie.h
         tc/qdisc.c
         tc/qdisc.h
         tc/sfb.c
