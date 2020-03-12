@@ -281,6 +281,20 @@ CHANGES WITH 245:
           to combine attachment with enablement and invocation, or detachment
           with stopping and disablement.
 
+        * UPGRADE ISSUE: a bug where some jobs were trimmed as redundant was
+          fixed, which in turn exposed bugs in unit configuration of services
+          which have Type=oneshot and should only run once, but do not have
+          RemainAfterExit=yes set. Without RemainAfterExit=yes, a one-shot
+          service may be started again after exiting successfully, for example
+          as a dependency in another transaction. Affected services included
+          some internal systemd services (most notably
+          systemd-vconsole-setup.service, which was updated to have
+          RemainAfterExit=yes), and plymouth-start.service. Please ensure that
+          plymouth has been suitably updated or patched before upgrading to
+          this systemd release. See
+          https://bugzilla.redhat.com/show_bug.cgi?id=1807771 for some
+          additional discussion.
+
         Contributions from: AJ Bagwell, Alin Popa, Andreas Rammhold, Anita
         Zhang, Ansgar Burchardt, Antonio Russo, Arian van Putten, Ashley Davis,
         Balint Reczey, Bart Willems, Bastien Nocera, Benjamin Dahlhoff, Charles
