@@ -264,6 +264,16 @@ static bool test_pointers(sd_device *dev,
         if (is_tablet)
                 udev_builtin_add_property(dev, test, "ID_INPUT_TABLET", "1");
 
+        const char *v;
+        if (sd_device_get_sysattr_value(dev, "id/bustype", &v) >= 0)
+                udev_builtin_add_property(dev, test, "ID_BUS", v);
+        if (sd_device_get_sysattr_value(dev, "id/vendor", &v) >= 0)
+                udev_builtin_add_property(dev, test, "ID_VENDOR_ID", v);
+        if (sd_device_get_sysattr_value(dev, "id/product", &v) >= 0)
+                udev_builtin_add_property(dev, test, "ID_MODEL_ID", v);
+        if (sd_device_get_sysattr_value(dev, "id/version", &v) >= 0)
+                udev_builtin_add_property(dev, test, "ID_REVISION", v);
+
         return is_tablet || is_mouse || is_touchpad || is_touchscreen || is_joystick || is_pointing_stick;
 }
 
