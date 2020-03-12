@@ -1995,21 +1995,21 @@ static int do_queue_default_job(
                 const char **ret_error_message) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char* default_unit;
-        Job *default_unit_job;
-        Unit *target = NULL;
+        const char *unit;
+        Job *job;
+        Unit *target;
         int r;
 
         if (arg_default_unit)
-                default_unit = arg_default_unit;
+                unit = arg_default_unit;
         else if (in_initrd())
-                default_unit = SPECIAL_INITRD_TARGET;
+                unit = SPECIAL_INITRD_TARGET;
         else
-                default_unit = SPECIAL_DEFAULT_TARGET;
+                unit = SPECIAL_DEFAULT_TARGET;
 
-        log_debug("Activating default unit: %s", default_unit);
+        log_debug("Activating default unit: %s", unit);
 
-        r = manager_load_startable_unit_or_warn(m, default_unit, NULL, &target);
+        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
         if (r < 0 && in_initrd() && !arg_default_unit) {
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
@@ -2031,13 +2031,13 @@ static int do_queue_default_job(
 
         assert(target->load_state == UNIT_LOADED);
 
-        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &default_unit_job);
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &job);
         if (r == -EPERM) {
                 log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
                 sd_bus_error_free(&error);
 
-                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &default_unit_job);
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &job);
                 if (r < 0) {
                         *ret_error_message = "Failed to start default target";
                         return log_emergency_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
@@ -2046,9 +2046,12 @@ static int do_queue_default_job(
         } else if (r < 0) {
                 *ret_error_message = "Failed to isolate default target";
                 return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
-        }
+        } else
+                log_info("Queued %s job for default target %s.",
+                         job_type_to_string(job->type),
+                         unit_status_string(job->unit));
 
-        m->default_unit_job_id = default_unit_job->id;
+        m->default_unit_job_id = job->id;
 
         return 0;
 }
