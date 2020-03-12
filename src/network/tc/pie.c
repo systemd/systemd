@@ -11,7 +11,7 @@
 #include "string-util.h"
 
 static int pie_fill_message(Link *link, QDisc *qdisc, sd_netlink_message *req) {
-        proportional_integral_controller_enhanced *pie;
+        ProportionalIntegralControllerEnhanced *pie;
         int r;
 
         assert(link);
@@ -50,7 +50,7 @@ int config_parse_pie_packet_limit(
                 void *userdata) {
 
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
-        proportional_integral_controller_enhanced *pie;
+        ProportionalIntegralControllerEnhanced *pie;
         Network *network = data;
         int r;
 
@@ -89,7 +89,7 @@ int config_parse_pie_packet_limit(
 }
 
 const QDiscVTable pie_vtable = {
-        .object_size = sizeof(proportional_integral_controller_enhanced),
+        .object_size = sizeof(ProportionalIntegralControllerEnhanced),
         .tca_kind = "pie",
         .fill_message = pie_fill_message,
 };

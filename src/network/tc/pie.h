@@ -5,13 +5,13 @@
 #include "conf-parser.h"
 #include "qdisc.h"
 
-typedef struct proportional_integral_controller_enhanced {
+typedef struct ProportionalIntegralControllerEnhanced {
         QDisc meta;
 
         uint32_t packet_limit;
-} proportional_integral_controller_enhanced;
+} ProportionalIntegralControllerEnhanced;
 
-DEFINE_QDISC_CAST(PIE, proportional_integral_controller_enhanced);
+DEFINE_QDISC_CAST(PIE, ProportionalIntegralControllerEnhanced);
 extern const QDiscVTable pie_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_pie_packet_limit);
