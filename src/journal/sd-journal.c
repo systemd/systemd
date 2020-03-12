@@ -438,7 +438,6 @@ _pure_ static int compare_with_location(const JournalFile *f, const Location *l,
 
         assert(f);
         assert(l);
-        assert(current_file);
         assert(f->location_type == LOCATION_SEEK);
         assert(IN_SET(l->type, LOCATION_DISCRETE, LOCATION_SEEK));
 
