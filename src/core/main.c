@@ -318,7 +318,6 @@ static int set_machine_id(const char *m) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-
         int r;
 
         assert(key);
@@ -330,10 +329,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (!unit_name_is_valid(value, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                         log_warning("Unit name specified on %s= is not valid, ignoring: %s", key, value);
-                else if (in_initrd() == !!startswith(key, "rd.")) {
-                        if (free_and_strdup(&arg_default_unit, value) < 0)
-                                return log_oom();
-                }
+                else if (in_initrd() == !!startswith(key, "rd."))
+                        return free_and_strdup_warn(&arg_default_unit, value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.dump_core")) {
 
@@ -510,7 +507,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* SysV compatibility */
                 target = runlevel_to_target(key);
                 if (target)
-                        return free_and_strdup(&arg_default_unit, target);
+                        return free_and_strdup_warn(&arg_default_unit, target);
         }
 
         return 0;
@@ -987,11 +984,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'b':
                 case 's':
                 case 'z':
-                        /* Just to eat away the sysvinit kernel
-                         * cmdline args without getopt() error
-                         * messages that we'll parse in
-                         * parse_proc_cmdline_word() or ignore. */
-
+                        /* Just to eat away the sysvinit kernel cmdline args that we'll parse in
+                         * parse_proc_cmdline_item() or ignore, without any getopt() error messages.
+                         */
                 case '?':
                         if (getpid_cached() != 1)
                                 return -EINVAL;
