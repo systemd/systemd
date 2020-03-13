@@ -543,9 +543,7 @@ static const NLType rtnl_link_types[] = {
         [IFLA_IFNAME]           = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ - 1 },
         [IFLA_MTU]              = { .type = NETLINK_TYPE_U32 },
         [IFLA_LINK]             = { .type = NETLINK_TYPE_U32 },
-/*
-        [IFLA_QDISC],
-*/
+        [IFLA_QDISC]            = { .type = NETLINK_TYPE_STRING },
         [IFLA_STATS]            = { .size = sizeof(struct rtnl_link_stats) },
 /*
         [IFLA_COST],
