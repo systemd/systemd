@@ -21,6 +21,7 @@ enable systemd-networkd.service
 enable systemd-resolved.service
 enable systemd-repart.service
 enable systemd-homed.service
+enable systemd-userdbd.socket
 
 disable console-getty.service
 disable debug-shell.service
