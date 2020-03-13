@@ -68,6 +68,11 @@ bool mac_selinux_use(void) {
 
 bool mac_selinux_enforcing(void) {
 #if HAVE_SELINUX
+        PROTECT_ERRNO;
+
+        /* Check for policy change so enforcing state is kept up-to-date by callback */
+        (void) avc_netlink_check_nb();
+
         if (_unlikely_(cached_enforcing < 0)) {
                 cached_enforcing = security_getenforce();
                 if (cached_enforcing < 0) {
