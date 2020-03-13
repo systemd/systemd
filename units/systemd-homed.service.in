@@ -34,3 +34,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
 @SERVICE_WATCHDOG@
+
+[Install]
+WantedBy=multi-user.target
+Alias=dbus-org.freedesktop.home1.service

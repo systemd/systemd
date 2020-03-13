@@ -20,6 +20,7 @@ enable systemd-timesyncd.service
 enable systemd-networkd.service
 enable systemd-resolved.service
 enable systemd-repart.service
+enable systemd-homed.service
 
 disable console-getty.service
 disable debug-shell.service
