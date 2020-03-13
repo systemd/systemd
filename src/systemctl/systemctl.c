@@ -2100,21 +2100,20 @@ static void emit_cmdline_warning(void) {
                            override);
 }
 
-static int get_default(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *_path = NULL;
-        const char *path;
+static int determine_default(char **ret_name) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_get_default(arg_scope, arg_root, &_path);
+                r = unit_file_get_default(arg_scope, arg_root, ret_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
-                path = _path;
+                return 0;
 
         } else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                const char *name;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
@@ -2132,13 +2131,23 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
 
-                r = sd_bus_message_read(reply, "s", &path);
+                r = sd_bus_message_read(reply, "s", &name);
                 if (r < 0)
                         return bus_log_parse_error(r);
-        }
 
-        if (path)
-                printf("%s\n", path);
+                return free_and_strdup_warn(ret_name, name);
+        }
+}
+
+static int get_default(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        r = determine_default(&name);
+        if (r < 0)
+                return r;
+
+        printf("%s\n", name);
 
         emit_cmdline_warning();
 
@@ -2201,6 +2210,17 @@ static int set_default(int argc, char *argv[], void *userdata) {
         }
 
         emit_cmdline_warning();
+
+        if (!arg_quiet) {
+                _cleanup_free_ char *final = NULL;
+
+                r = determine_default(&final);
+                if (r < 0)
+                        return r;
+
+                if (!streq(final, unit))
+                        log_notice("Note: \"%s\" is the default unit (possibly a runtime override).", final);
+        }
 
 finish:
         unit_file_changes_free(changes, n_changes);
