@@ -2065,6 +2065,41 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         return rc;
 }
 
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        char **ret = data;
+
+        if (streq(key, "systemd.unit")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+                if (!unit_name_is_valid(value, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        return log_warning("Unit name specified on %s= is not valid, ignoring: %s", key, value);
+
+                return free_and_strdup_warn(ret, key);
+
+        } else if (!value) {
+                if (runlevel_to_target(key))
+                        return free_and_strdup_warn(ret, key);
+        }
+
+        return 0;
+}
+
+static void emit_cmdline_warning(void) {
+        if (arg_quiet || arg_root)
+                /* don't bother checking the commandline if we're operating on a container */
+                return;
+
+        _cleanup_free_ char *override = NULL;
+        int r;
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, &override, 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        if (override)
+                log_notice("Note: found \"%s\" on the kernel commandline, which overrides the default unit.",
+                           override);
+}
+
 static int get_default(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *_path = NULL;
@@ -2077,7 +2112,6 @@ static int get_default(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to get default target: %m");
                 path = _path;
 
-                r = 0;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
@@ -2105,6 +2139,8 @@ static int get_default(int argc, char *argv[], void *userdata) {
 
         if (path)
                 printf("%s\n", path);
+
+        emit_cmdline_warning();
 
         return 0;
 }
@@ -2163,6 +2199,8 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 else
                         r = 0;
         }
+
+        emit_cmdline_warning();
 
 finish:
         unit_file_changes_free(changes, n_changes);
