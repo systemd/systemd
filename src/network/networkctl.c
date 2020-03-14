@@ -120,6 +120,7 @@ typedef struct LinkInfo {
         unsigned short iftype;
         struct ether_addr mac_address;
         struct ether_addr permanent_mac_address;
+        uint32_t master;
         uint32_t mtu;
         uint32_t min_mtu;
         uint32_t max_mtu;
@@ -341,6 +342,8 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 if (!info->qdisc)
                         return log_oom();
         }
+
+        (void) sd_netlink_message_read_u32(m, IFLA_MASTER, &info->master);
 
         /* fill kind info */
         (void) decode_netdev(m, info);
@@ -1350,6 +1353,15 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "QDisc:",
                                    TABLE_STRING, info->qdisc);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->master > 0) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Master:",
+                                   TABLE_IFINDEX, info->master);
                 if (r < 0)
                         return table_log_add_error(r);
         }
