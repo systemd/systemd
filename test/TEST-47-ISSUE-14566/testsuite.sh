@@ -6,6 +6,7 @@ systemd-analyze log-level debug
 systemd-analyze log-target console
 
 systemctl start issue_14566_test
+sleep 1
 systemctl status issue_14566_test
 
 leaked_pid=$(cat /leakedtestpid)
