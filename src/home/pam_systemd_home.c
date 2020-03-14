@@ -579,6 +579,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
                 int argc, const char **argv) {
 
         bool debug = false, suspend_please = false;
+        int r;
 
         if (parse_argv(handle,
                        argc, argv,
@@ -589,10 +590,19 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed authenticating");
 
-        return acquire_home(handle, /* please_authenticate= */ true, suspend_please, debug);
+        r = acquire_home(handle, /* please_authenticate= */ true, suspend_please, debug);
+        if (r == PAM_USER_UNKNOWN)
+                return PAM_IGNORE;
+        return r;
 }
 
 _public_ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) {
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        int r;
+
+        r = acquire_user_record(pamh, &ur);
+        if (r == PAM_USER_UNKNOWN)
+                return PAM_IGNORE;
         return PAM_SUCCESS;
 }
 
@@ -615,7 +625,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         r = acquire_home(handle, /* please_authenticate = */ false, suspend_please, debug);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
-                return PAM_SUCCESS;
+                return PAM_IGNORE;
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -720,7 +730,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
 
         r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug);
         if (r == PAM_USER_UNKNOWN)
-                return PAM_SUCCESS; /* we don't have anything to say about users we don't manage */
+                return PAM_IGNORE; /* we don't have anything to say about users we don't manage */
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -833,6 +843,8 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 return r;
 
         r = acquire_user_record(handle, &ur);
+        if (r == PAM_USER_UNKNOWN)
+                return PAM_IGNORE;
         if (r != PAM_SUCCESS)
                 return r;
 
