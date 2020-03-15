@@ -36,7 +36,7 @@ static int parse_argv(
         for (i = 0; i < argc; i++) {
                 const char *v;
 
-                if ((v = startswith(argv[1], "suspend="))) {
+                if ((v = startswith(argv[i], "suspend="))) {
                         int k;
 
                         k = parse_boolean(v);
