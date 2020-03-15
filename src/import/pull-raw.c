@@ -509,14 +509,17 @@ static void raw_pull_job_on_finished(PullJob *j) {
 
                 raw_pull_report_progress(i, RAW_FINALIZING);
 
-                r = import_make_read_only_fd(i->raw_job->disk_fd);
-                if (r < 0)
-                        goto finish;
+                if (i->raw_job->etag) {
+                        /* Only make a read-only copy if ETag header is set. */
+                        r = import_make_read_only_fd(i->raw_job->disk_fd);
+                        if (r < 0)
+                                goto finish;
 
-                r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to rename raw file to %s: %m", i->final_path);
-                        goto finish;
+                        r = rename_noreplace(AT_FDCWD, i->temp_path, AT_FDCWD, i->final_path);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to rename raw file to %s: %m", i->final_path);
+                                goto finish;
+                        }
                 }
 
                 i->temp_path = mfree(i->temp_path);
