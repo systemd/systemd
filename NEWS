@@ -501,8 +501,8 @@ CHANGES WITH 244:
           configuration time using the -Dservice-watchdog= setting. If set to
           empty, the watchdogs will be disabled.
 
-	* systemd-resolved validates IP addresses in certificates now when GnuTLS
-	  is being used.
+        * systemd-resolved validates IP addresses in certificates now when GnuTLS
+          is being used.
 
         * libcryptsetup >= 2.0.1 is now required.
 
