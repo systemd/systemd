@@ -149,6 +149,9 @@ typedef struct LinkInfo {
         /* vxlan info */
         VxLanInfo vxlan_info;
 
+        /* vlan info */
+        uint16_t vlan_id;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
@@ -240,7 +243,8 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
 
                 (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_LINK, &info->vxlan_info.link);
                 (void) sd_netlink_message_read_u16(m, IFLA_VXLAN_PORT, &info->vxlan_info.dest_port);
-        }
+        } else if (streq(received_kind, "vlan"))
+                (void) sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &info->vlan_id);
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1439,6 +1443,13 @@ static int link_status_one(
                         if (r < 0)
                                  return table_log_add_error(r);
                 }
+        } else if (streq_ptr(info->netdev_kind, "vlan") && info->vlan_id > 0) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "VLan Id:",
+                                   TABLE_UINT16, info->vlan_id);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         if (info->has_wlan_link_info) {
