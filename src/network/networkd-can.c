@@ -71,6 +71,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 
 static int link_set_can(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        struct can_ctrlmode cm = {};
         int r;
 
         assert(link);
@@ -142,13 +143,18 @@ static int link_set_can(Link *link) {
         }
 
         if (link->network->can_triple_sampling >= 0) {
-                struct can_ctrlmode cm = {
-                        .mask = CAN_CTRLMODE_3_SAMPLES,
-                        .flags = link->network->can_triple_sampling ? CAN_CTRLMODE_3_SAMPLES : 0,
-                };
-
+                cm.mask |= CAN_CTRLMODE_3_SAMPLES;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_3_SAMPLES, link->network->can_triple_sampling);
                 log_link_debug(link, "%sabling triple-sampling", link->network->can_triple_sampling ? "En" : "Dis");
+        }
 
+        if (link->network->can_listen_only >= 0) {
+                cm.mask |= CAN_CTRLMODE_LISTENONLY;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);
+                log_link_debug(link, "%sabling listen-only mode", link->network->can_listen_only ? "En" : "Dis");
+        }
+
+        if (cm.mask != 0) {
                 r = sd_netlink_message_append_data(m, IFLA_CAN_CTRLMODE, &cm, sizeof(cm));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_CAN_CTRLMODE attribute: %m");
