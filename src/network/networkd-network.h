@@ -200,6 +200,7 @@ struct Network {
         usec_t can_restart_us;
         int can_triple_sampling;
         int can_termination;
+        int can_listen_only;
 
         AddressFamily ip_forward;
         bool ip_masquerade;

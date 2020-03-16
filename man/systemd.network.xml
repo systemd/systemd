@@ -2317,6 +2317,16 @@
             the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>ListenOnly=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, listen-only mode is enabled. When the
+            interface is in listen-only mode, the interface neither transmit CAN frames nor send ACK
+            bit. Listen-only mode is important to debug CAN networks without interfering with the
+            communication or acknowledge the CAN frame. When unset, the kernel's default will be used.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

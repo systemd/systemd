@@ -201,6 +201,7 @@ BitRate=
 RestartSec=
 TripleSampling=
 Termination=
+ListenOnly=
 [Address]
 DuplicateAddressDetection=
 AutoJoin=
