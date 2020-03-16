@@ -57,13 +57,12 @@ bool mac_selinux_enforcing(void) {
 #if HAVE_SELINUX
         if (cached_enforcing < 0) {
                 cached_enforcing = security_getenforce();
-                if (cached_enforcing == -1) {
+                if (cached_enforcing == -1)
                         log_error_errno(errno, "Failed to get SELinux enforced status: %m");
-                }
         }
 
-        /* treat failure as enforced mode */
-        return (cached_enforcing != 0);
+        /* treat failure as permissive mode, but don't cache */
+        return (cached_enforcing > 0);
 #else
         return false;
 #endif
