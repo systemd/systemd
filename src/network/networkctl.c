@@ -125,6 +125,7 @@ typedef struct LinkInfo {
         uint32_t max_mtu;
         uint32_t tx_queues;
         uint32_t rx_queues;
+        char *qdisc;
         char **alternative_names;
 
         union {
@@ -179,6 +180,7 @@ static const LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
                 free(array[i].ssid);
+                free(array[i].qdisc);
                 strv_free(array[i].alternative_names);
         }
 
@@ -249,7 +251,7 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
 
 static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, bool matched_patterns[]) {
         _cleanup_strv_free_ char **altnames = NULL;
-        const char *name;
+        const char *name, *qdisc;
         int ifindex, r;
         uint16_t type;
 
@@ -332,6 +334,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 info->has_stats64 = true;
         else if (sd_netlink_message_read(m, IFLA_STATS, sizeof info->stats, &info->stats) >= 0)
                 info->has_stats = true;
+
+        r = sd_netlink_message_read_string(m, IFLA_QDISC, &qdisc);
+        if (r >= 0) {
+                info->qdisc = strdup(qdisc);
+                if (!info->qdisc)
+                        return log_oom();
+        }
 
         /* fill kind info */
         (void) decode_netdev(m, info);
@@ -1332,6 +1341,15 @@ static int link_status_one(
                                            info->max_mtu > 0 ? "max: " : "",
                                            info->max_mtu > 0 ? max_str : "",
                                            info->min_mtu > 0 || info->max_mtu > 0 ? ")" : "");
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->qdisc) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "QDisc:",
+                                   TABLE_STRING, info->qdisc);
                 if (r < 0)
                         return table_log_add_error(r);
         }
