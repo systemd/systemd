@@ -1334,11 +1334,11 @@ int dhcp4_configure(Link *link) {
                         return log_oom();
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to create DHCP4 client: %m");
-        }
 
-        r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event: %m");
+                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event: %m");
+        }
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    (const uint8_t *) &link->mac,

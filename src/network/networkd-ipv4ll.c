@@ -154,6 +154,10 @@ int ipv4ll_configure(Link *link) {
                 r = sd_ipv4ll_new(&link->ipv4ll);
                 if (r < 0)
                         return r;
+
+                r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
+                if (r < 0)
+                        return r;
         }
 
         if (link->sd_device &&
@@ -162,10 +166,6 @@ int ipv4ll_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
-
-        r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
-        if (r < 0)
-                return r;
 
         r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
         if (r < 0)
