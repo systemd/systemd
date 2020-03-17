@@ -1,0 +1,186 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_call"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_call</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_call</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_call</refname>
+    <refname>sd_bus_call_async</refname>
+
+    <refpurpose>Invoke a D-Bus method call</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_call</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_call_async</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_call()</function> takes a complete bus message object and calls the
+    corresponding D-Bus method. The response is stored in <parameter>reply</parameter>.
+    <parameter>usec</parameter> indicates the timeout in microseconds. If
+    <parameter>ret_error</parameter> is not <constant>NULL</constant> and
+    <function>sd_bus_call()</function> returns an error, <parameter>ret_error</parameter> is
+    initialized to an instance of <structname>sd_bus_error</structname> describing the error.</para>
+
+    <para><function>sd_bus_call_async()</function> is like <function>sd_bus_call()</function> but
+    works asynchronously. The <parameter>callback</parameter> shall reference a function to call
+    when the event source is triggered. The <parameter>userdata</parameter> pointer will be passed
+    to the callback function, and may be chosen freely by the caller. If <parameter>slot</parameter>
+    is not <constant>NULL</constant> and <function>sd_bus_call_async()</function> succeeds,
+    <parameter>slot</parameter> is set to a slot object which can be used to cancel the method call
+    at a later time using
+    <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If <parameter>slot</parameter> is <constant>NULL</constant>, the lifetime of the method call is
+    bound to the lifetime of the bus object itself, and it cannot be cancelled independently. See
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for details. The <parameter>callback</parameter> function is called when the response arrives
+    and receives the response, <parameter>userdata</parameter> and a
+    <structname>sd_bus_error</structname> object as its arguments. The
+    <structname>sd_bus_error</structname> object is unused here and should be ignored. If
+    <parameter>callback</parameter> returns a non-negative integer when called, a debug message is
+    logged along with details about the response.</para>
+
+    <para>To determine whether the method call succeeded, use
+    <citerefentry><refentrytitle>sd_bus_message_is_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on the reply object returned by <function>sd_bus_call()</function> or passed to the callback of
+    <function>sd_bus_call_async()</function>.</para>
+
+    <para>If <parameter>usec</parameter> is zero, the timeout set using
+    <citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    is used. If no method call timeout was set, the timeout is read from the
+    <varname>$SYSTEMD_BUS_TIMEOUT</varname> environment variable. If this environment variable is
+    unset or does not contain a valid timeout, the implementation falls back to a predefined method
+    call timeout of 25 seconds. Note that <varname>$SYSTEMD_BUS_TIMEOUT</varname> is read once and
+    cached so callers should not rely on being able to change the default method call timeout at
+    runtime by changing the value of <varname>$SYSTEMD_BUS_TIMEOUT</varname>. Instead, call
+    <function>sd_bus_set_method_call_timeout()</function> to change the default method call timeout.
+    </para>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
+          </para></listitem>
+
+          <listitem><para>The input parameter <parameter>m</parameter> is not a D-Bus method call.
+          To create a new D-Bus method call, use
+          <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+          </para></listitem>
+
+          <listitem><para>The input parameter <parameter>m</parameter> has the
+          <constant>BUS_MESSAGE_NO_REPLY_EXPECTED</constant> flag set.</para></listitem>
+
+          <listitem><para>The input parameter <parameter>error</parameter> is
+          non-<constant>NULL</constant> but was not set to <constant>SD_BUS_ERROR_NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection was allocated in a parent process and is being reused
+          in a child process after <function>fork()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant>
+          or the bus is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECONNRESET</constant></term>
+
+          <listitem><para>The client was disconnected while waiting for the response.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ETIMEDOUT</constant></term>
+
+          <listitem><para>A response was not received within the given timeout.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ELOOP</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> is addressed to its own client.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
