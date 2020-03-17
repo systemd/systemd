@@ -3424,7 +3424,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int session_jobs_reply(Session *s, const char *unit, const char *result) {
+static int session_jobs_reply(Session *s, uint32_t jid, const char *unit, const char *result) {
         assert(s);
         assert(unit);
 
@@ -3435,7 +3435,7 @@ static int session_jobs_reply(Session *s, const char *unit, const char *result) 
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED,
-                                  "Start job for unit '%s' failed with '%s'", unit, result);
+                                  "Job %u for unit '%s' failed with '%s'", jid, unit, result);
                 return session_send_create_reply(s, &e);
         }
 
@@ -3475,7 +3475,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         if (session) {
                 if (streq_ptr(path, session->scope_job)) {
                         session->scope_job = mfree(session->scope_job);
-                        (void) session_jobs_reply(session, unit, result);
+                        (void) session_jobs_reply(session, id, unit, result);
 
                         session_save(session);
                         user_save(session->user);
@@ -3490,7 +3490,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         user->service_job = mfree(user->service_job);
 
                         LIST_FOREACH(sessions_by_user, session, user->sessions)
-                                (void) session_jobs_reply(session, unit, NULL /* don't propagate user service failures to the client */);
+                                (void) session_jobs_reply(session, id, unit, NULL /* don't propagate user service failures to the client */);
 
                         user_save(user);
                 }
