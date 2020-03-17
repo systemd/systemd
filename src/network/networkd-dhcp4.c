@@ -323,6 +323,9 @@ static int link_set_dhcp_routes(Link *link) {
                 }
         }
 
+        if (!link->network->dhcp_use_gateway)
+                return 0;
+
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
         if (IN_SET(r, 0, -ENODATA))
                 log_link_info(link, "DHCP: No gateway received from DHCP server.");
@@ -451,7 +454,7 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_
         assert(link);
         assert(address);
 
-        if (!link->network->dhcp_use_routes)
+        if (!link->network->dhcp_use_gateway)
                 return 0;
 
         r = sd_dhcp_lease_get_router(lease, &router);

@@ -73,6 +73,7 @@ UseDNS=
 RoutesToDNS=
 UseDomains=
 UseRoutes=
+UseGateway=
 IAID=
 UserClass=
 UseNTP=

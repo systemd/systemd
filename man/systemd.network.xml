@@ -1474,7 +1474,13 @@
               "link" scope will be used. For anything else, scope defaults to "global".</para>
           </listitem>
         </varlistentry>
-
+        <varlistentry>
+          <term><varname>UseGateway=</varname></term>
+          <listitem>
+            <para>When true (the default), the gateway will be requested from the DHCP server and added to the
+            routing table with a metric of 1024, and a scope of "link".</para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><varname>UseTimezone=</varname></term>
 
