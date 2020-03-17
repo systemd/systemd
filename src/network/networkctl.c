@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <linux/if_tunnel.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
@@ -152,6 +153,10 @@ typedef struct LinkInfo {
         /* vlan info */
         uint16_t vlan_id;
 
+        /* tunnel info */
+        union in_addr_union local;
+        union in_addr_union remote;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
@@ -245,6 +250,10 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u16(m, IFLA_VXLAN_PORT, &info->vxlan_info.dest_port);
         } else if (streq(received_kind, "vlan"))
                 (void) sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &info->vlan_id);
+        else if (STR_IN_SET(received_kind, "ipip", "sit")) {
+                (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_LOCAL, &info->local.in);
+                (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_REMOTE, &info->remote.in);
+        }
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1450,6 +1459,24 @@ static int link_status_one(
                                    TABLE_UINT16, info->vlan_id);
                 if (r < 0)
                         return table_log_add_error(r);
+        } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit")) {
+                if (!in_addr_is_null(AF_INET, &info->local)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Local:",
+                                           TABLE_IN_ADDR, &info->local);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (!in_addr_is_null(AF_INET, &info->remote)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Remote:",
+                                           TABLE_IN_ADDR, &info->remote);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         if (info->has_wlan_link_info) {
