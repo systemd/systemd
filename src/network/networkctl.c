@@ -270,6 +270,9 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TTL, &info->ttl);
                 (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TOS, &info->tos);
                 (void) sd_netlink_message_read_u16(m, IFLA_GENEVE_PORT, &info->tunnel_port);
+        } else if (STR_IN_SET(received_kind, "gre", "gretap", "erspan")) {
+                (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_LOCAL, &info->local.in);
+                (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_REMOTE, &info->remote.in);
         }
 
 
@@ -1477,7 +1480,7 @@ static int link_status_one(
                                    TABLE_UINT16, info->vlan_id);
                 if (r < 0)
                         return table_log_add_error(r);
-        } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit")) {
+        } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit", "gre", "gretap", "erspan")) {
                 if (!in_addr_is_null(AF_INET, &info->local)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
@@ -1543,7 +1546,6 @@ static int link_status_one(
                                    TABLE_UINT16, info->tunnel_port);
                 if (r < 0)
                         return table_log_add_error(r);
-
         }
 
         if (info->has_wlan_link_info) {
