@@ -20,7 +20,8 @@
     <refname>sd_bus_call_method</refname>
     <refname>sd_bus_call_method_async</refname>
 
-    <refpurpose>Invoke a D-Bus method call</refpurpose>
+    <refpurpose>Initialize a bus message object and invoke the corresponding D-Bus method call
+    </refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -59,15 +60,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_call_method()</function> is a convenience function for calling a D-Bus
-    method. It combines the
+    <para><function>sd_bus_call_method()</function> is a convenience function for initializing a
+    bus message object and calling the corresponding D-Bus method. It combines the
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     functions into a single function call.</para>
 
-    <para><function>sd_bus_call_method_async()</function> is a convenience function for calling a
-    D-Bus method asynchronously. It combines the
+    <para><function>sd_bus_call_method_async()</function> is a convenience function for initializing
+    a bus message object and calling the corresponding D-Bus method asynchronously. It combines the
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -77,7 +78,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions returns a non-negative integer. On failure, they return a
+    <para>On success, these functions return a non-negative integer. On failure, they return a
     negative errno-style error code.</para>
 
     <refsect2 id='errors'>

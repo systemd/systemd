@@ -63,7 +63,7 @@
     pointers to appropriate types (a pointer to <type>int8_t</type> for a <literal>y</literal> in
     the type string, a pointer to <type>int32_t</type> for an <literal>i</literal>, a pointer to
     <type>const char*</type> for an <literal>s</literal>, ...)  which are set based on the values in
-    the message. As an exception, in case or array and variant types, the first argument is an
+    the message. As an exception, in case of array and variant types, the first argument is an
     "input" argument that further specifies how the message should be read. See the table below for
     a complete list of allowed arguments and their types. Note that, if the basic type is a pointer
     (e.g., <type>const char *</type> in the case of a string), the argument is a pointer to a
