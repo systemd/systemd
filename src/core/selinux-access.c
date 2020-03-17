@@ -185,7 +185,7 @@ int mac_selinux_generic_access_check(
         _cleanup_free_ char *cl = NULL;
         _cleanup_freecon_ char *fcon = NULL;
         char **cmdline = NULL;
-        const bool enforce = mac_selinux_enforcing();
+        bool enforce;
         int r = 0;
 
         assert(message);
@@ -195,6 +195,9 @@ int mac_selinux_generic_access_check(
         r = access_init(error);
         if (r <= 0)
                 return r;
+
+        /* delay call until we checked in `access_init()` if SELinux is actually enabled */
+        enforce = mac_selinux_enforcing();
 
         r = sd_bus_query_sender_creds(
                         message,
