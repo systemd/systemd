@@ -154,6 +154,10 @@ typedef struct LinkInfo {
         uint16_t vlan_id;
 
         /* tunnel info */
+        uint8_t ttl;
+        uint8_t tos;
+        uint16_t tunnel_port;
+        uint32_t vni;
         union in_addr_union local;
         union in_addr_union remote;
 
@@ -177,6 +181,7 @@ typedef struct LinkInfo {
         bool has_bitrates:1;
         bool has_ethtool_link_info:1;
         bool has_wlan_link_info:1;
+        bool has_tunnel_ipv4:1;
 
         bool needs_freeing:1;
 } LinkInfo;
@@ -253,7 +258,20 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         else if (STR_IN_SET(received_kind, "ipip", "sit")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_IPTUN_REMOTE, &info->remote.in);
+        } else if (streq(received_kind, "geneve")) {
+                (void) sd_netlink_message_read_u32(m, IFLA_GENEVE_ID, &info->vni);
+
+                r = sd_netlink_message_read_in_addr(m, IFLA_GENEVE_REMOTE, &info->remote.in);
+                if (r >= 0)
+                        info->has_tunnel_ipv4 = true;
+                else
+                        (void) sd_netlink_message_read_in6_addr(m, IFLA_GENEVE_REMOTE6, &info->remote.in6);
+
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TTL, &info->ttl);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TOS, &info->tos);
+                (void) sd_netlink_message_read_u16(m, IFLA_GENEVE_PORT, &info->tunnel_port);
         }
+
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1477,6 +1495,55 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        } else if (streq_ptr(info->netdev_kind, "geneve")) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "VNI:",
+                                   TABLE_UINT32, info->vni);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (info->has_tunnel_ipv4 && !in_addr_is_null(AF_INET, &info->remote)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Remote:",
+                                           TABLE_IN_ADDR, &info->remote);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                } else if (!in_addr_is_null(AF_INET6, &info->remote)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Remote:",
+                                           TABLE_IN6_ADDR, &info->remote);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (info->ttl > 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "TTL:",
+                                           TABLE_UINT8, info->ttl);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (info->tos > 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "TOS:",
+                                           TABLE_UINT8, info->tos);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Port:",
+                                   TABLE_UINT16, info->tunnel_port);
+                if (r < 0)
+                        return table_log_add_error(r);
+
         }
 
         if (info->has_wlan_link_info) {
