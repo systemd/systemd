@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xattr-util.h"
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **_f, const char *item) {
         _cleanup_free_ char *fs = NULL;
@@ -603,6 +604,24 @@ int cg_get_xattr(const char *controller, const char *path, const char *name, voi
                 return -errno;
 
         return (int) n;
+}
+
+int cg_get_xattr_malloc(const char *controller, const char *path, const char *name, char **ret) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        r = getxattr_malloc(fs, name, ret, false);
+        if (r < 0)
+                return r;
+
+        return r;
 }
 
 int cg_remove_xattr(const char *controller, const char *path, const char *name) {
