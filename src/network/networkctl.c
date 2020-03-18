@@ -273,8 +273,10 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         } else if (STR_IN_SET(received_kind, "gre", "gretap", "erspan")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_REMOTE, &info->remote.in);
+        } else if (STR_IN_SET(received_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
+                (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_LOCAL, &info->local.in6);
+                (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_REMOTE, &info->remote.in6);
         }
-
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1495,6 +1497,24 @@ static int link_status_one(
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Remote:",
                                            TABLE_IN_ADDR, &info->remote);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        } else if (STRPTR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
+                if (!in_addr_is_null(AF_INET6, &info->local)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Local:",
+                                           TABLE_IN6_ADDR, &info->local);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (!in_addr_is_null(AF_INET6, &info->remote)) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Remote:",
+                                           TABLE_IN6_ADDR, &info->remote);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
