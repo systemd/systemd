@@ -127,6 +127,7 @@ typedef struct LinkInfo {
         uint32_t max_mtu;
         uint32_t tx_queues;
         uint32_t rx_queues;
+        uint8_t addr_gen_mode;
         char *qdisc;
         char **alternative_names;
 
@@ -188,6 +189,7 @@ typedef struct LinkInfo {
         bool has_ethtool_link_info:1;
         bool has_wlan_link_info:1;
         bool has_tunnel_ipv4:1;
+        bool has_ipv6_address_generation_mode:1;
 
         bool needs_freeing:1;
 } LinkInfo;
@@ -396,6 +398,19 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
         }
 
         (void) sd_netlink_message_read_u32(m, IFLA_MASTER, &info->master);
+
+        r = sd_netlink_message_enter_container(m, IFLA_AF_SPEC);
+        if (r >= 0) {
+                r = sd_netlink_message_enter_container(m, AF_INET6);
+                if (r >= 0) {
+                        r = sd_netlink_message_read_u8(m, IFLA_INET6_ADDR_GEN_MODE, &info->addr_gen_mode);
+                        if (r >= 0)
+                                info->has_ipv6_address_generation_mode = true;
+
+                        (void) sd_netlink_message_exit_container(m);
+                }
+                (void) sd_netlink_message_exit_container(m);
+        }
 
         /* fill kind info */
         (void) decode_netdev(m, info);
@@ -1414,6 +1429,24 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Master:",
                                    TABLE_IFINDEX, info->master);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (info->has_ipv6_address_generation_mode) {
+                static const struct {
+                        const char *mode;
+                } mode_table[] = {
+                        { "eui64" },
+                        { "none" },
+                        { "stable-privacy" },
+                        { "random" },
+                };
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "IPv6 Address Generation Mode:",
+                                   TABLE_STRING, mode_table[info->addr_gen_mode]);
                 if (r < 0)
                         return table_log_add_error(r);
         }
