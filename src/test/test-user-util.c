@@ -164,7 +164,7 @@ static void test_valid_user_group_name_compat(void) {
         assert_se(valid_user_group_name_compat("eff."));
 
         assert_se(valid_user_group_name_compat("some5"));
-        assert_se(!valid_user_group_name_compat("5some"));
+        assert_se(valid_user_group_name_compat("5some"));
         assert_se(valid_user_group_name_compat("INNER5NUMBER"));
 }
 
@@ -234,7 +234,7 @@ static void test_valid_user_group_name_or_id_compat(void) {
         assert_se(valid_user_group_name_or_id_compat("kk-k"));
 
         assert_se(valid_user_group_name_or_id_compat("some5"));
-        assert_se(!valid_user_group_name_or_id_compat("5some"));
+        assert_se(valid_user_group_name_or_id_compat("5some"));
         assert_se(valid_user_group_name_or_id_compat("INNER5NUMBER"));
 }
 
