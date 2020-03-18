@@ -58,6 +58,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "numa-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-lookup.h"
