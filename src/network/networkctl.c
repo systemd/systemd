@@ -157,6 +157,12 @@ typedef struct LinkInfo {
         union in_addr_union local;
         union in_addr_union remote;
 
+        /* bonding info */
+        uint8_t mode;
+        uint32_t miimon;
+        uint32_t updelay;
+        uint32_t downdelay;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
@@ -224,7 +230,11 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_STP_STATE, &info->stp_state);
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
-
+        } if (streq(received_kind, "bond")) {
+                (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
+                (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
+                (void) sd_netlink_message_read_u32(m, IFLA_BOND_DOWNDELAY, &info->downdelay);
+                (void) sd_netlink_message_read_u32(m, IFLA_BOND_UPDELAY, &info->updelay);
         } else if (streq(received_kind, "vxlan")) {
                 (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_ID, &info->vxlan_info.vni);
 
@@ -1402,6 +1412,35 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Multicast IGMP Version:",
                                    TABLE_UINT8, info->mcast_igmp_version);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+        } else if (streq_ptr(info->netdev_kind, "bond")) {
+                static const struct {
+                        const char *mode;
+                } mode_table[] = {
+                        { "balance-rr" },
+                        { "active-backup" },
+                        { "balance-xor" },
+                        { "broadcast" },
+                        { "802.3ad" },
+                        { "balance-tlb" },
+                        { "balance-alb" },
+                };
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Mode:",
+                                   TABLE_STRING, mode_table[info->mode],
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Miimon:",
+                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->miimon),
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Updelay:",
+                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->updelay),
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Downdelay:",
+                                   TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->downdelay));
                 if (r < 0)
                         return table_log_add_error(r);
 
