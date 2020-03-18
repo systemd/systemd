@@ -81,15 +81,8 @@
     on the reply object returned by <function>sd_bus_call()</function> or passed to the callback of
     <function>sd_bus_call_async()</function>.</para>
 
-    <para>If <parameter>usec</parameter> is zero, the timeout set using
-    <citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    is used. If no method call timeout was set, the timeout is read from the
-    <varname>$SYSTEMD_BUS_TIMEOUT</varname> environment variable. If this environment variable is
-    unset or does not contain a valid timeout, the implementation falls back to a predefined method
-    call timeout of 25 seconds. Note that <varname>$SYSTEMD_BUS_TIMEOUT</varname> is read once and
-    cached so callers should not rely on being able to change the default method call timeout at
-    runtime by changing the value of <varname>$SYSTEMD_BUS_TIMEOUT</varname>. Instead, call
-    <function>sd_bus_set_method_call_timeout()</function> to change the default method call timeout.
+    <para>If <parameter>usec</parameter> is zero, the default D-Bus method call timeout is used. See
+    <citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
   </refsect1>
