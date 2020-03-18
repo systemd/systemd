@@ -87,7 +87,7 @@
     and freed when the bus object is deallocated. The
     <parameter>description</parameter> argument may be <constant>NULL</constant>, in
     which case the description is unset. This function must be called before the bus
-    has been started.</para>
+    is started.</para>
 
     <para><function>sd_bus_get_description()</function> returns a description string
     in <parameter>description</parameter>. This string may have been previously set
@@ -99,7 +99,7 @@
 
     <para><function>sd_bus_set_anonymous()</function> enables or disables "anonymous
     authentication", i.e. lack of authentication, of the bus peer. This function must
-    be called before the bus has been started. See the <ulink
+    be called before the bus is started. See the <ulink
     url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms">Authentication
     Mechanisms</ulink> section of the D-Bus specification for details.</para>
 
@@ -109,7 +109,7 @@
     <para><function>sd_bus_set_trusted()</function> sets the "trusted" state on the
     <parameter>bus</parameter> object. If true, all connections on the bus are
     trusted and access to all privileged and unprivileged methods is granted. This
-    function must be called before the bus has been started.</para>
+    function must be called before the bus is started.</para>
 
     <para><function>sd_bus_is_trusted()</function> returns true if the bus connection is trusted (in the
     sense described in previous paragraph).</para>
