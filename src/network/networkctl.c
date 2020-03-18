@@ -276,6 +276,12 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         } else if (STR_IN_SET(received_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_LOCAL, &info->local.in6);
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_GRE_REMOTE, &info->remote.in6);
+        } else if (streq(received_kind, "vti")) {
+                (void) sd_netlink_message_read_in_addr(m, IFLA_VTI_LOCAL, &info->local.in);
+                (void) sd_netlink_message_read_in_addr(m, IFLA_VTI_REMOTE, &info->remote.in);
+        } else if (streq(received_kind, "vti6")) {
+                (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_LOCAL, &info->local.in6);
+                (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_REMOTE, &info->remote.in6);
         }
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
@@ -1482,7 +1488,7 @@ static int link_status_one(
                                    TABLE_UINT16, info->vlan_id);
                 if (r < 0)
                         return table_log_add_error(r);
-        } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit", "gre", "gretap", "erspan")) {
+        } else if (STRPTR_IN_SET(info->netdev_kind, "ipip", "sit", "gre", "gretap", "erspan", "vti")) {
                 if (!in_addr_is_null(AF_INET, &info->local)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
@@ -1500,7 +1506,7 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
-        } else if (STRPTR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan")) {
+        } else if (STRPTR_IN_SET(info->netdev_kind, "ip6gre", "ip6gretap", "ip6erspan", "vti6")) {
                 if (!in_addr_is_null(AF_INET6, &info->local)) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
