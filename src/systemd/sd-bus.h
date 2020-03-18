@@ -177,7 +177,7 @@ int sd_bus_get_sender(sd_bus *bus, const char **ret);
 
 int sd_bus_start(sd_bus *bus);
 
-int sd_bus_try_close(sd_bus *bus);
+int sd_bus_try_close(sd_bus *bus) _sd_deprecated_; /* deprecated */
 void sd_bus_close(sd_bus *bus);
 
 sd_bus *sd_bus_ref(sd_bus *bus);
