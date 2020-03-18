@@ -19,7 +19,9 @@
     <refname>sd_bus_set_description</refname>
     <refname>sd_bus_get_description</refname>
     <refname>sd_bus_set_anonymous</refname>
+    <refname>sd_bus_is_anonymous</refname>
     <refname>sd_bus_set_trusted</refname>
+    <refname>sd_bus_is_trusted</refname>
     <refname>sd_bus_set_allow_interactive_authorization</refname>
     <refname>sd_bus_get_allow_interactive_authorization</refname>
 
@@ -49,9 +51,19 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_is_anonymous</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_set_trusted</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_trusted</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -91,10 +103,16 @@
     url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms">Authentication
     Mechanisms</ulink> section of the D-Bus specification for details.</para>
 
+    <para><function>sd_bus_is_anonymous()</function> returns true if the bus connection allows anonymous
+    authentication (in the sense described in previous paragraph).</para>
+
     <para><function>sd_bus_set_trusted()</function> sets the "trusted" state on the
     <parameter>bus</parameter> object. If true, all connections on the bus are
-    trusted and access to all privileged and unprivileged methods is granted.  This
+    trusted and access to all privileged and unprivileged methods is granted. This
     function must be called before the bus has been started.</para>
+
+    <para><function>sd_bus_is_trusted()</function> returns true if the bus connection is trusted (in the
+    sense described in previous paragraph).</para>
 
     <para><function>sd_bus_set_allow_interactive_authorization()</function>
     enables or disables interactive authorization for method calls. If true,

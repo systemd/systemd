@@ -337,6 +337,8 @@ manpages = [
   '3',
   ['sd_bus_get_allow_interactive_authorization',
    'sd_bus_get_description',
+   'sd_bus_is_anonymous',
+   'sd_bus_is_trusted',
    'sd_bus_set_allow_interactive_authorization',
    'sd_bus_set_anonymous',
    'sd_bus_set_trusted'],
