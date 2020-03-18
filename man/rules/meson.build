@@ -139,7 +139,7 @@ manpages = [
  ['sd_bus_attach_event', '3', ['sd_bus_detach_event', 'sd_bus_get_event'], ''],
  ['sd_bus_call', '3', ['sd_bus_call_async'], ''],
  ['sd_bus_call_method', '3', ['sd_bus_call_method_async'], ''],
- ['sd_bus_close', '3', ['sd_bus_flush'], ''],
+ ['sd_bus_close', '3', ['sd_bus_default_flush_close', 'sd_bus_flush'], ''],
  ['sd_bus_creds_get_pid',
   '3',
   ['sd_bus_creds_get_audit_login_uid',

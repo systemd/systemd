@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>sd_bus_close</refname>
     <refname>sd_bus_flush</refname>
+    <refname>sd_bus_default_flush_close</refname>
 
     <refpurpose>Close and flush a bus connection</refpurpose>
   </refnamediv>
@@ -35,6 +36,11 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_flush</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_default_flush_close</function></funcdef>
+        <paramdef>void</paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -59,6 +65,15 @@
     bus object so that it may be freed. Since these three operations are frequently done together a helper call
     <citerefentry><refentrytitle>sd_bus_flush_close_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry> is
     provided that combines them into one.</para>
+
+    <para><function>sd_bus_default_flush_close()</function> is similar to
+    <function>sd_bus_flush_close_unref</function>, but does not take a bus pointer argument and instead
+    iterates over any of the "default" busses opened by
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and similar calls. <function>sd_bus_default_flush_close()</function> is particularly useful to clean up
+    any busses opened using those calls before the program exits.</para>
   </refsect1>
 
   <refsect1>
