@@ -115,36 +115,16 @@ int bus_event_loop_with_idle(
                         return r;
 
                 if (r == 0 && !exiting && idle) {
+                        /* Inform the service manager that we are going down, so that it will queue all
+                         * further start requests, instead of assuming we are already running. */
+                        sd_notify(false, "STOPPING=1");
 
-                        r = sd_bus_try_close(bus);
-                        if (r == -EBUSY)
-                                continue;
-
-                        /* Fallback for dbus1 connections: we
-                         * unregister the name and wait for the
-                         * response to come through for it */
-                        if (r == -EOPNOTSUPP) {
-
-                                /* Inform the service manager that we
-                                 * are going down, so that it will
-                                 * queue all further start requests,
-                                 * instead of assuming we are already
-                                 * running. */
-                                sd_notify(false, "STOPPING=1");
-
-                                r = bus_async_unregister_and_exit(e, bus, name);
-                                if (r < 0)
-                                        return r;
-
-                                exiting = true;
-                                continue;
-                        }
-
+                        r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
                                 return r;
 
-                        sd_event_exit(e, 0);
-                        break;
+                        exiting = true;
+                        continue;
                 }
         }
 
