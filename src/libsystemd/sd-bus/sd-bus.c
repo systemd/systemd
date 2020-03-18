@@ -980,9 +980,8 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                         return -EINVAL;
 
                 free_and_replace(b->machine, machine);
-        } else {
+        } else
                 b->machine = mfree(b->machine);
-        }
 
         if (pid) {
                 r = parse_pid(pid, &b->nspid);
@@ -1271,10 +1270,7 @@ int bus_set_address_system(sd_bus *b) {
         assert(b);
 
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
-        if (e)
-                return sd_bus_set_address(b, e);
-
-        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_ADDRESS);
+        return sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
 }
 
 _public_ int sd_bus_open_system_with_description(sd_bus **ret, const char *description) {
@@ -1319,29 +1315,30 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
 }
 
 int bus_set_address_user(sd_bus *b) {
-        const char *e;
-        _cleanup_free_ char *ee = NULL, *s = NULL;
+        const char *a;
+        _cleanup_free_ char *_a = NULL;
 
         assert(b);
 
-        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
-        if (e)
-                return sd_bus_set_address(b, e);
+        a = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+        if (!a) {
+                const char *e;
+                _cleanup_free_ char *ee = NULL;
 
-        e = secure_getenv("XDG_RUNTIME_DIR");
-        if (!e)
-                return -ENOENT;
+                e = secure_getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return -ENOENT;
 
-        ee = bus_address_escape(e);
-        if (!ee)
-                return -ENOMEM;
+                ee = bus_address_escape(e);
+                if (!ee)
+                        return -ENOMEM;
 
-        if (asprintf(&s, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
-                return -ENOMEM;
+                if (asprintf(&_a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
+                        return -ENOMEM;
+                a = _a;
+        }
 
-        b->address = TAKE_PTR(s);
-
-        return 0;
+        return sd_bus_set_address(b, a);
 }
 
 _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *description) {
