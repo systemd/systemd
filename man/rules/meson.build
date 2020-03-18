@@ -356,6 +356,7 @@ manpages = [
   ''],
  ['sd_bus_slot_set_floating', '3', ['sd_bus_slot_get_floating'], ''],
  ['sd_bus_slot_set_userdata', '3', ['sd_bus_slot_get_userdata'], ''],
+ ['sd_bus_start', '3', [], ''],
  ['sd_bus_track_add_name',
   '3',
   ['sd_bus_track_add_sender',

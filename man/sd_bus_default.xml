@@ -297,7 +297,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>In addition, any further connection-related errors may be by returned. See
+      <para>In addition, other connection-related errors may be returned. See
       <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
     </refsect2>
   </refsect1>
