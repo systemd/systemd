@@ -22,7 +22,7 @@
     <refname>sd_bus_reply_method_errno</refname>
     <refname>sd_bus_reply_method_errnof</refname>
 
-    <refpurpose>Reply with an error to a method call</refpurpose>
+    <refpurpose>Reply with an error to a D-Bus method call</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -63,12 +63,12 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <function>sd_bus_reply_method_error()</function> function sends an
-    error reply to the <parameter>call</parameter> message. The error structure
-    <parameter>e</parameter> specifies the error to send, and is used as described in
+    <para>The <function>sd_bus_reply_method_error()</function> function sends an error reply to the
+    <parameter>call</parameter> message. The error structure <parameter>e</parameter> specifies the
+    error to send, and is used as described in
     <citerefentry><refentrytitle>sd_bus_message_new_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    If no reply is expected to <parameter>call</parameter>, this function returns
-    success without sending reply.</para>
+    If no reply is expected to <parameter>call</parameter>, this function succeeds without sending a
+    reply.</para>
 
     <para>The <function>sd_bus_reply_method_errorf()</function> is to
     <function>sd_bus_reply_method_error()</function> what
@@ -89,8 +89,9 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>These functions return 0 if the error reply was successfully sent or if
-    none was expected, and a negative errno-style error code otherwise.</para>
+    <para>This function returns a non-negative integer if the error reply was successfully sent or
+    if <parameter>call</parameter> does not expect a reply. On failure, it returns a negative
+    errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -101,15 +102,14 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The call message <parameter>call</parameter> is
+          <listitem><para>The input parameter <parameter>call</parameter> is
           <constant>NULL</constant>.</para>
 
-          <para>Message <parameter>call</parameter> is not a method call message.
-          </para>
+          <para>Message <parameter>call</parameter> is not a method call message.</para>
 
           <para>Message <parameter>call</parameter> is not attached to a bus.</para>
 
-          <para>The error <parameter>error</parameter> parameter to
+          <para>The error parameter <parameter>error</parameter> to
           <function>sd_bus_reply_method_error</function> is not set, see
           <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           </para>
@@ -137,7 +137,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>In addition, any error message returned by
+      <para>In addition, any error returned by
       <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       may be returned.</para>
     </refsect2>
