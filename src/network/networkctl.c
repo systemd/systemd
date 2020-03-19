@@ -453,7 +453,11 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
                 r = sd_netlink_message_enter_container(m, AF_INET6);
                 if (r >= 0) {
                         r = sd_netlink_message_read_u8(m, IFLA_INET6_ADDR_GEN_MODE, &info->addr_gen_mode);
-                        if (r >= 0)
+                        if (r >= 0 && IN_SET(info->addr_gen_mode,
+                                             IN6_ADDR_GEN_MODE_EUI64,
+                                             IN6_ADDR_GEN_MODE_NONE,
+                                             IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
+                                             IN6_ADDR_GEN_MODE_RANDOM))
                                 info->has_ipv6_address_generation_mode = true;
 
                         (void) sd_netlink_message_exit_container(m);
