@@ -1,0 +1,33 @@
+---
+# vi:ts=2 sw=2 et:
+#
+# Docs: https://packit.dev/docs/
+
+specfile_path: .packit_rpm/systemd.spec
+synced_files:
+  - .packit.yaml
+  - src: .packit_rpm/systemd.spec
+    dest: systemd.spec
+upstream_package_name: systemd
+downstream_package_name: systemd
+# `git describe` returns in systemd's case 'v245-xxx' which breaks RPM version
+# detection (that expects 245-xxxx'. Let's tweak the version string accordingly
+upstream_tag_template: "v{version}"
+
+actions:
+  post-upstream-clone:
+    # Use the Fedora Rawhide specfile
+    - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
+    # Drop backported patches from the specfile, but keep the downstream-only ones
+    # - Patch0000-0499: backported patches from upstream
+    # - Patch0500-9999: downstream-only patches
+    - "sed -ri '/^Patch0[0-4][0-9]{2}+\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+
+jobs:
+- job: copr_build
+  trigger: pull_request
+  metadata:
+    targets:
+    - fedora-rawhide-aarch64
+    - fedora-rawhide-i386
+    - fedora-rawhide-x86_64
