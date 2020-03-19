@@ -128,14 +128,14 @@
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
-          <listitem><para>The bus parameter <parameter>bus</parameter> is <constant>NULL</constant>
-          or the bus is not connected.</para></listitem>
+          <listitem><para>The input parameter <parameter>bus</parameter> is
+          <constant>NULL</constant> or the bus is not connected.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECONNRESET</constant></term>
 
-          <listitem><para>The client was disconnected while waiting for the response.
+          <listitem><para>The bus connection was closed while waiting for the response.
           </para></listitem>
         </varlistentry>
 
