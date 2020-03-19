@@ -149,6 +149,8 @@ shared_sources = files('''
         machine-image.h
         machine-pool.c
         machine-pool.h
+        macvlan-util.c
+        macvlan-util.h
         main-func.h
         module-util.h
         mount-util.c
