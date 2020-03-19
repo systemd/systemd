@@ -12,12 +12,16 @@
 #include "hashmap.h"
 #include "list.h"
 #include "time-util.h"
+#include "varlink.h"
 
 #include "networkd-address-pool.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 
 struct Manager {
+        char *namespace;
+        char *runtime_directory;
+
         sd_netlink *rtnl;
         /* lazy initialized */
         sd_netlink *genl;
@@ -26,6 +30,8 @@ struct Manager {
         sd_bus *bus;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
+
+        VarlinkServer *varlink_server;
 
         bool enumerating:1;
         bool dirty:1;
@@ -44,8 +50,6 @@ struct Manager {
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
         LIST_HEAD(AddressPool, address_pools);
-
-        usec_t network_dirs_ts_usec;
 
         DUID duid;
         sd_id128_t product_uuid;
@@ -70,14 +74,14 @@ struct Manager {
         bool dhcp4_prefix_root_cannot_set_table;
 };
 
-int manager_new(Manager **ret);
+int manager_new(Manager **ret, const char *namespace, bool open_varlink);
 void manager_free(Manager *m);
 
 int manager_connect_bus(Manager *m);
 int manager_start(Manager *m);
 
 int manager_load_config(Manager *m);
-bool manager_should_reload(Manager *m);
+int manager_reload(Manager *m);
 
 int manager_rtnl_enumerate_links(Manager *m);
 int manager_rtnl_enumerate_addresses(Manager *m);

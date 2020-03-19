@@ -2,8 +2,11 @@
 
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
+#include <linux/net_namespace.h>
 #include <net/if.h>
+#include <sched.h>
 #include <stdbool.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -20,13 +23,16 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "device-internal.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
@@ -34,10 +40,12 @@
 #include "logs-show.h"
 #include "macro.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
 #include "socket-netlink.h"
@@ -51,6 +59,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "unit-def.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -66,6 +75,9 @@ static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
+static const char *arg_namespace = NULL;
+
+static int set_netns(void);
 
 static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
         assert(on);
@@ -553,6 +565,9 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
                 xsprintf(devid, "n%i", links[c].ifindex);
                 (void) sd_device_new_from_device_id(&links[c].sd_device, devid);
 
+                if (arg_namespace)
+                        device_prohibit_to_touch_db(links[c].sd_device);
+
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);
 
@@ -594,6 +609,10 @@ static int list_links(int argc, char *argv[], void *userdata) {
         TableCell *cell;
         int c, i, r;
 
+        r = set_netns();
+        if (r < 0)
+                return r;
+
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
@@ -628,10 +647,10 @@ static int list_links(int argc, char *argv[], void *userdata) {
                            *on_color_setup, *off_color_setup;
                 _cleanup_free_ char *t = NULL;
 
-                (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
+                (void) sd_network_link_get_operational_state(links[i].ifindex, arg_namespace, &operational_state);
                 operational_state_to_color(links[i].name, operational_state, &on_color_operational, &off_color_operational);
 
-                r = sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                r = sd_network_link_get_setup_state(links[i].ifindex, arg_namespace, &setup_state);
                 if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
@@ -879,7 +898,7 @@ static int dump_addresses(
         if (n <= 0)
                 return n;
 
-        (void) sd_network_link_get_dhcp4_address(ifindex, &dhcp4_address);
+        (void) sd_network_link_get_dhcp4_address(ifindex, arg_namespace, &dhcp4_address);
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
@@ -997,6 +1016,10 @@ static int dump_address_labels(sd_netlink *rtnl) {
 static int list_address_labels(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
+
+        r = set_netns();
+        if (r < 0)
+                return r;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1235,18 +1258,18 @@ static int link_status_one(
         assert(rtnl);
         assert(info);
 
-        (void) sd_network_link_get_operational_state(info->ifindex, &operational_state);
+        (void) sd_network_link_get_operational_state(info->ifindex, arg_namespace, &operational_state);
         operational_state_to_color(info->name, operational_state, &on_color_operational, &off_color_operational);
 
-        r = sd_network_link_get_setup_state(info->ifindex, &setup_state);
+        r = sd_network_link_get_setup_state(info->ifindex, arg_namespace, &setup_state);
         if (r == -ENODATA) /* If there's no info available about this iface, it's unmanaged by networkd */
                 setup_state = strdup("unmanaged");
         setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-        (void) sd_network_link_get_dns(info->ifindex, &dns);
-        (void) sd_network_link_get_search_domains(info->ifindex, &search_domains);
-        (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
-        (void) sd_network_link_get_ntp(info->ifindex, &ntp);
+        (void) sd_network_link_get_dns(info->ifindex, arg_namespace, &dns);
+        (void) sd_network_link_get_search_domains(info->ifindex, arg_namespace, &search_domains);
+        (void) sd_network_link_get_route_domains(info->ifindex, arg_namespace, &route_domains);
+        (void) sd_network_link_get_ntp(info->ifindex, arg_namespace, &ntp);
 
         if (info->sd_device) {
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
@@ -1262,10 +1285,10 @@ static int link_status_one(
 
         t = link_get_type_string(info->iftype, info->sd_device);
 
-        (void) sd_network_link_get_network_file(info->ifindex, &network);
+        (void) sd_network_link_get_network_file(info->ifindex, arg_namespace, &network);
 
-        (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
-        (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
+        (void) sd_network_link_get_carrier_bound_to(info->ifindex, arg_namespace, &carrier_bound_to);
+        (void) sd_network_link_get_carrier_bound_by(info->ifindex, arg_namespace, &carrier_bound_by);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -1758,7 +1781,7 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        (void) sd_network_link_get_timezone(info->ifindex, &tz);
+        (void) sd_network_link_get_timezone(info->ifindex, arg_namespace, &tz);
         if (tz) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1793,7 +1816,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         assert(rtnl);
 
-        (void) sd_network_get_operational_state(&operational_state);
+        (void) sd_network_get_operational_state(arg_namespace, &operational_state);
         operational_state_to_color(NULL, operational_state, &on_color_operational, &off_color_operational);
 
         table = table_new("dot", "key", "value");
@@ -1828,22 +1851,22 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return r;
 
-        (void) sd_network_get_dns(&dns);
+        (void) sd_network_get_dns(arg_namespace, &dns);
         r = dump_list(table, "DNS:", dns);
         if (r < 0)
                 return r;
 
-        (void) sd_network_get_search_domains(&search_domains);
+        (void) sd_network_get_search_domains(arg_namespace, &search_domains);
         r = dump_list(table, "Search Domains:", search_domains);
         if (r < 0)
                 return r;
 
-        (void) sd_network_get_route_domains(&route_domains);
+        (void) sd_network_get_route_domains(arg_namespace, &route_domains);
         r = dump_list(table, "Route Domains:", route_domains);
         if (r < 0)
                 return r;
 
-        (void) sd_network_get_ntp(&ntp);
+        (void) sd_network_get_ntp(arg_namespace, &ntp);
         r = dump_list(table, "NTP:", ntp);
         if (r < 0)
                 return r;
@@ -1862,11 +1885,17 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c, i;
 
+        r = set_netns();
+        if (r < 0)
+                return r;
+
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+        if (!arg_namespace) {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -1952,6 +1981,10 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         int i, r, c, m = 0;
         uint16_t all = 0;
         TableCell *cell;
+
+        r = set_netns();
+        if (r < 0)
+                return r;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -2104,6 +2137,10 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         Iterator j;
         void *p;
 
+        r = set_netns();
+        if (r < 0)
+                return r;
+
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
@@ -2136,41 +2173,88 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int link_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int varlink_connect(Varlink **ret) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
+        _cleanup_free_ char *varlink_socket = NULL;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "RenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
+        assert(ret);
+
+        varlink_socket = arg_namespace ?
+                strjoin("/run/systemd/netif.", arg_namespace, "/io.systemd.network") :
+                strdup("/run/systemd/netif/io.systemd.network");
+        if (!varlink_socket)
+                return log_oom();
+
+        r = varlink_connect_address(&varlink, varlink_socket);
         if (r < 0)
-                return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to connect to %s: %m", varlink_socket);
+
+        (void) varlink_set_description(varlink, "journal");
+        (void) varlink_set_relative_timeout(varlink, USEC_INFINITY);
+
+        *ret = TAKE_PTR(varlink);
+        return 0;
+}
+
+static int link_renew_one(sd_bus *bus, Varlink *varlink, int index, const char *name) {
+        int r;
+
+        if (arg_namespace) {
+                const char *str_error;
+
+                r = varlink_callb(varlink, "io.systemd.Network.RenewLink", NULL, &str_error, NULL,
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (str_error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "RenewLink",
+                                &error,
+                                NULL,
+                                "i", index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
+                                               name, bus_error_message(&error, r));
+        }
 
         return 0;
 }
 
 static int link_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, i, k = 0, r;
 
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
+
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         for (i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_renew_one(bus, index, argv[i]);
+                r = link_renew_one(bus, varlink, index, argv[i]);
                 if (r < 0 && k >= 0)
                         k = r;
         }
@@ -2178,41 +2262,60 @@ static int link_renew(int argc, char *argv[], void *userdata) {
         return k;
 }
 
-static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int link_force_renew_one(sd_bus *bus, Varlink *varlink, int index, const char *name) {
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "ForceRenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
-        if (r < 0)
-                return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
+        if (arg_namespace) {
+                const char *str_error;
+
+                r = varlink_callb(varlink, "io.systemd.Network.RenewLink", NULL, &str_error, NULL,
+                                  JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (str_error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "ForceRenewLink",
+                                &error,
+                                NULL,
+                                "i", index);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
+                                               name, bus_error_message(&error, r));
+        }
 
         return 0;
 }
 
 static int link_force_renew(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, i, k = 0, r;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         for (i = 1; i < argc; i++) {
                 index = resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_force_renew_one(bus, index, argv[i]);
+                r = link_force_renew_one(bus, varlink, index, argv[i]);
                 if (r < 0 && k >= 0)
                         k = r;
         }
@@ -2221,28 +2324,49 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "Reload",
-                        &error, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload network settings: %m");
+        if (arg_namespace) {
+                _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
+                const char *error;
+
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+
+                r = varlink_call(varlink, "io.systemd.Network.Reload", NULL, NULL, &error, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to execute varlink call: %m");
+                if (error)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", error);
+        } else {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.network1",
+                                "/org/freedesktop/network1",
+                                "org.freedesktop.network1.Manager",
+                                "Reload",
+                                &error, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to reload network settings: %m");
+        }
 
         return 0;
 }
 
 static int verb_reconfigure(int argc, char *argv[], void *userdata) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *varlink = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -2251,9 +2375,19 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         Iterator j;
         void *p;
 
-        r = sd_bus_open_system(&bus);
+        r = set_netns();
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return r;
+
+        if (arg_namespace) {
+                r = varlink_connect(&varlink);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect system bus: %m");
+        }
 
         indexes = set_new(NULL);
         if (!indexes)
@@ -2271,20 +2405,209 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 
         SET_FOREACH(p, indexes, j) {
                 index = PTR_TO_INT(p);
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "ReconfigureLink",
-                                &error, NULL, "i", index);
-                if (r < 0) {
-                        char ifname[IF_NAMESIZE + 1];
+                if (arg_namespace) {
+                        const char *str_error;
 
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
-                                               format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        r = varlink_callb(varlink, "io.systemd.Network.ReconfigureLink", NULL, &str_error, NULL,
+                                          JSON_BUILD_OBJECT(JSON_BUILD_PAIR("ifindex", JSON_BUILD_INTEGER(index))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to execute varlink call: %m");
+                        if (str_error)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to execute varlink call: %s", str_error);
+                } else {
+                        r = sd_bus_call_method(
+                                        bus,
+                                        "org.freedesktop.network1",
+                                        "/org/freedesktop/network1",
+                                        "org.freedesktop.network1.Manager",
+                                        "ReconfigureLink",
+                                        &error, NULL, "i", index);
+                        if (r < 0) {
+                                char ifname[IF_NAMESIZE + 1];
+
+                                return log_error_errno(r, "Failed to reconfigure network interface %s: %m",
+                                                       format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                        }
                 }
         }
+
+        return 0;
+}
+
+static int set_netns(void) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        if (!arg_namespace)
+                return 0;
+
+        path = path_make_absolute(arg_namespace, "/var/run/netns");
+        if (!path)
+                return log_oom();
+
+        fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", path);
+
+        r = setns(fd, CLONE_NEWNET);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set network namespace: %m");
+
+        r = unshare(CLONE_NEWNS);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to unshare(): %m");
+
+        r = mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to remount '/' as SLAVE: %m");
+
+        (void) umount2("/sys", MNT_DETACH);
+
+        r = mount("sysfs", "/sys", "sysfs", 0, NULL);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to mount /sys: %m");
+
+        return 0;
+}
+
+static int verb_netns_create(int argc, char *argv[], void *userdata) {
+        int i, r;
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_make_absolute(argv[i], "/var/run/netns");
+                if (!path)
+                        return log_oom();
+
+                r = mkdir_parents(path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory /var/run/netns: %m");
+
+                r = touch(path);
+                if (r == -EPERM) {
+                        log_debug_errno(r, "Failed to create file %s, ignoring: %m", path);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create file %s: %m", path);
+
+                if (unshare(CLONE_NEWNET) < 0) {
+                        r = -errno;
+                        (void) unlink(path);
+                        return log_error_errno(r, "Failed to create network namespace: %m");
+                }
+
+                if (mount("/proc/self/ns/net", path, "none", MS_BIND, NULL) < 0) {
+                        r = -errno;
+                        (void) unlink(path);
+                        return log_error_errno(r, "Failed to mount network namespace at %s: %m", path);
+                }
+        }
+
+        return 0;
+}
+
+static int verb_netns_remove(int argc, char *argv[], void *userdata) {
+        int i;
+
+        for (i = 1; i < argc; i++) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_make_absolute(argv[i], "/var/run/netns");
+                if (!path)
+                        return log_oom();
+
+                if (umount2(path, MNT_DETACH) < 0)
+                        log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
+
+                if (unlink(path) < 0)
+                        log_debug_errno(errno, "Failed to remove %s, ignoring: %m", path);
+        }
+
+        return 0;
+}
+
+static int verb_netns_list(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        char **directories, **p;
+        struct dirent *de;
+        int r;
+
+        if (argc <= 1)
+                directories = STRV_MAKE("/var/run/netns");
+        else
+                directories = argv + 1;
+
+        STRV_FOREACH(p, directories) {
+                d = opendir(*p);
+                if (!d) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to open directory %s: %m", *p);
+                }
+
+                r = sd_netlink_open(&rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to netlink: %m");
+
+                FOREACH_DIRENT_ALL(de, d, log_error_errno(errno, "Failed to read directory %s: %m", *p)) {
+                        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+                        _cleanup_free_ char *path = NULL;
+                        _cleanup_close_ int fd = -1;
+                        int nsid;
+
+                        if (!IN_SET(de->d_type, DT_UNKNOWN, DT_REG))
+                                continue;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        path = path_join(*p, de->d_name);
+                        if (!path)
+                                return log_oom();
+
+                        fd = open(path, O_RDONLY);
+                        if (fd < 0) {
+                                log_debug_errno(errno, "Failed to open %s, ignoring: %m", path);
+                                continue;
+                        }
+
+                        r = sd_rtnl_message_new_netns(rtnl, &req, RTM_GETNSID);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate netlink message: %m");
+
+                        r = sd_netlink_message_append_u32(req, NETNSA_FD, fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append NETNSA_FD attribute: %m");
+
+                        r = sd_netlink_call(rtnl, req, 0, &reply);
+                        if (r == -EINVAL)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to call netlink message: %m");
+
+                        r = sd_netlink_message_read_s32(reply, NETNSA_NSID, &nsid);
+                        if (r == -ENODATA)
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read NETNSA_NSID attribute: %m");
+
+                        if (nsid >= 0)
+                                r = strv_extendf(&names, "%s (nsid: %d)", path, nsid);
+                        else
+                                r = strv_extend(&names, path);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        strv_sort(names);
+        strv_print(names);
 
         return 0;
 }
@@ -2309,6 +2632,9 @@ static int help(void) {
                "  forcerenew DEVICES...  Trigger DHCP reconfiguration of all connected clients\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
+               "  create-netns NAME...   Create named network namespace\n"
+               "  remove-netns NAME...   Remove named network namespace\n"
+               "  list-netns [PATH...]   List named network namespace\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -2318,6 +2644,7 @@ static int help(void) {
                "  -s --stats             Show detailed link statics\n"
                "  -l --full              Do not ellipsize output\n"
                "  -n --lines=INTEGER     Number of journal entries to show\n"
+               "  -N --namespace         Network namespace\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -2345,6 +2672,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "stats",     no_argument,       NULL, 's'           },
                 { "full",      no_argument,       NULL, 'l'           },
                 { "lines",     required_argument, NULL, 'n'           },
+                { "namespace", required_argument, NULL, 'N'           },
                 {}
         };
 
@@ -2353,7 +2681,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hasln:", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hasln:N:", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -2389,6 +2717,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Failed to parse lines '%s'", optarg);
                         break;
 
+                case 'N':
+                        arg_namespace = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2402,15 +2734,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
-                { "delete",      2,        VERB_ANY, 0,            link_delete         },
-                { "renew",       2,        VERB_ANY, 0,            link_renew          },
-                { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
-                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
-                { "reload",      1,        1,        0,            verb_reload         },
+                { "list",         VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
+                { "status",       VERB_ANY, VERB_ANY, 0,            link_status         },
+                { "lldp",         VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
+                { "label",        VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "delete",       2,        VERB_ANY, 0,            link_delete         },
+                { "renew",        2,        VERB_ANY, 0,            link_renew          },
+                { "forcerenew",   2,        VERB_ANY, 0,            link_force_renew    },
+                { "reconfigure",  2,        VERB_ANY, 0,            verb_reconfigure    },
+                { "reload",       1,        1,        0,            verb_reload         },
+                { "create-netns", 2,        VERB_ANY, 0,            verb_netns_create   },
+                { "remove-netns", 2,        VERB_ANY, 0,            verb_netns_remove   },
+                { "list-netns",   1,        VERB_ANY, 0,            verb_netns_list     },
                 {}
         };
 

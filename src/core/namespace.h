@@ -54,6 +54,7 @@ struct NamespaceInfo {
         bool protect_kernel_logs:1;
         bool mount_apivfs:1;
         bool protect_hostname:1;
+        bool remount_sysfs:1;
 };
 
 struct BindMount {

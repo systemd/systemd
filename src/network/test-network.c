@@ -114,8 +114,6 @@ static int test_load_config(Manager *manager) {
                 return r;
         assert_se(r >= 0);
 
-        assert_se(manager_should_reload(manager) == false);
-
         return 0;
 }
 
@@ -238,7 +236,7 @@ int main(void) {
         test_address_equality();
         test_dhcp_hostname_shorten_overlong();
 
-        assert_se(manager_new(&manager) >= 0);
+        assert_se(manager_new(&manager, NULL, false) >= 0);
 
         r = test_load_config(manager);
         if (r == -EPERM)

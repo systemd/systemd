@@ -111,6 +111,13 @@
         <listitem><para>Suppress log messages.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>-N</option></term>
+        <term><option>--namespace</option></term>
+
+        <listitem><para>Takes a named network namespace.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

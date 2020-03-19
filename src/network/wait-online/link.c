@@ -110,14 +110,14 @@ int link_update_monitor(Link *l) {
         assert(l);
         assert(l->ifname);
 
-        r = sd_network_link_get_required_for_online(l->ifindex);
+        r = sd_network_link_get_required_for_online(l->ifindex, l->manager->namespace);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to determine whether the link is required for online or not, "
                                            "ignoring: %m");
         else
                 l->required_for_online = r > 0;
 
-        r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
+        r = sd_network_link_get_required_operstate_for_online(l->ifindex, l->manager->namespace, &required_operstate);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
         else if (isempty(required_operstate))
@@ -129,7 +129,7 @@ int link_update_monitor(Link *l) {
                                                    "Failed to parse required operational state, ignoring: %m");
         }
 
-        r = sd_network_link_get_operational_state(l->ifindex, &operstate);
+        r = sd_network_link_get_operational_state(l->ifindex, l->manager->namespace, &operstate);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
         else {
@@ -143,7 +143,7 @@ int link_update_monitor(Link *l) {
                         l->operational_state = s;
         }
 
-        r = sd_network_link_get_setup_state(l->ifindex, &state);
+        r = sd_network_link_get_setup_state(l->ifindex, l->manager->namespace, &state);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get setup state, ignoring: %m");
         else

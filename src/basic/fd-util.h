@@ -96,3 +96,6 @@ static inline int make_null_stdio(void) {
 int fd_reopen(int fd, int flags);
 
 int read_nr_open(void);
+
+int lockfp(int fd, int *fd_lock);
+void unlockfp(int *fd_lock);

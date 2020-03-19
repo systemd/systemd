@@ -29,6 +29,7 @@
 #include "networkd-manager.h"
 #include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
+#include "networkd-varlink.h"
 #include "ordered-set.h"
 #include "path-util.h"
 #include "set.h"
@@ -144,29 +145,31 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
+        if (!m->namespace) {
+                r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add link object vtable: %m");
+                r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add link object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add link enumerator: %m");
+                r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/link", link_node_enumerator, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add link enumerator: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
-        if (r < 0)
-               return log_error_errno(r, "Failed to add network object vtable: %m");
+                r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/network", "org.freedesktop.network1.Network", network_vtable, network_object_find, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add network object vtable: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add network enumerator: %m");
+                r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add network enumerator: %m");
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request name: %m");
+                r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to request name: %m");
+        }
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
@@ -1299,25 +1302,6 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
-static int systemd_netlink_fd(void) {
-        int n, fd, rtnl_fd = -EINVAL;
-
-        n = sd_listen_fds(true);
-        if (n <= 0)
-                return -EINVAL;
-
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
-                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        if (rtnl_fd >= 0)
-                                return -EINVAL;
-
-                        rtnl_fd = fd;
-                }
-        }
-
-        return rtnl_fd;
-}
-
 static int manager_connect_genl(Manager *m) {
         int r;
 
@@ -1338,12 +1322,11 @@ static int manager_connect_genl(Manager *m) {
         return 0;
 }
 
-static int manager_connect_rtnl(Manager *m) {
-        int fd, r;
+static int manager_connect_rtnl(Manager *m, int fd) {
+        int r;
 
         assert(m);
 
-        fd = systemd_netlink_fd();
         if (fd < 0)
                 r = sd_netlink_open(&m->rtnl);
         else
@@ -1738,9 +1721,10 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
         return sd_event_exit(sd_event_source_get_event(s), 0);
 }
 
-int manager_new(Manager **ret) {
+int manager_new(Manager **ret, const char *namespace, bool open_varlink) {
         _cleanup_(manager_freep) Manager *m = NULL;
-        int r;
+        const char *e, *varlink_socket;
+        int r, n, fd, rtnl_fd = -1, varlink_fd = -1;
 
         m = new(Manager, 1);
         if (!m)
@@ -1751,7 +1735,23 @@ int manager_new(Manager **ret) {
                 .manage_foreign_routes = true,
         };
 
-        m->state_file = strdup("/run/systemd/netif/state");
+        if (namespace) {
+                m->namespace = strdup(namespace);
+                if (!m->namespace)
+                        return -ENOMEM;
+        }
+
+        e = getenv("RUNTIME_DIRECTORY");
+        if (e)
+                m->runtime_directory = strdup(e);
+        else if (m->namespace)
+                m->runtime_directory = strjoin("/run/systemd/netif.", namespace);
+        else
+                m->runtime_directory = strdup("/run/systemd/netif");
+        if (!m->runtime_directory)
+                return -ENOMEM;
+
+        m->state_file = path_join(m->runtime_directory, "state");
         if (!m->state_file)
                 return -ENOMEM;
 
@@ -1770,13 +1770,39 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = manager_connect_rtnl(m);
+        varlink_socket = strjoina(m->runtime_directory, "/io.systemd.network");
+
+        n = sd_listen_fds(true);
+        if (n < 0)
+                return n;
+
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+                if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
+                        if (rtnl_fd >= 0)
+                                return -EINVAL;
+
+                        rtnl_fd = fd;
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, 0) > 0) {
+                        if (varlink_fd >= 0)
+                                return -EINVAL;
+
+                        varlink_fd = fd;
+                }
+        }
+
+        r = manager_connect_rtnl(m, rtnl_fd);
         if (r < 0)
                 return r;
 
         r = manager_connect_genl(m);
         if (r < 0)
                 return r;
+
+        if (open_varlink) {
+                r = manager_open_varlink(m, varlink_socket, varlink_fd);
+                if (r < 0)
+                        return r;
+        }
 
         r = manager_connect_udev(m);
         if (r < 0)
@@ -1811,6 +1837,10 @@ void manager_free(Manager *m) {
         if (!m)
                 return;
 
+        varlink_server_unref(m->varlink_server);
+
+        free(m->namespace);
+        free(m->runtime_directory);
         free(m->state_file);
 
         while ((a = hashmap_first_key(m->dhcp6_prefixes)))
@@ -1887,9 +1917,6 @@ int manager_start(Manager *m) {
 int manager_load_config(Manager *m) {
         int r;
 
-        /* update timestamp */
-        paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, true);
-
         r = netdev_load(m, false);
         if (r < 0)
                 return r;
@@ -1901,8 +1928,28 @@ int manager_load_config(Manager *m) {
         return 0;
 }
 
-bool manager_should_reload(Manager *m) {
-        return paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, false);
+int manager_reload(Manager *m) {
+        Iterator i;
+        Link *link;
+        int r;
+
+        assert(m);
+
+        r = netdev_load(m, true);
+        if (r < 0)
+                return r;
+
+        r = network_reload(m);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                r = link_reconfigure(link, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int manager_rtnl_enumerate_links(Manager *m) {

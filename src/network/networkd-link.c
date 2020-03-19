@@ -9,6 +9,7 @@
 #include "bond.h"
 #include "bridge.h"
 #include "bus-util.h"
+#include "device-internal.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
@@ -626,13 +627,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        if (asprintf(&link->state_file, "/run/systemd/netif/links/%d", link->ifindex) < 0)
+        if (asprintf(&link->state_file, "%s/links/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&link->lease_file, "/run/systemd/netif/leases/%d", link->ifindex) < 0)
+        if (asprintf(&link->lease_file, "%s/leases/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
-        if (asprintf(&link->lldp_file, "/run/systemd/netif/lldp/%d", link->ifindex) < 0)
+        if (asprintf(&link->lldp_file, "%s/lldp/%d", manager->runtime_directory, link->ifindex) < 0)
                 return -ENOMEM;
 
         r = hashmap_ensure_allocated(&manager->links, NULL);
@@ -2931,6 +2932,62 @@ static int link_configure_continue(Link *link) {
         return link_enter_join_netdev(link);
 }
 
+static int set_namespace_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                log_link_message_warning_errno(link, m, r, "Could not set namespace, ignoring");
+                link_enter_failed(link);
+        } else
+                log_link_debug(link, "Setting namespace done.");
+
+        return 1;
+}
+
+static int link_set_namespace(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(link);
+
+        if (!link->network || !link->network->namespace)
+                return 0;
+
+        fd = open(link->network->namespace, O_RDONLY | O_CLOEXEC);
+        if (fd < 0)
+                return log_link_error_errno(link, errno, "Failed to open %s: %m", link->network->namespace);
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_NEWLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to allocate netlink message: %m");
+
+        r = sd_netlink_message_set_flags(m, NLM_F_REQUEST);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set NLM_F_REQUEST flag: %m");
+
+        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, fd);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_NET_NS_FD attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, m, set_namespace_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 1;
+}
+
 static int duid_set_uuid(DUID *duid, sd_id128_t uuid) {
         assert(duid);
 
@@ -3249,6 +3306,10 @@ static int link_initialized_and_synced(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_set_namespace(link);
+        if (r != 0)
+                return r;
+
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
          * link_configure() is called later asynchronously. */
         r = link_configure_duid(link);
@@ -3538,7 +3599,7 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        if (path_is_read_only_fs("/sys") <= 0) {
+        if (path_is_read_only_fs("/sys") <= 0 && !m->namespace) {
                 /* udev should be around */
                 sprintf(ifindex_str, "n%d", link->ifindex);
                 r = sd_device_new_from_device_id(&device, ifindex_str);
@@ -3572,6 +3633,18 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
                 if (r < 0)
                         goto failed;
         } else {
+                if (path_is_read_only_fs("/sys") <= 0) {
+                        sprintf(ifindex_str, "n%d", link->ifindex);
+                        r = sd_device_new_from_device_id(&device, ifindex_str);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Could not find device: %m");
+                                goto failed;
+                        }
+
+                        device_prohibit_to_touch_db(device);
+                        link->sd_device = sd_device_ref(device);
+                }
+
                 r = link_initialized_and_synced(link);
                 if (r < 0)
                         goto failed;

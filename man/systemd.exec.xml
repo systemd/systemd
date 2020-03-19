@@ -1237,9 +1237,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <listitem><para>Takes an absolute file system path refererring to a Linux network namespace
         pseudo-file (i.e. a file like <filename>/proc/$PID/ns/net</filename> or a bind mount or symlink to
-        one). When set the invoked processes are added to the network namespace referenced by that path. The
-        path has to point to a valid namespace file at the moment the processes are forked off. If this
-        option is used <varname>PrivateNetwork=</varname> has no effect. If this option is used together with
+        one). When set the invoked processes are added to the network namespace referenced by that path.
+        If the namespace file does not exist, then a new network namespace file is created and mounted at
+        this path when the processes are forked off. If this option is used
+        <varname>PrivateNetwork=</varname> has no effect. If this option is used together with
         <varname>JoinsNamespaceOf=</varname> then it only has an effect if this unit is started before any of
         the listed units that have <varname>PrivateNetwork=</varname> or
         <varname>NetworkNamespacePath=</varname> configured, as otherwise the network namespace of those

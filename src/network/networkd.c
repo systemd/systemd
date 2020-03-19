@@ -19,14 +19,25 @@
 static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        const char *namespace, *runtime_directory, *p;
         int r;
 
         log_setup_service();
 
         umask(0022);
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        if (argc > 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes one or no arguments.");
+
+        namespace = argc > 1 ? empty_to_null(argv[1]) : NULL;
+
+        runtime_directory = getenv("RUNTIME_DIRECTORY");
+        if (!runtime_directory) {
+                if (namespace)
+                        runtime_directory = strjoina("/run/systemd/netif.", namespace);
+                else
+                        runtime_directory = "/run/systemd/netif";
+        }
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
          * privileges are already dropped and we can't create our runtime directory. */
@@ -42,7 +53,7 @@ static int run(int argc, char *argv[]) {
                 /* Create runtime directory. This is not necessary when networkd is
                  * started with "RuntimeDirectory=systemd/netif", or after
                  * systemd-tmpfiles-setup.service. */
-                r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid, MKDIR_WARN_MODE);
+                r = mkdir_safe_label(runtime_directory, 0755, uid, gid, MKDIR_WARN_MODE);
                 if (r < 0)
                         log_warning_errno(r, "Could not create runtime directory: %m");
 
@@ -58,21 +69,24 @@ static int run(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in.
          * It is necessary to create the following subdirectories after drop_privileges()
          * to support old kernels not supporting AmbientCapabilities=. */
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
+        p = strjoina(runtime_directory, "/links");
+        r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'links': %m");
 
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
+        p = strjoina(runtime_directory, "/leases");
+        r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'leases': %m");
 
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
+        p = strjoina(runtime_directory, "/lldp");
+        r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(&m, namespace, true);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
 

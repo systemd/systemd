@@ -225,6 +225,14 @@
           if <literal>RequiredForOnline=no</literal>.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Namespace=</varname></term>
+        <listitem>
+          <para>Takes a name or an abosolute file system path referring to a Linux network namespace
+          pseudo-file. If a name is provided, then it is assumed the file is in
+          <filename>/var/run/netns</filename>. If set, the interface is transferred to the namespace.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
