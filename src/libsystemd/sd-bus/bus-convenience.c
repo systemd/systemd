@@ -96,6 +96,7 @@ _public_ int sd_bus_call_method(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
 
         if (!BUS_IS_OPEN(bus->state)) {
@@ -283,6 +284,7 @@ _public_ int sd_bus_get_property(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, error);
         bus_assert_return(reply, -EINVAL, error);
@@ -324,6 +326,7 @@ _public_ int sd_bus_get_property_trivial(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, error);
         bus_assert_return(bus_type_is_trivial(type), -EINVAL, error);
@@ -368,6 +371,7 @@ _public_ int sd_bus_get_property_string(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, error);
         bus_assert_return(ret, -EINVAL, error);
@@ -416,6 +420,7 @@ _public_ int sd_bus_get_property_strv(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, error);
         bus_assert_return(ret, -EINVAL, error);
@@ -458,6 +463,7 @@ _public_ int sd_bus_set_property(
         int r;
 
         bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(bus = bus_resolve(bus), -ENOPKG, error);
         bus_assert_return(isempty(interface) || interface_name_is_valid(interface), -EINVAL, error);
         bus_assert_return(member_name_is_valid(member), -EINVAL, error);
         bus_assert_return(signature_is_single(type, false), -EINVAL, error);

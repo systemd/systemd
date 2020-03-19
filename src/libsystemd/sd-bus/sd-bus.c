@@ -3674,31 +3674,31 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
 }
 
 _public_ sd_event* sd_bus_get_event(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->event;
 }
 
 _public_ sd_bus_message* sd_bus_get_current_message(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_message;
 }
 
 _public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_slot;
 }
 
 _public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_handler;
 }
 
 _public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_userdata;
 }
