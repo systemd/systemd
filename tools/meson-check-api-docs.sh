@@ -6,7 +6,7 @@ sd_total=0
 udev_good=0
 udev_total=0
 
-for symbol in `nm -g --defined-only "$@" | grep " T " | cut -d" " -f3 | sort -u` ; do
+for symbol in `nm -g --defined-only "$@" | grep " T " | cut -d" " -f3 | grep -wv sd_bus_try_close | sort -u` ; do
     if test -f ${MESON_BUILD_ROOT}/man/$symbol.3 ; then
         echo "✓ Symbol $symbol() is documented."
         good=1
