@@ -319,6 +319,46 @@ int config_parse_prefix_lifetime(const char *unit,
         return 0;
 }
 
+int config_parse_prefix_assign(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        p->assign = r;
+        p = NULL;
+
+        return 0;
+}
+
 int config_parse_route_prefix(const char *unit,
                               const char *filename,
                               unsigned line,
@@ -443,20 +483,29 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
 
 static int radv_set_dns(Link *link, Link *uplink) {
         _cleanup_free_ struct in6_addr *dns = NULL;
-        size_t n_dns;
         usec_t lifetime_usec;
+        size_t n_dns;
         int r;
 
         if (!link->network->router_emit_dns)
                 return 0;
 
         if (link->network->router_dns) {
-                dns = newdup(struct in6_addr, link->network->router_dns,
-                             link->network->n_router_dns);
+                struct in6_addr *p;
+
+                dns = new(struct in6_addr, link->network->n_router_dns);
                 if (!dns)
                         return -ENOMEM;
 
-                n_dns = link->network->n_router_dns;
+                p = dns;
+                for (size_t i = 0; i < link->network->n_router_dns; i++)
+                        if (IN6_IS_ADDR_UNSPECIFIED(&link->network->router_dns[i])) {
+                                if (!IN6_IS_ADDR_UNSPECIFIED(&link->ipv6ll_address))
+                                        *(p++) = link->ipv6ll_address;
+                        } else
+                                *(p++) = link->network->router_dns[i];
+
+                n_dns = p - dns;
                 lifetime_usec = link->network->router_dns_lifetime_usec;
 
                 goto set_dns;
@@ -620,7 +669,7 @@ int radv_configure(Link *link) {
 
         }
 
-        return radv_emit_dns(link);
+        return 0;
 }
 
 int config_parse_radv_dns(
@@ -658,19 +707,30 @@ int config_parse_radv_dns(
                 if (r == 0)
                         break;
 
-                if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
-                        struct in6_addr *m;
+                if (streq(w, "_link_local"))
+                        a = IN_ADDR_NULL;
+                else {
+                        r = in_addr_from_string(AF_INET6, w, &a);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                           "Failed to parse DNS server address, ignoring: %s", w);
+                                continue;
+                        }
 
-                        m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
-                        if (!m)
-                                return log_oom();
+                        if (in_addr_is_null(AF_INET6, &a)) {
+                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                           "DNS server address is null, ignoring: %s", w);
+                                continue;
+                        }
+                }
 
-                        m[n->n_router_dns++] = a.in6;
-                        n->router_dns = m;
+                struct in6_addr *m;
+                m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
+                if (!m)
+                        return log_oom();
 
-                } else
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse DNS server address, ignoring: %s", w);
+                m[n->n_router_dns++] = a.in6;
+                n->router_dns = m;
         }
 
         return 0;

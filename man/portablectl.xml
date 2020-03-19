@@ -133,11 +133,15 @@
         <para>By default, after the unit files are attached the service manager's configuration is reloaded, except
         when <option>--no-reload</option> is specified (see above). This ensures that the new units made available to
         the service manager are seen by it.</para>
+
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
+        attaching the image.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>detach</command> <replaceable>IMAGE</replaceable></term>
+        <term><command>detach</command> <replaceable>IMAGE</replaceable> [<replaceable>PREFIX…</replaceable>]</term>
 
         <listitem><para>Detaches a portable service image from the host. This undoes the operations executed by the
         <command>attach</command> command above, and removes the unit file copies, drop-ins and image symlink
@@ -145,6 +149,10 @@
         component of it (i.e. the file or directory name itself, not the path to it) is used for finding matching unit
         files. This is a convencience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para></listitem>
+
+        <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable service(s) are
+        immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
+        to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
       </varlistentry>
 
       <varlistentry>
@@ -309,6 +317,24 @@
         pulled from the image, instead of brief summaries. Specifically, this will show the
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> and unit file
         contents of the image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--enable</option></term>
+
+        <listitem><para>Immediately enable/disable the portable service after attaching/detaching.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem><para>Immediately start/stop the portable service after attaching/before detaching.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem><para>Don't block waiting for attach --now to complete.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

@@ -17,7 +17,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
-#include "util.h"
+#include "vrf.h"
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
@@ -1006,7 +1006,7 @@ int config_parse_gateway(
                 if (r < 0)
                         return r;
 
-                if (streq(rvalue, "dhcp")) {
+                if (streq(rvalue, "_dhcp")) {
                         n->gateway_from_dhcp = true;
                         TAKE_PTR(n);
                         return 0;
@@ -1698,6 +1698,11 @@ int route_section_verify(Route *route, Network *network) {
                                          "or PreferredSource= field configured. "
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
+        }
+
+        if (!route->table_set && network->vrf) {
+                route->table = VRF(network->vrf)->table;
+                route->table_set = true;
         }
 
         if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))

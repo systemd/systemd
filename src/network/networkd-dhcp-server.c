@@ -45,7 +45,7 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         size_t n_addresses = 0, n_allocated = 0;
         unsigned i;
 
-        log_link_debug(link, "Copying DNS server information from %s", link->ifname);
+        log_link_debug(link, "Copying DNS server information from link");
 
         if (!link->network)
                 return 0;
@@ -99,7 +99,7 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         if (!link->network)
                 return 0;
 
-        log_link_debug(link, "Copying NTP server information from %s", link->ifname);
+        log_link_debug(link, "Copying NTP server information from link");
 
         STRV_FOREACH(a, link->network->ntp) {
                 union in_addr_union ia;
@@ -148,7 +148,7 @@ static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         if (!link->network)
                 return 0;
 
-        log_link_debug(link, "Copying SIP server information from %s", link->ifname);
+        log_link_debug(link, "Copying SIP server information from link");
 
         STRV_FOREACH(a, link->network->sip) {
                 union in_addr_union ia;
@@ -306,6 +306,14 @@ int dhcp4_server_configure(Link *link) {
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options, i) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options, i) {
+                r = sd_dhcp_server_add_vendor_option(link->dhcp_server, p);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)

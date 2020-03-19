@@ -192,6 +192,7 @@ All execution-related settings are available for transient units.
 ✓ PrivateUsers=
 ✓ ProtectSystem=
 ✓ ProtectHome=
+✓ ProtectClock=
 ✓ MountFlags=
 ✓ MountAPIVFS=
 ✓ Personality=

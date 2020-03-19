@@ -32,6 +32,8 @@ typedef enum WakeOnLan {
 } WakeOnLan;
 
 typedef enum NetDevFeature {
+        NET_DEV_FEAT_RX,
+        NET_DEV_FEAT_TX,
         NET_DEV_FEAT_GSO,
         NET_DEV_FEAT_GRO,
         NET_DEV_FEAT_LRO,
@@ -90,7 +92,7 @@ typedef struct netdev_ring_param {
 
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret);
 int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
-                          int *ret_autonegotiation, size_t *ret_speed,
+                          int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port);
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
 int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex);
@@ -99,8 +101,9 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring
 int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
                               int autonegotiation, uint32_t advertise[static N_ADVERTISE],
-                              size_t speed, Duplex duplex, NetDevPort port);
+                              uint64_t speed, Duplex duplex, NetDevPort port);
 int ethtool_set_channels(int *ethtool_fd, const char *ifname, netdev_channels *channels);
+int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;

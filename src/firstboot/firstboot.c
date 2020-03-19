@@ -550,10 +550,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
-                if (strv_length(a) != 1) {
-                        log_warning("Received multiple passwords, where we expected one.");
-                        return -EINVAL;
-                }
+                if (strv_length(a) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
                         log_warning("No password entered, skipping.");
@@ -563,6 +562,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
+                if (strv_length(b) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (!streq(*a, *b)) {
                         log_error("Entered passwords did not match, please try again.");

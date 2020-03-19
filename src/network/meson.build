@@ -107,22 +107,44 @@ sources = files('''
         networkd-util.h
         networkd-wifi.c
         networkd-wifi.h
+        tc/cake.c
+        tc/cake.h
         tc/codel.c
         tc/codel.h
+        tc/drr.c
+        tc/drr.h
+        tc/fifo.c
+        tc/fifo.h
         tc/fq.c
         tc/fq.h
         tc/fq-codel.c
         tc/fq-codel.h
+        tc/gred.c
+        tc/gred.h
+        tc/hhf.c
+        tc/hhf.h
+        tc/htb.c
+        tc/htb.h
         tc/netem.c
         tc/netem.h
+        tc/pie.c
+        tc/pie.h
         tc/qdisc.c
         tc/qdisc.h
+        tc/sfb.c
+        tc/sfb.h
         tc/sfq.c
         tc/sfq.h
         tc/tbf.c
         tc/tbf.h
         tc/tc-util.c
         tc/tc-util.h
+        tc/tc.c
+        tc/tc.h
+        tc/tclass.c
+        tc/tclass.h
+        tc/teql.c
+        tc/teql.h
 '''.split())
 
 systemd_networkd_sources = files('networkd.c')

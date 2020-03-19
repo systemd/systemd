@@ -11,6 +11,7 @@
 #include <security/pam_modutil.h>
 #include <sys/file.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -218,11 +219,13 @@ static int socket_from_display(const char *display, char **path) {
 }
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
-        union sockaddr_union sa = {};
-        _cleanup_free_ char *p = NULL, *tty = NULL;
+        union sockaddr_union sa;
+        socklen_t sa_len;
+        _cleanup_free_ char *p = NULL, *sys_path = NULL, *tty = NULL;
         _cleanup_close_ int fd = -1;
         struct ucred ucred;
-        int v, r, salen;
+        int v, r;
+        dev_t display_ctty;
 
         assert(display);
         assert(vtnr);
@@ -236,22 +239,29 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         r = socket_from_display(display, &p);
         if (r < 0)
                 return r;
-        salen = sockaddr_un_set_path(&sa.un, p);
-        if (salen < 0)
-                return salen;
+        r = sockaddr_un_set_path(&sa.un, p);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 
-        if (connect(fd, &sa.sa, salen) < 0)
+        if (connect(fd, &sa.sa, sa_len) < 0)
                 return -errno;
 
         r = getpeercred(fd, &ucred);
         if (r < 0)
                 return r;
 
-        r = get_ctty(ucred.pid, NULL, &tty);
+        r = get_ctty_devnr(ucred.pid, &display_ctty);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&sys_path, "/sys/dev/char/%d:%d", major(display_ctty), minor(display_ctty)) < 0)
+                return -ENOMEM;
+        r = readlink_value(sys_path, &tty);
         if (r < 0)
                 return r;
 

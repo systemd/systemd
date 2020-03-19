@@ -56,6 +56,8 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
+static BUS_DEFINE_PROPERTY_GET(property_get_cpu_affinity_from_numa, "b", ExecContext, exec_context_get_cpu_affinity_from_numa);
+
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -213,6 +215,7 @@ static int property_get_cpu_affinity(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
+        _cleanup_(cpu_set_reset) CPUSet s = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -220,7 +223,16 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        (void) cpu_set_to_dbus(&c->cpu_set, &array, &allocated);
+        if (c->cpu_affinity_from_numa) {
+                int r;
+
+                r = numa_to_cpu_set(&c->numa_policy, &s);
+                if (r < 0)
+                        return r;
+        }
+
+        (void) cpu_set_to_dbus(c->cpu_affinity_from_numa ? &s : &c->cpu_set,  &array, &allocated);
+
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
 
@@ -741,6 +753,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("CPUSchedulingPolicy", "i", property_get_cpu_sched_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUSchedulingPriority", "i", property_get_cpu_sched_priority, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUAffinity", "ay", property_get_cpu_affinity, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CPUAffinityFromNUMA", "b", property_get_cpu_affinity_from_numa, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NUMAPolicy", "i", property_get_numa_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NUMAMask", "ay", property_get_numa_mask, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -766,6 +779,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(ExecContext, log_ratelimit_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AmbientCapabilities", "t", NULL, offsetof(ExecContext, capability_ambient_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1284,6 +1298,9 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "ProtectKernelLogs"))
                 return bus_set_transient_bool(u, name, &c->protect_kernel_logs, message, flags, error);
 
+        if (streq(name, "ProtectClock"))
+                return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
+
         if (streq(name, "ProtectControlGroups"))
                 return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
@@ -1433,6 +1450,32 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "LogNamespace")) {
+                const char *n;
+
+                r = sd_bus_message_read(message, "s", &n);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(n) && !log_namespace_name_valid(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+
+                        if (isempty(n)) {
+                                c->log_namespace = mfree(c->log_namespace);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                r = free_and_strdup(&c->log_namespace, n);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, n);
+                        }
+                }
+
+                return 1;
+
         } else if (streq(name, "LogExtraFields")) {
                 size_t n = 0;
 
@@ -1557,6 +1600,7 @@ int bus_exec_context_set_transient_property(
                                         r = seccomp_parse_syscall_filter("@default",
                                                                          -1,
                                                                          c->syscall_filter,
+                                                                         SECCOMP_PARSE_PERMISSIVE |
                                                                          SECCOMP_PARSE_WHITELIST | invert_flag,
                                                                          u->id,
                                                                          NULL, 0);
@@ -1576,7 +1620,9 @@ int bus_exec_context_set_transient_property(
                                 r = seccomp_parse_syscall_filter(n,
                                                                  e,
                                                                  c->syscall_filter,
-                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0) | invert_flag,
+                                                                 SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
+                                                                 invert_flag |
+                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
                                                                  u->id,
                                                                  NULL, 0);
                                 if (r < 0)
@@ -1737,6 +1783,20 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "CPUAffinityFromNUMA")) {
+                int q;
+
+                r = sd_bus_message_read_basic(message, 'b', &q);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpu_affinity_from_numa = q;
+                        unit_write_settingf(u, flags, name, "%s=%s", "CPUAffinity", "numa");
+                }
+
+                return 1;
+
         } else if (streq(name, "NUMAPolicy")) {
                 int32_t type;
 
@@ -1751,6 +1811,7 @@ int bus_exec_context_set_transient_property(
                         c->numa_policy.type = type;
 
                 return 1;
+
         } else if (streq(name, "Nice")) {
                 int32_t q;
 

@@ -112,8 +112,8 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 3), 100);
                 (void) table_set_empty_string(table, "-");
-                (void) table_set_sort(table, 7, 2, (size_t) -1);
-                (void) table_set_display(table, 0, 1, 2, 3, 4, 5, 6, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 7, (size_t) 2, (size_t) -1);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 5, (size_t) 6, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -260,8 +260,8 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 (void) table_set_align_percent(table, table_get_cell(table, 0, 2), 100);
-                (void) table_set_sort(table, 3, 2, (size_t) -1);
-                (void) table_set_display(table, 0, 1, 2, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 3, (size_t) 2, (size_t) -1);
+                (void) table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -400,7 +400,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                 if (!table)
                         return log_oom();
 
-                (void) table_set_sort(table, 0, 1, (size_t) -1);
+                (void) table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) -1);
         }
 
         if (argc > 1) {
@@ -489,11 +489,12 @@ static int display_services(int argc, char *argv[], void *userdata) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_sort(t, 0, (size_t) -1);
+        (void) table_set_sort(t, (size_t) 0, (size_t) -1);
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
                 union sockaddr_union sockaddr;
+                socklen_t sockaddr_len;
                 _cleanup_close_ int fd = -1;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
@@ -503,12 +504,13 @@ static int display_services(int argc, char *argv[], void *userdata) {
                 r = sockaddr_un_set_path(&sockaddr.un, j);
                 if (r < 0)
                         return log_error_errno(r, "Path %s does not fit in AF_UNIX socket address: %m", j);
+                sockaddr_len = r;
 
                 fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (fd < 0)
                         return log_error_errno(r, "Failed to allocate AF_UNIX/SOCK_STREAM socket: %m");
 
-                if (connect(fd, &sockaddr.un, SOCKADDR_UN_LEN(sockaddr.un)) < 0) {
+                if (connect(fd, &sockaddr.un, sockaddr_len) < 0) {
                         no = strjoin("No (", errno_to_name(errno), ")");
                         if (!no)
                                 return log_oom();
@@ -699,7 +701,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_services = strv_free(arg_services);
                         else {
-                                char **l;
+                                _cleanup_strv_free_ char **l = NULL;
 
                                 l = strv_split(optarg, ":");
                                 if (!l)

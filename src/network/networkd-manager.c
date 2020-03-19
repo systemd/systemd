@@ -11,6 +11,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
@@ -493,7 +494,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               type == RTM_DELROUTE ? "Forgetting" : route ? "Received remembered" : "Remembering",
+                               (!route && !link->manager->manage_foreign_routes) || type == RTM_DELROUTE ? "Forgetting" :
+                               route ? "Received remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
                                strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
                                format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
@@ -504,7 +506,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
         switch (type) {
         case RTM_NEWROUTE:
-                if (!route) {
+                if (!route && link->manager->manage_foreign_routes) {
                         /* A route appeared that we did not request */
                         r = route_add_foreign(link, tmp, &route);
                         if (r < 0) {
@@ -961,6 +963,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         _cleanup_free_ char *from = NULL, *to = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
+        uint32_t suppress_prefixlen;
         Manager *m = userdata;
         unsigned flags;
         uint16_t type;
@@ -1136,6 +1139,20 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 log_warning_errno(r, "rtnl: could not get FRA_DPORT_RANGE attribute, ignoring: %m");
                 return 0;
         }
+
+        r = sd_netlink_message_read(message, FRA_UID_RANGE, sizeof(tmp->uid_range), &tmp->uid_range);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_UID_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_PREFIXLEN, &suppress_prefixlen);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0)
+                tmp->suppress_prefixlen = (int) suppress_prefixlen;
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
@@ -1731,6 +1748,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .manage_foreign_routes = true,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");

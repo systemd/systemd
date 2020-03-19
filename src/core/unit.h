@@ -9,6 +9,7 @@
 #include "condition.h"
 #include "emergency-action.h"
 #include "list.h"
+#include "show-status.h"
 #include "set.h"
 #include "unit-file.h"
 #include "cgroup.h"
@@ -381,6 +382,9 @@ typedef struct UnitStatusMessageFormats {
         const char *starting_stopping[2];
         const char *finished_start_job[_JOB_RESULT_MAX];
         const char *finished_stop_job[_JOB_RESULT_MAX];
+        /* If this entry is present, it'll be called to provide a context-dependent format string,
+         * or NULL to fall back to finished_{start,stop}_job; if those are NULL too, fall back to generic. */
+        const char *(*finished_job)(Unit *u, JobType t, JobResult result);
 } UnitStatusMessageFormats;
 
 /* Flags used when writing drop-in files or transient unit files */
@@ -743,11 +747,12 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds);
 int unit_deserialize_skip(FILE *f);
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency d, UnitDependencyMask mask);
+int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
 void unit_catchup(Unit *u);
 
-void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) _printf_(4, 0);
 
 bool unit_need_daemon_reload(Unit *u);
 
@@ -815,12 +820,6 @@ int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_test_start_limit(Unit *u);
 
-void unit_unref_uid(Unit *u, bool destroy_now);
-int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc);
-
-void unit_unref_gid(Unit *u, bool destroy_now);
-int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc);
-
 int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid);
 void unit_unref_uid_gid(Unit *u, bool destroy_now);
 
@@ -847,7 +846,7 @@ int unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
-const char *unit_label_path(Unit *u);
+const char *unit_label_path(const Unit *u);
 
 int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 

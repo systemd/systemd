@@ -13,6 +13,7 @@ hwdb_files = files('''
         20-net-ifname.hwdb
         20-vmbus-class.hwdb
         60-evdev.hwdb
+        60-input-id.hwdb
         60-keyboard.hwdb
         60-sensor.hwdb
         70-joystick.hwdb

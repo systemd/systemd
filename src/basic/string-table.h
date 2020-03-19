@@ -44,7 +44,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 char *s;                                                \
                 if (i < 0 || i > max)                                   \
                         return -ERANGE;                                 \
-                if (i < (type) ELEMENTSOF(name##_table)) {              \
+                if (i < (type) ELEMENTSOF(name##_table) && name##_table[i]) { \
                         s = strdup(name##_table[i]);                    \
                         if (!s)                                         \
                                 return -ENOMEM;                         \

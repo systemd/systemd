@@ -28,6 +28,8 @@ struct Prefix {
 
         sd_radv_prefix *radv_prefix;
 
+        bool assign;
+
         LIST_FIELDS(Prefix, prefixes);
 };
 
@@ -59,6 +61,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_prefix_assign);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);

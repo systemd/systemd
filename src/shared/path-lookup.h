@@ -72,3 +72,4 @@ void lookup_paths_flush_generator(LookupPaths *p);
 void lookup_paths_free(LookupPaths *p);
 
 char **generator_binary_paths(UnitFileScope scope);
+char **env_generator_binary_paths(bool is_system);

@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2019.11.05
-# Date:    2019-11-05 20:34:06
+# Version: 2020.02.28
+# Date:    2020-02-28 20:34:06
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -42,6 +42,7 @@
 	a001  Digitus DA-71114 SATA
 0085  Boeye Technology Co., Ltd.
 	0600  eBook Reader
+0102  miniSTREAK
 0105  Trust International B.V.
 	145f  NW-3100 802.11b/g 54Mbps Wireless Network Adapter [zd1211]
 0127  IBP
@@ -172,6 +173,7 @@
 	7617  AT76C505AS Wireless Adapter
 	7800  Mini Album
 	800c  Airspy HF+
+	ff01  WootingOne
 	ff02  WootingTwo
 	ff07  Tux Droid fish dongle
 03ec  Iwatsu America, Inc.
@@ -702,6 +704,7 @@
 	c102  PhotoSmart 8000 series
 	c111  Deskjet 1510
 	c202  PhotoSmart 8200 series
+	c211  Deskjet 2540 series
 	c302  DeskJet D2300
 	c402  PhotoSmart D5100 series
 	c502  PhotoSmart D6100 series
@@ -798,6 +801,7 @@
 	8370  7 Port Hub
 	8371  PS/2 Keyboard And Mouse
 	8372  FT8U100AX Serial Port
+	8508  Selectronic SP PRO
 	87d0  Cressi Dive Computer Interface
 	8a28  Rainforest Automation ZigBee Controller
 	8a98  TIAO Multi-Protocol Adapter
@@ -812,6 +816,7 @@
 	9135  Rotary Pub alarm
 	9136  Pulsecounter
 	9e90  Marvell OpenRD Base/Client
+	9f08  CIB-1894 Conclusion SmartLink Box:
 	9f80  Ewert Energy Systems CANdapter
 	a6d0  Texas Instruments XDS100v2 JTAG / BeagleBone A3
 	a951  HCP HIT GSM/GPRS modem [Cinterion MC55i]
@@ -1165,6 +1170,7 @@
 	602a  i900
 040b  Weltrend Semiconductor
 	0a68  Func MS-3 gaming mouse [WT6573F MCU]
+	2000  wired Keyboard [Dynex DX-WRK1401]
 	2367  Human Interface Device [HP CalcPad 200 Calculator and Numeric Keypad]
 	6510  Weltrend Bar Code Reader
 	6520  Xploder Xbox Memory Unit (8MB)
@@ -1980,10 +1986,14 @@
 	b700  Tacticalboard
 0450  DFI, Inc.
 0451  Texas Instruments, Inc.
+	0422  TUSB422 Port Controller with Power Delivery
 	1234  Bluetooth Device
 	1428  Hub
 	1446  TUSB2040/2070 Hub
+	16a2  CC Debugger
 	16a6  BM-USBD1 BlueRobin RF heart rate sensor receiver
+	16a8  CC2531 ZigBee
+	16ae  CC2531 Dongle
 	2036  TUSB2036 Hub
 	2046  TUSB2046 Hub
 	2077  TUSB2077 Hub
@@ -2018,6 +2028,7 @@
 	e012  TI-Nspire Calculator
 	e013  Network Bridge
 	e01c  Data Collection Sled [Nspire Lab Cradle, Nspire Datatracker Cradle]
+	e01e  Nspire CX Navigator Access Point
 	e01f  Python Adapter (firmware install mode)
 	e020  Python Adapter
 	e022  Nspire CX II
@@ -2050,6 +2061,7 @@
 	0002  Genius NetMouse Pro
 	0003  Genius NetScroll+
 	0006  Easy Mouse+
+	0007  Trackbar Emotion
 	000b  NetMouse Wheel(P+U)
 	000c  TACOMA Fingerprint V1.06.01
 	000e  Genius NetScroll Optical
@@ -2256,6 +2268,7 @@
 	00cb  Basic Optical Mouse v2.0
 	00ce  Generic PPC Flash device
 	00d1  Optical Mouse with Tilt Wheel
+	00d2  Notebook Optical Mouse with Tilt Wheel
 	00da  eHome Infrared Receiver
 	00db  Natural Ergonomic Keyboard 4000 V1.0
 	00dd  Comfort Curve Keyboard 2000 V1.0
@@ -2474,6 +2487,7 @@
 	07cd  Surface Keyboard
 	07f8  Wired Keyboard 600 (model 1576)
 	07fd  Nano Transceiver 1.1
+	0810  LifeCam HD-3000
 	0900  Surface Dock Hub
 	0901  Surface Dock Hub
 	0902  Surface Dock Hub
@@ -2551,12 +2565,14 @@
 	4d62  HP Laser Mobile Mini Mouse
 	4d75  Rocketfish RF-FLBTAD Bluetooth Adapter
 	4d81  Dell N889 Optical Mouse
+	4d8a  HP Multimedia Keyboard
 	4d91  Laser mouse M-D16DL
 	4d92  Optical mouse M-D17DR
 	4db1  Dell Laptop Integrated Webcam 2Mpix
 	4de3  HP 5-Button Optical Comfort Mouse
 	4de7  webcam
 	4e04  Lenovo Keyboard KB1021
+	4e6f  Acer Wired Keyboard Model KBAY211
 0463  MGE UPS Systems
 	0001  UPS
 	ffff  UPS
@@ -2585,6 +2601,7 @@
 	00a1  SmartCard Reader Keyboard KC 1000 SC
 	0106  R-300 Wireless Mouse Receiver
 	010d  MX-Board 3.0 Keyboard
+	0180  Strait 3.0
 	b090  Keyboard
 	b091  Mouse
 046b  American Megatrends, Inc.
@@ -2742,6 +2759,7 @@
 	0a45  960 Headset
 	0a4d  G430 Surround Sound Gaming Headset
 	0a5b  G933 Wireless Headset Dongle
+	0a5d  G933 Headset Battery Charger
 	0a66  [G533 Wireless Headset Dongle]
 	0b02  C-UV35 [Bluetooth Mini-Receiver] (HID proxy mode)
 	8801  Video Camera
@@ -2871,6 +2889,7 @@
 	c231  G13 Virtual Mouse
 	c245  G400 Optical Mouse
 	c246  Gaming Mouse G300
+	c247  G100S Optical Gaming Mouse
 	c248  G105 Gaming Keyboard
 	c24a  G600 Gaming Mouse
 	c24c  G400s Optical Mouse
@@ -2919,6 +2938,7 @@
 	c31f  Comfort Keyboard K290
 	c326  Washable Keyboard K310
 	c328  Corded Keyboard K280e
+	c32b  G910 Orion Spark Mechanical Keyboard
 	c332  G502 Proteus Spectrum Optical Mouse
 	c335  G910 Orion Spectrum Mechanical Keyboard
 	c33a  G413 Gaming Keyboard
@@ -2960,6 +2980,8 @@
 	c531  C-U0007 [Unifying Receiver]
 	c532  Unifying Receiver
 	c534  Unifying Receiver
+	c537  Cordless Mouse Receiver
+	c53a  PowerPlay Wireless Charging System
 	c603  3Dconnexion Spacemouse Plus XT
 	c605  3Dconnexion CADman
 	c606  3Dconnexion Spacemouse Classic
@@ -3247,6 +3269,7 @@
 	f101  Atlas Modem
 047f  Plantronics, Inc.
 	0101  Bulk Driver
+	02ee  BT600
 	0301  Bulk Driver
 	0411  Savi Office Base Station
 	0ca1  USB DSP v4 Audio Interface
@@ -3256,6 +3279,7 @@
 	af01  DA80
 	c008  Audio 655 DSP
 	c00e  Blackwire C310 headset
+	c03b  HD1
 0480  Toshiba America Inc
 	0001  InTouch Module
 	0004  InTouch Module
@@ -3265,6 +3289,7 @@
 	0200  External Disk
 	0820  Canvio Advance Disk
 	0821  Canvio Advance 2TB model DTC920
+	0900  MQ04UBF100
 	a006  External Disk 1.5TB
 	a007  External Disk USB 3.0
 	a009  Stor.E Basics
@@ -3334,6 +3359,7 @@
 	8259  Probe
 	91d1  Sensor Hub
 	a171  ThermaData WiFi
+	a2e0  BMeasure instrument
 	df11  STM Device in DFU Mode
 	ff10  Swann ST56 Modem
 0484  Specialix
@@ -3363,6 +3389,7 @@
 048d  Integrated Technology Express, Inc.
 	1165  IT1165 Flash Controller
 	1172  Flash Drive
+	1234  Mass storage
 	1336  SD/MMC Cardreader
 	1345  Multi Cardreader
 	9006  IT9135 BDA Afatech DVB-T HDTV Dongle
@@ -3708,6 +3735,7 @@
 	10c9  PIXMA iP4600 Printer
 	10ca  PIXMA iP3600 Printer
 	10e3  PIXMA iX6850 Printer
+	12fe  Printer in service mode
 	1404  W6400PG
 	1405  W8400PG
 	150f  BIJ2350 PCL
@@ -3823,6 +3851,7 @@
 	178a  PIXMA MG3600 Series
 	178d  PIXMA MG6853
 	180b  PIXMA MG3000 series
+	1856  PIXMA TS6250
 	1900  CanoScan LiDE 90
 	1901  CanoScan 8800F
 	1904  CanoScan LiDE 100
@@ -3891,6 +3920,7 @@
 	2633  LASERCLASS 500
 	2634  PC-D300/FAX-L400/ICD300
 	2635  MPC190
+	2636  LBP3200
 	2637  iR C6800
 	2638  iR C3100
 	263c  PIXMA MP360
@@ -3905,8 +3935,10 @@
 	264f  MF5650 (FAX)
 	2650  iR 6800C EUR
 	2651  iR 3100C EUR
+	2654  LBP3600
 	2655  FP-L170/MF350/L380/L398
 	2656  iR1510-1670 CAPT Printer
+	2657  LBP3210
 	2659  MF8100
 	265b  CAPT Printer
 	265c  iR C3220
@@ -3920,7 +3952,7 @@
 	2666  iR C5800
 	2667  iR85PLUS
 	2669  iR105PLUS
-	266a  CAPT Device
+	266a  LBP3000
 	266b  iR8070
 	266c  iR9070
 	266d  iR 5800C EUR
@@ -3935,31 +3967,46 @@
 	2676  LBP2900
 	2677  iR C2570
 	2678  iR 2570C EUR
-	2679  CAPT Device
+	2679  LBP5000
 	267a  iR2016
 	267b  iR2020
 	267d  MF7100 series
+	267e  LBP3300
 	2684  MF3200 series
 	2686  MF6500 series
 	2687  iR4530
 	2688  LBP3460
 	2689  FAX-L180/L380S/L398S
 	268a  LC310/L390/L408S
+	268b  LBP3500
 	268c  iR C6870
 	268d  iR 6870C EUR
 	268e  iR C5870
 	268f  iR 5870C EUR
 	2691  iR7105
+	26a1  LBP5300
 	26a3  MF4100 series
+	26a4  LBP5100
 	26b0  MF4600 series
 	26b4  MF4010 series
 	26b5  MF4200 series
 	26b6  FAX-L140/L130
-	26da  LBP3010B printer
+	26b9  LBP3310
+	26ba  LBP5050
+	26da  LBP3010/LBP3018/LBP3050
+	26db  LBP3100/LBP3108/LBP3150
 	26e6  iR1024
+	26ea  LBP9100C
+	26ee  MF4320-4350
+	26f1  LBP7200C
+	26ff  LBP6300
 	271a  LBP6000
+	271b  LBP6200
+	271c  LBP7010C/7018C
 	2736  I-SENSYS MF4550d
 	2737  MF4410
+	2771  LBP6020
+	2796  LBP6230/6240
 	3041  PowerShot S10
 	3042  CanoScan FS4000US Film Scanner
 	3043  PowerShot S20
@@ -4362,6 +4409,7 @@
 	0429  D5100
 	042a  D800 (ptp)
 	0430  D7100
+	0436  D810
 	043f  D5600
 	0f03  PD-10 Wireless Printer Adapter
 	4000  Coolscan LS 40 ED
@@ -4423,6 +4471,7 @@
 	4611  Storage Adapter FX2 (CY)
 	4616  Flash Disk (TPP)
 	4624  DS-Xtreme Flash Card
+	4717  West Bridge
 	5201  Combi Keyboard-Hub (Hub)
 	5202  Combi Keyboard-Hub (Keyboard)
 	5500  HID->COM RS232 Adapter
@@ -11687,10 +11736,16 @@
 09c1  Arris Interactive LLC
 	1337  TOUCHSTONE DEVICE
 09c2  Nisca Corp.
-09c3  ActivCard, Inc.
+09c3  HID Global
 	0007  Reader V2
 	0008  ZFG-9800-AC SmartCard Reader
 	0014  ActivIdentity ActivKey SIM USB Token
+	0028  Crescendo Key
+	0029  Crescendo Key
+	002a  Crescendo Key
+	002b  Crescendo Key
+	002c  Crescendo Key
+	002e  Crescendo Key
 09c4  ACTiSYS Corp.
 	0011  ACT-IR2000U IrDA Dongle
 09c5  Memory Corp.
@@ -19098,6 +19153,14 @@
 	6323  USB Electronic Scale
 2237  Kobo Inc.
 	4161  eReader White
+224f  APDM
+	0001  Access Point
+	0002  Docking Station
+	0004  V2 Opal ACM
+	0005  V2 Opal
+	0006  V2 Docking Station
+	0007  V2 Access Point ACM
+	0008  V2 Access Point
 225d  Morpho
 	0001  FINGER VP Multimodal Biometric Sensor
 	0008  CBM-E3 Fingerprint Sensor
@@ -19308,6 +19371,8 @@
 2548  Pulse-Eight
 	1001  CEC Adapter
 	1002  CEC Adapter
+25b5  FlatFrog
+	0002  Multitouch 3200
 2632  TwinMOS
 	3209  7-in-1 Card Reader
 2639  Xsens

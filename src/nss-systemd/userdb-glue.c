@@ -290,7 +290,7 @@ enum nss_status userdb_getgrgid(
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
         }
-        if (r)
+        if (!r)
                 return NSS_STATUS_NOTFOUND;
 
         r = groupdb_by_gid(gid, nss_glue_userdb_flags(), &g);

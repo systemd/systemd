@@ -1,0 +1,174 @@
+#include <openssl/pem.h>
+
+#include "fd-util.h"
+#include "user-record-sign.h"
+#include "fileio.h"
+
+static int user_record_signable_json(UserRecord *ur, char **ret) {
+        _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        int r;
+
+        assert(ur);
+        assert(ret);
+
+        r = user_record_clone(ur, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_STRIP_SECRET|USER_RECORD_STRIP_BINDING|USER_RECORD_STRIP_STATUS|USER_RECORD_STRIP_SIGNATURE, &reduced);
+        if (r < 0)
+                return r;
+
+        j = json_variant_ref(reduced->json);
+
+        r = json_variant_normalize(&j);
+        if (r < 0)
+                return r;
+
+        return json_variant_format(j, 0, ret);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_MD_CTX*, EVP_MD_CTX_free);
+
+int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *encoded = NULL, *v = NULL;
+        _cleanup_(user_record_unrefp) UserRecord *signed_ur = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
+        _cleanup_free_ char *text = NULL, *key = NULL;
+        size_t signature_size = 0, key_size = 0;
+        _cleanup_free_ void *signature = NULL;
+        _cleanup_fclose_ FILE *mf = NULL;
+        int r;
+
+        assert(ur);
+        assert(private_key);
+        assert(ret);
+
+        r = user_record_signable_json(ur, &text);
+        if (r < 0)
+                return r;
+
+        md_ctx = EVP_MD_CTX_new();
+        if (!md_ctx)
+                return -ENOMEM;
+
+        if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, private_key) <= 0)
+                return -EIO;
+
+        /* Request signature size */
+        if (EVP_DigestSign(md_ctx, NULL, &signature_size, (uint8_t*) text, strlen(text)) <= 0)
+                return -EIO;
+
+        signature = malloc(signature_size);
+        if (!signature)
+                return -ENOMEM;
+
+        if (EVP_DigestSign(md_ctx, signature, &signature_size, (uint8_t*) text, strlen(text)) <= 0)
+                return -EIO;
+
+        mf = open_memstream_unlocked(&key, &key_size);
+        if (!mf)
+                return -ENOMEM;
+
+        if (PEM_write_PUBKEY(mf, private_key) <= 0)
+                return -EIO;
+
+        r = fflush_and_check(mf);
+        if (r < 0)
+                return r;
+
+        r = json_build(&encoded, JSON_BUILD_ARRAY(
+                                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("data", JSON_BUILD_BASE64(signature, signature_size)),
+                                                         JSON_BUILD_PAIR("key", JSON_BUILD_STRING(key)))));
+        if (r < 0)
+                return r;
+
+        v = json_variant_ref(ur->json);
+
+        r = json_variant_set_field(&v, "signature", encoded);
+        if (r < 0)
+                return r;
+
+        if (DEBUG_LOGGING)
+                json_variant_dump(v, JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+
+        signed_ur = user_record_new();
+        if (!signed_ur)
+                return log_oom();
+
+        r = user_record_load(signed_ur, v, USER_RECORD_LOAD_FULL);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(signed_ur);
+        return 0;
+}
+
+int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
+        _cleanup_free_ char *text = NULL;
+        unsigned n_good = 0, n_bad = 0;
+        JsonVariant *array, *e;
+        int r;
+
+        assert(ur);
+        assert(public_key);
+
+        array = json_variant_by_key(ur->json, "signature");
+        if (!array)
+                return USER_RECORD_UNSIGNED;
+
+        if (!json_variant_is_array(array))
+                return -EINVAL;
+
+        if (json_variant_elements(array) == 0)
+                return USER_RECORD_UNSIGNED;
+
+        r = user_record_signable_json(ur, &text);
+        if (r < 0)
+                return r;
+
+        JSON_VARIANT_ARRAY_FOREACH(e, array) {
+                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
+                _cleanup_free_ void *signature = NULL;
+                size_t signature_size = 0;
+                JsonVariant *data;
+
+                if (!json_variant_is_object(e))
+                        return -EINVAL;
+
+                data = json_variant_by_key(e, "data");
+                if (!data)
+                        return -EINVAL;
+
+                r = json_variant_unbase64(data, &signature, &signature_size);
+                if (r < 0)
+                        return r;
+
+                md_ctx = EVP_MD_CTX_new();
+                if (!md_ctx)
+                        return -ENOMEM;
+
+                if (EVP_DigestVerifyInit(md_ctx, NULL, NULL, NULL, public_key) <= 0)
+                        return -EIO;
+
+                if (EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
+                        n_bad ++;
+                        continue;
+                }
+
+                n_good ++;
+        }
+
+        return n_good > 0 ? (n_bad == 0 ? USER_RECORD_SIGNED_EXCLUSIVE : USER_RECORD_SIGNED) :
+                (n_bad == 0 ? USER_RECORD_UNSIGNED : USER_RECORD_FOREIGN);
+}
+
+int user_record_has_signature(UserRecord *ur) {
+        JsonVariant *array;
+
+        array = json_variant_by_key(ur->json, "signature");
+        if (!array)
+                return false;
+
+        if (!json_variant_is_array(array))
+                return -EINVAL;
+
+        return json_variant_elements(array) > 0;
+}

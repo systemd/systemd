@@ -207,14 +207,32 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set empty string: %m");
 
-        r = table_set_sort(table, COLUMN_NAME, (size_t) -1);
+        r = table_set_sort(table, (size_t) COLUMN_NAME, (size_t) -1);
         if (r < 0)
                 return log_error_errno(r, "Failed to set sort column: %m");
 
         if (arg_show_machine)
-                r = table_set_display(table, COLUMN_NAME, COLUMN_PID, COLUMN_PROCESS, COLUMN_USER, COLUMN_CONNECTION, COLUMN_UNIT, COLUMN_SESSION, COLUMN_DESCRIPTION, COLUMN_MACHINE, (size_t) -1);
+                r = table_set_display(table, (size_t) COLUMN_NAME,
+                                             (size_t) COLUMN_PID,
+                                             (size_t) COLUMN_PROCESS,
+                                             (size_t) COLUMN_USER,
+                                             (size_t) COLUMN_CONNECTION,
+                                             (size_t) COLUMN_UNIT,
+                                             (size_t) COLUMN_SESSION,
+                                             (size_t) COLUMN_DESCRIPTION,
+                                             (size_t) COLUMN_MACHINE,
+                                             (size_t) -1);
         else
-                r = table_set_display(table, COLUMN_NAME, COLUMN_PID, COLUMN_PROCESS, COLUMN_USER, COLUMN_CONNECTION, COLUMN_UNIT, COLUMN_SESSION, COLUMN_DESCRIPTION, (size_t) -1);
+                r = table_set_display(table, (size_t) COLUMN_NAME,
+                                             (size_t) COLUMN_PID,
+                                             (size_t) COLUMN_PROCESS,
+                                             (size_t) COLUMN_USER,
+                                             (size_t) COLUMN_CONNECTION,
+                                             (size_t) COLUMN_UNIT,
+                                             (size_t) COLUMN_SESSION,
+                                             (size_t) COLUMN_DESCRIPTION,
+                                             (size_t) -1);
+
         if (r < 0)
                 return log_error_errno(r, "Failed to set columns to display: %m");
 
@@ -1158,7 +1176,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {
-        return bus_message_dump(m, f, BUS_MESSAGE_DUMP_WITH_HEADER);
+        return sd_bus_message_dump(m, f, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 }
 
 static int message_pcap(sd_bus_message *m, FILE *f) {
@@ -2052,7 +2070,7 @@ static int call(int argc, char **argv, void *userdata) {
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = bus_message_dump(reply, stdout, 0);
+                        r = sd_bus_message_dump(reply, stdout, 0);
                         if (r < 0)
                                 return r;
                 } else {
@@ -2158,7 +2176,7 @@ static int get_property(int argc, char **argv, void *userdata) {
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
 
-                        r = bus_message_dump(reply, stdout, BUS_MESSAGE_DUMP_SUBTREE_ONLY);
+                        r = sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY);
                         if (r < 0)
                                 return r;
                 } else {

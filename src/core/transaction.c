@@ -425,7 +425,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         else
                                 status = " SKIP ";
 
-                        unit_status_printf(delete->unit, status,
+                        unit_status_printf(delete->unit,
+                                           STATUS_TYPE_NOTICE,
+                                           status,
                                            "Ordering cycle found, skipping %s");
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;

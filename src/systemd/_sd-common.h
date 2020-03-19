@@ -45,6 +45,18 @@ typedef void (*_sd_destroy_t)(void *userdata);
 #  define _sd_pure_ __attribute__((__pure__))
 #endif
 
+/* Note that strictly speaking __deprecated__ has been available before GCC 6. However, starting with GCC 6
+ * it also works on enum values, which we are interested in. Since this is a developer-facing feature anyway
+ * (as opposed to build engineer-facing), let's hence conditionalize this to gcc 6, given that the developers
+ * are probably going to use something newer anyway. */
+#ifndef _sd_deprecated_
+#  if __GNUC__ >= 6
+#    define _sd_deprecated_ __attribute__((__deprecated__))
+#  else
+#    define _sd_deprecated_
+#  endif
+#endif
+
 #ifndef _SD_STRINGIFY
 #  define _SD_XSTRINGIFY(x) #x
 #  define _SD_STRINGIFY(x) _SD_XSTRINGIFY(x)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Sysuser-related tests"
 
@@ -23,6 +23,7 @@ preprocess() {
     # get this value from config.h, however the autopkgtest fails with
     # it
     SYSTEM_UID_MAX=$(awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs)
+    SYSTEM_GID_MAX=$(awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' /etc/login.defs)
 
     # we can't rely on config.h to get the nologin path, as autopkgtest
     # uses pre-compiled binaries, so extract it from the systemd-sysusers
@@ -30,6 +31,7 @@ preprocess() {
     NOLOGIN=$(strings $(type -p systemd-sysusers) | grep nologin)
 
     sed -e "s/SYSTEM_UID_MAX/${SYSTEM_UID_MAX}/g" \
+        -e "s/SYSTEM_GID_MAX/${SYSTEM_GID_MAX}/g" \
         -e "s#NOLOGIN#${NOLOGIN}#g" "$in"
 }
 
@@ -114,6 +116,7 @@ test_run() {
         prepare_testdir ${f%.input}
         cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
         systemd-sysusers --root=$TESTDIR 2> /dev/null
+        journalctl --sync
         journalctl -t systemd-sysusers -o cat | tail -n1 > $TESTDIR/tmp/err
         if ! diff -u $TESTDIR/tmp/err  ${f%.*}.expected-err; then
             echo "**** Unexpected error output for $f"

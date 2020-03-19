@@ -110,7 +110,7 @@ static int manager_send_request(Manager *m) {
 
         r = manager_listen_setup(m);
         if (r < 0)
-                return log_warning_errno(r, "Failed to setup connection socket: %m");
+                return log_warning_errno(r, "Failed to set up connection socket: %m");
 
         /*
          * Set transmit timestamp, remember it; the server will send that back
@@ -514,7 +514,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         root_distance = ntp_ts_short_to_d(&ntpmsg.root_delay) / 2 + ntp_ts_short_to_d(&ntpmsg.root_dispersion);
         if (root_distance > (double) m->max_root_distance_usec / (double) USEC_PER_SEC) {
-                log_debug("Server has too large root distance. Disconnecting.");
+                log_info("Server has too large root distance. Disconnecting.");
                 return manager_connect(m);
         }
 

@@ -267,7 +267,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Eszközök csatolásának engedélyezése munkaállomásokhoz"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Hitelesítés szükséges eszköz csatolásának engedélyezéséhez egy "
 "munkaállomáshoz"
@@ -278,7 +278,7 @@ msgstr "Eszközök és munkaállomások csatolásainak törlése"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Hitelesítés szükséges az eszközök munkaállomásokhoz csatolásainak "
 "alaphelyzetbe állításához."
@@ -288,7 +288,7 @@ msgid "Power off the system"
 msgstr "A rendszer kikapcsolása"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Hitelesítés szükséges a rendszer kikapcsolásához."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -298,21 +298,21 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Hitelesítés szükséges a rendszer kikapcsolásához miközben be vannak "
 "jelentkezve más felhasználók."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 "A rendszer kikapcsolása miközben egy alkalmazás ennek meggátlását kérte"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Hitelesítés szükséges a rendszer kikapcsolásához miközben egy alkalmazás "
 "ennek meggátlását kérte."
@@ -322,7 +322,7 @@ msgid "Reboot the system"
 msgstr "A rendszer újraindítása"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Hitelesítés szükséges a rendszer újraindításához."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -331,21 +331,21 @@ msgstr "A rendszer újraindítása mialatt be vannak jelentkezve más felhaszná
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Hitelesítés szükséges a rendszer újraindításához miközben be vannak "
 "jelentkezve más felhasználók."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 "A rendszer újraindítása miközben egy alkalmazás ennek meggátlását kérte"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Hitelesítés szükséges a rendszer újraindításához miközben egy alkalmazás "
 "ennek meggátlását kérte."
@@ -355,7 +355,7 @@ msgid "Suspend the system"
 msgstr "A rendszer felfüggesztése"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -365,21 +365,21 @@ msgstr ""
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben be vannak "
 "jelentkezve más felhasználók."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 "A rendszer felfüggesztése miközben egy alkalmazás ennek meggátlását kérte"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben egy alkalmazás "
 "ennek meggátlását kérte."
@@ -389,7 +389,7 @@ msgid "Hibernate the system"
 msgstr "A rendszer hibernálása"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -398,20 +398,20 @@ msgstr "A rendszer hibernálása mialatt be vannak jelentkezve más felhasznál�
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Hitelesítés szükséges a rendszer hibernálásához miközben be vannak "
 "jelentkezve más felhasználók."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "A rendszer hibernálása miközben egy alkalmazás ennek meggátlását kérte"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Hitelesítés szükséges a rendszer hibernálásához miközben egy alkalmazás "
 "ennek meggátlását kérte."
@@ -422,7 +422,7 @@ msgstr "Aktív munkamenetek, felhasználók és munkaállomások kezelése"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Hitelesítés szükséges az aktív munkamenetek, felhasználók és munkaállomások "
 "kezeléséhez."

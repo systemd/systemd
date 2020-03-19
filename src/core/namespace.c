@@ -629,10 +629,9 @@ static int clone_device_node(
         }
 
         /* We're about to fallback to bind-mounting the device
-         * node. So create a dummy bind-mount target. */
-        mac_selinux_create_file_prepare(d, 0);
+         * node. So create a dummy bind-mount target.
+         * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);
-        mac_selinux_create_file_clear();
         if (r < 0 && errno != EEXIST)
                 return log_debug_errno(errno, "mknod() fallback failed for '%s': %m", d);
 
@@ -689,6 +688,11 @@ static int mount_private_dev(MountEntry *m) {
         (void) mkdir(dev, 0755);
         if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755") < 0) {
                 r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
+                goto fail;
+        }
+        r = label_fix_container(dev, "/dev", 0);
+        if (r < 0) {
+                log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
                 goto fail;
         }
 
@@ -750,7 +754,7 @@ static int mount_private_dev(MountEntry *m) {
 
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
         if (r < 0)
-                log_debug_errno(r, "Failed to setup basic device tree at '%s', ignoring: %m", temporary_mount);
+                log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
         /* Create the /dev directory if missing. It is more likely to be
          * missing when the service is started with RootDirectory. This is
@@ -1132,6 +1136,7 @@ static size_t namespace_calculate_mounts(
                 size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char* log_namespace,
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
@@ -1166,7 +1171,8 @@ static size_t namespace_calculate_mounts(
                 (ns_info->protect_control_groups ? 1 : 0) +
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
-                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0);
+                (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
+                !!log_namespace;
 }
 
 static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
@@ -1191,7 +1197,7 @@ static bool root_read_only(
         if (protect_system == PROTECT_SYSTEM_STRICT)
                 return true;
 
-        if (path_strv_contains(read_only_paths, "/"))
+        if (prefixed_path_strv_contains(read_only_paths, "/"))
                 return true;
 
         return false;
@@ -1216,9 +1222,9 @@ static bool home_read_only(
         if (protect_home != PROTECT_HOME_NO)
                 return true;
 
-        if (path_strv_contains(read_only_paths, "/home") ||
-            path_strv_contains(inaccessible_paths, "/home") ||
-            path_strv_contains(empty_directories, "/home"))
+        if (prefixed_path_strv_contains(read_only_paths, "/home") ||
+            prefixed_path_strv_contains(inaccessible_paths, "/home") ||
+            prefixed_path_strv_contains(empty_directories, "/home"))
                 return true;
 
         for (i = 0; i < n_temporary_filesystems; i++)
@@ -1247,6 +1253,7 @@ int setup_namespace(
                 size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *log_namespace,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
@@ -1323,6 +1330,7 @@ int setup_namespace(
                         n_bind_mounts,
                         n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
+                        log_namespace,
                         protect_home, protect_system);
 
         if (n_mounts > 0) {
@@ -1425,6 +1433,23 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                        };
+                }
+
+                if (log_namespace) {
+                        _cleanup_free_ char *q;
+
+                        q = strjoin("/run/systemd/journal.", log_namespace);
+                        if (!q) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/systemd/journal",
+                                .mode = BIND_MOUNT_RECURSIVE,
+                                .read_only = true,
+                                .source_malloc = TAKE_PTR(q),
                         };
                 }
 

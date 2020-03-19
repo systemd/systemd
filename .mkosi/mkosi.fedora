@@ -8,9 +8,8 @@ Distribution=fedora
 Release=31
 
 [Output]
-Format=raw_btrfs
+Format=gpt_ext4
 Bootable=yes
-KernelCommandLine=printk.devkmsg=on
 
 [Partitions]
 RootSize=3G
@@ -27,6 +26,7 @@ BuildPackages=
         gcc
         gettext
         git
+        glibc-minimal-langpack
         gnu-efi
         gnu-efi-devel
         gnutls-devel
@@ -38,19 +38,22 @@ BuildPackages=
         libblkid-devel
         libcap-devel
         libcurl-devel
+        libfdisk-devel
         libgcrypt-devel
         libidn2-devel
         libmicrohttpd-devel
         libmount-devel
+        libpwquality-devel
         libseccomp-devel
         libselinux-devel
-        libtool
         libxkbcommon-devel
         libxslt
         lz4
         lz4-devel
         m4
         meson
+        openssl-devel
+        p11-kit-devel
         pam-devel
         pcre2-devel
         pkgconfig
@@ -58,10 +61,18 @@ BuildPackages=
         python3-lxml
         qrencode-devel
         tree
+        valgrind-devel
         xz-devel
 
 Packages=
+        coreutils
+        cryptsetup-libs
+        kmod-libs
+        e2fsprogs
         libidn2
+        libseccomp
+        procps-ng
+        util-linux
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache

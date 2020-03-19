@@ -21,6 +21,7 @@
 #include "missing_fs.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
+#include "numa-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -28,6 +29,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
@@ -833,7 +835,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "RuntimeDirectoryPreserve",
                               "Personality",
                               "KeyringMode",
-                              "NetworkNamespacePath"))
+                              "NetworkNamespacePath",
+                              "LogNamespace"))
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "IgnoreSIGPIPE",
@@ -854,6 +857,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectKernelTunables",
                               "ProtectKernelModules",
                               "ProtectKernelLogs",
+                              "ProtectClock",
                               "ProtectControlGroups",
                               "MountAPIVFS",
                               "CPUSchedulingResetOnFork",
@@ -1099,6 +1103,13 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 _cleanup_(cpu_set_reset) CPUSet cpuset = {};
                 _cleanup_free_ uint8_t *array = NULL;
                 size_t allocated;
+
+                if (eq && streq(eq, "numa")) {
+                        r = sd_bus_message_append(m, "(sv)", "CPUAffinityFromNUMA", "b", true);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                        return r;
+                }
 
                 r = parse_cpu_set(eq, &cpuset);
                 if (r < 0)

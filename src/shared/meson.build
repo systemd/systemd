@@ -27,6 +27,8 @@ shared_sources = files('''
         bus-unit-util.h
         bus-util.c
         bus-util.h
+        bus-polkit.c
+        bus-polkit.h
         bus-wait-for-jobs.c
         bus-wait-for-jobs.h
         bus-wait-for-units.c
@@ -85,6 +87,7 @@ shared_sources = files('''
         fstab-util.h
         generator.c
         generator.h
+        gpt.c
         gpt.h
         group-record-nss.c
         group-record-nss.h
@@ -144,6 +147,8 @@ shared_sources = files('''
         nscd-flush.h
         nsflags.c
         nsflags.h
+        numa-util.c
+        numa-util.h
         openssl-util.h
         os-util.c
         os-util.h

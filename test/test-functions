@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
@@ -39,7 +39,7 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
-BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
+BASICTOOLS="test env sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
 DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find vi mv"
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
@@ -212,7 +212,6 @@ loglevel=2 \
 init=$PATH_TO_INIT \
 console=$CONSOLE \
 selinux=0 \
-printk.devkmsg=on \
 $_cgroup_args \
 $KERNEL_APPEND \
 "
@@ -377,7 +376,7 @@ create_valgrind_wrapper() {
     local _valgrind_wrapper=$initdir/$ROOTLIBDIR/systemd-under-valgrind
     ddebug "Create $_valgrind_wrapper"
     cat >$_valgrind_wrapper <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 mount -t proc proc /proc
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
@@ -406,7 +405,7 @@ create_asan_wrapper() {
     esac
 
     cat >$_asan_wrapper <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
@@ -469,9 +468,14 @@ printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush
 # 1
 # Let's workaround this by clearing the previously set LD_PRELOAD env variable,
 # so the libasan library is not loaded for this particular service
-REMOUNTFS_CONF_DIR=/etc/systemd/system/systemd-remount-fs.service.d
-mkdir -p "\$REMOUNTFS_CONF_DIR"
-printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$REMOUNTFS_CONF_DIR/env.conf"
+unset_ld_preload() {
+    local _dropin_dir="/etc/systemd/system/\$1.service.d"
+    mkdir -p "\$_dropin_dir"
+    printf "[Service]\nUnsetEnvironment=LD_PRELOAD\n" >"\$_dropin_dir/unset_ld_preload.conf"
+}
+
+unset_ld_preload systemd-remount-fs
+unset_ld_preload testsuite
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
@@ -484,7 +488,7 @@ create_strace_wrapper() {
     local _strace_wrapper=$initdir/$ROOTLIBDIR/systemd-under-strace
     ddebug "Create $_strace_wrapper"
     cat >$_strace_wrapper <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 exec strace -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
 EOF
@@ -671,7 +675,7 @@ strip_binaries() {
 create_rc_local() {
     mkdir -p $initdir/etc/rc.d
     cat >$initdir/etc/rc.d/rc.local <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 exit 0
 EOF
     chmod 0755 $initdir/etc/rc.d/rc.local
@@ -732,7 +736,6 @@ install_config_files() {
     inst /etc/shells
     inst /etc/nsswitch.conf
     inst /etc/pam.conf || :
-    inst /etc/securetty || :
     inst /etc/os-release
     inst /etc/localtime
     # we want an empty environment

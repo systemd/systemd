@@ -188,10 +188,10 @@ int main(int argc, char *argv[]) {
         r = sd_bus_message_seal(m, 4711, 0);
         assert_se(r >= 0);
 
-        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
+        sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         ms = open_memstream_unlocked(&first, &first_size);
-        bus_message_dump(m, ms, 0);
+        sd_bus_message_dump(m, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));
 
@@ -244,11 +244,11 @@ int main(int argc, char *argv[]) {
         r = bus_message_from_malloc(bus, buffer, sz, NULL, 0, NULL, &m);
         assert_se(r >= 0);
 
-        bus_message_dump(m, stdout, BUS_MESSAGE_DUMP_WITH_HEADER);
+        sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
         fclose(ms);
         ms = open_memstream_unlocked(&second, &second_size);
-        bus_message_dump(m, ms, 0);
+        sd_bus_message_dump(m, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));
         assert_se(first_size == second_size);
@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
 
         fclose(ms);
         ms = open_memstream_unlocked(&third, &third_size);
-        bus_message_dump(copy, ms, 0);
+        sd_bus_message_dump(copy, ms, 0);
         fflush(ms);
         assert_se(!ferror(ms));
 

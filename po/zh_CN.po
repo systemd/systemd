@@ -232,7 +232,7 @@ msgstr "允许将设备附加至会话座位"
 #
 # To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "允许将设备附加至某个会话座位需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
@@ -241,7 +241,7 @@ msgstr "刷新设备至会话座位间的连接"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr "重新设定设备的会话座位接入方式时需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
@@ -249,7 +249,7 @@ msgid "Power off the system"
 msgstr "关闭系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "关闭系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
@@ -258,18 +258,18 @@ msgstr "存在其他已登录用户时仍然关机"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时关闭系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然关机"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr "在其它应用程序阻止关机时关闭系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
@@ -277,7 +277,7 @@ msgid "Reboot the system"
 msgstr "重启系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "重启系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
@@ -286,18 +286,18 @@ msgstr "存在其他已登录用户时仍然重启"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时重启系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然重启"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr "在其它应用程序阻止重启时重启系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
@@ -305,7 +305,7 @@ msgid "Suspend the system"
 msgstr "挂起系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "挂起系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
@@ -314,18 +314,18 @@ msgstr "存在其他已登录用户时仍然挂起系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时挂起系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然挂起系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr "在其它应用程序阻止挂起时挂起系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
@@ -333,7 +333,7 @@ msgid "Hibernate the system"
 msgstr "休眠系统"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "休眠系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
@@ -342,18 +342,18 @@ msgstr "存在其他已登录用户时仍然休眠"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时进行休眠系统需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然休眠"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
@@ -362,7 +362,7 @@ msgstr "管理活动会话、用户与会话座位"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr "管理活动会话、用户与会话座位需要认证。"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51

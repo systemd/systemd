@@ -354,7 +354,7 @@ static int disk_identify(int fd,
             ret = disk_identify_packet_device_command(fd, out_identify, 512);
             goto check_nul_bytes;
           }
-        if (peripheral_device_type != 0x00) {
+        if (!IN_SET(peripheral_device_type, 0x00, 0x14)) {
                 ret = -1;
                 errno = EIO;
                 goto out;

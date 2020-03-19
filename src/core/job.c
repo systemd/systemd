@@ -572,7 +572,7 @@ static void job_print_begin_status_message(Unit *u, JobType t) {
         format = job_get_begin_status_message_format(u, t);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u, "", format);
+        unit_status_printf(u, STATUS_TYPE_NORMAL, "", format);
         REENABLE_WARNING;
 }
 
@@ -797,9 +797,15 @@ _pure_ static const char *job_get_done_status_message_format(Unit *u, JobType t,
         assert(t < _JOB_TYPE_MAX);
 
         if (IN_SET(t, JOB_START, JOB_STOP, JOB_RESTART)) {
+                const UnitStatusMessageFormats *formats = &UNIT_VTABLE(u)->status_message_formats;
+                if (formats->finished_job) {
+                        format = formats->finished_job(u, t, result);
+                        if (format)
+                                return format;
+                }
                 format = t == JOB_START ?
-                        UNIT_VTABLE(u)->status_message_formats.finished_start_job[result] :
-                        UNIT_VTABLE(u)->status_message_formats.finished_stop_job[result];
+                        formats->finished_start_job[result] :
+                        formats->finished_stop_job[result];
                 if (format)
                         return format;
         }
@@ -861,11 +867,10 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
         else
                 status = job_print_done_status_messages[result].word;
 
-        if (result != JOB_DONE)
-                manager_flip_auto_status(u->manager, true);
-
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        unit_status_printf(u, status, format);
+        unit_status_printf(u,
+                           result == JOB_DONE ? STATUS_TYPE_NORMAL : STATUS_TYPE_NOTICE,
+                           status, format);
         REENABLE_WARNING;
 
         if (t == JOB_START && result == JOB_FAILED) {

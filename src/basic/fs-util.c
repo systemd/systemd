@@ -272,6 +272,52 @@ int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         return do_chown || do_chmod;
 }
 
+int chmod_and_chown_unsafe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        bool do_chown, do_chmod;
+        struct stat st;
+
+        assert(path);
+
+        /* Change ownership and access mode of the specified path, see description of fchmod_and_chown().
+         * Should only be used on trusted paths. */
+
+        if (lstat(path, &st) < 0)
+                return -errno;
+
+        do_chown =
+                (uid != UID_INVALID && st.st_uid != uid) ||
+                (gid != GID_INVALID && st.st_gid != gid);
+
+        do_chmod =
+                !S_ISLNK(st.st_mode) && /* chmod is not defined on symlinks */
+                ((mode != MODE_INVALID && ((st.st_mode ^ mode) & 07777) != 0) ||
+                 do_chown); /* If we change ownership, make sure we reset the mode afterwards, since chown()
+                             * modifies the access mode too */
+
+        if (mode == MODE_INVALID)
+                mode = st.st_mode; /* If we only shall do a chown(), save original mode, since chown() might break it. */
+        else if ((mode & S_IFMT) != 0 && ((mode ^ st.st_mode) & S_IFMT) != 0)
+                return -EINVAL; /* insist on the right file type if it was specified */
+
+        if (do_chown && do_chmod) {
+                mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
+
+                if (((minimal ^ st.st_mode) & 07777) != 0)
+                        if (chmod(path, minimal & 07777) < 0)
+                                return -errno;
+        }
+
+        if (do_chown)
+                if (lchown(path, uid, gid) < 0)
+                        return -errno;
+
+        if (do_chmod)
+                if (chmod(path, mode & 07777) < 0)
+                        return -errno;
+
+        return do_chown || do_chmod;
+}
+
 int fchmod_umask(int fd, mode_t m) {
         mode_t u;
         int r;
@@ -797,6 +843,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (r < 0)
                         return r;
 
+                /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
+                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
+                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
+                 * anyway. Moreover at the end of this function after processing everything we'll always turn
+                 * the empty string back to "/". */
+                delete_trailing_chars(root, "/");
+                path_simplify(root, true);
+
                 if (flags & CHASE_PREFIX_ROOT) {
                         /* We don't support relative paths in combination with a root directory */
                         if (!path_is_absolute(path))
@@ -810,13 +864,38 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (r < 0)
                 return r;
 
-        fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
         if (flags & CHASE_SAFE) {
                 if (fstat(fd, &previous_stat) < 0)
                         return -errno;
+        }
+
+        if (root) {
+                _cleanup_free_ char *absolute = NULL;
+                const char *e;
+
+                /* If we are operating on a root directory, let's take the root directory as it is. */
+
+                e = path_startswith(buffer, root);
+                if (!e)
+                        return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                                              SYNTHETIC_ERRNO(ECHRNG),
+                                              "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                              path, root);
+
+                done = strdup(root);
+                if (!done)
+                        return -ENOMEM;
+
+                /* Make sure "todo" starts with a slash */
+                absolute = strjoin("/", e);
+                if (!absolute)
+                        return -ENOMEM;
+
+                free_and_replace(buffer, absolute);
         }
 
         todo = buffer;
@@ -828,6 +907,15 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 /* Determine length of first component in the path */
                 n = strspn(todo, "/");                  /* The slashes */
+
+                if (n > 1) {
+                        /* If we are looking at more than a single slash then skip all but one, so that when
+                         * we are done with everything we have a normalized path with only single slashes
+                         * separating the path components. */
+                        todo += n - 1;
+                        n = 1;
+                }
+
                 m = n + strcspn(todo + n, "/");         /* The entire length of the component */
 
                 /* Extract the first component. */
@@ -930,7 +1018,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (fstat(child, &st) < 0)
                         return -errno;
                 if ((flags & CHASE_SAFE) &&
-                    (empty_or_root(root) || (size_t)(todo - buffer) > strlen(root)) &&
                     unsafe_transition(&previous_stat, &st))
                         return log_unsafe_transition(fd, child, path, flags);
 
@@ -961,7 +1048,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                  * directory as base. */
 
                                 safe_close(fd);
-                                fd = open(root ?: "/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                                fd = open(root ?: "/", O_CLOEXEC|O_DIRECTORY|O_PATH);
                                 if (fd < 0)
                                         return -errno;
 

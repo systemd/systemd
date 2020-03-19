@@ -74,6 +74,8 @@ sd_radv_prefix *sd_radv_prefix_unref(sd_radv_prefix *ra);
 
 int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
                               unsigned char prefixlen);
+int sd_radv_prefix_get_prefix(sd_radv_prefix *p, struct in6_addr *ret_in6_addr,
+                              unsigned char *ret_prefixlen);
 int sd_radv_prefix_set_onlink(sd_radv_prefix *p, int onlink);
 int sd_radv_prefix_set_address_autoconfiguration(sd_radv_prefix *p,
                                                  int address_autoconfiguration);

@@ -1,0 +1,269 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-repart" conditional='ENABLE_REPART'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-repart</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-repart</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-repart</refname>
+    <refname>systemd-repart.service</refname>
+    <refpurpose>Automatically grow and add partitions</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-repart</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat"><replaceable><optional>BLOCKDEVICE</optional></replaceable></arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-repart.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-repart</command> grows and adds partitions to a partition table, based on the
+    configuration files described in
+    <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>If invoked with no arguments, it operates on the block device backing the root file system partition
+    of the OS, thus growing and adding partitions of the booted OS image itself. When called in the initial
+    RAM disk it operates on the block device backing <filename>/sysroot/</filename> instead, i.e. on the
+    block device the system will soon transition into. The <filename>systemd-repart.service</filename>
+    service is generally run at boot in the initial RAM disk, in order to augment the partition table of the
+    OS before its partitions are mounted. <command>systemd-repart</command> (mostly) operates in a purely
+    incremental mode: it only grows existing and adds new partitions; it does not shrink, delete or move
+    existing partitions. The service is intended to be run on every boot, but when it detects that the
+    partition table already matches the installed <filename>repart.d/*.conf</filename> configuration
+    files, it executes no operation.</para>
+
+    <para><command>systemd-repart</command> is intended to be used when deploying OS images, to automatically
+    adjust them to the system they are running on, during first boot. This way the deployed image can be
+    minimal in size and may be augmented automatically at boot when needed, taking possession of disk space
+    available but not yet used. Specifically the following use cases are among those covered:</para>
+
+    <itemizedlist>
+      <listitem><para>The root partition may be grown to cover the whole available disk space</para></listitem>
+      <listitem><para>A <filename>/home/</filename>, swap or <filename>/srv</filename> partition can be added in</para></listitem>
+      <listitem><para>A second (or third, …) root partition may be added in, to cover A/B style setups
+      where a second version of the root file system is alternatingly used for implementing update
+      schemes. The deployed image would carry only a single partition ("A") but on first boot a second
+      partition ("B") for this purpose is automatically created.</para></listitem>
+    </itemizedlist>
+
+    <para>The algorithm executed by <command>systemd-repart</command> is roughly as follows:</para>
+
+    <orderedlist>
+      <listitem><para>The <filename>repart.d/*.conf</filename> configuration files are loaded and parsed,
+      and ordered by filename (without the directory suffix). </para></listitem>
+
+      <listitem><para>The partition table already existing on the block device is loaded and
+      parsed.</para></listitem>
+
+      <listitem><para>The existing partitions in the partition table are matched up with the
+      <filename>repart.d/*.conf</filename> files by GPT partition type UUID. The first existing partition
+      of a specific type is assigned the first configuration file declaring the same type. The second
+      existing partition of a specific type is then assigned the second configuration file declaring the same
+      type, and so on. After this iterative assigning is complete any left-over existing partitions that have
+      no matching configuration file are considered "foreign" and left as they are. And any configuration
+      files for which no partition currently exists are understood as a request to create such a
+      partition.</para></listitem>
+
+      <listitem><para>Taking the size constraints and weights declared in the configuration files into
+      account, all partitions that shall be created are now allocated to the disk, taking up all free space,
+      always respecting the size and padding requests. Similar, existing partitions that are determined to
+      grow are grown. New partitions are always appended to the end of the existing partition table, taking
+      the first partition table slot whose index is greater than the indexes of all existing
+      partitions. Partition table slots are never reordered and thus partition numbers are ensured to remain
+      stable. Note that this allocation happens in RAM only, the partition table on disk is not updated
+      yet.</para></listitem>
+
+      <listitem><para>All existing partitions for which configuration files exist and which currently have no
+      GPT partition label set will be assigned a label, either explicitly configured in the configuration or
+      (if that's missing) derived automatically from the partition type. The same is done for all partitions
+      that are newly created. These assignments are done in RAM only, too, the disk is not updated
+      yet.</para></listitem>
+
+      <listitem><para>Similarly, all existing partitions for which configuration files exist and which
+      currently have an all-zero identifying UUID will be assigned a new UUID. This UUID is cryptographically
+      hashed from a common seed value together with the partition type UUID (and a counter in case multiple
+      partitions of the same type are defined), see below. The same is done for all partitions that are
+      created anew. These assignments are done in RAM only, too, the disk is not updated
+      yet.</para></listitem>
+
+      <listitem><para>Similarly, if the disk's volume UUID is all zeroes it is also initialized, also
+      cryptographically hashed from the same common seed value. Also, in RAM only, too.</para></listitem>
+
+      <listitem><para>The disk space assigned to new partitions (i.e. what was previously considered free
+      space but is no longer) is now erased. Specifically, all file system signatures are removed, and if the
+      device supports it the <constant>BLKDISCARD</constant> I/O control command is issued to inform the
+      hardware that the space is empty now. In addition any "padding" between partitions and at the end of
+      the device is similarly erased.</para></listitem>
+
+      <listitem><para>The new partition table is finally written to disk. The kernel is asked to reread the
+      partition table.</para></listitem>
+    </orderedlist>
+
+    <para>As exception to the normally strictly incremental operation, when called in a special "factory
+    reset" mode <command>systemd-repart</command> may also be used to erase select existing partitions to
+    reset an installation back to vendor defaults. This mode of operation is used when either the
+    <option>--factory-reset=yes</option> switch is passed on the tool's command line, or the
+    <option>systemd.factory_reset=yes</option> option specified on the kernel command line, or the
+    <varname>FactoryReset</varname> EFI variable (vendor UUID
+    <constant>8cf2644b-4b0b-428f-9387-6d876050dc67</constant>) is set to "yes". It alters the algorithm above
+    slightly: between the 3rd and the 4th step above the any partition marked explicitly via the
+    <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
+    re-creating these partitions anew empty.</para>
+
+    <para>Note that <command>systemd-repart</command> only changes partition tables, it does not create or
+    resize any file systems within these partitions. A separate mechanism should be used for that, for
+    example
+    <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+    <command>systemd-makefs</command>.</para>
+
+    <para>The UUIDs identifying the new partitions created (or assigned to existing partitions that have no
+    UUID yet), as well as the disk as a whole are hashed cryptographically from a common seed value. This
+    seed value is usually the
+    <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> of the
+    system, so that the machine ID reproducibly determines the UUIDs assigned to all partitions. If the
+    machine ID cannot be read (or the user passes <option>--seed=random</option>, see below) the seed is
+    generated randomly instead, so that the partition UUIDs are also effectively random. The seed value may
+    also be set explicitly, formatted as UUID via the <option>--seed=</option> option. By hashing these UUIDs
+    from a common seed images prepared with this tool become reproducible and the result of the algorithm
+    above deterministic.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--dry-run=</option></term>
+        <listitem><para>Takes a boolean. If this switch is not specified <option>--dry-run=yes</option> is
+        the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
+        re-partition operations or whether it should only show what it would do. Unless
+        <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
+        touch the device's partition table.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--empty=</option></term>
+        <listitem><para>Takes one of <literal>refuse</literal>, <literal>allow</literal>,
+        <literal>require</literal> or <literal>force</literal>. Controls how to operate on block devices that
+        are entirely empty, i.e. carry no partition table/disk label yet. If this switch is not specified the
+        implied default is <literal>refuse</literal>.</para>
+
+        <para>If <literal>refuse</literal> <command>systemd-repart</command> requires that the block device
+        it shall operate on already carries a partition table and refuses operation if none is found. If
+        <literal>allow</literal> the command will extend an existing partition table or create a new one if
+        none exists. If <literal>require</literal> the command will create a new partition table if none
+        exists so far, and refuse operation if one already exists. If <literal>force</literal> it will create
+        a fresh partition table unconditionally, erasing the disk fully in effect. If
+        <literal>force</literal> no existing partitions will be taken into account or survive the
+        operation. Hence: use with care, this is a great way to lose all your data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--discard=</option></term>
+
+        <listitem><para>Takes a boolean. If this switch is not specified <option>--discard=yes</option> is
+        the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
+        command on the space taken up by any added partitions or on the space in between them. Usually, it's
+        a good idea to issue this request since it tells the underlying hardware that the covered blocks
+        shall be considered empty, improving performance.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--factory-reset=</option></term>
+
+        <listitem><para>Takes boolean. If this switch is not specified <option>--factory=reset=no</option> is
+        the implied default. Controls whether to operate in "factory reset" mode, see above. If set to true
+        this will remove all existing partitions marked with <varname>FactoryReset=</varname> set to yes
+        early while executing the re-partitioning algorithm. Use with care, this is a great way to lose all
+        your data. Note that partition files need to explicitly turn <varname>FactoryReset=</varname> on, as
+        the option defaults to off. If no partitions are marked for factory reset this switch has no
+        effect. Note that there are two other methods to request factory reset operation: via the kernel
+        command line and via an EFI variable, see above.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--can-factory-reset</option></term>
+
+        <listitem><para>If this switch is specified the disk is not re-partitioned. Instead it is determined
+        if any existing partitions are marked with <varname>FactoryReset=</varname>. If there are the tool
+        will exit with exit status zero, otherwise non-zero. This switch may be used to quickly determine
+        whether the running system supports a factory reset mechanism built on
+        <command>systemd-repart</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root=</option></term>
+
+        <listitem><para>Takes a path to a directory to use as root file system when searching for
+        <filename>repart.d/*.conf</filename> files and for the machine ID file to use as seed. By default
+        when invoked on the regular system this defaults to the host's root file system
+        <filename>/</filename>. If invoked from the initial RAM disk this defaults to
+        <filename>/sysroot/</filename>, so that the tool operates on the configuration and machine ID stored
+        in the root file system later transitioned into itself.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--seed=</option></term>
+
+        <listitem><para>Takes a UUID as argument or the special value <constant>random</constant>. If a UUID
+        is specified the UUIDs to assign to partitions and the partition table itself are derived via
+        cryptographic hashing from it. If not specified it is attempted to read the machine ID from the host
+        (or more precisely, the root directory configured via <option>--root=</option>) and use it as seed
+        instead, falling back to a randomized seed otherwise. Use <option>--seed=random</option> to force a
+        randomized seed. Explicitly specifying the seed may be used to generated strictly reproducible
+        partition tables.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pretty=</option></term>
+
+        <listitem><para>Takes a boolean argument. If this switch is not specified, it defaults to on when
+        called from an interactive terminal and off otherwise. Controls whether to show a user friendly table
+        and graphic illustrating the changes applied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--definitions=</option></term>
+
+        <listitem><para>Takes a file system path. If specified the <filename>*.conf</filename> are directly
+        read from the specified directory instead of searching in
+        <filename>/usr/lib/repart.d/*.conf</filename>, <filename>/etc/repart.d/*.conf</filename>,
+        <filename>/run/repart.d/*.conf</filename>.</para></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

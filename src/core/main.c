@@ -318,7 +318,6 @@ static int set_machine_id(const char *m) {
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-
         int r;
 
         assert(key);
@@ -330,10 +329,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (!unit_name_is_valid(value, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                         log_warning("Unit name specified on %s= is not valid, ignoring: %s", key, value);
-                else if (in_initrd() == !!startswith(key, "rd.")) {
-                        if (free_and_strdup(&arg_default_unit, value) < 0)
-                                return log_oom();
-                }
+                else if (in_initrd() == !!startswith(key, "rd."))
+                        return free_and_strdup_warn(&arg_default_unit, value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.dump_core")) {
 
@@ -494,7 +491,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
-                        arg_show_status = SHOW_STATUS_AUTO;
+                        arg_show_status = SHOW_STATUS_ERROR;
 
         } else if (streq(key, "debug") && !value) {
 
@@ -510,7 +507,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 /* SysV compatibility */
                 target = runlevel_to_target(key);
                 if (target)
-                        return free_and_strdup(&arg_default_unit, target);
+                        return free_and_strdup_warn(&arg_default_unit, target);
         }
 
         return 0;
@@ -711,7 +708,7 @@ static void set_manager_settings(Manager *m) {
         m->kexec_watchdog = arg_kexec_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
 
-        manager_set_show_status(m, arg_show_status);
+        manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
 }
 
@@ -987,11 +984,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'b':
                 case 's':
                 case 'z':
-                        /* Just to eat away the sysvinit kernel
-                         * cmdline args without getopt() error
-                         * messages that we'll parse in
-                         * parse_proc_cmdline_word() or ignore. */
-
+                        /* Just to eat away the sysvinit kernel cmdline args that we'll parse in
+                         * parse_proc_cmdline_item() or ignore, without any getopt() error messages.
+                         */
                 case '?':
                         if (getpid_cached() != 1)
                                 return -EINVAL;
@@ -1254,7 +1249,7 @@ static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         int r;
 
-        if (IN_SET(arg_show_status, SHOW_STATUS_NO, SHOW_STATUS_AUTO))
+        if (!show_status_on(arg_show_status))
                 return 0;
 
         r = parse_os_release(NULL,
@@ -1747,8 +1742,6 @@ static int invoke_main_loop(
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
                         saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
-                        mac_selinux_reload();
-
                         (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
 
                         set_manager_defaults(m);
@@ -1930,7 +1923,7 @@ static int initialize_runtime(
                         status_welcome();
                         hostname_setup();
                         machine_id_setup(NULL, arg_machine_id, NULL);
-                        loopback_setup();
+                        (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
                         test_usr();
@@ -1997,21 +1990,21 @@ static int do_queue_default_job(
                 const char **ret_error_message) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char* default_unit;
-        Job *default_unit_job;
-        Unit *target = NULL;
+        const char *unit;
+        Job *job;
+        Unit *target;
         int r;
 
         if (arg_default_unit)
-                default_unit = arg_default_unit;
+                unit = arg_default_unit;
         else if (in_initrd())
-                default_unit = SPECIAL_INITRD_TARGET;
+                unit = SPECIAL_INITRD_TARGET;
         else
-                default_unit = SPECIAL_DEFAULT_TARGET;
+                unit = SPECIAL_DEFAULT_TARGET;
 
-        log_debug("Activating default unit: %s", default_unit);
+        log_debug("Activating default unit: %s", unit);
 
-        r = manager_load_startable_unit_or_warn(m, default_unit, NULL, &target);
+        r = manager_load_startable_unit_or_warn(m, unit, NULL, &target);
         if (r < 0 && in_initrd() && !arg_default_unit) {
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
@@ -2033,13 +2026,13 @@ static int do_queue_default_job(
 
         assert(target->load_state == UNIT_LOADED);
 
-        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &default_unit_job);
+        r = manager_add_job(m, JOB_START, target, JOB_ISOLATE, NULL, &error, &job);
         if (r == -EPERM) {
                 log_debug_errno(r, "Default target could not be isolated, starting instead: %s", bus_error_message(&error, r));
 
                 sd_bus_error_free(&error);
 
-                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &default_unit_job);
+                r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &job);
                 if (r < 0) {
                         *ret_error_message = "Failed to start default target";
                         return log_emergency_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
@@ -2048,9 +2041,12 @@ static int do_queue_default_job(
         } else if (r < 0) {
                 *ret_error_message = "Failed to isolate default target";
                 return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
-        }
+        } else
+                log_info("Queued %s job for default target %s.",
+                         job_type_to_string(job->type),
+                         unit_status_string(job->unit));
 
-        m->default_unit_job_id = default_unit_job->id;
+        m->default_unit_job_id = job->id;
 
         return 0;
 }

@@ -27,9 +27,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network setup is performed by
+    <para>A plain ini-style text file that encodes configuration about a virtual network device, used by
     <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+    See <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>The main Virtual Network Device file must have the extension <filename>.netdev</filename>;
     other extensions are ignored. Virtual network devices are created as soon as networkd is
@@ -856,7 +857,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><varname>DestinationPort=</varname></term>
+        <term><varname>UDPDestinationPort=</varname></term>
         <listitem>
           <para>Specifies destination port. When UDP encapsulation is selected it's mandotory. Ignored when ip
           encapsulation is selected.</para>
@@ -2112,7 +2113,7 @@ Endpoint=wireguard.example.com:51820</programlisting>
 
     <example>
       <title>/etc/systemd/network/27-xfrm.netdev</title>
-      <programlisting>[Xfrm]
+      <programlisting>[NetDev]
 Name=xfrm0
 Kind=xfrm
 

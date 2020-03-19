@@ -70,6 +70,10 @@
       <option>syslog</option> or <option>kmsg</option> (or their combinations with console output, see below)
       automatically acquire dependencies of type <varname>After=</varname> on
       <filename>systemd-journald.socket</filename>.</para></listitem>
+
+      <listitem><para>Units using <varname>LogNamespace=</varname> will automatically gain ordering and
+      requirement dependencies on the two socket units associated with
+      <filename>systemd-journald@.service</filename> instances.</para></listitem>
     </itemizedlist>
   </refsect1>
 
@@ -405,11 +409,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectKernelModules=</varname>, <varname>ProtectKernelLogs=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>, <varname>RestrictRealtime=</varname>,
-        <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname> or <varname>LockPersonality=</varname>
-        are specified. Note that even if this setting is overridden by them, <command>systemctl show</command> shows the
-        original value of this setting. Also see <ulink
-        url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
+        <varname>ProtectClock=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
+        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname>
+        or <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
+        <command>systemctl show</command> shows the original value of this setting.
+        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.</para></listitem>
       </varlistentry>
 
@@ -770,10 +774,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Controls the CPU affinity of the executed processes. Takes a list of CPU indices or ranges
-        separated by either whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated
-        by a dash. This option may be specified more than once, in which case the specified CPU affinity masks are
-        merged. If the empty string is assigned, the mask is reset, all assignments prior to this will have no
-        effect. See
+        separated by either whitespace or commas. Alternatively, takes a special "numa" value in which case systemd
+        automatically derives allowed CPU range based on the value of <varname>NUMAMask=</varname> option. CPU ranges
+        are specified by the lower and upper CPU indices separated by a dash. This option may be specified more than
+        once, in which case the specified CPU affinity masks are merged. If the empty string is assigned, the mask
+        is reset, all assignments prior to this will have no effect. See
         <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -1297,6 +1302,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectClock=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, writes to the hardware clock or system clock will be denied.
+        It is recommended to turn this on for most services that do not need modify the clock. Defaults to off. Enabling
+        this option removes <constant>CAP_SYS_TIME</constant> and <constant>CAP_WAKE_ALARM</constant> from the
+        capability bounding set for this unit, installs a system call filter to block calls that can set the
+        clock, and <varname>DeviceAllow=char-rtc r</varname> is implied. This ensures <filename>/dev/rtc0</filename>,
+        <filename>/dev/rtc1</filename>, etc are made read only to the service. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DeviceAllow=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ProtectKernelTunables=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
@@ -1807,7 +1827,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>,
-        <varname>ProtectKernelLogs=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>ProtectKernelLogs=</varname>, <varname>ProtectClock=</varname>, <varname>ReadOnlyPaths=</varname>,
         <varname>InaccessiblePaths=</varname> and <varname>ReadWritePaths=</varname>.</para></listitem>
       </varlistentry>
 
@@ -2237,6 +2257,36 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         The default settings are set by <varname>RateLimitIntervalSec=</varname> and <varname>RateLimitBurst=</varname>
         configured in <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LogNamespace=</varname></term>
+
+        <listitem><para>Run the unit's processes in the specified journal namespace. Expects a short
+        user-defined string identifying the namespace. If not used the processes of the service are run in
+        the default journal namespace, i.e. their log stream is collected and processed by
+        <filename>systemd-journald.service</filename>. If this option is used any log data generated by
+        processes of this unit (regardless if via the <function>syslog()</function>, journal native logging
+        or stdout/stderr logging) is collected and processed by an instance of the
+        <filename>systemd-journald@.service</filename> template unit, which manages the specified
+        namespace. The log data is stored in a data store independent from the default log namespace's data
+        store. See
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details about journal namespaces.</para>
+
+        <para>Internally, journal namespaces are implemented through Linux mount namespacing and
+        over-mounting the directory that contains the relevant <constant>AF_UNIX</constant> sockets used for
+        logging in the unit's mount namespace. Since mount namespaces are used this setting disconnects
+        propagation of mounts from the unit's processes to the host, similar to how
+        <varname>ReadOnlyPaths=</varname> and similar settings (see above) work. Journal namespaces may hence
+        not be used for services that need to establish mount points on the host.</para>
+
+        <para>When this option is used the unit will automatically gain ordering and requirement dependencies
+        on the two socket units associated with the <filename>systemd-journald@.service</filename> instance
+        so that they are automatically established prior to the unit starting up. Note that when this option
+        is used log output of this service does not appear in the regular
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        output, unless the <option>--namespace=</option> option is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>

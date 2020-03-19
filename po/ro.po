@@ -283,7 +283,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Permite atașarea dispozitivelor la locuri"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "Autentificarea este necesară pentru a atașa un dispozitiv la un loc."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
@@ -292,7 +292,7 @@ msgstr "Purjează atașamentele dispozitiv-loc"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Autentificarea este necesară pentru a restabili cum dispozitivele sunt "
 "atașate la locuri."
@@ -302,7 +302,7 @@ msgid "Power off the system"
 msgstr "Oprește sistemul"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Este necesară autentificarea pentru oprirea sistemului."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
@@ -311,20 +311,20 @@ msgstr "Oprește sistemul în timp ce alți utilizatori sunt autentificați"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Autentificarea este necesară pentru oprirea sistemului în timp ce alți "
 "utilizatori sunt autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:31
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Oprește sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru oprirea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -334,7 +334,7 @@ msgid "Reboot the system"
 msgstr "Repornește sistemul"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Autentificarea este necesară pentru repornirea sistemului."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
@@ -343,20 +343,20 @@ msgstr "Repornește sistemul în timp ce alți utilizatori sunt autentificați"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Autentificarea este necesară pentru repornirea sistemului în timp ce alți "
 "utilizatori autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:37
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Repornește sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru repornirea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -366,7 +366,7 @@ msgid "Suspend the system"
 msgstr "Suspendă sistemul"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Este necesară autentificarea pentru suspendarea sistemului."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
@@ -375,20 +375,20 @@ msgstr "Suspendă sistemul în timp ce alți utilizatori sunt autentificați"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Autentificarea este necesară pentru suspendarea sistemului timp ce alți "
 "utilizatori autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:43
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspendă sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru suspendarea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -398,7 +398,7 @@ msgid "Hibernate the system"
 msgstr "Hiberneaza sistemul"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Este necesară autentificarea pentru hibernarea sistemului."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
@@ -407,20 +407,20 @@ msgstr "Hiberneaza sistemul în timp ce alți utilizatori sunt autentificați"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Autentificarea este necesară pentru hibernare a sistemului în timp ce alți "
 "utilizatori sunt autentificați."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:49
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernează sistemul în timp ce o aplicație a cerut să împiedice asta"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Autentificarea este necesară pentru hibernarea sistemului în timp ce o "
 "aplicație a cerut să împiedice asta."
@@ -431,7 +431,7 @@ msgstr "Gestionează sesiuni active, utilizatori și locuri"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:52
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Autentificarea este necesară pentru gestionarea sesiunilor active, "
 "utilizatorilor și locurilor."

@@ -8,6 +8,7 @@
 bool network_is_online(void);
 
 typedef enum LinkOperationalState {
+        LINK_OPERSTATE_MISSING,
         LINK_OPERSTATE_OFF,
         LINK_OPERSTATE_NO_CARRIER,
         LINK_OPERSTATE_DORMANT,
@@ -47,3 +48,13 @@ LinkCarrierState link_carrier_state_from_string(const char *s) _pure_;
 
 const char* link_address_state_to_string(LinkAddressState s) _const_;
 LinkAddressState link_address_state_from_string(const char *s) _pure_;
+
+typedef struct LinkOperationalStateRange {
+        LinkOperationalState min;
+        LinkOperationalState max;
+} LinkOperationalStateRange;
+
+#define LINK_OPERSTATE_RANGE_DEFAULT (LinkOperationalStateRange) { LINK_OPERSTATE_DEGRADED, \
+                                                                   LINK_OPERSTATE_ROUTABLE }
+
+int parse_operational_state_range(const char *str, LinkOperationalStateRange *out);

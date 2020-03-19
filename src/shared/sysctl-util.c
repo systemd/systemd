@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "sysctl-util.h"
 
@@ -16,22 +17,27 @@ char *sysctl_normalize(char *s) {
         char *n;
 
         n = strpbrk(s, "/.");
+
         /* If the first separator is a slash, the path is
          * assumed to be normalized and slashes remain slashes
          * and dots remains dots. */
-        if (!n || *n == '/')
-                return s;
 
-        /* Otherwise, dots become slashes and slashes become
-         * dots. Fun. */
-        while (n) {
-                if (*n == '.')
-                        *n = '/';
-                else
-                        *n = '.';
+        if (n && *n == '.')
+                /* Dots become slashes and slashes become dots. Fun. */
+                do {
+                        if (*n == '.')
+                                *n = '/';
+                        else
+                                *n = '.';
 
-                n = strpbrk(n + 1, "/.");
-        }
+                        n = strpbrk(n + 1, "/.");
+                } while (n);
+
+        path_simplify(s, true);
+
+        /* Kill the leading slash, but keep the first character of the string in the same place. */
+        if (*s == '/' && *(s+1))
+                memmove(s, s+1, strlen(s));
 
         return s;
 }

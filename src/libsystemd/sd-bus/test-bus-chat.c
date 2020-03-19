@@ -145,7 +145,7 @@ static int server(sd_bus *bus) {
                          strna(sd_bus_message_get_member(m)),
                          pid,
                          strna(label));
-                /* bus_message_dump(m); */
+                /* sd_bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "LowerCase")) {

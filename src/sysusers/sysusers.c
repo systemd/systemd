@@ -39,6 +39,7 @@ typedef struct Item {
         ItemType type;
 
         char *name;
+        char *group_name;
         char *uid_path;
         char *gid_path;
         char *description;
@@ -92,6 +93,12 @@ STATIC_DESTRUCTOR_REGISTER(database_by_groupname, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(uid_range, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+
+static int errno_is_not_exists(int code) {
+        /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
+         * not found. */
+        return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
+}
 
 static int load_user_database(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -192,7 +199,7 @@ static int load_group_database(void) {
 static int make_backup(const char *target, const char *x) {
         _cleanup_close_ int src = -1;
         _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_free_ char *temp = NULL;
+        _cleanup_free_ char *dst_tmp = NULL;
         char *backup;
         struct timespec ts[2];
         struct stat st;
@@ -209,7 +216,7 @@ static int make_backup(const char *target, const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        r = fopen_temporary_label(target, x, &dst, &temp);
+        r = fopen_temporary_label(target, x, &dst, &dst_tmp);
         if (r < 0)
                 return r;
 
@@ -223,7 +230,7 @@ static int make_backup(const char *target, const char *x) {
         backup = strjoina(x, "-");
 
         /* Copy over the access mask */
-        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
+        r = chmod_and_chown_unsafe(dst_tmp, st.st_mode & 07777, st.st_uid, st.st_gid);
         if (r < 0)
                 log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
@@ -236,7 +243,7 @@ static int make_backup(const char *target, const char *x) {
         if (r < 0)
                 goto fail;
 
-        if (rename(temp, backup) < 0) {
+        if (rename(dst_tmp, backup) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -244,7 +251,7 @@ static int make_backup(const char *target, const char *x) {
         return 0;
 
 fail:
-        (void) unlink(temp);
+        (void) unlink(dst_tmp);
         return r;
 }
 
@@ -338,13 +345,13 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 }
 #endif
 
-static int sync_rights(FILE *from, FILE *to) {
+static int sync_rights(FILE *from, const char *to) {
         struct stat st;
 
         if (fstat(fileno(from), &st) < 0)
                 return -errno;
 
-        return fchmod_and_chown(fileno(to), st.st_mode & 07777, st.st_uid, st.st_gid);
+        return chmod_and_chown_unsafe(to, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
 static int rename_and_apply_smack(const char *temp_path, const char *dest_path) {
@@ -382,7 +389,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         original = fopen(passwd_path, "re");
         if (original) {
 
-                r = sync_rights(original, passwd);
+                r = sync_rights(original, passwd_tmp);
                 if (r < 0)
                         return r;
 
@@ -484,7 +491,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         original = fopen(shadow_path, "re");
         if (original) {
 
-                r = sync_rights(original, shadow);
+                r = sync_rights(original, shadow_tmp);
                 if (r < 0)
                         return r;
 
@@ -581,7 +588,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         original = fopen(group_path, "re");
         if (original) {
 
-                r = sync_rights(original, group);
+                r = sync_rights(original, group_tmp);
                 if (r < 0)
                         return r;
 
@@ -680,7 +687,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         if (original) {
                 struct sgrp *sg;
 
-                r = sync_rights(original, gshadow);
+                r = sync_rights(original, gshadow_tmp);
                 if (r < 0)
                         return r;
 
@@ -970,7 +977,7 @@ static int add_user(Item *i) {
 
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
+                if (!errno_is_not_exists(errno))
                         return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
         }
 
@@ -1085,18 +1092,15 @@ static int gid_is_ok(gid_t gid) {
         return 1;
 }
 
-static int add_group(Item *i) {
+static int get_gid_by_name(const char *name, gid_t *gid) {
         void *z;
-        int r;
 
-        assert(i);
+        assert(gid);
 
         /* Check the database directly */
-        z = hashmap_get(database_by_groupname, i->name);
+        z = hashmap_get(database_by_groupname, name);
         if (z) {
-                log_debug("Group %s already exists.", i->name);
-                i->gid = PTR_TO_GID(z);
-                i->gid_set = true;
+                *gid = PTR_TO_GID(z);
                 return 0;
         }
 
@@ -1105,15 +1109,30 @@ static int add_group(Item *i) {
                 struct group *g;
 
                 errno = 0;
-                g = getgrnam(i->name);
+                g = getgrnam(name);
                 if (g) {
-                        log_debug("Group %s already exists.", i->name);
-                        i->gid = g->gr_gid;
-                        i->gid_set = true;
+                        *gid = g->gr_gid;
                         return 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", i->name);
+                if (!errno_is_not_exists(errno))
+                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", name);
+        }
+
+        return -ENOENT;
+}
+
+static int add_group(Item *i) {
+        int r;
+
+        assert(i);
+
+        r = get_gid_by_name(i->name, &i->gid);
+        if (r != -ENOENT) {
+                if (r < 0)
+                        return r;
+                log_debug("Group %s already exists.", i->name);
+                i->gid_set = true;
+                return 0;
         }
 
         /* Try to use the suggested numeric gid */
@@ -1214,13 +1233,21 @@ static int process_item(Item *i) {
         case ADD_USER: {
                 Item *j;
 
-                j = ordered_hashmap_get(groups, i->name);
+                j = ordered_hashmap_get(groups, i->group_name ?: i->name);
                 if (j && j->todo_group) {
-                        /* When the group with the same name is already in queue,
+                        /* When a group with the target name is already in queue,
                          * use the information about the group and do not create
                          * duplicated group entry. */
                         i->gid_set = j->gid_set;
                         i->gid = j->gid;
+                        i->id_set_strict = true;
+                } else if (i->group_name) {
+                        /* When a group name was given instead of a GID and it's
+                         * not in queue, then it must already exist. */
+                        r = get_gid_by_name(i->group_name, &i->gid);
+                        if (r < 0)
+                                return log_error_errno(r, "Group %s not found.", i->group_name);
+                        i->gid_set = true;
                         i->id_set_strict = true;
                 } else {
                         r = add_group(i);
@@ -1244,6 +1271,7 @@ static Item* item_free(Item *i) {
                 return NULL;
 
         free(i->name);
+        free(i->group_name);
         free(i->uid_path);
         free(i->gid_path);
         free(i->description);
@@ -1560,10 +1588,15 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
                                         r = parse_gid(gid, &i->gid);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
-                                        i->gid_set = true;
-                                        i->id_set_strict = true;
+                                        if (r < 0) {
+                                                if (valid_user_group_name(gid))
+                                                        i->group_name = TAKE_PTR(gid);
+                                                else
+                                                        return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
+                                        } else {
+                                                i->gid_set = true;
+                                                i->id_set_strict = true;
+                                        }
                                         free_and_replace(resolved_id, uid);
                                 }
                                 if (!streq(resolved_id, "-")) {

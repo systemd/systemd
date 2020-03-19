@@ -49,30 +49,3 @@ int cpu_set_to_dbus(const CPUSet *set, uint8_t **ret, size_t *allocated);
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set);
 
 int cpus_in_affinity_mask(void);
-
-static inline bool mpol_is_valid(int t) {
-        return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
-}
-
-typedef struct NUMAPolicy {
-        /* Always use numa_policy_get_type() to read the value */
-        int type;
-        CPUSet nodes;
-} NUMAPolicy;
-
-bool numa_policy_is_valid(const NUMAPolicy *p);
-
-static inline int numa_policy_get_type(const NUMAPolicy *p) {
-        return p->type < 0 ? (p->nodes.set ? MPOL_PREFERRED : -1) : p->type;
-}
-
-static inline void numa_policy_reset(NUMAPolicy *p) {
-        assert(p);
-        cpu_set_reset(&p->nodes);
-        p->type = -1;
-}
-
-int apply_numa_policy(const NUMAPolicy *policy);
-
-const char* mpol_to_string(int i) _const_;
-int mpol_from_string(const char *s) _pure_;

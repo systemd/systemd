@@ -3,7 +3,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "machine-image.h"

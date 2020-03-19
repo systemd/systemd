@@ -358,6 +358,15 @@
           marking the log line end.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>_NAMESPACE=</varname></term>
+
+        <listitem><para>If this file was written by a <command>systemd-journald</command> instance managing a
+        journal namespace that is not the default, this field contains the namespace identifier. See
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details about journal namespaces.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

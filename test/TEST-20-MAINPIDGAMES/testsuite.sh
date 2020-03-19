@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 set -o pipefail
 
@@ -55,7 +55,7 @@ systemd-notify --uid=1000 MAINPID=$$
 test `systemctl show -p MainPID --value testsuite.service` -eq $$
 
 cat >/tmp/mainpid.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 set -o pipefail
@@ -79,7 +79,7 @@ systemd-run --unit=mainpidsh.service -p StandardOutput=tty -p StandardError=tty 
 test `systemctl show -p MainPID --value mainpidsh.service` -eq `cat /run/mainpidsh/pid`
 
 cat >/tmp/mainpid2.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 set -o pipefail
@@ -104,7 +104,7 @@ systemd-run --unit=mainpidsh2.service -p StandardOutput=tty -p StandardError=tty
 test `systemctl show -p MainPID --value mainpidsh2.service` -eq `cat /run/mainpidsh2/pid`
 
 cat >/dev/shm/mainpid3.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -eux
 set -o pipefail

@@ -35,6 +35,8 @@ typedef enum TableDataType {
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
         TABLE_IN6_ADDR, /* Takes a union in_addr_union (or a struct in6_addr) */
+        TABLE_ID128,
+        TABLE_UUID,
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
@@ -99,9 +101,11 @@ void table_set_header(Table *table, bool b);
 void table_set_width(Table *t, size_t width);
 void table_set_cell_height_max(Table *t, size_t height);
 int table_set_empty_string(Table *t, const char *empty);
+int table_set_display_all(Table *t);
 int table_set_display(Table *t, size_t first_column, ...);
 int table_set_sort(Table *t, size_t first_column, ...);
 int table_set_reverse(Table *t, size_t column, bool b);
+int table_hide_column_from_display(Table *t, size_t column);
 
 int table_print(Table *t, FILE *f);
 int table_format(Table *t, char **ret);

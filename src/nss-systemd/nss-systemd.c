@@ -195,7 +195,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         if (!valid_user_group_name(name))
                 return NSS_STATUS_NOTFOUND;
 
-        /* Synthesize records for root and nobody, in case they are missing form /etc/group */
+        /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
 
                 if (streq(name, root_group.gr_name)) {

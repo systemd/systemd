@@ -7,7 +7,9 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "def.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -39,6 +41,9 @@ static bool arg_reload = true;
 static bool arg_cat = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
+static bool arg_enable = false;
+static bool arg_now = false;
+static bool arg_no_block = false;
 
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
@@ -388,6 +393,234 @@ static int print_changes(sd_bus_message *m) {
         return 0;
 }
 
+static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        UnitFileChange *changes = NULL;
+        size_t n_changes = 0;
+        int r;
+
+        if (!arg_enable)
+                return 0;
+
+        names = strv_new(path, NULL);
+        if (!names)
+                return log_oom();
+
+        r = sd_bus_message_new_method_call(
+                bus,
+                &m,
+                "org.freedesktop.systemd1",
+                "/org/freedesktop/systemd1",
+                "org.freedesktop.systemd1.Manager",
+                enable ? "EnableUnitFiles" : "DisableUnitFiles");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, names);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "b", arg_runtime);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (enable) {
+                r = sd_bus_message_append(m, "b", false);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to %s the portable service %s: %s",
+                        enable ? "enable" : "disable", path, bus_error_message(&error, r));
+
+        if (enable) {
+                r = sd_bus_message_skip(reply, "b");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+        (void) bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+
+        return 0;
+}
+
+static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitForJobs *wait) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        char *name = (char *)basename(path), *job = NULL;
+        int r;
+
+        if (!arg_now)
+                return 0;
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        start ? "StartUnit" : "StopUnit",
+                        &error,
+                        &reply,
+                        "ss", name, "replace");
+        if (r < 0)
+                return log_error_errno(r, "Failed to %s the portable service %s: %s",
+                                       start ? "start" : "stop",
+                                       path,
+                                       bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &job);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (!arg_quiet)
+                log_info("Queued %s to %s portable service %s.", job, start ? "start" : "stop", name);
+
+        if (wait) {
+                r = bus_wait_for_jobs_add(wait, job);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch %s job for %s %s: %m",
+                                               job, start ? "starting" : "stopping", name);
+        }
+
+        return 0;
+}
+
+static int maybe_enable_start(sd_bus *bus, sd_bus_message *reply) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        int r;
+
+        if (!arg_enable && !arg_now)
+                return 0;
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs_new(bus, &wait);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
+        }
+
+        r = sd_bus_message_rewind(reply, true);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_enter_container(reply, 'a', "(sss)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                char *type, *path, *source;
+
+                r = sd_bus_message_read(reply, "(sss)", &type, &path, &source);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                if (STR_IN_SET(type, "symlink", "copy") && ENDSWITH_SET(path, ".service", ".target", ".socket")) {
+                        (void) maybe_enable_disable(bus, path, true);
+                        (void) maybe_start_stop(bus, path, true, wait);
+                }
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return r;
+
+        if (!arg_no_block) {
+                r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **matches = NULL;
+        int r;
+
+        if (!arg_enable && !arg_now)
+                return 0;
+
+        r = determine_matches(argv[1], argv + 2, true, &matches);
+        if (r < 0)
+                return r;
+
+        r = bus_wait_for_jobs_new(bus, &wait);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
+
+        r = sd_bus_message_new_method_call(
+                                bus,
+                                &m,
+                                "org.freedesktop.portable1",
+                                "/org/freedesktop/portable1",
+                                "org.freedesktop.portable1.Manager",
+                                "GetImageMetadata");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", image);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_strv(m, matches);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to inspect image metadata: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_skip(reply, "say");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_enter_container(reply, 'a', "{say}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *name;
+
+                r = sd_bus_message_enter_container(reply, 'e', "say");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "s", &name);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_skip(reply, "ay");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                (void) maybe_start_stop(bus, name, false, wait);
+                (void) maybe_enable_disable(bus, name, false);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        /* Stopping must always block or the detach will fail if the unit is still running */
+        r = bus_wait_for_jobs(wait, arg_quiet, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int attach_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -439,6 +672,9 @@ static int attach_image(int argc, char *argv[], void *userdata) {
         (void) maybe_reload(&bus);
 
         print_changes(reply);
+
+        (void) maybe_enable_start(bus, reply);
+
         return 0;
 }
 
@@ -458,6 +694,8 @@ static int detach_image(int argc, char *argv[], void *userdata) {
                 return r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        (void) maybe_stop_disable(bus, image, argv);
 
         r = sd_bus_call_method(
                         bus,
@@ -764,7 +1002,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  list                        List available portable service images\n"
                "  attach NAME|PATH [PREFIX...]\n"
                "                              Attach the specified portable service image\n"
-               "  detach NAME|PATH            Detach the specified portable service image\n"
+               "  detach NAME|PATH [PREFIX...]\n"
+               "                              Detach the specified portable service image\n"
                "  inspect NAME|PATH [PREFIX...]\n"
                "                              Show details of specified portable service image\n"
                "  is-attached NAME|PATH       Query if portable service image is attached\n"
@@ -786,6 +1025,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-reload              Don't reload the system and service manager\n"
                "     --cat                    When inspecting include unit and os-release file\n"
                "                              contents\n"
+               "     --enable                 Immediately enable/disable the portable service\n"
+               "                              after attach/detach\n"
+               "     --now                    Immediately start/stop the portable service after\n"
+               "                              attach/before detach\n"
+               "     --no-block               Don't block waiting for attach --now to complete\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -807,6 +1051,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RUNTIME,
                 ARG_NO_RELOAD,
                 ARG_CAT,
+                ARG_ENABLE,
+                ARG_NOW,
+                ARG_NO_BLOCK,
         };
 
         static const struct option options[] = {
@@ -823,6 +1070,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "runtime",         no_argument,       NULL, ARG_RUNTIME         },
                 { "no-reload",       no_argument,       NULL, ARG_NO_RELOAD       },
                 { "cat",             no_argument,       NULL, ARG_CAT             },
+                { "enable",          no_argument,       NULL, ARG_ENABLE          },
+                { "now",             no_argument,       NULL, ARG_NOW             },
+                { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
                 {}
         };
 
@@ -909,6 +1159,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_cat = true;
                         break;
 
+                case ARG_ENABLE:
+                        arg_enable = true;
+                        break;
+
+                case ARG_NOW:
+                        arg_now = true;
+                        break;
+
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -925,7 +1187,7 @@ static int run(int argc, char *argv[]) {
                 { "help",        VERB_ANY, VERB_ANY, 0,            help              },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
                 { "attach",      2,        VERB_ANY, 0,            attach_image      },
-                { "detach",      2,        2,        0,            detach_image      },
+                { "detach",      2,        VERB_ANY, 0,            detach_image      },
                 { "inspect",     2,        VERB_ANY, 0,            inspect_image     },
                 { "is-attached", 2,        2,        0,            is_image_attached },
                 { "read-only",   2,        3,        0,            read_only_image   },

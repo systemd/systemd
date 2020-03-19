@@ -20,6 +20,6 @@ typedef struct NetworkEmulator {
 DEFINE_QDISC_CAST(NETEM, NetworkEmulator);
 extern const QDiscVTable netem_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_delay);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_rate);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_network_emulator_packet_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_emulator_delay);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_emulator_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_emulator_packet_limit);

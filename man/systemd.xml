@@ -194,7 +194,7 @@
     <orderedlist>
       <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
       <listitem><para>It has a job queued for it</para></listitem>
-      <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
+      <listitem><para>It is a dependency of at least one other unit that is loaded into memory</para></listitem>
       <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
       a process is still lingering that ignored the request to be terminated)</para></listitem>
       <listitem><para>It has been pinned into memory programmatically by a D-Bus call</para></listitem>
@@ -649,9 +649,17 @@
 
       <varlistentry>
         <term><varname>$SYSTEMD_UNIT_PATH</varname></term>
+        <term><varname>$SYSTEMD_GENERATOR_PATH</varname></term>
+        <term><varname>$SYSTEMD_ENVIRONMENT_GENERATOR_PATH</varname></term>
 
-        <listitem><para>Controls where systemd looks for unit
-        files.</para></listitem>
+        <listitem><para>Controls where systemd looks for unit files and
+        generators.</para>
+        <para>These variables may contain a list of paths, separated by colons
+        (<literal>:</literal>). When set, if the list ends with an empty
+        component (<literal>...:</literal>), this list is prepended to the
+        usual set of of paths. Otherwise, the specified list replaces the usual
+        set of paths.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -798,15 +806,14 @@
       <varlistentry>
         <term><varname>systemd.show_status</varname></term>
 
-        <listitem><para>Takes a boolean argument or the constant
-        <constant>auto</constant>. Can be also specified without an argument, with
-        the same effect as a positive boolean.  If enabled, the systemd manager (PID
-        1) shows terse service status updates on the console during bootup.
-        <constant>auto</constant> behaves like <option>false</option> until a unit
-        fails or there is a significant delay in boot. Defaults to enabled, unless
-        <option>quiet</option> is passed as kernel command line option, in which case
-        it defaults to <constant>auto</constant>. If specified overrides the system
-        manager configuration file option <option>ShowStatus=</option>, see
+        <listitem><para>Takes a boolean argument or the constants <constant>error</constant> and
+        <constant>auto</constant>. Can be also specified without an argument, with the same effect as a
+        positive boolean. If enabled, the systemd manager (PID 1) shows terse service status updates on the
+        console during bootup. With <constant>error</constant>, only messages about failures are shown, but
+        boot is otherwise quiet. <constant>auto</constant> behaves like <option>false</option> until there is
+        a significant delay in boot. Defaults to enabled, unless <option>quiet</option> is passed as kernel
+        command line option, in which case it defaults to <constant>error</constant>. If specified overrides
+        the system manager configuration file option <option>ShowStatus=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>

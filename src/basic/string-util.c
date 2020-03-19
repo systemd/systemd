@@ -1054,6 +1054,8 @@ bool string_is_safe(const char *p) {
         if (!p)
                 return false;
 
+        /* Checks if the specified string contains no quotes or control characters */
+
         for (t = p; *t; t++) {
                 if (*t > 0 && *t < ' ') /* no control characters */
                         return false;

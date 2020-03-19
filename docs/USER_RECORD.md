@@ -14,7 +14,7 @@ pairs, encoded as JSON. Specifically:
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images (see [Home
-   Directories](https://systemd.io/HOME_DIRECTORY)) for details.
+   Directories](https://systemd.io/HOME_DIRECTORY) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
@@ -71,11 +71,11 @@ the following extensions are envisioned:
 4. Default parameters for backup applications and similar
 
 Similar to JSON User Records there are also [JSON Group
-Records](https://systemd.io/GROUP_RECORD.md) that encapsulate UNIX groups.
+Records](https://systemd.io/GROUP_RECORD) that encapsulate UNIX groups.
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via Varlink](https://systemd.io/USER_GROUP_API.md).
+[User/Group Lookup API via Varlink](https://systemd.io/USER_GROUP_API).
 
 ## Why JSON?
 
@@ -184,7 +184,7 @@ does not need to to be concerned with the `secret` section of user records, as
 the fields included therein are only useful when executing authentication
 operations natively against JSON user records.
 
-The `systemd-homed' manager uses all seven sections for various
+The `systemd-homed` manager uses all seven sections for various
 purposes. Inside the home directories (and if the LUKS2 backend is used, also
 in the LUKS2 header) a user record containing the `regular`, `privileged`,
 `perMachine` and `signature` sections is stored. `systemd-homed` also stores a
@@ -381,9 +381,9 @@ that might have changed user identity), in bytes. Enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
 similar to `tasksMax`.
 
-`cpuWeight`/`ioWeight` → These take unsigned integers in the range 100…10000
-and configure the CPU and IO scheduling weights for the user's processes as a
-whole. Also enforced by
+`cpuWeight`/`ioWeight` → These take unsigned integers in the range 1…10000
+(defaults to 100) and configure the CPU and IO scheduling weights for the
+user's processes as a whole. Also enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
 similar to `tasksMax`, `memoryHigh` and `memoryMax`.
 
@@ -541,7 +541,7 @@ below). It's undefined how precise the URI is: during log-in it is tested
 against all plugged in security tokens and if there's exactly one matching
 private key found with it it is used.
 
-`privileged` → An object, which contains the fields of he `privileged` section
+`privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
 `perMachine` → An array of objects, which contain the `perMachine` section of

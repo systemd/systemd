@@ -450,24 +450,28 @@ void server_process_native_file(
         }
 }
 
-int server_open_native_socket(Server *s) {
-
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/socket",
-        };
+int server_open_native_socket(Server *s, const char *native_socket) {
         int r;
 
         assert(s);
+        assert(native_socket);
 
         if (s->native_fd < 0) {
+                union sockaddr_union sa;
+                size_t sa_len;
+
+                r = sockaddr_un_set_path(&sa.un, native_socket);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to use namespace path %s for AF_UNIX socket: %m", native_socket);
+                sa_len = r;
+
                 s->native_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->native_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(s->native_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                r = bind(s->native_fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 

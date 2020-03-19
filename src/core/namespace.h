@@ -84,6 +84,7 @@ int setup_namespace(
                 size_t n_temporary_filesystems,
                 const char *tmp_dir,
                 const char *var_tmp_dir,
+                const char *log_namespace,
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,

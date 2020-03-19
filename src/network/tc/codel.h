@@ -19,6 +19,6 @@ typedef struct ControlledDelay {
 DEFINE_QDISC_CAST(CODEL, ControlledDelay);
 extern const QDiscVTable codel_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_controlled_delay_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_controlled_delay_usec);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_controlled_delay_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_controlled_delay_bool);

@@ -61,6 +61,10 @@
     <filename>systemd-networkd</filename> is restarted, netdev interfaces for
     which configuration was removed will not be dropped, and may need to be
     cleaned up manually.</para>
+
+    <para><command>systemd-networkd</command> may be introspected and controlled at runtime using
+    <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1><title>Configuration Files</title>
@@ -82,11 +86,13 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd-generator.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

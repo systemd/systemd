@@ -203,6 +203,29 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name) {
         return ret;
 }
 
+int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        int r;
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r == -EINVAL)
+                return -ENODEV; /* The device does not exist */
+        if (r < 0)
+                return r;
+
+        return sd_rtnl_message_link_get_type(reply, ret);
+}
+
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret) {
         struct nlmsgerr *err;
         int r;

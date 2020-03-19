@@ -1,6 +1,4 @@
-/***
-  SPDX-License-Identifier: LGPL-2.1+
-***/
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <fcntl.h>
 #include <sys/prctl.h>
@@ -43,8 +41,7 @@ static int makefs(const char *type, const char *device) {
 }
 
 static int run(int argc, char *argv[]) {
-        const char *device, *type;
-        _cleanup_free_ char *detected = NULL;
+        _cleanup_free_ char *device = NULL, *type = NULL, *detected = NULL;
         struct stat st;
         int r;
 
@@ -54,8 +51,14 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program expects two arguments.");
 
-        type = argv[1];
-        device = argv[2];
+        /* type and device must be copied because makefs calls safe_fork, which clears argv[] */
+        type = strdup(argv[1]);
+        if (!type)
+                return -ENOMEM;
+
+        device = strdup(argv[2]);
+        if (!device)
+                return -ENOMEM;
 
         if (stat(device, &st) < 0)
                 return log_error_errno(errno, "Failed to stat \"%s\": %m", device);

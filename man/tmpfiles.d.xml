@@ -46,7 +46,8 @@ d     /directory/to/create-and-cleanup         mode user group cleanup-age -
 D     /directory/to/create-and-remove          mode user group cleanup-age -
 e     /directory/to/cleanup                    mode user group cleanup-age -
 v     /subvolume-or-directory/to/create        mode user group -           -
-Q     /subvolume/to/create                     mode user group -           -
+q     /subvolume-or-directory/to/create        mode user group -           -
+Q     /subvolume-or-directory/to/create        mode user group -           -
 p     /fifo/to/create                          mode user group -           -
 p+    /fifo/to/[re]create                      mode user group -           -
 L     /symlink/to/create                       -    -    -     -           symlink/target/path
@@ -60,8 +61,8 @@ x     /path-or-glob/to/ignore                  -    -    -     -           -
 X     /path-or-glob/to/ignore/recursively      -    -    -     -           -
 r     /empty/dir/to/remove                     -    -    -     -           -
 R     /dir/to/remove/recursively               -    -    -     -           -
-z     /path-or-glob/to/adjust/mode             mode user group -           MAC context
-Z     /path-or-glob/to/adjust/mode/recursively mode user group -           MAC context
+z     /path-or-glob/to/adjust/mode             mode user group -           -
+Z     /path-or-glob/to/adjust/mode/recursively mode user group -           -
 t     /path-or-glob/to/set/xattrs              -    -    -     -           xattrs
 T     /path-or-glob/to/set/xattrs/recursively  -    -    -     -           xattrs
 h     /path-or-glob/to/set/attrs               -    -    -     -           file attrs
@@ -93,7 +94,7 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <filename>systemd-tmpfiles-cleanup.service</filename>, and associated units.</para>
 
     <para>System daemons frequently require private runtime directories below <filename>/run</filename> to
-    store communication sockets and similar. For these, is is better to use
+    store communication sockets and similar. For these, it is better to use
     <varname>RuntimeDirectory=</varname> in their unit files (see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details), if the flexibility provided by <filename>tmpfiles.d</filename> is not required. The advantages

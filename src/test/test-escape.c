@@ -96,6 +96,22 @@ static void test_cunescape(void) {
 
         assert_se(cunescape("A=A\\\\x0aB", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\x00\\x00\\x00", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\u0000\\u0000\\u0000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\U00000000\\U00000000\\U00000000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\000\\000\\000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
 }
 
 static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {

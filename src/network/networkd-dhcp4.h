@@ -27,3 +27,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_black_listed_ip_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_request_options);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);

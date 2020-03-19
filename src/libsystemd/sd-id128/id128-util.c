@@ -190,4 +190,17 @@ int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) {
         return memcmp(a, b, 16);
 }
 
+sd_id128_t id128_make_v4_uuid(sd_id128_t id) {
+        /* Stolen from generate_random_uuid() of drivers/char/random.c
+         * in the kernel sources */
+
+        /* Set UUID version to 4 --- truly random generation */
+        id.bytes[6] = (id.bytes[6] & 0x0F) | 0x40;
+
+        /* Set the UUID variant to DCE */
+        id.bytes[8] = (id.bytes[8] & 0x3F) | 0x80;
+
+        return id;
+}
+
 DEFINE_HASH_OPS(id128_hash_ops, sd_id128_t, id128_hash_func, id128_compare_func);

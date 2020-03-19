@@ -26,8 +26,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network link configuration is performed by the
-    <command>net_setup_link</command> udev builtin.</para>
+    <para>A plain ini-style text file that encodes configuration for matching network devices, used by
+    <citerefentry><refentrytitle>systemd-udev</refentrytitle><manvolnum>8</manvolnum></citerefentry> and in
+    particular its <command>net_setup_link</command> builtin. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
 
     <para>The link files are read from the files located in the system
     network directory <filename>/usr/lib/systemd/network</filename>,
@@ -121,9 +124,9 @@
       <varlistentry id='type'>
         <term><varname>Type=</varname></term>
         <listitem>
-            <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
-            the udev property <literal>DEVTYPE</literal>. If the list is prefixed with a "!", the test is
-            inverted.</para>
+          <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
+          <command>networkctl status</command>. If the list is prefixed with a "!", the test is inverted.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -613,6 +616,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReceiveChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of ingress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TransmitChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of egress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the TCP Segmentation Offload (TSO) is enabled.
@@ -633,7 +650,7 @@
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
+      <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the Generic Receive Offload (GRO) is enabled.
@@ -681,6 +698,30 @@
         <term><varname>TxBufferSize=</varname></term>
         <listitem>
           <para>Takes a integer. Specifies the NIC transmit ring buffer size. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the receive flow control, also known as the ethernet
+          receive PAUSE message (generate and send ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the transmit flow control, also known as the ethernet
+          transmit PAUSE message (respond to received ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AutoNegotiationFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, the auto negotiation enables the interface to exchange state
+          advertisements with the connected peer so that the two devices can agree on the ethernet
+          PAUSE configuration. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 

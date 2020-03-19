@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
@@ -74,11 +75,11 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
                 /* It seems kernel does not support that the prefix route cannot be configured with
                  * route table. Let's once drop the config and reconfigure them later. */
 
-                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later: %m");
+                log_link_message_debug_errno(link, m, r, "Could not set DHCPv4 route, retrying later");
                 link->dhcp4_route_failed = true;
                 link->manager->dhcp4_prefix_root_cannot_set_table = true;
         } else if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route: %m");
+                log_link_message_warning_errno(link, m, r, "Could not set DHCPv4 route");
                 link_enter_failed(link);
                 return 1;
         }
@@ -240,9 +241,6 @@ static int link_set_dhcp_routes(Link *link) {
         if (!link->network) /* link went down while we configured the IP addresses? */
                 return 0;
 
-        if (!link->network->dhcp_use_routes)
-                return 0;
-
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
                  * the addresses now, let's not configure the routes either. */
@@ -290,38 +288,43 @@ static int link_set_dhcp_routes(Link *link) {
                 }
         }
 
-        for (i = 0; i < n; i++) {
-                _cleanup_(route_freep) Route *route = NULL;
+        if (link->network->dhcp_use_routes) {
+                for (i = 0; i < n; i++) {
+                        _cleanup_(route_freep) Route *route = NULL;
 
-                /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
-                   the DHCP client MUST ignore the Static Routes option. */
-                if (classless_route &&
-                    sd_dhcp_route_get_option(static_routes[i]) != SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
-                        continue;
+                        /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
+                           the DHCP client MUST ignore the Static Routes option. */
+                        if (classless_route &&
+                            sd_dhcp_route_get_option(static_routes[i]) != SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
+                                continue;
 
-                r = route_new(&route);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not allocate route: %m");
+                        r = route_new(&route);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not allocate route: %m");
 
-                route->family = AF_INET;
-                route->protocol = RTPROT_DHCP;
-                assert_se(sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in) >= 0);
-                assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
-                assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
-                route->priority = link->network->dhcp_route_metric;
-                route->table = table;
-                route->mtu = link->network->dhcp_route_mtu;
-                route->scope = route_scope_from_address(route, &address);
-                if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
-                        route->prefsrc.in = address;
+                        route->family = AF_INET;
+                        route->protocol = RTPROT_DHCP;
+                        assert_se(sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in) >= 0);
+                        assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
+                        assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
+                        route->priority = link->network->dhcp_route_metric;
+                        route->table = table;
+                        route->mtu = link->network->dhcp_route_mtu;
+                        route->scope = route_scope_from_address(route, &address);
+                        if (IN_SET(route->scope, RT_SCOPE_LINK, RT_SCOPE_UNIVERSE))
+                                route->prefsrc.in = address;
 
-                if (set_contains(link->dhcp_routes, route))
-                        continue;
+                        if (set_contains(link->dhcp_routes, route))
+                                continue;
 
-                r = dhcp_route_configure(&route, link);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set route: %m");
+                        r = dhcp_route_configure(&route, link);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not set route: %m");
+                }
         }
+
+        if (!link->network->dhcp_use_gateway)
+                return 0;
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
         if (IN_SET(r, 0, -ENODATA))
@@ -451,7 +454,7 @@ static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_
         assert(link);
         assert(address);
 
-        if (!link->network->dhcp_use_routes)
+        if (!link->network->dhcp_use_gateway)
                 return 0;
 
         r = sd_dhcp_lease_get_router(lease, &router);
@@ -1334,11 +1337,11 @@ int dhcp4_configure(Link *link) {
                         return log_oom();
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to create DHCP4 client: %m");
-        }
 
-        r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event: %m");
+                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event: %m");
+        }
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    (const uint8_t *) &link->mac,
@@ -1427,7 +1430,17 @@ int dhcp4_configure(Link *link) {
         }
 
         ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options, i) {
-                r = sd_dhcp_client_set_dhcp_option(link->dhcp_client, send_option);
+                r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options, i) {
+                r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
+                if (r == -EEXIST)
+                        continue;
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
         }
@@ -1700,6 +1713,33 @@ int config_parse_dhcp_request_options(
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
+
+        return 0;
+}
+
+int config_parse_dhcp_ip_service_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(rvalue, "CS4"))
+                *((int *)data) = IPTOS_CLASS_CS4;
+        else if (streq(rvalue, "CS6"))
+                *((int *)data) = IPTOS_CLASS_CS6;
+        else
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
 
         return 0;
 }

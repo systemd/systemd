@@ -52,10 +52,11 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "user-util.h"
-#include "time-util.h"
 #include "web-util.h"
 
 static int parse_socket_protocol(const char *s) {
@@ -1329,13 +1330,25 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        return parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (streq(rvalue, "numa")) {
+                c->cpu_affinity_from_numa = true;
+                cpu_set_reset(&c->cpu_set);
+
+                return 0;
+        }
+
+        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (r >= 0)
+                c->cpu_affinity_from_numa = false;
+
+        return r;
 }
 
 int config_parse_capability_set(
@@ -2517,6 +2530,48 @@ int config_parse_log_extra_fields(
 
                 k = NULL;
         }
+}
+
+int config_parse_log_namespace(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL;
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+
+        if (isempty(rvalue)) {
+                c->log_namespace = mfree(c->log_namespace);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (!log_namespace_name_valid(k)) {
+                log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Specified log namespace name is not valid: %s", k);
+                return 0;
+        }
+
+        free_and_replace(c->log_namespace, k);
+        return 0;
 }
 
 int config_parse_unit_condition_path(
@@ -4771,7 +4826,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unsigned,              "UNSIGNED" },
                 { config_parse_iec_size,              "SIZE" },
                 { config_parse_iec_uint64,            "SIZE" },
-                { config_parse_si_size,               "SIZE" },
+                { config_parse_si_uint64,             "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },

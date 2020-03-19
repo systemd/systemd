@@ -580,7 +580,7 @@ static int remove_marked_symlinks_fd(
                                 return -ENOMEM;
                         path_simplify(p, false);
 
-                        q = readlink_malloc(p, &dest);
+                        q = chase_symlinks(p, NULL, CHASE_NONEXISTENT, &dest, NULL);
                         if (q == -ENOENT)
                                 continue;
                         if (q < 0) {
@@ -1117,7 +1117,7 @@ static int config_parse_also(
                 void *data,
                 void *userdata) {
 
-        UnitFileInstallInfo *info = userdata, *alsoinfo = NULL;
+        UnitFileInstallInfo *info = userdata;
         InstallContext *c = data;
         int r;
 
@@ -1139,7 +1139,7 @@ static int config_parse_also(
                 if (r < 0)
                         return r;
 
-                r = install_info_add(c, printed, NULL, true, &alsoinfo);
+                r = install_info_add(c, printed, NULL, true, NULL);
                 if (r < 0)
                         return r;
 

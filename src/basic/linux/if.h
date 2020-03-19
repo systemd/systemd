@@ -212,6 +212,7 @@ struct if_settings {
 		fr_proto		*fr;
 		fr_proto_pvc		*fr_pvc;
 		fr_proto_pvc_info	*fr_pvc_info;
+		x25_hdlc_proto		*x25;
 
 		/* interface settings */
 		sync_serial_settings	*sync;

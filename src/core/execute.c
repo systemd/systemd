@@ -265,14 +265,26 @@ static int open_null_as(int flags, int nfd) {
         return move_fd(fd, nfd, false);
 }
 
-static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
-        };
+static int connect_journal_socket(
+                int fd,
+                const char *log_namespace,
+                uid_t uid,
+                gid_t gid) {
+
+        union sockaddr_union sa;
+        socklen_t sa_len;
         uid_t olduid = UID_INVALID;
         gid_t oldgid = GID_INVALID;
+        const char *j;
         int r;
+
+        j = log_namespace ?
+                strjoina("/run/systemd/journal.", log_namespace, "/stdout") :
+                "/run/systemd/journal/stdout";
+        r = sockaddr_un_set_path(&sa.un, j);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
         if (gid_is_valid(gid)) {
                 oldgid = getgid();
@@ -290,7 +302,7 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
                 }
         }
 
-        r = connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0 ? -errno : 0;
+        r = connect(fd, &sa.sa, sa_len) < 0 ? -errno : 0;
 
         /* If we fail to restore the uid or gid, things will likely
            fail later on. This should only happen if an LSM interferes. */
@@ -328,7 +340,7 @@ static int connect_logger_as(
         if (fd < 0)
                 return -errno;
 
-        r = connect_journal_socket(fd, uid, gid);
+        r = connect_journal_socket(fd, context->log_namespace, uid, gid);
         if (r < 0)
                 return r;
 
@@ -371,9 +383,10 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
-        int r, salen;
+        int r;
 
         assert(path);
 
@@ -386,20 +399,19 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         if (errno != ENXIO) /* ENXIO is returned when we try to open() an AF_UNIX file system socket on Linux */
                 return -errno;
-        if (strlen(path) >= sizeof(sa.un.sun_path)) /* Too long, can't be a UNIX socket */
-                return -ENXIO;
 
         /* So, it appears the specified path could be an AF_UNIX socket. Let's see if we can connect to it. */
+
+        r = sockaddr_un_set_path(&sa.un, path);
+        if (r < 0)
+                return r == -EINVAL ? -ENXIO : r;
+        sa_len = r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd < 0)
                 return -errno;
 
-        salen = sockaddr_un_set_path(&sa.un, path);
-        if (salen < 0)
-                return salen;
-
-        if (connect(fd, &sa.sa, salen) < 0)
+        if (connect(fd, &sa.sa, sa_len) < 0)
                 return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
                                                            * indication that his wasn't an AF_UNIX socket after all */
 
@@ -408,7 +420,7 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
         else if ((flags & O_ACCMODE) == O_WRONLY)
                 r = shutdown(fd, SHUT_RD);
         else
-                return TAKE_FD(fd);
+                r = 0;
         if (r < 0)
                 return -errno;
 
@@ -1402,6 +1414,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->restrict_realtime ||
                 c->restrict_suid_sgid ||
                 exec_context_restrict_namespaces_set(c) ||
+                c->protect_clock ||
                 c->protect_kernel_tunables ||
                 c->protect_kernel_modules ||
                 c->protect_kernel_logs ||
@@ -1564,6 +1577,19 @@ static int apply_protect_kernel_logs(const Unit *u, const ExecContext *c) {
         return seccomp_protect_syslog();
 }
 
+static int apply_protect_clock(const Unit *u, const ExecContext *c)  {
+        assert(u);
+        assert(c);
+
+        if (!c->protect_clock)
+                return 0;
+
+        if (skip_seccomp_unavailable(u, "ProtectClock="))
+                return 0;
+
+        return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_CLOCK, SCMP_ACT_ERRNO(EPERM), false);
+}
+
 static int apply_private_devices(const Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
@@ -1672,7 +1698,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-        our_env = new0(char*, 14 + _EXEC_DIRECTORY_TYPE_MAX);
+        our_env = new0(char*, 15 + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1776,6 +1802,14 @@ static int build_environment(
 
         if (journal_stream_dev != 0 && journal_stream_ino != 0) {
                 if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
+        if (c->log_namespace) {
+                x = strjoin("LOG_NAMESPACE=", c->log_namespace);
+                if (!x)
                         return -ENOMEM;
 
                 our_env[n_env++] = x;
@@ -1903,6 +1937,9 @@ static bool exec_needs_mount_namespace(
             (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
+        if (context->log_namespace)
                 return true;
 
         return false;
@@ -2210,7 +2247,7 @@ static int setup_exec_directory(
 
                         if (type != EXEC_DIRECTORY_CONFIGURATION &&
                             readlink_and_make_absolute(p, &target) >= 0) {
-                                _cleanup_free_ char *q = NULL;
+                                _cleanup_free_ char *q = NULL, *q_resolved = NULL, *target_resolved = NULL;
 
                                 /* This already exists and is a symlink? Interesting. Maybe it's one created
                                  * by DynamicUser=1 (see above)?
@@ -2219,13 +2256,22 @@ static int setup_exec_directory(
                                  * since they all support the private/ symlink logic at least in some
                                  * configurations, see above. */
 
+                                r = chase_symlinks(target, NULL, 0, &target_resolved, NULL);
+                                if (r < 0)
+                                        goto fail;
+
                                 q = path_join(params->prefix[type], "private", *rt);
                                 if (!q) {
                                         r = -ENOMEM;
                                         goto fail;
                                 }
 
-                                if (path_equal(q, target)) {
+                                /* /var/lib or friends may be symlinks. So, let's chase them also. */
+                                r = chase_symlinks(q, NULL, CHASE_NONEXISTENT, &q_resolved, NULL);
+                                if (r < 0)
+                                        goto fail;
+
+                                if (path_equal(q_resolved, target_resolved)) {
 
                                         /* Hmm, apparently DynamicUser= was once turned on for this service,
                                          * but is no longer. Let's move the directory back up. */
@@ -2503,6 +2549,9 @@ static bool insist_on_sandboxing(
                 if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
                         return true;
 
+        if (context->log_namespace)
+                return true;
+
         return false;
 }
 
@@ -2525,17 +2574,6 @@ static int apply_mount_namespace(
 
         assert(context);
 
-        /* The runtime struct only contains the parent of the private /tmp,
-         * which is non-accessible to world users. Inside of it there's a /tmp
-         * that is sticky, and that's the one we want to use here. */
-
-        if (context->private_tmp && runtime) {
-                if (runtime->tmp_dir)
-                        tmp = strjoina(runtime->tmp_dir, "/tmp");
-                if (runtime->var_tmp_dir)
-                        var = strjoina(runtime->var_tmp_dir, "/tmp");
-        }
-
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -2548,7 +2586,18 @@ static int apply_mount_namespace(
                 return r;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
-        if (needs_sandboxing)
+        if (needs_sandboxing) {
+                /* The runtime struct only contains the parent of the private /tmp,
+                 * which is non-accessible to world users. Inside of it there's a /tmp
+                 * that is sticky, and that's the one we want to use here. */
+
+                if (context->private_tmp && runtime) {
+                        if (runtime->tmp_dir)
+                                tmp = strjoina(runtime->tmp_dir, "/tmp");
+                        if (runtime->var_tmp_dir)
+                                var = strjoina(runtime->var_tmp_dir, "/tmp");
+                }
+
                 ns_info = (NamespaceInfo) {
                         .ignore_protect_paths = false,
                         .private_dev = context->private_devices,
@@ -2560,7 +2609,7 @@ static int apply_mount_namespace(
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
                 };
-        else if (!context->dynamic_user && root_dir)
+        } else if (!context->dynamic_user && root_dir)
                 /*
                  * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
                  * sandbox info, otherwise enforce it, don't ignore protected paths and
@@ -2586,10 +2635,11 @@ static int apply_mount_namespace(
                             context->n_temporary_filesystems,
                             tmp,
                             var,
+                            context->log_namespace,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
-                            DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK,
+                            DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
@@ -2971,6 +3021,33 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
         return using_subcgroup;
 }
 
+static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
+        _cleanup_(cpu_set_reset) CPUSet s = {};
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (!c->numa_policy.nodes.set) {
+                log_debug("Can't derive CPU affinity mask from NUMA mask because NUMA mask is not set, ignoring");
+                return 0;
+        }
+
+        r = numa_to_cpu_set(&c->numa_policy, &s);
+        if (r < 0)
+                return r;
+
+        cpu_set_reset(ret);
+
+        return cpu_set_add_all(ret, &s);
+}
+
+bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c) {
+        assert(c);
+
+        return c->cpu_affinity_from_numa;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -3268,11 +3345,26 @@ static int exec_child(
                 }
         }
 
-        if (context->cpu_set.set)
-                if (sched_setaffinity(0, context->cpu_set.allocated, context->cpu_set.set) < 0) {
+        if (context->cpu_affinity_from_numa || context->cpu_set.set) {
+                _cleanup_(cpu_set_reset) CPUSet converted_cpu_set = {};
+                const CPUSet *cpu_set;
+
+                if (context->cpu_affinity_from_numa) {
+                        r = exec_context_cpu_affinity_from_numa(context, &converted_cpu_set);
+                        if (r < 0) {
+                                *exit_status = EXIT_CPUAFFINITY;
+                                return log_unit_error_errno(unit, r, "Failed to derive CPU affinity mask from NUMA mask: %m");
+                        }
+
+                        cpu_set = &converted_cpu_set;
+                } else
+                        cpu_set = &context->cpu_set;
+
+                if (sched_setaffinity(0, cpu_set->allocated, cpu_set->set) < 0) {
                         *exit_status = EXIT_CPUAFFINITY;
                         return log_unit_error_errno(unit, errno, "Failed to set up CPU affinity: %m");
                 }
+        }
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
@@ -3365,8 +3457,7 @@ static int exec_child(
                                    our_env,
                                    pass_env,
                                    context->environment,
-                                   files_env,
-                                   NULL);
+                                   files_env);
         if (!accum_env) {
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
@@ -3470,13 +3561,17 @@ static int exec_child(
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_netns(runtime->netns_storage_socket);
-                        if (r < 0) {
+                        if (r == -EPERM)
+                                log_unit_warning_errno(unit, r,
+                                                       "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
+                        else if (r < 0) {
                                 *exit_status = EXIT_NETWORK;
                                 return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
-                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP), "NetworkNamespacePath= is not supported, refusing.");
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                    "NetworkNamespacePath= is not supported, refusing.");
                 } else
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
@@ -3795,6 +3890,12 @@ static int exec_child(
                 if (r < 0) {
                         *exit_status = EXIT_SECCOMP;
                         return log_unit_error_errno(unit, r, "Failed to apply kernel log restrictions: %m");
+                }
+
+                r = apply_protect_clock(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply clock restrictions: %m");
                 }
 
                 r = apply_private_devices(unit, context);
@@ -4120,6 +4221,8 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 
         c->network_namespace_path = mfree(c->network_namespace_path);
+
+        c->log_namespace = mfree(c->log_namespace);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -4437,6 +4540,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectKernelTunables: %s\n"
                 "%sProtectKernelModules: %s\n"
                 "%sProtectKernelLogs: %s\n"
+                "%sProtectClock: %s\n"
                 "%sProtectControlGroups: %s\n"
                 "%sPrivateNetwork: %s\n"
                 "%sPrivateUsers: %s\n"
@@ -4458,6 +4562,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->protect_kernel_tunables),
                 prefix, yes_no(c->protect_kernel_modules),
                 prefix, yes_no(c->protect_kernel_logs),
+                prefix, yes_no(c->protect_clock),
                 prefix, yes_no(c->protect_control_groups),
                 prefix, yes_no(c->private_network),
                 prefix, yes_no(c->private_users),
@@ -4653,6 +4758,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 }
         }
 
+        if (c->log_namespace)
+                fprintf(f, "%sLogNamespace: %s\n", prefix, c->log_namespace);
+
         if (c->secure_bits) {
                 _cleanup_free_ char *str = NULL;
 
@@ -4823,7 +4931,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 r = namespace_flags_to_string(c->restrict_namespaces, &s);
                 if (r >= 0)
                         fprintf(f, "%sRestrictNamespaces: %s\n",
-                                prefix, s);
+                                prefix, strna(s));
         }
 
         if (c->network_namespace_path)
@@ -5305,7 +5413,10 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
         if (!c->private_network && !c->private_tmp && !c->network_namespace_path)
                 return 0;
 
-        if (c->private_tmp) {
+        if (c->private_tmp &&
+            !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
+              (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
+               prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
                 r = setup_tmp_dirs(id, &tmp_dir, &var_tmp_dir);
                 if (r < 0)
                         return r;

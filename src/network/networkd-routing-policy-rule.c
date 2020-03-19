@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "conf-parser.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "ip-protocol-list.h"
 #include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
@@ -16,6 +17,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
@@ -26,6 +28,9 @@ int routing_policy_rule_new(RoutingPolicyRule **ret) {
 
         *rule = (RoutingPolicyRule) {
                 .table = RT_TABLE_MAIN,
+                .uid_range.start = UID_INVALID,
+                .uid_range.end = UID_INVALID,
+                .suppress_prefixlen = -1,
         };
 
         *ret = rule;
@@ -93,6 +98,8 @@ static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *
         dest->protocol = src->protocol;
         dest->sport = src->sport;
         dest->dport = src->dport;
+        dest->uid_range = src->uid_range;
+        dest->suppress_prefixlen = src->suppress_prefixlen;
 
         return 0;
 }
@@ -118,10 +125,12 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
                 siphash24_compress(&rule->priority, sizeof(rule->priority), state);
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
+                siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
 
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
                 siphash24_compress(&rule->sport, sizeof(rule->sport), state);
                 siphash24_compress(&rule->dport, sizeof(rule->dport), state);
+                siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
 
                 if (rule->iif)
                         siphash24_compress(rule->iif, strlen(rule->iif), state);
@@ -186,6 +195,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                 if (r != 0)
                         return r;
 
+                r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
+                if (r != 0)
+                        return r;
+
                 r = CMP(a->protocol, b->protocol);
                 if (r != 0)
                         return r;
@@ -195,6 +208,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = memcmp(&a->dport, &b->dport, sizeof(a->dport));
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->uid_range, &b->uid_range, sizeof(a->uid_range));
                 if (r != 0)
                         return r;
 
@@ -554,10 +571,22 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                         return log_link_error_errno(link, r, "Could not append FRA_DPORT_RANGE attribute: %m");
         }
 
+        if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
+                r = sd_netlink_message_append_data(m, FRA_UID_RANGE, &rule->uid_range, sizeof(rule->uid_range));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_UID_RANGE attribute: %m");
+        }
+
         if (rule->invert_rule) {
                 r = sd_rtnl_message_routing_policy_rule_set_flags(m, FIB_RULE_INVERT);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FIB_RULE_INVERT attribute: %m");
+        }
+
+        if (rule->suppress_prefixlen >= 0) {
+                r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_PREFIXLEN, (uint32_t) rule->suppress_prefixlen);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
         }
 
         rule->link = link;
@@ -1056,6 +1085,93 @@ int config_parse_routing_policy_rule_family(
         return 0;
 }
 
+int config_parse_routing_policy_rule_uid_range(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        uid_t start, end;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = get_user_creds(&rvalue, &start, NULL, NULL, NULL, 0);
+        if (r >= 0)
+                end = start;
+        else {
+                r = parse_uid_range(rvalue, &start, &end);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid uid or uid range '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+        }
+
+        n->uid_range.start = start;
+        n->uid_range.end = end;
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_routing_policy_rule_suppress_prefixlen(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = parse_ip_prefix_length(rvalue, &n->suppress_prefixlen);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
 static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
         _cleanup_free_ char *s = NULL;
         size_t size;
@@ -1170,6 +1286,21 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
+                if (rule->uid_range.start != UID_INVALID && rule->uid_range.end != UID_INVALID) {
+                        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+                        fprintf(f, "%suidrange="UID_FMT"-"UID_FMT,
+                                space ? " " : "",
+                                rule->uid_range.start, rule->uid_range.end);
+                        space = true;
+                }
+
+                if (rule->suppress_prefixlen >= 0) {
+                        fprintf(f, "%ssuppress_prefixlen=%d",
+                                space ? " " : "",
+                                rule->suppress_prefixlen);
+                        space = true;
+                }
+
                 fprintf(f, "%stable=%"PRIu32 "\n",
                         space ? " " : "",
                         rule->table);
@@ -1269,14 +1400,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {
-
                                 r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
                                 if (r < 0) {
                                         log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
                                 }
                         } else if (streq(a, "iif")) {
-
                                 if (free_and_strdup(&rule->iif, b) < 0)
                                         return log_oom();
 
@@ -1291,26 +1420,44 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
-
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment:'%s'", b);
+                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
                                 rule->sport.start = low;
                                 rule->sport.end = high;
-
                         } else if (streq(a, "destinationport")) {
-
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment:'%s'", b);
+                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
                                 rule->dport.start = low;
                                 rule->dport.end = high;
+                        } else if (streq(a, "uidrange")) {
+                                uid_t lower, upper;
+
+                                r = parse_uid_range(b, &lower, &upper);
+                                if (r < 0) {
+                                        log_error_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
+                                        continue;
+                                }
+
+                                rule->uid_range.start = lower;
+                                rule->uid_range.end = upper;
+                        } else if (streq(a, "suppress_prefixlen")) {
+                                r = parse_ip_prefix_length(b, &rule->suppress_prefixlen);
+                                if (r == -ERANGE) {
+                                        log_error_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
+                                        continue;
+                                }
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
+                                        continue;
+                                }
                         }
                 }
 

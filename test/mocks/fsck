@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 fd=0
 
 OPTIND=1

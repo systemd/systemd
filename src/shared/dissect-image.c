@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsck-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
@@ -278,6 +279,29 @@ static int loop_wait_for_partitions_to_appear(
                                N_DEVICE_NODE_LIST_ATTEMPTS);
 }
 
+static void check_partition_flags(
+                const char *node,
+                unsigned long long pflags,
+                unsigned long long supported) {
+
+        assert(node);
+
+        /* Mask away all flags supported by this partition's type and the three flags the UEFI spec defines generically */
+        pflags &= ~(supported | GPT_FLAG_REQUIRED_PARTITION | GPT_FLAG_NO_BLOCK_IO_PROTOCOL | GPT_FLAG_LEGACY_BIOS_BOOTABLE);
+
+        if (pflags == 0)
+                return;
+
+        /* If there are other bits set, then log about it, to make things discoverable */
+        for (unsigned i = 0; i < sizeof(pflags) * 8; i++) {
+                unsigned long long bit = 1ULL << i;
+                if (!FLAGS_SET(pflags, bit))
+                        continue;
+
+                log_debug("Unexpected partition flag %llu set on %s!", bit, node);
+        }
+}
+
 #endif
 
 int dissect_image(
@@ -401,10 +425,11 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
-                        r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
-                        if (r < 0)
-                                return r;
-
+                        if (!streq(usage, "filesystem")) {
+                                r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
+                                if (r < 0)
+                                        return r;
+                        }
                         *ret = TAKE_PTR(m);
 
                         return 0;
@@ -484,12 +509,16 @@ int dissect_image(
 
                         if (sd_id128_equal(type_id, GPT_HOME)) {
 
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_HOME;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_SRV)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -510,6 +539,8 @@ int dissect_image(
 
                         } else if (sd_id128_equal(type_id, GPT_XBOOTLDR)) {
 
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
@@ -518,6 +549,8 @@ int dissect_image(
                         }
 #ifdef GPT_ROOT_NATIVE
                         else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -530,6 +563,8 @@ int dissect_image(
                                 architecture = native_architecture();
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_NATIVE_VERITY)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -549,6 +584,8 @@ int dissect_image(
 #ifdef GPT_ROOT_SECONDARY
                         else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY)) {
 
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
@@ -560,6 +597,8 @@ int dissect_image(
                                 architecture = SECONDARY_ARCHITECTURE;
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
                         } else if (sd_id128_equal(type_id, GPT_ROOT_SECONDARY_VERITY)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -578,12 +617,16 @@ int dissect_image(
 #endif
                         else if (sd_id128_equal(type_id, GPT_SWAP)) {
 
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO);
+
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
                                 designator = PARTITION_SWAP;
                                 fstype = "swap";
                         } else if (sd_id128_equal(type_id, GPT_LINUX_GENERIC)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -601,6 +644,8 @@ int dissect_image(
 
                         } else if (sd_id128_equal(type_id, GPT_TMP)) {
 
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
+
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
 
@@ -608,6 +653,8 @@ int dissect_image(
                                 rw = !(pflags & GPT_FLAG_READ_ONLY);
 
                         } else if (sd_id128_equal(type_id, GPT_VAR)) {
+
+                                check_partition_flags(node, pflags, GPT_FLAG_NO_AUTO|GPT_FLAG_READ_ONLY);
 
                                 if (pflags & GPT_FLAG_NO_AUTO)
                                         continue;
@@ -851,6 +898,49 @@ static int is_loop_device(const char *path) {
         return true;
 }
 
+static int run_fsck(const char *node, const char *fstype) {
+        int r, exit_status;
+        pid_t pid;
+
+        assert(node);
+        assert(fstype);
+
+        r = fsck_exists(fstype);
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't determine whether fsck for %s exists, proceeding anyway.", fstype);
+                return 0;
+        }
+        if (r == 0) {
+                log_debug("Not checking partition %s, as fsck for %s does not exist.", node, fstype);
+                return 0;
+        }
+
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_NULL_STDIO, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork off fsck: %m");
+        if (r == 0) {
+                /* Child */
+                execl("/sbin/fsck", "/sbin/fsck", "-aT", node, NULL);
+                log_debug_errno(errno, "Failed to execl() fsck: %m");
+                _exit(FSCK_OPERATIONAL_ERROR);
+        }
+
+        exit_status = wait_for_terminate_and_check("fsck", pid, 0);
+        if (exit_status < 0)
+                return log_debug_errno(exit_status, "Failed to fork off /sbin/fsck: %m");
+
+        if ((exit_status & ~FSCK_ERROR_CORRECTED) != FSCK_SUCCESS) {
+                log_debug("fsck failed with exit status %i.", exit_status);
+
+                if ((exit_status & (FSCK_SYSTEM_SHOULD_REBOOT|FSCK_ERRORS_LEFT_UNCORRECTED)) != 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN), "File system is corrupted, refusing.");
+
+                log_debug("Ignoring fsck error.");
+        }
+
+        return 0;
+}
+
 static int mount_partition(
                 DissectedPartition *m,
                 const char *where,
@@ -877,6 +967,12 @@ static int mount_partition(
                 return -ELOOP;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
+
+        if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
+                r = run_fsck(node, fstype);
+                if (r < 0)
+                        return r;
+        }
 
         if (directory) {
                 r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);

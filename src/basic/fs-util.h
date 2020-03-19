@@ -34,6 +34,7 @@ int readlink_and_make_absolute(const char *p, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid);
+int chmod_and_chown_unsafe(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int fchmod_umask(int fd, mode_t mode);
 int fchmod_opath(int fd, mode_t m);

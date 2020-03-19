@@ -189,7 +189,7 @@ static INTN utf8_to_16(CHAR8 *stra, CHAR16 *c) {
         UINTN len;
         UINTN i;
 
-        if (stra[0] < 0x80)
+        if (!(stra[0] & 0x80))
                 len = 1;
         else if ((stra[0] & 0xe0) == 0xc0)
                 len = 2;

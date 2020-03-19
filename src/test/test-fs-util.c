@@ -148,6 +148,7 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result, NULL);
         assert_se(r > 0);
         assert_se(path_equal(result, "/usr"));
+        assert_se(streq(result, "/usr")); /* we guarantee that we drop redundant slashes */
         result = mfree(result);
 
         r = chase_symlinks(p, temp, 0, &result, NULL);
@@ -369,6 +370,15 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks("/usr", NULL, CHASE_STEP, &result, NULL);
         assert_se(r > 0);
         assert_se(streq("/usr", result));
+        result = mfree(result);
+
+        /* Make sure that symlinks in the "root" path are not resolved, but those below are */
+        p = strjoina("/etc/..", temp, "/self");
+        assert_se(symlink(".", p) >= 0);
+        q = strjoina(p, "/top/dot/dotdota");
+        r = chase_symlinks(q, p, 0, &result, NULL);
+        assert_se(r > 0);
+        assert_se(path_equal(path_startswith(result, p), "usr"));
         result = mfree(result);
 
  cleanup:
@@ -729,7 +739,7 @@ static void test_rename_noreplace(void) {
                 STRV_FOREACH(b, (char**) table) {
                         _cleanup_free_ char *w = NULL;
 
-                        w = strjoin(w, *b);
+                        w = strjoin(z, *b);
                         assert_se(w);
 
                         if (access(w, F_OK) < 0) {
@@ -737,7 +747,7 @@ static void test_rename_noreplace(void) {
                                 continue;
                         }
 
-                        assert_se(rename_noreplace(AT_FDCWD, w, AT_FDCWD, y) == -EEXIST);
+                        assert_se(rename_noreplace(AT_FDCWD, x, AT_FDCWD, w) == -EEXIST);
                 }
 
                 y = strjoin(z, "/somethingelse");
@@ -792,6 +802,50 @@ static void test_chmod_and_chown(void) {
         assert_se(S_ISLNK(st.st_mode));
 }
 
+static void test_chmod_and_chown_unsafe(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _unused_ _cleanup_umask_ mode_t u = umask(0000);
+        struct stat st;
+        const char *p;
+
+        if (geteuid() != 0)
+                return;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+
+        p = strjoina(d, "/reg");
+        assert_se(mknod(p, S_IFREG | 0123, 0) >= 0);
+
+        assert_se(chmod_and_chown_unsafe(p, S_IFREG | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown_unsafe(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISREG(st.st_mode));
+        assert_se((st.st_mode & 07777) == 0321);
+
+        p = strjoina(d, "/dir");
+        assert_se(mkdir(p, 0123) >= 0);
+
+        assert_se(chmod_and_chown_unsafe(p, S_IFDIR | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown_unsafe(p, S_IFREG | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISDIR(st.st_mode));
+        assert_se((st.st_mode & 07777) == 0321);
+
+        p = strjoina(d, "/lnk");
+        assert_se(symlink("idontexist", p) >= 0);
+
+        assert_se(chmod_and_chown_unsafe(p, S_IFLNK | 0321, 1, 2) >= 0);
+        assert_se(chmod_and_chown_unsafe(p, S_IFREG | 0555, 3, 4) == -EINVAL);
+        assert_se(chmod_and_chown_unsafe(p, S_IFDIR | 0555, 3, 4) == -EINVAL);
+
+        assert_se(lstat(p, &st) >= 0);
+        assert_se(S_ISLNK(st.st_mode));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -809,6 +863,7 @@ int main(int argc, char *argv[]) {
         test_fsync_directory_of_file();
         test_rename_noreplace();
         test_chmod_and_chown();
+        test_chmod_and_chown_unsafe();
 
         return 0;
 }

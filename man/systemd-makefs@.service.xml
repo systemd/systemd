@@ -80,6 +80,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

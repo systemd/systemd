@@ -34,7 +34,6 @@
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wifi.h"
-#include "qdisc.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -42,6 +41,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "tc.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "util.h"
@@ -1116,7 +1116,7 @@ void link_check_ready(Link *link) {
         if (!link->routing_policy_rules_configured)
                 return;
 
-        if (!link->qdiscs_configured)
+        if (!link->tc_configured)
                 return;
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
@@ -1222,6 +1222,7 @@ static int link_set_bridge_fdb(Link *link) {
 static int link_request_set_addresses(Link *link) {
         AddressLabel *label;
         Address *ad;
+        Prefix *p;
         int r;
 
         assert(link);
@@ -1256,6 +1257,35 @@ static int link_request_set_addresses(Link *link) {
                 if (r > 0)
                         link->address_messages++;
         }
+
+        if (IN_SET(link->network->router_prefix_delegation,
+                   RADV_PREFIX_DELEGATION_STATIC,
+                   RADV_PREFIX_DELEGATION_BOTH))
+                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+                        _cleanup_(address_freep) Address *address = NULL;
+
+                        if (!p->assign)
+                                continue;
+
+                        r = address_new(&address);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not allocate address: %m");
+
+                        r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+                        if (r < 0)
+                                return r;
+
+                        address->family = AF_INET6;
+                        r = address_configure(address, link, address_handler, true);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set addresses: %m");
+                        if (r > 0)
+                                link->address_messages++;
+                }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
                 r = address_label_configure(label, link, NULL, false);
@@ -1514,9 +1544,24 @@ static int link_acquire_ipv6_conf(Link *link) {
 
                 log_link_debug(link, "Starting IPv6 Router Advertisements");
 
+                r = radv_emit_dns(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to configure DNS or Domains in IPv6 Router Advertisement: %m");
+
                 r = sd_radv_start(link->radv);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
+        }
+
+        if (link_dhcp6_enabled(link) && link->network->dhcp6_without_ra) {
+                assert(link->dhcp6_client);
+                assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
+
+                r = dhcp6_request_address(link, true);
+                if (r < 0 && r != -EBUSY)
+                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+                else
+                        log_link_debug(link, "Acquiring DHCPv6 lease");
         }
 
         (void) dhcp6_request_prefix_delegation(link);
@@ -1648,7 +1693,7 @@ static int link_configure_addrgen_mode(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
         else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
-                /* The file may not exist. And event if it exists, when stable_secret is unset,
+                /* The file may not exist. And even if it exists, when stable_secret is unset,
                  * reading the file fails with EIO. */
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
         else
@@ -2698,24 +2743,24 @@ static int link_configure_ipv4_dad(Link *link) {
         return 0;
 }
 
-static int link_configure_qdiscs(Link *link) {
-        QDisc *qdisc;
+static int link_configure_traffic_control(Link *link) {
+        TrafficControl *tc;
         Iterator i;
         int r;
 
-        link->qdiscs_configured = false;
-        link->qdisc_messages = 0;
+        link->tc_configured = false;
+        link->tc_messages = 0;
 
-        ORDERED_HASHMAP_FOREACH(qdisc, link->network->qdiscs_by_section, i) {
-                r = qdisc_configure(link, qdisc);
+        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section, i) {
+                r = traffic_control_configure(link, tc);
                 if (r < 0)
                         return r;
         }
 
-        if (link->qdisc_messages == 0)
-                link->qdiscs_configured = true;
+        if (link->tc_messages == 0)
+                link->tc_configured = true;
         else
-                log_link_debug(link, "Configuring queuing discipline (qdisc)");
+                log_link_debug(link, "Configuring traffic control");
 
         return 0;
 }
@@ -2727,7 +2772,7 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
 
-        r = link_configure_qdiscs(link);
+        r = link_configure_traffic_control(link);
         if (r < 0)
                 return r;
 
@@ -3023,9 +3068,6 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         Network *network;
         int r;
 
-        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
-                return 0;
-
         if (m) {
                 _cleanup_strv_free_ char **s = NULL;
 
@@ -3040,7 +3082,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 strv_free_and_replace(link->alternative_names, s);
         }
 
-        r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
+        r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
                         &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
@@ -3089,6 +3131,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 return r;
 
         link_set_state(link, LINK_STATE_INITIALIZED);
+        link_dirty(link);
 
         /* link_configure_duid() returns 0 if it requests product UUID. In that case,
          * link_configure() is called later asynchronously. */
@@ -3126,6 +3169,9 @@ static int link_force_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *
 int link_reconfigure(Link *link, bool force) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
+
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
+                return 0;
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
                                      link->ifindex);
@@ -3172,7 +3218,7 @@ static int link_initialized_and_synced(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = network_get(link->manager, link->sd_device, link->ifname, link->alternative_names,
+                r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
                                 &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
@@ -3952,8 +3998,14 @@ int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s\n",
-                        strempty(link_operstate_to_string(link->network->required_operstate_for_online)));
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s",
+                        strempty(link_operstate_to_string(link->network->required_operstate_for_online.min)));
+
+                if (link->network->required_operstate_for_online.max != LINK_OPERSTATE_RANGE_DEFAULT.max)
+                        fprintf(f, ":%s",
+                                strempty(link_operstate_to_string(link->network->required_operstate_for_online.max)));
+
+                fprintf(f, "\n");
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
@@ -4294,5 +4346,10 @@ int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, in
         const char *err_msg = NULL;
 
         (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_link_full(link, level, err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
+        return log_link_full(link, level, err,
+                             "%s: %s%s%s%m",
+                             msg,
+                             strempty(err_msg),
+                             err_msg && !endswith(err_msg, ".") ? "." : "",
+                             err_msg ? " " : "");
 }

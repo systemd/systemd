@@ -394,6 +394,10 @@ finish:
         return r;
 }
 
+#define NO_ECHO "(no echo) "
+#define PRESS_TAB "(press TAB for no echo) "
+#define SKIPPED "(skipped)"
+
 int ask_password_tty(
                 int ttyfd,
                 const char *message,
@@ -409,7 +413,7 @@ int ask_password_tty(
                 _POLL_MAX,
         };
 
-        bool reset_tty = false, dirty = false, use_color = false;
+        bool reset_tty = false, dirty = false, use_color = false, press_tab_visible = false;
         _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
@@ -464,6 +468,13 @@ int ask_password_tty(
 
                 (void) loop_write(ttyfd, message, strlen(message), false);
                 (void) loop_write(ttyfd, " ", 1, false);
+
+                if (!(flags & ASK_PASSWORD_SILENT) && !(flags & ASK_PASSWORD_ECHO)) {
+                        if (use_color)
+                                (void) loop_write(ttyfd, ANSI_GREY, STRLEN(ANSI_GREY), false);
+                        (void) loop_write(ttyfd, PRESS_TAB, strlen(PRESS_TAB), false);
+                        press_tab_visible = true;
+                }
 
                 if (use_color)
                         (void) loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL), false);
@@ -550,13 +561,19 @@ int ask_password_tty(
 
                 }
 
+                if (press_tab_visible) {
+                        assert(ttyfd >= 0);
+                        backspace_chars(ttyfd, strlen(PRESS_TAB));
+                        press_tab_visible = false;
+                }
+
                 /* We treat EOF, newline and NUL byte all as valid end markers */
                 if (n == 0 || c == '\n' || c == 0)
                         break;
 
                 if (c == 4) { /* C-d also known as EOT */
                         if (ttyfd >= 0)
-                                (void) loop_write(ttyfd, "(skipped)", 9, false);
+                                (void) loop_write(ttyfd, SKIPPED, strlen(SKIPPED), false);
 
                         goto skipped;
                 }
@@ -606,7 +623,7 @@ int ask_password_tty(
                                  * first key (and only as first key), or ... */
 
                                 if (ttyfd >= 0)
-                                        (void) loop_write(ttyfd, "(no echo) ", 10, false);
+                                        (void) loop_write(ttyfd, NO_ECHO, strlen(NO_ECHO), false);
 
                         } else if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "\a", 1, false);
@@ -619,7 +636,7 @@ int ask_password_tty(
                         /* ... or by pressing TAB at any time. */
 
                         if (ttyfd >= 0)
-                                (void) loop_write(ttyfd, "(no echo) ", 10, false);
+                                (void) loop_write(ttyfd, NO_ECHO, strlen(NO_ECHO), false);
 
                 } else if (p >= sizeof(passphrase)-1) {
 
@@ -658,11 +675,15 @@ int ask_password_tty(
                 goto finish;
 
 skipped:
-        if (keyname)
-                (void) add_to_keyring_and_log(keyname, flags, l);
+        if (strv_isempty(l))
+                r = log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "Password query was cancelled.");
+        else {
+                if (keyname)
+                        (void) add_to_keyring_and_log(keyname, flags, l);
 
-        *ret = TAKE_PTR(l);
-        r = 0;
+                *ret = TAKE_PTR(l);
+                r = 0;
+        }
 
 finish:
         if (ttyfd >= 0 && reset_tty) {
@@ -675,9 +696,10 @@ finish:
 
 static int create_socket(char **ret) {
         _cleanup_free_ char *path = NULL;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
-        int salen, r;
+        int r;
 
         assert(ret);
 
@@ -688,14 +710,14 @@ static int create_socket(char **ret) {
         if (asprintf(&path, "/run/systemd/ask-password/sck.%" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        salen = sockaddr_un_set_path(&sa.un, path);
-        if (salen < 0)
-                return salen;
+        r = sockaddr_un_set_path(&sa.un, path);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
-        RUN_WITH_UMASK(0177) {
-                if (bind(fd, &sa.sa, salen) < 0)
+        RUN_WITH_UMASK(0177)
+                if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
-        }
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)

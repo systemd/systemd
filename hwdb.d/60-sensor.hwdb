@@ -41,11 +41,15 @@
 #
 # Allowed properties are:
 #    ACCEL_MOUNT_MATRIX=<matrix>
+#    PROXIMITY_NEAR_LEVEL=<value>
 #
 # where <matrix> is a mount-matrix in the format specified in the IIO
 # subsystem[1]. The default, when unset, is equivalent to:
 #   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
 # eg. the identity matrix.
+# and <value> is an integer value above which an object is considered
+# close by a proximity sensor:
+#   PROXIMITY_NEAR_LEVEL=100
 #
 # [1]: https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=dfc57732ad38f93ae6232a3b4e64fd077383a0f1
 #
@@ -82,7 +86,7 @@ sensor:modalias:acpi:SMO8500:*:dmi:*Acer*:pnOneS1002*
 
 sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnOneS1003:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
- 
+
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer*:pnSwitchSW312-31:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
@@ -105,20 +109,14 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnTP201SA*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pn*E205SA*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
 sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
@@ -131,6 +129,7 @@ sensor:modalias:acpi:KXJ2109*:dmi:*:svnASUSTeK*:pnME176C*
 sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LJ*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LAB*
 sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
@@ -171,7 +170,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:*:svnDefaul
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 # Chuwi Hi10 (CWI1515)
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:*:svnDefaultstring:pnDefaultstring:* 
+sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:*:svnDefaultstring:pnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 # Chuwi Hi10 Pro
@@ -212,6 +211,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnConnect:pnTablet9:*
 
 # Cube iWork8 Air
 sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Cube i7
+sensor:modalias:acpi:SMO8500*:dmi:*:svncube:pni7:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Cube i7 Stylus
@@ -389,7 +392,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:*svnLAMINA:pnT-1016BNORD*
 sensor:modalias:acpi:NCPE0388*:dmi:*:rnLenovoYOGA510-14IKB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
-sensor:modalias:acpi:BOSC0200:BOSC0200:dmi:*ThinkPadYoga11e3rdGen*
+sensor:modalias:acpi:BOSC0200*:dmi:*ThinkPadYoga11e3rdGen*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 # Miix3-1030
@@ -436,6 +439,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12*64:*
 #########################################
 # Medion
 #########################################
+
+# Medion Akoya E1239T MD60568
+sensor:modalias:acpi:KIOX0009*:dmi:*:svnMEDION:pnE1239TMD60568:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Medion Akoya E2212T MD99720
 sensor:modalias:acpi:SMO8500*:dmi:*:svnMEDION:pnAkoyaE2212TMD99720:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
@@ -477,6 +486,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM800W560L:*
 # Nuvision Solo 10 Draw. TM101W610L
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM101W610L:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+# Nuvision Encite Split 11. NES11-C432SSA
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnNuvision:pnNES11:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # Onda

@@ -1,0 +1,124 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_start"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_start</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_start</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_start</refname>
+
+    <refpurpose>Initiate a bus connection to the D-bus broker daemon
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_start</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_start()</function> connects an existing bus connection object to the D-Bus
+    broker daemon, usually
+    <citerefentry project='die-net'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    or
+    <citerefentry project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    The mechanism to use for the connection must be configured before the call to
+    <function>sd_bus_start()</function>, using one of
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_set_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>, or
+    <citerefentry><refentrytitle>sd_bus_set_exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <function>sd_bus_start()</function> will open the connection socket or spawn the executable as
+    needed, and asynchronously start a <function>org.freedesktop.DBus.Hello()</function> call. The
+    answer to the Hello call will be processed later from
+    <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+    opening of the connection or queuing of the asynchronous call fail, the connection will be closed with
+    <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>In most cases, it is better to use
+    <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or related calls instead of the more low-level <function>sd_bus_new()</function> and
+    <function>sd_bus_start()</function>. The higher-level functions not only allocate a bus object but also
+    start the connection to a well-known bus in a single function call.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this function returns a non-negative integer. On failure, it returns a negative
+    errno-style error code.</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input parameter <parameter>bus</parameter> is <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>Bus object <parameter>bus</parameter> could not be resolved.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The input parameter <parameter>bus</parameter> is in a wrong state
+          (<function>sd_bus_start()</function> may only be called once on a newly-created bus object).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus object <parameter>bus</parameter> was created in a different
+          process.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, other connection-related errors may be returned. See
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

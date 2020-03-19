@@ -148,6 +148,9 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
                 .autonegotiation = -1,
+                .rx_flow_control = -1,
+                .tx_flow_control = -1,
+                .autoneg_flow_control = -1,
         };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
@@ -160,16 +163,14 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (link->speed > UINT_MAX)
-                return -ERANGE;
-
         if (set_isempty(link->match_mac) && set_isempty(link->match_permanent_mac) &&
             strv_isempty(link->match_path) && strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
-            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)
-                log_warning("%s: No valid settings found in the [Match] section. "
-                            "The file will match all interfaces. "
-                            "If that is intended, please add OriginalName=* in the [Match] section.",
+            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions) {
+                log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
+                            "To match all interfaces, add OriginalName=* in the [Match] section.",
                             filename);
+                return 0;
+        }
 
         if (!condition_test_list(link->conditions, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
@@ -238,15 +239,24 @@ bool link_config_should_reload(link_config_ctx *ctx) {
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
         struct ether_addr permanent_mac = {};
+        unsigned short iftype = 0;
         link_config *link;
         const char *name;
-        int r;
+        int ifindex, r;
 
         assert(ctx);
         assert(device);
         assert(ret);
 
         r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = rtnl_get_link_iftype(&ctx->rtnl, ifindex, &iftype);
         if (r < 0)
                 return r;
 
@@ -257,7 +267,7 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
+                                     iftype, device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
@@ -401,6 +411,10 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                 if (r < 0)
                         log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
         }
+
+        r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+        if (r < 0)
+                log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)

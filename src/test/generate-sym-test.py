@@ -6,6 +6,9 @@ for header in sys.argv[2:]:
     print('#include "{}"'.format(header.split('/')[-1]))
 
 print('''
+/* We want to check deprecated symbols too, without complaining */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 const void* symbols[] = {''')
 
 for line in open(sys.argv[1]):

@@ -28,7 +28,7 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_new_method_call</funcdef>
+        <funcdef>int <function>sd_bus_message_new_method_call</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
         <paramdef>const char *<parameter>destination</parameter></paramdef>
@@ -38,7 +38,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int sd_bus_message_new_method_return</funcdef>
+        <funcdef>int <function>sd_bus_message_new_method_return</function></funcdef>
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
         <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
       </funcprototype>
@@ -70,7 +70,11 @@
     has only a single member with the given name and there is no ambiguity if the interface name is
     omitted.</para>
 
-    <para>The <function>sd_bus_message_new_method_call()</function> function creates a new bus
+    <para>Note that this is a low level interface. See
+    <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a more convenient way of calling D-Bus methods.</para>
+
+    <para>The <function>sd_bus_message_new_method_return()</function> function creates a new bus
     message object that is a reply to the method call <parameter>call</parameter> and returns it in
     the <parameter>m</parameter> output parameter. The <parameter>call</parameter> parameter must be
     a method call message. The sender of <parameter>call</parameter> is used as the destination.
@@ -80,8 +84,8 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>This function returns 0 if the message object was successfully created, and a negative
-    errno-style error code otherwise.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
 
     <refsect2 id='errors'>
       <title>Errors</title>
@@ -159,6 +163,8 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_path_encode</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>

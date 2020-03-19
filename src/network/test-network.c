@@ -122,11 +122,18 @@ static int test_load_config(Manager *manager) {
 static void test_network_get(Manager *manager, sd_device *loopback) {
         Network *network;
         const struct ether_addr mac = ETHER_ADDR_NULL;
+        int r;
 
-        /* let's assume that the test machine does not have a .network file
-           that applies to the loopback device... */
-        assert_se(network_get(manager, loopback, "lo", NULL, &mac, &mac, 0, NULL, NULL, &network) == -ENOENT);
-        assert_se(!network);
+        /* Let's hope that the test machine does not have a .network file that applies to loopback device…
+         * But it is still possible, so let's allow that case too. */
+        r = network_get(manager, 0, loopback, "lo", NULL, &mac, &mac, 0, NULL, NULL, &network);
+        if (r == -ENOENT)
+                /* The expected case */
+                assert_se(!network);
+        else if (r >= 0)
+                assert_se(network);
+        else
+                assert_not_reached("bad error!");
 }
 
 static void test_address_equality(void) {

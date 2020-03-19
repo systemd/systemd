@@ -878,9 +878,8 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         }
 }
 
-int cg_split_spec(const char *spec, char **controller, char **path) {
-        char *t = NULL, *u = NULL;
-        const char *e;
+int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
+        _cleanup_free_ char *controller = NULL, *path = NULL;
 
         assert(spec);
 
@@ -888,76 +887,53 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 if (!path_is_normalized(spec))
                         return -EINVAL;
 
-                if (path) {
-                        t = strdup(spec);
-                        if (!t)
+                if (ret_path) {
+                        path = strdup(spec);
+                        if (!path)
                                 return -ENOMEM;
 
-                        *path = path_simplify(t, false);
+                        path_simplify(path, false);
                 }
 
-                if (controller)
-                        *controller = NULL;
+        } else {
+                const char *e;
 
-                return 0;
-        }
-
-        e = strchr(spec, ':');
-        if (!e) {
-                if (!cg_controller_is_valid(spec))
-                        return -EINVAL;
-
-                if (controller) {
-                        t = strdup(spec);
-                        if (!t)
+                e = strchr(spec, ':');
+                if (e) {
+                        controller = strndup(spec, e-spec);
+                        if (!controller)
                                 return -ENOMEM;
+                        if (!cg_controller_is_valid(controller))
+                                return -EINVAL;
 
-                        *controller = t;
+                        if (!isempty(e + 1)) {
+                                path = strdup(e+1);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                if (!path_is_normalized(path) ||
+                                    !path_is_absolute(path))
+                                        return -EINVAL;
+
+                                path_simplify(path, false);
+                        }
+
+                } else {
+                        if (!cg_controller_is_valid(spec))
+                                return -EINVAL;
+
+                        if (ret_controller) {
+                                controller = strdup(spec);
+                                if (!controller)
+                                        return -ENOMEM;
+                        }
                 }
-
-                if (path)
-                        *path = NULL;
-
-                return 0;
         }
 
-        t = strndup(spec, e-spec);
-        if (!t)
-                return -ENOMEM;
-        if (!cg_controller_is_valid(t)) {
-                free(t);
-                return -EINVAL;
-        }
-
-        if (isempty(e+1))
-                u = NULL;
-        else {
-                u = strdup(e+1);
-                if (!u) {
-                        free(t);
-                        return -ENOMEM;
-                }
-
-                if (!path_is_normalized(u) ||
-                    !path_is_absolute(u)) {
-                        free(t);
-                        free(u);
-                        return -EINVAL;
-                }
-
-                path_simplify(u, false);
-        }
-
-        if (controller)
-                *controller = t;
-        else
-                free(t);
-
-        if (path)
-                *path = u;
-        else
-                free(u);
-
+        if (ret_controller)
+                *ret_controller = TAKE_PTR(controller);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
         return 0;
 }
 

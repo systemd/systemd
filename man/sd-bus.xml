@@ -43,6 +43,10 @@
     <literallayout><citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_add_object_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -50,7 +54,9 @@
 <citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_get_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_get_n_queued_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -58,6 +64,7 @@
 <citerefentry><refentrytitle>sd_bus_message_append_string_memfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_append_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_copy</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_message_dump</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_cookie</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_signature</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -80,8 +87,10 @@
 <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_request_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_watch_bind</refentrytitle><manvolnum>3</manvolnum></citerefentry>
 <citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -89,6 +98,7 @@
 <citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_track_add_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
 </literallayout>

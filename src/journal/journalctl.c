@@ -62,6 +62,7 @@
 #include "sigbus.h"
 #include "string-table.h"
 #include "strv.h"
+#include "stdio-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -70,35 +71,7 @@
 #include "varlink.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
-
 #define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1,024 messages processed */
-
-#if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
-
-static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
-        int errorcode, r;
-        PCRE2_SIZE erroroffset;
-        pcre2_code *p;
-
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
-        if (!p) {
-                unsigned char buf[LINE_MAX];
-
-                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
-
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Bad pattern \"%s\": %s", pattern,
-                                       r < 0 ? "unknown error" : (char *)buf);
-        }
-
-        *out = p;
-        return 0;
-}
-
-#endif
 
 enum {
         /* Special values for arg_lines */
@@ -129,6 +102,7 @@ static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static bool arg_file_stdin = false;
 static int arg_priorities = 0xFF;
+static Set *arg_facilities = NULL;
 static char *arg_verify_key = NULL;
 #if HAVE_GCRYPT
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
@@ -143,13 +117,14 @@ static const char *arg_field = NULL;
 static bool arg_catalog = false;
 static bool arg_reverse = false;
 static int arg_journal_type = 0;
+static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
 static const char *arg_machine = NULL;
+static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
-
 #if HAVE_PCRE2
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
@@ -183,6 +158,33 @@ typedef struct BootId {
         uint64_t last;
         LIST_FIELDS(struct BootId, boot_list);
 } BootId;
+
+#if HAVE_PCRE2
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
+
+static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
+        int errorcode, r;
+        PCRE2_SIZE erroroffset;
+        pcre2_code *p;
+
+        p = pcre2_compile((PCRE2_SPTR8) pattern,
+                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        if (!p) {
+                unsigned char buf[LINE_MAX];
+
+                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bad pattern \"%s\": %s", pattern,
+                                       r < 0 ? "unknown error" : (char *)buf);
+        }
+
+        *out = p;
+        return 0;
+}
+
+#endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
@@ -303,6 +305,21 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         return 1;
 }
 
+static int help_facilities(void) {
+        if (!arg_quiet)
+                puts("Available facilities:");
+
+        for (int i = 0; i < LOG_NFACILITIES; i++) {
+                _cleanup_free_ char *t = NULL;
+
+                if (log_facility_unshifted_to_string_alloc(i, &t))
+                        return log_oom();
+                puts(t);
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -313,9 +330,9 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [MATCHES...]\n\n"
-               "%sQuery the journal.%s\n\n"
-               "Options:\n"
+        printf("%1$s [OPTIONS...] [MATCHES...]\n\n"
+               "%5$sQuery the journal.%6$s\n\n"
+               "%3$sOptions:%4$s\n"
                "     --system                Show the system journal\n"
                "     --user                  Show the user journal for the current user\n"
                "  -M --machine=CONTAINER     Operate on local container\n"
@@ -332,6 +349,7 @@ static int help(void) {
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
+               "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
@@ -356,10 +374,11 @@ static int help(void) {
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
                "     --root=ROOT             Operate on files below a root directory\n"
+               "     --namespace=NAMESPACE   Show journal data from specified namespace\n"
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
                "     --force                 Override of the FSS key pair with --setup-keys\n"
-               "\nCommands:\n"
+               "\n%3$sCommands:%4$s\n"
                "  -h --help                  Show this help text\n"
                "     --version               Show package version\n"
                "  -N --fields                List all field names currently used\n"
@@ -379,10 +398,11 @@ static int help(void) {
                "     --dump-catalog          Show entries in the message catalog\n"
                "     --update-catalog        Update the message catalog database\n"
                "     --setup-keys            Generate a new FSS key pair\n"
-               "\nSee the %s for details.\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
-               , ansi_highlight(), ansi_normal()
                , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
         );
 
         return 0;
@@ -402,6 +422,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_ROOT,
                 ARG_HEADER,
+                ARG_FACILITY,
                 ARG_SETUP_KEYS,
                 ARG_FILE,
                 ARG_INTERVAL,
@@ -428,6 +449,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_TIME,
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
+                ARG_NAMESPACE,
         };
 
         static const struct option options[] = {
@@ -458,6 +480,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
+                { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
                 { "case-sensitive",       optional_argument, NULL, ARG_CASE_SENSITIVE       },
                 { "setup-keys",           no_argument,       NULL, ARG_SETUP_KEYS           },
@@ -492,6 +515,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
+                { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 {}
         };
 
@@ -533,10 +557,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0) {
-                                log_error("Unknown output format '%s'.", optarg);
-                                return -EINVAL;
-                        }
+                        if (arg_output < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown output format '%s'.", optarg);
 
                         if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
@@ -561,10 +583,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         arg_lines = ARG_LINES_ALL;
                                 else {
                                         r = safe_atoi(optarg, &arg_lines);
-                                        if (r < 0 || arg_lines < 0) {
-                                                log_error("Failed to parse lines '%s'", optarg);
-                                                return -EINVAL;
-                                        }
+                                        if (r < 0 || arg_lines < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse lines '%s'", optarg);
                                 }
                         } else {
                                 arg_lines = 10;
@@ -656,6 +676,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_machine = optarg;
                         break;
 
+                case ARG_NAMESPACE:
+                        if (streq(optarg, "*")) {
+                                arg_namespace_flags = SD_JOURNAL_ALL_NAMESPACES;
+                                arg_namespace = NULL;
+                        } else if (startswith(optarg, "+")) {
+                                arg_namespace_flags = SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE;
+                                arg_namespace = optarg + 1;
+                        } else if (isempty(optarg)) {
+                                arg_namespace_flags = 0;
+                                arg_namespace = NULL;
+                        } else {
+                                arg_namespace_flags = 0;
+                                arg_namespace = optarg;
+                        }
+
+                        break;
+
                 case 'D':
                         arg_directory = optarg;
                         break;
@@ -710,30 +747,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VACUUM_SIZE:
                         r = parse_size(optarg, 1024, &arg_vacuum_size);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum size: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum size: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_FILES:
                         r = safe_atou64(optarg, &arg_vacuum_n_files);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum files: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum files: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
 
                 case ARG_VACUUM_TIME:
                         r = parse_sec(optarg, &arg_vacuum_time);
-                        if (r < 0) {
-                                log_error("Failed to parse vacuum time: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse vacuum time: %s", optarg);
 
                         arg_action = arg_action == ACTION_ROTATE ? ACTION_ROTATE_AND_VACUUM : ACTION_VACUUM;
                         break;
@@ -748,7 +779,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY_KEY:
-                        arg_action = ACTION_VERIFY;
                         r = free_and_strdup(&arg_verify_key, optarg);
                         if (r < 0)
                                 return r;
@@ -756,23 +786,23 @@ static int parse_argv(int argc, char *argv[]) {
                          * in ps or htop output. */
                         memset(optarg, 'x', strlen(optarg));
 
+                        arg_action = ACTION_VERIFY;
                         arg_merge = false;
                         break;
 
                 case ARG_INTERVAL:
                         r = parse_sec(optarg, &arg_interval);
-                        if (r < 0 || arg_interval <= 0) {
-                                log_error("Failed to parse sealing key change interval: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0 || arg_interval <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse sealing key change interval: %s", optarg);
                         break;
 #else
                 case ARG_SETUP_KEYS:
                 case ARG_VERIFY_KEY:
                 case ARG_INTERVAL:
                 case ARG_FORCE:
-                        log_error("Compiled without forward-secure sealing support.");
-                        return -EOPNOTSUPP;
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Compiled without forward-secure sealing support.");
 #endif
 
                 case 'p': {
@@ -780,7 +810,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         dots = strstr(optarg, "..");
                         if (dots) {
-                                char *a;
+                                _cleanup_free_ char *a = NULL;
                                 int from, to, i;
 
                                 /* a range */
@@ -790,12 +820,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 from = log_level_from_string(a);
                                 to = log_level_from_string(dots + 2);
-                                free(a);
 
-                                if (from < 0 || to < 0) {
-                                        log_error("Failed to parse log level range %s", optarg);
-                                        return -EINVAL;
-                                }
+                                if (from < 0 || to < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Failed to parse log level range %s", optarg);
 
                                 arg_priorities = 0;
 
@@ -811,15 +839,49 @@ static int parse_argv(int argc, char *argv[]) {
                                 int p, i;
 
                                 p = log_level_from_string(optarg);
-                                if (p < 0) {
-                                        log_error("Unknown log level %s", optarg);
-                                        return -EINVAL;
-                                }
+                                if (p < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unknown log level %s", optarg);
 
                                 arg_priorities = 0;
 
                                 for (i = 0; i <= p; i++)
                                         arg_priorities |= 1 << i;
+                        }
+
+                        break;
+                }
+
+                case ARG_FACILITY: {
+                        const char *p;
+
+                        for (p = optarg;;) {
+                                _cleanup_free_ char *fac = NULL;
+                                int num;
+
+                                r = extract_first_word(&p, &fac, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse facilities: %s", optarg);
+                                if (r == 0)
+                                        break;
+
+                                if (streq(fac, "help")) {
+                                        help_facilities();
+                                        return 0;
+                                }
+
+                                num = log_facility_unshifted_from_string(fac);
+                                if (num < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Bad --facility= argument \"%s\".", fac);
+
+                                r = set_ensure_allocated(&arg_facilities, NULL);
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = set_put(arg_facilities, INT_TO_PTR(num));
+                                if (r < 0)
+                                        return log_oom();
                         }
 
                         break;
@@ -848,19 +910,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
-                        if (r < 0) {
-                                log_error("Failed to parse timestamp: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse timestamp: %s", optarg);
                         arg_since_set = true;
                         break;
 
                 case 'U':
                         r = parse_timestamp(optarg, &arg_until);
-                        if (r < 0) {
-                                log_error("Failed to parse timestamp: %s", optarg);
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Failed to parse timestamp: %s", optarg);
                         arg_until_set = true;
                         break;
 
@@ -1417,7 +1477,6 @@ static int add_boot(sd_journal *j) {
          * so take the slow path if log location is specified. */
         if (arg_boot_offset == 0 && sd_id128_is_null(arg_boot_id) &&
             !arg_directory && !arg_file && !arg_root)
-
                 return add_match_this_boot(j, arg_machine);
 
         boot_id = arg_boot_id;
@@ -1668,6 +1727,24 @@ static int add_priorities(sd_journal *j) {
         r = sd_journal_add_conjunction(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to add conjunction: %m");
+
+        return 0;
+}
+
+static int add_facilities(sd_journal *j) {
+        void *p;
+        Iterator it;
+        int r;
+
+        SET_FOREACH(p, arg_facilities, it) {
+                char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+
+                xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
+
+                r = sd_journal_add_match(j, match, strlen(match));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add match: %m");
+        }
 
         return 0;
 }
@@ -1944,15 +2021,19 @@ static int verify(sd_journal *j) {
 
 static int simple_varlink_call(const char *option, const char *method) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
-        const char *error;
+        const char *error, *fn;
         int r;
 
         if (arg_machine)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
 
-        r = varlink_connect_address(&link, "/run/systemd/journal/io.systemd.journal");
+        fn = arg_namespace ?
+                strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
+                "/run/systemd/journal/io.systemd.journal";
+
+        r = varlink_connect_address(&link, fn);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to /run/systemd/journal/io.systemd.journal: %m");
+                return log_error_errno(r, "Failed to connect to %s: %m", fn);
 
         (void) varlink_set_description(link, "journal");
         (void) varlink_set_relative_timeout(link, USEC_INFINITY);
@@ -2122,10 +2203,9 @@ int main(int argc, char *argv[]) {
                 r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
         else if (arg_root)
                 r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
-        else if (arg_file_stdin) {
-                int ifd = STDIN_FILENO;
-                r = sd_journal_open_files_fd(&j, &ifd, 1, 0);
-        } else if (arg_file)
+        else if (arg_file_stdin)
+                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
+        else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
         else if (arg_machine) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2136,8 +2216,7 @@ int main(int argc, char *argv[]) {
                 if (geteuid() != 0) {
                         /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
                          * the container, thus we need root privileges to override them. */
-                        log_error("Using the --machine= switch requires root privileges.");
-                        r = -EPERM;
+                        r = log_error_errno(SYNTHETIC_ERRNO(EPERM), "Using the --machine= switch requires root privileges.");
                         goto finish;
                 }
 
@@ -2177,7 +2256,11 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         safe_close(fd);
         } else
-                r = sd_journal_open(&j, !arg_merge*SD_JOURNAL_LOCAL_ONLY + arg_journal_type);
+                r = sd_journal_open_namespace(
+                                &j,
+                                arg_namespace,
+                                (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
+                                arg_namespace_flags | arg_journal_type);
         if (r < 0) {
                 log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
                 goto finish;
@@ -2301,6 +2384,10 @@ int main(int argc, char *argv[]) {
         }
 
         r = add_priorities(j);
+        if (r < 0)
+                goto finish;
+
+        r = add_facilities(j);
         if (r < 0)
                 goto finish;
 
@@ -2671,6 +2758,7 @@ finish:
 
         strv_free(arg_file);
 
+        set_free(arg_facilities);
         strv_free(arg_syslog_identifier);
         strv_free(arg_system_units);
         strv_free(arg_user_units);

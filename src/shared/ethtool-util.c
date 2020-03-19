@@ -50,6 +50,8 @@ DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
+        [NET_DEV_FEAT_RX]   = "rx-checksum",
+        [NET_DEV_FEAT_TX]   = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
         [NET_DEV_FEAT_GSO]  = "tx-generic-segmentation",
         [NET_DEV_FEAT_GRO]  = "rx-gro",
         [NET_DEV_FEAT_LRO]  = "rx-lro",
@@ -177,7 +179,7 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
 }
 
 int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
-                          int *ret_autonegotiation, size_t *ret_speed,
+                          int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
@@ -498,22 +500,38 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         return 0;
 }
 
-static int find_feature_index(struct ethtool_gstrings *strings, const char *feature) {
-        unsigned i;
+static int set_features_bit(
+                const struct ethtool_gstrings *strings,
+                const char *feature,
+                bool flag,
+                struct ethtool_sfeatures *sfeatures) {
+        bool found = false;
 
-        for (i = 0; i < strings->len; i++) {
-                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature))
-                        return i;
-        }
+        assert(strings);
+        assert(feature);
+        assert(sfeatures);
 
-        return -ENODATA;
+        for (size_t i = 0; i < strings->len; i++)
+                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature) ||
+                    (endswith(feature, "-") && startswith((char *) &strings->data[i * ETH_GSTRING_LEN], feature))) {
+                        size_t block, bit;
+
+                        block = i / 32;
+                        bit = i % 32;
+
+                        sfeatures->features[block].valid |= 1 << bit;
+                        SET_FLAG(sfeatures->features[block].requested, 1 << bit, flag);
+                        found = true;
+                }
+
+        return found ? 0 : -ENODATA;
 }
 
 int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
-        int block, bit, i, r;
         struct ifreq ifr = {};
+        int i, r;
 
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, true);
@@ -531,27 +549,14 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features) {
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (i = 0; i < _NET_DEV_FEAT_MAX; i++) {
-
+        for (i = 0; i < _NET_DEV_FEAT_MAX; i++)
                 if (features[i] != -1) {
-
-                        r = find_feature_index(strings, netdev_feature_table[i]);
+                        r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
                         if (r < 0) {
-                                log_warning_errno(r, "ethtool: could not find feature: %s", netdev_feature_table[i]);
+                                log_warning_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
                                 continue;
                         }
-
-                        block = r / 32;
-                        bit = r % 32;
-
-                        sfeatures->features[block].valid |= 1 << bit;
-
-                        if (features[i])
-                                sfeatures->features[block].requested |= 1 << bit;
-                        else
-                                sfeatures->features[block].requested &= ~(1 << bit);
                 }
-        }
 
         ifr.ifr_data = (void *) sfeatures;
 
@@ -734,7 +739,7 @@ int ethtool_set_glinksettings(
                 const char *ifname,
                 int autonegotiation,
                 uint32_t advertise[static N_ADVERTISE],
-                size_t speed,
+                uint64_t speed,
                 Duplex duplex,
                 NetDevPort port) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
@@ -837,6 +842,55 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
 
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SCHANNELS;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
+        struct ethtool_pauseparam ecmd = {
+                .cmd = ETHTOOL_GPAUSEPARAM
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (rx >= 0 && ecmd.rx_pause != (uint32_t) rx) {
+                ecmd.rx_pause = rx;
+                need_update = true;
+        }
+
+        if (tx >= 0 && ecmd.tx_pause != (uint32_t) tx) {
+                ecmd.tx_pause = tx;
+                need_update = true;
+        }
+
+        if (autoneg >= 0 && ecmd.autoneg != (uint32_t) autoneg) {
+                ecmd.autoneg = autoneg;
+                need_update = true;
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SPAUSEPARAM;
 
                 r = ioctl(*fd, SIOCETHTOOL, &ifr);
                 if (r < 0)

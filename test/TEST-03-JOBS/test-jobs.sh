@@ -1,4 +1,5 @@
-#!/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 # Test merging of a --job-mode=ignore-dependencies job into a previously
 # installed job.

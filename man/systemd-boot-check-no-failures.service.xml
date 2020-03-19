@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>systemd-boot-check-no-failures.service</refname>
+    <refname>systemd-boot-check-no-failures</refname>
     <refpurpose>verify that the system booted up cleanly</refpurpose>
   </refnamediv>
 

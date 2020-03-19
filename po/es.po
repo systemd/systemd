@@ -270,7 +270,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Permitir la conexión de dispositivos a los puestos de trabajo"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Se requiere autenticación para conectar un dispositivo a un puesto de "
 "trabajo."
@@ -281,7 +281,7 @@ msgstr "Refrescar los dispositivos asociados a cada puesto de trabajo"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Se requiere autenticación para reconfigurar los dispositivos asociados a "
 "cada puesto de trabajo."
@@ -291,7 +291,7 @@ msgid "Power off the system"
 msgstr "Apagar el sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Se requiere autenticación para apagar el sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
@@ -300,20 +300,20 @@ msgstr "Apagar el sistema mientras todavía hay usuarios conectados"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Se requiere autenticación para apagar el sistema mientras todavía hay "
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Apagar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para apagar el sistema a pesar de que una "
 "aplicación lo impide."
@@ -323,7 +323,7 @@ msgid "Reboot the system"
 msgstr "Reiniciar el sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Se requiere autenticación para reiniciar el sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
@@ -332,20 +332,20 @@ msgstr "Reiniciar el sistema mientras todavía hay usuarios conectados"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "Se requiere autenticación para reiniciar el sistema mientras todavía hay "
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Reiniciar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para reiniciar el sistema a pesar de que una "
 "aplicación lo impide."
@@ -355,7 +355,7 @@ msgid "Suspend the system"
 msgstr "Suspender el sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Se requiere autenticación para suspender el sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
@@ -364,20 +364,20 @@ msgstr "Suspender el sistema mientras todavía hay usuarios conectados"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Se requiere autenticación para suspender el sistema mientras todavía hay "
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Suspender el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para suspender el sistema a pesar de que una "
 "aplicación lo impide."
@@ -387,7 +387,7 @@ msgid "Hibernate the system"
 msgstr "Hibernar el sistema"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Se requiere autenticación para hibernar el sistema."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
@@ -396,20 +396,20 @@ msgstr "Hibernar el sistema mientras todavía hay usuarios conectados"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Se requiere autenticación para hibernar el sistema mientras todavía hay "
 "usuarios conectados."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernar el sistema a pesar de que una aplicación lo impide"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "Se requiere autenticación para hibernar el sistema a pesar de que una "
 "aplicación lo impide."
@@ -420,7 +420,7 @@ msgstr "Administrar sesiones activas, usuarios y puestos de trabajo"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Se requiere autenticación para administrar las sesiones activas, usuarios y "
 "puestos de trabajo."

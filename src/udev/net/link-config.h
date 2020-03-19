@@ -53,7 +53,7 @@ struct link_config {
         char **alternative_names;
         char *alias;
         uint32_t mtu;
-        size_t speed;
+        uint64_t speed;
         Duplex duplex;
         int autonegotiation;
         uint32_t advertise[N_ADVERTISE];
@@ -62,6 +62,9 @@ struct link_config {
         int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;
         netdev_ring_param ring;
+        int rx_flow_control;
+        int tx_flow_control;
+        int autoneg_flow_control;
 
         LIST_FIELDS(link_config, links);
 };

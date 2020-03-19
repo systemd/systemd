@@ -238,7 +238,7 @@ msgid "Allow attaching devices to seats"
 msgstr "시트에 장치 부착 허용"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:22
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "시트에 장치 부착을 허용하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:23
@@ -247,7 +247,7 @@ msgstr "시트로부터 장치 해제 허용"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:24
 msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+"Authentication is required to reset how devices are attached to seats."
 msgstr "시트에 붙인 장치 상태를 초기화하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:25
@@ -255,7 +255,7 @@ msgid "Power off the system"
 msgstr "시스템 끄기"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "시스템을 끄려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:27
@@ -264,18 +264,18 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 끄기"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:28
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr "다른 사용자가 로그인 했을 때 시스템 전원을 끄려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:29
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "프로그램이 시스템을 끄지 못하게 요청할 때 시스템 전원 끄기"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:30
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application "
+"is inhibiting this."
 msgstr ""
 "프로그램이 시스템을 끄지 못하게 요청할 때 시스템 전원을 끄려면 인증이 필요합"
 "니다."
@@ -285,7 +285,7 @@ msgid "Reboot the system"
 msgstr "시스템 다시 시작"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:32
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "시스템을 다시 시작하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:33
@@ -294,19 +294,19 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 다시 시작"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:34
 msgid ""
-"Authentication is required for rebooting the system while other users are "
+"Authentication is required to reboot the system while other users are "
 "logged in."
 msgstr ""
 "다른 사용자가 로그인 했을 때 시스템을 다시 시작하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:35
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "프로그램이 시스템을 다시 시작하지 못하게 요청할 때 시스템 다시 시작"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:36
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application "
+"is inhibiting this."
 msgstr ""
 "프로그램이 시스템을 다시 시작하지 못하게 요청할 때 시스템을 다시 시작하려면 "
 "인증이 필요합니다."
@@ -316,7 +316,7 @@ msgid "Suspend the system"
 msgstr "시스템 절전 상태 진입"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:38
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "시스템을 절전 상태로 놓으려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:39
@@ -325,19 +325,19 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 절전 상태 진입"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:40
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "다른 사용자가 로그인 했을 때 시스템을 절전 상태로 놓으려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:41
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "프로그램이 절전 상태 진입을 못하게 요청할 때 시스템 절전 상태 진입"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:42
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application "
+"is inhibiting this."
 msgstr ""
 "프로그램이 절전 상태 진입을 못하게 요청할 때 시스템을 절전 상태로 놓으려면 인"
 "증이 필요합니다."
@@ -347,7 +347,7 @@ msgid "Hibernate the system"
 msgstr "시스템 최대 절전 상태 진입"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:44
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "시스템을 최대 절전 상태로 놓으려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:45
@@ -356,21 +356,21 @@ msgstr "다른 사용자가 로그인 했을 때 시스템 최대 절전 상태 
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:46
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "다른 사용자가 로그인 했을 때 시스템을 최대 절전 상태로 놓으려면 인증이 필요합"
 "니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:47
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 "프로그램이 최대 절전 상태 진입을 못하게 요청할 때 시스템 최대 절전 상태 진입"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:48
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application "
+"is inhibiting this."
 msgstr ""
 "프로그램이 최대 절전 상태 진입을 못하게 요청할 때 시스템을 최대 절전 상태로 "
 "놓으려면 인증이 필요합니다."
@@ -381,7 +381,7 @@ msgstr "활성 세션, 사용자, 시트 관리"
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:50
 msgid ""
-"Authentication is required for managing active sessions, users and seats."
+"Authentication is required to manage active sessions, users and seats."
 msgstr "활성 세션, 사용자 시트를 관리하려면 인증이 필요합니다."
 
 #: ../src/login/org.freedesktop.login1.policy.in.h:51

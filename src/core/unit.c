@@ -1059,13 +1059,33 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
             !IN_SET(c->std_error,
                     EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
                     EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE))
+                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE) &&
+            !c->log_namespace)
                 return 0;
 
-        /* If syslog or kernel logging is requested, make sure our own
-         * logging daemon is run first. */
+        /* If syslog or kernel logging is requested (or log namespacing is), make sure our own logging daemon
+         * is run first. */
 
-        r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
+        if (c->log_namespace) {
+                _cleanup_free_ char *socket_unit = NULL, *varlink_socket_unit = NULL;
+
+                r = unit_name_build_from_type("systemd-journald", c->log_namespace, UNIT_SOCKET, &socket_unit);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, socket_unit, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_build_from_type("systemd-journald-varlink", c->log_namespace, UNIT_SOCKET, &varlink_socket_unit);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, varlink_socket_unit, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        } else
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return r;
 
@@ -1639,7 +1659,7 @@ static bool unit_test_assert(Unit *u) {
         return u->assert_result;
 }
 
-void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) {
         const char *d;
 
         d = unit_status_string(u);
@@ -1647,7 +1667,7 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
                 d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, status, unit_status_msg_format, d);
+        manager_status_printf(u->manager, status_type, status, unit_status_msg_format, d);
         REENABLE_WARNING;
 }
 
@@ -3846,8 +3866,8 @@ int unit_deserialize_skip(FILE *f) {
 }
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
-        Unit *device;
         _cleanup_free_ char *e = NULL;
+        Unit *device;
         int r;
 
         assert(u);
@@ -3859,8 +3879,7 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         if (!is_device_path(what))
                 return 0;
 
-        /* When device units aren't supported (such as in a
-         * container), don't create dependencies on them. */
+        /* When device units aren't supported (such as in a container), don't create dependencies on them. */
         if (!unit_type_supported(UNIT_DEVICE))
                 return 0;
 
@@ -3878,6 +3897,33 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         return unit_add_two_dependencies(u, UNIT_AFTER,
                                          MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                          device, true, mask);
+}
+
+int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask) {
+        _cleanup_free_ char *escaped = NULL, *target = NULL;
+        int r;
+
+        assert(u);
+
+        if (isempty(what))
+                return 0;
+
+        if (!path_startswith(what, "/dev/"))
+                return 0;
+
+        /* If we don't support devices, then also don't bother with blockdev@.target */
+        if (!unit_type_supported(UNIT_DEVICE))
+                return 0;
+
+        r = unit_name_path_escape(what, &escaped);
+        if (r < 0)
+                return r;
+
+        r = unit_name_build("blockdev", escaped, ".target", &target);
+        if (r < 0)
+                return r;
+
+        return unit_add_dependency_by_name(u, UNIT_AFTER, target, true, mask);
 }
 
 int unit_coldplug(Unit *u) {
@@ -4287,6 +4333,9 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_kernel_logs)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
 
+                if (ec->protect_clock)
+                        ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) | (UINT64_C(1) << CAP_WAKE_ALARM));
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);
@@ -4342,6 +4391,12 @@ int unit_patch_contexts(Unit *u) {
 
                         /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices */
                         r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "modprobe@loop.service", true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ec->protect_clock) {
+                        r = cgroup_add_device_allow(cc, "char-rtc", "r");
                         if (r < 0)
                                 return r;
                 }
@@ -5066,12 +5121,19 @@ static void unit_unref_uid_internal(
         *ref_uid = UID_INVALID;
 }
 
-void unit_unref_uid(Unit *u, bool destroy_now) {
+static void unit_unref_uid(Unit *u, bool destroy_now) {
         unit_unref_uid_internal(u, &u->ref_uid, destroy_now, manager_unref_uid);
 }
 
-void unit_unref_gid(Unit *u, bool destroy_now) {
+static void unit_unref_gid(Unit *u, bool destroy_now) {
         unit_unref_uid_internal(u, (uid_t*) &u->ref_gid, destroy_now, manager_unref_gid);
+}
+
+void unit_unref_uid_gid(Unit *u, bool destroy_now) {
+        assert(u);
+
+        unit_unref_uid(u, destroy_now);
+        unit_unref_gid(u, destroy_now);
 }
 
 static int unit_ref_uid_internal(
@@ -5112,11 +5174,11 @@ static int unit_ref_uid_internal(
         return 1;
 }
 
-int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc) {
+static int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc) {
         return unit_ref_uid_internal(u, &u->ref_uid, uid, clean_ipc, manager_ref_uid);
 }
 
-int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc) {
+static int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc) {
         return unit_ref_uid_internal(u, (uid_t*) &u->ref_gid, (uid_t) gid, clean_ipc, manager_ref_gid);
 }
 
@@ -5159,13 +5221,6 @@ int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid) {
                 return log_unit_warning_errno(u, r, "Couldn't add UID/GID reference to unit, proceeding without: %m");
 
         return r;
-}
-
-void unit_unref_uid_gid(Unit *u, bool destroy_now) {
-        assert(u);
-
-        unit_unref_uid(u, destroy_now);
-        unit_unref_gid(u, destroy_now);
 }
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
@@ -5333,7 +5388,7 @@ static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, 
         if (di.origin_mask == 0 && di.destination_mask == 0) {
                 /* No bit set anymore, let's drop the whole entry */
                 assert_se(hashmap_remove(u->dependencies[d], other));
-                log_unit_debug(u, "%s lost dependency %s=%s", u->id, unit_dependency_to_string(d), other->id);
+                log_unit_debug(u, "lost dependency %s=%s", unit_dependency_to_string(d), other->id);
         } else
                 /* Mask was reduced, let's update the entry */
                 assert_se(hashmap_update(u->dependencies[d], other, di.data) == 0);
@@ -5748,8 +5803,10 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-const char *unit_label_path(Unit *u) {
+const char *unit_label_path(const Unit *u) {
         const char *p;
+
+        assert(u);
 
         /* Returns the file system path to use for MAC access decisions, i.e. the file to read the SELinux label off
          * when validating access checks. */

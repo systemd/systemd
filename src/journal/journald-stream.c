@@ -17,6 +17,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "journald-console.h"
 #include "journald-context.h"
@@ -109,6 +110,8 @@ void stdout_stream_free(StdoutStream *s) {
 
                 if (s->in_notify_queue)
                         LIST_REMOVE(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
+
+                (void) server_start_or_stop_idle_timer(s->server); /* Maybe we are idle now? */
         }
 
         if (s->event_source) {
@@ -139,7 +142,7 @@ void stdout_stream_destroy(StdoutStream *s) {
 }
 
 static int stdout_stream_save(StdoutStream *s) {
-        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -156,11 +159,12 @@ static int stdout_stream_save(StdoutStream *s) {
                         return log_warning_errno(errno, "Failed to stat connected stream: %m");
 
                 /* We use device and inode numbers as identifier for the stream */
-                if (asprintf(&s->state_file, "/run/systemd/journal/streams/%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino) < 0)
+                r = asprintf(&s->state_file, "%s/streams/%lu:%lu", s->server->runtime_directory, (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                if (r < 0)
                         return log_oom();
         }
 
-        (void) mkdir_p("/run/systemd/journal/streams", 0755);
+        (void) mkdir_parents(s->state_file, 0755);
 
         r = fopen_temporary(s->state_file, &f, &temp_path);
         if (r < 0)
@@ -214,6 +218,8 @@ static int stdout_stream_save(StdoutStream *s) {
                 goto fail;
         }
 
+        temp_path = mfree(temp_path);
+
         if (!s->fdstore && !s->in_notify_queue) {
                 LIST_PREPEND(stdout_stream_notify_queue, s->server->stdout_streams_notify_queue, s);
                 s->in_notify_queue = true;
@@ -229,10 +235,6 @@ static int stdout_stream_save(StdoutStream *s) {
 
 fail:
         (void) unlink(s->state_file);
-
-        if (temp_path)
-                (void) unlink(temp_path);
-
         return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
@@ -590,12 +592,14 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate stream ID: %m");
 
-        stream = new0(StdoutStream, 1);
+        stream = new(StdoutStream, 1);
         if (!stream)
                 return log_oom();
 
-        stream->fd = -1;
-        stream->priority = LOG_INFO;
+        *stream = (StdoutStream) {
+                .fd = -1,
+                .priority = LOG_INFO,
+        };
 
         xsprintf(stream->id_field, "_STREAM_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(id));
 
@@ -629,11 +633,12 @@ int stdout_stream_install(Server *s, int fd, StdoutStream **ret) {
         LIST_PREPEND(stdout_stream, s->stdout_streams, stream);
         s->n_stdout_streams++;
 
+        (void) server_start_or_stop_idle_timer(s); /* Maybe no longer idle? */
+
         if (ret)
                 *ret = stream;
 
-        stream = NULL;
-
+        TAKE_PTR(stream);
         return 0;
 }
 
@@ -676,7 +681,7 @@ static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revent
         if (r < 0)
                 return r;
 
-        fd = -1;
+        TAKE_FD(fd);
         return 0;
 }
 
@@ -694,7 +699,7 @@ static int stdout_stream_load(StdoutStream *stream, const char *fname) {
         assert(fname);
 
         if (!stream->state_file) {
-                stream->state_file = path_join("/run/systemd/journal/streams", fname);
+                stream->state_file = path_join(stream->server->runtime_directory, "streams", fname);
                 if (!stream->state_file)
                         return log_oom();
         }
@@ -783,14 +788,16 @@ static int stdout_stream_restore(Server *s, const char *fname, int fd) {
 int server_restore_streams(Server *s, FDSet *fds) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
+        const char *path;
         int r;
 
-        d = opendir("/run/systemd/journal/streams");
+        path = strjoina(s->runtime_directory, "/streams");
+        d = opendir(path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to enumerate /run/systemd/journal/streams: %m");
+                return log_warning_errno(errno, "Failed to enumerate %s: %m", path);
         }
 
         FOREACH_DIRENT(de, d, goto fail) {
@@ -818,8 +825,7 @@ int server_restore_streams(Server *s, FDSet *fds) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m",
-                                                  de->d_name);
+                                log_warning_errno(errno, "Failed to remove %s/%s: %m", path, de->d_name);
                         continue;
                 }
 
@@ -836,23 +842,28 @@ fail:
         return log_error_errno(errno, "Failed to read streams directory: %m");
 }
 
-int server_open_stdout_socket(Server *s) {
-        static const union sockaddr_union sa = {
-                .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/journal/stdout",
-        };
+int server_open_stdout_socket(Server *s, const char *stdout_socket) {
         int r;
 
         assert(s);
+        assert(stdout_socket);
 
         if (s->stdout_fd < 0) {
+                union sockaddr_union sa;
+                socklen_t sa_len;
+
+                r = sockaddr_un_set_path(&sa.un, stdout_socket);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to use namespace path %s for AF_UNIX socket: %m", stdout_socket);
+                sa_len = r;
+
                 s->stdout_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (s->stdout_fd < 0)
                         return log_error_errno(errno, "socket() failed: %m");
 
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(s->stdout_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                r = bind(s->stdout_fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", sa.un.sun_path);
 

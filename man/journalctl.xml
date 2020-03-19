@@ -598,6 +598,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--facility=</option></term>
+
+        <listitem><para>Filter output by syslog facility. Takes a comma-separated list of numbers or facility
+        names. The names are the usual syslog facilities as documented in
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <option>--facility=help</option> may be used to display a list of known facility names and exit.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-g</option></term>
         <term><option>--grep=</option></term>
 
@@ -747,6 +757,18 @@
         and journal files under <filename><replaceable>ROOT</replaceable>/run/journal</filename>
         or <filename><replaceable>ROOT</replaceable>/var/log/journal</filename> will be displayed).
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--namespace=<replaceable>NAMESPACE</replaceable></option></term>
+
+        <listitem><para>Takes a journal namespace identifier string as argument. If not specified the data
+        collected by the default namespace is shown. If specified shows the log data of the specified
+        namespace instead. If the namespace is specified as <literal>*</literal> data from all namespaces is
+        shown, interleaved. If the namespace identifier is prefixed with <literal>+</literal> data from the
+        specified namespace and the default namespace is shown, interleaved, but no other. For details about
+        journal namespaces see
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

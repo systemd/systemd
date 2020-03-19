@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-09-17 14:31+0000\n"
-"PO-Revision-Date: 2019-09-19 15:48+0200\n"
+"POT-Creation-Date: 2020-02-29 15:12+0000\n"
+"PO-Revision-Date: 2020-03-01 13:58+0100\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech\n"
 "Language: cs\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Poedit 2.2.3\n"
+"X-Generator: Poedit 2.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -64,7 +64,60 @@ msgstr "Znovu načíst stav systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr "Pro znovu načtení stavu systemd je vyžadováno ověření."
+msgstr "Pro opětovné načtení stavu systemd je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "Vytvořit domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "Pro vytvoření domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "Odebrat domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "Pro odebrání domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "Zkontrolovat pověření domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Pro kontrolu pověření proti domovskému adresáři uživatele je vyžadováno "
+"ověření."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "Aktualizovat domovský adresář"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "Pro aktualizaci domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr "Změnit velikost domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to resize a user's home area."
+msgstr ""
+"Pro změnu velikosti domovského adresáře uživatele je vyžadováno ověření."
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr "Změnit heslo domovského adresáře"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "Pro změnu hesla domovského adresáře uživatele je vyžadováno ověření."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
@@ -263,7 +316,7 @@ msgid "Allow attaching devices to seats"
 msgstr "Povolit připojování zařízení ke stanovištím"
 
 #: src/login/org.freedesktop.login1.policy:138
-msgid "Authentication is required for attaching a device to a seat."
+msgid "Authentication is required to attach a device to a seat."
 msgstr "Pro připojování zařízení ke stanovišti je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:148
@@ -271,18 +324,17 @@ msgid "Flush device to seat attachments"
 msgstr "Odstranit přiřazení zařízení ke stanovištím"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required for resetting how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
-"Pro reset způsobu jak jsou zařízení přiřazována ke stanovištím je vyžadováno "
-"ověření."
+"Pro resetování způsobu jak jsou zařízení přiřazována ke stanovištím je "
+"vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:158
 msgid "Power off the system"
 msgstr "Vypnout systém"
 
 #: src/login/org.freedesktop.login1.policy:159
-msgid "Authentication is required for powering off the system."
+msgid "Authentication is required to power off the system."
 msgstr "Pro vypnutí systému je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:169
@@ -291,20 +343,20 @@ msgstr "Vypnout systém, i když jsou přihlášeni další uživatelé"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid ""
-"Authentication is required for powering off the system while other users are "
+"Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "Pro vypnutí systému, když jsou přihlášeni další uživatelé je vyžadováno "
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:180
-msgid "Power off the system while an application asked to inhibit it"
+msgid "Power off the system while an application is inhibiting this"
 msgstr "Vypnout systém, i když aplikace požádala o zákaz vypnutí"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required for powering off the system while an application "
-"asked to inhibit it."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "Pro vypnutí systému, když aplikace požádala o zákaz vypnutí je vyžadováno "
 "ověření."
@@ -314,7 +366,7 @@ msgid "Reboot the system"
 msgstr "Restartovat systém"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required for rebooting the system."
+msgid "Authentication is required to reboot the system."
 msgstr "Pro restartování systému je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -323,20 +375,20 @@ msgstr "Restartovat systém, i když jsou přihlášeni další uživatelé"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required for rebooting the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Pro restartování systému, když jsou přihlášeni další uživatelé je vyžadováno "
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:213
-msgid "Reboot the system while an application asked to inhibit it"
+msgid "Reboot the system while an application is inhibiting this"
 msgstr "Restartovat systém, i když aplikace požádala o zákaz restartu"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required for rebooting the system while an application "
-"asked to inhibit it."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Pro restartování systému, když aplikace požádala o zákaz restartu je "
 "vyžadováno ověření."
@@ -346,7 +398,7 @@ msgid "Halt the system"
 msgstr "Zastavit systém"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required for halting the system."
+msgid "Authentication is required to halt the system."
 msgstr "Pro zastavení systému je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -355,20 +407,20 @@ msgstr "Zastavit systém, i když jsou přihlášeni další uživatelé"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required for halting the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "Pro zastavení systému, když jsou přihlášeni další uživatelé je vyžadováno "
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:246
-msgid "Halt the system while an application asked to inhibit it"
+msgid "Halt the system while an application is inhibiting this"
 msgstr "Zastavit systém, i když aplikace požádala o zákaz zastavení"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
-"Authentication is required for halting the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
 "Pro zastavení systému, když aplikace požádala o zákaz zastavení je "
 "vyžadováno ověření."
@@ -378,7 +430,7 @@ msgid "Suspend the system"
 msgstr "Uspat systém"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required for suspending the system."
+msgid "Authentication is required to suspend the system."
 msgstr "Pro uspání systému je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:267
@@ -387,20 +439,20 @@ msgstr "Uspat systém, i když jsou přihlášeni další uživatelé"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required for suspending the system while other users are "
+"Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
 "Pro uspání systému, když jsou přihlášeni další uživatelé je vyžadováno "
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:278
-msgid "Suspend the system while an application asked to inhibit it"
+msgid "Suspend the system while an application is inhibiting this"
 msgstr "Uspat systém, i když aplikace požádala o zákaz uspání"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required for suspending the system while an application "
-"asked to inhibit it."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "Pro uspání systému, když aplikace požádala o zákaz uspání je vyžadováno "
 "ověření."
@@ -410,7 +462,7 @@ msgid "Hibernate the system"
 msgstr "Hibernovat systém"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required for hibernating the system."
+msgid "Authentication is required to hibernate the system."
 msgstr "Pro hibernaci systému je vyžadováno ověření."
 
 #: src/login/org.freedesktop.login1.policy:299
@@ -419,20 +471,20 @@ msgstr "Hibernovat systém, i když jsou přihlášeni další uživatelé"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid ""
-"Authentication is required for hibernating the system while other users are "
+"Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
 "Pro hibernaci systému, když jsou přihlášeni další uživatelé je vyžadováno "
 "ověření."
 
 #: src/login/org.freedesktop.login1.policy:310
-msgid "Hibernate the system while an application asked to inhibit it"
+msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Hibernovat systém, i když aplikace požádala o zákaz hibernace"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required for hibernating the system while an application "
-"asked to inhibit it."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "Pro hibernaci systému, když aplikace požádala o zákaz hibernace je "
 "vyžadováno ověření."
@@ -442,8 +494,7 @@ msgid "Manage active sessions, users and seats"
 msgstr "Spravovat aktivní sezení, uživatele a stanoviště"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required for managing active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Pro správu aktivních sezení, uživatelů a stanovišť je vyžadováno ověření."
 
@@ -504,6 +555,14 @@ msgstr "Nastavit zprávu všem uživatelům"
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "K nastavení zprávy všem uživatelům je vyžadováno ověření"
+
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr "Změnit sezení"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Pro změnu virtuálního terminálu je vyžadováno ověření."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -680,6 +739,30 @@ msgstr "Vrátit změny nastavení DNS"
 msgid "Authentication is required to reset DNS settings."
 msgstr "Pro resetování nastavení DNS je vyžadováno ověření."
 
+#: src/network/org.freedesktop.network1.policy:143
+msgid "Renew dynamic addresses"
+msgstr "Obnovit dynamické adresy"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Pro obnovení dynamických adres je vyžadováno ověření."
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Reload network settings"
+msgstr "Znovu načíst nastavení sítě"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to reload network settings."
+msgstr "Pro opětovné načtení nastavení sítě je vyžadováno ověření."
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reconfigure network interface"
+msgstr "Přenastavit síťové rozhraní"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Pro přenastavení síťového rozhraní je vyžadováno ověření."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Prohlédnout obraz přenosné služby"
@@ -770,43 +853,40 @@ msgid ""
 "shall be enabled."
 msgstr "Pro kontrolu synchronizace času ze sítě je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:356
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Pro spuštění „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:357
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Pro vypnutí „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:358
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Pro znovu načtení „$(unit)” je vyžadováno ověření."
+msgstr "Pro opětovné načtení „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:359 src/core/dbus-unit.c:360
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Pro restart „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:530
+#: src/core/dbus-unit.c:532
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:561
+#: src/core/dbus-unit.c:563
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Pro resetování chybného stavu „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:596
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Pro nastavení vlastností na „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:703
+#: src/core/dbus-unit.c:705
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Pro odstranění souborů nebo adresářů souvisejících s „$(unit)” je vyžadováno "
 "ověření."
-
-#~ msgid "Authentication is required to kill '$(unit)'."
-#~ msgstr "Pro ukončení „$(unit)” je vyžadováno ověření."

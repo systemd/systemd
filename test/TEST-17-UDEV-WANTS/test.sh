@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="UDEV SYSTEMD_WANTS property"
 TEST_NO_NSPAWN=1

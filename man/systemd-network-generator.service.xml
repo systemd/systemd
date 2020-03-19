@@ -1,0 +1,103 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="systemd-network-generator.service" conditional='ENABLE_NETWORKD'>
+
+  <refentryinfo>
+    <title>systemd-network-generator.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-network-generator.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-network-generator.service</refname>
+    <refname>systemd-network-generator</refname>
+    <refpurpose>Generate network configuration from the kernel command line</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-network-generator.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-network-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-network-generator.service</filename> is a system service that translates
+    <varname>ip=</varname> and the related settings on the kernel command line (see below) into
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
+    <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    configuration files understood by
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>Files are generated in <filename>/run/systemd/network/</filename>.</para>
+  </refsect1>
+
+  <refsect1><title>Kernel command line options</title>
+  <para>This tool understands the following options:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>ip=</varname></term>
+        <term><varname>rd.route=</varname></term>
+        <term><varname>rd.peerdns=</varname></term>
+        <listitem>
+          <para>— translated into
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ifname=</varname></term>
+        <listitem>
+          <para>— translated into
+          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>vlan=</varname></term>
+        <term><varname>bond=</varname></term>
+        <term><varname>bridge=</varname></term>
+        <term><varname>bootdev=</varname></term>
+        <listitem>
+          <para>— translated into
+          <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+        </listitem>
+      </varlistentry>
+
+      <!-- unsupported:
+           team=<teammaster>:<teamslaves>
+           bootdev=
+           BOOTIF=
+           bootdev=
+           bootdev=
+           bootdev=
+      -->
+    </variablelist>
+
+    <para>See
+    <citerefentry project='man-pages'><refentrytitle>dracut.kernel</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for option syntax and details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

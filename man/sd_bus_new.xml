@@ -87,14 +87,12 @@
     or a related call, and then start the connection with
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>In most cases, it is a better idea to invoke
+    <para>In most cases, it is better to use
     <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    or related calls instead of the more low-level
-    <function>sd_bus_new()</function> and
-    <function>sd_bus_start()</function>. The higher-level calls not
-    only allocate a bus object but also start the connection to a
-    well-known bus in a single function invocation.</para>
+    or related calls instead of the more low-level <function>sd_bus_new()</function> and
+    <function>sd_bus_start()</function>. The higher-level functions not only allocate a bus object but also
+    start the connection to a well-known bus in a single function call.</para>
 
     <para><function>sd_bus_ref()</function> increases the reference
     counter of <parameter>bus</parameter> by one.</para>

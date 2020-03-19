@@ -70,6 +70,12 @@
         <para>The operational status is one of the following:
             <variablelist>
               <varlistentry>
+                <term>missing</term>
+                <listitem>
+                    <para>the device is missing</para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
                 <term>off</term>
                 <listitem>
                   <para>the device is powered down</para>
@@ -258,6 +264,14 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <command>renew</command>
         </term>
         <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
+        Takes interface name or index number.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>forcerenew</command>
+        </term>
+        <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
         Takes interface name or index number.</para></listitem>
       </varlistentry>
 

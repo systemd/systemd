@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="systemd-nspawn smoke test"
 TEST_NO_NSPAWN=1
@@ -33,7 +33,7 @@ Type=oneshot
 EOF
 
         cat >$initdir/test-nspawn.sh <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -x
 set -e
 set -u

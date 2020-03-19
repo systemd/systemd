@@ -177,18 +177,18 @@ static int export_devices(void) {
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = sd_device_enumerator_allow_uninitialized(e);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to set allowing uninitialized flag: %m");
 
         r = device_enumerator_scan_devices(e);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to scan devices: %m");
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                print_record(d);
+                (void) print_record(d);
 
         return 0;
 }

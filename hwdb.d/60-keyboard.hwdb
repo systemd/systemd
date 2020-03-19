@@ -808,6 +808,15 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+# Fix for volume keys on Lenovo Yoga S940
+# For 10th gen it should be pn81Q8 instead of pn81Q7 but 
+# I don't have a device to test
+# perhaps pn81Q* would work for both generations
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
 # Lenovo Y50-70
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
  KEYBOARD_KEY_f3=f21      # Fn+F6 (toggle touchpad)
@@ -1112,6 +1121,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:pvr*
 # Akoya
 evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnS3409*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnP6669*:pvr*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1199,6 +1209,19 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
 evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][aA][rR]*:pvr*
  KEYBOARD_KEY_0213=f22
  KEYBOARD_KEY_0214=f23
+
+###########################################################
+# Olimex
+###########################################################
+
+# Teres-I
+evdev:input:b0003v15BAp003C*
+ KEYBOARD_KEY_70066=sleep                               # Fn+F1
+ KEYBOARD_KEY_700f6=wlan                                # Fn+F2
+ KEYBOARD_KEY_700c7=f21                                 # Fn+F3 touchpad toggle
+ KEYBOARD_KEY_7006f=brightnessdown                      # Fn+F7
+ KEYBOARD_KEY_70070=brightnessup                        # Fn+F8
+ KEYBOARD_KEY_7006e=switchvideomode                     # Fn+F9
 
 ###########################################################
 # OLPC
@@ -1557,6 +1580,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnVIA:pnK8N800:pvr*
 
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:pvr*
  KEYBOARD_KEY_70073=f21                                 # Touchpad toggle
+
+###########################################################
+# WeiHeng
+###########################################################
+
+# P325J
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnINET:pnP325J:pvr*
+ KEYBOARD_KEY_76=f21                                    # Touchpad toggle
 
 ###########################################################
 # Zepto

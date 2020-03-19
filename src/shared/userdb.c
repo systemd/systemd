@@ -587,7 +587,7 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *query = NULL;
         int r;
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name_compat(name))
                 return -EINVAL;
 
         r = json_build(&query, JSON_BUILD_OBJECT(
@@ -699,15 +699,9 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
                 setpwent();
                 iterator->nss_iterating = true;
-                goto finish;
-        }
+        } else if (r < 0)
+                return r;
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE))
-                goto finish;
-
-        return r;
-
-finish:
         *ret = TAKE_PTR(iterator);
         return 0;
 }
@@ -801,7 +795,7 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *query = NULL;
         int r;
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name_compat(name))
                 return -EINVAL;
 
         r = json_build(&query, JSON_BUILD_OBJECT(
@@ -909,15 +903,9 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
 
                 setgrent();
                 iterator->nss_iterating = true;
-                goto finish;
-        }
+        } if (r < 0)
+                  return r;
 
-        if (!FLAGS_SET(flags, USERDB_DONT_SYNTHESIZE))
-                goto finish;
-
-        return r;
-
-finish:
         *ret = TAKE_PTR(iterator);
         return 0;
 }
@@ -994,7 +982,7 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
 
         assert(ret);
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name_compat(name))
                 return -EINVAL;
 
         r = json_build(&query, JSON_BUILD_OBJECT(
@@ -1037,7 +1025,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
 
         assert(ret);
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name_compat(name))
                 return -EINVAL;
 
         r = json_build(&query, JSON_BUILD_OBJECT(
@@ -1246,7 +1234,7 @@ static int userdb_thread_sockaddr(struct sockaddr_un *ret_sa, socklen_t *ret_sal
         assert(ret_sa);
         assert(ret_salen);
 
-        /* This calculates an AF_UNIX socket address in the abstract namespace whose existance works as an
+        /* This calculates an AF_UNIX socket address in the abstract namespace whose existence works as an
          * indicator whether to emulate NSS records for complex user records that are also available via the
          * varlink protocol. The name of the socket is picked in a way so that:
          *

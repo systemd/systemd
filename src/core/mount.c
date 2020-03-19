@@ -217,7 +217,7 @@ static void mount_done(Unit *u) {
         m->timer_event_source = sd_event_source_unref(m->timer_event_source);
 }
 
-_pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
+static MountParameters* get_mount_parameters_fragment(Mount *m) {
         assert(m);
 
         if (m->from_fragment)
@@ -226,7 +226,7 @@ _pure_ static MountParameters* get_mount_parameters_fragment(Mount *m) {
         return NULL;
 }
 
-_pure_ static MountParameters* get_mount_parameters(Mount *m) {
+static MountParameters* get_mount_parameters(Mount *m) {
         assert(m);
 
         if (m->from_proc_self_mountinfo)
@@ -342,20 +342,18 @@ static int mount_add_device_dependencies(Mount *m) {
         if (!is_device_path(p->what))
                 return 0;
 
-        /* /dev/root is a really weird thing, it's not a real device,
-         * but just a path the kernel exports for the root file system
-         * specified on the kernel command line. Ignore it here. */
-        if (path_equal(p->what, "/dev/root"))
+        /* /dev/root is a really weird thing, it's not a real device, but just a path the kernel exports for
+         * the root file system specified on the kernel command line. Ignore it here. */
+        if (PATH_IN_SET(p->what, "/dev/root", "/dev/nfs"))
                 return 0;
 
         if (path_equal(m->where, "/"))
                 return 0;
 
-        /* Mount units from /proc/self/mountinfo are not bound to devices
-         * by default since they're subject to races when devices are
-         * unplugged. But the user can still force this dep with an
-         * appropriate option (or udev property) so the mount units are
-         * automatically stopped when the device disappears suddenly. */
+        /* Mount units from /proc/self/mountinfo are not bound to devices by default since they're subject to
+         * races when devices are unplugged. But the user can still force this dep with an appropriate option
+         * (or udev property) so the mount units are automatically stopped when the device disappears
+         * suddenly. */
         dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
@@ -365,7 +363,7 @@ static int mount_add_device_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return unit_add_blockdev_dependency(UNIT(m), p->what, mask);
 }
 
 static int mount_add_quota_dependencies(Mount *m) {

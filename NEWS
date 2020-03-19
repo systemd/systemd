@@ -1,5 +1,328 @@
 systemd System and Service Manager
 
+CHANGES WITH 245:
+
+        * A new tool "systemd-repart" has been added, that operates as an
+          idempotent declarative repartitioner for GPT partition tables.
+          Specifically, a set of partitions that must or may exist can be
+          configured via drop-in files, and during every boot the partition
+          table on disk is compared with these files, creating missing
+          partitions or growing existing ones based on configurable relative
+          and absolute size constraints. The tool is strictly incremental,
+          i.e. does not delete, shrink or move partitions, but only adds and
+          grows them. The primary use-case is OS images that ship in minimized
+          form, that on first boot are grown to the size of the underlying
+          block device or augmented with additional partitions. For example,
+          the root partition could be extended to cover the whole disk, or a
+          swap or /home partitions could be added on first boot. It can also be
+          used for systems that use an A/B update scheme but ship images with
+          just the A partition, with B added on first boot. The tool is
+          primarily intended to be run in the initrd, shortly before
+          transitioning into the host OS, but can also be run after the
+          transition took place. It automatically discovers the disk backing
+          the root file system, and should hence not require any additional
+          configuration besides the partition definition drop-ins. If no
+          configuration drop-ins are present, no action is taken.
+
+        * A new component "userdb" has been added, along with a small daemon
+          "systemd-userdb.service" and a client tool "userdbctl". The framework
+          allows defining rich user and group records in a JSON format,
+          extending on the classic "struct passwd" and "struct group"
+          structures. Various components in systemd have been updated to
+          process records in this format, including systemd-logind and
+          pam-systemd. The user records are intended to be extensible, and
+          allow setting various resource management, security and runtime
+          parameters that shall be applied to processes and sessions of the
+          user as they log in. This facility is intended to allow associating
+          such metadata directly with user/group records so that they can be
+          produced, extended and consumed in unified form. We hope that
+          eventually frameworks such as sssd will generate records this way, so
+          that for the first time resource management and various other
+          per-user settings can be configured in LDAP directories and then
+          provided to systemd (specifically to systemd-logind and pam-system)
+          to apply on login. For further details see:
+
+          https://systemd.io/USER_RECORD
+          https://systemd.io/GROUP_RECORD
+          https://systemd.io/USER_GROUP_API
+
+        * A small new service systemd-homed.service has been added, that may be
+          used to securely manage home directories with built-in encryption.
+          The complete user record data is unified with the home directory,
+          thus making home directories naturally migratable. Its primary
+          back-end is based on LUKS volumes, but fscrypt, plain directories,
+          and other storage schemes are also supported. This solves a couple of
+          problems we saw with traditional ways to manage home directories, in
+          particular when it comes to encryption. For further discussion of
+          this, see the video of Lennart's talk at AllSystemsGo! 2019:
+
+          https://media.ccc.de/v/ASG2019-164-reinventing-home-directories
+
+          For further details about the format and expectations on home
+          directories this new daemon makes, see:
+
+          https://systemd.io/HOME_DIRECTORY
+
+        * systemd-journald is now multi-instantiable. In addition to the main
+          instance systemd-journald.service there's now a template unit
+          systemd-journald@.service, with each instance defining a new named
+          log 'namespace' (whose name is specified via the instance part of the
+          unit name). A new unit file setting LogNamespace= has been added,
+          taking such a namespace name, that assigns services to the specified
+          log namespaces. As each log namespace is serviced by its own
+          independent journal daemon, this functionality may be used to improve
+          performance and increase isolation of applications, at the price of
+          losing global message ordering. Each instance of journald has a
+          separate set of configuration files, with possibly different disk
+          usage limitations and other settings.
+
+          journalctl now takes a new option --namespace= to show logs from a
+          specific log namespace. The sd-journal.h API gained
+          sd_journal_open_namespace() for opening the log stream of a specific
+          log namespace. systemd-journald also gained the ability to exit on
+          idle, which is useful in the context of log namespaces, as this means
+          log daemons for log namespaces can be activated automatically on
+          demand and will stop automatically when no longer used, minimizing
+          resource usage.
+
+        * When systemd-tmpfiles copies a file tree using the 'C' line type it
+          will now label every copied file according to the SELinux database.
+
+        * When systemd/PID 1 detects it is used in the initrd it will now boot
+          into initrd.target rather than default.target by default. This should
+          make it simpler to build initrds with systemd as for many cases the
+          only difference between a host OS image and an initrd image now is
+          the presence of the /etc/initrd-release file.
+
+        * A new kernel command line option systemd.cpu_affinity= is now
+          understood. It's equivalent to the CPUAffinity= option in
+          /etc/systemd/system.conf and allows setting the CPU mask for PID 1
+          itself and the default for all other processes.
+
+        * When systemd/PID 1 is reloaded (with systemctl daemon-reload or
+          equivalent), the SELinux database is now reloaded, ensuring that
+          sockets and other file system objects are generated taking the new
+          database into account.
+
+        * systemd/PID 1 accepts a new "systemd.show-status=error" setting, and
+          "quiet" has been changed to imply that instead of
+          "systemd.show-status=auto". In this mode, only messages about errors
+          and significant delays in boot are shown on the console.
+
+        * The sd-event.h API gained native support for the new Linux "pidfd"
+          concept. This permits watching processes using file descriptors
+          instead of PID numbers, which fixes a number of races and makes
+          process supervision more robust and efficient. All of systemd's
+          components will now use pidfds if the kernel supports it for process
+          watching, with the exception of PID 1 itself, unfortunately. We hope
+          to move PID 1 to exclusively using pidfds too eventually, but this
+          requires some more kernel work first. (Background: PID 1 watches
+          processes using waitid() with the P_ALL flag, and that does not play
+          together nicely with pidfds yet.)
+
+        * Closely related to this, the sd-event.h API gained two new calls
+          sd_event_source_send_child_signal() (for sending a signal to a
+          watched process) and sd_event_source_get_child_process_own() (for
+          marking a process so that it is killed automatically whenever the
+          event source watching it is freed).
+
+        * systemd-networkd gained support for configuring Token Bucket Filter
+          (TBF) parameters in its qdisc configuration support. Similarly,
+          support for Stochastic Fairness Queuing (SFQ), Controlled-Delay
+          Active Queue Management (CoDel), and Fair Queue (FQ) has been added.
+
+        * systemd-networkd gained support for Intermediate Functional Block
+          (IFB) network devices.
+
+        * systemd-networkd gained support for configuring multi-path IP routes,
+          using the new MultiPathRoute= setting in the [Route] section.
+
+        * systemd-networkd's DHCPv4 client has been updated to support a new
+          SendDecline= option. If enabled, duplicate address detection is done
+          after a DHCP offer is received from the server. If a conflict is
+          detected, the address is declined. The DHCPv4 client also gained
+          support for a new RouteMTUBytes= setting that allows to configure the
+          MTU size to be used for routes generated from DHCPv4 leases.
+
+        * The PrefixRoute= setting in systemd-networkd's [Address] section of
+          .network files has been deprecated, and replaced by AddPrefixRoute=,
+          with its sense inverted.
+
+        * The Gateway= setting of [Route] sections of .network files gained
+          support for a special new value "_dhcp". If set, the configured
+          static route uses the gateway host configured via DHCP.
+
+        * New User= and SuppressPrefixLength= settings have been implemented
+          for the [RoutingPolicyRule] section of .network files to configure
+          source routing based on UID ranges and prefix length, respectively.
+
+        * sd-bus gained a new API call sd_bus_message_sensitive() that marks a
+          D-Bus message object as "sensitive". Those objects are erased from
+          memory when they are freed. This concept is intended to be used for
+          messages that contain security sensitive data. A new flag
+          SD_BUS_VTABLE_SENSITIVE has been introduced as well to mark methods
+          in sd-bus vtables, causing any incoming and outgoing messages of
+          those methods to be implicitly marked as "sensitive".
+
+        * sd-bus gained a new API call sd_bus_message_dump() for dumping the
+          contents of a message (or parts thereof) to standard output for
+          debugging purposes.
+
+        * systemd-sysusers gained support for creating users with the primary
+          group named differently than the user.
+
+        * systemd-resolved's DNS-over-TLS support gained SNI validation.
+
+        * systemd-growfs (i.e. the x-systemd.growfs mount option in /etc/fstab)
+          gained support for growing XFS partitions. Previously it supported
+          only ext4 and btrfs partitions.
+
+        * The support for /etc/crypttab gained a new x-initrd.attach option. If
+          set, the specified encrypted volume is unlocked already in the
+          initrd. This concept corresponds to the x-initrd.mount option in
+          /etc/fstab.
+
+        * systemd-cryptsetup gained native support for unlocking encrypted
+          volumes utilizing PKCS#11 smartcards, i.e. for example to bind
+          encryption of volumes to YubiKeys. This is exposed in the new
+          pkcs11-uri= option in /etc/crypttab.
+
+        * The /etc/fstab support in systemd now supports two new mount options
+          x-systemd.{required,wanted}-by=, for explicitly configuring the units
+          that the specified mount shall be pulled in by, in place of
+          the usual local-fs.target/remote-fs.target.
+
+        * The https://systemd.io/ web site has been relaunched, directly
+          populated with most of the documentation included in the systemd
+          repository. systemd also acquired a new logo, thanks to Tobias
+          Bernard.
+
+        * systemd-udevd gained support for managing "alternative" network
+          interface names, as supported by new Linux kernels. For the first
+          time this permits assigning multiple (and longer!) names to a network
+          interface. systemd-udevd will now by default assign the names
+          generated via all supported naming schemes to each interface. This
+          may be further tweaked with .link files and the AlternativeName= and
+          AlternativeNamesPolicy= settings. Other components of systemd have
+          been updated to support the new alternative names wherever
+          appropriate. For example, systemd-nspawn will now generate
+          alternative interface names for the host-facing side of container
+          veth links based on the full container name without truncation.
+
+        * systemd-nspawn interface naming logic has been updated in another way
+          too: if the main interface name (i.e. as opposed to new-style
+          "alternative" names) based on the container name is truncated, a
+          simple hashing scheme is used to give different interface names to
+          multiple containers whose names all begin with the same prefix. Since
+          this changes the primary interface names pointing to containers if
+          truncation happens, the old scheme may still be requested by
+          selecting an older naming scheme, via the net.naming-scheme= kernel
+          command line option.
+
+        * PrivateUsers= in service files now works in services run by the
+          systemd --user per-user instance of the service manager.
+
+        * A new per-service sandboxing option ProtectClock= has been added that
+          locks down write access to the system clock. It takes away device
+          node access to /dev/rtc as well as the system calls that set the
+          system clock and the CAP_SYS_TIME and CAP_WAKE_ALARM capabilities.
+          Note that this option does not affect access to auxiliary services
+          that allow changing the clock, for example access to
+          systemd-timedated.
+
+        * The systemd-id128 tool gained a new "show" verb for listing or
+          resolving a number of well-known UUIDs/128bit IDs, currently mostly
+          GPT partition table types.
+
+        * The Discoverable Partitions Specification has been updated to support
+          /var and /var/tmp partition discovery. Support for this has been
+          added to systemd-gpt-auto-generator. For details see:
+
+          https://systemd.io/DISCOVERABLE_PARTITIONS
+
+        * "systemctl list-unit-files" has been updated to show a new column
+          with the suggested enablement state based on the vendor preset files
+          for the respective units.
+
+        * "systemctl" gained a new option "--with-dependencies". If specified
+          commands such as "systemctl status" or "systemctl cat" will now show
+          all specified units along with all units they depend on.
+
+        * networkctl gained support for showing per-interface logs in its
+          "status" output.
+
+        * systemd-networkd-wait-online gained support for specifying the maximum
+          operational state to wait for, and to wait for interfaces to
+          disappear.
+
+        * The [Match] section of .link and .network files now supports a new
+          option PermanentMACAddress= which may be used to check against the
+          permanent MAC address of a network device even if a randomized MAC
+          address is used.
+
+        * The [TrafficControlQueueingDiscipline] section in .network files has
+          been renamed to [NetworkEmulator] with the "NetworkEmulator" prefix
+          dropped from the individual setting names.
+
+        * Any .link and .network files that have an empty [Match] section (this
+          also includes empty and commented-out files) will now be
+          rejected. systemd-udev and systemd-networkd started warning about
+          such files in version 243.
+
+        * systemd-logind will now validate access to the operation of changing
+          the virtual terminal via a PolicyKit action. By default, only users
+          with at least one session on a local VT are granted permission.
+
+        * When systemd sets up PAM sessions that invoked service processes
+          shall run in, the pam_setcred() API is now invoked, thus permitting
+          PAM modules to set additional credentials for the processes.
+
+        * portablectl attach/detach verbs now accept --now and --enable options
+          to combine attachment with enablement and invocation, or detachment
+          with stopping and disablement.
+
+        * UPGRADE ISSUE: a bug where some jobs were trimmed as redundant was
+          fixed, which in turn exposed bugs in unit configuration of services
+          which have Type=oneshot and should only run once, but do not have
+          RemainAfterExit=yes set. Without RemainAfterExit=yes, a one-shot
+          service may be started again after exiting successfully, for example
+          as a dependency in another transaction. Affected services included
+          some internal systemd services (most notably
+          systemd-vconsole-setup.service, which was updated to have
+          RemainAfterExit=yes), and plymouth-start.service. Please ensure that
+          plymouth has been suitably updated or patched before upgrading to
+          this systemd release. See
+          https://bugzilla.redhat.com/show_bug.cgi?id=1807771 for some
+          additional discussion.
+
+        Contributions from: AJ Bagwell, Alin Popa, Andreas Rammhold, Anita
+        Zhang, Ansgar Burchardt, Antonio Russo, Arian van Putten, Ashley Davis,
+        Balint Reczey, Bart Willems, Bastien Nocera, Benjamin Dahlhoff, Charles
+        (Chas) Williams, cheese1, Chris Down, Chris Murphy, Christian Ehrhardt,
+        Christian Göttsche, cvoinf, Daan De Meyer, Daniele Medri, Daniel Rusek,
+        Daniel Shahaf, Dann Frazier, Dan Streetman, Dariusz Gadomski, David
+        Michael, Dimitri John Ledkov, Emmanuel Bourg, Evgeny Vereshchagin,
+        ezst036, Felipe Sateler, Filipe Brandenburger, Florian Klink, Franck
+        Bui, Fran Dieguez, Frantisek Sumsal, Greg "GothAck" Miell, Guilhem
+        Lettron, Guillaume Douézan-Grard, Hans de Goede, HATAYAMA Daisuke, Iain
+        Lane, James Buren, Jan Alexander Steffens (heftig), Jérémy Rosen, Jin
+        Park, Jun'ichi Nomura, Kai Krakow, Kevin Kuehler, Kevin P. Fleming,
+        Lennart Poettering, Leonid Bloch, Leonid Evdokimov, lothrond, Luca
+        Boccassi, Lukas K, Lynn Kirby, Mario Limonciello, Mark Deneen, Matthew
+        Leeds, Michael Biebl, Michal Koutný, Michal Sekletár, Mike Auty, Mike
+        Gilbert, mtron, nabijaczleweli, Naïm Favier, Nate Jones, Norbert Lange,
+        Oliver Giles, Paul Davey, Paul Menzel, Peter Hutterer, Piotr Drąg, Rafa
+        Couto, Raphael, rhn, Robert Scheck, Rocka, Romain Naour, Ryan Attard,
+        Sascha Dewald, Shengjing Zhu, Slava Kardakov, Spencer Michaels, Sylvain
+        Plantefeve, Stanislav Angelovič, Susant Sahani, Thomas Haller, Thomas
+        Schmitt, Timo Schlüßler, Timo Wilken, Tobias Bernard, Tobias Klauser,
+        Tobias Stoeckmann, Topi Miettinen, tsia, WataruMatsuoka, Wieland
+        Hoffmann, Wilhelm Schuster, Will Fleming, xduugu, Yong Cong Sin, Yuri
+        Chornoivan, Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek, Zeyu
+        DONG
+
+        – Warsaw, 2020-03-06
+
 CHANGES WITH 244:
 
         * Support for the cpuset cgroups v2 controller has been added.
@@ -178,8 +501,8 @@ CHANGES WITH 244:
           configuration time using the -Dservice-watchdog= setting. If set to
           empty, the watchdogs will be disabled.
 
-	* systemd-resolved validates IP addresses in certificates now when GnuTLS
-	  is being used.
+        * systemd-resolved validates IP addresses in certificates now when GnuTLS
+          is being used.
 
         * libcryptsetup >= 2.0.1 is now required.
 
@@ -675,32 +998,33 @@ CHANGES WITH 243:
         Contributions from: Aaron Barany, Adrian Bunk, Alan Jenkins, Albrecht
         Lohofener, Andrej Valek, Anita Zhang, Arian van Putten, Balint Reczey,
         Bastien Nocera, Ben Boeckel, Benjamin Robin, camoz, Chen Qi, Chris
-        Chiu, Chris Down, Christian Kellner, Clinton Roy, Connor Reeder, Daniel
-        Black, Daniele Medri, Dan Streetman, Dave Reisner, Dave Ross, David
-        Art, David Tardon, Debarshi Ray, Dimitri John Ledkov, Dominick Grift,
-        Donald Buczek, Douglas Christman, Eric DeVolder, EtherGraf, Evgeny
-        Vereshchagin, Feldwor, Felix Riemann, Florian Dollinger, Francesco
-        Pennica, Franck Bui, Frantisek Sumsal, Franz Pletz, frederik, Hans
-        de Goede, Iago López Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer,
-        Jack, Jakob Unterwurzacher, Jan Chren, Jan Klötzke, Jan Losinski, Jan
-        Pokorný, Jan Synacek, Jan-Michael Brummer, Jeka Pats, Jeremy Soller,
-        Jérémy Rosen, Jiri Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann
-        B. Guðmundsson, Johannes Christ, Johannes Schmitz, Jonathan Rouleau,
-        Jorge Niedbalski, Kai Krakow, Kai Lüke, Karel Zak, Kashyap Chamarthy,
+        Chiu, Chris Down, Christian Göttsche, Christian Kellner, Clinton Roy,
+        Connor Reeder, Daniel Black, Daniel Lublin, Daniele Medri, Dan
+        Streetman, Dave Reisner, Dave Ross, David Art, David Tardon, Debarshi
+        Ray, Dimitri John Ledkov, Dominick Grift, Donald Buczek, Douglas
+        Christman, Eric DeVolder, EtherGraf, Evgeny Vereshchagin, Feldwor,
+        Felix Riemann, Florian Dollinger, Francesco Pennica, Franck Bui,
+        Frantisek Sumsal, Franz Pletz, frederik, Hans de Goede, Iago López
+        Galeiras, Insun Pyo, Ivan Shapovalov, Iwan Timmer, Jack, Jakob
+        Unterwurzacher, Jan Chren, Jan Klötzke, Jan Losinski, Jan Pokorný, Jan
+        Synacek, Jan-Michael Brummer, Jeka Pats, Jeremy Soller, Jérémy Rosen,
+        Jiri Pirko, Joe Lin, Joerg Behrmann, Joe Richey, Jóhann B. Guðmundsson,
+        Johannes Christ, Johannes Schmitz, Jonathan Rouleau, Jorge Niedbalski,
+        Jörg Thalheim, Kai Krakow, Kai Lüke, Karel Zak, Kashyap Chamarthy,
         Krayushkin Konstantin, Lennart Poettering, Lubomir Rintel, Luca
         Boccassi, Luís Ferreira, Marc-André Lureau, Markus Felten, Martin Pitt,
         Matthew Leeds, Mattias Jernberg, Michael Biebl, Michael Olbrich,
         Michael Prokop, Michael Stapelberg, Michael Zhivich, Michal Koutný,
         Michal Sekletar, Mike Gilbert, Milan Broz, Miroslav Lichvar, mpe85,
         Mr-Foo, Network Silence, Oliver Harley, pan93412, Paul Menzel, pEJipE,
-        Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle, Roberto
-        Santalla, Ronan Pigott, root, RussianNeuroMancer, Sebastian Jennen,
-        shinygold, Shreyas Behera, Simon Schricker, Susant Sahani, Thadeu Lima
-        de Souza Cascardo, Theo Ouzhinski, Thiebaud Weksteen, Thomas Haller,
-        Thomas Weißschuh, Tomas Mraz, Tommi Rantala, Topi Miettinen, VD-Lycos,
-        ven, Wieland Hoffmann, William A. Kennington III, William Wold, Xi
-        Ruoyao, Yuri Chornoivan, Yu Watanabe, Zach Smith, Zbigniew
-        Jędrzejewski-Szmek, Zhang Xianwei
+        Peter A. Bigot, Philip Withnall, Piotr Drąg, Rafael Fontenelle, Robert
+        Scheck, Roberto Santalla, Ronan Pigott, root, RussianNeuroMancer,
+        Sebastian Jennen, shinygold, Shreyas Behera, Simon Schricker, Susant
+        Sahani, Thadeu Lima de Souza Cascardo, Theo Ouzhinski, Thiebaud
+        Weksteen, Thomas Haller, Thomas Weißschuh, Tomas Mraz, Tommi Rantala,
+        Topi Miettinen, VD-Lycos, ven, Vladimir Yerilov, Wieland Hoffmann,
+        William A. Kennington III, William Wold, Xi Ruoyao, Yuri Chornoivan,
+        Yu Watanabe, Zach Smith, Zbigniew Jędrzejewski-Szmek, Zhang Xianwei
 
         – Camerino, 2019-09-03
 
@@ -6914,10 +7238,9 @@ CHANGES WITH 213:
         * A new fsck.repair= kernel option has been added to control
           how fsck shall deal with unclean file systems at boot.
 
-        * The (.ini) configuration file parser will now silently
-          ignore sections whose name begins with "X-". This may be
-          used to maintain application-specific extension sections in unit
-          files.
+        * The (.ini) configuration file parser will now silently ignore
+          sections whose names begin with "X-". This may be used to maintain
+          application-specific extension sections in unit files.
 
         * machined gained a new API to query the IP addresses of
           registered containers. "machinectl status" has been updated

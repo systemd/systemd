@@ -44,6 +44,7 @@
 #include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -76,11 +77,20 @@
 
 #define DEFERRED_CLOSES_MAX (4096)
 
-static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used, uint64_t *ret_free) {
+#define IDLE_TIMEOUT_USEC (30*USEC_PER_SEC)
+
+static int determine_path_usage(
+                Server *s,
+                const char *path,
+                uint64_t *ret_used,
+                uint64_t *ret_free) {
+
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         struct statvfs ss;
 
+        assert(s);
+        assert(path);
         assert(ret_used);
         assert(ret_free);
 
@@ -163,13 +173,19 @@ static void patch_min_use(JournalStorage *storage) {
         storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
 }
 
+static JournalStorage* server_current_storage(Server *s) {
+        assert(s);
+
+        return s->system_journal ? &s->system_storage : &s->runtime_storage;
+}
+
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;
 
         assert(s);
 
-        js = s->system_journal ? &s->system_storage : &s->runtime_storage;
+        js = server_current_storage(s);
 
         r = cache_space_refresh(s, js);
         if (r >= 0) {
@@ -189,7 +205,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
         assert(s);
 
         if (!storage)
-                storage = s->system_journal ? &s->system_storage : &s->runtime_storage;
+                storage = server_current_storage(s);
 
         if (cache_space_refresh(s, storage) < 0)
                 return;
@@ -280,8 +296,18 @@ static int open_journal(
         return r;
 }
 
-static bool flushed_flag_is_set(void) {
-        return access("/run/systemd/journal/flushed", F_OK) >= 0;
+static bool flushed_flag_is_set(Server *s) {
+        const char *fn;
+
+        assert(s);
+
+        /* We don't support the "flushing" concept for namespace instances, we assume them to always have
+         * access to /var */
+        if (s->namespace)
+                return true;
+
+        fn = strjoina(s->runtime_directory, "/flushed");
+        return access(fn, F_OK) >= 0;
 }
 
 static int system_journal_open(Server *s, bool flush_requested, bool relinquish_requested) {
@@ -290,17 +316,15 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
         if (!s->system_journal &&
             IN_SET(s->storage, STORAGE_PERSISTENT, STORAGE_AUTO) &&
-            (flush_requested || flushed_flag_is_set()) &&
+            (flush_requested || flushed_flag_is_set(s)) &&
             !relinquish_requested) {
 
-                /* If in auto mode: first try to create the machine
-                 * path, but not the prefix.
+                /* If in auto mode: first try to create the machine path, but not the prefix.
                  *
-                 * If in persistent mode: create /var/log/journal and
-                 * the machine path */
+                 * If in persistent mode: create /var/log/journal and the machine path */
 
                 if (s->storage == STORAGE_PERSISTENT)
-                        (void) mkdir_p("/var/log/journal/", 0755);
+                        (void) mkdir_parents(s->system_storage.path, 0755);
 
                 (void) mkdir(s->system_storage.path, 0755);
 
@@ -317,12 +341,11 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
                         r = 0;
                 }
 
-                /* If the runtime journal is open, and we're post-flush, we're
-                 * recovering from a failed system journal rotate (ENOSPC)
-                 * for which the runtime journal was reopened.
+                /* If the runtime journal is open, and we're post-flush, we're recovering from a failed
+                 * system journal rotate (ENOSPC) for which the runtime journal was reopened.
                  *
-                 * Perform an implicit flush to var, leaving the runtime
-                 * journal closed, now that the system journal is back.
+                 * Perform an implicit flush to var, leaving the runtime journal closed, now that the system
+                 * journal is back.
                  */
                 if (!flush_requested)
                         (void) server_flush_to_var(s, true);
@@ -349,12 +372,10 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
                 } else {
 
-                        /* OK, we really need the runtime journal, so create
-                         * it if necessary. */
+                        /* OK, we really need the runtime journal, so create it if necessary. */
 
-                        (void) mkdir("/run/log", 0755);
-                        (void) mkdir("/run/log/journal", 0755);
-                        (void) mkdir_parents(fn, 0750);
+                        (void) mkdir_parents(s->runtime_storage.path, 0755);
+                        (void) mkdir(s->runtime_storage.path, 0750);
 
                         r = open_journal(s, true, fn, O_RDWR|O_CREAT, false, &s->runtime_storage.metrics, &s->runtime_journal);
                         if (r < 0)
@@ -373,27 +394,23 @@ static int system_journal_open(Server *s, bool flush_requested, bool relinquish_
 
 static JournalFile* find_journal(Server *s, uid_t uid) {
         _cleanup_free_ char *p = NULL;
-        int r;
         JournalFile *f;
-        sd_id128_t machine;
+        int r;
 
         assert(s);
 
-        /* A rotate that fails to create the new journal (ENOSPC) leaves the
-         * rotated journal as NULL.  Unless we revisit opening, even after
-         * space is made available we'll continue to return NULL indefinitely.
+        /* A rotate that fails to create the new journal (ENOSPC) leaves the rotated journal as NULL.  Unless
+         * we revisit opening, even after space is made available we'll continue to return NULL indefinitely.
          *
-         * system_journal_open() is a noop if the journals are already open, so
-         * we can just call it here to recover from failed rotates (or anything
-         * else that's left the journals as NULL).
+         * system_journal_open() is a noop if the journals are already open, so we can just call it here to
+         * recover from failed rotates (or anything else that's left the journals as NULL).
          *
          * Fixes https://github.com/systemd/systemd/issues/3968 */
         (void) system_journal_open(s, false, false);
 
-        /* We split up user logs only on /var, not on /run. If the
-         * runtime file is open, we write to it exclusively, in order
-         * to guarantee proper order as soon as we flush /run to
-         * /var and close the runtime file. */
+        /* We split up user logs only on /var, not on /run. If the runtime file is open, we write to it
+         * exclusively, in order to guarantee proper order as soon as we flush /run to /var and close the
+         * runtime file. */
 
         if (s->runtime_journal)
                 return s->runtime_journal;
@@ -405,22 +422,14 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (f)
                 return f;
 
-        r = sd_id128_get_machine(&machine);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to determine machine ID, using system log: %m");
-                return s->system_journal;
-        }
-
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/user-"UID_FMT".journal",
-                     SD_ID128_FORMAT_VAL(machine), uid) < 0) {
+        if (asprintf(&p, "%s/user-" UID_FMT ".journal", s->system_storage.path, uid) < 0) {
                 log_oom();
                 return s->system_journal;
         }
 
+        /* Too many open? Then let's close one (or more) */
         while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
-                /* Too many open? Then let's close one */
-                f = ordered_hashmap_steal_first(s->user_journals);
-                assert(f);
+                assert_se(f = ordered_hashmap_steal_first(s->user_journals));
                 (void) journal_file_close(f);
         }
 
@@ -428,14 +437,13 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (r < 0)
                 return s->system_journal;
 
-        server_add_acls(f, uid);
-
         r = ordered_hashmap_put(s->user_journals, UID_TO_PTR(uid), f);
         if (r < 0) {
                 (void) journal_file_close(f);
                 return s->system_journal;
         }
 
+        server_add_acls(f, uid);
         return f;
 }
 
@@ -461,7 +469,6 @@ static int do_rotate(
         }
 
         server_add_acls(*f, uid);
-
         return r;
 }
 
@@ -498,36 +505,110 @@ static void server_vacuum_deferred_closes(Server *s) {
         }
 }
 
-static int open_user_journal_directory(Server *s, DIR **ret_dir, char **ret_path) {
-        _cleanup_closedir_ DIR *dir = NULL;
-        _cleanup_free_ char *path = NULL;
-        sd_id128_t machine;
+static int vacuum_offline_user_journals(Server *s) {
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(s);
 
-        r = sd_id128_get_machine(&machine);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine machine ID, ignoring: %m");
+        d = opendir(s->system_storage.path);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
 
-        if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/", SD_ID128_FORMAT_VAL(machine)) < 0)
-                return log_oom();
+                return log_error_errno(errno, "Failed to open %s: %m", s->system_storage.path);
+        }
 
-        dir = opendir(path);
-        if (!dir)
-                return log_error_errno(errno, "Failed to open user journal directory '%s': %m", path);
+        for (;;) {
+                _cleanup_free_ char *u = NULL, *full = NULL;
+                _cleanup_close_ int fd = -1;
+                const char *a, *b;
+                struct dirent *de;
+                JournalFile *f;
+                uid_t uid;
 
-        if (ret_dir)
-                *ret_dir = TAKE_PTR(dir);
-        if (ret_path)
-                *ret_path = TAKE_PTR(path);
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", s->system_storage.path);
+
+                        break;
+                }
+
+                a = startswith(de->d_name, "user-");
+                if (!a)
+                        continue;
+                b = endswith(de->d_name, ".journal");
+                if (!b)
+                        continue;
+
+                u = strndup(a, b-a);
+                if (!u)
+                        return log_oom();
+
+                r = parse_uid(u, &uid);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
+                        continue;
+                }
+
+                /* Already rotated in the above loop? i.e. is it an open user journal? */
+                if (ordered_hashmap_contains(s->user_journals, UID_TO_PTR(uid)))
+                        continue;
+
+                full = path_join(s->system_storage.path, de->d_name);
+                if (!full)
+                        return log_oom();
+
+                fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+                if (fd < 0) {
+                        log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to open journal file '%s' for rotation: %m", full);
+                        continue;
+                }
+
+                /* Make some room in the set of deferred close()s */
+                server_vacuum_deferred_closes(s);
+
+                /* Open the file briefly, so that we can archive it */
+                r = journal_file_open(fd,
+                                      full,
+                                      O_RDWR,
+                                      0640,
+                                      s->compress.enabled,
+                                      s->compress.threshold_bytes,
+                                      s->seal,
+                                      &s->system_storage.metrics,
+                                      s->mmap,
+                                      s->deferred_closes,
+                                      NULL,
+                                      &f);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
+
+                        r = journal_file_dispose(dirfd(d), de->d_name);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
+                        else
+                                log_debug("Successfully moved %s out of the way.", full);
+
+                        continue;
+                }
+
+                TAKE_FD(fd); /* Donated to journal_file_open() */
+
+                r = journal_file_archive(f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
+
+                f = journal_initiate_close(f, s->deferred_closes);
+        }
 
         return 0;
 }
 
 void server_rotate(Server *s) {
-        _cleanup_free_ char *path = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
         JournalFile *f;
         Iterator i;
         void *k;
@@ -549,92 +630,10 @@ void server_rotate(Server *s) {
                         ordered_hashmap_remove(s->user_journals, k);
         }
 
-        /* Finally, also rotate all user journals we currently do not have open. (But do so only if we actually have
-         * access to /var, i.e. are not in the log-to-runtime-journal mode). */
-        if (!s->runtime_journal &&
-            open_user_journal_directory(s, &d, &path) >= 0) {
-
-                struct dirent *de;
-
-                FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate %s, ignoring: %m", path)) {
-                        _cleanup_free_ char *u = NULL, *full = NULL;
-                        _cleanup_close_ int fd = -1;
-                        const char *a, *b;
-                        uid_t uid;
-
-                        a = startswith(de->d_name, "user-");
-                        if (!a)
-                                continue;
-                        b = endswith(de->d_name, ".journal");
-                        if (!b)
-                                continue;
-
-                        u = strndup(a, b-a);
-                        if (!u) {
-                                log_oom();
-                                break;
-                        }
-
-                        r = parse_uid(u, &uid);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to parse UID from file name '%s', ignoring: %m", de->d_name);
-                                continue;
-                        }
-
-                        /* Already rotated in the above loop? i.e. is it an open user journal? */
-                        if (ordered_hashmap_contains(s->user_journals, UID_TO_PTR(uid)))
-                                continue;
-
-                        full = strjoin(path, de->d_name);
-                        if (!full) {
-                                log_oom();
-                                break;
-                        }
-
-                        fd = openat(dirfd(d), de->d_name, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
-                        if (fd < 0) {
-                                log_full_errno(IN_SET(errno, ELOOP, ENOENT) ? LOG_DEBUG : LOG_WARNING, errno,
-                                               "Failed to open journal file '%s' for rotation: %m", full);
-                                continue;
-                        }
-
-                        /* Make some room in the set of deferred close()s */
-                        server_vacuum_deferred_closes(s);
-
-                        /* Open the file briefly, so that we can archive it */
-                        r = journal_file_open(fd,
-                                              full,
-                                              O_RDWR,
-                                              0640,
-                                              s->compress.enabled,
-                                              s->compress.threshold_bytes,
-                                              s->seal,
-                                              &s->system_storage.metrics,
-                                              s->mmap,
-                                              s->deferred_closes,
-                                              NULL,
-                                              &f);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to read journal file %s for rotation, trying to move it out of the way: %m", full);
-
-                                r = journal_file_dispose(dirfd(d), de->d_name);
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to move %s out of the way, ignoring: %m", full);
-                                else
-                                        log_debug("Successfully moved %s out of the way.", full);
-
-                                continue;
-                        }
-
-                        TAKE_FD(fd); /* Donated to journal_file_open() */
-
-                        r = journal_file_archive(f);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
-
-                        f = journal_initiate_close(f, s->deferred_closes);
-                }
-        }
+        /* Finally, also rotate all user journals we currently do not have open. (But do so only if we
+         * actually have access to /var, i.e. are not in the log-to-runtime-journal mode). */
+        if (!s->runtime_journal)
+                (void) vacuum_offline_user_journals(s);
 
         server_process_deferred_closes(s);
 }
@@ -741,8 +740,7 @@ static void server_cache_hostname(Server *s) {
         if (!x)
                 return;
 
-        free(s->hostname_field);
-        s->hostname_field = x;
+        free_and_replace(s->hostname_field, x);
 }
 
 static bool shall_try_append_again(JournalFile *f, int r) {
@@ -1003,6 +1001,9 @@ static void dispatch_message_real(
         if (!isempty(s->hostname_field))
                 iovec[n++] = IOVEC_MAKE_STRING(s->hostname_field);
 
+        if (!isempty(s->namespace_field))
+                iovec[n++] = IOVEC_MAKE_STRING(s->namespace_field);
+
         assert(n <= m);
 
         if (s->split_mode == SPLIT_UID && c && uid_is_valid(c->uid))
@@ -1115,10 +1116,11 @@ void server_dispatch_message(
 }
 
 int server_flush_to_var(Server *s, bool require_flag_file) {
-        sd_journal *j = NULL;
         char ts[FORMAT_TIMESPAN_MAX];
-        usec_t start;
+        sd_journal *j = NULL;
+        const char *fn;
         unsigned n = 0;
+        usec_t start;
         int r, k;
 
         assert(s);
@@ -1126,10 +1128,13 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!IN_SET(s->storage, STORAGE_AUTO, STORAGE_PERSISTENT))
                 return 0;
 
-        if (!s->runtime_journal)
+        if (s->namespace) /* Flushing concept does not exist for namespace instances */
                 return 0;
 
-        if (require_flag_file && !flushed_flag_is_set())
+        if (!s->runtime_journal) /* Nothing to flush? */
+                return 0;
+
+        if (require_flag_file && !flushed_flag_is_set(s))
                 return 0;
 
         (void) system_journal_open(s, true, false);
@@ -1137,7 +1142,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
-        log_debug("Flushing to /var...");
+        log_debug("Flushing to %s...", s->system_storage.path);
 
         start = now(CLOCK_MONOTONIC);
 
@@ -1197,33 +1202,40 @@ finish:
         s->runtime_journal = journal_file_close(s->runtime_journal);
 
         if (r >= 0)
-                (void) rm_rf("/run/log/journal", REMOVE_ROOT);
+                (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
 
         sd_journal_close(j);
 
         server_driver_message(s, 0, NULL,
-                              LOG_MESSAGE("Time spent on flushing to /var is %s for %u entries.",
+                              LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
+                                          s->system_storage.path,
                                           format_timespan(ts, sizeof(ts), now(CLOCK_MONOTONIC) - start, 0),
                                           n),
                               NULL);
 
-        k = touch("/run/systemd/journal/flushed");
+        fn = strjoina(s->runtime_directory, "/flushed");
+        k = touch(fn);
         if (k < 0)
-                log_warning_errno(k, "Failed to touch /run/systemd/journal/flushed, ignoring: %m");
+                log_warning_errno(k, "Failed to touch %s, ignoring: %m", fn);
 
+        server_refresh_idle_timer(s);
         return r;
 }
 
 static int server_relinquish_var(Server *s) {
+        const char *fn;
         assert(s);
 
         if (s->storage == STORAGE_NONE)
                 return 0;
 
+        if (s->namespace) /* Concept does not exist for namespaced instances */
+                return -EOPNOTSUPP;
+
         if (s->runtime_journal && !s->system_journal)
                 return 0;
 
-        log_debug("Relinquishing /var...");
+        log_debug("Relinquishing %s...", s->system_storage.path);
 
         (void) system_journal_open(s, false, true);
 
@@ -1231,13 +1243,20 @@ static int server_relinquish_var(Server *s) {
         ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_close);
         set_clear_with_destructor(s->deferred_closes, journal_file_close);
 
-        if (unlink("/run/systemd/journal/flushed") < 0 && errno != ENOENT)
-                log_warning_errno(errno, "Failed to unlink /run/systemd/journal/flushed, ignoring: %m");
+        fn = strjoina(s->runtime_directory, "/flushed");
+        if (unlink(fn) < 0 && errno != ENOENT)
+                log_warning_errno(errno, "Failed to unlink %s, ignoring: %m", fn);
 
+        server_refresh_idle_timer(s);
         return 0;
 }
 
-int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+int server_process_datagram(
+                sd_event_source *es,
+                int fd,
+                uint32_t revents,
+                void *userdata) {
+
         Server *s = userdata;
         struct ucred *ucred = NULL;
         struct timeval *tv = NULL;
@@ -1352,6 +1371,8 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         }
 
         close_many(fds, n_fds);
+
+        server_refresh_idle_timer(s);
         return 0;
 }
 
@@ -1363,12 +1384,19 @@ static void server_full_flush(Server *s) {
         server_vacuum(s, false);
 
         server_space_usage_message(s, NULL);
+
+        server_refresh_idle_timer(s);
 }
 
 static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
         Server *s = userdata;
 
         assert(s);
+
+        if (s->namespace) {
+                log_error("Received SIGUSR1 signal from PID " PID_FMT ", but flushing runtime journals not supported for namespaced instances.", si->ssi_pid);
+                return 0;
+        }
 
         log_info("Received SIGUSR1 signal from PID " PID_FMT ", as request to flush runtime journal.", si->ssi_pid);
         server_full_flush(s);
@@ -1377,6 +1405,7 @@ static int dispatch_sigusr1(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static void server_full_rotate(Server *s) {
+        const char *fn;
         int r;
 
         assert(s);
@@ -1390,9 +1419,10 @@ static void server_full_rotate(Server *s) {
                 patch_min_use(&s->runtime_storage);
 
         /* Let clients know when the most recent rotation happened. */
-        r = write_timestamp_file_atomic("/run/systemd/journal/rotated", now(CLOCK_MONOTONIC));
+        fn = strjoina(s->runtime_directory, "/rotated");
+        r = write_timestamp_file_atomic(fn, now(CLOCK_MONOTONIC));
         if (r < 0)
-                log_warning_errno(r, "Failed to write /run/systemd/journal/rotated, ignoring: %m");
+                log_warning_errno(r, "Failed to write %s, ignoring: %m", fn);
 }
 
 static int dispatch_sigusr2(sd_event_source *es, const struct signalfd_siginfo *si, void *userdata) {
@@ -1418,6 +1448,7 @@ static int dispatch_sigterm(sd_event_source *es, const struct signalfd_siginfo *
 }
 
 static void server_full_sync(Server *s) {
+        const char *fn;
         int r;
 
         assert(s);
@@ -1425,9 +1456,10 @@ static void server_full_sync(Server *s) {
         server_sync(s);
 
         /* Let clients know when the most recent sync happened. */
-        r = write_timestamp_file_atomic("/run/systemd/journal/synced", now(CLOCK_MONOTONIC));
+        fn = strjoina(s->runtime_directory, "/synced");
+        r = write_timestamp_file_atomic(fn, now(CLOCK_MONOTONIC));
         if (r < 0)
-                log_warning_errno(r, "Failed to write /run/systemd/journal/synced, ignoring: %m");
+                log_warning_errno(r, "Failed to write %s, ignoring: %m", fn);
 
         return;
 }
@@ -1592,7 +1624,27 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int server_parse_config_file(Server *s) {
+        int r;
+
         assert(s);
+
+        if (s->namespace) {
+                const char *namespaced;
+
+                /* If we are running in namespace mode, load the namespace specific configuration file, and nothing else */
+                namespaced = strjoina(PKGSYSCONFDIR "/journald@", s->namespace, ".conf");
+
+                r = config_parse(
+                                NULL,
+                                namespaced, NULL,
+                                "Journal\0",
+                                config_item_perf_lookup, journald_gperf_lookup,
+                                CONFIG_PARSE_WARN, s);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
 
         return config_parse_many_nulstr(PKGSYSCONFDIR "/journald.conf",
                                         CONF_PATHS_NULSTR("systemd/journald.conf.d"),
@@ -1788,9 +1840,10 @@ static int dispatch_watchdog(sd_event_source *es, uint64_t usec, void *userdata)
 }
 
 static int server_connect_notify(Server *s) {
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         const char *e;
-        int r, salen;
+        int r;
 
         assert(s);
         assert(s->notify_fd < 0);
@@ -1813,9 +1866,10 @@ static int server_connect_notify(Server *s) {
         if (!e)
                 return 0;
 
-        salen = sockaddr_un_set_path(&sa.un, e);
-        if (salen < 0)
-                return log_error_errno(salen, "NOTIFY_SOCKET set to invalid value '%s': %m", e);
+        r = sockaddr_un_set_path(&sa.un, e);
+        if (r < 0)
+                return log_error_errno(r, "NOTIFY_SOCKET set to invalid value '%s': %m", e);
+        sa_len = r;
 
         s->notify_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (s->notify_fd < 0)
@@ -1823,7 +1877,7 @@ static int server_connect_notify(Server *s) {
 
         (void) fd_inc_sndbuf(s->notify_fd, NOTIFY_SNDBUF_SIZE);
 
-        r = connect(s->notify_fd, &sa.sa, salen);
+        r = connect(s->notify_fd, &sa.sa, sa_len);
         if (r < 0)
                 return log_error_errno(errno, "Failed to connect to notify socket: %m");
 
@@ -1936,6 +1990,8 @@ static int vl_method_flush_to_var(Varlink *link, JsonVariant *parameters, Varlin
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
+        if (s->namespace)
+                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
         log_info("Received client request to flush runtime journal.");
         server_full_flush(s);
@@ -1951,14 +2007,38 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
+        if (s->namespace)
+                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
-        log_info("Received client request to relinquish /var access.");
+        log_info("Received client request to relinquish %s access.", s->system_storage.path);
         server_relinquish_var(s);
 
         return varlink_reply(link, NULL);
 }
 
-static int server_open_varlink(Server *s) {
+static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
+        Server *s = userdata;
+
+        assert(server);
+        assert(link);
+        assert(s);
+
+        (void) server_start_or_stop_idle_timer(s); /* maybe we are no longer idle */
+
+        return 0;
+}
+
+static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) {
+        Server *s = userdata;
+
+        assert(server);
+        assert(link);
+        assert(s);
+
+        (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
+}
+
+static int server_open_varlink(Server *s, const char *socket, int fd) {
         int r;
 
         assert(s);
@@ -1978,7 +2058,18 @@ static int server_open_varlink(Server *s) {
         if (r < 0)
                 return r;
 
-        r = varlink_server_listen_address(s->varlink_server, "/run/systemd/journal/io.systemd.journal", 0600);
+        r = varlink_server_bind_connect(s->varlink_server, vl_connect);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_bind_disconnect(s->varlink_server, vl_disconnect);
+        if (r < 0)
+                return r;
+
+        if (fd < 0)
+                r = varlink_server_listen_address(s->varlink_server, socket, 0600);
+        else
+                r = varlink_server_listen_fd(s->varlink_server, fd);
         if (r < 0)
                 return r;
 
@@ -1989,9 +2080,117 @@ static int server_open_varlink(Server *s) {
         return 0;
 }
 
-int server_init(Server *s) {
+static bool server_is_idle(Server *s) {
+        assert(s);
+
+        /* The server for the main namespace is never idle */
+        if (!s->namespace)
+                return false;
+
+        /* If a retention maximum is set larger than the idle time we need to be running to enforce it, hence
+         * turn off the idle logic. */
+        if (s->max_retention_usec > IDLE_TIMEOUT_USEC)
+                return false;
+
+        /* We aren't idle if we have a varlink client */
+        if (varlink_server_current_connections(s->varlink_server) > 0)
+                return false;
+
+        /* If we have stdout streams we aren't idle */
+        if (s->n_stdout_streams > 0)
+                return false;
+
+        return true;
+}
+
+static int server_idle_handler(sd_event_source *source, uint64_t usec, void *userdata) {
+        Server *s = userdata;
+
+        assert(source);
+        assert(s);
+
+        log_debug("Server is idle, exiting.");
+        sd_event_exit(s->event, 0);
+        return 0;
+}
+
+int server_start_or_stop_idle_timer(Server *s) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        usec_t when;
+        int r;
+
+        assert(s);
+
+        if (!server_is_idle(s)) {
+                s->idle_event_source = sd_event_source_disable_unref(s->idle_event_source);
+                return 0;
+        }
+
+        if (s->idle_event_source)
+                return 1;
+
+        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine current time: %m");
+
+        r = sd_event_add_time(s->event, &source, CLOCK_MONOTONIC, usec_add(when, IDLE_TIMEOUT_USEC), 0, server_idle_handler, s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate idle timer: %m");
+
+        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set idle timer priority: %m");
+
+        (void) sd_event_source_set_description(source, "idle-timer");
+
+        s->idle_event_source = TAKE_PTR(source);
+        return 1;
+}
+
+int server_refresh_idle_timer(Server *s) {
+        usec_t when;
+        int r;
+
+        assert(s);
+
+        if (!s->idle_event_source)
+                return 0;
+
+        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine current time: %m");
+
+        r = sd_event_source_set_time(s->idle_event_source, usec_add(when, IDLE_TIMEOUT_USEC));
+        if (r < 0)
+                return log_error_errno(r, "Failed to refresh idle timer: %m");
+
+        return 1;
+}
+
+static int set_namespace(Server *s, const char *namespace) {
+        assert(s);
+
+        if (!namespace)
+                return 0;
+
+        if (!log_namespace_name_valid(namespace))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified namespace name not valid, refusing: %s", namespace);
+
+        s->namespace = strdup(namespace);
+        if (!s->namespace)
+                return log_oom();
+
+        s->namespace_field = strjoin("_NAMESPACE=", namespace);
+        if (!s->namespace_field)
+                return log_oom();
+
+        return 1;
+}
+
+int server_init(Server *s, const char *namespace) {
+        const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, fd;
+        int n, r, fd, varlink_fd = -1;
         bool no_sockets;
 
         assert(s);
@@ -2008,7 +2207,6 @@ int server_init(Server *s) {
                 .compress.enabled = true,
                 .compress.threshold_bytes = (uint64_t) -1,
                 .seal = true,
-                .read_kmsg = true,
 
                 .watchdog_usec = USEC_INFINITY,
 
@@ -2034,22 +2232,43 @@ int server_init(Server *s) {
                 .system_storage.name = "System Journal",
         };
 
+        r = set_namespace(s, namespace);
+        if (r < 0)
+                return r;
+
+        /* By default, only read from /dev/kmsg if are the main namespace */
+        s->read_kmsg = !s->namespace;
+        s->storage = s->namespace ? STORAGE_PERSISTENT : STORAGE_AUTO;
+
         journal_reset_metrics(&s->system_storage.metrics);
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        if (!s->namespace) {
+                /* Parse kernel command line, but only if we are not a namespace instance */
+                r = proc_cmdline_parse(parse_proc_cmdline_item, s, PROC_CMDLINE_STRIP_RD_PREFIX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
 
-        if (!!s->ratelimit_interval ^ !!s->ratelimit_burst) {
+        if (!!s->ratelimit_interval != !!s->ratelimit_burst) { /* One set to 0 and the other not? */
                 log_debug("Setting both rate limit interval and burst from "USEC_FMT",%u to 0,0",
                           s->ratelimit_interval, s->ratelimit_burst);
                 s->ratelimit_interval = s->ratelimit_burst = 0;
         }
 
-        (void) mkdir_p("/run/systemd/journal", 0755);
+        e = getenv("RUNTIME_DIRECTORY");
+        if (e)
+                s->runtime_directory = strdup(e);
+        else if (s->namespace)
+                s->runtime_directory = strjoin("/run/systemd/journal.", s->namespace);
+        else
+                s->runtime_directory = strdup("/run/systemd/journal");
+        if (!s->runtime_directory)
+                return log_oom();
+
+        (void) mkdir_p(s->runtime_directory, 0755);
 
         s->user_journals = ordered_hashmap_new(NULL);
         if (!s->user_journals)
@@ -2071,9 +2290,14 @@ int server_init(Server *s) {
         if (n < 0)
                 return log_error_errno(n, "Failed to read listening file descriptors from environment: %m");
 
+        native_socket = strjoina(s->runtime_directory, "/socket");
+        stdout_socket = strjoina(s->runtime_directory, "/stdout");
+        syslog_socket = strjoina(s->runtime_directory, "/dev-log");
+        varlink_socket = strjoina(s->runtime_directory, "/io.systemd.journal");
+
         for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
 
-                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/socket", 0) > 0) {
+                if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
 
                         if (s->native_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2081,7 +2305,7 @@ int server_init(Server *s) {
 
                         s->native_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, "/run/systemd/journal/stdout", 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, stdout_socket, 0) > 0) {
 
                         if (s->stdout_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2089,8 +2313,7 @@ int server_init(Server *s) {
 
                         s->stdout_fd = fd;
 
-                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/dev/log", 0) > 0 ||
-                           sd_is_socket_unix(fd, SOCK_DGRAM, -1, "/run/systemd/journal/dev-log", 0) > 0) {
+                } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, 0) > 0) {
 
                         if (s->syslog_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2098,6 +2321,13 @@ int server_init(Server *s) {
 
                         s->syslog_fd = fd;
 
+                } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, 0) > 0) {
+
+                        if (varlink_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many varlink sockets passed.");
+
+                        varlink_fd = fd;
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
 
                         if (s->audit_fd >= 0)
@@ -2128,22 +2358,22 @@ int server_init(Server *s) {
                 fds = fdset_free(fds);
         }
 
-        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0;
+        no_sockets = s->native_fd < 0 && s->stdout_fd < 0 && s->syslog_fd < 0 && s->audit_fd < 0 && varlink_fd < 0;
 
         /* always open stdout, syslog, native, and kmsg sockets */
 
         /* systemd-journald.socket: /run/systemd/journal/stdout */
-        r = server_open_stdout_socket(s);
+        r = server_open_stdout_socket(s, stdout_socket);
         if (r < 0)
                 return r;
 
         /* systemd-journald-dev-log.socket: /run/systemd/journal/dev-log */
-        r = server_open_syslog_socket(s);
+        r = server_open_syslog_socket(s, syslog_socket);
         if (r < 0)
                 return r;
 
         /* systemd-journald.socket: /run/systemd/journal/socket */
-        r = server_open_native_socket(s);
+        r = server_open_native_socket(s, native_socket);
         if (r < 0)
                 return r;
 
@@ -2159,7 +2389,7 @@ int server_init(Server *s) {
                         return r;
         }
 
-        r = server_open_varlink(s);
+        r = server_open_varlink(s, varlink_socket, varlink_fd);
         if (r < 0)
                 return r;
 
@@ -2177,26 +2407,43 @@ int server_init(Server *s) {
 
         s->ratelimit = journal_ratelimit_new();
         if (!s->ratelimit)
-                return -ENOMEM;
+                return log_oom();
 
         r = cg_get_root_path(&s->cgroup_root);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to acquire cgroup root path: %m");
 
         server_cache_hostname(s);
         server_cache_boot_id(s);
         server_cache_machine_id(s);
 
-        s->runtime_storage.path = path_join("/run/log/journal", SERVER_MACHINE_ID(s));
-        s->system_storage.path  = path_join("/var/log/journal", SERVER_MACHINE_ID(s));
-        if (!s->runtime_storage.path || !s->system_storage.path)
-                return -ENOMEM;
+        if (s->namespace)
+                s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
+        else
+                s->runtime_storage.path = strjoin("/run/log/journal/", SERVER_MACHINE_ID(s));
+        if (!s->runtime_storage.path)
+                return log_oom();
+
+        e = getenv("LOGS_DIRECTORY");
+        if (e)
+                s->system_storage.path = strdup(e);
+        else if (s->namespace)
+                s->system_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s), ".", s->namespace);
+        else
+                s->system_storage.path = strjoin("/var/log/journal/", SERVER_MACHINE_ID(s));
+        if (!s->system_storage.path)
+                return log_oom();
 
         (void) server_connect_notify(s);
 
         (void) client_context_acquire_default(s);
 
-        return system_journal_open(s, false, false);
+        r = system_journal_open(s, false, false);
+        if (r < 0)
+                return r;
+
+        server_start_or_stop_idle_timer(s);
+        return 0;
 }
 
 void server_maybe_append_tags(Server *s) {
@@ -2217,6 +2464,9 @@ void server_maybe_append_tags(Server *s) {
 
 void server_done(Server *s) {
         assert(s);
+
+        free(s->namespace);
+        free(s->namespace_field);
 
         set_free_with_destructor(s->deferred_closes, journal_file_close);
 
@@ -2246,6 +2496,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->hostname_event_source);
         sd_event_source_unref(s->notify_event_source);
         sd_event_source_unref(s->watchdog_event_source);
+        sd_event_source_unref(s->idle_event_source);
         sd_event_unref(s->event);
 
         safe_close(s->syslog_fd);
@@ -2268,6 +2519,7 @@ void server_done(Server *s) {
         free(s->hostname_field);
         free(s->runtime_storage.path);
         free(s->system_storage.path);
+        free(s->runtime_directory);
 
         mmap_cache_unref(s->mmap);
 }

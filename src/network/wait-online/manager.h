@@ -20,7 +20,7 @@ struct Manager {
         Hashmap *interfaces;
         char **ignore;
 
-        LinkOperationalState required_operstate;
+        LinkOperationalStateRange required_operstate;
         bool any;
 
         sd_netlink *rtnl;
@@ -34,7 +34,7 @@ struct Manager {
 
 void manager_free(Manager *m);
 int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
-                LinkOperationalState required_operstate,
+                LinkOperationalStateRange required_operstate,
                 bool any, usec_t timeout);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

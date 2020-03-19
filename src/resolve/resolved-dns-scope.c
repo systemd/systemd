@@ -863,7 +863,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
         if (r < 0) {
-                log_debug_errno(r, "Failed to lookup key: %m");
+                log_debug_errno(r, "Failed to look up key: %m");
                 return;
         }
         if (r == 0)

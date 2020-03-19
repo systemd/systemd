@@ -58,6 +58,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "numa-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -400,6 +401,12 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
+        if (arg_no_legend) {
+                /* Hide the 'glyph' column when --no-legend is requested */
+                r = table_hide_column_from_display(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hide column: %m");
+        }
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -461,12 +468,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         if (job_count == 0) {
                 /* There's no data in the JOB column, so let's hide it */
-                /* Also, convert all number constants to size_t so va_arg()
-                 * in table_set_display() fetches a correct number of bytes from
-                 * the stack */
-                r = table_set_display(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 6, (size_t) -1);
+                r = table_hide_column_from_display(table, 5);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set columns to display: %m");
+                        return log_error_errno(r, "Failed to hide column: %m");
         }
 
         r = table_print(table, NULL);
@@ -785,6 +789,8 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
+        strv_uniq(deps); /* Sometimes a unit might have multiple deps on the other unit,
+                          * but we still want to show it just once. */
         *ret = TAKE_PTR(deps);
 
         return 0;
@@ -991,7 +997,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
 
         if (!arg_show_types) {
                 /* Hide the second (TYPE) column */
-                r = table_set_display(table, 0, 2, 3, (size_t) -1);
+                r = table_set_display(table, (size_t) 0, (size_t) 2, (size_t) 3, (size_t) -1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set columns to display: %m");
         }
@@ -1786,30 +1792,39 @@ static int list_dependencies_one(
 }
 
 static int list_dependencies(int argc, char *argv[], void *userdata) {
-        _cleanup_strv_free_ char **units = NULL;
-        _cleanup_free_ char *unit = NULL;
-        const char *u;
+        _cleanup_strv_free_ char **units = NULL, **done = NULL;
+        char **u, **patterns;
         sd_bus *bus;
         int r;
-
-        if (argv[1]) {
-                r = unit_name_mangle(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &unit);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mangle unit name: %m");
-
-                u = unit;
-        } else
-                u = SPECIAL_DEFAULT_TARGET;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
 
+        patterns = strv_skip(argv, 1);
+        if (strv_isempty(patterns)) {
+                units = strv_new(SPECIAL_DEFAULT_TARGET);
+                if (!units)
+                        return log_oom();
+        } else {
+                r = expand_names(bus, patterns, NULL, &units, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to expand names: %m");
+        }
+
         (void) pager_open(arg_pager_flags);
 
-        puts(u);
+        STRV_FOREACH(u, units) {
+                if (u != units)
+                        puts("");
 
-        return list_dependencies_one(bus, u, 0, &units, 0);
+                puts(*u);
+                r = list_dependencies_one(bus, *u, 0, &done, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 struct machine_info {
@@ -1969,6 +1984,12 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
+        if (arg_no_legend) {
+                /* Hide the 'glyph' column when --no-legend is requested */
+                r = table_hide_column_from_display(table, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hide column: %m");
+        }
         if (arg_full)
                 table_set_width(table, 0);
 
@@ -2045,22 +2066,55 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         return rc;
 }
 
-static int get_default(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *_path = NULL;
-        const char *path;
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        char **ret = data;
+
+        if (streq(key, "systemd.unit")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+                if (!unit_name_is_valid(value, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+                        return log_warning("Unit name specified on %s= is not valid, ignoring: %s", key, value);
+
+                return free_and_strdup_warn(ret, key);
+
+        } else if (!value) {
+                if (runlevel_to_target(key))
+                        return free_and_strdup_warn(ret, key);
+        }
+
+        return 0;
+}
+
+static void emit_cmdline_warning(void) {
+        if (arg_quiet || arg_root)
+                /* don't bother checking the commandline if we're operating on a container */
+                return;
+
+        _cleanup_free_ char *override = NULL;
+        int r;
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, &override, 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        if (override)
+                log_notice("Note: found \"%s\" on the kernel commandline, which overrides the default unit.",
+                           override);
+}
+
+static int determine_default(char **ret_name) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_get_default(arg_scope, arg_root, &_path);
+                r = unit_file_get_default(arg_scope, arg_root, ret_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %m");
-                path = _path;
+                return 0;
 
-                r = 0;
         } else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus *bus;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                const char *name;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
@@ -2078,13 +2132,25 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
 
-                r = sd_bus_message_read(reply, "s", &path);
+                r = sd_bus_message_read(reply, "s", &name);
                 if (r < 0)
                         return bus_log_parse_error(r);
-        }
 
-        if (path)
-                printf("%s\n", path);
+                return free_and_strdup_warn(ret_name, name);
+        }
+}
+
+static int get_default(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        r = determine_default(&name);
+        if (r < 0)
+                return r;
+
+        printf("%s\n", name);
+
+        emit_cmdline_warning();
 
         return 0;
 }
@@ -2142,6 +2208,19 @@ static int set_default(int argc, char *argv[], void *userdata) {
                         r = daemon_reload(argc, argv, userdata);
                 else
                         r = 0;
+        }
+
+        emit_cmdline_warning();
+
+        if (!arg_quiet) {
+                _cleanup_free_ char *final = NULL;
+
+                r = determine_default(&final);
+                if (r < 0)
+                        return r;
+
+                if (!streq(final, unit))
+                        log_notice("Note: \"%s\" is the default unit (possibly a runtime override).", final);
         }
 
 finish:
@@ -4007,6 +4086,8 @@ typedef struct UnitStatusInfo {
 
         int exit_code, exit_status;
 
+        const char *log_namespace;
+
         usec_t condition_timestamp;
         bool condition_result;
         LIST_HEAD(UnitCondition, conditions);
@@ -4476,11 +4557,11 @@ static void print_status_info(
 
                         printf(" (");
                         if (i->memory_min > 0) {
-                                printf("%smin: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_min));
+                                printf("%smin: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_min));
                                 prefix = " ";
                         }
                         if (i->memory_low > 0) {
-                                printf("%slow: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_low));
+                                printf("%slow: %s", prefix, format_bytes_cgroup_protection(buf, sizeof(buf), i->memory_low));
                                 prefix = " ";
                         }
                         if (i->memory_high != CGROUP_LIMIT_MAX) {
@@ -4545,6 +4626,7 @@ static void print_status_info(
                 show_journal_by_unit(
                                 stdout,
                                 i->id,
+                                i->log_namespace,
                                 arg_output,
                                 0,
                                 i->inactive_exit_timestamp_monotonic,
@@ -5491,6 +5573,7 @@ static int show_one(
                 { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
                 { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                         },
                 { "ExecMainStatus",                 "i",               NULL,           offsetof(UnitStatusInfo, exit_status)                       },
+                { "LogNamespace",                   "s",               NULL,           offsetof(UnitStatusInfo, log_namespace)                     },
                 { "ConditionTimestamp",             "t",               NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
                 { "ConditionResult",                "b",               NULL,           offsetof(UnitStatusInfo, condition_result)                  },
                 { "Conditions",                     "a(sbbsi)",        map_conditions, 0                                                           },
@@ -6586,7 +6669,7 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 j = unit_file_exists(arg_scope, &paths, name);
                 if (j < 0 && !IN_SET(j, -ELOOP, -ERFKILL, -EADDRNOTAVAIL))
-                        return log_error_errno(j, "Failed to lookup unit file state: %m");
+                        return log_error_errno(j, "Failed to look up unit file state: %m");
                 found_native = j != 0;
 
                 /* If we have both a native unit and a SysV script, enable/disable them both (below); for is-enabled,
@@ -7811,9 +7894,9 @@ static int systemctl_help(void) {
                "  help PATTERN...|PID...              Show manual for one or more units\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
                "                                      units\n"
-               "  list-dependencies [UNIT]            Recursively show units which are required\n"
-               "                                      or wanted by this unit or by which this\n"
-               "                                      unit is required or wanted"
+               "  list-dependencies [UNIT...]         Recursively show units which are required\n"
+               "                                      or wanted by the units or by which those\n"
+               "                                      units are required or wanted"
                "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
@@ -9112,7 +9195,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "link",                  2,        VERB_ANY, 0,                enable_unit             },
                 { "revert",                2,        VERB_ANY, 0,                enable_unit             },
                 { "switch-root",           2,        VERB_ANY, VERB_ONLINE_ONLY, switch_root             },
-                { "list-dependencies",     VERB_ANY, 2,        VERB_ONLINE_ONLY, list_dependencies       },
+                { "list-dependencies",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_dependencies       },
                 { "set-default",           2,        2,        0,                set_default             },
                 { "get-default",           VERB_ANY, 1,        0,                get_default             },
                 { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, set_property            },
