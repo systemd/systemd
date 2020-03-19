@@ -325,6 +325,7 @@ manpages = [
    'sd_bus_reply_method_errnof',
    'sd_bus_reply_method_errorf'],
   ''],
+ ['sd_bus_reply_method_return', '3', [], ''],
  ['sd_bus_request_name',
   '3',
   ['sd_bus_release_name',
