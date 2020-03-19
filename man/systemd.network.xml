@@ -3253,6 +3253,17 @@
   </refsect1>
 
   <refsect1>
+    <title>[QuickFairQueueing] Section Options</title>
+    <para>The <literal>[QuickFairQueueing]</literal> section manages the queueing discipline
+    (qdisc) of Quick Fair Queueing (QFQ).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
       the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.

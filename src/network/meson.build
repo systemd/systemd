@@ -131,6 +131,8 @@ sources = files('''
         tc/pie.h
         tc/qdisc.c
         tc/qdisc.h
+        tc/qfq.c
+        tc/qfq.h
         tc/sfb.c
         tc/sfb.h
         tc/sfq.c

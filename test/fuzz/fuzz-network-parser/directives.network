@@ -411,6 +411,9 @@ PacketLimit=
 Parent=
 Handle=
 PacketLimit=
+[QuickFairQueueing]
+Parent=
+Handle=
 [DeficitRoundRobinScheduler]
 Parent=
 Handle=
