@@ -36,6 +36,7 @@
 #include "locale-util.h"
 #include "logs-show.h"
 #include "macro.h"
+#include "macvlan-util.h"
 #include "main-func.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -179,6 +180,9 @@ typedef struct LinkInfo {
         uint32_t updelay;
         uint32_t downdelay;
 
+        /* macvlan and macvtap info */
+        uint32_t macvlan_mode;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
@@ -313,7 +317,8 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         } else if (streq(received_kind, "vti6")) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_LOCAL, &info->local.in6);
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_REMOTE, &info->remote.in6);
-        }
+        } else if (STR_IN_SET(received_kind, "macvlan", "macvtap"))
+                (void) sd_netlink_message_read_u32(m, IFLA_MACVLAN_MODE, &info->macvlan_mode);
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1719,6 +1724,13 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        } else if (STRPTR_IN_SET(info->netdev_kind, "macvlan", "macvtap")) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Mode:",
+                                   TABLE_STRING, macvlan_mode_to_string(info->macvlan_mode));
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         if (info->has_wlan_link_info) {
