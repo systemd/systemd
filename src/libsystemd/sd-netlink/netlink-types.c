@@ -810,6 +810,11 @@ static const NLType rtnl_tca_option_data_pie_types[] = {
         [TCA_PIE_LIMIT]   = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_qfq_types[] = {
+        [TCA_QFQ_WEIGHT] = { .type = NETLINK_TYPE_U32 },
+        [TCA_QFQ_LMAX]   = { .type = NETLINK_TYPE_U32 },
+};
+
 static const NLType rtnl_tca_option_data_sfb_types[] = {
         [TCA_SFB_PARMS] = { .size = sizeof(struct tc_sfb_qopt) },
 };
@@ -834,6 +839,7 @@ static const char* const nl_union_tca_option_data_table[] = {
         [NL_UNION_TCA_OPTION_DATA_HHF] = "hhf",
         [NL_UNION_TCA_OPTION_DATA_HTB] = "htb",
         [NL_UNION_TCA_OPTION_DATA_PIE] = "pie",
+        [NL_UNION_TCA_OPTION_DATA_QFQ] = "qfq",
         [NL_UNION_TCA_OPTION_DATA_SFB] = "sfb",
         [NL_UNION_TCA_OPTION_DATA_TBF] = "tbf",
 };
@@ -859,6 +865,8 @@ static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
                                                    .types = rtnl_tca_option_data_htb_types },
         [NL_UNION_TCA_OPTION_DATA_PIE] =         { .count = ELEMENTSOF(rtnl_tca_option_data_pie_types),
                                                    .types = rtnl_tca_option_data_pie_types },
+        [NL_UNION_TCA_OPTION_DATA_QFQ] =         { .count = ELEMENTSOF(rtnl_tca_option_data_qfq_types),
+                                                   .types = rtnl_tca_option_data_qfq_types },
         [NL_UNION_TCA_OPTION_DATA_SFB] =         { .count = ELEMENTSOF(rtnl_tca_option_data_sfb_types),
                                                    .types = rtnl_tca_option_data_sfb_types },
         [NL_UNION_TCA_OPTION_DATA_TBF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_tbf_types),
