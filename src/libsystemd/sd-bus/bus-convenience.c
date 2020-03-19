@@ -296,7 +296,10 @@ _public_ int sd_bus_get_property(
                 goto fail;
         }
 
-        r = sd_bus_call_method(bus, destination, path, "org.freedesktop.DBus.Properties", "Get", error, &rep, "ss", strempty(interface), member);
+        r = sd_bus_call_method(bus, destination, path,
+                               "org.freedesktop.DBus.Properties", "Get",
+                               error, &rep,
+                               "ss", strempty(interface), member);
         if (r < 0)
                 return r;
 

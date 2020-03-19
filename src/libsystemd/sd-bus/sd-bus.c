@@ -504,7 +504,6 @@ static int synthesize_connected_signal(sd_bus *bus) {
 }
 
 void bus_set_state(sd_bus *bus, enum bus_state state) {
-
         static const char * const table[_BUS_STATE_MAX] = {
                 [BUS_UNSET] = "UNSET",
                 [BUS_WATCH_BIND] = "WATCH_BIND",
@@ -2287,7 +2286,6 @@ fail:
 }
 
 _public_ int sd_bus_get_fd(sd_bus *bus) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->input_fd == bus->output_fd, -EPERM);
@@ -4019,7 +4017,6 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
 }
 
 _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(address, -EINVAL);
