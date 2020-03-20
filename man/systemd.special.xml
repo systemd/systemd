@@ -1150,6 +1150,38 @@
             <filename>gnome-session.target</filename>.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><filename>wayland-session.target</filename></term>
+          <listitem>
+            <para>This target is like <filename>graphical-session.target</filename> but for Wayland
+            specific services.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>wayland-session-pre.target</filename></term>
+          <listitem>
+            <para>This target is like <filename>graphical-session-pre.target</filename> but for Wayland
+            specific services.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>x11-session.target</filename></term>
+          <listitem>
+            <para>This target is like <filename>graphical-session.target</filename> but for X11
+            specific services.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>x11-session-pre.target</filename></term>
+          <listitem>
+            <para>This target is like <filename>graphical-session-pre.target</filename> but for X11
+            specific services.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>

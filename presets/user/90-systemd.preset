@@ -19,3 +19,7 @@ enable systemd-tmpfiles-clean.timer
 
 disable graphical-session-pre.target
 disable graphical-session.target
+disable wayland-session-pre.target
+disable wayland-session.target
+disable x11-session-pre.target
+disable x11-session.target

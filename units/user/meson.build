@@ -18,6 +18,10 @@ units = [
         'systemd-tmpfiles-clean.timer',
         'systemd-tmpfiles-setup.service',
         'timers.target',
+        'wayland-session-pre.target',
+        'wayland-session.target',
+        'x11-session-pre.target',
+        'x11-session.target',
 ]
 
 foreach file : units
