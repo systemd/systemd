@@ -89,6 +89,7 @@ BASICTOOLS=(
     sleep
     socat
     stat
+    su
     sulogin
     sysctl
     tail
@@ -417,6 +418,8 @@ setup_basic_environment() {
     install_plymouth
     install_debug_tools
     install_ld_so_conf
+    install_testuser
+    has_user_dbus_socket && install_user_dbus
     setup_selinux
     strip_binaries
     install_depmod_files
@@ -825,6 +828,17 @@ install_ld_so_conf() {
     ldconfig -r "$initdir"
 }
 
+install_testuser() {
+    # create unprivileged user for user manager tests
+    mkdir -p $initdir/etc/sysusers.d
+    cat >$initdir/etc/sysusers.d/testuser.conf <<EOF
+u testuser    4711     "Test User" /home/testuser
+EOF
+
+    mkdir -p $initdir/home/testuser -m 0700
+    chown 4711:4711 $initdir/home/testuser
+}
+
 install_config_files() {
     inst /etc/sysconfig/init || :
     inst /etc/passwd
@@ -1032,19 +1046,6 @@ has_user_dbus_socket() {
         echo "Per-user instances are not supported. Skipping..."
         return 1
     fi
-}
-
-enable_user_manager() {
-    has_user_dbus_socket || return 0
-
-    local _userid
-    [[ $# -gt 0 ]] || set -- nobody
-    mkdir -p "$initdir/var/lib/systemd/linger"
-    for _userid; do
-        touch "$initdir/var/lib/systemd/linger/$_userid"
-    done
-    dracut_install su
-    install_user_dbus
 }
 
 setup_nspawn_root() {
