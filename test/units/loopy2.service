@@ -1,1 +1,2 @@
-loopy.service
+[Service]
+ExecStart=/bin/true
