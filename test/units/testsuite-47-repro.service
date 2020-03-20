@@ -1,0 +1,7 @@
+[Unit]
+Description=Issue 14566 Repro
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStopPost=/bin/true
+KillMode=mixed
