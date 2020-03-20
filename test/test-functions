@@ -1104,6 +1104,8 @@ setup_nspawn_root() {
         exit 1
     fi
 
+    rm -rf "$TESTDIR/unprivileged-nspawn-root"
+
     if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
         ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
         cp -ar $initdir $TESTDIR/unprivileged-nspawn-root
@@ -1936,6 +1938,12 @@ test_cleanup() {
     _test_cleanup
 }
 
+test_cleanup_again() {
+    [ -n "$TESTDIR" ] || return
+    rm -rf "$TESTDIR/unprivileged-nspawn-root"
+    umount_initdir
+}
+
 test_create_image() {
     create_empty_image_rootdir
 
@@ -2039,9 +2047,13 @@ do_test() {
                 test_setup
                 test_setup_cleanup
                 ;;
-            --clean|--clean-again)
+            --clean)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
+                ;;
+            --clean-again)
+                echo "TEST CLEANUP AGAIN: $TEST_DESCRIPTION"
+                test_cleanup_again
                 ;;
             --all)
                 ret=0

@@ -6,7 +6,7 @@ if [ $# -gt 0 ]; then
     args="$@"
     do_clean=0
 else
-    args="setup run"
+    args="setup run clean-again"
     do_clean=1
 fi
 
