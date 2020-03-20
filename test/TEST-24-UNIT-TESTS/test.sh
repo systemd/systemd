@@ -24,7 +24,7 @@ check_result_nspawn() {
     fi
     cp -a $1/var/log/journal $TESTDIR
     rm -r $1/var/log/journal/*
-    umount_initdir
+    _umount_dir $initdir
     [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
     return $_ret
 }
@@ -49,7 +49,7 @@ check_result_qemu() {
     fi
     cp -a $initdir/var/log/journal $TESTDIR
     rm -r $initdir/var/log/journal/*
-    umount_initdir
+    _umount_dir $initdir
     [[ -n "$TIMED_OUT" ]] && _ret=$(($_ret+1))
     return $_ret
 }

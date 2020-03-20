@@ -18,6 +18,7 @@ EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
 IMAGE_NAME=${IMAGE_NAME:-default}
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+LOOPDEV=
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
@@ -284,7 +285,7 @@ run_qemu() {
     find_qemu_bin || return 1
 
     # Umount initdir to avoid concurrent access to the filesystem
-    umount_initdir
+    _umount_dir $initdir
 
     local _cgroup_args
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
@@ -667,6 +668,15 @@ install_missing_libraries() {
     done
 }
 
+cleanup_loopdev() {
+    if [ -n "${LOOPDEV}" ]; then
+        ddebug "losetup -d $LOOPDEV"
+        losetup -d "${LOOPDEV}"
+    fi
+}
+
+trap cleanup_loopdev EXIT
+
 create_empty_image() {
     if [ -z "$IMAGE_NAME" ]; then
         echo "create_empty_image: \$IMAGE_NAME not set"
@@ -689,7 +699,6 @@ create_empty_image() {
 
     LOOPDEV=$(losetup --show -P -f "$public")
     [ -b "$LOOPDEV" ] || return 1
-    echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
     sfdisk "$LOOPDEV" <<EOF
 ,$((_size-50))M
 ,
@@ -700,7 +709,8 @@ EOF
     local _label="-L systemd.${name}"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
     [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd.${name}"
-    if ! mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; then
+    mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; ret=$?
+    if [ $ret -ne 0 ] ; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
     fi
@@ -711,22 +721,15 @@ mount_initdir() {
         image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
         LOOPDEV=$(losetup --show -P -f "$image")
         [ -b "$LOOPDEV" ] || return 1
-        echo "LOOPDEV=$LOOPDEV" >>$STATEFILE
+
+        udevadm settle
     fi
 
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
-    TEST_SETUP_CLEANUP_ROOTDIR=1
-}
-
-umount_initdir() {
-    _umount_dir $initdir
-    if [[ $LOOPDEV && -b $LOOPDEV ]]; then
-        ddebug "losetup -d $LOOPDEV"
-        losetup -d $LOOPDEV
+    if ! mountpoint -q $initdir; then
+        mkdir -p $initdir
+        mount ${LOOPDEV}p1 $initdir
+        TEST_SETUP_CLEANUP_ROOTDIR=1
     fi
-    LOOPDEV=
-    sed -i /LOOPDEV=/d $STATEFILE
 }
 
 cleanup_initdir() {
@@ -800,7 +803,7 @@ check_result_nspawn() {
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$1" || ret=$(($ret+1))
-    umount_initdir
+    _umount_dir $initdir
     return $ret
 }
 
@@ -813,7 +816,7 @@ check_result_qemu() {
     cp -a $initdir/var/log/journal $TESTDIR
     rm -r $initdir/var/log/journal/*
     check_asan_reports "$initdir" || ret=$(($ret+1))
-    umount $initdir
+    _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -1164,7 +1167,10 @@ inst_libs() {
 }
 
 import_testdir() {
+    # make sure we don't get a stale LOOPDEV value from old times
+    __LOOPDEV=$LOOPDEV
     [[ -e $STATEFILE ]] && . $STATEFILE
+    LOOPDEV=$__LOOPDEV
     if [[ ! -d "$TESTDIR" ]]; then
         if [[ -z "$TESTDIR" ]]; then
             TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
@@ -1174,7 +1180,6 @@ import_testdir() {
 
         cat >$STATEFILE<<EOF
 TESTDIR="$TESTDIR"
-LOOPDEV="$LOOPDEV"
 EOF
         export TESTDIR
     fi
@@ -1926,7 +1931,7 @@ _test_cleanup() {
     # (post-test) cleanup should always ignore failure and cleanup as much as possible
     (
         set +e
-        umount_initdir
+        _umount_dir $initdir
         rm -vf "${IMAGESTATEDIR}/${IMAGE_NAME}.img"
         rm -vfr "$TESTDIR"
         rm -vf "$STATEFILE"
@@ -1941,7 +1946,7 @@ test_cleanup() {
 test_cleanup_again() {
     [ -n "$TESTDIR" ] || return
     rm -rf "$TESTDIR/unprivileged-nspawn-root"
-    umount_initdir
+    _umount_dir $initdir
 }
 
 test_create_image() {

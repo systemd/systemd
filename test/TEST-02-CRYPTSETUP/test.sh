@@ -8,16 +8,15 @@ TEST_NO_NSPAWN=1
 
 check_result_qemu() {
     ret=1
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
+    mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $initdir/var
     cp -a $initdir/var/log/journal $TESTDIR
     rm -r $initdir/var/log/journal/*
-    umount $initdir/var
-    umount $initdir
+    _umount_dir $initdir/var
+    _umount_dir $initdir
     cryptsetup luksClose /dev/mapper/varcrypt
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
