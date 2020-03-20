@@ -1963,21 +1963,21 @@ test_run() {
 
     if [ -z "$TEST_NO_QEMU" ]; then
         if run_qemu "$1"; then
-            check_result_qemu || return 1
+            check_result_qemu || { echo "QEMU test failed"; return 1; }
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
         if run_nspawn "nspawn-root" "$1"; then
-            check_result_nspawn "nspawn-root" || return 1
+            check_result_nspawn "nspawn-root" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
         if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
             if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root" "$1"; then
-                check_result_nspawn "unprivileged-nspawn-root" || return 1
+                check_result_nspawn "unprivileged-nspawn-root" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
             fi
