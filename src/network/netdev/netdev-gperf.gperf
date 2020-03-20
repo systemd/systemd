@@ -206,6 +206,7 @@ Bridge.DefaultPVID,                       config_parse_default_port_vlanid,     
 Bridge.MulticastQuerier,                  config_parse_tristate,                     0,                             offsetof(Bridge, mcast_querier)
 Bridge.MulticastSnooping,                 config_parse_tristate,                     0,                             offsetof(Bridge, mcast_snooping)
 Bridge.VLANFiltering,                     config_parse_tristate,                     0,                             offsetof(Bridge, vlan_filtering)
+Bridge.VLANProtocol,                      config_parse_vlanprotocol,                 0,                             offsetof(Bridge, vlan_protocol)
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
 Bridge.MulticastIGMPVersion,              config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */

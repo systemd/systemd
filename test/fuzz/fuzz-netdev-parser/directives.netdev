@@ -45,6 +45,7 @@ AgeingTimeSec=
 Priority=
 GroupForwardMask=
 VLANFiltering=
+VLANProtocol=
 MulticastIGMPVersion=
 [VRF]
 TableId=

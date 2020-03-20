@@ -1185,3 +1185,35 @@ int config_parse_permille(const char* unit,
 
         return 0;
 }
+
+int config_parse_vlanprotocol(const char* unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
+        int *vlan_protocol = data;
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(rvalue)) {
+                *vlan_protocol = -1;
+                return 0;
+        }
+
+        if (STR_IN_SET(rvalue, "802.1ad", "802.1AD"))
+                *vlan_protocol = ETH_P_8021AD;
+        else if (STR_IN_SET(rvalue, "802.1q", "802.1Q"))
+                *vlan_protocol = ETH_P_8021Q;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse VLAN protocol value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}

@@ -409,6 +409,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>VLANProtocol=</varname></term>
+        <listitem>
+          <para>Allows setting the protocol used for VLAN filtering. Takes
+          <option>802.1q</option> or,
+          <option>802.1ad</option>, and defaults to unset and kernel's default is used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>STP=</varname></term>
         <listitem>
           <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).

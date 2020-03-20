@@ -142,6 +142,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
+CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
