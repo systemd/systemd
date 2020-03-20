@@ -2506,7 +2506,7 @@ if conf.get('ENABLE_BINFMT') == 1
 endif
 
 if conf.get('ENABLE_REPART') == 1
-        executable('systemd-repart',
+        exe = executable('systemd-repart',
                    systemd_repart_sources,
                    include_directories : includes,
                    link_with : [libshared],
@@ -2518,6 +2518,12 @@ if conf.get('ENABLE_REPART') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootbindir)
+
+        if want_tests != 'false'
+                test('test-repart',
+                     test_repart_sh,
+                     args : exe.full_path())
+        endif
 endif
 
 if conf.get('ENABLE_VCONSOLE') == 1

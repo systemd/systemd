@@ -61,6 +61,7 @@ BASICTOOLS=(
     false
     getent
     getfacl
+    grep
     gunzip
     gzip
     head
@@ -85,6 +86,7 @@ BASICTOOLS=(
     seq
     setfont
     setsid
+    sfdisk
     sh
     sleep
     socat
@@ -99,6 +101,7 @@ BASICTOOLS=(
     touch
     tr
     true
+    truncate
     umount
     uname
     unshare
