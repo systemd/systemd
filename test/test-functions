@@ -2039,7 +2039,7 @@ do_test() {
                 test_setup
                 test_setup_cleanup
                 ;;
-            --clean)
+            --clean|--clean-again)
                 echo "TEST CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
                 ;;
