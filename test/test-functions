@@ -776,6 +776,7 @@ check_result_nspawn() {
     [[ -e $TESTDIR/$1/testok ]] && ret=0
     [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
     cp -a $TESTDIR/$1/var/log/journal $TESTDIR
+    rm -r $TESTDIR/$1/var/log/journal/*
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -792,6 +793,7 @@ check_result_qemu() {
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cp -a $initdir/var/log/journal $TESTDIR
+    rm -r $initdir/var/log/journal/*
     check_asan_reports "$initdir" || ret=$(($ret+1))
     umount $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed

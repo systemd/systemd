@@ -15,6 +15,7 @@ check_result_qemu() {
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $initdir/var
     cp -a $initdir/var/log/journal $TESTDIR
+    rm -r $initdir/var/log/journal/*
     umount $initdir/var
     umount $initdir
     cryptsetup luksClose /dev/mapper/varcrypt
