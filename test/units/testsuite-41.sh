@@ -19,9 +19,9 @@ if [[ "$(systemctl show one.service -p NRestarts --value)" -le 0 ]]; then
   exit 1
 fi
 
-TMP_FILE="/test-41-oneshot-restart-test"
+TMP_FILE="/tmp/test-41-oneshot-restart-test"
 
-touch $TMP_FILE
+: >$TMP_FILE
 
 # test two: make sure StartLimitBurst correctly limits the number of restarts
 # and restarts execution of the unit from the first ExecStart=
