@@ -1989,6 +1989,9 @@ int cg_unified_cached(bool flush) {
                                 unified_cache = CGROUP_UNIFIED_NONE;
                         }
                 }
+        } else if (F_TYPE_EQUAL(fs.f_type, SYSFS_MAGIC)) {
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "No filesystem is currently mounted on /sys/fs/cgroup.");
         } else
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                        "Unknown filesystem type %llx mounted on /sys/fs/cgroup.",
