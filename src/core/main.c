@@ -150,6 +150,7 @@ static NUMAPolicy arg_numa_policy;
 static char **saved_env = NULL;
 
 static volatile sig_atomic_t waiting_for_signal_to_reexec = 0;
+static volatile sig_atomic_t jmp_buf_initialized = 0;
 static sigjmp_buf crash_wait_reexec_jmp_buf;
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
@@ -177,7 +178,7 @@ static int do_crash_wait_reexec(void) {
         waiting_for_signal_to_reexec = 0;
         while(1) {
                 usleep(10000);
-                if (waiting_for_signal_to_reexec) {
+                if (jmp_buf_initialized && waiting_for_signal_to_reexec) {
                         log_emergency("Jumping to manager_reexecute now...");
                         siglongjmp(crash_wait_reexec_jmp_buf, 1);
                 }
@@ -1799,6 +1800,7 @@ static int invoke_main_loop(
                 log_emergency("Will reexecute now...");
                 goto manager_reexecute;
         }
+        jmp_buf_initialized = 1;
 
         for (;;) {
                 r = manager_loop(m);
