@@ -207,7 +207,7 @@ static int swap_add_device_dependencies(Swap *s) {
                 return 0;
 
         p = swap_get_parameters(s);
-        if (!p)
+        if (!p || !p->what)
                 return 0;
 
         mask = s->from_proc_swaps ? UNIT_DEPENDENCY_PROC_SWAP : UNIT_DEPENDENCY_FILE;
