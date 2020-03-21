@@ -116,6 +116,7 @@ test_basic_dropins () {
 [Service]
 ExecCondition=/bin/echo %n
 EOF
+    systemctl daemon-reload
     check_ok test15-a ExecCondition "/bin/echo test15-a"
     check_ok test15-b ExecCondition "/bin/echo test15-b"
     rm -rf /usr/lib/systemd/system/service.d
@@ -138,6 +139,7 @@ test_hierarchical_dropins () {
 [Service]
 ExecCondition=/bin/echo $dropin
         " > /usr/lib/systemd/system/$dropin/override.conf
+        systemctl daemon-reload
         check_ok a-b-c ExecCondition "/bin/echo $dropin"
     done
     for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
