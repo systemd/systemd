@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <setjmp.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/reboot.h>
@@ -103,6 +104,7 @@ static bool arg_dump_core;
 static int arg_crash_chvt;
 static bool arg_crash_shell;
 static bool arg_crash_reboot;
+static bool arg_crash_wait_reexec;
 static char *arg_confirm_spawn;
 static ShowStatus arg_show_status;
 static StatusUnitFormat arg_status_unit_format;
@@ -147,8 +149,48 @@ static NUMAPolicy arg_numa_policy;
 /* A copy of the original environment block */
 static char **saved_env = NULL;
 
+static volatile sig_atomic_t waiting_for_signal_to_reexec = 0;
+static sigjmp_buf crash_wait_reexec_jmp_buf;
+
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                                const struct rlimit *saved_rlimit_memlock);
+
+static void reexec_handler(int sig) {
+        waiting_for_signal_to_reexec = 1;
+}
+
+static int do_crash_wait_reexec(void) {
+        struct sigaction sa = {
+                .sa_handler = reexec_handler,
+                .sa_flags = SA_RESTART,
+        };
+        sigset_t ss;
+        int r = 0;
+
+        sigemptyset(&ss);
+        sigaddset(&ss, SIGTERM);
+        sigprocmask(SIG_UNBLOCK, &ss, NULL);
+
+        sigaction(SIGTERM, &sa, NULL);
+
+        log_emergency("Fatal crash, PID1 halted. Send SIGTERM to PID1 to trigger reexecution.");
+        waiting_for_signal_to_reexec = 0;
+        while(1) {
+                usleep(10000);
+                if (waiting_for_signal_to_reexec) {
+                        log_emergency("Jumping to manager_reexecute now...");
+                        siglongjmp(crash_wait_reexec_jmp_buf, 1);
+                }
+                r = waitpid(-1, NULL, WNOHANG);
+                if (r < 0 && errno != EINTR) {
+                        log_emergency_errno(errno, "Failed to watipid: %m");
+                        log_emergency("Falling back to the traditional freeze_or_exit_or_reboot now...");
+                        break;
+                }
+        }
+
+        return r;
+}
 
 _noreturn_ static void freeze_or_exit_or_reboot(void) {
 
@@ -269,6 +311,9 @@ _noreturn_ static void crash(int sig) {
                 }
         }
 
+        if (arg_crash_wait_reexec)
+                do_crash_wait_reexec();
+
         freeze_or_exit_or_reboot();
 }
 
@@ -378,6 +423,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_warning_errno(r, "Failed to parse crash reboot switch %s, ignoring: %m", value);
                 else
                         arg_crash_reboot = r;
+
+        } else if (proc_cmdline_key_streq(key, "systemd.crash_wait_reexec")) {
+
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse crash_wait_reexec switch %s, ignoring: %m", value);
+                else
+                        arg_crash_wait_reexec = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.confirm_spawn")) {
                 char *s;
@@ -579,6 +632,7 @@ static int parse_config_file(void) {
                 { "Manager", "CrashChangeVT",                config_parse_crash_chvt,            0, &arg_crash_chvt                        },
                 { "Manager", "CrashShell",                   config_parse_bool,                  0, &arg_crash_shell                       },
                 { "Manager", "CrashReboot",                  config_parse_bool,                  0, &arg_crash_reboot                      },
+                { "Manager", "CrashWaitReexec",              config_parse_bool,                  0, &arg_crash_wait_reexec                 },
                 { "Manager", "ShowStatus",                   config_parse_show_status,           0, &arg_show_status                       },
                 { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0, &arg_status_unit_format                },
                 { "Manager", "CPUAffinity",                  config_parse_cpu_affinity2,         0, &arg_cpu_affinity                      },
@@ -733,6 +787,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CRASH_CHVT,
                 ARG_CRASH_SHELL,
                 ARG_CRASH_REBOOT,
+                ARG_CRASH_WAIT_REEXEC,
                 ARG_CONFIRM_SPAWN,
                 ARG_SHOW_STATUS,
                 ARG_DESERIALIZE,
@@ -761,6 +816,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
                 { "crash-reboot",             optional_argument, NULL, ARG_CRASH_REBOOT             },
+                { "crash-wait-reexec",        optional_argument, NULL, ARG_CRASH_WAIT_REEXEC        },
                 { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
                 { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
                 { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
@@ -915,6 +971,18 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
+                case ARG_CRASH_WAIT_REEXEC:
+                        if (!optarg)
+                                arg_crash_wait_reexec = true;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse crash-wait-reexec boolean: \"%s\": %m",
+                                                               optarg);
+                                arg_crash_wait_reexec = r;
+                        }
+                        break;
+
                 case ARG_CONFIRM_SPAWN:
                         arg_confirm_spawn = mfree(arg_confirm_spawn);
 
@@ -1036,6 +1104,7 @@ static int help(void) {
                "     --crash-vt=NR               Change to specified VT on crash\n"
                "     --crash-reboot[=BOOL]       Reboot on crash\n"
                "     --crash-shell[=BOOL]        Run shell on crash\n"
+               "     --crash-wait-reexec[=BOOL]  Wait for SIGTERM signal to trigger reexecution on crash.\n"
                "     --confirm-spawn[=BOOL]      Ask for confirmation when spawning processes\n"
                "     --show-status[=BOOL]        Show status updates on the console during bootup\n"
                "     --log-target=TARGET         Set log target (console, journal, kmsg, journal-or-kmsg, null)\n"
@@ -1726,6 +1795,11 @@ static int invoke_main_loop(
         assert(ret_switch_root_init);
         assert(ret_error_message);
 
+        if (sigsetjmp(crash_wait_reexec_jmp_buf, 1)) {
+                log_emergency("Will reexecute now...");
+                goto manager_reexecute;
+        }
+
         for (;;) {
                 r = manager_loop(m);
                 if (r < 0) {
@@ -1769,6 +1843,7 @@ static int invoke_main_loop(
                         break;
                 }
 
+manager_reexecute:
                 case MANAGER_REEXECUTE:
 
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
@@ -2140,6 +2215,7 @@ static void reset_arguments(void) {
         arg_crash_chvt = -1;
         arg_crash_shell = false;
         arg_crash_reboot = false;
+        arg_crash_wait_reexec = false;
         arg_confirm_spawn = mfree(arg_confirm_spawn);
         arg_show_status = _SHOW_STATUS_INVALID;
         arg_status_unit_format = STATUS_UNIT_FORMAT_DEFAULT;

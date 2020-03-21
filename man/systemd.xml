@@ -770,6 +770,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.crash_wait_reexec</varname></term>
+
+        <listitem><para>Takes a boolean argument or enables the option if specified
+        without an argument. If enabled, the system manager (PID 1) will halt when
+        it crashes, keep reaping zombie processes and waiting for the administrator
+        to send a TERM signal to trigger reexecution. Otherwise, the system will
+        reboot or hang depending on the configured value of <varname>
+        systemd.crash_reboot</varname>. Defaults to disabled.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.confirm_spawn</varname></term>
 
         <listitem><para>Takes a boolean argument or a path to the virtual console
@@ -1111,6 +1122,14 @@
 
           <listitem><para>Automatically reboot the system on crash. This switch has no effect when running as
           user instance. See <varname>systemd.crash_reboot</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--crash-wait-reexec</option></term>
+
+          <listitem><para>Waiting for the administrator to send a TERM signal to trigger reexecution on crash.
+          This switch has no effect when running as user instance. See <varname> systemd.crash_wait_reexec
+          </varname> above.</para></listitem>
         </varlistentry>
 
         <varlistentry>
