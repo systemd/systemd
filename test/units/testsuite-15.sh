@@ -7,6 +7,12 @@ _clear_service () {
     rm -f  /{etc,run,usr/lib}/systemd/system/$1.service
     rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.d
     rm -fr /{etc,run,usr/lib}/systemd/system/$1.service.{wants,requires}
+    if [[ $1 == *@ ]]; then
+        systemctl stop $1*.service 2>/dev/null || :
+        rm -f  /{etc,run,usr/lib}/systemd/system/$1*.service
+        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.d
+        rm -fr /{etc,run,usr/lib}/systemd/system/$1*.service.{wants,requires}
+    fi
 }
 
 clear_services () {
