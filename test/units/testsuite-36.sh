@@ -22,7 +22,7 @@ journalLog='journal.log'
 
 # Systemd config files
 testUnit='numa-test.service'
-testUnitFile="/etc/systemd/system/$testUnit"
+testUnitFile="/run/systemd/system/$testUnit"
 testUnitNUMAConf="$testUnitFile.d/numa.conf"
 
 # Sleep constants (we should probably figure out something better but nothing comes to mind)
@@ -70,9 +70,9 @@ writePID1NUMAPolicy() {
 }
 
 writeTestUnit() {
+    mkdir -p $testUnitFile.d/
     echo [Service] > $testUnitFile
     echo ExecStart=/bin/sleep 3600 >> $testUnitFile
-    mkdir -p $testUnitFile.d/
 }
 
 writeTestUnitNUMAPolicy() {
@@ -129,7 +129,7 @@ systemctlCheckNUMAProperties() {
 writeTestUnit
 
 # Create systemd config drop-in directory
-confDir="/etc/systemd/system.conf.d/"
+confDir="/run/systemd/system.conf.d/"
 mkdir -p "$confDir"
 
 if ! checkNUMA; then
