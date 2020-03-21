@@ -44,6 +44,13 @@ static void test_cg_split_spec(void) {
 
 static void test_cg_create(void) {
         log_info("/* %s */", __func__);
+        int r;
+
+        r = cg_unified_cached(false);
+        if (r < 0) {
+                log_info_errno(r, "Skipping %s: %m", __func__);
+                return;
+        }
 
         _cleanup_free_ char *here = NULL;
         assert_se(cg_pid_get_path_shifted(0, NULL, &here) >= 0);
@@ -53,7 +60,6 @@ static void test_cg_create(void) {
                    *test_c = prefix_roota(here, "/test-b/test-c"),
                    *test_d = prefix_roota(here, "/test-b/test-d");
         char *path;
-        int r;
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
