@@ -1175,7 +1175,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to deserialize SIP servers %s, ignoring: %m", sip);
                 else
-                        lease->ntp_size = r;
+                        lease->sip_size = r;
         }
 
         if (mtu) {
