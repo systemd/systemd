@@ -142,6 +142,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->sip);
         free(server->pop3_server);
         free(server->smtp_server);
+        free(server->log_servers);
 
         hashmap_free(server->leases_by_client_id);
 
@@ -529,6 +530,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_SMTP_SERVER,
                                 sizeof(struct in_addr) * server->n_smtp_server, server->smtp_server);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_log_servers > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_LOG_SERVER,
+                                sizeof(struct in_addr) * server->n_log_servers, server->log_servers);
                 if (r < 0)
                         return r;
         }
@@ -1246,6 +1256,31 @@ int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr 
 
                 free_and_replace(server->smtp_server, c);
                 server->n_smtp_server = n;
+        }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_log_servers(sd_dhcp_server *server, const struct in_addr log_servers[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(log_servers || n <= 0, -EINVAL);
+
+        if (server->n_log_servers == n &&
+            memcmp(server->log_servers, log_servers, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->log_servers = mfree(server->log_servers);
+                server->n_log_servers = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, log_servers, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free_and_replace(server->log_servers, c);
+                server->n_log_servers = n;
         }
 
         return 1;

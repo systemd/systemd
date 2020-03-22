@@ -47,6 +47,7 @@ int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_smtp_server(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_log_servers(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);
