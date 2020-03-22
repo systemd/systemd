@@ -591,6 +591,8 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .etc_hosts_mtime = USEC_INFINITY,
+                .etc_hosts_ino = 0,
+                .etc_hosts_dev = 0,
                 .read_etc_hosts = true,
         };
 
