@@ -165,7 +165,7 @@
         variable is set, and then derive the random seed to pass to the OS from the combination. If
         <literal>always</literal> the boot loader will do so even if <varname>LoaderSystemToken</varname> is
         not set. This mode is useful in environments where protection against OS image reuse is not a
-        concern, and the random seed shall be used even with no further setup in place. User <command>bootctl
+        concern, and the random seed shall be used even with no further setup in place. Use <command>bootctl
         random-seed</command> to initialize both the random seed file in the ESP and the system token EFI
         variable.</para>
 
