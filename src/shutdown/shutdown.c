@@ -547,6 +547,9 @@ int main(int argc, char *argv[]) {
                                 /* Child */
 
                                 execv(args[0], (char * const *) args);
+
+                                /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
+                                (void) reboot(cmd);
                                 _exit(EXIT_FAILURE);
                         }
 
