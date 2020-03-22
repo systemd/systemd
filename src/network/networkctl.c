@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <linux/if_bridge.h>
 #include <linux/if_tunnel.h>
 
 #include "sd-bus.h"
@@ -145,8 +146,10 @@ typedef struct LinkInfo {
         uint32_t max_age;
         uint32_t ageing_time;
         uint32_t stp_state;
+        uint32_t cost;
         uint16_t priority;
         uint8_t mcast_igmp_version;
+        uint8_t port_state;
 
         /* vxlan info */
         VxLanInfo vxlan_info;
@@ -235,8 +238,10 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_MAX_AGE, &info->max_age);
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_AGEING_TIME, &info->ageing_time);
                 (void) sd_netlink_message_read_u32(m, IFLA_BR_STP_STATE, &info->stp_state);
+                (void) sd_netlink_message_read_u32(m, IFLA_BRPORT_COST, &info->cost);
                 (void) sd_netlink_message_read_u16(m, IFLA_BR_PRIORITY, &info->priority);
                 (void) sd_netlink_message_read_u8(m, IFLA_BR_MCAST_IGMP_VERSION, &info->mcast_igmp_version);
+                (void) sd_netlink_message_read_u8(m, IFLA_BRPORT_STATE, &info->port_state);
         } if (streq(received_kind, "bond")) {
                 (void) sd_netlink_message_read_u8(m, IFLA_BOND_MODE, &info->mode);
                 (void) sd_netlink_message_read_u32(m, IFLA_BOND_MIIMON, &info->miimon);
@@ -1474,10 +1479,29 @@ static int link_status_one(
                                    TABLE_BOOLEAN, info->stp_state > 0,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Multicast IGMP Version:",
-                                   TABLE_UINT8, info->mcast_igmp_version);
+                                   TABLE_UINT8, info->mcast_igmp_version,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Cost:",
+                                   TABLE_UINT32, info->cost);
                 if (r < 0)
                         return table_log_add_error(r);
 
+                if (info->port_state <= BR_STATE_BLOCKING) {
+                        static const struct {
+                                const char *state;
+                        } state_table[] = {
+                                { "disabled" },
+                                { "listening" },
+                                { "learning" },
+                                { "forwarding" },
+                                { "blocking" },
+                        };
+
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Port State:",
+                                           TABLE_STRING, state_table[info->port_state]);
+                }
         } else if (streq_ptr(info->netdev_kind, "bond")) {
                 static const struct {
                         const char *mode;
