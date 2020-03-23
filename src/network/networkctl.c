@@ -115,6 +115,14 @@ typedef struct VxLanInfo {
 
         uint16_t dest_port;
 
+        uint8_t proxy;
+        uint8_t learning;
+        uint8_t inerit;
+        uint8_t rsc;
+        uint8_t l2miss;
+        uint8_t l3miss;
+        uint8_t tos;
+        uint8_t ttl;
 } VxLanInfo;
 
 typedef struct LinkInfo {
@@ -282,6 +290,13 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
 
                 (void) sd_netlink_message_read_u32(m, IFLA_VXLAN_LINK, &info->vxlan_info.link);
                 (void) sd_netlink_message_read_u16(m, IFLA_VXLAN_PORT, &info->vxlan_info.dest_port);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_PROXY, &info->vxlan_info.proxy);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_LEARNING, &info->vxlan_info.learning);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_RSC, &info->vxlan_info.rsc);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_L3MISS, &info->vxlan_info.l3miss);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_L2MISS, &info->vxlan_info.l2miss);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TOS, &info->vxlan_info.tos);
+                (void) sd_netlink_message_read_u8(m, IFLA_VXLAN_TTL, &info->vxlan_info.ttl);
         } else if (streq(received_kind, "vlan"))
                 (void) sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &info->vlan_id);
         else if (STR_IN_SET(received_kind, "ipip", "sit")) {
@@ -1545,6 +1560,8 @@ static int link_status_one(
                         return table_log_add_error(r);
 
         } else if (streq_ptr(info->netdev_kind, "vxlan")) {
+                char ttl[CONST_MAX(STRLEN("auto") + 1, DECIMAL_STR_MAX(uint8_t))];
+
                 if (info->vxlan_info.vni > 0) {
                         r = table_add_many(table,
                                            TABLE_EMPTY,
@@ -1599,6 +1616,55 @@ static int link_status_one(
                         if (r < 0)
                                  return table_log_add_error(r);
                 }
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Learning:",
+                                   TABLE_BOOLEAN, info->vxlan_info.learning);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "RSC:",
+                                   TABLE_BOOLEAN, info->vxlan_info.rsc);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "L3MISS:",
+                                   TABLE_BOOLEAN, info->vxlan_info.l3miss);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "L2MISS:",
+                                   TABLE_BOOLEAN, info->vxlan_info.l2miss);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (info->vxlan_info.tos > 1) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "TOS:",
+                                           TABLE_UINT8, info->vxlan_info.tos);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                if (info->vxlan_info.ttl > 0)
+                        xsprintf(ttl, "%" PRIu8, info->vxlan_info.ttl);
+                else
+                        strcpy(ttl, "auto");
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "TTL:",
+                                   TABLE_STRING, ttl);
+                if (r < 0)
+                        return table_log_add_error(r);
         } else if (streq_ptr(info->netdev_kind, "vlan") && info->vlan_id > 0) {
                 r = table_add_many(table,
                                    TABLE_EMPTY,
