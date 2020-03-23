@@ -140,6 +140,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->dns);
         free(server->ntp);
         free(server->sip);
+        free(server->pop3_server);
 
         hashmap_free(server->leases_by_client_id);
 
@@ -509,6 +510,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_SIP_SERVER,
                                 sizeof(struct in_addr) * server->n_sip, server->sip);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_pop3_server > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_POP3_SERVER,
+                                sizeof(struct in_addr) * server->n_pop3_server, server->pop3_server);
                 if (r < 0)
                         return r;
         }
@@ -1176,6 +1186,31 @@ int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], u
                 free(server->sip);
                 server->sip = c;
                 server->n_sip = n;
+        }
+
+        return 1;
+}
+
+int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr pop3_server[], unsigned n) {
+        assert_return(server, -EINVAL);
+        assert_return(pop3_server || n <= 0, -EINVAL);
+
+        if (server->n_pop3_server == n &&
+            memcmp(server->pop3_server, pop3_server, sizeof(struct in_addr) * n) == 0)
+                return 0;
+
+        if (n <= 0) {
+                server->pop3_server = mfree(server->pop3_server);
+                server->n_pop3_server = 0;
+        } else {
+                struct in_addr *c;
+
+                c = newdup(struct in_addr, pop3_server, n);
+                if (!c)
+                        return -ENOMEM;
+
+                free_and_replace(server->pop3_server, c);
+                server->n_pop3_server = n;
         }
 
         return 1;

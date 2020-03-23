@@ -83,6 +83,7 @@ enum {
         SD_DHCP_OPTION_REBINDING_T2_TIME           = 59,
         SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
         SD_DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        SD_DHCP_OPTION_POP3_SERVER                 = 70,
         SD_DHCP_OPTION_USER_CLASS                  = 77,
         SD_DHCP_OPTION_FQDN                        = 81,
         SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
