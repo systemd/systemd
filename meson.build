@@ -285,6 +285,8 @@ conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 conf.set_quoted('STATUS_UNIT_FORMAT_DEFAULT_STR',             status_unit_format_default)
 
+conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
+
 #####################################################################
 
 cc = meson.get_compiler('c')
@@ -4271,6 +4273,7 @@ foreach tuple : [
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
         ['link-boot-shared',      get_option('link-boot-shared')],
+        ['first-boot-full-preset'],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
         ['coverage',              get_option('b_coverage')],
