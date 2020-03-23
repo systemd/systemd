@@ -1,0 +1,182 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_path_lookup" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_path_lookup</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_path_lookup</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_path_lookup</refname>
+    <refname>sd_path_lookup_strv</refname>
+
+    <refpurpose>Query well-known file system paths</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-path.h&gt;</funcsynopsisinfo>
+
+      <!-- note: individual constants are not added as <refname>s, there's just too many -->
+
+      <funcsynopsisinfo><token>enum</token> {
+        <constant>SD_PATH_TEMPORARY</constant>,
+        <constant>SD_PATH_TEMPORARY_LARGE</constant>,
+
+        <constant>SD_PATH_SYSTEM_BINARIES</constant>,
+        <constant>SD_PATH_SYSTEM_INCLUDE</constant>,
+        <constant>SD_PATH_SYSTEM_LIBRARY_PRIVATE</constant>,
+        <constant>SD_PATH_SYSTEM_LIBRARY_ARCH</constant>,
+        <constant>SD_PATH_SYSTEM_SHARED</constant>,
+        <constant>SD_PATH_SYSTEM_CONFIGURATION_FACTORY</constant>,
+        <constant>SD_PATH_SYSTEM_STATE_FACTORY</constant>,
+
+        <constant>SD_PATH_SYSTEM_CONFIGURATION</constant>,
+        <constant>SD_PATH_SYSTEM_RUNTIME</constant>,
+        <constant>SD_PATH_SYSTEM_RUNTIME_LOGS</constant>,
+        <constant>SD_PATH_SYSTEM_STATE_PRIVATE</constant>,
+        <constant>SD_PATH_SYSTEM_STATE_LOGS</constant>,
+        <constant>SD_PATH_SYSTEM_STATE_CACHE</constant>,
+        <constant>SD_PATH_SYSTEM_STATE_SPOOL</constant>,
+
+        <constant>SD_PATH_USER_BINARIES</constant>,
+        <constant>SD_PATH_USER_LIBRARY_PRIVATE</constant>,
+        <constant>SD_PATH_USER_LIBRARY_ARCH</constant>,
+        <constant>SD_PATH_USER_SHARED</constant>,
+
+        <constant>SD_PATH_USER_CONFIGURATION</constant>,
+        <constant>SD_PATH_USER_RUNTIME</constant>,
+        <constant>SD_PATH_USER_STATE_CACHE</constant>,
+
+        <constant>SD_PATH_USER</constant>,
+        <constant>SD_PATH_USER_DOCUMENTS</constant>,
+        <constant>SD_PATH_USER_MUSIC</constant>,
+        <constant>SD_PATH_USER_PICTURES</constant>,
+        <constant>SD_PATH_USER_VIDEOS</constant>,
+        <constant>SD_PATH_USER_DOWNLOAD</constant>,
+        <constant>SD_PATH_USER_PUBLIC</constant>,
+        <constant>SD_PATH_USER_TEMPLATES</constant>,
+        <constant>SD_PATH_USER_DESKTOP</constant>,
+
+        <constant>SD_PATH_SEARCH_BINARIES</constant>,
+        <constant>SD_PATH_SEARCH_BINARIES_DEFAULT</constant>,
+        <constant>SD_PATH_SEARCH_LIBRARY_PRIVATE</constant>,
+        <constant>SD_PATH_SEARCH_LIBRARY_ARCH</constant>,
+        <constant>SD_PATH_SEARCH_SHARED</constant>,
+        <constant>SD_PATH_SEARCH_CONFIGURATION_FACTORY</constant>,
+        <constant>SD_PATH_SEARCH_STATE_FACTORY</constant>,
+        <constant>SD_PATH_SEARCH_CONFIGURATION</constant>,
+};</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_path_lookup</function></funcdef>
+        <paramdef>uint64_t <parameter>type</parameter></paramdef>
+        <paramdef>const char *<parameter>suffix</parameter></paramdef>
+        <paramdef>char **<parameter>paths</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_path_lookup_strv</function></funcdef>
+        <paramdef>uint64_t <parameter>type</parameter></paramdef>
+        <paramdef>const char *<parameter>suffix</parameter></paramdef>
+        <paramdef>char ***<parameter>paths</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_path_lookup()</function> and <function>sd_bus_path_lookup_strv()</function> return a
+    single path or set of file system paths specified by the argument <parameter>type</parameter>. In case of
+    <function>sd_path_lookup()</function> a single <constant>NUL</constant>-terminated string is returned.
+    When <parameter>type</parameter> specifies a set of paths, they are concatenated using
+    <literal>:</literal> as a separator (as is traditionally done for e.g. <varname>$PATH</varname> or
+    <varname>$LD_LIBRARY_PATH</varname>). In case of <function>sd_path_lookup_strv()</function> a
+    <constant>NULL</constant>-terminated array of strings is returned (strv). If suffix
+    <parameter>suffix</parameter> is given, it is concatenated to each of the paths after a slash
+    (<literal>/</literal>). All returned paths are absolute.</para>
+
+    <para>For paths which refer to user directories, the relevant XDG standard is followed, with support for
+    environment variables like <varname>$XDG_DOCUMENTS_DIR</varname>, <varname>$XDG_DESKTOP_DIR</varname>,
+    ..., and explicit configuration in <filename>/etc/xdg/user-dirs.conf</filename> or
+    <filename>${XDG_CONFIG_HOME}/user-dirs.dirs</filename>. See
+    <ulink url="https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html">
+      XDG Base Directory Specification</ulink> for details.</para>
+
+    <para><citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
+    a wrapper around <function>sd_path_lookup()</function> and allows the same set of paths to be queried.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_path_lookup()</function> and <function>sd_path_lookup_strv()</function>
+    return a non-negative integer. On failure, a negative errno-style error number is returned by either
+    function.</para>
+
+    <para>The returned string or string array (strv) must be
+    <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>'d by the
+    caller.</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
+
+          <listitem><para>Unknown identifier <parameter>type</parameter>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>Output argument is <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <refsect2>
+      <title>Look up the location of ~/Documents</title>
+
+      <programlisting><xi:include href="path-documents.c" parse="text" /></programlisting>
+      <para>Note that the default answer of <filename index='false'>$HOME/Documents</filename> may be
+      overridden by <filename index='false'>user-dirs.conf</filename> or
+      <varname>$XDG_DOCUMENTS_DIR</varname>.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd-path</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
