@@ -697,3 +697,9 @@ global:
         sd_event_source_send_child_signal;
         sd_journal_open_namespace;
 } LIBSYSTEMD_243;
+
+LIBSYSTEMD_246 {
+global:
+        sd_path_lookup;
+        sd_path_lookup_strv;
+} LIBSYSTEMD_245;
