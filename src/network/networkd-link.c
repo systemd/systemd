@@ -3487,6 +3487,10 @@ network_file_fail:
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to create DHCPv4 client: %m");
 
+                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to attach DHCPv4 event: %m");
+
                 r = sd_dhcp_client_set_request_address(link->dhcp_client, &address.in);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set initial DHCPv4 address %s: %m", dhcp4_address);
@@ -3504,6 +3508,10 @@ dhcp4_address_fail:
                 r = sd_ipv4ll_new(&link->ipv4ll);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to create IPv4LL client: %m");
+
+                r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to attach IPv4LL event: %m");
 
                 r = sd_ipv4ll_set_address(link->ipv4ll, &address.in);
                 if (r < 0)
