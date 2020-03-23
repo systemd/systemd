@@ -2565,7 +2565,7 @@ int main(int argc, char *argv[]) {
                 if (!skip_setup)
                         kmod_setup();
 
-                r = mount_setup(loaded_policy);
+                r = mount_setup(loaded_policy, skip_setup);
                 if (r < 0) {
                         error_message = "Failed to mount API filesystems";
                         goto finish;

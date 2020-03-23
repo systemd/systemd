@@ -478,7 +478,7 @@ static int relabel_extra(void) {
 }
 #endif
 
-int mount_setup(bool loaded_policy) {
+int mount_setup(bool loaded_policy, bool leave_propagation) {
         int r = 0;
 
         r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
@@ -524,7 +524,7 @@ int mount_setup(bool loaded_policy) {
          * needed. Note that we set this only when we are invoked directly by the kernel. If we are invoked by a
          * container manager we assume the container manager knows what it is doing (for example, because it set up
          * some directories with different propagation modes). */
-        if (detect_container() <= 0)
+        if (detect_container() <= 0 && !leave_propagation)
                 if (mount(NULL, "/", NULL, MS_REC|MS_SHARED, NULL) < 0)
                         log_warning_errno(errno, "Failed to set up the root directory for shared mount propagation: %m");
 
