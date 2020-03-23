@@ -4106,10 +4106,25 @@ int link_save(Link *link) {
                 space = false;
                 fputstrv(f, link->network->pop3, NULL, &space);
 
+                fputc('\n', f);
+
+                fputs("SMTP_SERVERS=", f);
+                space = false;
+                fputstrv(f, link->network->smtp, NULL, &space);
+
                 if (link->dhcp_lease) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_pop3_server(link->dhcp_lease, &addresses);
+                        if (r > 0)
+                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
+                                        space = true;
+                }
+
+                if (link->dhcp_lease) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_smtp_server(link->dhcp_lease, &addresses);
                         if (r > 0)
                                 if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
                                         space = true;

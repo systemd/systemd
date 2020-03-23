@@ -269,6 +269,7 @@ NTP=
 EmitSIP=
 SIP=
 POP3Servers=
+SMTPServers=
 EmitRouter=
 MaxLeaseTimeSec=
 DefaultLeaseTimeSec=
