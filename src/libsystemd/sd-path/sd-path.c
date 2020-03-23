@@ -323,7 +323,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         return -EOPNOTSUPP;
 }
 
-_public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
+_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
         _cleanup_free_ char *buffer = NULL;
         const char *ret;
         char *cc;
@@ -343,7 +343,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
 
                 _cleanup_strv_free_ char **l = NULL;
 
-                r = sd_path_search(type, suffix, &l);
+                r = sd_path_lookup_strv(type, suffix, &l);
                 if (r < 0)
                         return r;
 
@@ -550,7 +550,7 @@ static int get_search(uint64_t type, char ***list) {
         return -EOPNOTSUPP;
 }
 
-_public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
+_public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths) {
         char **i, **j;
         _cleanup_strv_free_ char **l = NULL, **n = NULL;
         int r;
@@ -569,7 +569,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
 
                 char *p;
 
-                r = sd_path_home(type, suffix, &p);
+                r = sd_path_lookup(type, suffix, &p);
                 if (r < 0)
                         return r;
 

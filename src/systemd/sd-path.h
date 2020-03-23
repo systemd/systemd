@@ -81,8 +81,8 @@ enum {
         _SD_PATH_MAX,
 };
 
-int sd_path_home(uint64_t type, const char *suffix, char **path);
-int sd_path_search(uint64_t type, const char *suffix, char ***paths);
+int sd_path_lookup(uint64_t type, const char *suffix, char **path);
+int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths);
 
 _SD_END_DECLARATIONS;
 

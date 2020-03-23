@@ -68,7 +68,7 @@ static int list_homes(void) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
-                q = sd_path_home(i, arg_suffix, &p);
+                q = sd_path_lookup(i, arg_suffix, &p);
                 if (q == -ENXIO)
                         continue;
                 if (q < 0) {
@@ -91,7 +91,7 @@ static int print_home(const char *n) {
                 if (streq(path_table[i], n)) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = sd_path_home(i, arg_suffix, &p);
+                        r = sd_path_lookup(i, arg_suffix, &p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query %s: %m", n);
 
