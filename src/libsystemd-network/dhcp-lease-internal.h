@@ -64,6 +64,9 @@ struct sd_dhcp_lease {
         struct in_addr *pop3_server;
         size_t pop3_server_size;
 
+        struct in_addr *smtp_server;
+        size_t smtp_server_size;
+
         struct sd_dhcp_route *static_route;
         size_t static_route_size, static_route_allocated;
 
