@@ -3,6 +3,7 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "cgroup-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "oomd-util.h"

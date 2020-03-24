@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 systemd_oomd_sources = files('''
+        oomd-manager.c
+        oomd-manager.h
         oomd-util.c
         oomd-util.h
+        oomd.c
 '''.split())
 
 if conf.get('ENABLE_OOMD') == 1
@@ -13,4 +16,7 @@ if conf.get('ENABLE_OOMD') == 1
                  [],
                  []]
         ]
+
+        install_data('oomd.conf',
+                     install_dir : pkgsysconfdir)
 endif

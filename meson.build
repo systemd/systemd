@@ -2662,6 +2662,17 @@ if conf.get('ENABLE_PSTORE') == 1
                 install_dir : rootlibexecdir)
 endif
 
+if conf.get('ENABLE_OOMD') == 1
+        executable('systemd-oomd',
+                   systemd_oomd_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+endif
+
 if conf.get('ENABLE_BINFMT') == 1
         public_programs += executable(
                 'systemd-binfmt',
