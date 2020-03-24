@@ -49,7 +49,6 @@ typedef enum ManagerObjective {
         MANAGER_HALT,
         MANAGER_KEXEC,
         MANAGER_SWITCH_ROOT,
-        MANAGER_SHUTDOWN,
         _MANAGER_OBJECTIVE_MAX,
         _MANAGER_OBJECTIVE_INVALID = -1
 } ManagerObjective;

@@ -1342,7 +1342,7 @@ Manager* manager_free(Manager *m) {
                         unit_vtable[c]->shutdown(m);
 
         /* Keep the cgroup hierarchy in place except when we know we are going down for good */
-        manager_shutdown_cgroup(m, IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC, MANAGER_SHUTDOWN));
+        manager_shutdown_cgroup(m, IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
 
         lookup_paths_flush_generator(&m->lookup_paths);
 
@@ -1781,14 +1781,6 @@ int manager_add_job(
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
                 goto tr_abort;
-
-        if ( (streq(unit->id, SPECIAL_REBOOT_TARGET) ||
-              streq(unit->id, SPECIAL_POWEROFF_TARGET) ||
-              streq(unit->id, SPECIAL_HALT_TARGET)) && (type == JOB_START) ) {
-                m->objective = MANAGER_SHUTDOWN;
-                log_info( "Added %s/%s to the job queue mobj= %d", unit->id,
-                          job_type_to_string(type),m->objective);
-        }
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
@@ -2896,7 +2888,7 @@ int manager_loop(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
-        while ((m->objective == MANAGER_OK) || (m->objective == MANAGER_SHUTDOWN)) {
+        while (m->objective == MANAGER_OK) {
                 usec_t wait_usec;
 
                 if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m))
@@ -4253,24 +4245,20 @@ ManagerState manager_state(Manager *m) {
 
         assert(m);
 
-        /* Did we ever finish booting? If not then we are still starting up */
-        if (!MANAGER_IS_FINISHED(m)) {
-                if (m->objective!=MANAGER_SHUTDOWN) {
-                        u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
-                        if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                                return MANAGER_INITIALIZING;
-                } else if (m->objective == MANAGER_SHUTDOWN) {
-                        log_info("MANAGER STATE STOPPING mobj= %d",m->objective);
-                        return MANAGER_STOPPING;
-                } else {
-                        return MANAGER_STARTING;
-                }
-        }
-
         /* Is the special shutdown target active or queued? If so, we are in shutdown state */
         u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if ((u && unit_active_or_pending(u)) || (m->objective == MANAGER_SHUTDOWN))
+        if (u && unit_active_or_pending(u))
                 return MANAGER_STOPPING;
+
+        /* Did we ever finish booting? If not then we are still starting up */
+        if (!MANAGER_IS_FINISHED(m)) {
+
+                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+                if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                        return MANAGER_INITIALIZING;
+
+                return MANAGER_STARTING;
+        }
 
         if (MANAGER_IS_SYSTEM(m)) {
                 /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */

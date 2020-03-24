@@ -1,15 +1,11 @@
 [Unit]
-Description=Test service to test systemd issues
+Description=Honor First Shutdown feature
 After=multi-user.target
 
 [Service]
-ExecStart=/home/test.sh
-ExecStop=/usr/bin/pkill -9 test.sh
+ExecStart=/home/test-honor-first-shutdown.sh
+ExecStop=pkill -9 test.sh
 FailureAction=reboot
-#Restart=always
-#RestartSec=0
-#StartLimitInterval=1
-#StartLimitBurst=3
 
 [Install]
 WantedBy=multi-user.target

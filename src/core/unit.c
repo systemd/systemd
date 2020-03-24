@@ -2600,12 +2600,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 unit_check_binds_to(u);
 
                 if (os != UNIT_FAILED && ns == UNIT_FAILED) {
-                        if (m->objective != MANAGER_SHUTDOWN) {
                                 reason = strjoina("unit ", u->id, " failed");
                                 emergency_action(m, u->failure_action, 0, u->reboot_arg, unit_failure_action_exit_status(u), reason);
-                        } else {
-                                log_info( "Tried to add Failure Action reboot job - Shutdown active" );
-                        }
                 } else if (!UNIT_IS_INACTIVE_OR_FAILED(os) && ns == UNIT_INACTIVE) {
                         reason = strjoina("unit ", u->id, " succeeded");
                         emergency_action(m, u->success_action, 0, u->reboot_arg, unit_success_action_exit_status(u), reason);
