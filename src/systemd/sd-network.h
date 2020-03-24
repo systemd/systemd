@@ -118,6 +118,10 @@ int sd_network_link_get_dhcp4_address(int ifindex, char **ret);
  * representations of IP addresses */
 int sd_network_link_get_ntp(int ifindex, char ***ret);
 
+/* Get SIP entries for a given link. These are string
+ * representations of IP addresses */
+int sd_network_link_get_sip(int ifindex, char ***ret);
+
 /* Indicates whether or not LLMNR should be enabled for the link
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
