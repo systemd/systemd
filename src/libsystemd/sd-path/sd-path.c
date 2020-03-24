@@ -333,7 +333,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_UNIT_DIR:
-                *ret = USER_DATA_UNIT_PATH;
+                *ret = USER_DATA_UNIT_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_PRESET_DIR:
@@ -341,19 +341,19 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_CONF_DIR:
-                *ret = SYSTEM_CONFIG_UNIT_PATH; // FIXME: _DIR vs. _PATH
+                *ret = SYSTEM_CONFIG_UNIT_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_CONF_DIR:
-                *ret = USER_CONFIG_UNIT_PATH; // FIXME: _DIR vs. _PATH
+                *ret = USER_CONFIG_UNIT_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR:
-                *ret = SYSTEM_GENERATOR_PATH; // FIXME: _DIR vs. _PATH
+                *ret = SYSTEM_GENERATOR_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_GENERATOR_DIR:
-                *ret = USER_GENERATOR_PATH; // FIXME: _DIR vs. _PATH
+                *ret = USER_GENERATOR_DIR;
                 return 0;
 
         case SD_PATH_SYSTEMD_SLEEP_DIR:
