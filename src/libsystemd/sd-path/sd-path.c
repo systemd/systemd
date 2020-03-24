@@ -323,59 +323,55 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         return -EOPNOTSUPP;
 }
 
-_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
+static int get_path_alloc(uint64_t type, const char *suffix, char **path) {
         _cleanup_free_ char *buffer = NULL;
+        char *buffer2 = NULL;
         const char *ret;
-        char *cc;
         int r;
 
-        assert_return(path, -EINVAL);
-
-        if (IN_SET(type,
-                   SD_PATH_SEARCH_BINARIES,
-                   SD_PATH_SEARCH_BINARIES_DEFAULT,
-                   SD_PATH_SEARCH_LIBRARY_PRIVATE,
-                   SD_PATH_SEARCH_LIBRARY_ARCH,
-                   SD_PATH_SEARCH_SHARED,
-                   SD_PATH_SEARCH_CONFIGURATION_FACTORY,
-                   SD_PATH_SEARCH_STATE_FACTORY,
-                   SD_PATH_SEARCH_CONFIGURATION)) {
-
-                _cleanup_strv_free_ char **l = NULL;
-
-                r = sd_path_lookup_strv(type, suffix, &l);
-                if (r < 0)
-                        return r;
-
-                buffer = strv_join(l, ":");
-                if (!buffer)
-                        return -ENOMEM;
-
-                *path = TAKE_PTR(buffer);
-                return 0;
-        }
+        assert(path);
 
         r = get_path(type, &buffer, &ret);
         if (r < 0)
                 return r;
 
-        if (!suffix) {
-                if (!buffer) {
-                        buffer = strdup(ret);
-                        if (!buffer)
-                                return -ENOMEM;
-                }
-
-                *path = TAKE_PTR(buffer);
-                return 0;
+        if (suffix) {
+                suffix += strspn(suffix, "/");
+                buffer2 = path_join(ret, suffix);
+                if (!buffer2)
+                        return -ENOMEM;
+        } else if (!buffer) {
+                buffer = strdup(ret);
+                if (!buffer)
+                        return -ENOMEM;
         }
 
-        suffix += strspn(suffix, "/");
-        cc = path_join(ret, suffix);
-        if (!cc)
+        *path = buffer2 ?: TAKE_PTR(buffer);
+        return 0;
+}
+
+_public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
+        int r;
+
+        assert_return(path, -EINVAL);
+
+        r = get_path_alloc(type, suffix, path);
+        if (r != -EOPNOTSUPP)
+                return r;
+
+        /* Fall back to sd_path_lookup_strv */
+        _cleanup_strv_free_ char **l = NULL;
+        char *buffer;
+
+        r = sd_path_lookup_strv(type, suffix, &l);
+        if (r < 0)
+                return r;
+
+        buffer = strv_join(l, ":");
+        if (!buffer)
                 return -ENOMEM;
 
-        *path = TAKE_PTR(cc);
+        *path = buffer;
         return 0;
 }
 
@@ -546,43 +542,29 @@ static int get_search(uint64_t type, char ***list) {
 }
 
 _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths) {
-        char **i, **j;
         _cleanup_strv_free_ char **l = NULL, **n = NULL;
         int r;
 
         assert_return(paths, -EINVAL);
 
-        if (!IN_SET(type,
-                    SD_PATH_SEARCH_BINARIES,
-                    SD_PATH_SEARCH_BINARIES_DEFAULT,
-                    SD_PATH_SEARCH_LIBRARY_PRIVATE,
-                    SD_PATH_SEARCH_LIBRARY_ARCH,
-                    SD_PATH_SEARCH_SHARED,
-                    SD_PATH_SEARCH_CONFIGURATION_FACTORY,
-                    SD_PATH_SEARCH_STATE_FACTORY,
-                    SD_PATH_SEARCH_CONFIGURATION)) {
+        r = get_search(type, &l);
+        if (r == -EOPNOTSUPP) {
+                _cleanup_free_ char *t = NULL;
 
-                char *p;
-
-                r = sd_path_lookup(type, suffix, &p);
+                r = get_path_alloc(type, suffix, &t);
                 if (r < 0)
                         return r;
 
                 l = new(char*, 2);
-                if (!l) {
-                        free(p);
+                if (!l)
                         return -ENOMEM;
-                }
-
-                l[0] = p;
+                l[0] = TAKE_PTR(t);
                 l[1] = NULL;
 
                 *paths = TAKE_PTR(l);
                 return 0;
-        }
 
-        r = get_search(type, &l);
-        if (r < 0)
+        } else if (r < 0)
                 return r;
 
         if (!suffix) {
@@ -594,7 +576,7 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***path
         if (!n)
                 return -ENOMEM;
 
-        j = n;
+        char **i, **j = n;
         STRV_FOREACH(i, l) {
                 *j = path_join(*i, suffix);
                 if (!*j)
@@ -602,8 +584,8 @@ _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***path
 
                 j++;
         }
-
         *j = NULL;
+
         *paths = TAKE_PTR(n);
         return 0;
 }
