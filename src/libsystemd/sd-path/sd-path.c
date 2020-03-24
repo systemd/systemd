@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -318,6 +319,76 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
 
         case SD_PATH_USER_DESKTOP:
                 return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
+
+        case SD_PATH_SYSTEMD_UTIL_DIR:
+                *ret = ROOTPREFIX "lib/systemd";
+                return 0;
+
+        case SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR:
+                *ret = SYSTEM_DATA_UNIT_PATH;
+                return 0;
+
+        case SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR:
+                *ret = ROOTPREFIX "lib/systemd/system-preset";
+                return 0;
+
+        case SD_PATH_SYSTEMD_USER_UNIT_DIR:
+                *ret = USER_DATA_UNIT_PATH;
+                return 0;
+
+        case SD_PATH_SYSTEMD_USER_PRESET_DIR:
+                *ret = ROOTPREFIX "lib/systemd/user-preset";
+                return 0;
+
+        case SD_PATH_SYSTEMD_SYSTEM_CONF_DIR:
+                *ret = SYSTEM_CONFIG_UNIT_PATH; // FIXME: _DIR vs. _PATH
+                return 0;
+
+        case SD_PATH_SYSTEMD_USER_CONF_DIR:
+                *ret = USER_CONFIG_UNIT_PATH; // FIXME: _DIR vs. _PATH
+                return 0;
+
+        case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR:
+                *ret = SYSTEM_GENERATOR_PATH; // FIXME: _DIR vs. _PATH
+                return 0;
+
+        case SD_PATH_SYSTEMD_USER_GENERATOR_DIR:
+                *ret = USER_GENERATOR_PATH; // FIXME: _DIR vs. _PATH
+                return 0;
+
+        case SD_PATH_SYSTEMD_SLEEP_DIR:
+                *ret = ROOTPREFIX "lib/systemd/system-sleep";
+                return 0;
+
+        case SD_PATH_SYSTEMD_SHUTDOWN_DIR:
+                *ret = ROOTPREFIX "lib/systemd/system-shutdown";
+                return 0;
+
+        /* FIXME: systemd.pc uses ${prefix}, but CONF_PATHS_NULSTR doesn't.
+         *        Should ${prefix} use in systemd.pc be removed? */
+        case SD_PATH_TMPFILES_DIR:
+                *ret = "/usr/lib/tmpfiles.d";
+                return 0;
+
+        case SD_PATH_SYSUSERS_DIR:
+                *ret = "/usr/lib/sysusers.d";
+                return 0;
+
+        case SD_PATH_SYSCTL_DIR:
+                *ret = "/usr/lib/sysctl.d";
+                return 0;
+
+        case SD_PATH_BINFMT_DIR:
+                *ret = "/usr/lib/binfmt.d";
+                return 0;
+
+        case SD_PATH_MODULES_LOAD_DIR:
+                *ret = "/usr/lib/modules-load.d";
+                return 0;
+
+        case SD_PATH_CATALOG_DIR:
+                *ret = "/usr/lib/systemd/catalog";
+                return 0;
         }
 
         return -EOPNOTSUPP;
@@ -450,6 +521,7 @@ static int search_from_environment(
 #endif
 
 static int get_search(uint64_t type, char ***list) {
+        int r;
 
         assert(list);
 
@@ -535,8 +607,33 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SEARCH_BINARIES_DEFAULT:
                 return strv_from_nulstr(list, DEFAULT_PATH_NULSTR);
 
+        case SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH:
+        case SD_PATH_SYSTEMD_USER_UNIT_PATH: {
+                _cleanup_(lookup_paths_free) LookupPaths lp = {};
+                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH ?
+                                                    UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
+                r = lookup_paths_init(&lp, scope, 0, NULL);
+                if (r < 0)
+                        return r;
+
+                *list = TAKE_PTR(lp.search_path);
+                return 0;
         }
+
+        case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH:
+        case SD_PATH_SYSTEMD_USER_GENERATOR_PATH: {
+                char **t;
+                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH ?
+                                                    UNIT_FILE_SYSTEM : UNIT_FILE_USER;
+
+                t = generator_binary_paths(scope);
+                if (!t)
+                        return -ENOMEM;
+
+                *list = t;
+                return 0;
+        }}
 
         return -EOPNOTSUPP;
 }

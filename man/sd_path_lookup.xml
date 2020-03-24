@@ -75,6 +75,29 @@
         <constant>SD_PATH_SEARCH_CONFIGURATION_FACTORY</constant>,
         <constant>SD_PATH_SEARCH_STATE_FACTORY</constant>,
         <constant>SD_PATH_SEARCH_CONFIGURATION</constant>,
+
+        <constant>SD_PATH_SYSTEMD_UTIL_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_UNIT_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_PRESET_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_CONF_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_CONF_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_UNIT_PATH</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_GENERATOR_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH</constant>,
+        <constant>SD_PATH_SYSTEMD_USER_GENERATOR_PATH</constant>,
+        <constant>SD_PATH_SYSTEMD_SLEEP_DIR</constant>,
+        <constant>SD_PATH_SYSTEMD_SHUTDOWN_DIR</constant>,
+
+        <constant>SD_PATH_TMPFILES_DIR</constant>,
+        <constant>SD_PATH_SYSUSERS_DIR</constant>,
+        <constant>SD_PATH_SYSCTL_DIR</constant>,
+        <constant>SD_PATH_BINFMT_DIR</constant>,
+        <constant>SD_PATH_MODULES_LOAD_DIR</constant>,
+        <constant>SD_PATH_CATALOG_DIR</constant>,
 };</funcsynopsisinfo>
 
       <funcprototype>

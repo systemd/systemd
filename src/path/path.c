@@ -58,6 +58,29 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SEARCH_CONFIGURATION_FACTORY]  = "search-configuration-factory",
         [SD_PATH_SEARCH_STATE_FACTORY]          = "search-state-factory",
         [SD_PATH_SEARCH_CONFIGURATION]          = "search-configuration",
+
+        [SD_PATH_SYSTEMD_UTIL_DIR]              = "systemd-util-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR]       = "systemd-system-unit-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR]     = "systemd-system-preset-dir",
+        [SD_PATH_SYSTEMD_USER_UNIT_DIR]         = "systemd-user-unit-dir",
+        [SD_PATH_SYSTEMD_USER_PRESET_DIR]       = "systemd-user-preset-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_CONF_DIR]       = "systemd-system-conf-dir",
+        [SD_PATH_SYSTEMD_USER_CONF_DIR]         = "systemd-user-conf-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH]      = "systemd-system-unit-path",
+        [SD_PATH_SYSTEMD_USER_UNIT_PATH]        = "systemd-user-unit-path",
+        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR]  = "systemd-system-generator-dir",
+        [SD_PATH_SYSTEMD_USER_GENERATOR_DIR]    = "systemd-user-generator-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH] = "systemd-system-generator-path",
+        [SD_PATH_SYSTEMD_USER_GENERATOR_PATH]   = "systemd-user-generator-path",
+        [SD_PATH_SYSTEMD_SLEEP_DIR]             = "systemd-sleep-dir",
+        [SD_PATH_SYSTEMD_SHUTDOWN_DIR]          = "systemd-shutdown-dir",
+
+        [SD_PATH_TMPFILES_DIR]                  = "tmpfiles-dir",
+        [SD_PATH_SYSUSERS_DIR]                  = "sysusers-dir",
+        [SD_PATH_SYSCTL_DIR]                    = "sysctl-dir",
+        [SD_PATH_BINFMT_DIR]                    = "binfmt-dir",
+        [SD_PATH_MODULES_LOAD_DIR]              = "modules-load-dir",
+        [SD_PATH_CATALOG_DIR]                   = "catalog-dir",
 };
 
 static int list_homes(void) {
