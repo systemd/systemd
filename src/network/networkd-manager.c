@@ -30,6 +30,7 @@
 #include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
 #include "ordered-set.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
 #include "signal-util.h"

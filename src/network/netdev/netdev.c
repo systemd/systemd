@@ -24,6 +24,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "nlmon.h"
+#include "path-lookup.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"

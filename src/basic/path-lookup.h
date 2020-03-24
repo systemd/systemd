@@ -5,6 +5,7 @@
 
 typedef struct LookupPaths LookupPaths;
 
+#include "def.h"
 #include "unit-file.h"
 #include "macro.h"
 
@@ -68,3 +69,5 @@ void lookup_paths_free(LookupPaths *p);
 
 char **generator_binary_paths(UnitFileScope scope);
 char **env_generator_binary_paths(bool is_system);
+
+#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
