@@ -536,16 +536,11 @@ static int get_search(uint64_t type, char ***list) {
                                                "/etc",
                                                NULL);
 
-        case SD_PATH_SEARCH_BINARIES_DEFAULT: {
-                char **t;
+        case SD_PATH_SEARCH_BINARIES_DEFAULT:
+                return strv_from_nulstr(list, DEFAULT_PATH_NULSTR);
 
-                t = strv_split_nulstr(DEFAULT_PATH_NULSTR);
-                if (!t)
-                        return -ENOMEM;
 
-                *list = t;
-                return 0;
-        }}
+        }
 
         return -EOPNOTSUPP;
 }
