@@ -160,8 +160,6 @@ shared_sources = files('''
         output-mode.h
         pager.c
         pager.h
-        path-lookup.c
-        path-lookup.h
         pe-header.h
         pkcs11-util.c
         pkcs11-util.h
