@@ -71,3 +71,4 @@ char **generator_binary_paths(UnitFileScope scope);
 char **env_generator_binary_paths(bool is_system);
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
+#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")

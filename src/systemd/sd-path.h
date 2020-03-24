@@ -102,6 +102,9 @@ enum {
         SD_PATH_MODULES_LOAD_DIR,
         SD_PATH_CATALOG_DIR,
 
+        /* systemd-networkd search paths */
+        SD_PATH_SYSTEMD_NETWORK_PATH,
+
         _SD_PATH_MAX,
 };
 

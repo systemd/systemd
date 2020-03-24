@@ -81,6 +81,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_BINFMT_DIR]                    = "binfmt-dir",
         [SD_PATH_MODULES_LOAD_DIR]              = "modules-load-dir",
         [SD_PATH_CATALOG_DIR]                   = "catalog-dir",
+
+        [SD_PATH_SYSTEMD_NETWORK_PATH]          = "systemd-network-path",
 };
 
 static int list_homes(void) {

@@ -98,6 +98,8 @@
         <constant>SD_PATH_BINFMT_DIR</constant>,
         <constant>SD_PATH_MODULES_LOAD_DIR</constant>,
         <constant>SD_PATH_CATALOG_DIR</constant>,
+
+        <constant>SD_PATH_SYSTEMD_NETWORK_PATH</constant>,
 };</funcsynopsisinfo>
 
       <funcprototype>

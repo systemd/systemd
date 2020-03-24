@@ -633,7 +633,12 @@ static int get_search(uint64_t type, char ***list) {
 
                 *list = t;
                 return 0;
-        }}
+        }
+
+        case SD_PATH_SYSTEMD_NETWORK_PATH:
+                return strv_from_nulstr(list, NETWORK_DIRS_NULSTR);
+
+        }
 
         return -EOPNOTSUPP;
 }
