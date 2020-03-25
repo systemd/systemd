@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "geneve-util.h"
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "local-addresses.h"
@@ -160,8 +161,14 @@ typedef struct LinkInfo {
         /* tunnel info */
         uint8_t ttl;
         uint8_t tos;
+        uint8_t inherit;
+        uint8_t df;
+        uint8_t csum;
+        uint8_t csum6_tx;
+        uint8_t csum6_rx;
         uint16_t tunnel_port;
         uint32_t vni;
+        uint32_t label;
         union in_addr_union local;
         union in_addr_union remote;
 
@@ -285,8 +292,14 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                         (void) sd_netlink_message_read_in6_addr(m, IFLA_GENEVE_REMOTE6, &info->remote.in6);
 
                 (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TTL, &info->ttl);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TTL_INHERIT, &info->inherit);
                 (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_TOS, &info->tos);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_DF, &info->df);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_UDP_CSUM, &info->csum);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_TX, &info->csum6_tx);
+                (void) sd_netlink_message_read_u8(m, IFLA_GENEVE_UDP_ZERO_CSUM6_RX, &info->csum6_rx);
                 (void) sd_netlink_message_read_u16(m, IFLA_GENEVE_PORT, &info->tunnel_port);
+                (void) sd_netlink_message_read_u32(m, IFLA_GENEVE_LABEL, &info->label);
         } else if (STR_IN_SET(received_kind, "gre", "gretap", "erspan")) {
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_LOCAL, &info->local.in);
                 (void) sd_netlink_message_read_in_addr(m, IFLA_GRE_REMOTE, &info->remote.in);
@@ -1669,6 +1682,52 @@ static int link_status_one(
                                    TABLE_UINT16, info->tunnel_port);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Inherit:",
+                                   TABLE_STRING, geneve_df_to_string(info->inherit));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (info->df > 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "IPDoNotFragment:",
+                                           TABLE_UINT8, info->df);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "UDPChecksum:",
+                                   TABLE_BOOLEAN, info->csum);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "UDP6ZeroChecksumTx:",
+                                   TABLE_BOOLEAN, info->csum6_tx);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "UDP6ZeroChecksumRx:",
+                                   TABLE_BOOLEAN, info->csum6_rx);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (info->label > 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "FlowLabel:",
+                                           TABLE_UINT32, info->label);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         if (info->has_wlan_link_info) {
