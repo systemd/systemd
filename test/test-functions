@@ -2035,34 +2035,36 @@ do_test() {
     import_testdir
     import_initdir
 
+    testname="$(basename $PWD)"
+
     while (($# > 0)); do
         case $1 in
             --run)
-                echo "TEST RUN: $TEST_DESCRIPTION"
+                echo "${testname} RUN: $TEST_DESCRIPTION"
                 test_run "$2"
                 ret=$?
                 if (( $ret == 0 )); then
-                    echo "TEST RUN: $TEST_DESCRIPTION [OK]"
+                    echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
                 else
-                    echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
+                    echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
                 fi
                 exit $ret;;
             --setup)
-                echo "TEST SETUP: $TEST_DESCRIPTION"
+                echo "${testname} SETUP: $TEST_DESCRIPTION"
                 test_setup
                 test_setup_cleanup
                 ;;
             --clean)
-                echo "TEST CLEANUP: $TEST_DESCRIPTION"
+                echo "${testname} CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
                 ;;
             --clean-again)
-                echo "TEST CLEANUP AGAIN: $TEST_DESCRIPTION"
+                echo "${testname} CLEANUP AGAIN: $TEST_DESCRIPTION"
                 test_cleanup_again
                 ;;
             --all)
                 ret=0
-                echo -n "TEST: $TEST_DESCRIPTION "
+                echo -n "${testname}: $TEST_DESCRIPTION "
                 (
                     test_setup
                     test_setup_cleanup
