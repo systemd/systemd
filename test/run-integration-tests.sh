@@ -25,8 +25,20 @@ if [ $do_clean = 1 ]; then
     done
 fi
 
+pass_blacklist() {
+    for marker in $BLACKLIST_MARKERS; do
+        if [ -f "$1/$marker" ]; then
+            echo "========== BLACKLISTED: $1 ($marker) =========="
+            return 1
+        fi
+    done
+    return 0
+}
+
 for TEST in TEST-??-* ; do
     COUNT=$(($COUNT+1))
+
+    pass_blacklist $TEST || continue
 
     echo -e "\n--x-- Running $TEST --x--"
     set +e
@@ -41,7 +53,7 @@ for TEST in TEST-??-* ; do
 done
 
 if [ $FAILURES -eq 0 -a $do_clean = 1 ]; then
-    for TEST in TEST-??-* ; do
+    for TEST in ${!results[@]}; do
         ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean-again )
     done
 fi
