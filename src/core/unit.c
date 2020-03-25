@@ -210,11 +210,13 @@ int unit_add_name(Unit *u, const char *text) {
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
 
                 if (!u->instance)
-                        return -EINVAL;
+                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                                    "instance is not set when adding name '%s': %m", text);
 
                 r = unit_name_replace_instance(text, u->instance, &s);
                 if (r < 0)
-                        return r;
+                        return log_unit_debug_errno(u, r,
+                                                    "failed to build instance name from '%s': %m", text);
         } else {
                 s = strdup(text);
                 if (!s)
@@ -224,36 +226,43 @@ int unit_add_name(Unit *u, const char *text) {
         if (set_contains(u->names, s))
                 return 0;
         if (hashmap_contains(u->manager->units, s))
-                return -EEXIST;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
+                                            "unit already exist when adding name '%s': %m", text);
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "name '%s' is invalid: %m", text);
 
         t = unit_name_to_type(s);
         if (t < 0)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "failed to to derive unit type from name '%s': %m", text);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "unit type is illegal: u->type(%d) and t(%d) for name '%s': %m",
+                                            u->type, t, text);
 
         r = unit_name_to_instance(s, &i);
         if (r < 0)
-                return r;
+                return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", text);
 
         if (i && !unit_type_may_template(t))
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", text);
 
         /* Ensure that this unit is either instanced or not instanced,
          * but not both. Note that we do allow names with different
          * instance names however! */
         if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "instance is illegal: u->type(%d), u->instance(%s) and i(%s) for name '%s': %m",
+                                            u->type, u->instance, i, text);
 
         if (!unit_type_may_alias(t) && !set_isempty(u->names))
-                return -EEXIST;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST), "symlinks are not allowed for name '%s': %m", text);
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
-                return -E2BIG;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(E2BIG), "too many units: %m");
 
         r = set_put(u->names, s);
         if (r < 0)
@@ -263,7 +272,7 @@ int unit_add_name(Unit *u, const char *text) {
         r = hashmap_put(u->manager->units, s, u);
         if (r < 0) {
                 (void) set_remove(u->names, s);
-                return r;
+                return log_unit_debug_errno(u, r, "add unit to hashmap failed for name '%s': %m", text);
         }
 
         if (u->type == _UNIT_TYPE_INVALID) {
