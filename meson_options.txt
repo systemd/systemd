@@ -142,6 +142,8 @@ option('hwdb', type : 'boolean',
        description : 'support for the hardware database')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
+option('xdg-autostart', type : 'boolean',
+       description : 'install the xdg-autostart-generator and unit')
 option('man', type : 'combo', choices : ['auto', 'true', 'false'],
        value : 'false',
        description : 'build and install man pages')

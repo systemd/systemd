@@ -1150,6 +1150,16 @@
             <filename>gnome-session.target</filename>.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><filename>xdg-desktop-autostart.target</filename></term>
+          <listitem>
+            <para>The XDG specification defines a way to autostart applications using XDG desktop files.
+            systemd ships a generator for the XDG desktop files in autostart directories.
+            Desktop Environments can opt-in to use this service by adding a <varname>Wants=</varname>
+            dependency on <literal>xdg-desktop-autostart.target</literal></para>.
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>

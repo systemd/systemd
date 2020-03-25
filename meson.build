@@ -1417,6 +1417,7 @@ foreach term : ['utmp',
                 'tmpfiles',
                 'hwdb',
                 'rfkill',
+                'xdg-autostart',
                 'ldconfig',
                 'efi',
                 'tpm',
@@ -1520,6 +1521,7 @@ includes = include_directories('src/basic',
                                'src/libudev',
                                'src/core',
                                'src/shutdown',
+                               'src/xdg-autostart-generator',
                                'src/libsystemd/sd-bus',
                                'src/libsystemd/sd-device',
                                'src/libsystemd/sd-event',
@@ -2299,6 +2301,27 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
+endif
+
+if conf.get('ENABLE_XDG_AUTOSTART') == 1
+        executable(
+                'systemd-xdg-autostart-generator',
+                'src/xdg-autostart-generator/xdg-autostart-generator.c',
+                'src/xdg-autostart-generator/xdg-autostart-service.c',
+                include_directories : includes,
+                link_with : [libshared],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : usergeneratordir)
+
+        executable(
+                'systemd-xdg-autostart-condition',
+                'src/xdg-autostart-generator/xdg-autostart-condition.c',
+                include_directories : includes,
+                link_with : [libshared],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
 endif
 
 if conf.get('ENABLE_HOSTNAMED') == 1
@@ -3566,6 +3589,7 @@ foreach tuple : [
         ['randomseed'],
         ['backlight'],
         ['rfkill'],
+        ['xdg-autostart'],
         ['logind'],
         ['machined'],
         ['portabled'],
