@@ -155,6 +155,35 @@ static int link_set_can(Link *link) {
                         return log_link_error_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
         }
 
+        if (link->network->can_data_bitrate > 0 || link->network->can_data_sample_point > 0) {
+                struct can_bittiming bt = {
+                        .bitrate = link->network->can_data_bitrate,
+                        .sample_point = link->network->can_data_sample_point,
+                };
+
+                log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
+                if (link->network->can_data_sample_point > 0)
+                        log_link_debug(link, "Setting data sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                else
+                        log_link_debug(link, "Using default data sample point");
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
+        }
+
+        if (link->network->can_fd_mode >= 0) {
+                cm.mask |= CAN_CTRLMODE_FD;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode > 0);
+                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode > 0 ? "En" : "Dis");
+        }
+
+        if (link->network->can_non_iso >= 0) {
+                cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso > 0);
+                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso > 0 ? "En" : "Dis");
+        }
+
         if (link->network->can_restart_us > 0) {
                 char time_string[FORMAT_TIMESPAN_MAX];
                 uint64_t restart_ms;

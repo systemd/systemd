@@ -2361,6 +2361,29 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>DataBitRate=</varname></term>
+          <term><varname>DataSamplePoint=</varname></term>
+          <listitem>
+            <para>The bitrate and sample point for the data phase, if CAN-FD is used. These settings are
+            analogous to the <varname>BitRate=</varname> and <varname>SamplePoint=</varname> keys.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FDMode=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
+            Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
+            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FDNonISO=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, non-ISO CAN-FD mode is enabled for the
+            interface. When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>RestartSec=</varname></term>
           <listitem>
             <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be

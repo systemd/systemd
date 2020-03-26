@@ -260,6 +260,10 @@ IPv6RoutePrefix.Route,                       config_parse_route_prefix,         
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
+CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)
+CAN.DataSamplePoint,                         config_parse_permille,                                    0,                             offsetof(Network, can_data_sample_point)
+CAN.FDMode,                                  config_parse_tristate,                                    0,                             offsetof(Network, can_fd_mode)
+CAN.FDNonISO,                                config_parse_tristate,                                    0,                             offsetof(Network, can_non_iso)
 CAN.RestartSec,                              config_parse_sec,                                         0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)

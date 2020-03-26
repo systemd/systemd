@@ -207,10 +207,14 @@ struct Network {
         /* CAN support */
         uint32_t can_bitrate;
         unsigned can_sample_point;
+        uint32_t can_data_bitrate;
+        unsigned can_data_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;
         int can_termination;
         int can_listen_only;
+        int can_fd_mode;
+        int can_non_iso;
 
         AddressFamily ip_forward;
         bool ip_masquerade;
