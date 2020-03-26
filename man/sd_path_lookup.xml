@@ -173,6 +173,14 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>Query failed because of an undefined environment variable (e.g. for
+          <constant>SD_PATH_USER_RUNTIME</constant> when <varname>$XDG_RUNTIME_DIR</varname> is not
+          defined).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
           <listitem><para>Memory allocation failed.</para></listitem>

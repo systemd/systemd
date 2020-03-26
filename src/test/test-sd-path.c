@@ -11,9 +11,13 @@ static void test_sd_path_lookup(void) {
         log_info("/* %s */", __func__);
 
         for (uint64_t i = 0; i < _SD_PATH_MAX; i++) {
-                _cleanup_free_ char *t, *s;
+                _cleanup_free_ char *t = NULL, *s = NULL;
+                int r;
 
-                assert_se(sd_path_lookup(i, NULL, &t) == 0);
+                r = sd_path_lookup(i, NULL, &t);
+                if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
+                        continue;
+                assert_se(r == 0);
                 assert_se(t);
                 log_info("%02"PRIu64": \"%s\"", i, t);
 
@@ -31,10 +35,14 @@ static void test_sd_path_lookup_strv(void) {
         log_info("/* %s */", __func__);
 
         for (uint64_t i = 0; i < _SD_PATH_MAX; i++) {
-                _cleanup_strv_free_ char **t, **s;
+                _cleanup_strv_free_ char **t = NULL, **s = NULL;
                 char **item;
+                int r;
 
-                assert_se(sd_path_lookup_strv(i, NULL, &t) == 0);
+                r = sd_path_lookup_strv(i, NULL, &t);
+                if (i == SD_PATH_USER_RUNTIME && r == -ENXIO)
+                        continue;
+                assert_se(r == 0);
                 assert_se(t);
                 log_info("%02"PRIu64":", i);
                 STRV_FOREACH(item, t)
