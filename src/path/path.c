@@ -94,11 +94,11 @@ static int list_homes(void) {
                 int q;
 
                 q = sd_path_lookup(i, arg_suffix, &p);
-                if (q == -ENXIO)
-                        continue;
                 if (q < 0) {
-                        log_error_errno(r, "Failed to query %s: %m", path_table[i]);
-                        r = q;
+                        log_full_errno(q == -ENXIO ? LOG_DEBUG : LOG_ERR,
+                                       q, "Failed to query %s: %m", path_table[i]);
+                        if (q != -ENXIO)
+                                r = q;
                         continue;
                 }
 
