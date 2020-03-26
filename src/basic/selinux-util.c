@@ -44,7 +44,7 @@ static struct selabel_handle *label_hnd = NULL;
 
 bool mac_selinux_use(void) {
 #if HAVE_SELINUX
-        if (cached_use < 0)
+        if (_unlikely_(cached_use < 0))
                 cached_use = is_selinux_enabled() > 0;
 
         return cached_use;
@@ -55,7 +55,7 @@ bool mac_selinux_use(void) {
 
 bool mac_selinux_enforcing(void) {
 #if HAVE_SELINUX
-        if (cached_enforcing < 0) {
+        if (_unlikely_(cached_enforcing < 0)) {
                 cached_enforcing = security_getenforce();
                 if (cached_enforcing == -1) {
                         log_error_errno(errno, "Failed to get SELinux enforced status: %m");
