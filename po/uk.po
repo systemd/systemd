@@ -437,14 +437,11 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Зупинити систему, коли програми намагаються перешкодити цьому"
 
 #: src/login/org.freedesktop.login1.policy:247
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Потрібна автентифікація, щоб перервати роботу систему, коли програма"
+"Потрібна автентифікація, щоб зупинити систему, коли програма"
 " намагається "
 "перешкодити цьому."
 
@@ -774,7 +771,6 @@ msgid "DHCP server sends force renew message"
 msgstr "Сервер DHCP надсилає повідомлення щодо примусового оновлення"
 
 #: src/network/org.freedesktop.network1.policy:144
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
 msgstr ""
 "Потрібна автентифікація, щоб надіслати повідомлення щодо примусового оновлення"
