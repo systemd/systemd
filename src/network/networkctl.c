@@ -21,6 +21,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "bridge-util.h"
 #include "device-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -1487,20 +1488,10 @@ static int link_status_one(
                         return table_log_add_error(r);
 
                 if (info->port_state <= BR_STATE_BLOCKING) {
-                        static const struct {
-                                const char *state;
-                        } state_table[] = {
-                                { "disabled" },
-                                { "listening" },
-                                { "learning" },
-                                { "forwarding" },
-                                { "blocking" },
-                        };
-
                         r = table_add_many(table,
                                            TABLE_EMPTY,
                                            TABLE_STRING, "Port State:",
-                                           TABLE_STRING, state_table[info->port_state]);
+                                           TABLE_STRING, bridge_state_to_string(info->port_state));
                 }
         } else if (streq_ptr(info->netdev_kind, "bond")) {
                 static const struct {
