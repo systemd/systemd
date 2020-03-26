@@ -32,7 +32,7 @@ key.middle/part/with/dots.foo = 123
 -key.that.will.not.fail = value
 key.pattern.*.with.glob = whatever
 -key.pattern.excluded.with.glob
-key.pattern.overriden.with.glob = custom
+key.pattern.overridden.with.glob = custom
 </programlisting>
   </refsynopsisdiv>
 
