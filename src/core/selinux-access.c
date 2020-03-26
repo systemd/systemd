@@ -272,8 +272,8 @@ int mac_selinux_generic_access_check(
                         sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "SELinux policy denies access.");
         }
 
-        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s path=%s cmdline=%s: %m",
-                        scon, fcon, tclass, permission, path, cl);
+        log_debug_errno(r, "SELinux access check scon=%s tcon=%s tclass=%s perm=%s state=%s path=%s cmdline=%s: %m",
+                        scon, fcon, tclass, permission, enforce ? "enforcing" : "permissive", path, cl);
         return enforce ? r : 0;
 }
 
