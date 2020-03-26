@@ -44,8 +44,10 @@ static struct selabel_handle *label_hnd = NULL;
 
 bool mac_selinux_use(void) {
 #if HAVE_SELINUX
-        if (_unlikely_(cached_use < 0))
+        if (_unlikely_(cached_use < 0)) {
                 cached_use = is_selinux_enabled() > 0;
+                log_debug("SELinux enabled state cached to: %s", cached_use ? "enabled" : "disabled");
+        }
 
         return cached_use;
 #else
@@ -57,12 +59,13 @@ bool mac_selinux_enforcing(void) {
 #if HAVE_SELINUX
         if (_unlikely_(cached_enforcing < 0)) {
                 cached_enforcing = security_getenforce();
-                if (cached_enforcing == -1) {
-                        log_error_errno(errno, "Failed to get SELinux enforced status: %m");
-                }
+                if (cached_enforcing == -1)
+                        log_error_errno(errno, "Failed to get SELinux enforced status, continue in enforcing mode: %m");
+                else
+                        log_debug("SELinux enforcing state cached to: %s", cached_enforcing ? "enforcing" : "permissive");
         }
 
-        /* treat failure as enforced mode */
+        /* treat failure as enforcing mode */
         return (cached_enforcing != 0);
 #else
         return false;
@@ -79,6 +82,8 @@ void mac_selinux_retest(void) {
 #if HAVE_SELINUX
 static int setenforce_callback(int enforcing) {
         cached_enforcing = enforcing;
+
+        log_debug("SELinux enforcing state updated to: %s", cached_enforcing ? "enforcing" : "permissive");
 
         return 0;
 }
