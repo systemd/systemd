@@ -6,7 +6,7 @@
 static const char* const bridge_state_table[_NETDEV_BRIDGE_STATE_MAX] = {
         [NETDEV_BRIDGE_STATE_DISABLED]   = "disabled",
         [NETDEV_BRIDGE_STATE_LISTENING]  = "listening",
-        [NETDEV_BRIDGE_STATE_LEARNING]  = "learning",
+        [NETDEV_BRIDGE_STATE_LEARNING]   = "learning",
         [NETDEV_BRIDGE_STATE_FORWARDING] = "forwading",
 };
 
