@@ -504,7 +504,6 @@ static int synthesize_connected_signal(sd_bus *bus) {
 }
 
 void bus_set_state(sd_bus *bus, enum bus_state state) {
-
         static const char * const table[_BUS_STATE_MAX] = {
                 [BUS_UNSET] = "UNSET",
                 [BUS_WATCH_BIND] = "WATCH_BIND",
@@ -1899,9 +1898,10 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
 
         assert_return(m, -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -1983,9 +1983,10 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
 
         assert_return(m, -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -2048,9 +2049,10 @@ _public_ int sd_bus_call_async(
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!m->sealed || (!!callback == !(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)), -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -2154,9 +2156,10 @@ _public_ int sd_bus_call(
         bus_assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL, error);
         bus_assert_return(!bus_error_is_dirty(error), -EINVAL, error);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
 
         if (!BUS_IS_OPEN(bus->state)) {
@@ -2283,7 +2286,6 @@ fail:
 }
 
 _public_ int sd_bus_get_fd(sd_bus *bus) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->input_fd == bus->output_fd, -EPERM);
@@ -3674,31 +3676,31 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
 }
 
 _public_ sd_event* sd_bus_get_event(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->event;
 }
 
 _public_ sd_bus_message* sd_bus_get_current_message(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_message;
 }
 
 _public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_slot;
 }
 
 _public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_handler;
 }
 
 _public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_userdata;
 }
@@ -4015,7 +4017,6 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
 }
 
 _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(address, -EINVAL);

@@ -585,14 +585,13 @@ _public_ int sd_bus_message_new(
                 sd_bus_message **m,
                 uint8_t type) {
 
-        sd_bus_message *t;
-
         assert_return(bus, -ENOTCONN);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
         assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
-        t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
+        sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!t)
                 return -ENOMEM;
 
@@ -623,6 +622,7 @@ _public_ int sd_bus_message_new_signal(
         int r;
 
         assert_return(bus, -ENOTCONN);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
@@ -663,6 +663,7 @@ _public_ int sd_bus_message_new_method_call(
         int r;
 
         assert_return(bus, -ENOTCONN);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(!destination || service_name_is_valid(destination), -EINVAL);
         assert_return(object_path_is_valid(path), -EINVAL);
