@@ -81,6 +81,8 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         }
 
         d->sysfs = TAKE_PTR(copy);
+        unit_add_to_dbus_queue(UNIT(d));
+
         return 0;
 }
 
