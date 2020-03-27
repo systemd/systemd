@@ -107,6 +107,10 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         unsigned long i;
         int r;
 
+        /* Check that we can use PR_CAP_AMBIENT or quit early. */
+        if (!ambient_capabilities_supported())
+                return 0;
+
         /* Add the capabilities to the ambient set. */
 
         if (also_inherit) {
