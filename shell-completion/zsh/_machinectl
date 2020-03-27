@@ -28,6 +28,7 @@
         "start:Start container as a service"
         "stop:Stop container (equal to poweroff)"
         "login:Get a login prompt on a VM/container"
+        "shell:Invoke a shell (or other command) in a container"
         "enable:Enable automatic container start at boot"
         "disable:Disable automatic container start at boot"
         "poweroff:Power off one or more VMs/containers"
