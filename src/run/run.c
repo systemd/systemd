@@ -649,6 +649,29 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name '%s': %m", arg_slice);
 
+                if (!endswith(arg_slice, ".slice") && slice[0] == '-') {
+                        _cleanup_free_ char *pid_slice = NULL;
+                        _cleanup_free_ char *child_slice = NULL;
+
+                        r = cg_pid_get_user_slice(getpid_cached(), &pid_slice);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get parent slice: %m");
+
+                        if (streq(arg_slice, "-")) {
+                                free_and_replace(slice, pid_slice);
+                        } else {
+                                char *end;
+
+                                end = endswith(pid_slice, ".slice");
+                                if (!end)
+                                        return -ENXIO;
+                                *end = 0;
+
+                                child_slice = strjoin(pid_slice, slice);
+                                free_and_replace(slice, child_slice);
+                        }
+                }
+
                 r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
                 if (r < 0)
                         return bus_log_create_error(r);
