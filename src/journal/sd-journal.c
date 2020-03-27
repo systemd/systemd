@@ -2597,13 +2597,12 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
                    Get rid of the deleted files now so they don't stay around indefinitely. */
                 ORDERED_HASHMAP_FOREACH(f, j->files, i) {
                         r = journal_file_fstat(f);
-                        if (r < 0) {
+                        if (r == -EIDRM)
+                                remove_file_real(j, f);
+                        else if (r < 0) {
                                 log_debug_errno(r,"Failed to fstat() journal file '%s' : %m", f->path);
                                 continue;
                         }
-
-                        if (f->last_stat.st_nlink <= 0)
-                                remove_file_real(j, f);
                 }
 
                 /* The journal might have changed since the context
