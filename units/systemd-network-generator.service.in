@@ -12,6 +12,7 @@ Description=Generate network units from Kernel command line
 Documentation=man:systemd-network-generator.service(8)
 DefaultDependencies=no
 Before=network-pre.target
+Wants=network-pre.target
 
 [Service]
 Type=oneshot
@@ -19,4 +20,4 @@ RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-network-generator
 
 [Install]
-WantedBy=network-pre.target
+WantedBy=sysinit.target
