@@ -31,6 +31,8 @@ liblogind_core_sources = files('''
         logind-seat-dbus.h
         logind-seat.c
         logind-seat.h
+        logind-selinux-access.c
+        logind-selinux-access.h
         logind-session-dbus.c
         logind-session-dbus.h
         logind-session-device.c
