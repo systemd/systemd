@@ -572,6 +572,24 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn870Z5E/
  EVDEV_ABS_36=::29
 
 #########################################
+# Star Labs
+#########################################
+
+# Star LabTop Mk III
+evdev:name:ALPS0001:00 0911:5288 Touchpad:dmi:*svnStarLabs:pnLabTop*
+ EVDEV_ABS_00=0:2627:25
+ EVDEV_ABS_01=0:1331:20
+ EVDEV_ABS_35=0:2627:25
+ EVDEV_ABS_36=0:1331:20
+
+# Star Lite Mk II
+evdev:name:ALPS0001:00 0911:5288 Touchpad:dmi:*svnStarLabs:pnLite:*
+ EVDEV_ABS_00=55:1750:16
+ EVDEV_ABS_01=51:950:15
+ EVDEV_ABS_35=55:1750:16
+ EVDEV_ABS_36=51:950:15
+
+#########################################
 # System76
 #########################################
 
