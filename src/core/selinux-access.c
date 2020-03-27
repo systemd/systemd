@@ -31,6 +31,7 @@ struct audit_info {
         sd_bus_creds *creds;
         const char *path;
         const char *cmdline;
+        const char *function;
 };
 
 struct compat_permission_verb {
@@ -117,10 +118,11 @@ static int audit_callback(
                 xsprintf(gid_buf, GID_FMT, gid);
 
         snprintf(msgbuf, msgbufsize,
-                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s",
+                 "auid=%s uid=%s gid=%s%s%s%s%s%s%s%s%s%s",
                  login_uid_buf, uid_buf, gid_buf,
                  audit->path ? " path=\"" : "", strempty(audit->path), audit->path ? "\"" : "",
-                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "");
+                 audit->cmdline ? " cmdline=\"" : "", strempty(audit->cmdline), audit->cmdline ? "\"" : "",
+                 audit->function ? " function=\"" : "", strempty(audit->function), audit->function ? "\"" : "");
 
         return 0;
 }
@@ -322,6 +324,7 @@ static int mac_selinux_generic_access_check(
                 .creds = creds,
                 .path = path,
                 .cmdline = cl,
+                .function = func,
         };
 
         r = selinux_check_access(scon, fcon, class, permission, &audit_info);
