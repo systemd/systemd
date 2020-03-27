@@ -147,6 +147,9 @@ struct Network {
         struct in_addr *dhcp_server_sip;
         unsigned n_dhcp_server_sip;
 
+        struct in_addr *dhcp_server_pop3;
+        unsigned n_dhcp_server_pop3;
+
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
@@ -296,6 +299,7 @@ struct Network {
 
         char **ntp;
         char **sip;
+        char **pop3;
         char **bind_carrier;
 };
 

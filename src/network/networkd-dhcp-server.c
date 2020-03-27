@@ -140,6 +140,55 @@ static int link_push_uplink_ntp_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         return sd_dhcp_server_set_ntp(s, addresses, n_addresses);
 }
 
+static int link_push_uplink_pop3_to_dhcp_server(Link *link, sd_dhcp_server *s) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        char **a;
+
+        if (!link->network)
+                return 0;
+
+        log_link_debug(link, "Copying POP3 server information from link");
+
+        STRV_FOREACH(a, link->network->pop3) {
+                union in_addr_union ia;
+
+                /* Only look for IPv4 addresses */
+                if (in_addr_from_string(AF_INET, *a, &ia) <= 0)
+                        continue;
+
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&ia.in) || in4_addr_is_localhost(&ia.in))
+                        continue;
+
+                if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + 1))
+                        return log_oom();
+
+                addresses[n_addresses++] = ia.in;
+        }
+
+        if (link->dhcp_lease) {
+                const struct in_addr *da = NULL;
+                int j, n;
+
+                n = sd_dhcp_lease_get_pop3_server(link->dhcp_lease, &da);
+                if (n > 0) {
+
+                        if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
+                                return log_oom();
+
+                        for (j = 0; j < n; j++)
+                                if (in4_addr_is_non_local(&da[j]))
+                                        addresses[n_addresses++] = da[j];
+                }
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_pop3_server(s, addresses, n_addresses);
+}
+
 static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
@@ -280,6 +329,22 @@ int dhcp4_server_configure(Link *link) {
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to set SIP server for DHCP server, ignoring: %m");
         }
+
+                if (link->network->n_dhcp_server_pop3 > 0)
+                        r = sd_dhcp_server_set_pop3_server(link->dhcp_server, link->network->dhcp_server_pop3, link->network->n_dhcp_server_pop3);
+                else {
+                        if (!acquired_uplink)
+                                uplink = manager_find_uplink(link->manager, link);
+
+                        if (!uplink) {
+                                log_link_debug(link, "Not emitting POP3 server information on link, couldn't find suitable uplink.");
+                                r = 0;
+                        } else
+                                r = link_push_uplink_pop3_to_dhcp_server(uplink, link->dhcp_server);
+
+                }
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to set POP3 server for DHCP server, ignoring: %m");
 
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
         if (r < 0)
@@ -484,5 +549,57 @@ int config_parse_dhcp_server_sip(
 
                 m[n->n_dhcp_server_sip++] = a.in;
                 n->dhcp_server_sip = m;
+        }
+}
+
+int config_parse_dhcp_server_pop3_servers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+                struct in_addr *m;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse POP3 server address '%s', ignoring: %m", w);
+                        continue;
+                }
+
+                m = reallocarray(n->dhcp_server_pop3, n->n_dhcp_server_pop3 + 1, sizeof(struct in_addr));
+                if (!m)
+                        return log_oom();
+
+                m[n->n_dhcp_server_pop3++] = a.in;
+                n->dhcp_server_pop3 = m;
         }
 }
