@@ -12,6 +12,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
+#include "bus-internal.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "daemon-util.h"
@@ -23,6 +24,7 @@
 #include "fs-util.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
+#include "logind-selinux-access.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
 #include "logind.h"
@@ -628,6 +630,36 @@ static int manager_reserve_vt(Manager *m) {
         return 0;
 }
 
+#if HAVE_SELINUX
+static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        int r;
+        mac_selinux_logind_permission verb_logind;
+
+        assert(message);
+        assert(error);
+
+        /* Our own method calls are all protected individually with
+         * selinux checks, but the built-in interfaces need to be
+         * protected too. */
+
+        if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", "Set")) {
+                verb_logind = MAC_SELINUX_LOGIND_RAWSET;
+        } else if (sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Properties", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.ObjectManager", NULL) ||
+                 sd_bus_message_is_method_call(message, "org.freedesktop.DBus.Peer", NULL)) {
+                verb_logind = MAC_SELINUX_LOGIND_RAWSTATUS;
+        } else
+                return 0;
+
+        r = mac_selinux_logind_access_check(message, verb_logind, error);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+#endif /* HAVE_SELINUX */
+
 static int manager_connect_bus(Manager *m) {
         int r;
 
@@ -641,6 +673,12 @@ static int manager_connect_bus(Manager *m) {
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
                 return r;
+
+#if HAVE_SELINUX
+        r = sd_bus_add_filter(m->bus, NULL, mac_selinux_filter, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add SELinux access filter: %m");
+#endif
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
