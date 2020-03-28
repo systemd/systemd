@@ -188,7 +188,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_add_object_vtable()</function> is used to declare attributes for the path
+    <para><function>sd_bus_add_object_vtable()</function> is used to declare attributes for the
     object path <parameter>path</parameter> connected to the bus connection
     <parameter>bus</parameter> under the interface <parameter>interface</parameter>. The table
     <parameter>vtable</parameter> may contain property declarations using
@@ -301,10 +301,10 @@
           Parameter <replaceable>flags</replaceable> is a combination of flags, see below.</para>
 
           <para>The setter and getter methods may be omitted (specified as
-          <constant>NULL</constant>), if the property has one of the basic types or
+          <constant>NULL</constant>), if the property is one of the basic types or
           <literal>as</literal> in case of read-only properties. In those cases, the
           <replaceable>userdata</replaceable> and <replaceable>offset</replaceable> parameters must
-          together point to valid variable of the corresponding type. A default setter and getters
+          together point to a valid variable of the corresponding type. A default setter and getter
           will be provided, which simply copy the argument between this variable and the message.
           </para>
 
