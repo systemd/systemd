@@ -9,6 +9,7 @@
 #include "group-record-nss.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "pthread-util.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -277,10 +278,11 @@ static enum nss_status nss_systemd_endent(GetentData *p) {
 
         assert(p);
 
-        assert_se(pthread_mutex_lock(&p->mutex) == 0);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
+        _l = pthread_mutex_lock_assert(&p->mutex);
+
         p->iterator = userdb_iterator_free(p->iterator);
         p->by_membership = false;
-        assert_se(pthread_mutex_unlock(&p->mutex) == 0);
 
         return NSS_STATUS_SUCCESS;
 }
@@ -294,45 +296,41 @@ enum nss_status _nss_systemd_endgrent(void) {
 }
 
 enum nss_status _nss_systemd_setpwent(int stayopen) {
-        enum nss_status ret;
-
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (userdb_nss_compat_is_enabled() <= 0)
                 return NSS_STATUS_NOTFOUND;
 
-        assert_se(pthread_mutex_lock(&getpwent_data.mutex) == 0);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
+        int r;
+
+        _l = pthread_mutex_lock_assert(&getpwent_data.mutex);
 
         getpwent_data.iterator = userdb_iterator_free(getpwent_data.iterator);
         getpwent_data.by_membership = false;
 
-        ret = userdb_all(nss_glue_userdb_flags(), &getpwent_data.iterator) < 0 ?
-                NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
-
-        assert_se(pthread_mutex_unlock(&getpwent_data.mutex) == 0);
-        return ret;
+        r = userdb_all(nss_glue_userdb_flags(), &getpwent_data.iterator);
+        return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
 enum nss_status _nss_systemd_setgrent(int stayopen) {
-        enum nss_status ret;
-
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (userdb_nss_compat_is_enabled() <= 0)
                 return NSS_STATUS_NOTFOUND;
 
-        assert_se(pthread_mutex_lock(&getgrent_data.mutex) == 0);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
+        int r;
+
+        _l = pthread_mutex_lock_assert(&getgrent_data.mutex);
 
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
         getpwent_data.by_membership = false;
 
-        ret = groupdb_all(nss_glue_userdb_flags(), &getgrent_data.iterator) < 0 ?
-                NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
-
-        assert_se(pthread_mutex_unlock(&getgrent_data.mutex) == 0);
-        return ret;
+        r = groupdb_all(nss_glue_userdb_flags(), &getgrent_data.iterator);
+        return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
 enum nss_status _nss_systemd_getpwent_r(
@@ -341,7 +339,6 @@ enum nss_status _nss_systemd_getpwent_r(
                 int *errnop) {
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        enum nss_status ret;
         int r;
 
         PROTECT_ERRNO;
@@ -359,40 +356,33 @@ enum nss_status _nss_systemd_getpwent_r(
         if (!r)
                 return NSS_STATUS_NOTFOUND;
 
-        assert_se(pthread_mutex_lock(&getpwent_data.mutex) == 0);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
+
+        _l = pthread_mutex_lock_assert(&getpwent_data.mutex);
 
         if (!getpwent_data.iterator) {
                 UNPROTECT_ERRNO;
                 *errnop = EHOSTDOWN;
-                ret = NSS_STATUS_UNAVAIL;
-                goto finish;
+                return NSS_STATUS_UNAVAIL;
         }
 
         r = userdb_iterator_get(getpwent_data.iterator, &ur);
-        if (r == -ESRCH) {
-                ret = NSS_STATUS_NOTFOUND;
-                goto finish;
-        }
+        if (r == -ESRCH)
+                return NSS_STATUS_NOTFOUND;
         if (r < 0) {
                 UNPROTECT_ERRNO;
                 *errnop = -r;
-                ret = NSS_STATUS_UNAVAIL;
-                goto finish;
+                return NSS_STATUS_UNAVAIL;
         }
 
         r = nss_pack_user_record(ur, result, buffer, buflen);
         if (r < 0) {
                 UNPROTECT_ERRNO;
                 *errnop = -r;
-                ret = NSS_STATUS_TRYAGAIN;
-                goto finish;
+                return NSS_STATUS_TRYAGAIN;
         }
 
-        ret = NSS_STATUS_SUCCESS;
-
-finish:
-        assert_se(pthread_mutex_unlock(&getpwent_data.mutex) == 0);
-        return ret;
+        return NSS_STATUS_SUCCESS;
 }
 
 enum nss_status _nss_systemd_getgrent_r(
@@ -402,7 +392,6 @@ enum nss_status _nss_systemd_getgrent_r(
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
         _cleanup_free_ char **members = NULL;
-        enum nss_status ret;
         int r;
 
         PROTECT_ERRNO;
@@ -420,13 +409,14 @@ enum nss_status _nss_systemd_getgrent_r(
         if (!r)
                 return NSS_STATUS_UNAVAIL;
 
-        assert_se(pthread_mutex_lock(&getgrent_data.mutex) == 0);
+        _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
+
+        _l = pthread_mutex_lock_assert(&getgrent_data.mutex);
 
         if (!getgrent_data.iterator) {
                 UNPROTECT_ERRNO;
                 *errnop = EHOSTDOWN;
-                ret = NSS_STATUS_UNAVAIL;
-                goto finish;
+                return NSS_STATUS_UNAVAIL;
         }
 
         if (!getgrent_data.by_membership) {
@@ -444,23 +434,20 @@ enum nss_status _nss_systemd_getgrent_r(
                         if (r < 0) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
-                                ret = NSS_STATUS_UNAVAIL;
-                                goto finish;
+                                return NSS_STATUS_UNAVAIL;
                         }
 
                         getgrent_data.by_membership = true;
                 } else if (r < 0) {
                         UNPROTECT_ERRNO;
                         *errnop = -r;
-                        ret = NSS_STATUS_UNAVAIL;
-                        goto finish;
+                        return NSS_STATUS_UNAVAIL;
                 } else if (!STR_IN_SET(gr->group_name, root_group.gr_name, nobody_group.gr_name)) {
                         r = membershipdb_by_group_strv(gr->group_name, nss_glue_userdb_flags(), &members);
                         if (r < 0) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
-                                ret = NSS_STATUS_UNAVAIL;
-                                goto finish;
+                                return NSS_STATUS_UNAVAIL;
                         }
                 }
         }
@@ -472,15 +459,12 @@ enum nss_status _nss_systemd_getgrent_r(
                         _cleanup_free_ char *user_name = NULL, *group_name = NULL;
 
                         r = membershipdb_iterator_get(getgrent_data.iterator, &user_name, &group_name);
-                        if (r == -ESRCH) {
-                                ret = NSS_STATUS_NOTFOUND;
-                                goto finish;
-                        }
+                        if (r == -ESRCH)
+                                return NSS_STATUS_NOTFOUND;
                         if (r < 0) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
-                                ret = NSS_STATUS_UNAVAIL;
-                                goto finish;
+                                return NSS_STATUS_UNAVAIL;
                         }
 
                         if (STR_IN_SET(user_name, root_passwd.pw_name, nobody_passwd.pw_name))
@@ -494,8 +478,7 @@ enum nss_status _nss_systemd_getgrent_r(
                                 if (lock_fd < 0 && lock_fd != -EBUSY) {
                                         UNPROTECT_ERRNO;
                                         *errnop = -lock_fd;
-                                        ret = NSS_STATUS_UNAVAIL;
-                                        goto finish;
+                                        return NSS_STATUS_UNAVAIL;
                                 }
                         }
 
@@ -511,8 +494,7 @@ enum nss_status _nss_systemd_getgrent_r(
                         if (!members) {
                                 UNPROTECT_ERRNO;
                                 *errnop = ENOMEM;
-                                ret = NSS_STATUS_TRYAGAIN;
-                                goto finish;
+                                return NSS_STATUS_TRYAGAIN;
                         }
 
                         /* Note that we currently generate one group entry per user that is part of a
@@ -526,15 +508,10 @@ enum nss_status _nss_systemd_getgrent_r(
         if (r < 0) {
                 UNPROTECT_ERRNO;
                 *errnop = -r;
-                ret = NSS_STATUS_TRYAGAIN;
-                goto finish;
+                return NSS_STATUS_TRYAGAIN;
         }
 
-        ret = NSS_STATUS_SUCCESS;
-
-finish:
-        assert_se(pthread_mutex_unlock(&getgrent_data.mutex) == 0);
-        return ret;
+        return NSS_STATUS_SUCCESS;
 }
 
 enum nss_status _nss_systemd_initgroups_dyn(
