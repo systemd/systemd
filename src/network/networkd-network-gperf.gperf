@@ -207,6 +207,7 @@ DHCPServer.EmitNTP,                          config_parse_bool,                 
 DHCPServer.NTP,                              config_parse_dhcp_server_ntp,                             0,                             0
 DHCPServer.EmitSIP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_sip)
 DHCPServer.SIP,                              config_parse_dhcp_server_sip,                             0,                             0
+DHCPServer.POP3Servers,                      config_parse_dhcp_server_pop3_servers,                    0,                             0
 DHCPServer.EmitRouter,                       config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_router)
 DHCPServer.EmitTimezone,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_timezone)
 DHCPServer.Timezone,                         config_parse_timezone,                                    0,                             offsetof(Network, dhcp_server_timezone)

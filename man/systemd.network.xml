@@ -1386,6 +1386,7 @@
             read via <function>sd_network_link_get_sip_servers()</function> function.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>UseMTU=</varname></term>
           <listitem>
@@ -1900,6 +1901,15 @@
         shall be emitted as part of the DHCP lease. The same syntax,
         propagation semantics and defaults apply as for
         <varname>EmitDNS=</varname> and
+        <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>POP3Servers=</varname></term>
+
+        <listitem><para>Similar to the <varname>DNS=</varname> settings described above, these
+        settings configure whether and what POP3 server information shall be emitted as part of
+        the DHCP lease. The same syntax, propagation semantics and defaults apply as for
         <varname>DNS=</varname>.</para></listitem>
       </varlistentry>
 

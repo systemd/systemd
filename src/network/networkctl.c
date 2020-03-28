@@ -1240,7 +1240,8 @@ static int link_status_one(
                 sd_hwdb *hwdb,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
+        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL,
+                **pop3_server = NULL;
         _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
@@ -1267,6 +1268,7 @@ static int link_status_one(
         (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
         (void) sd_network_link_get_sip(info->ifindex, &sip);
+        (void) sd_network_link_get_pop3_servers(info->ifindex, &pop3_server);
 
         if (info->sd_device) {
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_LINK_FILE", &link);
@@ -1827,6 +1829,9 @@ static int link_status_one(
         if (r < 0)
                 return r;
         r = dump_list(table, "SIP:", sip);
+        if (r < 0)
+                return r;
+        r = dump_list(table, "POP3 servers:", pop3_server);
         if (r < 0)
                 return r;
         r = dump_ifindexes(table, "Carrier Bound To:", carrier_bound_to);
