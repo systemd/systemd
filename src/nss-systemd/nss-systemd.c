@@ -432,7 +432,7 @@ enum nss_status _nss_systemd_getgrent_r(
         if (!getgrent_data.by_membership) {
                 r = groupdb_iterator_get(getgrent_data.iterator, &gr);
                 if (r == -ESRCH) {
-                        /* So we finished iterating native groups now. let's now continue with iterating
+                        /* So we finished iterating native groups now. Let's now continue with iterating
                          * native memberships, and generate additional group entries for any groups
                          * referenced there that are defined in NSS only. This means for those groups there
                          * will be two or more entries generated during iteration, but this is apparently how
@@ -511,7 +511,8 @@ enum nss_status _nss_systemd_getgrent_r(
                         if (!members) {
                                 UNPROTECT_ERRNO;
                                 *errnop = ENOMEM;
-                                return NSS_STATUS_TRYAGAIN;
+                                ret = NSS_STATUS_TRYAGAIN;
+                                goto finish;
                         }
 
                         /* Note that we currently generate one group entry per user that is part of a
