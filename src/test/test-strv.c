@@ -674,7 +674,7 @@ static void test_strv_push_prepend(void) {
 
         log_info("/* %s */", __func__);
 
-        a = strv_new("foo", "bar", "three");
+        assert_se(a = strv_new("foo", "bar", "three"));
 
         assert_se(strv_push_prepend(&a, strdup("first")) >= 0);
         assert_se(streq(a[0], "first"));
