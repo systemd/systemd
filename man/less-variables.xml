@@ -23,7 +23,7 @@
       <term><varname>$SYSTEMD_LESS</varname></term>
 
       <listitem><para>Override the options passed to <command>less</command> (by default
-      <literal>FRSXMK</literal>).</para>
+      <literal>FRXMK</literal>).</para>
 
       <para>Users might want to change two options in particular:</para>
 

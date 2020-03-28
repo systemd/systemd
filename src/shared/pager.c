@@ -127,7 +127,7 @@ int pager_open(PagerFlags flags) {
         /* Initialize a good set of less options */
         less_opts = getenv("SYSTEMD_LESS");
         if (!less_opts)
-                less_opts = "FRSXMK";
+                less_opts = "FRXMK";
         if (flags & PAGER_JUMP_TO_END)
                 less_opts = strjoina(less_opts, " +G");
 
