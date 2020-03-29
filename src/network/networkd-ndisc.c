@@ -19,6 +19,8 @@
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
 #define NDISC_PREFIX_LFT_MIN 7200U
+#define NDISC_PREFIX_LFT_MAX ((uint64_t) 0xffffffff)
+#define DFLT_VLTIME_MULT ((uint64_t) 48)
 
 #define DAD_CONFLICTS_IDGEN_RETRIES_RFC7217 3
 
@@ -347,6 +349,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
         _cleanup_set_free_free_ Set *addresses = NULL;
         _cleanup_(address_freep) Address *address = NULL;
+        uint16_t router_lifetime;
         unsigned prefixlen;
         usec_t time_now;
         Address *existing_address, *a;
@@ -371,6 +374,19 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         r = sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix preferred lifetime: %m");
+
+        /* Lifetime of Autoconf prefixes are capped to improve the reaction of SLAAC to renumbering events.
+           Valid Lifetime: capped to Router Lifetime * DFLT_VLTIME_MULT
+           Preferred Lifetime: capped to Router Lifetime
+           See draft-gont-6man-slaac-renum
+         */
+        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime);
+        if (r >= 0) {
+                if(router_lifetime * DFLT_VLTIME_MULT < NDISC_PREFIX_LFT_MAX)
+                        lifetime_valid = MIN(lifetime_valid, router_lifetime * DFLT_VLTIME_MULT);
+
+                lifetime_preferred = MIN(lifetime_preferred, router_lifetime);
+        }
 
         /* The preferred lifetime is never greater than the valid lifetime */
         if (lifetime_preferred > lifetime_valid)
@@ -424,9 +440,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        usec_t time_now;
-        uint32_t lifetime;
+        uint16_t router_lifetime;
         unsigned prefixlen;
+        uint32_t lifetime;
+        usec_t time_now;
         int r;
 
         assert(link);
@@ -443,6 +460,13 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        /* On-link prefix Valid Lifetimes are capped to Router Lifetime * DFLT_VLTIME_MULT.
+           See draft-gont-6man-slaac-renum
+         */
+        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime);
+        if (r >= 0 && router_lifetime * DFLT_VLTIME_MULT < NDISC_PREFIX_LFT_MAX)
+                lifetime = MIN(lifetime, router_lifetime * DFLT_VLTIME_MULT);
 
         r = route_new(&route);
         if (r < 0)
@@ -474,6 +498,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
+        uint16_t router_lifetime;
         struct in6_addr gateway;
         uint32_t lifetime;
         unsigned preference, prefixlen;
@@ -484,7 +509,12 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_route_get_lifetime(rt, &lifetime);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get route lifetime from RA: %m");
+
+        /* Route Lifetimes are capped to Router Lifetime. See draft-gont-6man-slaac-renum */
+        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime);
+        if (r >= 0)
+                lifetime = MIN(lifetime, router_lifetime);
 
         if (lifetime == 0)
                 return 0;
