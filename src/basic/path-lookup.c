@@ -6,19 +6,15 @@
 
 #include "alloc-util.h"
 #include "fs-util.h"
-#include "install.h"
 #include "log.h"
 #include "macro.h"
-#include "mkdir.h"
 #include "path-lookup.h"
 #include "path-util.h"
-#include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
-#include "util.h"
 
 int xdg_user_runtime_dir(char **ret, const char *suffix) {
         const char *e;
@@ -100,14 +96,14 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
-        USER_DATA_UNIT_PATH,
+        USER_DATA_UNIT_DIR,
         "/usr/lib/systemd/user",
         "/usr/share/systemd/user",
         NULL
 };
 
 static const char* const user_config_unit_paths[] = {
-        USER_CONFIG_UNIT_PATH,
+        USER_CONFIG_UNIT_DIR,
         "/etc/systemd/user",
         NULL
 };
@@ -325,12 +321,12 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
         switch (scope) {
 
         case UNIT_FILE_SYSTEM:
-                a = strdup(SYSTEM_CONFIG_UNIT_PATH);
+                a = strdup(SYSTEM_CONFIG_UNIT_DIR);
                 b = strdup("/run/systemd/system");
                 break;
 
         case UNIT_FILE_GLOBAL:
-                a = strdup(USER_CONFIG_UNIT_PATH);
+                a = strdup(USER_CONFIG_UNIT_DIR);
                 b = strdup("/run/systemd/user");
                 break;
 
@@ -618,7 +614,7 @@ int lookup_paths_init(
                                         STRV_IFNOTNULL(transient),
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
-                                        SYSTEM_CONFIG_UNIT_PATH,
+                                        SYSTEM_CONFIG_UNIT_DIR,
                                         "/etc/systemd/system",
                                         STRV_IFNOTNULL(persistent_attached),
                                         runtime_config,
@@ -642,7 +638,7 @@ int lookup_paths_init(
                                         STRV_IFNOTNULL(transient),
                                         STRV_IFNOTNULL(generator_early),
                                         persistent_config,
-                                        USER_CONFIG_UNIT_PATH,
+                                        USER_CONFIG_UNIT_DIR,
                                         "/etc/systemd/user",
                                         runtime_config,
                                         "/run/systemd/user",
@@ -650,7 +646,7 @@ int lookup_paths_init(
                                         "/usr/local/share/systemd/user",
                                         "/usr/share/systemd/user",
                                         "/usr/local/lib/systemd/user",
-                                        USER_DATA_UNIT_PATH,
+                                        USER_DATA_UNIT_DIR,
                                         "/usr/lib/systemd/user",
                                         STRV_IFNOTNULL(generator_late));
                         break;
@@ -783,56 +779,6 @@ void lookup_paths_log(LookupPaths *p) {
         }
 }
 
-int lookup_paths_mkdir_generator(LookupPaths *p) {
-        int r, q;
-
-        assert(p);
-
-        if (!p->generator || !p->generator_early || !p->generator_late)
-                return -EINVAL;
-
-        r = mkdir_p_label(p->generator, 0755);
-
-        q = mkdir_p_label(p->generator_early, 0755);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = mkdir_p_label(p->generator_late, 0755);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        return r;
-}
-
-void lookup_paths_trim_generator(LookupPaths *p) {
-        assert(p);
-
-        /* Trim empty dirs */
-
-        if (p->generator)
-                (void) rmdir(p->generator);
-        if (p->generator_early)
-                (void) rmdir(p->generator_early);
-        if (p->generator_late)
-                (void) rmdir(p->generator_late);
-}
-
-void lookup_paths_flush_generator(LookupPaths *p) {
-        assert(p);
-
-        /* Flush the generated unit files in full */
-
-        if (p->generator)
-                (void) rm_rf(p->generator, REMOVE_ROOT|REMOVE_PHYSICAL);
-        if (p->generator_early)
-                (void) rm_rf(p->generator_early, REMOVE_ROOT|REMOVE_PHYSICAL);
-        if (p->generator_late)
-                (void) rm_rf(p->generator_late, REMOVE_ROOT|REMOVE_PHYSICAL);
-
-        if (p->temporary_dir)
-                (void) rm_rf(p->temporary_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
-}
-
 char **generator_binary_paths(UnitFileScope scope) {
         bool append = false; /* Add items from SYSTEMD_GENERATOR_PATH before normal directories */
         _cleanup_strv_free_ char **paths = NULL;
@@ -852,7 +798,7 @@ char **generator_binary_paths(UnitFileScope scope) {
                         add = strv_new("/run/systemd/system-generators",
                                        "/etc/systemd/system-generators",
                                        "/usr/local/lib/systemd/system-generators",
-                                       SYSTEM_GENERATOR_PATH);
+                                       SYSTEM_GENERATOR_DIR);
                         break;
 
                 case UNIT_FILE_GLOBAL:
@@ -860,7 +806,7 @@ char **generator_binary_paths(UnitFileScope scope) {
                         add = strv_new("/run/systemd/user-generators",
                                        "/etc/systemd/user-generators",
                                        "/usr/local/lib/systemd/user-generators",
-                                       USER_GENERATOR_PATH);
+                                       USER_GENERATOR_DIR);
                         break;
 
                 default:
@@ -899,12 +845,12 @@ char **env_generator_binary_paths(bool is_system) {
                         add = strv_new("/run/systemd/system-environment-generators",
                                         "/etc/systemd/system-environment-generators",
                                         "/usr/local/lib/systemd/system-environment-generators",
-                                        SYSTEM_ENV_GENERATOR_PATH);
+                                        SYSTEM_ENV_GENERATOR_DIR);
                 else
                         add = strv_new("/run/systemd/user-environment-generators",
                                        "/etc/systemd/user-environment-generators",
                                        "/usr/local/lib/systemd/user-environment-generators",
-                                       USER_ENV_GENERATOR_PATH);
+                                       USER_ENV_GENERATOR_DIR);
 
                 if (!add)
                         return NULL;

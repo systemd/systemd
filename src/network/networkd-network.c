@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"

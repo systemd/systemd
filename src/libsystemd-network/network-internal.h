@@ -8,7 +8,6 @@
 #include "sd-dhcp-lease.h"
 
 #include "conf-parser.h"
-#include "def.h"
 #include "set.h"
 #include "strv.h"
 
@@ -66,5 +65,3 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
 
 /* It is not necessary to add deserialize_dhcp_option(). Use unhexmem() instead. */
 int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size);
-
-#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))

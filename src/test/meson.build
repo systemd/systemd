@@ -778,6 +778,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-sd-path.c'],
+         [],
+         []],
+
         [['src/test/test-local-addresses.c'],
          [],
          []],

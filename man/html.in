@@ -6,6 +6,9 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+# make sure the rules have been regenrated (in case man/update-man-rules was just run)
+ninja -C "@BUILD_ROOT@" version.h
+
 target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"
 set -x

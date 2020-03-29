@@ -20,6 +20,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"

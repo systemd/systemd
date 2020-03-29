@@ -5,6 +5,7 @@
 
 typedef struct LookupPaths LookupPaths;
 
+#include "def.h"
 #include "unit-file.h"
 #include "macro.h"
 
@@ -64,12 +65,10 @@ bool path_is_user_data_dir(const char *path);
 bool path_is_user_config_dir(const char *path);
 
 void lookup_paths_log(LookupPaths *p);
-
-int lookup_paths_mkdir_generator(LookupPaths *p);
-void lookup_paths_trim_generator(LookupPaths *p);
-void lookup_paths_flush_generator(LookupPaths *p);
-
 void lookup_paths_free(LookupPaths *p);
 
 char **generator_binary_paths(UnitFileScope scope);
 char **env_generator_binary_paths(bool is_system);
+
+#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
+#define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")

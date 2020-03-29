@@ -2,4 +2,5 @@ Name: udev
 Description: udev
 Version: @PROJECT_VERSION@
 
-udevdir=@udevlibexecdir@
+udev_dir=@udevlibexecdir@
+udevdir=${udev_dir}
