@@ -701,7 +701,6 @@ int take_etc_passwd_lock(const char *root) {
 bool valid_user_group_name_full(const char *u, bool strict) {
         const char *i;
         long sz;
-        bool warned = false;
 
         /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
          * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
@@ -712,7 +711,6 @@ bool valid_user_group_name_full(const char *u, bool strict) {
          *
          * If strict==true, additionally:
          * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
-         * - We don't allow a digit as the first character
          *
          * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
          */
@@ -722,16 +720,12 @@ bool valid_user_group_name_full(const char *u, bool strict) {
 
         if (!(u[0] >= 'a' && u[0] <= 'z') &&
             !(u[0] >= 'A' && u[0] <= 'Z') &&
-            !(u[0] >= '0' && u[0] <= '9' && !strict) &&
+            !(u[0] >= '0' && u[0] <= '9') &&
             u[0] != '_')
                 return false;
 
         bool only_digits_seen = u[0] >= '0' && u[0] <= '9';
-
-        if (only_digits_seen) {
-                log_warning("User or group name \"%s\" starts with a digit, accepting for compatibility.", u);
-                warned = true;
-        }
+        bool warned = false;
 
         for (i = u+1; *i; i++) {
                 if (((*i >= 'a' && *i <= 'z') ||

@@ -133,7 +133,7 @@ static void test_valid_user_group_name(void) {
         assert_se(!valid_user_group_name("eff."));
 
         assert_se(valid_user_group_name("some5"));
-        assert_se(!valid_user_group_name("5some"));
+        assert_se(valid_user_group_name("5some"));
         assert_se(valid_user_group_name("INNER5NUMBER"));
 }
 
@@ -199,7 +199,7 @@ static void test_valid_user_group_name_or_id(void) {
         assert_se(valid_user_group_name_or_id("kk-k"));
 
         assert_se(valid_user_group_name_or_id("some5"));
-        assert_se(!valid_user_group_name_or_id("5some"));
+        assert_se(valid_user_group_name_or_id("5some"));
         assert_se(valid_user_group_name_or_id("INNER5NUMBER"));
 }
 
