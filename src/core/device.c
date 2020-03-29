@@ -83,6 +83,8 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         }
 
         d->sysfs = TAKE_PTR(copy);
+        unit_add_to_dbus_queue(UNIT(d));
+
         return 0;
 }
 
@@ -561,9 +563,6 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
          * the deps on the mount unit but at that time the "bind mounts" flag wasn't not present. Fix this up now. */
         if (dev && device_is_bound_by_mounts(DEVICE(u), dev))
                 device_upgrade_mount_deps(u);
-
-        /* Note that this won't dispatch the load queue, the caller has to do that if needed and appropriate */
-        unit_add_to_dbus_queue(u);
 
         return 0;
 
