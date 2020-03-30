@@ -295,7 +295,7 @@ static int handle_generic_user_record_error(
 
         if (sd_bus_error_has_name(error, BUS_ERROR_HOME_ABSENT))
                 return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "Home of user %s is currently absent, please plug in the necessary stroage device or backing file system.", user_name);
+                                       "Home of user %s is currently absent, please plug in the necessary storage device or backing file system.", user_name);
 
         else if (sd_bus_error_has_name(error, BUS_ERROR_AUTHENTICATION_LIMIT_HIT))
                 return log_error_errno(SYNTHETIC_ERRNO(ETOOMANYREFS),
