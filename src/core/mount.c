@@ -400,32 +400,20 @@ static bool mount_is_extrinsic(Mount *m) {
         MountParameters *p;
         assert(m);
 
-        /* Returns true for all units that are "magic" and should be excluded from the usual start-up and shutdown
-         * dependencies. We call them "extrinsic" here, as they are generally mounted outside of the systemd dependency
-         * logic. We shouldn't attempt to manage them ourselves but it's fine if the user operates on them with us. */
+        /* Returns true for all units that are "magic" and should be excluded from the usual
+         * start-up and shutdown dependencies. We call them "extrinsic" here, as they are generally
+         * mounted outside of the systemd dependency logic. We shouldn't attempt to manage them
+         * ourselves but it's fine if the user operates on them with us. */
 
-        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager)) /* We only automatically manage mounts if we are in system mode */
+        /* We only automatically manage mounts if we are in system mode */
+        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
                 return true;
 
         if (UNIT(m)->perpetual) /* All perpetual units never change state */
                 return true;
 
-        if (PATH_IN_SET(m->where,  /* Don't bother with the OS data itself */
-                        "/",       /* (strictly speaking redundant: should already be covered by the perpetual flag check above) */
-                        "/usr",
-                        "/etc"))
-                return true;
-
-        if (PATH_STARTSWITH_SET(m->where,
-                                "/run/initramfs",    /* This should stay around from before we boot until after we shutdown */
-                                "/proc",             /* All of this is API VFS */
-                                "/sys",              /* … dito … */
-                                "/dev"))             /* … dito … */
-                return true;
-
-        /* If this is an initrd mount, and we are not in the initrd, then leave this around forever, too. */
         p = get_mount_parameters(m);
-        if (p && fstab_test_option(p->options, "x-initrd.mount\0") && !in_initrd())
+        if (p && fstab_is_extrinsic(m->where, p->options))
                 return true;
 
         return false;
