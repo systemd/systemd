@@ -2350,7 +2350,7 @@
           <term><varname>BitRate=</varname></term>
           <listitem>
             <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
-            be used here.</para>
+            be used here. Takes a number in the range 1..4294967295.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

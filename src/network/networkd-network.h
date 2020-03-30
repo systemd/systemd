@@ -205,7 +205,7 @@ struct Network {
         uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
-        uint64_t can_bitrate;
+        uint32_t can_bitrate;
         unsigned can_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;

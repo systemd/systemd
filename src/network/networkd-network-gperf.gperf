@@ -6,6 +6,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "netem.h"
 #include "network-internal.h"
+#include "networkd-can.h"
 #include "networkd-conf.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server.h"
@@ -257,7 +258,7 @@ IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,      
 IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
-CAN.BitRate,                                 config_parse_si_uint64,                                   0,                             offsetof(Network, can_bitrate)
+CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
 CAN.RestartSec,                              config_parse_sec,                                         0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
