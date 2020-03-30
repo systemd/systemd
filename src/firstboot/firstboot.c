@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/loop.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -9,6 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"
+#include "dissect-image.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -17,9 +19,12 @@
 #include "kbd-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "mount-util.h"
+#include "namespace-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -31,10 +36,12 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util-label.h"
+#include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static char *arg_locale = NULL;  /* $LANG */
 static char *arg_keymap = NULL;
 static char *arg_locale_messages = NULL; /* $LC_MESSAGES */
@@ -57,6 +64,7 @@ static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_locale_messages, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
@@ -826,6 +834,75 @@ static int process_kernel_cmdline(void) {
         return 0;
 }
 
+static int setup_image(char **ret_mount_dir, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image) {
+        DissectImageFlags f = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(rmdir_and_freep) char *mount_dir = NULL;
+        _cleanup_free_ char *temp = NULL;
+        int r;
+
+        if (!arg_image) {
+                *ret_mount_dir = NULL;
+                *ret_decrypted_image = NULL;
+                *ret_loop_device = NULL;
+                return 0;
+        }
+
+        assert(!arg_root);
+
+        r = tempfn_random_child(NULL, "firstboot", &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+
+        r = loop_device_make_by_path(arg_image, O_RDWR, LO_FLAGS_PARTSCAN, &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up loopback device: %m");
+
+        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, f, &dissected_image);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, 0, NULL, NULL, NULL, 0, f, &decrypted_image);
+        if (r < 0)
+                return r;
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+        mount_dir = strdup(temp);
+        if (!mount_dir)
+                return log_oom();
+
+        r = mkdir_p(mount_dir, 0700);
+        if (r < 0) {
+                mount_dir = mfree(mount_dir);
+                return log_error_errno(r, "Failed to create mount point: %m");
+        }
+
+        r = dissected_image_mount(dissected_image, mount_dir, UID_INVALID, f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        if (decrypted_image) {
+                r = decrypted_image_relinquish(decrypted_image);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
+        }
+
+        loop_device_relinquish(d);
+
+        arg_root = TAKE_PTR(temp);
+
+        *ret_mount_dir = TAKE_PTR(mount_dir);
+        *ret_decrypted_image = TAKE_PTR(decrypted_image);
+        *ret_loop_device = TAKE_PTR(d);
+
+        return 1;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -839,6 +916,7 @@ static int help(void) {
                "  -h --help                                 Show this help\n"
                "     --version                              Show package version\n"
                "     --root=PATH                            Operate on an alternate filesystem root\n"
+               "     --image=PATH                           Operate on an alternate filesystem image\n"
                "     --locale=LOCALE                        Set primary locale (LANG=)\n"
                "     --locale-messages=LOCALE               Set message locale (LC_MESSAGES=)\n"
                "     --keymap=KEYMAP                        Set keymap\n"
@@ -875,6 +953,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_LOCALE,
                 ARG_LOCALE_MESSAGES,
                 ARG_KEYMAP,
@@ -905,6 +984,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",                    no_argument,       NULL, 'h'                         },
                 { "version",                 no_argument,       NULL, ARG_VERSION                 },
                 { "root",                    required_argument, NULL, ARG_ROOT                    },
+                { "image",                   required_argument, NULL, ARG_IMAGE                   },
                 { "locale",                  required_argument, NULL, ARG_LOCALE                  },
                 { "locale-messages",         required_argument, NULL, ARG_LOCALE_MESSAGES         },
                 { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
@@ -949,6 +1029,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT:
                         r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument_and_warn(optarg, false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -1086,7 +1172,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETUP_MACHINE_ID:
-
                         r = sd_id128_randomize(&arg_machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate randomized machine ID: %m");
@@ -1120,11 +1205,16 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--delete-root-password cannot be combined with other root password options");
 
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+
         return 1;
 }
 
 static int run(int argc, char *argv[]) {
-        bool enabled;
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         int r;
 
         r = parse_argv(argc, argv);
@@ -1135,11 +1225,23 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
+        if (!arg_root && !arg_image) {
+                bool enabled;
+
+                /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
+                 * command line option, because we are called to provision the host with basic settings (as
+                 * opposed to some other file system tree/image) */
+
+                r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
+                if (r > 0 && !enabled)
+                        return 0; /* disabled */
+        }
+
+        r = setup_image(&unlink_dir, &loop_device, &decrypted_image);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
-        if (r > 0 && !enabled)
-                return 0; /* disabled */
+                return r;
 
         r = process_locale();
         if (r < 0)
