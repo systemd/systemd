@@ -96,6 +96,9 @@ enum {
 #define SD_LLDP_OUI_802_1 (uint8_t[]) { 0x00, 0x80, 0xc2 }
 #define SD_LLDP_OUI_802_3 (uint8_t[]) { 0x00, 0x12, 0x0f }
 
+#define SD_LLDP_OUI_MUD   (uint8_t[]) { 0x00, 0x00, 0x5E }
+#define SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION  0x01
+
 /* IEEE 802.1AB-2009 Annex E */
 enum {
         SD_LLDP_OUI_802_1_SUBTYPE_PORT_VLAN_ID          = 1,
@@ -169,6 +172,7 @@ int sd_lldp_neighbor_get_ttl(sd_lldp_neighbor *n, uint16_t *ret_sec);
 int sd_lldp_neighbor_get_system_name(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_description(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const char **ret);
+int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 
