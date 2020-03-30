@@ -801,6 +801,12 @@ save_journal() {
         /usr/lib/systemd/systemd-journal-remote \
             -o $dest \
             --getter="journalctl -o export -D $j"
+
+        if [ -n "${TEST_SHOW_JOURNAL}" ]; then
+            echo "---- $j ----"
+            journalctl --no-pager -o short-monotonic --no-hostname --priority=${TEST_SHOW_JOURNAL} -D $j
+        fi
+
         rm -r $j
     done
 
