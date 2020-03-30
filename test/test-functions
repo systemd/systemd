@@ -791,13 +791,21 @@ check_asan_reports() {
 }
 
 save_journal() {
-    dest="${TESTDIR}"
+    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+        dest="${ARTIFACT_DIRECTORY}/${testname}.journal"
+    else
+        dest="$TESTDIR/system.journal"
+    fi
 
-    cp -a $1 "$dest/"
-    rm -r $1/*
+    for j in $1/*; do
+        /usr/lib/systemd/systemd-journal-remote \
+            -o $dest \
+            --getter="journalctl -o export -D $j"
+        rm -r $j
+    done
 
     # we want to print this sometime later, so save this in a variable
-    JOURNAL_LIST="$(ls -l $dest/*/*/*.journal 2>&1)"
+    JOURNAL_LIST="$(ls -l $dest*)"
 }
 
 check_result_nspawn() {
