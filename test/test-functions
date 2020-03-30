@@ -790,16 +790,25 @@ check_asan_reports() {
     return $ret
 }
 
+save_journal() {
+    dest="${TESTDIR}"
+
+    cp -a $1 "$dest/"
+    rm -r $1/*
+
+    # we want to print this sometime later, so save this in a variable
+    JOURNAL_LIST="$(ls -l $dest/*/*/*.journal 2>&1)"
+}
+
 check_result_nspawn() {
     local ret=1
     local journald_report=""
     local pids=""
     [[ -e $1/testok ]] && ret=0
     [[ -f $1/failed ]] && cp -a $1/failed $TESTDIR
-    cp -a $1/var/log/journal $TESTDIR
-    rm -r $1/var/log/journal/*
+    save_journal $1/var/log/journal
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$1" || ret=$(($ret+1))
@@ -813,12 +822,11 @@ check_result_qemu() {
     mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
-    cp -a $initdir/var/log/journal $TESTDIR
-    rm -r $initdir/var/log/journal/*
+    save_journal $initdir/var/log/journal
     check_asan_reports "$initdir" || ret=$(($ret+1))
     _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     return $ret

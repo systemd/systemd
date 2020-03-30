@@ -13,13 +13,12 @@ check_result_qemu() {
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $initdir/var
-    cp -a $initdir/var/log/journal $TESTDIR
-    rm -r $initdir/var/log/journal/*
+    save_journal $initdir/var/log/journal
     _umount_dir $initdir/var
     _umount_dir $initdir
     cryptsetup luksClose /dev/mapper/varcrypt
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
 }
