@@ -20,11 +20,6 @@ tools/oss-fuzz.sh
 ./out/fuzz-unit-file -max_total_time=5
 git clean -dxff
 
-wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
-chmod +x fuzzbuzz
-./fuzzbuzz validate
-./fuzzbuzz target test fuzz-unit-file --all
-
 git clone https://github.com/google/oss-fuzz /tmp/oss-fuzz
 cd /tmp/oss-fuzz
 sudo ./infra/helper.py pull_images

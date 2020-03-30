@@ -39,13 +39,12 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
-want_fuzzbuzz = get_option('fuzzbuzz')
-if want_ossfuzz + want_libfuzzer + want_fuzzbuzz > 1
-        error('only one of oss-fuzz, llvm-fuzz or fuzzbuzz can be specified')
+if want_ossfuzz + want_libfuzzer > 1
+        error('only one of oss-fuzz or llvm-fuzz can be specified')
 endif
 
 skip_deps = want_ossfuzz or want_libfuzzer
-fuzzer_build = want_ossfuzz or want_libfuzzer or want_fuzzbuzz
+fuzzer_build = want_ossfuzz or want_libfuzzer
 
 #####################################################################
 
@@ -322,8 +321,6 @@ if want_libfuzzer
         endif
 elif want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
-elif want_fuzzbuzz
-        fuzzing_engine = meson.get_compiler('cpp').find_library(get_option('fuzzbuzz-engine'), dirs: get_option('fuzzbuzz-engine-dir'))
 endif
 
 # Those generate many false positives, and we do not want to change the code to
@@ -3099,7 +3096,7 @@ foreach tuple : fuzzers
         incs = tuple.length() >= 5 ? tuple[4] : includes
         link_args = []
 
-        if want_ossfuzz or want_fuzzbuzz
+        if want_ossfuzz
                 dependencies += fuzzing_engine
         elif want_libfuzzer
                 if fuzzing_engine.found()
@@ -3109,10 +3106,6 @@ foreach tuple : fuzzers
                 endif
         else
                 sources += 'src/fuzz/fuzz-main.c'
-        endif
-
-        if want_fuzzbuzz
-                sources += 'src/fuzz/fuzzer-entry-point.c'
         endif
 
         name = sources[0].split('/')[-1].split('.')[0]
