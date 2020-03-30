@@ -260,6 +260,9 @@ int generator_write_device_deps(
         _cleanup_free_ char *node = NULL, *unit = NULL;
         int r;
 
+        if (fstab_is_extrinsic(where, opts))
+                return 0;
+
         if (!fstab_test_option(opts, "_netdev\0"))
                 return 0;
 
