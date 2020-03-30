@@ -130,6 +130,7 @@ struct Network {
         bool dhcp6_use_ntp;
         bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
+        char *dhcp6_mudurl;
         struct in6_addr dhcp6_pd_address;
 
         /* DHCP Server Support */

@@ -644,6 +644,7 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_black_listed_ip);
         set_free(network->dhcp_request_options);
         free(network->mac);
+        free(network->dhcp6_mudurl);
 
         if (network->dhcp_acd)
                 sd_ipv4acd_unref(network->dhcp_acd);

@@ -110,6 +110,7 @@ RapidCommit=
 ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
 WithoutRA=
+MUDURL=
 [Route]
 Destination=
 Protocol=
