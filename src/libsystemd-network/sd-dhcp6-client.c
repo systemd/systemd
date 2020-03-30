@@ -25,6 +25,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "util.h"
+#include "web-util.h"
 
 #define MAX_MAC_ADDR_LEN INFINIBAND_ALEN
 
@@ -65,6 +66,7 @@ struct sd_dhcp6_client {
         size_t req_opts_allocated;
         size_t req_opts_len;
         char *fqdn;
+        char *mudurl;
         sd_event_source *receive_message;
         usec_t retransmit_time;
         uint8_t retransmit_count;
@@ -363,6 +365,17 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         return 0;
 }
 
+int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, char *mudurl) {
+
+        assert_return(client, -EINVAL);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
+        assert_return(mudurl, -EINVAL);
+        assert_return(strlen(mudurl) <= 255, -EINVAL);
+        assert_return(http_url_is_valid(mudurl), -EINVAL);
+
+        return free_and_strdup(&client->mudurl, mudurl);
+}
+
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegation) {
         assert_return(client, -EINVAL);
         assert_return(delegation, -EINVAL);
@@ -484,6 +497,14 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         case DHCP6_STATE_INFORMATION_REQUEST:
                 message->type = DHCP6_INFORMATION_REQUEST;
 
+                if (client->mudurl) {
+                        r = dhcp6_option_append(&opt, &optlen,
+                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                client->mudurl);
+                        if (r < 0)
+                                return r;
+                }
+
                 break;
 
         case DHCP6_STATE_SOLICITATION:
@@ -503,6 +524,14 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->fqdn) {
                         r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (client->mudurl) {
+                        r = dhcp6_option_append(&opt, &optlen,
+                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                client->mudurl);
                         if (r < 0)
                                 return r;
                 }
@@ -545,6 +574,14 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (client->mudurl) {
+                        r = dhcp6_option_append(&opt, &optlen,
+                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                client->mudurl);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
@@ -567,6 +604,14 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
 
                 if (client->fqdn) {
                         r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (client->mudurl) {
+                        r = dhcp6_option_append(&opt, &optlen,
+                                                SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
+                                                client->mudurl);
                         if (r < 0)
                                 return r;
                 }
@@ -1521,6 +1566,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
 
         free(client->req_opts);
         free(client->fqdn);
+        free(client->mudurl);
         return mfree(client);
 }
 
