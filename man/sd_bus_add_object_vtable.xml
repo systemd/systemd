@@ -19,6 +19,8 @@
   <refnamediv>
     <refname>sd_bus_add_object_vtable</refname>
     <refname>sd_bus_add_fallback_vtable</refname>
+    <refname>sd_bus_add_object</refname>
+    <refname>sd_bus_add_fallback</refname>
     <refname>SD_BUS_VTABLE_START</refname>
     <refname>SD_BUS_VTABLE_END</refname>
     <refname>SD_BUS_METHOD_WITH_NAMES_OFFSET</refname>
@@ -94,6 +96,24 @@
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
         <paramdef>sd_bus_object_find_t <parameter>find</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_object</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_fallback</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -200,7 +220,7 @@
     <constant>SD_BUS_SIGNAL_WITH_NAMES()</constant> or <constant>SD_BUS_SIGNAL()</constant>, see
     below. The <replaceable>userdata</replaceable> parameter contains a pointer that will be passed
     to various callback functions. It may be specified as <constant>NULL</constant> if no value is
-    necessary.</para>
+    necessary. An interface can have any number of vtables attached to it.</para>
 
     <para><function>sd_bus_add_fallback_vtable()</function> is similar to
     <function>sd_bus_add_object_vtable()</function>, but is used to register "fallback" attributes.
@@ -220,7 +240,45 @@
     for the callback functions (offset by the <parameter>offset</parameter> offsets as specified in
     the vtable entries).</para>
 
-    <para>For both functions, a match slot is created internally. If the output parameter
+    <para><function>sd_bus_add_object()</function> attaches a callback directly to the object path
+    <parameter>path</parameter>. An object path can have any number of callbacks attached to it.
+    Each callback is prepended to the list of callbacks which are always called in order.
+    <function>sd_bus_add_fallback()</function> is similar to
+    <function>sd_bus_add_object()</function> but applies to fallback paths instead.</para>
+
+    <para>When a request is received, any associated callbacks are called sequentially until a
+    callback returns a non-zero integer. Return zero from a callback to defer handling of the
+    request to the next callback. Callbacks are called in the following order: first, callbacks
+    attached directly to the request object path are called, followed by any D-Bus method callbacks
+    attached to the request object path, interface and member. Finally, the property callbacks
+    attached to the request object path, interface and member are called. If the final callback
+    returns zero, an error reply is sent back to the caller indicating no matching object for the
+    request was found. Note that you can return a positive integer from a callback without
+    immediately sending a reply. This informs sd-bus this callback will take responsibility for
+    replying to the request without forcing the callback to produce a reply immediately. This allows
+    a callback to perform any number of asynchronous operations required to construct a reply. Note
+    that if producing a reply takes too long, the method call will timeout at the caller.</para>
+
+    <para>If a callback was invoked to handle a request that expects a reply and the callback
+    returns a negative value, the value is interpreted as a negative errno-style error code and sent
+    back to the caller as a D-Bus error as if
+    <citerefentry><refentrytitle>sd_bus_reply_method_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    was called. Additionally, all callbacks take a <structname>sd_bus_error</structname> output
+    parameter that can be used to provide more detailed error information. If
+    <parameter>ret_error</parameter> is set when the callback finishes, the corresponding D-Bus
+    error is sent back to the caller as if
+    <citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    was called. Any error stored in <parameter>ret_error</parameter> takes priority over any
+    negative values returned by the same callback when determining which error to send back to
+    the caller. Use
+    <citerefentry><refentrytitle>sd_bus_error_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or one of its variants to set <parameter>ret_error</parameter> and return a negative integer
+    from a callback with a single function call. To send an error reply after a callback has already
+    finished, use
+    <citerefentry><refentrytitle>sd_bus_reply_method_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    or one of its variants.</para>
+
+    <para>For all functions, a match slot is created internally. If the output parameter
     <replaceable>slot</replaceable> is <constant>NULL</constant>, a "floating" slot object is
     created, see
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
