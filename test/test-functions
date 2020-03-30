@@ -14,8 +14,11 @@ NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-infinity}"
 TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 [[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
-EFI_MOUNT="$(bootctl -x 2>/dev/null || echo /boot)"
+EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
+IMAGE_NAME=${IMAGE_NAME:-default}
+TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+LOOPDEV=
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
 # Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
@@ -39,11 +42,104 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
-BASICTOOLS="test env sh bash setsid loadkeys setfont login sulogin gzip sleep echo head tail cat mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
-DEBUGTOOLS="df free ls stty ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find vi mv"
+BASICTOOLS=(
+    awk
+    basename
+    bash
+    busybox
+    capsh
+    cat
+    chmod
+    chown
+    cmp
+    cryptsetup
+    cut
+    date
+    dd
+    diff
+    dirname
+    dmsetup
+    echo
+    env
+    false
+    getent
+    getfacl
+    grep
+    gunzip
+    gzip
+    head
+    ionice
+    ip
+    ln
+    loadkeys
+    login
+    lz4cat
+    mkfifo
+    mktemp
+    modprobe
+    mount
+    mv
+    nc
+    nproc
+    readlink
+    rev
+    rm
+    rmdir
+    sed
+    seq
+    setfont
+    setsid
+    sfdisk
+    sh
+    sleep
+    socat
+    stat
+    su
+    sulogin
+    sysctl
+    tail
+    tar
+    tee
+    test
+    touch
+    tr
+    true
+    truncate
+    umount
+    uname
+    unshare
+    xargs
+    xzcat
+)
+
+DEBUGTOOLS=(
+    cp
+    df
+    dhclient
+    dmesg
+    du
+    find
+    free
+    grep
+    hostname
+    id
+    less
+    ln
+    ls
+    mkdir
+    ping
+    ps
+    route
+    sort
+    strace
+    stty
+    tty
+    vi
+)
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
+IMAGESTATEDIR="$STATEDIR/.."
 TESTLOG="$STATEDIR/test.log"
 
 is_built_with_asan() {
@@ -138,6 +234,10 @@ run_qemu() {
 
     CONSOLE=ttyS0
 
+    # make sure the initdir is not mounted to avoid concurrent access
+    cleanup_initdir
+    umount_loopback
+
     if [[ ! "$KERNEL_BIN" ]]; then
         if [[ "$LOOKS_LIKE_ARCH" ]]; then
             KERNEL_BIN=/boot/vmlinuz-linux
@@ -184,6 +284,9 @@ run_qemu() {
 
     find_qemu_bin || return 1
 
+    # Umount initdir to avoid concurrent access to the filesystem
+    _umount_dir $initdir
+
     local _cgroup_args
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" ]]; then
         _cgroup_args="systemd.unified_cgroup_hierarchy=yes"
@@ -198,14 +301,18 @@ run_qemu() {
 
     if [[ "$LOOKS_LIKE_SUSE" ]]; then
         PARAMS+="rd.hostonly=0"
-    elif [[ "$LOOKS_LIKE_ARCH" ]]; then
-        PARAMS+="rw"
+    fi
+
+    local _end
+    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+        _end="systemd.wants=end.service"
     else
-        PARAMS+="ro"
+        _end=""
     fi
 
     KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
+rw \
 raid=noautodetect \
 rd.luks=0 \
 loglevel=2 \
@@ -213,6 +320,9 @@ init=$PATH_TO_INIT \
 console=$CONSOLE \
 selinux=0 \
 $_cgroup_args \
+SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units: \
+systemd.unit=testsuite.target \
+systemd.wants=testsuite-$1.service ${_end} \
 $KERNEL_APPEND \
 "
 
@@ -221,7 +331,7 @@ $KERNEL_APPEND \
 -m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=${TESTDIR}/rootdisk.img \
+-drive format=raw,cache=unsafe,file=${IMAGESTATEDIR}/${IMAGE_NAME}.img \
 $QEMU_OPTIONS \
 "
 
@@ -253,24 +363,41 @@ $QEMU_OPTIONS \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$SYSTEMD_NSPAWN $NSPAWN_ARGUMENTS --register=no --kill-signal=SIGKILL --directory=$TESTDIR/$1 $PATH_TO_INIT $KERNEL_APPEND"
+    local _nspawn_cmd=(
+        --register=no
+        --kill-signal=SIGKILL
+        --directory=$1
+        --setenv=SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$2.units:/usr/lib/systemd/tests/testdata/units:
+        $PATH_TO_INIT
+        $KERNEL_APPEND
+        systemd.unit=testsuite.target
+        systemd.wants=testsuite-$2.service
+    )
+
+    if [[ ! "$INTERACTIVE_DEBUG" ]]; then
+        _nspawn_cmd+=( systemd.wants=end.service )
+    fi
+
+    local _nspawn_pre
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
-        _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
+        _nspawn_pre=(timeout --foreground $NSPAWN_TIMEOUT)
+    else
+        _nspawn_pre=()
     fi
 
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
         dwarn "nspawn doesn't support SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=hybrid, skipping"
         exit
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _nspawn_cmd="env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY $_nspawn_cmd"
+        _nspawn_pre=("${nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
-        _nspawn_cmd="env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY $_nspawn_cmd"
+        _nspawn_pre=("${nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
     else
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
     fi
 
-    (set -x; $_nspawn_cmd)
+    (set -x; "${_nspawn_pre[@]}" "$SYSTEMD_NSPAWN" $NSPAWN_ARGUMENTS "${_nspawn_cmd[@]}")
     rc=$?
     if [ "$rc" = 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "test timed out after $NSPAWN_TIMEOUT s"
@@ -288,6 +415,7 @@ setup_basic_environment() {
     install_systemd
     install_missing_libraries
     install_config_files
+    install_zoneinfo
     create_rc_local
     install_basic_tools
     install_libnss
@@ -301,6 +429,8 @@ setup_basic_environment() {
     install_plymouth
     install_debug_tools
     install_ld_so_conf
+    install_testuser
+    has_user_dbus_socket && install_user_dbus
     setup_selinux
     strip_binaries
     install_depmod_files
@@ -326,27 +456,9 @@ setup_selinux() {
         exit 1
     fi
 
-    cat <<EOF >$initdir/etc/systemd/system/autorelabel.service
-[Unit]
-Description=Relabel all filesystems
-DefaultDependencies=no
-Requires=local-fs.target
-Conflicts=shutdown.target
-After=local-fs.target
-Before=sysinit.target shutdown.target
-ConditionSecurity=selinux
-ConditionPathExists=|/.autorelabel
-
-[Service]
-ExecStart=/bin/sh -x -c 'echo 0 >/sys/fs/selinux/enforce && fixfiles -f -F relabel && rm /.autorelabel && systemctl --force reboot'
-Type=oneshot
-TimeoutSec=0
-RemainAfterExit=yes
-EOF
-
     touch $initdir/.autorelabel
-    mkdir -p $initdir/etc/systemd/system/basic.target.wants
-    ln -fs autorelabel.service $initdir/etc/systemd/system/basic.target.wants/autorelabel.service
+    mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants
+    ln -sf ../autorelabel.service $initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/
 
     dracut_install $_fixfiles_tools
     dracut_install fixfiles
@@ -475,7 +587,7 @@ unset_ld_preload() {
 }
 
 unset_ld_preload systemd-remount-fs
-unset_ld_preload testsuite
+unset_ld_preload testsuite-
 
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
 exec  $ROOTLIBDIR/systemd "\$@"
@@ -530,7 +642,7 @@ install_systemd() {
     # and it could fill the available space
     strip_binaries
 
-   [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
+    [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
 
     # enable debug logging in PID1
     echo LogLevel=debug >> $initdir/etc/systemd/system.conf
@@ -556,17 +668,37 @@ install_missing_libraries() {
     done
 }
 
+cleanup_loopdev() {
+    if [ -n "${LOOPDEV}" ]; then
+        ddebug "losetup -d $LOOPDEV"
+        losetup -d "${LOOPDEV}"
+    fi
+}
+
+trap cleanup_loopdev EXIT
+
 create_empty_image() {
+    if [ -z "$IMAGE_NAME" ]; then
+        echo "create_empty_image: \$IMAGE_NAME not set"
+        exit 1
+    fi
+
     local _size=500
     if [[ "$STRIP_BINARIES" = "no" ]]; then
         _size=$((4*_size))
     fi
-    rm -f "$TESTDIR/rootdisk.img"
+
+    image="${TESTDIR}/${IMAGE_NAME}.img"
+    public="$IMAGESTATEDIR/${IMAGE_NAME}.img"
+    echo "Setting up $public (${_size} MB)"
+    rm -f "$image" "$public"
+
     # Create the blank file to use as a root filesystem
-    truncate -s "${_size}M" "$TESTDIR/rootdisk.img"
-    LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
+    truncate -s "${_size}M" "$image"
+    ln -vs "$(realpath $image)" "$public"
+
+    LOOPDEV=$(losetup --show -P -f "$public")
     [ -b "$LOOPDEV" ] || return 1
-    echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
     sfdisk "$LOOPDEV" <<EOF
 ,$((_size-50))M
 ,
@@ -574,20 +706,50 @@ EOF
 
     udevadm settle
 
-    local _label="-L systemd"
+    local _label="-L systemd.${name}"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
-    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd"
-    if ! mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; then
+    [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd.${name}"
+    mkfs -t "${FSTYPE}" ${_label} "${LOOPDEV}p1" -q; ret=$?
+    if [ $ret -ne 0 ] ; then
         dfatal "Failed to mkfs -t ${FSTYPE}"
         exit 1
     fi
 }
 
+mount_initdir() {
+    if [ -z "${LOOPDEV}" ]; then
+        image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+        LOOPDEV=$(losetup --show -P -f "$image")
+        [ -b "$LOOPDEV" ] || return 1
+
+        udevadm settle
+    fi
+
+    if ! mountpoint -q $initdir; then
+        mkdir -p $initdir
+        mount ${LOOPDEV}p1 $initdir
+        TEST_SETUP_CLEANUP_ROOTDIR=1
+    fi
+}
+
+cleanup_initdir() {
+    # only umount if create_empty_image_rootdir() was called to mount it
+    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
+}
+
+umount_loopback() {
+    # unmount the loopback device from all places. Otherwise we risk file
+    # system corruption.
+    image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+    for device in $(losetup -l | awk '$6=="'"$image"'" {print $1}'); do
+        ddebug "Unmounting all uses of $device"
+        mount | awk '/^'"${device}"'p/{print $1}' | xargs --no-run-if-empty umount -v
+    done
+}
+
 create_empty_image_rootdir() {
     create_empty_image
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
-    TEST_SETUP_CLEANUP_ROOTDIR=1
+    mount_initdir
 }
 
 check_asan_reports() {
@@ -632,27 +794,29 @@ check_result_nspawn() {
     local ret=1
     local journald_report=""
     local pids=""
-    [[ -e $TESTDIR/$1/testok ]] && ret=0
-    [[ -f $TESTDIR/$1/failed ]] && cp -a $TESTDIR/$1/failed $TESTDIR
-    cp -a $TESTDIR/$1/var/log/journal $TESTDIR
+    [[ -e $1/testok ]] && ret=0
+    [[ -f $1/failed ]] && cp -a $1/failed $TESTDIR
+    cp -a $1/var/log/journal $TESTDIR
+    rm -r $1/var/log/journal/*
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
-    check_asan_reports "$TESTDIR/$1" || ret=$(($ret+1))
+    check_asan_reports "$1" || ret=$(($ret+1))
+    _umount_dir $initdir
     return $ret
 }
 
 # can be overridden in specific test
 check_result_qemu() {
     local ret=1
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
+    mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cp -a $initdir/var/log/journal $TESTDIR
+    rm -r $initdir/var/log/journal/*
     check_asan_reports "$initdir" || ret=$(($ret+1))
-    umount $initdir
+    _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     ls -l $TESTDIR/journal/*/*.journal
     test -s $TESTDIR/failed && ret=$(($ret+1))
@@ -727,6 +891,17 @@ install_ld_so_conf() {
     ldconfig -r "$initdir"
 }
 
+install_testuser() {
+    # create unprivileged user for user manager tests
+    mkdir -p $initdir/etc/sysusers.d
+    cat >$initdir/etc/sysusers.d/testuser.conf <<EOF
+u testuser    4711     "Test User" /home/testuser
+EOF
+
+    mkdir -p $initdir/home/testuser -m 0700
+    chown 4711:4711 $initdir/home/testuser
+}
+
 install_config_files() {
     inst /etc/sysconfig/init || :
     inst /etc/passwd
@@ -741,29 +916,20 @@ install_config_files() {
     # we want an empty environment
     > $initdir/etc/environment
     > $initdir/etc/machine-id
+
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
-    # fstab
-    if [[ "$LOOKS_LIKE_SUSE" ]]; then
-       ROOTMOUNT="/dev/sda1           /       ${FSTYPE}    rw 0 1"
-    else
-       ROOTMOUNT="LABEL=systemd           /       ${FSTYPE}    rw 0 1"
-    fi
-
-    cat >$initdir/etc/fstab <<EOF
-$ROOTMOUNT
-EOF
 }
 
 install_basic_tools() {
-    [[ $BASICTOOLS ]] && dracut_install $BASICTOOLS
+    dracut_install "${BASICTOOLS[@]}"
     dracut_install -o sushell
     # in Debian ldconfig is just a shell script wrapper around ldconfig.real
     dracut_install -o ldconfig.real
 }
 
 install_debug_tools() {
-    [[ $DEBUGTOOLS ]] && dracut_install $DEBUGTOOLS
+    dracut_install "${DEBUGTOOLS[@]}"
 
     if [[ $INTERACTIVE_DEBUG ]]; then
         # Set default TERM from vt220 to linux, so at least basic key shortcuts work
@@ -810,6 +976,19 @@ install_dbus() {
         | while read file; do
         inst $file
     done
+
+    # setup policy for Type=dbus test
+    mkdir -p $initdir/etc/dbus-1/system.d
+    cat > $initdir/etc/dbus-1/system.d/systemd.test.ExecStopPost.conf <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+        "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+    <policy user="root">
+        <allow own="systemd.test.ExecStopPost"/>
+    </policy>
+</busconfig>
+EOF
 }
 
 install_user_dbus() {
@@ -885,10 +1064,16 @@ install_keymaps() {
 }
 
 install_zoneinfo() {
-    for i in /usr/share/zoneinfo/{,*/,*/*/}*; do
-        [[ -f $i ]] || continue
-        inst $i
-    done
+    inst_any /usr/share/zoneinfo/Asia/Seoul
+    inst_any /usr/share/zoneinfo/Asia/Vladivostok
+    inst_any /usr/share/zoneinfo/Australia/Sydney
+    inst_any /usr/share/zoneinfo/Europe/Berlin
+    inst_any /usr/share/zoneinfo/Europe/Kiev
+    inst_any /usr/share/zoneinfo/Pacific/Auckland
+    inst_any /usr/share/zoneinfo/Pacific/Honolulu
+    inst_any /usr/share/zoneinfo/CET
+    inst_any /usr/share/zoneinfo/EET
+    inst_any /usr/share/zoneinfo/UTC
 }
 
 install_fonts() {
@@ -916,40 +1101,17 @@ has_user_dbus_socket() {
     fi
 }
 
-enable_user_manager() {
-    has_user_dbus_socket || return 0
-
-    local _userid
-    [[ $# -gt 0 ]] || set -- nobody
-    mkdir -p "$initdir/var/lib/systemd/linger"
-    for _userid; do
-        touch "$initdir/var/lib/systemd/linger/$_userid"
-    done
-    dracut_install su
-    install_user_dbus
-}
-
-setup_testsuite() {
-    cp $TEST_BASE_DIR/testsuite.target $initdir/etc/systemd/system/
-    cp $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/
-
-    mkdir -p $initdir/etc/systemd/system/testsuite.target.wants
-    ln -fs $TEST_BASE_DIR/testsuite.service $initdir/etc/systemd/system/testsuite.target.wants/testsuite.service
-    # Don't shutdown the machine after running the test when INTERACTIVE_DEBUG is set
-    [[ -z $INTERACTIVE_DEBUG ]] && ln -fs $TEST_BASE_DIR/end.service $initdir/etc/systemd/system/testsuite.target.wants/end.service
-
-    # make the testsuite the default target
-    ln -fs testsuite.target $initdir/etc/systemd/system/default.target
-}
-
 setup_nspawn_root() {
-    rm -fr $TESTDIR/nspawn-root
-    ddebug "cp -ar $initdir $TESTDIR/nspawn-root"
-    cp -ar $initdir $TESTDIR/nspawn-root
-    # we don't mount in the nspawn root
-    rm -f $TESTDIR/nspawn-root/etc/fstab
+    if [ -z "${initdir}" ]; then
+        dfatal "\$initdir not defined"
+        exit 1
+    fi
+
+    rm -rf "$TESTDIR/unprivileged-nspawn-root"
+
     if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
-        cp -ar $TESTDIR/nspawn-root $TESTDIR/unprivileged-nspawn-root
+        ddebug "cp -ar $initdir $TESTDIR/unprivileged-nspawn-root"
+        cp -ar $initdir $TESTDIR/unprivileged-nspawn-root
     fi
 }
 
@@ -1005,7 +1167,10 @@ inst_libs() {
 }
 
 import_testdir() {
+    # make sure we don't get a stale LOOPDEV value from old times
+    __LOOPDEV=$LOOPDEV
     [[ -e $STATEFILE ]] && . $STATEFILE
+    LOOPDEV=$__LOOPDEV
     if [[ ! -d "$TESTDIR" ]]; then
         if [[ -z "$TESTDIR" ]]; then
             TESTDIR=$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)
@@ -1013,7 +1178,9 @@ import_testdir() {
             mkdir -p "$TESTDIR"
         fi
 
-        echo "TESTDIR=\"$TESTDIR\"" > $STATEFILE
+        cat >$STATEFILE<<EOF
+TESTDIR="$TESTDIR"
+EOF
         export TESTDIR
     fi
 }
@@ -1755,14 +1922,9 @@ _umount_dir() {
     fi
 }
 
-_test_setup_cleanup() {
-    # only umount if create_empty_image_rootdir() was called to mount it
-    [[ -z $TEST_SETUP_CLEANUP_ROOTDIR ]] || _umount_dir $initdir
-}
-
 # can be overridden in specific test
 test_setup_cleanup() {
-    _test_setup_cleanup
+    cleanup_initdir
 }
 
 _test_cleanup() {
@@ -1770,12 +1932,9 @@ _test_cleanup() {
     (
         set +e
         _umount_dir $initdir
-        if [[ $LOOPDEV && -b $LOOPDEV ]]; then
-            ddebug "losetup -d $LOOPDEV"
-            losetup -d $LOOPDEV
-        fi
-        rm -fr "$TESTDIR"
-        rm -f "$STATEFILE"
+        rm -vf "${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+        rm -vfr "$TESTDIR"
+        rm -vf "$STATEFILE"
     ) || :
 }
 
@@ -1784,24 +1943,70 @@ test_cleanup() {
     _test_cleanup
 }
 
+test_cleanup_again() {
+    [ -n "$TESTDIR" ] || return
+    rm -rf "$TESTDIR/unprivileged-nspawn-root"
+    _umount_dir $initdir
+}
+
+test_create_image() {
+    create_empty_image_rootdir
+
+    # Create what will eventually be our root filesystem onto an overlay
+    (
+        LOG_LEVEL=5
+        setup_basic_environment
+        mask_supporting_services
+    )
+}
+
+test_setup() {
+    if [ ${TEST_REQUIRE_INSTALL_TESTS} -ne 0 ] && \
+            type -P meson >/dev/null && \
+            [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+        dfatal "Needs to be built with -Dinstall-tests=true"
+        exit 1
+    fi
+
+    image="${TESTDIR}/${IMAGE_NAME}.img"
+    public="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+    if [ -e "$image" ]; then
+        echo "Reusing existing image $PWD/$image → $(realpath $image)"
+        mount_initdir
+    elif [ -e "$public" ]; then
+        echo "Reusing existing cached image $PWD/$public → $(realpath $public)"
+        ln -s "$(realpath $public)" "$image"
+        mount_initdir
+    else
+        test_create_image
+    fi
+
+    setup_nspawn_root
+}
+
 test_run() {
+    mount_initdir
+    rm -f "$initdir"/{testok,failed,skipped}
+
     if [ -z "$TEST_NO_QEMU" ]; then
-        if run_qemu; then
-            check_result_qemu || return 1
+        if run_qemu "$1"; then
+            check_result_qemu || { echo "QEMU test failed"; return 1; }
         else
             dwarn "can't run QEMU, skipping"
         fi
     fi
     if [ -z "$TEST_NO_NSPAWN" ]; then
-        if run_nspawn "nspawn-root"; then
-            check_result_nspawn "nspawn-root" || return 1
+        mount_initdir
+        if run_nspawn "$initdir" "$1"; then
+            check_result_nspawn "$initdir" || { echo "nspawn-root test failed"; return 1; }
         else
             dwarn "can't run systemd-nspawn, skipping"
         fi
 
         if [[ "$RUN_IN_UNPRIVILEGED_CONTAINER" = "yes" ]]; then
-            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "unprivileged-nspawn-root"; then
-                check_result_nspawn "unprivileged-nspawn-root" || return 1
+            dir="$TESTDIR/unprivileged-nspawn-root"
+            if NSPAWN_ARGUMENTS="-U --private-network $NSPAWN_ARGUMENTS" run_nspawn "$dir" "$1"; then
+                check_result_nspawn "$dir" || { echo "unprivileged-nspawn-root test failed"; return 1; }
             else
                 dwarn "can't run systemd-nspawn, skipping"
             fi
@@ -1830,34 +2035,40 @@ do_test() {
     import_testdir
     import_initdir
 
+    testname="$(basename $PWD)"
+
     while (($# > 0)); do
         case $1 in
             --run)
-                echo "TEST RUN: $TEST_DESCRIPTION"
-                test_run
+                echo "${testname} RUN: $TEST_DESCRIPTION"
+                test_run "$2"
                 ret=$?
                 if (( $ret == 0 )); then
-                    echo "TEST RUN: $TEST_DESCRIPTION [OK]"
+                    echo "${testname} RUN: $TEST_DESCRIPTION [OK]"
                 else
-                    echo "TEST RUN: $TEST_DESCRIPTION [FAILED]"
+                    echo "${testname} RUN: $TEST_DESCRIPTION [FAILED]"
                 fi
                 exit $ret;;
             --setup)
-                echo "TEST SETUP: $TEST_DESCRIPTION"
+                echo "${testname} SETUP: $TEST_DESCRIPTION"
                 test_setup
                 test_setup_cleanup
                 ;;
             --clean)
-                echo "TEST CLEANUP: $TEST_DESCRIPTION"
+                echo "${testname} CLEANUP: $TEST_DESCRIPTION"
                 test_cleanup
+                ;;
+            --clean-again)
+                echo "${testname} CLEANUP AGAIN: $TEST_DESCRIPTION"
+                test_cleanup_again
                 ;;
             --all)
                 ret=0
-                echo -n "TEST: $TEST_DESCRIPTION "
+                echo -n "${testname}: $TEST_DESCRIPTION "
                 (
                     test_setup
                     test_setup_cleanup
-                    test_run
+                    test_run "$2"
                 ) </dev/null >"$TESTLOG" 2>&1 || ret=$?
                 test_cleanup
                 if [ $ret -eq 0 ]; then

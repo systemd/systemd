@@ -1,0 +1,8 @@
+[Unit]
+Description=TEST-14-MACHINE-ID
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStart=/bin/sh -e -x -c 'systemctl --state=failed --no-legend --no-pager >/failed ; echo OK >/testok'
+Type=oneshot

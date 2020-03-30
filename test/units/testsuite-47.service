@@ -1,0 +1,7 @@
+[Unit]
+Description=TEST-47-ISSUE-14566
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

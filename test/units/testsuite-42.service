@@ -1,0 +1,9 @@
+[Unit]
+Description=TEST-42-EXECSTOPPOST
+Before=getty-pre.target
+Wants=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

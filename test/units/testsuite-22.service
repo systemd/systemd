@@ -1,0 +1,12 @@
+[Unit]
+Description=TEST-22-TMPFILES
+After=systemd-tmpfiles-setup.service
+Before=getty-pre.target
+Wants=getty-pre.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
+StandardOutput=tty
+StandardError=tty

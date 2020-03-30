@@ -1,34 +1,25 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Basic systemd setup"
+IMAGE_NAME="basic"
 RUN_IN_UNPRIVILEGED_CONTAINER=${RUN_IN_UNPRIVILEGED_CONTAINER:-yes}
+TEST_REQUIRE_INSTALL_TESTS=0
 
 . $TEST_BASE_DIR/test-functions
 
-test_setup() {
+test_create_image() {
     create_empty_image_rootdir
 
     # Create what will eventually be our root filesystem onto an overlay
     (
         LOG_LEVEL=5
-        eval $(udevadm info --export --query=env --name=${LOOPDEV}p2)
-
         setup_basic_environment
 
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-After=multi-user.target
-
-[Service]
-ExecStart=/bin/sh -e -x -c 'systemctl --state=failed --no-legend --no-pager > /failed ; systemctl daemon-reload ; echo OK > /testok'
-Type=oneshot
-EOF
-
-        setup_testsuite
+        # install tests manually so the test is functional even when -Dinstall-tests=false
+        mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/
+        cp -v $(dirname $0)/../units/{testsuite-01,end}.service $initdir/usr/lib/systemd/tests/testdata/units/
     )
     setup_nspawn_root
 }
 
-do_test "$@"
+do_test "$@" 01

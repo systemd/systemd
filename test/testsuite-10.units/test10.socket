@@ -1,0 +1,2 @@
+[Socket]
+ListenStream=/run/test.ctl

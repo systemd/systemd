@@ -1,0 +1,6 @@
+[Unit]
+Requires=test10.socket
+ConditionPathExistsGlob=/tmp/nonexistent
+
+[Service]
+ExecStart=true

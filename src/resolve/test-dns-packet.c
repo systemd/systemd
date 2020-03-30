@@ -92,7 +92,6 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 
 int main(int argc, char **argv) {
         int i, N;
-        _cleanup_free_ char *pkts_glob = NULL;
         _cleanup_globfree_ glob_t g = {};
         char **fnames;
 
@@ -102,7 +101,8 @@ int main(int argc, char **argv) {
                 N = argc - 1;
                 fnames = argv + 1;
         } else {
-                pkts_glob = path_join(get_testdata_dir(), "test-resolve/*.pkts");
+                _cleanup_free_ char *pkts_glob = NULL;
+                assert_se(get_testdata_dir("test-resolve/*.pkts", &pkts_glob) >= 0);
                 assert_se(glob(pkts_glob, GLOB_NOSORT, NULL, &g) == 0);
                 N = g.gl_pathc;
                 fnames = g.gl_pathv;

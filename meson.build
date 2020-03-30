@@ -49,9 +49,12 @@ fuzzer_build = want_ossfuzz or want_libfuzzer
 #####################################################################
 
 # Try to install the git pre-commit hook
-git_hook = run_command(join_paths(project_source_root, 'tools/add-git-hook.sh'))
-if git_hook.returncode() == 0
-        message(git_hook.stdout().strip())
+add_git_hook_sh = find_program('tools/add-git-hook.sh', required : false)
+if add_git_hook_sh.found()
+        git_hook = run_command(add_git_hook_sh)
+        if git_hook.returncode() == 0
+                message(git_hook.stdout().strip())
+        endif
 endif
 
 #####################################################################
@@ -2503,7 +2506,7 @@ if conf.get('ENABLE_BINFMT') == 1
 endif
 
 if conf.get('ENABLE_REPART') == 1
-        executable('systemd-repart',
+        exe = executable('systemd-repart',
                    systemd_repart_sources,
                    include_directories : includes,
                    link_with : [libshared],
@@ -2515,6 +2518,12 @@ if conf.get('ENABLE_REPART') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootbindir)
+
+        if want_tests != 'false'
+                test('test-repart',
+                     test_repart_sh,
+                     args : exe.full_path())
+        endif
 endif
 
 if conf.get('ENABLE_VCONSOLE') == 1
@@ -2959,13 +2968,20 @@ if conf.get('ENABLE_NETWORKD') == 1
                    install_dir : rootbindir)
         public_programs += exe
 
-        executable('systemd-network-generator',
+        exe = executable('systemd-network-generator',
                    network_generator_sources,
                    include_directories : includes,
                    link_with : [networkd_link_with],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
+
+        if want_tests != 'false'
+                test('test-network-generator-conversion',
+                     test_network_generator_conversion_sh,
+                     # https://github.com/mesonbuild/meson/issues/2681
+                     args : exe.full_path())
+        endif
 endif
 
 executable('systemd-sulogin-shell',
@@ -3467,6 +3483,7 @@ foreach tuple : [
         ['debug siphash'],
         ['valgrind',         conf.get('VALGRIND') == 1],
         ['trace logging',    conf.get('LOG_TRACE') == 1],
+        ['install tests',    install_tests],
         ['link-udev-shared',      get_option('link-udev-shared')],
         ['link-systemctl-shared', get_option('link-systemctl-shared')],
         ['link-networkd-shared',  get_option('link-networkd-shared')],

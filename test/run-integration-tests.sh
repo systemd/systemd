@@ -4,8 +4,10 @@ set -e
 BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
 if [ $# -gt 0 ]; then
     args="$@"
+    do_clean=0
 else
-    args="clean setup run clean-again"
+    args="setup run clean-again"
+    do_clean=1
 fi
 
 ninja -C "$BUILD_DIR"
@@ -16,6 +18,13 @@ COUNT=0
 FAILURES=0
 
 cd "$(dirname "$0")"
+
+if [ $do_clean = 1 ]; then
+    for TEST in TEST-??-* ; do
+        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
+    done
+fi
+
 for TEST in TEST-??-* ; do
     COUNT=$(($COUNT+1))
 
@@ -30,6 +39,12 @@ for TEST in TEST-??-* ; do
 
     [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
 done
+
+if [ $FAILURES -eq 0 -a $do_clean = 1 ]; then
+    for TEST in TEST-??-* ; do
+        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean-again )
+    done
+fi
 
 echo ""
 

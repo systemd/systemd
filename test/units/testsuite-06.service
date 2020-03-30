@@ -1,0 +1,10 @@
+[Unit]
+Description=TEST-06-SELINUX
+
+Requires=load-systemd-test-module.service
+After=load-systemd-test-module.service
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

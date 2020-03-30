@@ -1,0 +1,9 @@
+[Unit]
+Description=TEST-43-PRIVATEUSER-UNPRIV
+After=systemd-logind.service user@4711.service
+Wants=user@4711.service
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
