@@ -27,6 +27,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "web-util.h"
 
 #define MAX_CLIENT_ID_LEN (sizeof(uint32_t) + MAX_DUID_LEN)  /* Arbitrary limit */
 #define MAX_MAC_ADDR_LEN CONST_MAX(INFINIBAND_ALEN, ETH_ALEN)
@@ -83,6 +84,7 @@ struct sd_dhcp_client {
         size_t client_id_len;
         char *hostname;
         char *vendor_class_identifier;
+        char *mudurl;
         char **user_class;
         uint32_t mtu;
         uint32_t xid;
@@ -493,6 +495,18 @@ int sd_dhcp_client_set_vendor_class_identifier(
         return free_and_strdup(&client->vendor_class_identifier, vci);
 }
 
+int sd_dhcp_client_set_mud_url(
+                sd_dhcp_client *client,
+                const char *mudurl) {
+
+        assert_return(client, -EINVAL);
+        assert_return(mudurl, -EINVAL);
+        assert_return(strlen(mudurl) <= 255, -EINVAL);
+        assert_return(http_url_is_valid(mudurl), -EINVAL);
+
+        return free_and_strdup(&client->mudurl, mudurl);
+}
+
 int sd_dhcp_client_set_user_class(
                 sd_dhcp_client *client,
                 const char* const* user_class) {
@@ -895,6 +909,15 @@ static int client_send_discover(sd_dhcp_client *client) {
                         return r;
         }
 
+        if (client->mudurl) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_MUD_URL,
+                                       strlen(client->mudurl),
+                                       client->mudurl);
+                if (r < 0)
+                        return r;
+        }
+
         if (client->user_class) {
                 r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                        SD_DHCP_OPTION_USER_CLASS,
@@ -1031,6 +1054,16 @@ static int client_send_request(sd_dhcp_client *client) {
                 if (r < 0)
                         return r;
         }
+
+        if (client->mudurl) {
+                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
+                                       SD_DHCP_OPTION_MUD_URL,
+                                       strlen(client->mudurl),
+                                       client->mudurl);
+                if (r < 0)
+                        return r;
+        }
+
 
         r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
@@ -2101,6 +2134,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         free(client->req_opts);
         free(client->hostname);
         free(client->vendor_class_identifier);
+        free(client->mudurl);
         client->user_class = strv_free(client->user_class);
         ordered_hashmap_free(client->extra_options);
         ordered_hashmap_free(client->vendor_options);
