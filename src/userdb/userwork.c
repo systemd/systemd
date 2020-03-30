@@ -763,7 +763,7 @@ static int run(int argc, char *argv[]) {
                                 if (parent <= 1)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parent already died?");
 
-                                if (kill(parent, SIGUSR1) < 0)
+                                if (kill(parent, SIGUSR2) < 0)
                                         return log_error_errno(errno, "Failed to kill our own parent.");
                         }
                 }
