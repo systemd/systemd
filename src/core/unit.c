@@ -2957,13 +2957,10 @@ int unit_add_dependency(
                 return 0;
         }
 
-        if (d == UNIT_AFTER && UNIT_VTABLE(u)->refuse_after) {
-                log_unit_warning(u, "Requested dependency After=%s ignored (%s units cannot be delayed).", other->id, unit_type_to_string(u->type));
-                return 0;
-        }
-
-        if (d == UNIT_BEFORE && UNIT_VTABLE(other)->refuse_after) {
-                log_unit_warning(u, "Requested dependency Before=%s ignored (%s units cannot be delayed).", other->id, unit_type_to_string(other->type));
+        /* Note that ordering a device unit after a unit is permitted since it
+         * allows to start its job running timeout at a specific time. */
+        if (d == UNIT_BEFORE && other->type == UNIT_DEVICE) {
+                log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
         }
 
