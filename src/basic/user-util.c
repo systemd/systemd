@@ -656,10 +656,10 @@ bool valid_user_group_name_or_id_full(const char *u, bool strict) {
         if (isempty(u))
                 return false;
 
-        if (valid_user_group_name_full(u, strict))
+        if (parse_uid(u, NULL) >= 0)
                 return true;
 
-        return parse_uid(u, NULL) >= 0;
+        return valid_user_group_name_full(u, strict);
 }
 
 bool valid_gecos(const char *d) {
