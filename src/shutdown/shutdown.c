@@ -51,6 +51,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_TARGET,
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
+                ARG_LOG_TIME,
                 ARG_EXIT_CODE,
                 ARG_TIMEOUT,
         };
@@ -60,6 +61,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
                 { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
                 { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
+                { "log-time",      optional_argument, NULL, ARG_LOG_TIME     },
                 { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
                 {}
@@ -107,6 +109,17 @@ static int parse_argv(int argc, char *argv[]) {
                                         log_error_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
                         } else
                                 log_show_location(true);
+
+                        break;
+
+                case ARG_LOG_TIME:
+
+                        if (optarg) {
+                                r = log_show_time_from_string(optarg);
+                                if (r < 0)
+                                        log_error_errno(r, "Failed to parse log time setting %s, ignoring: %m", optarg);
+                        } else
+                                log_show_time(true);
 
                         break;
 

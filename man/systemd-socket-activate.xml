@@ -141,6 +141,7 @@
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_TARGET</varname></term>
         <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
+        <term><varname>$SYSTEMD_LOG_TIME</varname></term>
         <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
         <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
 

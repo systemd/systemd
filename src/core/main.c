@@ -542,8 +542,9 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level");
 DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target");
-DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" );
+DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color");
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location");
+DEFINE_SETTER(config_parse_time, log_show_time_from_string, "time");
 
 static int config_parse_default_timeout_abort(
                 const char *unit,
@@ -571,6 +572,7 @@ static int parse_config_file(void) {
                 { "Manager", "LogTarget",                    config_parse_target,                0, NULL                                   },
                 { "Manager", "LogColor",                     config_parse_color,                 0, NULL                                   },
                 { "Manager", "LogLocation",                  config_parse_location,              0, NULL                                   },
+                { "Manager", "LogTime",                      config_parse_time,                  0, NULL                                   },
                 { "Manager", "DumpCore",                     config_parse_bool,                  0, &arg_dump_core                         },
                 { "Manager", "CrashChVT", /* legacy */       config_parse_crash_chvt,            0, &arg_crash_chvt                        },
                 { "Manager", "CrashChangeVT",                config_parse_crash_chvt,            0, &arg_crash_chvt                        },
@@ -718,6 +720,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_TARGET,
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
+                ARG_LOG_TIME,
                 ARG_UNIT,
                 ARG_SYSTEM,
                 ARG_USER,
@@ -745,6 +748,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
                 { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
                 { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
+                { "log-time",                 optional_argument, NULL, ARG_LOG_TIME                 },
                 { "unit",                     required_argument, NULL, ARG_UNIT                     },
                 { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
                 { "user",                     no_argument,       NULL, ARG_USER                     },
@@ -815,6 +819,18 @@ static int parse_argv(int argc, char *argv[]) {
                                                                optarg);
                         } else
                                 log_show_location(true);
+
+                        break;
+
+                case ARG_LOG_TIME:
+
+                        if (optarg) {
+                                r = log_show_time_from_string(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse log time setting \"%s\": %m",
+                                                               optarg);
+                        } else
+                                log_show_time(true);
 
                         break;
 
@@ -1037,6 +1053,7 @@ static int help(void) {
                "     --log-level=LEVEL           Set log level (debug, info, notice, warning, err, crit, alert, emerg)\n"
                "     --log-color[=BOOL]          Highlight important log messages\n"
                "     --log-location[=BOOL]       Include code location in log messages\n"
+               "     --log-time[=BOOL]           Prefix log messages with current time\n"
                "     --default-standard-output=  Set default standard output for services\n"
                "     --default-standard-error=   Set default standard error output for services\n"
                "\nSee the %s for details.\n"
@@ -1418,6 +1435,9 @@ static int become_shutdown(
 
         if (log_get_show_location())
                 command_line[pos++] = "--log-location";
+
+        if (log_get_show_time())
+                command_line[pos++] = "--log-time";
 
         if (streq(shutdown_verb, "exit")) {
                 command_line[pos++] = "--exit-code";

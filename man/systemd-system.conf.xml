@@ -63,10 +63,11 @@
     <variablelist class='config-directives'>
 
       <varlistentry>
-        <term><varname>LogLevel=</varname></term>
-        <term><varname>LogTarget=</varname></term>
         <term><varname>LogColor=</varname></term>
+        <term><varname>LogLevel=</varname></term>
         <term><varname>LogLocation=</varname></term>
+        <term><varname>LogTarget=</varname></term>
+        <term><varname>LogTime=</varname></term>
         <term><varname>DumpCore=yes</varname></term>
         <term><varname>CrashChangeVT=no</varname></term>
         <term><varname>CrashShell=no</varname></term>
