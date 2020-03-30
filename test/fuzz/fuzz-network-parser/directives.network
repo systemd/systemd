@@ -199,6 +199,8 @@ LifetimeSec=
 EgressUntagged=
 VLAN=
 PVID=
+[LLDP]
+MUDURL=
 [CAN]
 SamplePoint=
 BitRate=
