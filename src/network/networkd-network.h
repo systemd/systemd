@@ -91,6 +91,7 @@ struct Network {
         AddressFamily dhcp;
         DHCPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
+        char *dhcp_mudurl;
         char **dhcp_user_class;
         char *dhcp_hostname;
         uint64_t dhcp_max_attempts;

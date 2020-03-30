@@ -640,6 +640,7 @@ static Network *network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        free(network->dhcp_mudurl);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
         set_free(network->dhcp_black_listed_ip);

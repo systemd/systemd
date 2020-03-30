@@ -170,6 +170,7 @@ DHCPv4.SendHostname,                         config_parse_bool,                 
 DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCPv4.RequestBroadcast,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_broadcast)
 DHCPv4.VendorClassIdentifier,                config_parse_string,                                      0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCPv4.MUDURL,                               config_parse_dhcp_mud_url,                                0,                             0
 DHCPv4.MaxAttempts,                          config_parse_dhcp_max_attempts,                           0,                             0
 DHCPv4.UserClass,                            config_parse_dhcp_user_class,                             0,                             offsetof(Network, dhcp_user_class)
 DHCPv4.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, duid)
