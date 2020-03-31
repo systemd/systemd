@@ -10,7 +10,7 @@
 [Unit]
 Description=Home Area Manager
 Documentation=man:systemd-homed.service(8)
-RequiresMountsFor=/home
+After=home.mount
 
 [Service]
 BusName=org.freedesktop.home1
