@@ -80,6 +80,18 @@ FILE* take_fdopen(int *fd, const char *options) {
         return f;
 }
 
+DIR* take_fdopendir(int *dfd) {
+        assert(dfd);
+
+        DIR *d = fdopendir(*dfd);
+        if (!d)
+                return NULL;
+
+        *dfd = -1;
+
+        return d;
+}
+
 FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc) {
         FILE *f = open_memstream(ptr, sizeloc);
         if (!f)
