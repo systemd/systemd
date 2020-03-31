@@ -19,8 +19,10 @@
   <refnamediv>
     <refname>sd_bus_reply_method_error</refname>
     <refname>sd_bus_reply_method_errorf</refname>
+    <refname>sd_bus_reply_method_errorfv</refname>
     <refname>sd_bus_reply_method_errno</refname>
     <refname>sd_bus_reply_method_errnof</refname>
+    <refname>sd_bus_reply_method_errnofv</refname>
 
     <refpurpose>Reply with an error to a D-Bus method call</refpurpose>
   </refnamediv>
@@ -40,7 +42,15 @@
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
         <paramdef>const char *<parameter>name</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>…</paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_reply_method_errorfv</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -55,7 +65,15 @@
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>…</paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_reply_method_errnofv</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>int <parameter>error</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

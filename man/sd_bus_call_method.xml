@@ -18,7 +18,9 @@
 
   <refnamediv>
     <refname>sd_bus_call_method</refname>
+    <refname>sd_bus_call_methodv</refname>
     <refname>sd_bus_call_method_async</refname>
+    <refname>sd_bus_call_method_asyncv</refname>
 
     <refpurpose>Initialize a bus message object and invoke the corresponding D-Bus method call
     </refpurpose>
@@ -42,6 +44,19 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_call_methodv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_call_method_async</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
@@ -53,6 +68,20 @@
         <paramdef>void *<parameter>userdata</parameter></paramdef>
         <paramdef>const char *<parameter>types</parameter></paramdef>
         <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_call_method_asyncv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

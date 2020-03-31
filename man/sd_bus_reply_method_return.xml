@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>sd_bus_reply_method_return</refname>
+    <refname>sd_bus_reply_method_returnv</refname>
 
     <refpurpose>Reply to a D-Bus method call</refpurpose>
   </refnamediv>
@@ -31,6 +32,13 @@
         <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
         <paramdef>const char *<parameter>types</parameter></paramdef>
         <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_reply_method_returnv</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
