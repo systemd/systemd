@@ -142,7 +142,8 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(closedirp) DIR *d = NULL;
-        int r, copy;
+        _cleanup_close_ int copy = -1;
+        int r;
 
         assert(h);
         assert(user_record_storage(h) == USER_CIFS);
@@ -166,11 +167,9 @@ int home_create_cifs(UserRecord *h, UserRecord **ret_home) {
         if (copy < 0)
                 return -errno;
 
-        d = fdopendir(copy);
-        if (!d) {
-                safe_close(copy);
+        d = take_fdopendir(&copy);
+        if (!d)
                 return -errno;
-        }
 
         errno = 0;
         if (readdir_no_dot(d))
