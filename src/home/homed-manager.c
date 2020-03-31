@@ -631,7 +631,7 @@ static int manager_add_home_by_image(
                 }
 
                 if (!same) {
-                        log_debug("Found a multiple images for a user '%s', ignoring image '%s'.", user_name, image_path);
+                        log_debug("Found multiple images for user '%s', ignoring image '%s'.", user_name, image_path);
                         return 0;
                 }
         } else {
@@ -768,7 +768,7 @@ static int manager_assess_image(
                 r = stat(path, &st);
         if (r < 0)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
-                                      "Failed to stat directory entry '%s', ignoring: %m", dentry_name);
+                                      "Failed to stat() directory entry '%s', ignoring: %m", dentry_name);
 
         if (S_ISREG(st.st_mode)) {
                 _cleanup_free_ char *n = NULL, *user_name = NULL, *realm = NULL;
@@ -833,7 +833,7 @@ static int manager_assess_image(
                                 if (errno == ENODATA)
                                         log_debug_errno(errno, "Determined %s is not fscrypt encrypted.", path);
                                 else if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                        log_debug_errno(errno, "Determined %s is not fscrypt encrypted because kernel or file system don't support it.", path);
+                                        log_debug_errno(errno, "Determined %s is not fscrypt encrypted because kernel or file system doesn't support it.", path);
                                 else
                                         log_debug_errno(errno, "FS_IOC_GET_ENCRYPTION_POLICY failed with unexpected error code on %s, ignoring: %m", path);
 
@@ -1307,7 +1307,7 @@ static int manager_generate_key_pair(Manager *m) {
         /* Write out public key (note that we only do that as a help to the user, we don't make use of this ever */
         r = fopen_temporary("/var/lib/systemd/home/local.public", &fpublic, &temp_public);
         if (r < 0)
-                return log_error_errno(errno, "Failed ot open key file for writing: %m");
+                return log_error_errno(errno, "Failed to open key file for writing: %m");
 
         if (PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
@@ -1321,7 +1321,7 @@ static int manager_generate_key_pair(Manager *m) {
         /* Write out the private key (this actually writes out both private and public, OpenSSL is confusing) */
         r = fopen_temporary("/var/lib/systemd/home/local.private", &fprivate, &temp_private);
         if (r < 0)
-                return log_error_errno(errno, "Failed ot open key file for writing: %m");
+                return log_error_errno(errno, "Failed to open key file for writing: %m");
 
         if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, 0) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
@@ -1660,7 +1660,7 @@ int manager_enqueue_gc(Manager *m, Home *focus) {
 
         r = sd_event_add_defer(m->event, &m->deferred_gc_event_source, on_deferred_gc, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate gc event source: %m");
+                return log_error_errno(r, "Failed to allocate GC event source: %m");
 
         r = sd_event_source_set_priority(m->deferred_gc_event_source, SD_EVENT_PRIORITY_IDLE);
         if (r < 0)

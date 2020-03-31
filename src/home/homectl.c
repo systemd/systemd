@@ -1207,7 +1207,7 @@ static int add_pkcs11_key_data(JsonVariant **v, const char *uri) {
 
         pkey = X509_get0_pubkey(cert);
         if (!pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to exract public key from X.509 certificate.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
 
         if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "X.509 certificate does not refer to RSA key.");
@@ -1338,7 +1338,7 @@ static int acquire_new_password(
                 string_erase(e);
 
                 if (unsetenv("NEWPASSWORD") < 0)
-                        return log_error_errno(errno, "Failed to unse $NEWPASSWORD: %m");
+                        return log_error_errno(errno, "Failed to unset $NEWPASSWORD: %m");
 
                 return 0;
         }
@@ -1376,7 +1376,7 @@ static int acquire_new_password(
                         return 0;
                 }
 
-                log_error("Password didn't mach, try again.");
+                log_error("Password didn't match, try again.");
         }
 }
 
@@ -3148,7 +3148,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                                         r = read_line(f, LONG_LINE_MAX, &line);
                                         if (r < 0)
-                                                return log_error_errno(r, "Faile dto read from '%s': %m", optarg+1);
+                                                return log_error_errno(r, "Failed to read from '%s': %m", optarg+1);
                                         if (r == 0)
                                                 break;
 

@@ -41,7 +41,7 @@ static int parse_argv(
 
                         k = parse_boolean(v);
                         if (k < 0)
-                                pam_syslog(handle, LOG_WARNING, "Failed to parse suspend-please= argument, ignoring: %s", v);
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse suspend= argument, ignoring: %s", v);
                         else if (please_suspend)
                                 *please_suspend = k;
 
@@ -95,7 +95,7 @@ static int acquire_user_record(
         r = pam_get_data(handle, "systemd-user-record-is-homed", &b);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
                 /* Failure */
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM user record is homed flag: %s", pam_strerror(handle, r));
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM user-record-is-homed flag: %s", pam_strerror(handle, r));
                 return r;
         } else if (b == NULL)
                 /* Nothing cached yet, need to acquire fresh */
@@ -200,7 +200,7 @@ user_unknown:
         /* Cache this, so that we don't check again */
         r = pam_set_data(handle, "systemd-user-record-is-homed", USER_RECORD_IS_OTHER, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM user record is homed flag, ignoring: %s", pam_strerror(handle, r));
+                pam_syslog(handle, LOG_ERR, "Failed to set PAM user-record-is-homed flag, ignoring: %s", pam_strerror(handle, r));
 
         return PAM_USER_UNKNOWN;
 }
@@ -214,7 +214,7 @@ static int release_user_record(pam_handle_t *handle) {
 
         k = pam_set_data(handle, "systemd-user-record-is-homed", NULL, NULL);
         if (k != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record is homed flag: %s", pam_strerror(handle, k));
+                pam_syslog(handle, LOG_ERR, "Failed to release PAM user-record-is-homed flag: %s", pam_strerror(handle, k));
 
         return IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA) ? k : r;
 }
