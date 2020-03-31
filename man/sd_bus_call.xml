@@ -52,34 +52,39 @@
     <title>Description</title>
 
     <para><function>sd_bus_call()</function> takes a complete bus message object and calls the
-    corresponding D-Bus method. The response is stored in <parameter>reply</parameter>.
+    corresponding D-Bus method. On success, the response is stored in <parameter>reply</parameter>.
     <parameter>usec</parameter> indicates the timeout in microseconds. If
     <parameter>ret_error</parameter> is not <constant>NULL</constant> and
-    <function>sd_bus_call()</function> returns an error, <parameter>ret_error</parameter> is
-    initialized to an instance of <structname>sd_bus_error</structname> describing the error.</para>
+    <function>sd_bus_call()</function> fails (either because of an internal error or because it
+    received a D-Bus error reply), <parameter>ret_error</parameter> is initialized to an instance of
+    <structname>sd_bus_error</structname> describing the error.</para>
 
     <para><function>sd_bus_call_async()</function> is like <function>sd_bus_call()</function> but
-    works asynchronously. The <parameter>callback</parameter> shall reference a function to call
-    when the event source is triggered. The <parameter>userdata</parameter> pointer will be passed
-    to the callback function, and may be chosen freely by the caller. If <parameter>slot</parameter>
-    is not <constant>NULL</constant> and <function>sd_bus_call_async()</function> succeeds,
+    works asynchronously. The <parameter>callback</parameter> indicates the function to call when
+    the response arrives. The <parameter>userdata</parameter> pointer will be passed to the callback
+    function, and may be chosen freely by the caller. If <parameter>slot</parameter> is not
+    <constant>NULL</constant> and <function>sd_bus_call_async()</function> succeeds,
     <parameter>slot</parameter> is set to a slot object which can be used to cancel the method call
     at a later time using
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     If <parameter>slot</parameter> is <constant>NULL</constant>, the lifetime of the method call is
     bound to the lifetime of the bus object itself, and it cannot be cancelled independently. See
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for details. The <parameter>callback</parameter> function is called when the response arrives
-    and receives the response, <parameter>userdata</parameter> and a
-    <structname>sd_bus_error</structname> object as its arguments. The
-    <structname>sd_bus_error</structname> object is unused here and should be ignored. If
-    <parameter>callback</parameter> returns a non-negative integer when called, a debug message is
-    logged along with details about the response.</para>
-
-    <para>To determine whether the method call succeeded, use
+    for details. <parameter>callback</parameter> is called when a reply arrives with the reply,
+    <parameter>userdata</parameter> and an <structname>sd_bus_error</structname> output
+    parameter as its arguments. Unlike <function>sd_bus_call()</function>, the
+    <structname>sd_bus_error</structname> output parameter passed to the callback will be empty. To
+    determine whether the method call succeeded, use
     <citerefentry><refentrytitle>sd_bus_message_is_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    on the reply object returned by <function>sd_bus_call()</function> or passed to the callback of
-    <function>sd_bus_call_async()</function>.</para>
+    on the reply message passed to the callback instead. If the callback returns zero and the
+    <structname>sd_bus_error</structname> output parameter is still empty when the callback
+    inishes, other handlers registered with functions such as
+    <citerefentry><refentrytitle>sd_bus_add_filter</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
+    <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    are given a chance to process the message. If the callback returns a non-zero value or the
+    <structname>sd_bus_error</structname> output parameter is not empty when the callback finishes,
+    no further processing of the message is done. Generally, you want to return zero from the
+    callback to give other registered handlers a chance to process the reply as well.</para>
 
     <para>If <parameter>usec</parameter> is zero, the default D-Bus method call timeout is used. See
     <citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
