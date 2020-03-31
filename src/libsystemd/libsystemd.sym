@@ -700,6 +700,13 @@ global:
 
 LIBSYSTEMD_246 {
 global:
+        sd_bus_call_methodv;
+        sd_bus_call_method_asyncv;
+        sd_bus_emit_signalv;
+        sd_bus_reply_method_errnofv;
+        sd_bus_reply_method_errorfv;
+        sd_bus_reply_method_returnv;
+        sd_bus_set_propertyv;
         sd_path_lookup;
         sd_path_lookup_strv;
 } LIBSYSTEMD_245;
