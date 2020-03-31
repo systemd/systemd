@@ -424,7 +424,7 @@ static int home_verify_user_record(Home *h, UserRecord *hr, bool *ret_signed_loc
 
         case -ENOKEY:
                 sd_bus_error_setf(ret_error, BUS_ERROR_BAD_SIGNATURE, "User record %s is not signed by any known key, refusing.", hr->user_name);
-                return log_error_errno(is_signed, "Home %s contians user record that is not signed by any known key, refusing.", hr->user_name);
+                return log_error_errno(is_signed, "Home %s contains user record that is not signed by any known key, refusing.", hr->user_name);
 
         default:
                 assert(is_signed < 0);
@@ -438,7 +438,7 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         switch (e) {
 
         case -EMSGSIZE:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot shrinked");
+                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot be shrinked");
         case -ETXTBSY:
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type can only be shrinked offline");
         case -ERANGE:
@@ -1472,7 +1472,7 @@ int home_resize(Home *h, uint64_t disk_size, UserRecord *secret, sd_bus_error *e
 
         if (disk_size == UINT64_MAX || disk_size == h->record->disk_size) {
                 if (h->record->disk_size == UINT64_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Not disk size to resize to specified.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "No disk size to resize to specified.");
 
                 c = user_record_ref(h->record); /* Shortcut if size is unspecified or matches the record */
         } else {
@@ -1904,7 +1904,7 @@ static int home_get_disk_status_luks(
                 goto finish;
 
         if (statfs(hd, &sfs) < 0) {
-                log_debug_errno(errno, "Failed  to statfs() %s, ignoring: %m", hd);
+                log_debug_errno(errno, "Failed to statfs() %s, ignoring: %m", hd);
                 goto finish;
         }
 

@@ -630,7 +630,7 @@ int bus_home_method_acquire(
         /* This operation might not be something we can executed immediately, hence queue it */
         fd = home_create_fifo(h, please_suspend);
         if (fd < 0)
-                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate fifo for %s: %m", h->user_name);
+                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
         o = operation_new(OPERATION_ACQUIRE, message);
         if (!o)
@@ -681,7 +681,7 @@ int bus_home_method_ref(
 
         fd = home_create_fifo(h, please_suspend);
         if (fd < 0)
-                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate fifo for %s: %m", h->user_name);
+                return sd_bus_reply_method_errnof(message, fd, "Failed to allocate FIFO for %s: %m", h->user_name);
 
         return sd_bus_reply_method_return(message, "h", fd);
 }

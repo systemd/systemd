@@ -47,7 +47,7 @@ static Operation *operation_free(Operation *o) {
                                 r = sd_bus_reply_method_errnof(o->message, o->ret, "Failed to execute operation: %m");
                 }
                 if (r < 0)
-                        log_warning_errno(r, "Failed ot reply to %s method call, ignoring: %m", sd_bus_message_get_member(o->message));
+                        log_warning_errno(r, "Failed to reply to %s method call, ignoring: %m", sd_bus_message_get_member(o->message));
         }
 
         sd_bus_message_unref(o->message);
