@@ -279,11 +279,9 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         if (r < 0)
                 return log_error_errno(r, "Embedded identity file is not a regular file, refusing: %m");
 
-        identity_file = fdopen(identity_fd, "r");
+        identity_file = take_fdopen(&identity_fd, "r");
         if (!identity_file)
                 return log_oom();
-
-        identity_fd = -1;
 
         r = json_parse_file(identity_file, ".identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
@@ -318,13 +316,11 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         if (identity_fd < 0)
                 return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
 
-        identity_file = fdopen(identity_fd, "w");
+        identity_file = take_fdopen(&identity_fd, "w");
         if (!identity_file) {
                 r = log_oom();
                 goto fail;
         }
-
-        identity_fd = -1;
 
         json_variant_dump(normalized, JSON_FORMAT_PRETTY, identity_file, NULL);
 

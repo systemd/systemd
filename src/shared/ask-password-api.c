@@ -791,13 +791,11 @@ int ask_password_agent(
 
         (void) fchmod(fd, 0644);
 
-        f = fdopen(fd, "w");
+        f = take_fdopen(&fd, "w");
         if (!f) {
                 r = -errno;
                 goto finish;
         }
-
-        fd = -1;
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {

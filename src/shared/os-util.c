@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "os-util.h"
@@ -76,10 +77,9 @@ int fopen_os_release(const char *root, char **ret_path, FILE **ret_file) {
         if (r < 0)
                 return r;
 
-        f = fdopen(fd, "r");
+        f = take_fdopen(&fd, "r");
         if (!f)
                 return -errno;
-        fd = -1;
 
         *ret_file = f;
 
