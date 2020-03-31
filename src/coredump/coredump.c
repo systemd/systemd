@@ -560,7 +560,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
-                int fd;
+                _cleanup_close_ int fd = -1;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
                 if (r < 0)
@@ -574,11 +574,9 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 if (fd < 0)
                         continue;
 
-                fdinfo = fdopen(fd, "r");
-                if (!fdinfo) {
-                        safe_close(fd);
+                fdinfo = take_fdopen(&fd, "r");
+                if (!fdinfo)
                         continue;
-                }
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;

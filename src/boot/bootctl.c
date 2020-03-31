@@ -982,8 +982,9 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         char machine_string[SD_ID128_STRING_MAX];
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
         const char *p;
-        int r, fd;
+        int r;
 
         p = prefix_roota(esp_path, "/loader/loader.conf");
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
@@ -993,11 +994,9 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
 
-        f = fdopen(fd, "w");
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, "w");
+        if (!f)
                 return log_oom();
-        }
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n"

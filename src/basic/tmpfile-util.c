@@ -78,18 +78,16 @@ int mkostemp_safe(char *pattern) {
 }
 
 int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
-        int fd;
+        _cleanup_close_ int fd = -1;
         FILE *f;
 
         fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, mode);
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, mode);
+        if (!f)
                 return -errno;
-        }
 
         *ret_f = f;
         return 0;

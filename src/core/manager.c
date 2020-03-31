@@ -3107,7 +3107,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        int fd;
+        _cleanup_close_ int fd = -1;
         FILE *f;
 
         assert(_f);
@@ -3116,11 +3116,9 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, "w+");
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, "w+");
+        if (!f)
                 return -errno;
-        }
 
         *_f = f;
         return 0;
