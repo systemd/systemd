@@ -4,11 +4,11 @@ set -e
 BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
 if [ $# -gt 0 ]; then
     args="$@"
-    do_clean=0
 else
     args="setup run clean-again"
-    do_clean=1
 fi
+args_no_clean=$(sed -r 's/(^| )clean($| )/ /g' <<<$args)
+do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
 
 ninja -C "$BUILD_DIR"
 
@@ -20,6 +20,8 @@ FAILURES=0
 
 cd "$(dirname "$0")"
 
+# Let's always do the cleaning operation first, because it destroys the image
+# cache.
 if [ $do_clean = 1 ]; then
     for TEST in TEST-??-* ; do
         ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
@@ -44,7 +46,7 @@ for TEST in TEST-??-* ; do
 
     echo -e "\n--x-- Running $TEST --x--"
     set +e
-    ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args )
+    ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args_no_clean )
     RESULT=$?
     set -e
     echo "--x-- Result of $TEST: $RESULT --x--"
