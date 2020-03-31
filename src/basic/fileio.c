@@ -54,6 +54,44 @@ int fdopen_unlocked(int fd, const char *options, FILE **ret) {
         return 0;
 }
 
+int take_fdopen_unlocked(int *fd, const char *options, FILE **ret) {
+        int     r;
+
+        assert(fd);
+
+        r = fdopen_unlocked(*fd, options, ret);
+        if (r < 0)
+                return r;
+
+        *fd = -1;
+
+        return 0;
+}
+
+FILE* take_fdopen(int *fd, const char *options) {
+        assert(fd);
+
+        FILE *f = fdopen(*fd, options);
+        if (!f)
+                return NULL;
+
+        *fd = -1;
+
+        return f;
+}
+
+DIR* take_fdopendir(int *dfd) {
+        assert(dfd);
+
+        DIR *d = fdopendir(*dfd);
+        if (!d)
+                return NULL;
+
+        *dfd = -1;
+
+        return d;
+}
+
 FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc) {
         FILE *f = open_memstream(ptr, sizeloc);
         if (!f)

@@ -20,6 +20,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "in-addr-util.h"
@@ -399,11 +400,9 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 
                 pair[1] = safe_close(pair[1]);
 
-                f = fdopen(pair[0], "r");
+                f = take_fdopen(&pair[0], "r");
                 if (!f)
                         return -errno;
-
-                pair[0] = -1;
 
                 r = load_env_file_pairs(f, "/etc/os-release", &l);
                 if (r < 0)

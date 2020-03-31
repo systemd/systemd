@@ -39,6 +39,9 @@ typedef enum {
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret);
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
+int take_fdopen_unlocked(int *fd, const char *options, FILE **ret);
+FILE* take_fdopen(int *fd, const char *options);
+DIR* take_fdopendir(int *dfd);
 FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc);
 FILE* fmemopen_unlocked(void *buf, size_t size, const char *mode);
 

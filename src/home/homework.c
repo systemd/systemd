@@ -38,7 +38,6 @@ int user_record_authenticate(
 
         bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false,
                 pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false;
-        size_t n;
         int r;
 
         assert(h);
@@ -70,7 +69,7 @@ int user_record_authenticate(
         }
 
         /* Second, let's see if any of the PKCS#11 security tokens are plugged in and help us */
-        for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
@@ -280,11 +279,9 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         if (r < 0)
                 return log_error_errno(r, "Embedded identity file is not a regular file, refusing: %m");
 
-        identity_file = fdopen(identity_fd, "r");
+        identity_file = take_fdopen(&identity_fd, "r");
         if (!identity_file)
                 return log_oom();
-
-        identity_fd = -1;
 
         r = json_parse_file(identity_file, ".identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
@@ -319,13 +316,11 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         if (identity_fd < 0)
                 return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
 
-        identity_file = fdopen(identity_fd, "w");
+        identity_file = take_fdopen(&identity_fd, "w");
         if (!identity_file) {
                 r = log_oom();
                 goto fail;
         }
-
-        identity_fd = -1;
 
         json_variant_dump(normalized, JSON_FORMAT_PRETTY, identity_file, NULL);
 

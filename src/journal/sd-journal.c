@@ -1718,7 +1718,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
         } else {
-                int dfd;
+                _cleanup_close_ int dfd = -1;
 
                 /* If there's no path specified, then we use the top-level fd itself. We duplicate the fd here, since
                  * opendir() will take possession of the fd, and close it, which we don't want. */
@@ -1731,10 +1731,9 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
 
-                d = fdopendir(dfd);
+                d = take_fdopendir(&dfd);
                 if (!d) {
                         r = -errno;
-                        safe_close(dfd);
                         goto fail;
                 }
 

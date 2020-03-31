@@ -48,13 +48,11 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
         /* This assumes that returned FILE object is short-lived and used within the same single-threaded
          * context and never shared externally, hence locking is not necessary. */
 
-        r = fdopen_unlocked(fd, "w", &f);
+        r = take_fdopen_unlocked(&fd, "w", &f);
         if (r < 0) {
                 (void) unlink(t);
                 return r;
         }
-
-        TAKE_FD(fd);
 
         if (ret_f)
                 *ret_f = TAKE_PTR(f);
@@ -80,18 +78,16 @@ int mkostemp_safe(char *pattern) {
 }
 
 int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
-        int fd;
+        _cleanup_close_ int fd = -1;
         FILE *f;
 
         fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, mode);
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, mode);
+        if (!f)
                 return -errno;
-        }
 
         *ret_f = f;
         return 0;

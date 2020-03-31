@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "missing_fs.h"
@@ -77,10 +78,9 @@ int dir_is_empty_at(int dir_fd, const char *path) {
         if (fd < 0)
                 return -errno;
 
-        d = fdopendir(fd);
+        d = take_fdopendir(&fd);
         if (!d)
                 return -errno;
-        fd = -1;
 
         FOREACH_DIRENT(de, d, return -errno)
                 return 0;

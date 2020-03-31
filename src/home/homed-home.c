@@ -360,11 +360,9 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         if (lseek(fd, SEEK_SET, 0) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
-        f = fdopen(fd, "r");
+        f = take_fdopen(&fd, "r");
         if (!f)
                 return log_error_errno(errno, "Failed to reopen memfd: %m");
-
-        TAKE_FD(fd);
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *text = NULL;

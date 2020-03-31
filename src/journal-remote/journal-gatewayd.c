@@ -123,17 +123,15 @@ static int request_meta_ensure_tmp(RequestMeta *m) {
         if (m->tmp)
                 rewind(m->tmp);
         else {
-                int fd;
+                _cleanup_close_ int fd = -1;
 
                 fd = open_tmpfile_unlinkable("/tmp", O_RDWR|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
-                m->tmp = fdopen(fd, "w+");
-                if (!m->tmp) {
-                        safe_close(fd);
+                m->tmp = take_fdopen(&fd, "w+");
+                if (!m->tmp)
                         return -errno;
-                }
         }
 
         return 0;
