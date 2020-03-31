@@ -1430,6 +1430,18 @@
             sent even if this is set to true.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>MUDURL=</varname></term>
+          <listitem>
+            <para>When configured, the Manufacturer Usage Descriptions (MUD) URL will be sent to the
+            DHCPv4 server. Takes an URL of length up to 255 characters. A superficial verification that
+            the string is a valid URL will be performed. DHCPv4 clients are intended to have at most one
+            MUD URL associated with them. See
+            <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink>.</para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>

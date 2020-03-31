@@ -5,6 +5,7 @@
 #include <linux/if.h>
 #include <linux/if_arp.h>
 
+#include "escape.h"
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
 #include "hostname-util.h"
@@ -17,6 +18,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "sysctl-util.h"
+#include "web-util.h"
 
 static int dhcp_remove_routes(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
 static int dhcp_remove_router(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, bool remove_all);
@@ -1456,6 +1458,13 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set vendor class identifier: %m");
         }
 
+       if (link->network->dhcp_mudurl) {
+                r = sd_dhcp_client_set_mud_url(link->dhcp_client,
+                                               link->network->dhcp_mudurl);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set MUD URL: %m");
+        }
+
         if (link->network->dhcp_user_class) {
                 r = sd_dhcp_client_set_user_class(link->dhcp_client, (const char **) link->network->dhcp_user_class);
                 if (r < 0)
@@ -1742,6 +1751,48 @@ int config_parse_dhcp_ip_service_type(
                            "Failed to parse IPServiceType type '%s', ignoring.", rvalue);
 
         return 0;
+}
+
+int config_parse_dhcp_mud_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_mudurl = mfree(network->dhcp_mudurl);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
+
+                return 0;
+        }
+
+        return free_and_strdup_warn(&network->dhcp_mudurl, unescaped);
 }
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
