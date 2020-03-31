@@ -13,6 +13,7 @@ fi
 ninja -C "$BUILD_DIR"
 
 declare -A results
+declare -A times
 
 COUNT=0
 FAILURES=0
@@ -39,6 +40,7 @@ for TEST in TEST-??-* ; do
     COUNT=$(($COUNT+1))
 
     pass_blacklist $TEST || continue
+    start=$(date +%s)
 
     echo -e "\n--x-- Running $TEST --x--"
     set +e
@@ -48,6 +50,7 @@ for TEST in TEST-??-* ; do
     echo "--x-- Result of $TEST: $RESULT --x--"
 
     results["$TEST"]="$RESULT"
+    times["$TEST"]=$(( $(date +%s) - $start ))
 
     [ "$RESULT" -ne "0" ] && FAILURES=$(($FAILURES+1))
 done
@@ -62,11 +65,9 @@ echo ""
 
 for TEST in ${!results[@]}; do
     RESULT="${results[$TEST]}"
-    if [ "$RESULT" -eq "0" ] ; then
-        echo "$TEST: SUCCESS"
-    else
-        echo "$TEST: FAIL"
-    fi
+    time="${times[$TEST]}"
+    string=$([ "$RESULT" = "0" ] && echo "SUCCESS" || echo "FAIL")
+    printf "%-35s %-8s (%3s s)\n" "${TEST}:" "${string}" "$time"
 done | sort
 
 if [ "$FAILURES" -eq 0 ] ; then
