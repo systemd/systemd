@@ -8,6 +8,7 @@
 #include "acl-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "missing_magic.h"
 #include "nspawn-def.h"
@@ -335,12 +336,11 @@ static int recurse_fd(int fd, bool donate_fd, const struct stat *st, uid_t shift
                         donate_fd = true;
                 }
 
-                d = fdopendir(fd);
+                d = take_fdopendir(&fd);
                 if (!d) {
                         r = -errno;
                         goto finish;
                 }
-                fd = -1;
 
                 FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
                         struct stat fst;
