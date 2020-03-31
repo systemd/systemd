@@ -38,7 +38,6 @@ int user_record_authenticate(
 
         bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false,
                 pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false;
-        size_t n;
         int r;
 
         assert(h);
@@ -70,7 +69,7 @@ int user_record_authenticate(
         }
 
         /* Second, let's see if any of the PKCS#11 security tokens are plugged in and help us */
-        for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
                         .user_record = h,
