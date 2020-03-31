@@ -456,13 +456,7 @@ static int acquire_home(
                         }
                 }
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                do_auth ? "AcquireHome" : "RefHome");
+                r = bus_new_method_call(bus, &m, do_auth ? "AcquireHome" : "RefHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -671,13 +665,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.home1",
-                        "/org/freedesktop/home1",
-                        "org.freedesktop.home1.Manager",
-                        "ReleaseHome");
+        r = bus_new_method_call(bus, &m, "ReleaseHome");
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
@@ -904,13 +892,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ChangePasswordHome");
+                r = bus_new_method_call(bus, &m, "ChangePasswordHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 

@@ -387,13 +387,7 @@ static int activate_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = sd_bus_message_new_method_call(
-                                        bus,
-                                        &m,
-                                        "org.freedesktop.home1",
-                                        "/org/freedesktop/home1",
-                                        "org.freedesktop.home1.Manager",
-                                        "ActivateHome");
+                        r = bus_new_method_call(bus, &m, "ActivateHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -435,13 +429,7 @@ static int deactivate_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "DeactivateHome");
+                r = bus_new_method_call(bus, &m, "DeactivateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -643,13 +631,7 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = sd_bus_message_new_method_call(
-                                        bus,
-                                        &m,
-                                        "org.freedesktop.home1",
-                                        "/org/freedesktop/home1",
-                                        "org.freedesktop.home1.Manager",
-                                        "AuthenticateHome");
+                        r = bus_new_method_call(bus, &m, "AuthenticateHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1470,13 +1452,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "CreateHome");
+                r = bus_new_method_call(bus, &m, "CreateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1525,13 +1501,7 @@ static int remove_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "RemoveHome");
+                r = bus_new_method_call(bus, &m, "RemoveHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1689,13 +1659,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_free_ char *formatted = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "UpdateHome");
+                r = bus_new_method_call(bus, &m, "UpdateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1730,13 +1694,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
                 log_debug("Resizing");
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ResizeHome");
+                r = bus_new_method_call(bus, &m, "ResizeHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1769,13 +1727,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
                 log_debug("Propagating password");
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ChangePasswordHome");
+                r = bus_new_method_call(bus, &m, "ChangePasswordHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1847,13 +1799,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ChangePasswordHome");
+                r = bus_new_method_call(bus, &m, "ChangePasswordHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1932,13 +1878,7 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ResizeHome");
+                r = bus_new_method_call(bus, &m, "ResizeHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1975,13 +1915,7 @@ static int lock_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "LockHome");
+                r = bus_new_method_call(bus, &m, "LockHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2020,13 +1954,7 @@ static int unlock_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = sd_bus_message_new_method_call(
-                                        bus,
-                                        &m,
-                                        "org.freedesktop.home1",
-                                        "/org/freedesktop/home1",
-                                        "org.freedesktop.home1.Manager",
-                                        "UnlockHome");
+                        r = bus_new_method_call(bus, &m, "UnlockHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -2089,13 +2017,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (;;) {
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "AcquireHome");
+                r = bus_new_method_call(bus, &m, "AcquireHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2171,13 +2093,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
         /* Close the fd that pings the home now. */
         acquired_fd = safe_close(acquired_fd);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.home1",
-                        "/org/freedesktop/home1",
-                        "org.freedesktop.home1.Manager",
-                        "ReleaseHome");
+        r = bus_new_method_call(bus, &m, "ReleaseHome");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2206,13 +2122,7 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.home1",
-                        "/org/freedesktop/home1",
-                        "org.freedesktop.home1.Manager",
-                        "LockAllHomes");
+        r = bus_new_method_call(bus, &m, "LockAllHomes");
         if (r < 0)
                 return bus_log_create_error(r);
 
