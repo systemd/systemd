@@ -675,7 +675,7 @@ cleanup_loopdev() {
     fi
 }
 
-trap cleanup_loopdev EXIT
+trap cleanup_loopdev EXIT INT QUIT PIPE
 
 create_empty_image() {
     if [ -z "$IMAGE_NAME" ]; then
