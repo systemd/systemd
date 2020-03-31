@@ -1541,13 +1541,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
 
                 fds[2*k+1] = safe_close(fds[2*k+1]);
 
-                f = fdopen(fds[2*k], "r");
+                f = take_fdopen(&fds[2*k], "r");
                 if (!f) {
                         r = -errno;
                         goto finish;
                 }
-
-                fds[2*k] = -1;
 
                 switch (k) {
 

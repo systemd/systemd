@@ -48,13 +48,11 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
         /* This assumes that returned FILE object is short-lived and used within the same single-threaded
          * context and never shared externally, hence locking is not necessary. */
 
-        r = fdopen_unlocked(fd, "w", &f);
+        r = take_fdopen_unlocked(&fd, "w", &f);
         if (r < 0) {
                 (void) unlink(t);
                 return r;
         }
-
-        TAKE_FD(fd);
 
         if (ret_f)
                 *ret_f = TAKE_PTR(f);
