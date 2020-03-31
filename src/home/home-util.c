@@ -127,6 +127,16 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
         return sd_bus_message_append(m, "s", formatted);
 }
 
+int bus_new_method_call(sd_bus *bus, sd_bus_message **m, const char *member) {
+        return sd_bus_message_new_method_call(
+                bus,
+                m,
+                "org.freedesktop.home1",
+                "/org/freedesktop/home1",
+                "org.freedesktop.home1.Manager",
+                member);
+}
+
 int test_password_one(const char *hashed_password, const char *password) {
         struct crypt_data cc = {};
         const char *k;

@@ -15,6 +15,7 @@ int suitable_image_path(const char *path);
 int split_user_name_realm(const char *t, char **ret_user_name, char **ret_realm);
 
 int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
+int bus_new_method_call(sd_bus *bus, sd_bus_message **m, const char *member);
 
 /* Many of our operations might be slow due to crypto, fsck, recursive chown() and so on. For these
  * operations permit a *very* long time-out */
