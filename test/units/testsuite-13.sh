@@ -33,7 +33,8 @@ fi
 
 function check_bind_tmp_path {
     # https://github.com/systemd/systemd/issues/4789
-    local _root="/var/lib/machines/bind-tmp-path"
+    local _root="/var/lib/machines/testsuite-13.bind-tmp-path"
+    rm -rf "$_root"
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
     >/tmp/bind
     systemd-nspawn --register=no -D "$_root" --bind=/tmp/bind /bin/sh -c 'test -e /tmp/bind'
@@ -41,7 +42,8 @@ function check_bind_tmp_path {
 
 function check_norbind {
     # https://github.com/systemd/systemd/issues/13170
-    local _root="/var/lib/machines/norbind-path"
+    local _root="/var/lib/machines/testsuite-13.norbind-path"
+    rm -rf "$_root"
     mkdir -p /tmp/binddir/subdir
     echo -n "outer" > /tmp/binddir/subdir/file
     mount -t tmpfs tmpfs /tmp/binddir/subdir
@@ -53,8 +55,9 @@ function check_norbind {
 function check_notification_socket {
     # https://github.com/systemd/systemd/issues/4944
     local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/systemd/nspawn/notify'
-    systemd-nspawn --register=no -D /nc-container /bin/sh -x -c "$_cmd"
-    systemd-nspawn --register=no -D /nc-container -U /bin/sh -x -c "$_cmd"
+    # /testsuite-13.nc-container is prepared by test.sh
+    systemd-nspawn --register=no -D /testsuite-13.nc-container /bin/sh -x -c "$_cmd"
+    systemd-nspawn --register=no -D /testsuite-13.nc-container -U /bin/sh -x -c "$_cmd"
 }
 
 function run {
@@ -67,7 +70,8 @@ function run {
         return 0
     fi
 
-    local _root="/var/lib/machines/unified-$1-cgns-$2-api-vfs-writable-$3"
+    local _root="/var/lib/machines/testsuite-13.unified-$1-cgns-$2-api-vfs-writable-$3"
+    rm -rf "$_root"
     /usr/lib/systemd/tests/testdata/create-busybox-container "$_root"
     SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" -b
     SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" --private-network -b
