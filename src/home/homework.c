@@ -383,7 +383,7 @@ int home_load_embedded_identity(
                 return r;
 
         if (!user_record_compatible(h, embedded_home))
-                return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "Hmbedded home record not compatible with host record, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "Embedded home record not compatible with host record, refusing.");
 
         /* Insist that credentials the user supplies also unlocks any embedded records. */
         r = user_record_authenticate(embedded_home, h, pkcs11_decrypted_passwords);
@@ -986,7 +986,7 @@ static int home_remove(UserRecord *h) {
 
                 if (stat(ip, &st) < 0) {
                         if (errno != -ENOENT)
-                                return log_error_errno(errno, "Failed to stat %s: %m", ip);
+                                return log_error_errno(errno, "Failed to stat() %s: %m", ip);
 
                 } else {
                         if (S_ISREG(st.st_mode)) {

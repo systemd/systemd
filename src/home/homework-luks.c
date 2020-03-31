@@ -616,7 +616,7 @@ static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER 
         /* Verify that our key length calculations match what OpenSSL thinks */
         r = EVP_CIPHER_key_length(cc);
         if (r < 0 || (uint64_t) r != key_size)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key size of selected cipher doesn't meet out expectations.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key size of selected cipher doesn't meet our expectations.");
 
         *ret = cc;
         return 0;
@@ -787,7 +787,7 @@ static int format_luks_token_text(
 
         r = json_variant_format(hr->json, 0, &text);
         if (r < 0)
-                return log_error_errno(r,"Failed to format user record for LUKS: %m");
+                return log_error_errno(r, "Failed to format user record for LUKS: %m");
 
         text_length = strlen(text);
         encrypted_size = text_length + 2*key_size - 1;
@@ -1263,7 +1263,7 @@ int home_activate_luks(
 
         r = dm_deferred_remove(setup.dm_name);
         if (r < 0)
-                log_warning_errno(r, "Failed to relinquish dm device, ignoring: %m");
+                log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
         setup.undo_dm = false;
 
@@ -1328,7 +1328,7 @@ static int run_mkfs(
         if (r < 0)
                 return log_error_errno(r, "Failed to check if mkfs for file system %s exists: %m", fstype);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Nt mkfs for file system %s installed.", fstype);
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "No mkfs for file system %s installed.", fstype);
 
         r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
         if (r < 0)
@@ -1584,7 +1584,7 @@ static int make_partition_table(
 
         r = fdisk_create_disklabel(c, "gpt");
         if (r < 0)
-                return log_error_errno(r, "Failed to create gpt disk label: %m");
+                return log_error_errno(r, "Failed to create GPT disk label: %m");
 
         p = fdisk_new_partition();
         if (!p)
@@ -2212,7 +2212,7 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
                 re_mount = true;
         }
 
-        log_info("Temporarary unmounting of file system completed.");
+        log_info("Temporary unmounting of file system completed.");
 
         /* resize2fs requires that the file system is force checked first, do so. */
         r = safe_fork("(e2fsck)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR, &fsck_pid);
@@ -2426,7 +2426,7 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
         if (n < 0)
                 return log_error_errno(errno, "Failed to wipe partition table: %m");
         if (n != 1024)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while whiping partition table.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
         c = fdisk_new_context();
         if (!c)
@@ -2536,7 +2536,7 @@ int home_resize_luks(
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
-                        return log_error_errno(r, "Image file %s is not a block device nor regular: %m", ip);
+                        return log_error_errno(r, "Image %s is not a block device nor regular file: %m", ip);
 
                 old_image_size = st.st_size;
 

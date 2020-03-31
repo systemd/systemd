@@ -584,7 +584,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
                                 return -ENOMEM;
                 }
 
-                log_info("Automatically locking of home of user %s.", h->user_name);
+                log_info("Automatically locking home of user %s.", h->user_name);
 
                 r = home_schedule_operation(h, o, error);
                 if (r < 0)
