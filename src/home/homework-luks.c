@@ -1765,6 +1765,45 @@ static int calculate_disk_size(UserRecord *h, const char *parent_dir, uint64_t *
         return 0;
 }
 
+static int home_truncate(
+                UserRecord *h,
+                int fd,
+                const char *path,
+                uint64_t size) {
+
+        bool trunc;
+        int r;
+
+        assert(h);
+        assert(fd >= 0);
+        assert(path);
+
+        trunc = user_record_luks_discard(h);
+        if (!trunc) {
+                r = fallocate(fd, 0, 0, size);
+                if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        /* Some file systems do not support fallocate(), let's gracefully degrade
+                         * (ZFS, reiserfs, …) and fall back to truncation */
+                        log_notice_errno(errno, "Backing file system does not support fallocate(), falling back to ftruncate(), i.e. implicitly using non-discard mode.");
+                        trunc = true;
+                }
+        }
+
+        if (trunc)
+                r = ftruncate(fd, size);
+
+        if (r < 0) {
+                if (ERRNO_IS_DISK_SPACE(errno)) {
+                        log_error_errno(errno, "Not enough disk space to allocate home.");
+                        return -ENOSPC; /* make recognizable */
+                }
+
+                return log_error_errno(errno, "Failed to truncate home image %s: %m", path);
+        }
+
+        return 0;
+}
+
 int home_create_luks(
                 UserRecord *h,
                 char **pkcs11_decrypted_passwords,
@@ -1917,20 +1956,9 @@ int home_create_luks(
                 if (r < 0)
                         log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
 
-                if (user_record_luks_discard(h))
-                        r = ftruncate(image_fd, host_size);
-                else
-                        r = fallocate(image_fd, 0, 0, host_size);
-                if (r < 0) {
-                        if (ERRNO_IS_DISK_SPACE(errno)) {
-                                log_debug_errno(errno, "Not enough disk space to allocate home.");
-                                r = -ENOSPC; /* make recognizable */
-                                goto fail;
-                        }
-
-                        r = log_error_errno(errno, "Failed to truncate home image %s: %m", temporary_image_path);
+                r = home_truncate(h, image_fd, temporary_image_path, host_size);
+                if (r < 0)
                         goto fail;
-                }
 
                 log_info("Allocating image file completed.");
         }
@@ -2625,19 +2653,9 @@ int home_resize_luks(
 
                 if (S_ISREG(st.st_mode)) {
                         /* Grow file size */
-
-                        if (user_record_luks_discard(h))
-                                r = ftruncate(image_fd, new_image_size);
-                        else
-                                r = fallocate(image_fd, 0, 0, new_image_size);
-                        if (r < 0) {
-                                if (ERRNO_IS_DISK_SPACE(errno)) {
-                                        log_debug_errno(errno, "Not enough disk space to grow home.");
-                                        return -ENOSPC; /* make recognizable */
-                                }
-
-                                return log_error_errno(errno, "Failed to grow image file %s: %m", ip);
-                        }
+                        r = home_truncate(h, image_fd, ip, new_image_size);
+                        if (r < 0)
+                                return r;
 
                         log_info("Growing of image file completed.");
                 }
