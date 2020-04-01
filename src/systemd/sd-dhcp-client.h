@@ -48,6 +48,7 @@ enum {
         SD_DHCP_OPTION_TIME_OFFSET                 = 2,
         SD_DHCP_OPTION_ROUTER                      = 3,
         SD_DHCP_OPTION_DOMAIN_NAME_SERVER          = 6,
+        SD_DHCP_OPTION_LPR_SERVER                  = 9,
         SD_DHCP_OPTION_HOST_NAME                   = 12,
         SD_DHCP_OPTION_BOOT_FILE_SIZE              = 13,
         SD_DHCP_OPTION_DOMAIN_NAME                 = 15,
