@@ -66,6 +66,14 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_CLEANING);
 }
 
+static bool mount_is_automount(const MountParameters *p) {
+        assert(p);
+
+        return fstab_test_option(p->options,
+                                 "comment=systemd.automount\0"
+                                 "x-systemd.automount\0");
+}
+
 static bool mount_is_network(const MountParameters *p) {
         assert(p);
 
@@ -473,7 +481,7 @@ static int mount_add_default_dependencies(Mount *m) {
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!nofail) {
+        if (!nofail && !mount_is_automount(p)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
                 if (r < 0)
                         return r;
