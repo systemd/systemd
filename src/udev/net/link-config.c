@@ -490,7 +490,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         if (config->alternative_names_policy)
                 for (NamePolicy *p = config->alternative_names_policy; *p != _NAMEPOLICY_INVALID; p++) {
-                        const char *n;
+                        const char *n = NULL;
 
                         switch (*p) {
                         case NAMEPOLICY_DATABASE:
