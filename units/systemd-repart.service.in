@@ -15,6 +15,10 @@ Conflicts=shutdown.target
 After=sysroot.mount
 Before=initrd-root-fs.target shutdown.target
 ConditionVirtualization=!container
+ConditionDirectoryNotEmpty=|/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/repart.d
+ConditionDirectoryNotEmpty=|/etc/repart.d
+ConditionDirectoryNotEmpty=|/run/repart.d
 
 [Service]
 Type=oneshot
