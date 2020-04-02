@@ -42,3 +42,5 @@ tests += [
          [threads],
          'ENABLE_MACHINED'],
 ]
+
+subdir('user')
