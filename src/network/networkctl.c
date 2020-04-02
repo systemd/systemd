@@ -2184,6 +2184,69 @@ static int link_delete_send_message(sd_netlink *rtnl, int index) {
         return 0;
 }
 
+static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(rtnl);
+
+        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, index);
+        if (r < 0)
+                return rtnl_log_create_error(r);
+
+        if (streq(command, "up"))
+                r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
+        else
+                r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
+        if (r < 0)
+                return log_error_errno(r, "Could not set link flags: %m");
+
+        r = sd_netlink_call(rtnl, req, 0, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int link_up_down(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_set_free_ Set *indexes = NULL;
+        int index, r, i;
+        Iterator j;
+        void *p;
+
+        r = sd_netlink_open(&rtnl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to netlink: %m");
+
+        indexes = set_new(NULL);
+        if (!indexes)
+                return log_oom();
+
+        for (i = 1; i < argc; i++) {
+                index = resolve_interface_or_warn(&rtnl, argv[i]);
+                if (index < 0)
+                        return index;
+
+                r = set_put(indexes, INT_TO_PTR(index));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        SET_FOREACH(p, indexes, j) {
+                index = PTR_TO_INT(p);
+                r = link_up_down_send_message(rtnl, argv[0], index);
+                if (r < 0) {
+                        char ifname[IF_NAMESIZE + 1];
+
+                        return log_error_errno(r, "Failed to %s interface %s: %m",
+                                               argv[1], format_ifname_full(index, ifname, FORMAT_IFNAME_IFINDEX));
+                }
+        }
+
+        return r;
+}
+
 static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
@@ -2392,6 +2455,8 @@ static int help(void) {
                "  lldp [PATTERN...]      Show LLDP neighbors\n"
                "  label                  Show current address label entries in the kernel\n"
                "  delete DEVICES...      Delete virtual netdevs\n"
+               "  up DEVICES...          Bring devices up\n"
+               "  down DEVICES...        Bring devices down\n"
                "  renew DEVICES...       Renew dynamic configurations\n"
                "  forcerenew DEVICES...  Trigger DHCP reconfiguration of all connected clients\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
@@ -2494,6 +2559,8 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
                 { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
                 { "delete",      2,        VERB_ANY, 0,            link_delete         },
+                { "up",          2,        VERB_ANY, 0,            link_up_down        },
+                { "down",        2,        VERB_ANY, 0,            link_up_down        },
                 { "renew",       2,        VERB_ANY, 0,            link_renew          },
                 { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
                 { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
