@@ -450,29 +450,9 @@ static int mount_add_default_ordering_dependencies(
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
         } else if (mount_is_network(p)) {
-                /* We order ourselves after network.target. This is
-                 * primarily useful at shutdown: services that take
-                 * down the network should order themselves before
-                 * network.target, so that they are shut down only
-                 * after this mount unit is stopped. */
-
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, true, mask);
-                if (r < 0)
-                        return r;
-
-                /* We pull in network-online.target, and order
-                 * ourselves after it. This is useful at start-up to
-                 * actively pull in tools that want to be started
-                 * before we start mounting network file systems, and
-                 * whose purpose it is to delay this until the network
-                 * is "up". */
-
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET, true, mask);
-                if (r < 0)
-                        return r;
-
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
+
         } else {
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_LOCAL_FS_TARGET;
@@ -520,6 +500,26 @@ static int mount_add_default_dependencies(Mount *m) {
         r = mount_add_default_ordering_dependencies(m, p, mask);
         if (r < 0)
                 return r;
+
+        if (mount_is_network(p)) {
+                /* We order ourselves after network.target. This is primarily useful at shutdown:
+                 * services that take down the network should order themselves before
+                 * network.target, so that they are shut down only after this mount unit is
+                 * stopped. */
+
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET, true, mask);
+                if (r < 0)
+                        return r;
+
+                /* We pull in network-online.target, and order ourselves after it. This is useful
+                 * at start-up to actively pull in tools that want to be started before we start
+                 * mounting network file systems, and whose purpose it is to delay this until the
+                 * network is "up". */
+
+                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET, true, mask);
+                if (r < 0)
+                        return r;
+        }
 
         /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
         if (streq_ptr(p->fstype, "tmpfs")) {
