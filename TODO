@@ -19,6 +19,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* drop sd_bus_message_set_priority() from sd-bus API and documentation as much
+  as we can, it's a kdbus left-over and unlikely to come back on AF_UNIX, since
+  it's not really implementable there.
+
 * cryptsetup/homed: also support FIDO2 HMAC password logic for unlocking
   devices. (see: https://github.com/mjec/fido2-hmac-secret)
 
