@@ -1964,7 +1964,7 @@ test_setup() {
     if [ ${TEST_REQUIRE_INSTALL_TESTS} -ne 0 ] && \
             type -P meson >/dev/null && \
             [[ "$(meson configure $BUILD_DIR | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
-        dfatal "Needs to be built with -Dinstall-tests=true"
+        dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
         exit 1
     fi
 
