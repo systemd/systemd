@@ -107,11 +107,13 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         unsigned long i;
         int r;
 
+        /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
+
         /* Check that we can use PR_CAP_AMBIENT or quit early. */
         if (!ambient_capabilities_supported())
-                return 0;
-
-        /* Add the capabilities to the ambient set. */
+                return (set & all_capabilities()) == 0 ?
+                        0 : -EOPNOTSUPP; /* if actually no ambient caps are to be set, be silent,
+                                          * otherwise fail recognizably */
 
         if (also_inherit) {
                 caps = cap_get_proc();
