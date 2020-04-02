@@ -111,6 +111,8 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
 
+static bool arg_user = false;
+
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)
                 return NULL;
@@ -397,6 +399,8 @@ static int transfer_start(Transfer *t) {
                         NULL, /* if so: the actual URL */
                         NULL, /* maybe --format= */
                         NULL, /* if so: the actual format */
+                        NULL, /* maybe --image-root= */
+                        NULL, /* if so: image-root PATH */
                         NULL, /* remote */
                         NULL, /* local */
                         NULL
@@ -482,6 +486,11 @@ static int transfer_start(Transfer *t) {
                 if (t->format) {
                         cmd[k++] = "--format";
                         cmd[k++] = t->format;
+                }
+
+                if (!t->manager->is_system) {
+                        cmd[k++] = "--image-root";
+                        cmd[k++] = machines_path(t->manager->is_system);
                 }
 
                 if (!IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW)) {
@@ -634,7 +643,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
-static int manager_new(Manager **ret) {
+static int manager_new(Manager **ret, bool is_system) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         _cleanup_free_ char *path = NULL;
         union sockaddr_union sa = {
@@ -663,8 +672,11 @@ static int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
-        m->is_system = true;
-        r = sd_bus_default_system(&m->bus);
+        m->is_system = is_system;
+        if (is_system)
+                r = sd_bus_default_system(&m->bus);
+        else
+                r = sd_bus_default_user(&m->bus);
         if (r < 0)
                 return r;
 
@@ -1396,7 +1408,7 @@ static int run(int argc, char *argv[]) {
                                "VM and container image import and export service.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv, NULL);
+                               argc, argv, &arg_user);
         if (r <= 0)
                 return r;
 
@@ -1404,7 +1416,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(&m, !arg_user);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
