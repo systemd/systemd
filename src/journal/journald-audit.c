@@ -503,6 +503,9 @@ static int enable_audit(int fd, bool b) {
 int server_open_audit(Server *s) {
         int r;
 
+        if (!s->read_audit)
+                return 0;
+
         if (s->audit_fd < 0) {
                 static const union sockaddr_union sa = {
                         .nl.nl_family = AF_NETLINK,

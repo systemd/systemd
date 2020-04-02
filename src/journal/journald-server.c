@@ -2207,6 +2207,7 @@ int server_init(Server *s, const char *namespace) {
                 .compress.enabled = true,
                 .compress.threshold_bytes = (uint64_t) -1,
                 .seal = true,
+                .read_audit = true,
 
                 .watchdog_usec = USEC_INFINITY,
 

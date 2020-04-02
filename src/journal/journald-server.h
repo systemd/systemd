@@ -108,6 +108,7 @@ struct Server {
         JournalCompressOptions compress;
         bool seal;
         bool read_kmsg;
+        bool read_audit;
 
         bool forward_to_kmsg;
         bool forward_to_syslog;
