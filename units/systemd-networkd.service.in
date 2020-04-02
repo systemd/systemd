@@ -26,6 +26,7 @@ ExecStart=!!@rootlibexecdir@/systemd-networkd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
+ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectKernelModules=yes
