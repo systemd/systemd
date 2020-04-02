@@ -96,59 +96,70 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         return 0;
 }
 
+int sd_dhcp_lease_get_servers(
+                sd_dhcp_lease *lease,
+                sd_dhcp_lease_info what,
+                const struct in_addr **addr) {
+
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (what) {
+        case SD_DHCP_LEASE_DNS_SERVERS:
+                if (lease->dns_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->dns;
+                return (int) lease->dns_size;
+
+        case SD_DHCP_LEASE_NTP_SERVERS:
+                if (lease->ntp_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->ntp;
+                return (int) lease->ntp_size;
+
+        case SD_DHCP_LEASE_SIP_SERVERS:
+                if (lease->sip_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->sip;
+                return (int) lease->sip_size;
+
+        case SD_DHCP_LEASE_POP3_SERVERS:
+                if (lease->pop3_server_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->pop3_server;
+                return (int) lease->pop3_server_size;
+
+        case SD_DHCP_LEASE_SMTP_SERVERS:
+                if (lease->smtp_server_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->smtp_server;
+                return (int) lease->smtp_server_size;
+
+        default:
+                log_debug("Uknown DHCP lease info item %d.", what);
+                return -ENXIO;
+        }
+}
+
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->dns_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->dns;
-        return (int) lease->dns_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->ntp_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->ntp;
-        return (int) lease->ntp_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->sip_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->sip;
-        return (int) lease->sip_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->pop3_server_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->pop3_server;
-        return (int) lease->pop3_server_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_POP3_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_smtp_server(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->smtp_server_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->smtp_server;
-        return (int) lease->smtp_server_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SMTP_SERVERS, addr);
 }
 
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
