@@ -458,6 +458,51 @@ int dhcp4_server_configure(Link *link) {
         return 0;
 }
 
+static int config_parse_dhcp_lease_server_list(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue,
+                const char *rvalue,
+                struct in_addr **addresses,
+                unsigned *n_addresses) {
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+                union in_addr_union a;
+                int r;
+
+                r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract word, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = in_addr_from_string(AF_INET, w, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse %s= address '%s', ignoring: %m", lvalue, w);
+                        continue;
+                }
+
+                struct in_addr *m = reallocarray(*addresses, *n_addresses + 1, sizeof(struct in_addr));
+                if (!m)
+                        return log_oom();
+
+                m[(*n_addresses)++] = a.in;
+                *addresses = m;
+        }
+}
+
 int config_parse_dhcp_server_dns(
                 const char *unit,
                 const char *filename,
@@ -471,45 +516,10 @@ int config_parse_dhcp_server_dns(
                 void *userdata) {
 
         Network *n = data;
-        const char *p = rvalue;
-        int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr *m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to extract word, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        break;
-
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DNS server address '%s', ignoring assignment: %m", w);
-                        continue;
-                }
-
-                m = reallocarray(n->dhcp_server_dns, n->n_dhcp_server_dns + 1, sizeof(struct in_addr));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dhcp_server_dns++] = a.in;
-                n->dhcp_server_dns = m;
-        }
-
-        return 0;
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_dns, &n->n_dhcp_server_dns);
 }
 
 int config_parse_dhcp_server_ntp(
@@ -525,43 +535,10 @@ int config_parse_dhcp_server_ntp(
                 void *userdata) {
 
         Network *n = data;
-        const char *p = rvalue;
-        int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr *m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to extract word, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse NTP server address '%s', ignoring: %m", w);
-                        continue;
-                }
-
-                m = reallocarray(n->dhcp_server_ntp, n->n_dhcp_server_ntp + 1, sizeof(struct in_addr));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dhcp_server_ntp++] = a.in;
-                n->dhcp_server_ntp = m;
-        }
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_ntp, &n->n_dhcp_server_ntp);
 }
 
 int config_parse_dhcp_server_sip(
@@ -577,45 +554,10 @@ int config_parse_dhcp_server_sip(
                 void *userdata) {
 
         Network *n = data;
-        const char *p = rvalue;
-        int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr *m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to extract word, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse SIP server address '%s', ignoring: %m", w);
-                        continue;
-                }
-
-                m = reallocarray(n->dhcp_server_sip, n->n_dhcp_server_sip + 1, sizeof(struct in_addr));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dhcp_server_sip++] = a.in;
-                n->dhcp_server_sip = m;
-        }
-
-        return 0;
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_sip, &n->n_dhcp_server_sip);
 }
 
 int config_parse_dhcp_server_pop3_servers(
@@ -631,45 +573,10 @@ int config_parse_dhcp_server_pop3_servers(
                 void *userdata) {
 
         Network *n = data;
-        const char *p = rvalue;
-        int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        for (;;) {
-                _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr *m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to extract word, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse POP3 server address '%s', ignoring: %m", w);
-                        continue;
-                }
-
-                m = reallocarray(n->dhcp_server_pop3, n->n_dhcp_server_pop3 + 1, sizeof(struct in_addr));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dhcp_server_pop3++] = a.in;
-                n->dhcp_server_pop3 = m;
-        }
-
-        return 0;
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_pop3, &n->n_dhcp_server_pop3);
 }
 
 int config_parse_dhcp_server_smtp_servers(
@@ -685,43 +592,9 @@ int config_parse_dhcp_server_smtp_servers(
                 void *userdata) {
 
         Network *n = data;
-        const char *p = rvalue;
-        int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_smtp, &n->n_dhcp_server_smtp);
 
-        for (;;) {
-                _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr *m;
-
-                r = extract_first_word(&p, &w, NULL, 0);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to extract word, ignoring: %s", rvalue);
-                        return 0;
-                }
-                if (r == 0)
-                        return 0;
-
-                r = in_addr_from_string(AF_INET, w, &a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse SMTP server address '%s', ignoring: %m", w);
-                        continue;
-                }
-
-                m = reallocarray(n->dhcp_server_smtp, n->n_dhcp_server_smtp + 1, sizeof(struct in_addr));
-                if (!m)
-                        return log_oom();
-
-                m[n->n_dhcp_server_smtp++] = a.in;
-                n->dhcp_server_smtp = m;
-        }
-
-        return 0;
 }
