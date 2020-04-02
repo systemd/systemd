@@ -53,7 +53,7 @@ Machine* machine_new(Manager *manager, MachineClass class, const char *name) {
                 goto fail;
 
         if (class != MACHINE_HOST) {
-                m->state_file = path_join("/run/systemd/machines", m->name);
+                m->state_file = path_join(manager->run_path, m->name);
                 if (!m->state_file)
                         goto fail;
         }
@@ -118,7 +118,7 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(m->manager->run_path, 0755, geteuid(), getegid(), MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -216,7 +216,7 @@ int machine_save(Machine *m) {
                 /* Create a symlink from the unit name to the machine
                  * name, so that we can quickly find the machine for
                  * each given unit. Ignore error. */
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina(m->manager->run_path, "/unit:", m->unit);
                 (void) symlink(m->name, sl);
         }
 
@@ -237,7 +237,7 @@ static void machine_unlink(Machine *m) {
         if (m->unit) {
                 char *sl;
 
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+                sl = strjoina(m->manager->run_path, "/unit:", m->unit);
                 (void) unlink(sl);
         }
 

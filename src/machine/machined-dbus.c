@@ -64,13 +64,20 @@ static int property_get_pool_usage(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
+        _cleanup_free_ char *pool_path = NULL;
         _cleanup_close_ int fd = -1;
         uint64_t usage = (uint64_t) -1;
 
         assert(bus);
         assert(reply);
+        assert(m);
 
-        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        pool_path = machines_path(m->is_system);
+        if (!pool_path)
+                return -ENOMEM;
+
+        fd = open(pool_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -90,13 +97,18 @@ static int property_get_pool_limit(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
+        _cleanup_free_ char *pool_path = NULL;
         _cleanup_close_ int fd = -1;
         uint64_t size = (uint64_t) -1;
 
         assert(bus);
         assert(reply);
+        assert(m);
 
-        fd = open("/var/lib/machines", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        pool_path = machines_path(m->is_system);
+
+        fd = open(pool_path, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd >= 0) {
                 BtrfsQuotaInfo q;
 
@@ -855,6 +867,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
 
 static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
+        _cleanup_free_ char *pool_path = NULL;
         uint64_t limit;
         int r;
 
@@ -885,9 +898,13 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
-        (void) btrfs_qgroup_set_limit("/var/lib/machines", 0, limit);
+        pool_path = machines_path(m->is_system);
+        if (!pool_path)
+                return -ENOMEM;
 
-        r = btrfs_subvol_set_subtree_quota_limit("/var/lib/machines", 0, limit);
+        (void) btrfs_qgroup_set_limit(pool_path, 0, limit);
+
+        r = btrfs_subvol_set_subtree_quota_limit(pool_path, 0, limit);
         if (r == -ENOTTY)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Quota is only supported on btrfs.");
         if (r < 0)

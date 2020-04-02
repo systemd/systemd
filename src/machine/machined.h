@@ -20,6 +20,7 @@ struct Manager {
         sd_event *event;
         sd_bus *bus;
 
+        char *run_path;
         Hashmap *machines;
         Hashmap *machine_units;
         Hashmap *machine_leaders;
