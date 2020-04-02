@@ -86,6 +86,15 @@ static bool mount_is_network(const MountParameters *p) {
         return false;
 }
 
+static bool mount_is_nofail(const Mount *m) {
+        assert(m);
+
+        if (!m->from_fragment)
+                return false;
+
+        return fstab_test_yes_no_option(m->parameters_fragment.options, "nofail\0" "fail\0");
+}
+
 static bool mount_is_loop(const MountParameters *p) {
         assert(p);
 
@@ -433,12 +442,9 @@ static int mount_add_default_ordering_dependencies(
                 UnitDependencyMask mask) {
 
         const char *after, *before, *e;
-        bool nofail;
         int r;
 
         assert(m);
-
-        nofail = m->from_fragment ? fstab_test_yes_no_option(m->parameters_fragment.options, "nofail\0" "fail\0") : false;
 
         e = path_startswith(m->where, "/sysroot");
         if (e && in_initrd()) {
@@ -458,7 +464,7 @@ static int mount_add_default_ordering_dependencies(
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!nofail && !mount_is_automount(p)) {
+        if (!mount_is_nofail(m) && !mount_is_automount(p)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, true, mask);
                 if (r < 0)
                         return r;
