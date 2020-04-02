@@ -152,6 +152,10 @@ static int automount_add_default_dependencies(Automount *a) {
         if (!MANAGER_IS_SYSTEM(UNIT(a)->manager))
                 return 0;
 
+        r = unit_add_dependency_by_name(UNIT(a), UNIT_BEFORE, SPECIAL_LOCAL_FS_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (r < 0)
+                return r;
+
         r = unit_add_dependency_by_name(UNIT(a), UNIT_AFTER, SPECIAL_LOCAL_FS_PRE_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
         if (r < 0)
                 return r;

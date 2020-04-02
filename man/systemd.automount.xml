@@ -86,6 +86,10 @@
         <listitem><para>Automount units acquire automatic <varname>Before=</varname> and
         <varname>Conflicts=</varname> on <filename>umount.target</filename> in order to be stopped during
         shutdown.</para></listitem>
+
+        <listitem><para>Automount units automatically gain an <varname>After=</varname> dependency
+        on <filename>local-fs-pre.target</filename>, and a <varname>Before=</varname> dependency on
+        <filename>local-fs.target</filename>.</para></listitem>
       </itemizedlist>
     </refsect2>
   </refsect1>

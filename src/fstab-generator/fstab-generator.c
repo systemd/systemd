@@ -526,8 +526,6 @@ static int add_mount(
                         "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                         source);
 
-                fprintf(f, "Before=%s\n", post);
-
                 if (opts) {
                         r = write_after(f, opts);
                         if (r < 0)
