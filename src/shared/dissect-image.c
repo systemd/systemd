@@ -1188,6 +1188,8 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
+        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+
         r = crypt_load(cd, CRYPT_LUKS, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
@@ -1245,6 +1247,8 @@ static int verity_partition(
         r = crypt_init(&cd, v->node);
         if (r < 0)
                 return r;
+
+        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
 
         r = crypt_load(cd, CRYPT_VERITY, NULL);
         if (r < 0)
