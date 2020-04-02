@@ -1123,132 +1123,81 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
         return 1;
 }
 
+int sd_dhcp_server_set_servers(
+                sd_dhcp_server *server,
+                sd_dhcp_lease_info what,
+                const struct in_addr addresses[],
+                unsigned n_addresses) {
+
+        assert_return(server, -EINVAL);
+        assert_return(addresses || n_addresses == 0, -EINVAL);
+
+        struct in_addr **a;
+        unsigned *n_a;
+
+        switch (what) {
+        case SD_DHCP_LEASE_DNS_SERVERS:
+                a = &server->dns;
+                n_a = &server->n_dns;
+                break;
+
+        case SD_DHCP_LEASE_NTP_SERVERS:
+                a = &server->ntp;
+                n_a = &server->n_ntp;
+                break;
+
+        case SD_DHCP_LEASE_SIP_SERVERS:
+                a = &server->sip;
+                n_a = &server->n_sip;
+                break;
+
+        case SD_DHCP_LEASE_POP3_SERVERS:
+                a = &server->pop3_server;
+                n_a = &server->n_pop3_server;
+                break;
+
+        case SD_DHCP_LEASE_SMTP_SERVERS:
+                a = &server->smtp_server;
+                n_a = &server->n_smtp_server;
+                break;
+
+        default:
+                log_debug("Uknown DHCP lease info item %d.", what);
+                return -ENXIO;
+        }
+
+        if (*n_a == n_addresses &&
+            memcmp(*a, addresses, sizeof(struct in_addr) * n_addresses) == 0)
+                return 0;
+
+        struct in_addr *c = NULL;
+
+        if (n_addresses > 0) {
+                c = newdup(struct in_addr, addresses, n_addresses);
+                if (!c)
+                        return -ENOMEM;
+        }
+
+        free(*a);
+        *a = c;
+        *n_a = n_addresses;
+        return 1;
+}
+
 int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n) {
-        assert_return(server, -EINVAL);
-        assert_return(dns || n <= 0, -EINVAL);
-
-        if (server->n_dns == n &&
-            memcmp(server->dns, dns, sizeof(struct in_addr) * n) == 0)
-                return 0;
-
-        if (n <= 0) {
-                server->dns = mfree(server->dns);
-                server->n_dns = 0;
-        } else {
-                struct in_addr *c;
-
-                c = newdup(struct in_addr, dns, n);
-                if (!c)
-                        return -ENOMEM;
-
-                free(server->dns);
-                server->dns = c;
-                server->n_dns = n;
-        }
-
-        return 1;
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_DNS_SERVERS, dns, n);
 }
-
 int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n) {
-        assert_return(server, -EINVAL);
-        assert_return(ntp || n <= 0, -EINVAL);
-
-        if (server->n_ntp == n &&
-            memcmp(server->ntp, ntp, sizeof(struct in_addr) * n) == 0)
-                return 0;
-
-        if (n <= 0) {
-                server->ntp = mfree(server->ntp);
-                server->n_ntp = 0;
-        } else {
-                struct in_addr *c;
-
-                c = newdup(struct in_addr, ntp, n);
-                if (!c)
-                        return -ENOMEM;
-
-                free(server->ntp);
-                server->ntp = c;
-                server->n_ntp = n;
-        }
-
-        return 1;
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_NTP_SERVERS, ntp, n);
 }
-
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n) {
-        assert_return(server, -EINVAL);
-        assert_return(sip || n <= 0, -EINVAL);
-
-        if (server->n_sip == n &&
-            memcmp(server->sip, sip, sizeof(struct in_addr) * n) == 0)
-                return 0;
-
-        if (n <= 0) {
-                server->sip = mfree(server->sip);
-                server->n_sip = 0;
-        } else {
-                struct in_addr *c;
-
-                c = newdup(struct in_addr, sip, n);
-                if (!c)
-                        return -ENOMEM;
-
-                free(server->sip);
-                server->sip = c;
-                server->n_sip = n;
-        }
-
-        return 1;
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SIP_SERVERS, sip, n);
 }
-
-int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr pop3_server[], unsigned n) {
-        assert_return(server, -EINVAL);
-        assert_return(pop3_server || n <= 0, -EINVAL);
-
-        if (server->n_pop3_server == n &&
-            memcmp(server->pop3_server, pop3_server, sizeof(struct in_addr) * n) == 0)
-                return 0;
-
-        if (n <= 0) {
-                server->pop3_server = mfree(server->pop3_server);
-                server->n_pop3_server = 0;
-        } else {
-                struct in_addr *c;
-
-                c = newdup(struct in_addr, pop3_server, n);
-                if (!c)
-                        return -ENOMEM;
-
-                free_and_replace(server->pop3_server, c);
-                server->n_pop3_server = n;
-        }
-
-        return 1;
+int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr pop3[], unsigned n) {
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_POP3_SERVERS, pop3, n);
 }
-
-int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr smtp_server[], unsigned n) {
-        assert_return(server, -EINVAL);
-        assert_return(smtp_server || n <= 0, -EINVAL);
-
-        if (server->n_smtp_server == n &&
-            memcmp(server->smtp_server, smtp_server, sizeof(struct in_addr) * n) == 0)
-                return 0;
-
-        if (n <= 0) {
-                server->smtp_server = mfree(server->smtp_server);
-                server->n_smtp_server = 0;
-        } else {
-                struct in_addr *c;
-
-                c = newdup(struct in_addr, smtp_server, n);
-                if (!c)
-                        return -ENOMEM;
-
-                free_and_replace(server->smtp_server, c);
-                server->n_smtp_server = n;
-        }
-
-        return 1;
+int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr smtp[], unsigned n) {
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP_SERVERS, smtp, n);
 }
 
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {

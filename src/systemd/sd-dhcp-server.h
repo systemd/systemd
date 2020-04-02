@@ -21,6 +21,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 
+#include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"
 #include "sd-event.h"
 
@@ -47,12 +48,19 @@ int sd_dhcp_server_stop(sd_dhcp_server *server);
 int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size);
 
 int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *timezone);
+int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
+
+int sd_dhcp_server_set_servers(
+                sd_dhcp_server *server,
+                sd_dhcp_lease_info what,
+                const struct in_addr addresses[],
+                unsigned n_addresses);
+
 int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n);
 int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n);
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n);
 int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr pop3_server[], unsigned n);
 int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr smtp_server[], unsigned n);
-int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
