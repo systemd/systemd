@@ -645,6 +645,15 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Manages the system machines (with <option>--system</option>, default),
+        or the user machines (with <option>--user</option>).
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-p</option></term>
         <term><option>--property=</option></term>
 

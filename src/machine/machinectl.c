@@ -82,6 +82,7 @@ static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static int arg_max_addresses = 1;
+static bool arg_user;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -2505,6 +2506,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "\nOptions:\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
+               "     --system                 Connect to system manager\n"
+               "     --user                   Connect to user service manager\n"
                "     --no-pager               Do not pipe output into a pager\n"
                "     --no-legend              Do not show the headers and footers\n"
                "     --no-ask-password        Do not ask for system passwords\n"
@@ -2558,6 +2561,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_FORMAT,
                 ARG_UID,
+                ARG_USER,
+                ARG_SYSTEM,
                 ARG_MAX_ADDRESSES,
         };
 
@@ -2586,6 +2591,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid",             required_argument, NULL, ARG_UID             },
                 { "setenv",          required_argument, NULL, 'E'                 },
                 { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
+                { "user",            no_argument,       NULL, ARG_USER            },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
                 {}
         };
 
@@ -2799,6 +2806,14 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Number of IPs cannot be negative or zero: %s", optarg);
                         break;
 
+                case ARG_USER:
+                        arg_user = true;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_user = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2885,7 +2900,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, arg_user, &bus);
         if (r < 0)
                 return bus_log_connect_error(r);
 
