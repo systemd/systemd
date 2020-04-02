@@ -2931,12 +2931,10 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_dbus_queue(m) > 0)
                         continue;
 
-                /* Sleep for half the watchdog time */
-                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m)) {
-                        wait_usec = m->runtime_watchdog / 2;
-                        if (wait_usec <= 0)
-                                wait_usec = 1;
-                } else
+                /* Sleep for watchdog runtime wait time */
+                if (MANAGER_IS_SYSTEM(m))
+                        wait_usec = watchdog_runtime_wait();
+                else
                         wait_usec = USEC_INFINITY;
 
                 r = sd_event_run(m->event, wait_usec);
