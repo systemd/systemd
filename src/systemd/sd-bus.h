@@ -204,7 +204,7 @@ int sd_bus_get_fd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
 int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec);
 int sd_bus_process(sd_bus *bus, sd_bus_message **r);
-int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r);
+int sd_bus_process_priority(sd_bus *bus, int64_t max_priority, sd_bus_message **r) _sd_deprecated_; /* deprecated */
 int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec);
 int sd_bus_flush(sd_bus *bus);
 int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m);
@@ -272,7 +272,7 @@ int sd_bus_message_seal(sd_bus_message *m, uint64_t cookie, uint64_t timeout_use
 int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type);
 int sd_bus_message_get_cookie(sd_bus_message *m, uint64_t *cookie);
 int sd_bus_message_get_reply_cookie(sd_bus_message *m, uint64_t *cookie);
-int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority);
+int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority) _sd_deprecated_; /* deprecated */
 
 int sd_bus_message_get_expect_reply(sd_bus_message *m);
 int sd_bus_message_get_auto_start(sd_bus_message *m);
@@ -306,7 +306,7 @@ int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *m, int b)
 
 int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
 int sd_bus_message_set_sender(sd_bus_message *m, const char *sender);
-int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority);
+int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority) _sd_deprecated_; /* deprecated */
 
 int sd_bus_message_append(sd_bus_message *m, const char *types, ...);
 int sd_bus_message_appendv(sd_bus_message *m, const char *types, va_list ap);
