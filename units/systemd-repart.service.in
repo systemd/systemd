@@ -23,7 +23,3 @@ ExecStart=@rootbindir@/systemd-repart --dry-run=no
 
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77
-
-[Install]
-WantedBy=sysinit.target
-WantedBy=initrd-root-fs.target
