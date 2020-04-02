@@ -428,7 +428,7 @@ static bool mount_is_extrinsic(Mount *m) {
 }
 
 static int mount_add_default_dependencies(Mount *m) {
-        const char *after, *before;
+        const char *after, *before, *e;
         UnitDependencyMask mask;
         MountParameters *p;
         bool nofail;
@@ -452,7 +452,16 @@ static int mount_add_default_dependencies(Mount *m) {
         mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_DEFAULT;
         nofail = m->from_fragment ? fstab_test_yes_no_option(m->parameters_fragment.options, "nofail\0" "fail\0") : false;
 
-        if (mount_is_network(p)) {
+        e = path_startswith(m->where, "/sysroot");
+        if (e && in_initrd()) {
+                /* All mounts under /sysroot need to happen later, at initrd-fs.target time. IOW,
+                 * it's not technically part of the basic initrd filesystem itself, and so
+                 * shouldn't inherit the default Before=local-fs.target dependency. */
+
+                after = NULL;
+                before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
+
+        } else if (mount_is_network(p)) {
                 /* We order ourselves after network.target. This is
                  * primarily useful at shutdown: services that take
                  * down the network should order themselves before
@@ -487,9 +496,11 @@ static int mount_add_default_dependencies(Mount *m) {
                         return r;
         }
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true, mask);
-        if (r < 0)
-                return r;
+        if (after) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, true, mask);
+                if (r < 0)
+                        return r;
+        }
 
         r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, mask);
         if (r < 0)
