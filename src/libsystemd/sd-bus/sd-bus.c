@@ -1833,7 +1833,7 @@ static int dispatch_wqueue(sd_bus *bus) {
         return ret;
 }
 
-static int bus_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
+static int bus_read_message(sd_bus *bus) {
         assert(bus);
 
         return bus_socket_read_message(bus);
@@ -1860,16 +1860,12 @@ static void rqueue_drop_one(sd_bus *bus, size_t i) {
         bus->rqueue_size--;
 }
 
-static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **m) {
+static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         int r, ret = 0;
 
         assert(bus);
         assert(m);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
-
-        /* Note that the priority logic is only available on kdbus,
-         * where the rqueue is unused. We check the rqueue here
-         * anyway, because it's simple... */
 
         for (;;) {
                 if (bus->rqueue_size > 0) {
@@ -1880,7 +1876,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
                 }
 
                 /* Try to read a new message */
-                r = bus_read_message(bus, hint_priority, priority);
+                r = bus_read_message(bus);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -2237,7 +2233,7 @@ _public_ int sd_bus_call(
                         i++;
                 }
 
-                r = bus_read_message(bus, false, 0);
+                r = bus_read_message(bus);
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r)) {
                                 bus_enter_closing(bus);
@@ -2776,7 +2772,7 @@ static int dispatch_track(sd_bus *bus) {
         return 1;
 }
 
-static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
+static int process_running(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
@@ -2795,7 +2791,7 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
         if (r != 0)
                 goto null_message;
 
-        r = dispatch_rqueue(bus, hint_priority, priority, &m);
+        r = dispatch_rqueue(bus, &m);
         if (r < 0)
                 return r;
         if (!m)
@@ -2981,7 +2977,7 @@ finish:
         return r;
 }
 
-static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
+static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
         int r;
 
         /* Returns 0 when we didn't do anything. This should cause the
@@ -3021,7 +3017,7 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
 
         case BUS_RUNNING:
         case BUS_HELLO:
-                r = process_running(bus, hint_priority, priority, ret);
+                r = process_running(bus, ret);
                 if (r >= 0)
                         return r;
 
@@ -3048,11 +3044,11 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
 }
 
 _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
-        return bus_process_internal(bus, false, 0, ret);
+        return bus_process_internal(bus, ret);
 }
 
 _public_ int sd_bus_process_priority(sd_bus *bus, int64_t priority, sd_bus_message **ret) {
-        return bus_process_internal(bus, true, priority, ret);
+        return bus_process_internal(bus, ret);
 }
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
