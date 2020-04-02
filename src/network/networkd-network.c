@@ -653,6 +653,7 @@ static Network *network_free(Network *network) {
         free(network->dns);
         strv_free(network->sip);
         strv_free(network->smtp);
+        strv_free(network->lpr_servers);
         ordered_set_free_free(network->search_domains);
         ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);

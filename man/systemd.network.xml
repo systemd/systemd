@@ -1905,6 +1905,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LPRServers=</varname></term>
+        <listitem><para>Specifies a list of Line Printer Daemon Protocol (LPR) servers available
+        to the client. The servers should be listed in order of preference. When configured,
+        the LPR server information shall be emitted as part of the DHCP lease.
+        The same syntax, propagation semantics and defaults apply as for
+        <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>POP3Servers=</varname></term>
 
         <listitem><para>Similar to the <varname>DNS=</varname> settings described above, these
