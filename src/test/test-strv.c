@@ -307,6 +307,12 @@ static void test_strv_split(void) {
         l = strv_split_full("    'one'  \"  two\t three \"' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
         assert_se(l);
         assert_se(strv_equal(l, (char**) input_table_quoted));
+
+        strv_free_erase(l);
+
+        l = strv_split_full("\\", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(l);
+        assert_se(strv_equal(l, STRV_MAKE("\\")));
 }
 
 static void test_strv_split_empty(void) {

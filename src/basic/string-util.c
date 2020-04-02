@@ -113,7 +113,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
         bool escaped = false;
         int n;
 
-        for (n=0; s[n]; n++) {
+        for (n = 0; s[n] != '\0'; n++) {
                 if (escaped)
                         escaped = false;
                 else if (s[n] == '\\')
@@ -122,8 +122,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
                         break;
         }
 
-        /* if s ends in \, return index of previous char */
-        return n - escaped;
+        return n;
 }
 
 /* Split a string into words. */
