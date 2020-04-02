@@ -1,0 +1,30 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Virtual Machine and Container Registration User Service
+Documentation=man:systemd-machined.service(8)
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/machined
+Wants=machine.slice
+After=machine.slice
+
+[Service]
+BusName=org.freedesktop.machine1
+#CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD
+ExecStart=@rootlibexecdir@/systemd-machined --user
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+@SERVICE_WATCHDOG@
