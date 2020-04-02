@@ -33,6 +33,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
+static bool arg_user = false;
+
 static int manager_new(Manager **ret, bool is_system) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
@@ -193,9 +195,12 @@ static int manager_connect_bus(Manager *m) {
         assert(m);
         assert(!m->bus);
 
-        r = sd_bus_default_system(&m->bus);
+        if (m->is_system)
+                r = sd_bus_default_system(&m->bus);
+        else
+                r = sd_bus_default_user(&m->bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
+                return log_error_errno(r, "Failed to connect to bus: %m");
 
         r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
@@ -279,9 +284,11 @@ static int manager_startup(Manager *m) {
                 return r;
 
         /* Set up Varlink service */
-        r = manager_varlink_init(m);
-        if (r < 0)
-                return r;
+        if (!arg_user) {
+                r = manager_varlink_init(m);
+                if (r < 0)
+                        return r;
+        }
 
         /* Deserialize state */
         manager_enumerate_machines(m);
@@ -302,7 +309,7 @@ static bool check_idle(void *userdata) {
         if (m->operations)
                 return false;
 
-        if (varlink_server_current_connections(m->varlink_server) > 0)
+        if (m->varlink_server && varlink_server_current_connections(m->varlink_server) > 0)
                 return false;
 
         manager_gc(m, true);
@@ -332,7 +339,7 @@ static int run(int argc, char *argv[]) {
                                "Manage registrations of local VMs and containers.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv, NULL);
+                               argc, argv, &arg_user);
         if (r <= 0)
                 return r;
 
@@ -345,7 +352,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m, true);
+        r = manager_new(&m, !arg_user);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
