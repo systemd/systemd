@@ -2350,7 +2350,7 @@
           <term><varname>BitRate=</varname></term>
           <listitem>
             <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
-            be used here.</para>
+            be used here. Takes a number in the range 1..4294967295.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2358,6 +2358,29 @@
           <listitem>
             <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
             <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DataBitRate=</varname></term>
+          <term><varname>DataSamplePoint=</varname></term>
+          <listitem>
+            <para>The bitrate and sample point for the data phase, if CAN-FD is used. These settings are
+            analogous to the <varname>BitRate=</varname> and <varname>SamplePoint=</varname> keys.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FDMode=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
+            Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
+            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>FDNonISO=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, non-ISO CAN-FD mode is enabled for the
+            interface. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -201,6 +201,10 @@ PVID=
 [CAN]
 SamplePoint=
 BitRate=
+DataSamplePoint=
+DataBitRate=
+FDMode=
+FDNonISO=
 RestartSec=
 TripleSampling=
 Termination=

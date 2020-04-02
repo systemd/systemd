@@ -7,9 +7,50 @@
 #include "networkd-can.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 #define CAN_TERMINATION_OHM_VALUE 120
+
+int config_parse_can_bitrate(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *br = data;
+        uint64_t sz;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = parse_size(rvalue, 1000, &sz);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse can bitrate '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        /* Linux uses __u32 for bitrates, so the value should not exceed that. */
+        if (sz <= 0 || sz > UINT32_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Bit rate out of permitted range 1...4294967295");
+                return 0;
+        }
+
+        *br = (uint32_t) sz;
+
+        return 0;
+}
 
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
@@ -103,11 +144,6 @@ static int link_set_can(Link *link) {
                         .sample_point = link->network->can_sample_point,
                 };
 
-                if (link->network->can_bitrate > UINT32_MAX) {
-                        log_link_error(link, "bitrate (%" PRIu64 ") too big.", link->network->can_bitrate);
-                        return -ERANGE;
-                }
-
                 log_link_debug(link, "Setting bitrate = %d bit/s", bt.bitrate);
                 if (link->network->can_sample_point > 0)
                         log_link_debug(link, "Setting sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
@@ -117,6 +153,35 @@ static int link_set_can(Link *link) {
                 r = sd_netlink_message_append_data(m, IFLA_CAN_BITTIMING, &bt, sizeof(bt));
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFLA_CAN_BITTIMING attribute: %m");
+        }
+
+        if (link->network->can_data_bitrate > 0 || link->network->can_data_sample_point > 0) {
+                struct can_bittiming bt = {
+                        .bitrate = link->network->can_data_bitrate,
+                        .sample_point = link->network->can_data_sample_point,
+                };
+
+                log_link_debug(link, "Setting data bitrate = %d bit/s", bt.bitrate);
+                if (link->network->can_data_sample_point > 0)
+                        log_link_debug(link, "Setting data sample point = %d.%d%%", bt.sample_point / 10, bt.sample_point % 10);
+                else
+                        log_link_debug(link, "Using default data sample point");
+
+                r = sd_netlink_message_append_data(m, IFLA_CAN_DATA_BITTIMING, &bt, sizeof(bt));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_CAN_DATA_BITTIMING attribute: %m");
+        }
+
+        if (link->network->can_fd_mode >= 0) {
+                cm.mask |= CAN_CTRLMODE_FD;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode > 0);
+                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode > 0 ? "En" : "Dis");
+        }
+
+        if (link->network->can_non_iso >= 0) {
+                cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso > 0);
+                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso > 0 ? "En" : "Dis");
         }
 
         if (link->network->can_restart_us > 0) {
