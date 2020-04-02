@@ -8,6 +8,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "web-util.h"
 
 int config_parse_dhcp(
                 const char* unit,
@@ -263,6 +264,48 @@ int config_parse_dhcp6_pd_hint(
         }
 
         return 0;
+}
+
+int config_parse_dhcp6_mud_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp6_mudurl = mfree(network->dhcp6_mudurl);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
+
+                return 0;
+        }
+
+        return free_and_replace(network->dhcp6_mudurl, unescaped);
 }
 
 int config_parse_dhcp_send_option(

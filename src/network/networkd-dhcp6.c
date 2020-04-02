@@ -676,6 +676,12 @@ int dhcp6_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for rapid commit: %m");
         }
 
+        if (link->network->dhcp6_mudurl) {
+                r = sd_dhcp6_client_set_request_mud_url(client, link->network->dhcp6_mudurl);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
+        }
+
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set callback: %m");
