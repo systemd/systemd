@@ -76,7 +76,6 @@ struct sd_bus_message {
         usec_t monotonic;
         usec_t realtime;
         uint64_t seqnum;
-        int64_t priority;
         uint64_t verify_destination_id;
 
         bool sealed:1;

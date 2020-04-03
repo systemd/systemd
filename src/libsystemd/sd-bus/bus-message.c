@@ -5924,18 +5924,31 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
 }
 
 _public_ int sd_bus_message_get_priority(sd_bus_message *m, int64_t *priority) {
+        static bool warned = false;
+
         assert_return(m, -EINVAL);
         assert_return(priority, -EINVAL);
 
-        *priority = m->priority;
+        if (!warned) {
+                log_debug("sd_bus_message_get_priority() is deprecated and always returns 0.");
+                warned = true;
+        }
+
+        *priority = 0;
         return 0;
 }
 
 _public_ int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority) {
+        static bool warned = false;
+
         assert_return(m, -EINVAL);
         assert_return(!m->sealed, -EPERM);
 
-        m->priority = priority;
+        if (!warned) {
+                log_debug("sd_bus_message_set_priority() is deprecated and does nothing.");
+                warned = true;
+        }
+
         return 0;
 }
 

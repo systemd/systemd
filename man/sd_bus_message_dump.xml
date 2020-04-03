@@ -65,7 +65,7 @@
 
     <para>Output for a signal message (with <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>):
     <programlisting>
-‣ Type=signal  Endian=l  Flags=1  Version=1  Priority=0 Cookie=22
+‣ Type=signal  Endian=l  Flags=1  Version=1  Cookie=22
   Path=/value/a  Interface=org.freedesktop.DBus.Properties  Member=PropertiesChanged
   MESSAGE "sa{sv}as" {
           STRING "org.freedesktop.systemd.ValueTest";
