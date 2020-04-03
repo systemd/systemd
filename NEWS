@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 246 in spe:
+        * The fs.suid_dumpable sysctl is set to 2 / "suidsafe". This allows
+          systemd-coredump to save core files for suid processes. When saving
+          the core file, systemd-coredump will use the effective uid and gid of
+          the process that faulted.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an
