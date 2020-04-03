@@ -101,6 +101,7 @@ BASICTOOLS=(
     tar
     tee
     test
+    timeout
     touch
     tr
     true
