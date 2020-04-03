@@ -541,16 +541,15 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int r;
 
-        if (!valid_user_group_name(argv[1]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name '%s'.", argv[1]);
-
         r = userdb_by_name(argv[1], arg_userdb_flags, &ur);
         if (r == -ESRCH)
-                log_error_errno(r, "User %s does not exist.", argv[1]);
+                return log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
-                log_error_errno(r, "Selected user database service is not available for this request.");
+                return log_error_errno(r, "Selected user database service is not available for this request.");
+        else if (r == -EINVAL)
+                return log_error_errno(r, "Failed to find user %s: %m (Invalid user name?)", argv[1]);
         else if (r < 0)
-                log_error_errno(r, "Failed to find user %s: %m", argv[1]);
+                return log_error_errno(r, "Failed to find user %s: %m", argv[1]);
 
         if (strv_isempty(ur->ssh_authorized_keys))
                 log_debug("User record for %s has no public SSH keys.", argv[1]);
