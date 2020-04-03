@@ -15,6 +15,10 @@ Conflicts=shutdown.target
 After=sysroot.mount
 Before=initrd-root-fs.target shutdown.target
 ConditionVirtualization=!container
+ConditionDirectoryNotEmpty=|/usr/lib/repart.d
+ConditionDirectoryNotEmpty=|/usr/local/lib/repart.d
+ConditionDirectoryNotEmpty=|/etc/repart.d
+ConditionDirectoryNotEmpty=|/run/repart.d
 
 [Service]
 Type=oneshot
@@ -23,7 +27,3 @@ ExecStart=@rootbindir@/systemd-repart --dry-run=no
 
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77
-
-[Install]
-WantedBy=sysinit.target
-WantedBy=initrd-root-fs.target
