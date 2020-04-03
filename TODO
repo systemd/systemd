@@ -117,7 +117,8 @@ Features:
 
 * systemd-repart: allow config of partition uuid
 
-* userdb: allow username prefix searches in varlink API
+* userdb: allow username prefix searches in varlink API, allow realname and
+  realname substr searches in varlink API
 
 * userdb: allow existence checks
 
@@ -864,6 +865,7 @@ Features:
     make assumptions about their slice anymore.
   - follow PropertiesChanged state more closely, to deal with quick logouts and
     relogins
+  - (optionally?) spawn seat-manager@$SEAT.service whenever a seat shows up that as CanGraphical set
 
 * journal:
   - consider introducing implicit _TTY= + _PPID= + _EUID= + _EGID= + _FSUID= + _FSGID= fields
