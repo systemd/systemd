@@ -786,7 +786,7 @@ static int help(void) {
                "     --listen-http=ADDR     Listen for HTTP connections at ADDR\n"
                "     --listen-https=ADDR    Listen for HTTPS connections at ADDR\n"
                "  -o --output=FILE|DIR      Write output to FILE or DIR/external-*.journal\n"
-               "     --compress[=BOOL]      XZ-compress the output journal (default: yes)\n"
+               "     --compress[=BOOL]      Use compression in the output journal (default: yes)\n"
                "     --seal[=BOOL]          Use event sealing (default: no)\n"
                "     --key=FILENAME         SSL key in PEM format (default:\n"
                "                            \"" PRIV_KEY_FILE "\")\n"

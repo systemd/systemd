@@ -398,8 +398,8 @@
       <varlistentry>
         <term><option>--output-fields=</option></term>
 
-        <listitem><para>A comma separated list of the fields which should be included in the output. This only has an
-        effect for the output modes which would normally show all fields (<option>verbose</option>,
+        <listitem><para>A comma separated list of the fields which should be included in the output. This has an
+        effect only for the output modes which would normally show all fields (<option>verbose</option>,
         <option>export</option>, <option>json</option>, <option>json-pretty</option>, <option>json-sse</option> and
         <option>json-seq</option>). The <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
         <literal>__MONOTONIC_TIMESTAMP</literal>, and <literal>_BOOT_ID</literal> fields are always
@@ -416,8 +416,13 @@
       <varlistentry>
         <term><option>--no-hostname</option></term>
 
-        <listitem><para>Don't show the hostname field of log messages originating from the local host. This switch only
-        has an effect on the <option>short</option> family of output modes (see above).</para></listitem>
+        <listitem><para>Don't show the hostname field of log messages originating from the local host. This
+        switch has an effect only on the <option>short</option> family of output modes (see above).
+        </para>
+
+        <para>Note: this option does not remove occurrences of the hostname from log entries themselves, so
+        it does not prevent the hostname from being visible in the logs.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
