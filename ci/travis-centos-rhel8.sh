@@ -15,7 +15,7 @@ CONT_NAME="${CONT_NAME:-centos-$CENTOS_RELEASE-$RANDOM}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(libasan libubsan net-tools strace nc e2fsprogs quota dnsmasq)
+ADDITIONAL_DEPS=(libasan libubsan net-tools strace nc e2fsprogs quota dnsmasq diffutils)
 # RHEL8 options
 CONFIGURE_OPTS=(
     -Dsysvinit-path=/etc/rc.d/init.d
