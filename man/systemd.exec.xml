@@ -652,8 +652,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>UMask=</varname></term>
 
         <listitem><para>Controls the file mode creation mask. Takes an access mode in octal notation. See
-        <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details. Defaults
-        to 0022.</para></listitem>
+        <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details. Defaults to 0022 for system units. For units of the user service manager the default value
+        is inherited from the user instance (whose default is inherited from the system service manager, and
+        thus also is 0022). Hence changing the default value of a user instance, either via
+        <varname>UMask=</varname> or via a PAM module, will affect the user instance itself and all user
+        units started by the user instance unless a user unit has specified its own
+        <varname>UMask=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
