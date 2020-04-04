@@ -119,6 +119,7 @@ SendOption=
 RequestOptions=
 UserClass=
 VendorClass=
+AssignAcquiredDelegatedPrefixAddress=
 [Route]
 Destination=
 Protocol=

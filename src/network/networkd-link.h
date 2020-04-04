@@ -228,6 +228,7 @@ int link_request_set_routes(Link *link);
 int link_request_set_nexthop(Link *link);
 
 int link_reconfigure(Link *link, bool force);
+int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_link_ipv6_address_gen_mode);
 

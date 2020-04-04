@@ -26,6 +26,10 @@ static Link *dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
 static int dhcp6_prefix_remove_all(Manager *m, Link *link);
 static bool dhcp6_link_has_dhcpv6_prefix(Link *link);
+static int dhcp6_assign_delegated_prefix(Link *link, const struct in6_addr *prefix,
+                                         uint8_t prefix_len,
+                                         uint32_t lifetime_preferred,
+                                         uint32_t lifetime_valid);
 
 static bool dhcp6_get_prefix_delegation(Link *link) {
         if (!link->network)
@@ -190,6 +194,12 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
         r = dhcp6_prefix_add(link->manager, prefix, link);
         if (r < 0)
                 return r;
+
+        if (link->network->dhcp6_pd_assign_prefix) {
+                r = dhcp6_assign_delegated_prefix(link, prefix, prefix_len, lifetime_preferred, lifetime_valid);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_radv_start(radv);
 }
@@ -1017,4 +1027,44 @@ static bool dhcp6_link_has_dhcpv6_prefix(Link *link) {
                         return true;
 
         return false;
+}
+
+static int dhcp6_assign_delegated_prefix(Link *link,
+                                         const struct in6_addr *prefix,
+                                         uint8_t prefix_len,
+                                         uint32_t lifetime_preferred,
+                                         uint32_t lifetime_valid) {
+        _cleanup_(address_freep) Address *address = NULL;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(prefix);
+
+        if (!link->network->dhcp6_pd_assign_prefix)
+                return 0;
+
+        r = address_new(&address);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate address: %m");
+
+        address->in_addr.in6 = *prefix;
+        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to generate EUI64 address for DHCPv6 acquired delegated prefix: %m");
+
+        address->prefixlen = prefix_len;
+        address->family = AF_INET6;
+        address->cinfo.ifa_prefered = lifetime_preferred;
+        address->cinfo.ifa_valid = lifetime_valid;
+
+        link_set_state(link, LINK_STATE_CONFIGURING);
+
+        r = address_configure(address, link, address_handler, true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not set addresses: %m");
+        if (r > 0)
+                link->address_messages++;
+
+        return 0;
 }

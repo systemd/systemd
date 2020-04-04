@@ -412,6 +412,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 
+                .dhcp6_pd_assign_prefix = true,
+
                 .dhcp_server_emit_dns = true,
                 .dhcp_server_emit_ntp = true,
                 .dhcp_server_emit_sip = true,
