@@ -4247,6 +4247,11 @@ ManagerState manager_state(Manager *m) {
 
         assert(m);
 
+        /* Is the special shutdown target active or queued? If so, we are in shutdown state */
+        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+        if (u && unit_active_or_pending(u))
+                return MANAGER_STOPPING;
+
         /* Did we ever finish booting? If not then we are still starting up */
         if (!MANAGER_IS_FINISHED(m)) {
 
@@ -4256,11 +4261,6 @@ ManagerState manager_state(Manager *m) {
 
                 return MANAGER_STARTING;
         }
-
-        /* Is the special shutdown target active or queued? If so, we are in shutdown state */
-        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_STOPPING;
 
         if (MANAGER_IS_SYSTEM(m)) {
                 /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
