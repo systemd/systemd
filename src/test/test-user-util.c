@@ -131,144 +131,163 @@ static void test_uid_ptr(void) {
         assert_se(PTR_TO_UID(UID_TO_PTR(1000)) == 1000);
 }
 
-static void test_valid_user_group_name_compat(void) {
+static void test_valid_user_group_name_relaxed(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(!valid_user_group_name_compat(NULL));
-        assert_se(!valid_user_group_name_compat(""));
-        assert_se(!valid_user_group_name_compat("1"));
-        assert_se(!valid_user_group_name_compat("65535"));
-        assert_se(!valid_user_group_name_compat("-1"));
-        assert_se(!valid_user_group_name_compat("-kkk"));
-        assert_se(!valid_user_group_name_compat("rööt"));
-        assert_se(!valid_user_group_name_compat("."));
-        assert_se(!valid_user_group_name_compat(".eff"));
-        assert_se(!valid_user_group_name_compat("foo\nbar"));
-        assert_se(!valid_user_group_name_compat("0123456789012345678901234567890123456789"));
-        assert_se(!valid_user_group_name_or_id_compat("aaa:bbb"));
-        assert_se(!valid_user_group_name_compat("."));
-        assert_se(!valid_user_group_name_compat(".1"));
-        assert_se(!valid_user_group_name_compat(".65535"));
-        assert_se(!valid_user_group_name_compat(".-1"));
-        assert_se(!valid_user_group_name_compat(".-kkk"));
-        assert_se(!valid_user_group_name_compat(".rööt"));
-        assert_se(!valid_user_group_name_or_id_compat(".aaa:bbb"));
+        assert_se(!valid_user_group_name(NULL, VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("1", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("65535", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("-1", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("foo\nbar", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_RELAX|VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".", VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("..", VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name_compat("root"));
-        assert_se(valid_user_group_name_compat("lennart"));
-        assert_se(valid_user_group_name_compat("LENNART"));
-        assert_se(valid_user_group_name_compat("_kkk"));
-        assert_se(valid_user_group_name_compat("kkk-"));
-        assert_se(valid_user_group_name_compat("kk-k"));
-        assert_se(valid_user_group_name_compat("eff.eff"));
-        assert_se(valid_user_group_name_compat("eff."));
+        assert_se(valid_user_group_name("root", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("lennart", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("LENNART", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("_kkk", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kkk-", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kk-k", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.eff", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("-kkk", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("rööt", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".eff", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".1", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".65535", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".-1", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".-kkk", VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".rööt", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("...", VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name_compat("some5"));
-        assert_se(valid_user_group_name_compat("5some"));
-        assert_se(valid_user_group_name_compat("INNER5NUMBER"));
+        assert_se(valid_user_group_name("some5", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("5some", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_RELAX));
+
+        assert_se(valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_RELAX));
+        assert_se(valid_user_group_name("Dāvis", VALID_USER_RELAX));
 }
 
 static void test_valid_user_group_name(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(!valid_user_group_name(NULL));
-        assert_se(!valid_user_group_name(""));
-        assert_se(!valid_user_group_name("1"));
-        assert_se(!valid_user_group_name("65535"));
-        assert_se(!valid_user_group_name("-1"));
-        assert_se(!valid_user_group_name("-kkk"));
-        assert_se(!valid_user_group_name("rööt"));
-        assert_se(!valid_user_group_name("."));
-        assert_se(!valid_user_group_name(".eff"));
-        assert_se(!valid_user_group_name("foo\nbar"));
-        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789"));
-        assert_se(!valid_user_group_name_or_id("aaa:bbb"));
-        assert_se(!valid_user_group_name("."));
-        assert_se(!valid_user_group_name(".1"));
-        assert_se(!valid_user_group_name(".65535"));
-        assert_se(!valid_user_group_name(".-1"));
-        assert_se(!valid_user_group_name(".-kkk"));
-        assert_se(!valid_user_group_name(".rööt"));
-        assert_se(!valid_user_group_name_or_id(".aaa:bbb"));
+        assert_se(!valid_user_group_name(NULL, 0));
+        assert_se(!valid_user_group_name("", 0));
+        assert_se(!valid_user_group_name("1", 0));
+        assert_se(!valid_user_group_name("65535", 0));
+        assert_se(!valid_user_group_name("-1", 0));
+        assert_se(!valid_user_group_name("-kkk", 0));
+        assert_se(!valid_user_group_name("rööt", 0));
+        assert_se(!valid_user_group_name(".", 0));
+        assert_se(!valid_user_group_name(".eff", 0));
+        assert_se(!valid_user_group_name("foo\nbar", 0));
+        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", 0));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".", 0));
+        assert_se(!valid_user_group_name("..", 0));
+        assert_se(!valid_user_group_name("...", 0));
+        assert_se(!valid_user_group_name(".1", 0));
+        assert_se(!valid_user_group_name(".65535", 0));
+        assert_se(!valid_user_group_name(".-1", 0));
+        assert_se(!valid_user_group_name(".-kkk", 0));
+        assert_se(!valid_user_group_name(".rööt", 0));
+        assert_se(!valid_user_group_name(".aaa:bbb", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name("root"));
-        assert_se(valid_user_group_name("lennart"));
-        assert_se(valid_user_group_name("LENNART"));
-        assert_se(valid_user_group_name("_kkk"));
-        assert_se(valid_user_group_name("kkk-"));
-        assert_se(valid_user_group_name("kk-k"));
-        assert_se(!valid_user_group_name("eff.eff"));
-        assert_se(!valid_user_group_name("eff."));
+        assert_se(valid_user_group_name("root", 0));
+        assert_se(valid_user_group_name("lennart", 0));
+        assert_se(valid_user_group_name("LENNART", 0));
+        assert_se(valid_user_group_name("_kkk", 0));
+        assert_se(valid_user_group_name("kkk-", 0));
+        assert_se(valid_user_group_name("kk-k", 0));
+        assert_se(!valid_user_group_name("eff.eff", 0));
+        assert_se(!valid_user_group_name("eff.", 0));
 
-        assert_se(valid_user_group_name("some5"));
-        assert_se(!valid_user_group_name("5some"));
-        assert_se(valid_user_group_name("INNER5NUMBER"));
+        assert_se(valid_user_group_name("some5", 0));
+        assert_se(!valid_user_group_name("5some", 0));
+        assert_se(valid_user_group_name("INNER5NUMBER", 0));
+
+        assert_se(!valid_user_group_name("piff.paff@ad.domain.example", 0));
+        assert_se(!valid_user_group_name("Dāvis", 0));
 }
 
-static void test_valid_user_group_name_or_id_compat(void) {
+static void test_valid_user_group_name_or_numeric_relaxed(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(!valid_user_group_name_or_id_compat(NULL));
-        assert_se(!valid_user_group_name_or_id_compat(""));
-        assert_se(valid_user_group_name_or_id_compat("0"));
-        assert_se(valid_user_group_name_or_id_compat("1"));
-        assert_se(valid_user_group_name_or_id_compat("65534"));
-        assert_se(!valid_user_group_name_or_id_compat("65535"));
-        assert_se(valid_user_group_name_or_id_compat("65536"));
-        assert_se(!valid_user_group_name_or_id_compat("-1"));
-        assert_se(!valid_user_group_name_or_id_compat("-kkk"));
-        assert_se(!valid_user_group_name_or_id_compat("rööt"));
-        assert_se(!valid_user_group_name_or_id_compat("."));
-        assert_se(!valid_user_group_name_or_id_compat(".eff"));
-        assert_se(valid_user_group_name_or_id_compat("eff.eff"));
-        assert_se(valid_user_group_name_or_id_compat("eff."));
-        assert_se(!valid_user_group_name_or_id_compat("foo\nbar"));
-        assert_se(!valid_user_group_name_or_id_compat("0123456789012345678901234567890123456789"));
-        assert_se(!valid_user_group_name_or_id_compat("aaa:bbb"));
+        assert_se(!valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("-1", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("foo\nbar", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(!valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name_or_id_compat("root"));
-        assert_se(valid_user_group_name_or_id_compat("lennart"));
-        assert_se(valid_user_group_name_or_id_compat("LENNART"));
-        assert_se(valid_user_group_name_or_id_compat("_kkk"));
-        assert_se(valid_user_group_name_or_id_compat("kkk-"));
-        assert_se(valid_user_group_name_or_id_compat("kk-k"));
+        assert_se(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kkk-", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("kk-k", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("-kkk", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("rööt", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
 
-        assert_se(valid_user_group_name_or_id_compat("some5"));
-        assert_se(valid_user_group_name_or_id_compat("5some"));
-        assert_se(valid_user_group_name_or_id_compat("INNER5NUMBER"));
+        assert_se(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+
+        assert_se(valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
+        assert_se(valid_user_group_name("Dāvis", VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX));
 }
 
-static void test_valid_user_group_name_or_id(void) {
+static void test_valid_user_group_name_or_numeric(void) {
         log_info("/* %s */", __func__);
 
-        assert_se(!valid_user_group_name_or_id(NULL));
-        assert_se(!valid_user_group_name_or_id(""));
-        assert_se(valid_user_group_name_or_id("0"));
-        assert_se(valid_user_group_name_or_id("1"));
-        assert_se(valid_user_group_name_or_id("65534"));
-        assert_se(!valid_user_group_name_or_id("65535"));
-        assert_se(valid_user_group_name_or_id("65536"));
-        assert_se(!valid_user_group_name_or_id("-1"));
-        assert_se(!valid_user_group_name_or_id("-kkk"));
-        assert_se(!valid_user_group_name_or_id("rööt"));
-        assert_se(!valid_user_group_name_or_id("."));
-        assert_se(!valid_user_group_name_or_id(".eff"));
-        assert_se(!valid_user_group_name_or_id("eff.eff"));
-        assert_se(!valid_user_group_name_or_id("eff."));
-        assert_se(!valid_user_group_name_or_id("foo\nbar"));
-        assert_se(!valid_user_group_name_or_id("0123456789012345678901234567890123456789"));
-        assert_se(!valid_user_group_name_or_id("aaa:bbb"));
+        assert_se(!valid_user_group_name(NULL, VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("0", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("1", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("65534", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("65535", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("65536", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("-1", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("-kkk", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("rööt", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("..", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("...", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name(".eff", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("eff.eff", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("eff.", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("foo\nbar", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("0123456789012345678901234567890123456789", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("aaa:bbb", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name_or_id("root"));
-        assert_se(valid_user_group_name_or_id("lennart"));
-        assert_se(valid_user_group_name_or_id("LENNART"));
-        assert_se(valid_user_group_name_or_id("_kkk"));
-        assert_se(valid_user_group_name_or_id("kkk-"));
-        assert_se(valid_user_group_name_or_id("kk-k"));
+        assert_se(valid_user_group_name("root", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("lennart", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("LENNART", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("_kkk", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("kkk-", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("kk-k", VALID_USER_ALLOW_NUMERIC));
 
-        assert_se(valid_user_group_name_or_id("some5"));
-        assert_se(!valid_user_group_name_or_id("5some"));
-        assert_se(valid_user_group_name_or_id("INNER5NUMBER"));
+        assert_se(valid_user_group_name("some5", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("5some", VALID_USER_ALLOW_NUMERIC));
+        assert_se(valid_user_group_name("INNER5NUMBER", VALID_USER_ALLOW_NUMERIC));
+
+        assert_se(!valid_user_group_name("piff.paff@ad.domain.example", VALID_USER_ALLOW_NUMERIC));
+        assert_se(!valid_user_group_name("Dāvis", VALID_USER_ALLOW_NUMERIC));
 }
 
 static void test_valid_gecos(void) {
@@ -367,10 +386,10 @@ int main(int argc, char*argv[]) {
         test_parse_uid();
         test_uid_ptr();
 
-        test_valid_user_group_name_compat();
+        test_valid_user_group_name_relaxed();
         test_valid_user_group_name();
-        test_valid_user_group_name_or_id_compat();
-        test_valid_user_group_name_or_id();
+        test_valid_user_group_name_or_numeric_relaxed();
+        test_valid_user_group_name_or_numeric();
         test_valid_gecos();
         test_valid_home();
 

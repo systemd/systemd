@@ -1413,7 +1413,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return r;
                 }
 
-                if (!valid_user_group_name(resolved_name)) {
+                if (!valid_user_group_name(resolved_name, 0)) {
                         log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_name);
                         return -EINVAL;
                 }
@@ -1524,7 +1524,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                if (!valid_user_group_name(resolved_id)) {
+                if (!valid_user_group_name(resolved_id, 0)) {
                         log_error("[%s:%u] '%s' is not a valid user or group name.", fname, line, resolved_id);
                         return -EINVAL;
                 }

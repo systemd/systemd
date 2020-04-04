@@ -123,7 +123,7 @@ static int direct_lookup_uid(uid_t uid, char **ret) {
         r = readlink_malloc(path, &s);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(s)) { /* extra safety check */
+        if (!valid_user_group_name(s, VALID_USER_RELAX)) { /* extra safety check */
                 free(s);
                 return -EINVAL;
         }
@@ -153,7 +153,7 @@ enum nss_status _nss_systemd_getpwnam_r(
 
         /* If the username is not valid, then we don't know it. Ideally libc would filter these for us anyway. We don't
          * generate EINVAL here, because it isn't really out business to complain about invalid user names. */
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
@@ -356,7 +356,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         assert(name);
         assert(gr);
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing form /etc/group */

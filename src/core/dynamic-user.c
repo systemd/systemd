@@ -108,7 +108,7 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
                 return 0;
         }
 
-        if (!valid_user_group_name_or_id(name))
+        if (!valid_user_group_name(name, VALID_USER_ALLOW_NUMERIC))
                 return -EINVAL;
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, storage_socket) < 0)

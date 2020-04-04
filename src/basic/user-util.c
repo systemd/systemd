@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <utmp.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -576,90 +578,123 @@ int take_etc_passwd_lock(const char *root) {
         return fd;
 }
 
-bool valid_user_group_name_full(const char *u, bool strict) {
+bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         const char *i;
-        long sz;
-        bool warned = false;
 
-        /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
-         * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
+        /* Checks if the specified name is a valid user/group name. There are two flavours of this call:
+         * strict mode is the default which is POSIX plus some extra rules; and relaxed mode where we accept
+         * pretty much everything except the really worst offending names.
          *
-         * - We require that names fit into the appropriate utmp field
-         * - We don't allow empty user names
-         * - No dots in the first character
-         *
-         * If strict==true, additionally:
-         * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
-         * - We don't allow a digit as the first character
-         *
-         * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
-         */
+         * Whenever we synthesize users ourselves we should use the strict mode. But when we process users
+         * created by other stuff, let's be more liberal. */
 
-        if (isempty(u))
+        if (isempty(u)) /* An empty user name is never valid */
                 return false;
 
-        if (!(u[0] >= 'a' && u[0] <= 'z') &&
-            !(u[0] >= 'A' && u[0] <= 'Z') &&
-            !(u[0] >= '0' && u[0] <= '9' && !strict) &&
-            u[0] != '_')
-                return false;
+        if (parse_uid(u, NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
+                                      * flag for it is set */
+                return FLAGS_SET(flags, VALID_USER_ALLOW_NUMERIC);
 
-        bool only_digits_seen = u[0] >= '0' && u[0] <= '9';
+        if (FLAGS_SET(flags, VALID_USER_RELAX)) {
 
-        if (only_digits_seen) {
-                log_warning("User or group name \"%s\" starts with a digit, accepting for compatibility.", u);
-                warned = true;
+                /* In relaxed mode we just check very superficially. Apparently SSSD and other stuff is
+                 * extremely liberal (way too liberal if you ask me, even inserting "@" in user names, which
+                 * is bound to cause problems for example when used with an MTA), hence only filter the most
+                 * obvious cases, or where things would result in an invalid entry if such a user name would
+                 * show up in /etc/passwd (or equivalent getent output).
+                 *
+                 * Note that we stepped far out of POSIX territory here. It's not our fault though, but
+                 * SSSD's, Samba's and everybody else who ignored POSIX on this. (I mean, I am happy to step
+                 * outside of POSIX' bounds any day, but I must say in this case I probably wouldn't
+                 * have...) */
+
+                if (startswith(u, " ") || endswith(u, " ")) /* At least expect whitespace padding is removed
+                                                             * at front and back (accept in the middle, since
+                                                             * that's apparently a thing on Windows). Note
+                                                             * that this also blocks usernames consisting of
+                                                             * whitespace only. */
+                        return false;
+
+                if (!utf8_is_valid(u)) /* We want to synthesize JSON from this, hence insist on UTF-8 */
+                        return false;
+
+                if (string_has_cc(u, NULL)) /* CC characters are just dangerous (and \n in particular is the
+                                             * record separator in /etc/passwd), so we can't allow that. */
+                        return false;
+
+                if (strpbrk(u, ":/")) /* Colons are the field separator in /etc/passwd, we can't allow
+                                       * that. Slashes are special to file systems paths and user names
+                                       * typically show up in the file system as home directories, hence
+                                       * don't allow slashes. */
+                        return false;
+
+                if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
+                                                  * with with UIDs (note that this test is more broad than
+                                                  * the parse_uid() test above, as it will cover more than
+                                                  * the 32bit range, and it will detect 65535 (which is in
+                                                  * invalid UID, even though in the unsigned 32 bit range) */
+                        return false;
+
+                if (u[0] == '-' && in_charset(u + 1, "0123456789")) /* Don't allow negative fully numeric
+                                                                     * strings either. After all some people
+                                                                     * write 65535 as -1 (even though that's
+                                                                     * not even true on 32bit uid_t
+                                                                     * anyway) */
+                        return false;
+
+                if (dot_or_dot_dot(u)) /* User names typically become home directory names, and these two are
+                                        * special in that context, don't allow that. */
+                        return false;
+
+                /* Compare with strict result and warn if result doesn't match */
+                if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, 0))
+                        log_struct(LOG_NOTICE,
+                                   "MESSAGE=Accepting user/group name '%s', which does not match strict user/group name rules.", u,
+                                   "USER_GROUP_NAME=%s", u,
+                                   "MESSAGE_ID=" SD_MESSAGE_UNSAFE_USER_NAME_STR);
+
+                /* Note that we make no restrictions on the length in relaxed mode! */
+        } else {
+                long sz;
+                size_t l;
+
+                /* Also see POSIX IEEE Std 1003.1-2008, 2016 Edition, 3.437. We are a bit stricter here
+                 * however. Specifically we deviate from POSIX rules:
+                 *
+                 * - We don't allow empty user names (see above)
+                 * - We require that names fit into the appropriate utmp field
+                 * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
+                 * - We don't allow dashes or digit as the first character
+                 *
+                 * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
+                 */
+
+                if (!(u[0] >= 'a' && u[0] <= 'z') &&
+                    !(u[0] >= 'A' && u[0] <= 'Z') &&
+                    u[0] != '_')
+                        return false;
+
+                for (i = u+1; *i; i++)
+                        if (!(*i >= 'a' && *i <= 'z') &&
+                            !(*i >= 'A' && *i <= 'Z') &&
+                            !(*i >= '0' && *i <= '9') &&
+                            !IN_SET(*i, '_', '-'))
+                                return false;
+
+                l = i - u;
+
+                sz = sysconf(_SC_LOGIN_NAME_MAX);
+                assert_se(sz > 0);
+
+                if (l > (size_t) sz)
+                        return false;
+                if (l > FILENAME_MAX)
+                        return false;
+                if (l > UT_NAMESIZE - 1)
+                        return false;
         }
-
-        for (i = u+1; *i; i++) {
-                if (((*i >= 'a' && *i <= 'z') ||
-                     (*i >= 'A' && *i <= 'Z') ||
-                     (*i >= '0' && *i <= '9') ||
-                     IN_SET(*i, '_', '-'))) {
-                        if (!(*i >= '0' && *i <= '9'))
-                                only_digits_seen = false;
-                        continue;
-                        }
-
-                if (*i == '.' && !strict) {
-                        if (!warned) {
-                                log_warning("Bad user or group name \"%s\", accepting for compatibility.", u);
-                                warned = true;
-                        }
-
-                        continue;
-                }
-
-                return false;
-        }
-
-        if (only_digits_seen)
-                return false;
-
-        sz = sysconf(_SC_LOGIN_NAME_MAX);
-        assert_se(sz > 0);
-
-        if ((size_t) (i-u) > (size_t) sz)
-                return false;
-
-        if ((size_t) (i-u) > UT_NAMESIZE - 1)
-                return false;
 
         return true;
-}
-
-bool valid_user_group_name_or_id_full(const char *u, bool strict) {
-
-        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the
-         * right range, and not the invalid user ids. */
-
-        if (isempty(u))
-                return false;
-
-        if (parse_uid(u, NULL) >= 0)
-                return true;
-
-        return valid_user_group_name_full(u, strict);
 }
 
 bool valid_gecos(const char *d) {

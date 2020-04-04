@@ -4088,7 +4088,7 @@ static int user_from_unit_name(Unit *u, char **ret) {
         if (r < 0)
                 return r;
 
-        if (valid_user_group_name(n)) {
+        if (valid_user_group_name(n, 0)) {
                 *ret = TAKE_PTR(n);
                 return 0;
         }
