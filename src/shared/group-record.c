@@ -86,8 +86,8 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "matchMachineId", _JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0         },
                 { "matchHostname",  _JSON_VARIANT_TYPE_INVALID, NULL,                           0,                                     0         },
                 { "gid",            JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,          offsetof(GroupRecord, gid),            0         },
-                { "members",        JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),        0         },
-                { "administrators", JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators), 0         },
+                { "members",        JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),        JSON_RELAX},
+                { "administrators", JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators), JSON_RELAX},
                 {},
         };
 
@@ -190,14 +190,14 @@ int group_record_load(
                 UserRecordLoadFlags load_flags) {
 
         static const JsonDispatch group_dispatch_table[] = {
-                { "groupName",      JSON_VARIANT_STRING,   json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       0         },
+                { "groupName",      JSON_VARIANT_STRING,   json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
                 { "realm",          JSON_VARIANT_STRING,   json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
                 { "disposition",    JSON_VARIANT_STRING,   json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
                 { "service",        JSON_VARIANT_STRING,   json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
                 { "lastChangeUSec", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },
                 { "gid",            JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,          offsetof(GroupRecord, gid),              0         },
-                { "members",        JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, members),          0         },
-                { "administrators", JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   0         },
+                { "members",        JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, members),          JSON_RELAX},
+                { "administrators", JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   JSON_RELAX},
 
                 { "privileged",     JSON_VARIANT_OBJECT,   dispatch_privileged,            0,                                       0         },
 

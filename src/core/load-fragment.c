@@ -2068,7 +2068,7 @@ int config_parse_user_group_compat(
                 return -ENOEXEC;
         }
 
-        if (!valid_user_group_name_or_id_compat(k)) {
+        if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                 return -ENOEXEC;
         }
@@ -2122,7 +2122,7 @@ int config_parse_user_group_strv_compat(
                         return -ENOEXEC;
                 }
 
-                if (!valid_user_group_name_or_id_compat(k)) {
+                if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                         return -ENOEXEC;
                 }

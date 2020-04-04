@@ -95,7 +95,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         /* If the username is not valid, then we don't know it. Ideally libc would filter these for us
          * anyway. We don't generate EINVAL here, because it isn't really out business to complain about
          * invalid user names. */
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
@@ -192,7 +192,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         assert(gr);
         assert(errnop);
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
@@ -559,7 +559,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
         assert(groupsp);
         assert(errnop);
 
-        if (!valid_user_group_name(user_name))
+        if (!valid_user_group_name(user_name, VALID_USER_RELAX))
                 return NSS_STATUS_NOTFOUND;
 
         /* Don't allow extending these two special users, the same as we won't resolve them via getpwnam() */

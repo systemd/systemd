@@ -17,7 +17,7 @@ bool suitable_user_name(const char *name) {
          * restrictive, so that we can change the rules server-side without having to update things
          * client-side too. */
 
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, 0))
                 return false;
 
         /* We generally rely on NSS to tell us which users not to care for, but let's filter out some

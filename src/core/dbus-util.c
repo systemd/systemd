@@ -30,7 +30,12 @@ int bus_property_get_triggered_unit(
 
 BUS_DEFINE_SET_TRANSIENT(mode_t, "u", uint32_t, mode_t, "%040o");
 BUS_DEFINE_SET_TRANSIENT(unsigned, "u", uint32_t, unsigned, "%" PRIu32);
-BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(user_compat, valid_user_group_name_or_id_compat);
+
+static inline bool valid_user_group_name_or_id_relaxed(const char *u) {
+        return valid_user_group_name(u, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX);
+}
+
+BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(user_relaxed, valid_user_group_name_or_id_relaxed);
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(path, path_is_absolute);
 
 int bus_set_transient_string(
