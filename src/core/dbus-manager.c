@@ -1643,7 +1643,7 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
 
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Dynamic users are only supported in the system instance.");
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name invalid: %s", name);
 
         r = dynamic_user_lookup_name(m, name, &uid);

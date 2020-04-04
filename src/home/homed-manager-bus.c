@@ -81,7 +81,7 @@ static int method_get_home_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name))
+        if (!valid_user_group_name(user_name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
         h = hashmap_get(m->homes_by_name, user_name);
@@ -212,7 +212,7 @@ static int method_get_user_record_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name))
+        if (!valid_user_group_name(user_name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
         h = hashmap_get(m->homes_by_name, user_name);
@@ -287,7 +287,7 @@ static int generic_home_method(
         if (r < 0)
                 return r;
 
-        if (!valid_user_group_name(user_name))
+        if (!valid_user_group_name(user_name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
         h = hashmap_get(m->homes_by_name, user_name);

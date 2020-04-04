@@ -1445,7 +1445,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (r < 0)
                         log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, name);
 
-                if (!valid_user_group_name(resolved_name))
+                if (!valid_user_group_name(resolved_name, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "[%s:%u] '%s' is not a valid user or group name.",
                                                fname, line, resolved_name);
@@ -1548,7 +1548,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                                "[%s:%u] Lines of type 'm' require a group name in the third field.",
                                                fname, line);
 
-                if (!valid_user_group_name(resolved_id))
+                if (!valid_user_group_name(resolved_id, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "[%s:%u] '%s' is not a valid user or group name.",
                                                fname, line, resolved_id);
@@ -1589,7 +1589,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
                                         r = parse_gid(gid, &i->gid);
                                         if (r < 0) {
-                                                if (valid_user_group_name(gid))
+                                                if (valid_user_group_name(gid, 0))
                                                         i->group_name = TAKE_PTR(gid);
                                                 else
                                                         return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
