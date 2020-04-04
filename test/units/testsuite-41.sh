@@ -12,10 +12,10 @@ systemd-analyze log-target console
 ! systemd-run --unit=one -p Type=oneshot -p Restart=on-failure /bin/bash -c "exit 1"
 
 for ((secs=0; secs<$MAX_SECS; secs++)); do
-  [[ "$(systemctl show one.service -p NRestarts --value)" -le 0 ]] || break
+  [[ "$(systemctl show one.service -P NRestarts)" -le 0 ]] || break
   sleep 1
 done
-if [[ "$(systemctl show one.service -p NRestarts --value)" -le 0 ]]; then
+if [[ "$(systemctl show one.service -P NRestarts)" -le 0 ]]; then
   exit 1
 fi
 

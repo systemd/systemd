@@ -7966,6 +7966,7 @@ static int systemctl_help(void) {
                "     --state=STATE       List units with particular LOAD or SUB or ACTIVE state\n"
                "     --failed            Shorcut for --state=failed\n"
                "  -p --property=NAME     Show only properties by this name\n"
+               "  -P NAME                Equivalent to --value --property=NAME\n"
                "  -a --all               Show all properties/all units currently in memory,\n"
                "                         including dead/empty ones. To list all units installed\n"
                "                         on the system, use 'list-unit-files' instead.\n"
@@ -8334,7 +8335,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         /* we default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
-        while ((c = getopt_long(argc, argv, "ht:p:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:p:P:alqfs:H:M:n:o:iTr.::", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -8389,6 +8390,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case 'P':
+                        arg_value = true;
+                        _fallthrough_;
+
                 case 'p':
                         /* Make sure that if the empty property list was specified, we won't show any
                            properties. */
@@ -8413,9 +8418,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 }
                         }
 
-                        /* If the user asked for a particular
-                         * property, show it to him, even if it is
-                         * empty. */
+                        /* If the user asked for a particular property, show it, even if it is empty. */
                         arg_all = true;
 
                         break;
