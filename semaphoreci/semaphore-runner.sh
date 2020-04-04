@@ -66,9 +66,9 @@ for phase in "${PHASES[@]}"; do
             git checkout FETCH_HEAD debian
 
             # craft changelog
-            UPSTREAM_VER=$(git describe | sed 's/^v//')
+            UPSTREAM_VER=$(git describe | sed 's/^v//;s/-/./g')
             cat << EOF > debian/changelog.new
-systemd (${UPSTREAM_VER}-0) UNRELEASED; urgency=low
+systemd (${UPSTREAM_VER}.0) UNRELEASED; urgency=low
 
   * Automatic build for upstream test
 
