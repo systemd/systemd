@@ -1782,6 +1782,15 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>AssignAcquiredDelegatedPrefixAddress=</varname></term>
+          <listitem>
+            <para>Takes a boolean. Specifies whether to add an address from the delegated prefixes which are received
+            from the WAN interface by the <varname>IPv6PrefixDelegation=</varname>. When true (on LAN interfce), the EUI-64
+            algorithm will be used to form an interface identifier from the delegated prefixes. Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>PrefixDelegationHint=</varname></term>
           <listitem>
             <para>Takes an IPv6 address with prefix length as <varname>Address=</varname> in
@@ -3301,7 +3310,10 @@ DHCP=ipv6</programlisting>
 Name=enp2s0
 
 [Network]
-IPv6PrefixDelegation=dhcpv6</programlisting>
+IPv6PrefixDelegation=dhcpv6
+
+[DHCPv6]
+AssignAcquiredDelegatedPrefixAddress=yes</programlisting>
 
       <para>This will enable IPv6 PD on the interface enp1s0 as an upstream interface where the
       DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.</para>
