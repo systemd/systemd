@@ -3323,6 +3323,14 @@ static int exec_child(
                 }
         }
 
+        if (context->coredump_filter_set) {
+                r = set_coredump_filter(context->coredump_filter);
+                if (ERRNO_IS_PRIVILEGE(r))
+                        log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
+                else if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+        }
+
         if (context->nice_set) {
                 r = setpriority_closest(context->nice);
                 if (r < 0)
@@ -4613,6 +4621,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sOOMScoreAdjust: %i\n",
                         prefix, c->oom_score_adjust);
+
+        if (c->coredump_filter_set)
+                fprintf(f,
+                        "%sCoredumpFilter: 0x%"PRIx64"\n",
+                        prefix, c->coredump_filter);
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {

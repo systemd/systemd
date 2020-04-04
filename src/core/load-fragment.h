@@ -26,6 +26,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_socket_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bind);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_nice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_oom_score_adjust);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_coredump_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);

@@ -657,6 +657,32 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CoredumpFilter=</varname></term>
+
+        <listitem><para>Controls which types of memory mappings will be saved if the process dumps core
+        (using the <filename>/proc/<replaceable>pid</replaceable>/coredump_filter</filename> file). Takes a
+        whitespace-separated combination of mapping type names or numbers (with the default base 16). Mapping
+        type names are <constant>private-anonymous</constant>, <constant>shared-anonymous</constant>,
+        <constant>private-file-backed</constant>, <constant>shared-file-backed</constant>,
+        <constant>elf-headers</constant>, <constant>private-huge</constant>,
+        <constant>shared-huge</constant>, <constant>private-dax</constant>, <constant>shared-dax</constant>,
+        and the special values <constant>all</constant> (all types) and <constant>default</constant> (the
+        kernel default of <literal><constant>private-anonymous</constant>
+        <constant>shared-anonymous</constant> <constant>elf-headers</constant>
+        <constant>private-huge</constant></literal>). See
+        <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+        meaning of the mapping types. When specified multiple times, all specified masks are ORed. When not
+        set, or if the empty value is assigned, the inherited value is not changed.</para>
+
+        <example>
+          <title>Add DAX pages to the dump filter</title>
+
+          <programlisting>CoredumpFilter=default private-dax shared-dax</programlisting>
+        </example>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>KeyringMode=</varname></term>
 
         <listitem><para>Controls how the kernel session keyring is set up for the service (see <citerefentry

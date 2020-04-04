@@ -14,6 +14,7 @@ typedef struct Manager Manager;
 #include <sys/capability.h>
 
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
 #include "fdset.h"
@@ -161,6 +162,7 @@ struct ExecContext {
         bool working_directory_home:1;
 
         bool oom_score_adjust_set:1;
+        bool coredump_filter_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
@@ -179,6 +181,7 @@ struct ExecContext {
         int ioprio;
         int cpu_sched_policy;
         int cpu_sched_priority;
+        uint64_t coredump_filter;
 
         CPUSet cpu_set;
         NUMAPolicy numa_policy;

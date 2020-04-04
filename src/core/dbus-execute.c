@@ -120,6 +120,42 @@ static int property_get_oom_score_adjust(
         return sd_bus_message_append(reply, "i", n);
 }
 
+static int property_get_coredump_filter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        uint64_t n;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        if (c->coredump_filter_set)
+                n = c->coredump_filter;
+        else {
+                _cleanup_free_ char *t = NULL;
+
+                n = COREDUMP_FILTER_MASK_DEFAULT;
+                r = read_one_line_file("/proc/self/coredump_filter", &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/coredump_filter, ignoring: %m");
+                else {
+                        r = safe_atoux64(t, &n);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/coredump_filter, ignoring: %m", t);
+                }
+        }
+
+        return sd_bus_message_append(reply, "t", n);
+}
+
 static int property_get_nice(
                 sd_bus *bus,
                 const char *path,
@@ -747,6 +783,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOSchedulingClass", "i", property_get_ioprio_class, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOSchedulingPriority", "i", property_get_ioprio_priority, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2185,6 +2222,21 @@ int bus_exec_context_set_transient_property(
                         c->oom_score_adjust = oa;
                         c->oom_score_adjust_set = true;
                         unit_write_settingf(u, flags, name, "OOMScoreAdjust=%i", oa);
+                }
+
+                return 1;
+
+        } else if (streq(name, "CoredumpFilter")) {
+                uint64_t f;
+
+                r = sd_bus_message_read(message, "t", &f);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->coredump_filter = f;
+                        c->coredump_filter_set = true;
+                        unit_write_settingf(u, flags, name, "CoredumpFilter=0x%"PRIx64, f);
                 }
 
                 return 1;
