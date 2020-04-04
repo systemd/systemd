@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
+#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"
@@ -21,6 +22,12 @@
  * record is managed by homed or by something else. */
 #define USER_RECORD_IS_HOMED INT_TO_PTR(1)
 #define USER_RECORD_IS_OTHER INT_TO_PTR(2)
+
+static const BusLocator home_mgr = {
+        .destination = "org.freedesktop.home1",
+        .path = "/org/freedesktop/home1",
+        .interface = "org.freedesktop.home1.Manager",
+};
 
 static int parse_argv(
                 pam_handle_t *handle,
@@ -121,16 +128,7 @@ static int acquire_user_record(
                 if (r != PAM_SUCCESS)
                         return r;
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "GetUserRecordByName",
-                                &error,
-                                &reply,
-                                "s",
-                                username);
+                r = bus_call_method(bus, &home_mgr, "GetUserRecordByName", &error, &reply, "s", username);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
                             sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
@@ -456,13 +454,7 @@ static int acquire_home(
                         }
                 }
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                do_auth ? "AcquireHome" : "RefHome");
+                r = bus_message_new_method_call(bus, &m, &home_mgr, do_auth ? "AcquireHome" : "RefHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -671,13 +663,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.home1",
-                        "/org/freedesktop/home1",
-                        "org.freedesktop.home1.Manager",
-                        "ReleaseHome");
+        r = bus_message_new_method_call(bus, &m, &home_mgr, "ReleaseHome");
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
@@ -903,13 +889,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.home1",
-                                "/org/freedesktop/home1",
-                                "org.freedesktop.home1.Manager",
-                                "ChangePasswordHome");
+                r = bus_message_new_method_call(bus, &m, &home_mgr, "ChangePasswordHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
