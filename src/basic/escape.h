@@ -34,8 +34,13 @@ typedef enum UnescapeFlags {
 } UnescapeFlags;
 
 typedef enum EscapeStyle {
-        ESCAPE_BACKSLASH = 1,
-        ESCAPE_POSIX     = 2,
+        ESCAPE_BACKSLASH         = 1,  /* Add shell quotes ("") so the shell will consider this a single
+                                          argument, possibly multiline. Tabs and newlines are not escaped. */
+        ESCAPE_BACKSLASH_ONELINE = 2,  /* Similar to ESCAPE_BACKSLASH, but always produces a single-line
+                                          string instead. Shell escape sequences are produced for tabs and
+                                          newlines. */
+        ESCAPE_POSIX             = 3,  /* Similar to ESCAPE_BACKSLASH_ONELINE, but uses POSIX shell escape
+                                        * syntax (a string enclosed in $'') instead of plain quotes. */
 } EscapeStyle;
 
 char *cescape(const char *s);

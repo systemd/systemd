@@ -518,22 +518,28 @@ char* shell_maybe_quote(const char *s, EscapeStyle style) {
                 return NULL;
 
         t = r;
-        if (style == ESCAPE_BACKSLASH)
+        switch (style) {
+        case ESCAPE_BACKSLASH:
+        case ESCAPE_BACKSLASH_ONELINE:
                 *(t++) = '"';
-        else if (style == ESCAPE_POSIX) {
+                break;
+        case ESCAPE_POSIX:
                 *(t++) = '$';
                 *(t++) = '\'';
-        } else
+                break;
+        default:
                 assert_not_reached("Bad EscapeStyle");
+        }
 
         t = mempcpy(t, s, p - s);
 
-        if (style == ESCAPE_BACKSLASH)
-                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE, false);
+        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
+                t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE,
+                                             style == ESCAPE_BACKSLASH_ONELINE);
         else
                 t = strcpy_backslash_escaped(t, p, SHELL_NEED_ESCAPE_POSIX, true);
 
-        if (style == ESCAPE_BACKSLASH)
+        if (IN_SET(style, ESCAPE_BACKSLASH, ESCAPE_BACKSLASH_ONELINE))
                 *(t++) = '"';
         else
                 *(t++) = '\'';
