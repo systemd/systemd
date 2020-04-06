@@ -48,6 +48,9 @@ for path in rules_files:
         if not line or line.startswith('#'):
             continue
 
+        # ignore everything after the comment character
+        line = line.split('#')[0]
+
         # Separator ',' is normally optional but we make it mandatory here as
         # it generally improves the readability of the rules.
         for clause_match in comma_separated_group_re.finditer(line):

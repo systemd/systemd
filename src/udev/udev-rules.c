@@ -999,7 +999,7 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
 
         key_begin = skip_leading_chars(*line, WHITESPACE ",");
 
-        if (isempty(key_begin))
+        if (isempty(key_begin) || key_begin[0] == '#')
                 return 0;
 
         for (key_end = key_begin; ; key_end++) {
