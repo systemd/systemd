@@ -44,6 +44,7 @@ manpages = [
  ['nss-mymachines', '8', ['libnss_mymachines.so.2'], 'ENABLE_NSS_MYMACHINES'],
  ['nss-resolve', '8', ['libnss_resolve.so.2'], 'ENABLE_NSS_RESOLVE'],
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
+ ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['os-release', '5', [], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],
