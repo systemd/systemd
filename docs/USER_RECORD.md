@@ -205,7 +205,8 @@ object. The following fields are currently defined:
 UNIX user name. This field is the only mandatory field, all others are
 optional. Corresponds with the `pw_name` field of of `struct passwd` and the
 `sp_namp` field of `struct spwd` (i.e. the shadow user record stored in
-`/etc/shadow`).
+`/etc/shadow`). See [User/Group Name Syntax](https://systemd.io/USER_NAMES) for
+the (relaxed) rules the various systemd components enforce on user/group names.
 
 `realm` → The "realm" a user is defined in. This concept allows distinguishing
 users with the same name that originate in different organizations or

@@ -677,7 +677,10 @@
 
         <listitem><para>Create a new home directory/user account of the specified name. Use the various
         user record property options (as documented above) to control various aspects of the home directory
-        and its user accounts.</para></listitem>
+        and its user accounts.</para>
+
+        <para>The specified user name should follow the strict syntax described on <ulink
+        url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
