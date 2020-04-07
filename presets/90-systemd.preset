@@ -43,18 +43,3 @@ disable syslog.socket
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
-
-# Passive targets: always off by default, since they should only be pulled in
-# by dependent units.
-
-disable cryptsetup-pre.target
-disable getty-pre.target
-disable local-fs-pre.target
-disable network.target
-disable network-pre.target
-disable nss-lookup.target
-disable nss-user-lookup.target
-disable remote-fs-pre.target
-disable rpcbind.target
-disable time-set.target
-disable time-sync.target
