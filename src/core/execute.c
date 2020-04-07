@@ -3275,6 +3275,23 @@ static int exec_child(
                 }
         }
 
+        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted from it */
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+
+        /* apply rlimits before using a shared library that calls getrlimit */
+        if (needs_sandboxing) {
+                int which_failed;
+
+                /* Let's set the resource limits before we call into PAM, so that pam_limits wins over what
+                 * is set here. (See below.) */
+
+                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
+                if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
+                }
+        }
+
         /* Initialize user supplementary groups and get SupplementaryGroups= ones */
         r = get_supplementary_groups(context, username, groupname, gid,
                                      &supplementary_gids, &ngids);
@@ -3515,9 +3532,6 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to set up kernel keyring: %m");
         }
 
-        /* We need sandboxing if the caller asked us to apply it and the command isn't explicitly excepted from it */
-        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
-
         /* We need the ambient capability hack, if the caller asked us to apply it and the command is marked for it, and the kernel doesn't actually support ambient caps */
         needs_ambient_hack = (params->flags & EXEC_APPLY_SANDBOXING) && (command->flags & EXEC_COMMAND_AMBIENT_MAGIC) && !ambient_capabilities_supported();
 
@@ -3541,19 +3555,6 @@ static int exec_child(
 #if HAVE_APPARMOR
                 use_apparmor = mac_apparmor_use();
 #endif
-        }
-
-        if (needs_sandboxing) {
-                int which_failed;
-
-                /* Let's set the resource limits before we call into PAM, so that pam_limits wins over what
-                 * is set here. (See below.) */
-
-                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
-                if (r < 0) {
-                        *exit_status = EXIT_LIMITS;
-                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
-                }
         }
 
         if (needs_setuid) {
