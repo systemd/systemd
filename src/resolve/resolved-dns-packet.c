@@ -856,14 +856,14 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
 
                 /* RFC 2782 states "Unless and until permitted by future standards
                  * action, name compression is not to be used for this field." */
-                r = dns_packet_append_name(p, rr->srv.name, false, false, NULL);
+                r = dns_packet_append_name(p, rr->srv.name, false, true, NULL);
                 break;
 
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
         case DNS_TYPE_CNAME:
         case DNS_TYPE_DNAME:
-                r = dns_packet_append_name(p, rr->ptr.name, true, false, NULL);
+                r = dns_packet_append_name(p, rr->ptr.name, true, true, NULL);
                 break;
 
         case DNS_TYPE_HINFO:
@@ -906,11 +906,11 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 break;
 
         case DNS_TYPE_SOA:
-                r = dns_packet_append_name(p, rr->soa.mname, true, false, NULL);
+                r = dns_packet_append_name(p, rr->soa.mname, true, true, NULL);
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->soa.rname, true, false, NULL);
+                r = dns_packet_append_name(p, rr->soa.rname, true, true, NULL);
                 if (r < 0)
                         goto fail;
 
@@ -938,7 +938,7 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_name(p, rr->mx.exchange, true, false, NULL);
+                r = dns_packet_append_name(p, rr->mx.exchange, true, true, NULL);
                 break;
 
         case DNS_TYPE_LOC:
