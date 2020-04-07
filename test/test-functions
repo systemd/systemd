@@ -857,7 +857,7 @@ install_execs() {
          # also, plymouth is pulled in by rescue.service, but even there the exit code
          # is ignored; as it's not present on some distros, don't fail if it doesn't exist
          dinfo "Attempting to install $i"
-         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ] || [ "/bin/plymouth" == "$i" ]
+         inst $i || [ "${i%.local}" != "$i" ] || [ "${i%systemd-update-done}" != "$i" ] || [ "/usr/bin/plymouth" == "$i" ]
      done
     )
 }
