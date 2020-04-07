@@ -106,7 +106,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Units managed by the system's service manager</title>
+    <title>Units managed by the system service manager</title>
 
     <refsect2>
       <title>Special System Units</title>
@@ -1058,7 +1058,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Units managed by the user's service manager</title>
+    <title>Units managed by the user service manager</title>
 
     <refsect2>
       <title>Special User Units</title>
