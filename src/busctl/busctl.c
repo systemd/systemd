@@ -354,8 +354,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         return log_error_errno(r, "Failed to fill line: %m");
         }
 
-        if (IN_SET(arg_json, JSON_OFF, JSON_PRETTY))
-                (void) pager_open(arg_pager_flags);
+        (void) pager_open(arg_pager_flags);
 
         if (arg_json)
                 r = table_print_json(table, stdout, (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) | JSON_FORMAT_COLOR_AUTO);
@@ -1004,6 +1003,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         if (arg_xml_interface) {
                 /* Just dump the received XML and finish */
+                (void) pager_open(arg_pager_flags);
                 puts(xml);
                 return 0;
         }
@@ -1088,17 +1088,14 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        (void) pager_open(arg_pager_flags);
-
-        name_width = STRLEN("NAME");
-        type_width = STRLEN("TYPE");
-        signature_width = STRLEN("SIGNATURE");
-        result_width = STRLEN("RESULT/VALUE");
+        name_width = strlen("NAME");
+        type_width = strlen("TYPE");
+        signature_width = strlen("SIGNATURE");
+        result_width = strlen("RESULT/VALUE");
 
         sorted = newa(Member*, set_size(members));
 
         SET_FOREACH(m, members, i) {
-
                 if (argv[3] && !streq(argv[3], m->interface))
                         continue;
 
@@ -1122,6 +1119,8 @@ static int introspect(int argc, char **argv, void *userdata) {
                 result_width = 40;
 
         typesafe_qsort(sorted, k, member_compare_funcp);
+
+        (void) pager_open(arg_pager_flags);
 
         if (arg_legend) {
                 printf("%-*s %-*s %-*s %-*s %s\n",
@@ -1374,6 +1373,8 @@ static int status(int argc, char **argv, void *userdata) {
         r = acquire_bus(false, &bus);
         if (r < 0)
                 return r;
+
+        (void) pager_open(arg_pager_flags);
 
         if (!isempty(argv[1])) {
                 r = parse_pid(argv[1], &pid);
