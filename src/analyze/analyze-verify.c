@@ -124,8 +124,11 @@ static int verify_socket(Unit *u) {
         return 0;
 }
 
-static int verify_executable(Unit *u, ExecCommand *exec) {
+int verify_executable(Unit *u, const ExecCommand *exec) {
         if (!exec)
+                return 0;
+
+        if (exec->flags & EXEC_COMMAND_IGNORE_FAILURE)
                 return 0;
 
         if (access(exec->path, X_OK) < 0)
