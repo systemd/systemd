@@ -412,3 +412,26 @@ as the best process to terminate and has been forcibly terminated by the
 kernel.
 
 Note that the memory pressure might or might not have been caused by @UNIT@.
+
+-- b61fdac612e94b9182285b998843061f
+Subject: Accepting user/group name @USER_GROUP_NAME@, which does not match strict user/group name rules.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The user/group name @USER_GROUP_NAME@ has been specified, which is accepted
+according the relaxed user/group name rules, but does not qualify under the
+strict rules.
+
+The strict user/group name rules written as regular expression are:
+
+^[a-zA-Z_][a-zA-Z0-9_-]{0,30}$
+
+The relaxed user/group name rules accept all names, except for the empty
+string; names containing NUL bytes, control characters, colon or slash
+characters; names not valid UTF-8; names with leading or trailing whitespace;
+the strings "." or ".."; fully numeric strings, or strings beginning in a
+hyphen and otherwise fully numeric.
+
+For further details on strict and relaxed user/group name rules, see:
+
+https://systemd.io/USER_NAMES
