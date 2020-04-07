@@ -243,6 +243,7 @@ struct Network {
 
         struct ether_addr *mac;
         uint32_t mtu;
+        uint32_t group;
         int arp;
         int multicast;
         int allmulticast;

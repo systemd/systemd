@@ -37,6 +37,7 @@ Unmanaged=
 MTUBytes=
 Multicast=
 MACAddress=
+Group=
 [BridgeFDB]
 VLANId=
 MACAddress=
