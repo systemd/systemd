@@ -1127,6 +1127,10 @@ tests += [
          [],
          []],
 
+        [['src/analyze/test-verify.c', 'src/analyze/analyze-verify.c', 'src/analyze/analyze-verify.h'],
+         [libcore, libshared],
+         []],
+
         [['src/login/test-inhibit.c'],
          [],
          [],
