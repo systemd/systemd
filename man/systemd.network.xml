@@ -206,6 +206,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Group=</varname></term>
+        <listitem>
+          <para>Link groups are similar to port ranges found in managed switches.
+          When network interfaces are added to a numbered group, operations on
+          all the interfaces from that group can be performed at once. An unsigned
+          integer ranges 0 to 4294967294. Default to unset.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>RequiredForOnline=</varname></term>
         <listitem>
           <para>Takes a boolean or a minimum operational state and an optional maximum operational state.
