@@ -146,8 +146,10 @@
       <varlistentry>
         <term><option>--slice=</option></term>
 
-        <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part of the
-        specified slice, instead of <filename>system.slice</filename>.</para>
+        <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part
+        of the specified slice, instead of <filename>system.slice</filename> (when running in
+        <option>--system</option> mode) or the root slice (when running in <option>--user</option>
+        mode).</para>
         </listitem>
       </varlistentry>
 
