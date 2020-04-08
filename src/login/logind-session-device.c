@@ -121,6 +121,20 @@ static int sd_drmdropmaster(int fd) {
         return 0;
 }
 
+
+static void session_device_unsave(SessionDevice *sd) {
+        assert(sd);
+
+        /* Make sure to remove the pushed fd. */
+        if (sd->pushed_fd) {
+                (void) sd_notifyf(false,
+                                  "FDSTOREREMOVE=1\n"
+                                  "FDNAME=session-%s-device-%u-%u",
+                                  sd->session->id, major(sd->dev), minor(sd->dev));
+                sd->pushed_fd = false;
+        }
+}
+
 static int session_device_open(SessionDevice *sd, bool active) {
         int fd, r;
 
@@ -236,6 +250,9 @@ static void session_device_stop(SessionDevice *sd) {
                  * cannot be undone. Good side is: it needs no CAP_SYS_ADMIN
                  * protection this way. */
                 sd_eviocrevoke(sd->fd);
+
+                /* Remove the pushed fd, as it is no longer needed */
+                session_device_unsave(sd);
                 break;
 
         case DEVICE_TYPE_UNKNOWN:
@@ -388,11 +405,7 @@ void session_device_free(SessionDevice *sd) {
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
-        if (sd->pushed_fd)
-                (void) sd_notifyf(false,
-                                  "FDSTOREREMOVE=1\n"
-                                  "FDNAME=session-%s-device-%u-%u",
-                                  sd->session->id, major(sd->dev), minor(sd->dev));
+        session_device_unsave(sd);
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
