@@ -15,6 +15,7 @@ ConditionVirtualization=!container
 DefaultDependencies=no
 Wants=systemd-remount-fs.service
 After=systemd-remount-fs.service
+Before=sysinit.target
 
 [Service]
 Type=oneshot
@@ -23,4 +24,4 @@ RemainAfterExit=yes
 StateDirectory=systemd/pstore
 
 [Install]
-WantedBy=systemd-remount-fs.service
+WantedBy=sysinit.target
