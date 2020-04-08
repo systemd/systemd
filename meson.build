@@ -89,6 +89,10 @@ sysvrcnd_path = get_option('sysvrcnd-path')
 conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
            description : 'SysV init scripts and rcN.d links are supported')
 
+if get_option('hibernate') and not get_option('initrd')
+        error('hibernate depends on initrd')
+endif
+
 conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
 conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
@@ -1403,6 +1407,7 @@ foreach term : ['utmp',
                 'smack',
                 'gshadow',
                 'idn',
+                'initrd',
                 'nss-myhostname',
                 'nss-systemd']
         have = get_option(term)
@@ -2736,7 +2741,7 @@ executable(
         include_directories : includes,
         link_with : [libshared],
         install_rpath : rootlibexecdir,
-        install : true,
+        install : conf.get('ENABLE_INITRD') == 1,
         install_dir : rootlibexecdir)
 
 executable(
@@ -3506,6 +3511,7 @@ foreach tuple : [
         ['openssl'],
         ['libcurl'],
         ['idn'],
+        ['initrd'],
         ['libidn2'],
         ['libidn'],
         ['libiptc'],
