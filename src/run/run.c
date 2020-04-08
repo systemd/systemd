@@ -41,6 +41,7 @@ static bool arg_wait = false;
 static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
+static bool arg_slice_inherit = false;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
@@ -97,6 +98,7 @@ static int help(void) {
                "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
+               "     --slice-inherit              Inherit the slice\n"
                "     --no-block                   Do not wait until operation finished\n"
                "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
                "     --wait                       Wait until service stopped again\n"
@@ -162,6 +164,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SCOPE,
                 ARG_DESCRIPTION,
                 ARG_SLICE,
+                ARG_SLICE_INHERIT,
                 ARG_SEND_SIGHUP,
                 ARG_SERVICE_TYPE,
                 ARG_EXEC_USER,
@@ -194,6 +197,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "unit",              required_argument, NULL, 'u'                   },
                 { "description",       required_argument, NULL, ARG_DESCRIPTION       },
                 { "slice",             required_argument, NULL, ARG_SLICE             },
+                { "slice-inherit",     no_argument,       NULL, ARG_SLICE_INHERIT     },
                 { "remain-after-exit", no_argument,       NULL, 'r'                   },
                 { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP       },
                 { "host",              required_argument, NULL, 'H'                   },
@@ -271,6 +275,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SLICE:
                         arg_slice = optarg;
+                        break;
+
+                case ARG_SLICE_INHERIT:
+                        arg_slice_inherit = true;
                         break;
 
                 case ARG_SEND_SIGHUP:
@@ -637,22 +645,49 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
 }
 
 static int transient_cgroup_set_properties(sd_bus_message *m) {
+        _cleanup_free_ char *name = NULL;
+        _cleanup_free_ char *slice = NULL;
         int r;
         assert(m);
 
-        if (!isempty(arg_slice)) {
-                _cleanup_free_ char *slice = NULL;
+        if (arg_slice_inherit) {
+                char *end;
 
-                r = unit_name_mangle_with_suffix(arg_slice, "as slice",
-                                                 arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                 ".slice", &slice);
+                if (arg_user)
+                        r = cg_pid_get_user_slice(0, &name);
+                else
+                        r = cg_pid_get_slice(0, &name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mangle name '%s': %m", arg_slice);
+                        return log_error_errno(r, "Failed to get PID slice: %m");
 
-                r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                end = endswith(name, ".slice");
+                if (!end)
+                        return -ENXIO;
+                *end = 0;
         }
+
+        if (!isempty(arg_slice)) {
+                if (name) {
+                        char *j = strjoin(name, "-", arg_slice);
+                        free_and_replace(name, j);
+                } else
+                        name = strdup(arg_slice);
+                if (!name)
+                        return log_oom();
+        }
+
+        if (!name)
+                return 0;
+
+        r = unit_name_mangle_with_suffix(name, "as slice",
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".slice", &slice);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle name '%s': %m", arg_slice);
+
+        r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
+        if (r < 0)
+                return bus_log_create_error(r);
 
         return 0;
 }
