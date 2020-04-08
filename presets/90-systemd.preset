@@ -21,6 +21,7 @@ enable systemd-networkd.service
 enable systemd-resolved.service
 enable systemd-homed.service
 enable systemd-userdbd.socket
+enable systemd-pstore.service
 
 disable console-getty.service
 disable debug-shell.service
@@ -32,13 +33,16 @@ enable reboot.target
 disable rescue.target
 disable exit.target
 
+disable systemd-networkd-wait-online.service
+disable systemd-time-wait-sync.service
+disable systemd-boot-check-no-failures.service
+disable systemd-network-generator.service
+
 disable syslog.socket
 
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
-
-enable systemd-pstore.service
 
 # Passive targets: always off by default, since they should only be pulled in
 # by dependent units.
