@@ -13,7 +13,8 @@ Documentation=man:systemd-pstore(8)
 ConditionDirectoryNotEmpty=/sys/fs/pstore
 ConditionVirtualization=!container
 DefaultDependencies=no
-Before=sysinit.target
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
 
 [Service]
 Type=oneshot
