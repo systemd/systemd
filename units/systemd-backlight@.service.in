@@ -12,7 +12,6 @@ Description=Load/Save Screen Backlight Brightness of %i
 Documentation=man:systemd-backlight@.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 
 [Service]

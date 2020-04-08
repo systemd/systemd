@@ -12,7 +12,7 @@ Description=Process Core Dump
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=systemd-remount-fs.service systemd-journald.socket
+After=systemd-journald.socket
 Requires=systemd-journald.socket
 Before=shutdown.target
 
