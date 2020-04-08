@@ -44,6 +44,7 @@ manpages = [
  ['nss-mymachines', '8', ['libnss_mymachines.so.2'], 'ENABLE_NSS_MYMACHINES'],
  ['nss-resolve', '8', ['libnss_resolve.so.2'], 'ENABLE_NSS_RESOLVE'],
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
+ ['org.freedesktop.import1', '5', [], 'ENABLE_IMPORTD'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
  ['os-release', '5', [], ''],
