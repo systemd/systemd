@@ -12,6 +12,7 @@ systemctl status issue_14566_test
 leaked_pid=$(cat /leakedtestpid)
 
 systemctl stop issue_14566_test
+sleep 1
 
 # Leaked PID will still be around if we're buggy.
 # I personally prefer to see 42.
