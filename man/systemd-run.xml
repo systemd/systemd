@@ -154,6 +154,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--slice-inherit</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part
+        of the inherited slice. This option can be combined with <option>--slice=</option>.</para>
+
+        <para>An inherited slice is located within <command>systemd-run</command> slice. Example: if
+        <command>systemd-run</command> slice is <filename>foo.slice</filename>, and the
+        <option>--slice=</option> argument is <filename>bar</filename>, the unit will be placed under the
+        <filename>foo-bar.slice</filename>.</para>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-r</option></term>
         <term><option>--remain-after-exit</option></term>
 
