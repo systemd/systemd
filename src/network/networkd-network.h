@@ -230,12 +230,12 @@ struct Network {
         bool ipv6_accept_ra_use_dns;
         bool ipv6_accept_ra_use_autonomous_prefix;
         bool ipv6_accept_ra_use_onlink_prefix;
-        bool ipv6_accept_ra_start_dhcp6_client;
         bool active_slave;
         bool primary_slave;
-        DHCPUseDomains ipv6_accept_ra_use_domains;
-        uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
+        DHCPUseDomains ipv6_accept_ra_use_domains;
+        IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
+        uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_black_listed_prefix;
         OrderedHashmap *ipv6_tokens;
 

@@ -1824,11 +1824,11 @@
         <varlistentry>
           <term><varname>DHCPv6Client=</varname></term>
           <listitem>
-            <para>Takes a boolean. When true (the default), the DHCPv6 client will be started when the
-            RA has the managed or other information flag.</para>
+            <para>Takes a boolean, or the special value <literal>always</literal>. When true (the default), the DHCPv6 client will be started when the
+            RA has the managed or other information flag. If set to <literal>always</literal>, the DHCPv6 client will be started even if there is no
+            managed or other information flag in the RA.</para>
           </listitem>
         </varlistentry>
-
       </variablelist>
   </refsect1>
 
