@@ -305,8 +305,20 @@ const sd_bus_vtable seat_vtable[] = {
         SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchTo", "u", NULL, method_switch_to, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("ActivateSession",
+                                 "s",
+                                 SD_BUS_PARAM(session_id),
+                                 NULL,,
+                                 method_activate_session,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SwitchTo",
+                                 "u",
+                                 SD_BUS_PARAM(vtnr),
+                                 NULL,,
+                                 method_switch_to,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
 
