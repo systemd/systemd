@@ -12,6 +12,7 @@ systemctl status testsuite-47-repro
 leaked_pid=$(cat /leakedtestpid)
 
 systemctl stop testsuite-47-repro
+sleep 1
 
 # Leaked PID will still be around if we're buggy.
 # I personally prefer to see 42.
