@@ -223,7 +223,7 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 
         fd = open(swap->device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open %s: %m", swap->device);
+                return log_error_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->device);
 
         if (fstat(fd, &sb) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", swap->device);
