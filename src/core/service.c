@@ -423,7 +423,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd, const char *name) {
+static int service_add_fd_store(Service *s, int fd, const char *name, bool poll) {
         ServiceFDStore *fs;
         int r;
 
@@ -459,13 +459,15 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
                 return -ENOMEM;
         }
 
-        r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-        if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
-                free(fs->fdname);
-                free(fs);
-                return r;
-        } else if (r >= 0)
-                (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        if (poll) {
+                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
+                if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
+                        free(fs->fdname);
+                        free(fs);
+                        return r;
+                } else if (r >= 0)
+                        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        }
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
@@ -473,7 +475,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         return 1; /* fd newly stored */
 }
 
-static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
+static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bool poll) {
         int r;
 
         assert(s);
@@ -485,7 +487,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                 if (fd < 0)
                         break;
 
-                r = service_add_fd_store(s, fd, name);
+                r = service_add_fd_store(s, fd, name, poll);
                 if (r == -EXFULL)
                         return log_unit_warning_errno(UNIT(s), r,
                                                       "Cannot store more fds than FileDescriptorStoreMax=%u, closing remaining.",
@@ -2952,7 +2954,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         fdn += strspn(fdn, WHITESPACE);
                         (void) cunescape(fdn, 0, &t);
 
-                        r = service_add_fd_store(s, fd, t);
+                        r = service_add_fd_store(s, fd, t, true);
                         if (r < 0)
                                 log_unit_error_errno(u, r, "Failed to add fd to store: %m");
                         else
@@ -4059,7 +4061,7 @@ static void service_notify_message(
                         name = NULL;
                 }
 
-                (void) service_add_fd_store_set(s, fds, name);
+                (void) service_add_fd_store_set(s, fds, name, !strv_find(tags, "FDPOLL=0"));
         }
 
         /* Notify clients about changed status or main pid */
