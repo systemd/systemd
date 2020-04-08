@@ -498,10 +498,7 @@ int session_device_save(SessionDevice *sd) {
 
         /* Store device fd in PID1. It will send it back to us on restart so revocation will continue to work. To make
          * things simple, send fds for all type of devices even if they don't support the revocation mechanism so we
-         * don't have to handle them differently later.
-         *
-         * Note: for device supporting revocation, PID1 will drop a stored fd automatically if the corresponding device
-         * is revoked. */
+         * don't have to handle them differently later. */
 
         if (sd->pushed_fd)
                 return 0;
@@ -511,7 +508,8 @@ int session_device_save(SessionDevice *sd) {
         assert(*(id + strcspn(id, "-\n")) == '\0');
 
         r = asprintf(&m, "FDSTORE=1\n"
-                         "FDNAME=session-%s-device-%u-%u\n",
+                         "FDNAME=session-%s-device-%u-%u\n"
+                         "FDPOLL=0\n",
                          id, major(sd->dev), minor(sd->dev));
         if (r < 0)
                 return r;
