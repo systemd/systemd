@@ -35,6 +35,8 @@ option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
        description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
+option('initrd', type: 'boolean',
+       description : 'install services for use when running systemd in initrd')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
