@@ -877,7 +877,6 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         if (FLAGS_SET(flags, PAM_PRELIM_CHECK))
                 return PAM_SUCCESS;
 
-
         old_secret = user_record_new();
         if (!old_secret)
                 return pam_log_oom(handle);
