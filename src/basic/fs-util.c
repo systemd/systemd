@@ -705,7 +705,7 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
 }
 
 int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask) {
-        int r = -1 ;
+        int r;
 
         r = inotify_add_watch(fd, pathname, mask);
         if (r < 0) {
