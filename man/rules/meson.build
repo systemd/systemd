@@ -49,6 +49,7 @@ manpages = [
  ['org.freedesktop.locale1', '5', [], 'ENABLE_LOCALED'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
+ ['org.freedesktop.resolve1', '5', [], 'ENABLE_RESOLVE'],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],
  ['os-release', '5', [], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
