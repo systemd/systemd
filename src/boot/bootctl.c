@@ -1006,7 +1006,7 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
-        r = link_tmpfile(fd, t, p);
+        r = link_tmpfile(fileno(f), t, p);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
