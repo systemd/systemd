@@ -561,7 +561,8 @@ bool seat_is_seat0(Seat *s) {
 bool seat_can_multi_session(Seat *s) {
         assert(s);
 
-        return seat_has_vts(s);
+        /* multiple sessions are supported on all seats now */
+        return true;
 }
 
 bool seat_can_tty(Seat *s) {
