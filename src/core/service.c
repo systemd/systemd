@@ -2569,12 +2569,16 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
         ExecCommand *first, *c;
 
         assert(s);
-
+        if (!current)
+                return 0;
         first = s->exec_command[id];
 
         /* Figure out where we are in the list by walking back to the beginning */
-        for (c = current; c != first; c = c->command_prev)
+        for (c = current; c != first; c = c->command_prev){
                 idx++;
+                if(!c->command_prev)
+                        return idx;
+        }
 
         return idx;
 }
