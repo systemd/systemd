@@ -102,6 +102,7 @@ static int property_get_oom_score_adjust(
 
         ExecContext *c = userdata;
         int32_t n;
+        int r;
 
         assert(bus);
         assert(reply);
@@ -113,8 +114,14 @@ static int property_get_oom_score_adjust(
                 _cleanup_free_ char *t = NULL;
 
                 n = 0;
-                if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
-                        safe_atoi32(t, &n);
+                r = read_one_line_file("/proc/self/oom_score_adj", &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/oom_score_adj, ignoring: %m");
+                else {
+                        r = safe_atoi32(t, &n);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/oom_score_adj, ignoring: %m", t);
+                }
         }
 
         return sd_bus_message_append(reply, "i", n);
