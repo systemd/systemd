@@ -46,6 +46,7 @@ manpages = [
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
  ['org.freedesktop.hostname1', '5', [], 'ENABLE_HOSTNAMED'],
  ['org.freedesktop.import1', '5', [], 'ENABLE_IMPORTD'],
+ ['org.freedesktop.locale1', '5', [], 'ENABLE_LOCALED'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],

@@ -1,0 +1,132 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="org.freedesktop.locale1" conditional='ENABLE_LOCALED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.locale1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.locale1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.locale1</refname>
+    <refpurpose>The D-Bus interface of systemd-localed</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service that can be used to control the system locale and keyboard mapping from user
+    programs. This page describes the D-Bus interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The D-Bus API</title>
+
+    <para>The service exposes the following interfaces on the bus:</para>
+
+    <programlisting>
+$ gdbus introspect --system \
+        --dest org.freedesktop.locale1 \
+        --object-path /org/freedesktop/locale1
+
+node /org/freedesktop/locale1 {
+  interface org.freedesktop.locale1 {
+    methods:
+      SetLocale(in  as locale,
+                in  b user_interaction);
+      SetVConsoleKeyboard(in  s keymap,
+                          in  s keymap_toggle,
+                          in  b convert,
+                          in  b user_interaction);
+      SetX11Keyboard(in  s layout,
+                     in  s model,
+                     in  s variant,
+                     in  s options,
+                     in  b convert,
+                     in  b user_interaction);
+    signals:
+    properties:
+      readonly as Locale = ['LANG=en_US.UTF-8'];
+      readonly s VConsoleKeymap = 'de';
+      readonly s VConsoleKeymapToggle = '';
+      readonly s X11Layout = 'de';
+      readonly s X11Model = '';
+      readonly s X11Variant = '';
+      readonly s X11Options = '';
+  };
+  interface org.freedesktop.DBus.Properties {
+  };
+  interface org.freedesktop.DBus.Introspectable {
+  };
+  interface org.freedesktop.DBus.Peer {
+  };
+};
+    </programlisting>
+
+    <para>The system locale consists of an array of environment-variable-assignment-like strings. The
+    following strings are known: <varname>LANG=</varname>, <varname>LC_CTYPE=</varname>,
+    <varname>LC_NUMERIC=</varname>, <varname>LC_TIME=</varname>, <varname>LC_COLLATE=</varname>,
+    <varname>LC_MONETARY=</varname>, <varname>LC_MESSAGES=</varname>, <varname>LC_PAPER=</varname>,
+    <varname>LC_NAME=</varname>, <varname>LC_ADDRESS=</varname>, <varname>LC_TELEPHONE=</varname>,
+    <varname>LC_MEASUREMENT=</varname>, <varname>LC_IDENTIFICATION=</varname>.</para>
+
+    <para>Whenever the system locale or keymap is changed via the daemon <function>PropertyChanged</function>
+    signals are sent out to which clients can subscribe.</para>
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para>If you set a new system locale all old system locale settings will be dropped, and the new
+      settings will be saved to disk. It will also be passed to the system manager, and subsequently started
+      daemons will inherit the new system locale from it. Note that already running daemons will not learn
+      about the new system locale.</para>
+
+      <para>The <function>SetVConsoleKeyboard()</function> call may be used to set the key mapping on the
+      virtual console. Similarly, <function>SetX11Keyboard()</function> may be used to set the default key
+      mapping of the X11 servers.</para>
+
+      <para>Note that <function>SetVConsoleKeyboard()</function> instantly applies the new keymapping to the
+      console, while <function>SetX11Keyboard()</function> simply sets a default that may be used by later
+      sessions.</para>
+
+      <para>The boolean argument <varname>convert</varname> may be set to optionally convert the console
+      keyboard configuration to X11 keyboard mappings, resp. vice versa. If true and
+      <function>SetVConsoleKeyboard()</function> is used the nearest X11 keyboard setting for the chosen
+      console setting is set. If true and <function>SetX11Keyboard()</function> is used, the nearest console
+      keyboard setting for the chosen X11 setting is set. Usually it is hence sufficient to call one of the
+      two functions.</para>
+
+      <para>For graphical UIs that need to set the system keyboard mapping simply invoke
+      <function>SetX11Keyboard()</function>, set <varname>convert=true</varname> and ignore
+      <function>SetVConsoleKeyboard()</function>.</para>
+
+      <para>Use the empty string for the keymap parameters you wish not to set.</para>
+
+      <para>Changing the system locale or keymap using this interface is authenticated via PolicyKit. The
+      PolicyKit action for <function>SetLocale()</function> is
+      <constant>org.freedesktop.locale1.set-locale</constant>. The PolicyKit action for
+      <function>SetX11Keyboard()</function> and <function>SetVConsoleKeyboard()</function> is
+      <constant>org.freedesktop.locale1.set-keyboard</constant>.</para>
+
+      <para>The <varname>user_interaction</varname> boolean parameters can be used to control whether
+      PolicyKit should interactively ask the user for authentication credentials if it needs to.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Versioning</title>
+
+    <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
+    the usual interface versioning guidelines</ulink>.</para>
+  </refsect1>
+</refentry>
