@@ -592,6 +592,45 @@ int config_parse_exec_oom_score_adjust(
         return 0;
 }
 
+int config_parse_exec_coredump_filter(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                c->coredump_filter = 0;
+                c->coredump_filter_set = false;
+                return 0;
+        }
+
+        uint64_t f;
+        r = coredump_filter_mask_from_string(rvalue, &f);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse the CoredumpFilter=%s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        c->coredump_filter |= f;
+        c->oom_score_adjust_set = true;
+        return 0;
+}
+
 int config_parse_exec(
                 const char *unit,
                 const char *filename,

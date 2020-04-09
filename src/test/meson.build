@@ -588,6 +588,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-coredump-util.c'],
+         [],
+         []],
+
         [['src/test/test-daemon.c'],
          [],
          []],

@@ -374,6 +374,12 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         (void) format_timespan(timespan, sizeof(timespan), u, 0);
                         bus_print_property_value(name, expected_value, value, timespan);
 
+                } else if (streq(name, "CoredumpFilter")) {
+                        char buf[STRLEN("0xFFFFFFFF")];
+
+                        xsprintf(buf, "0x%"PRIx64, u);
+                        bus_print_property_value(name, expected_value, value, buf);
+
                 } else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
                         const char *result;

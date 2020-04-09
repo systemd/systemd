@@ -28,6 +28,7 @@ $1.Group,                        config_parse_user_group_compat,     0,         
 $1.SupplementaryGroups,          config_parse_user_group_strv_compat, 0,                            offsetof($1, exec_context.supplementary_groups)
 $1.Nice,                         config_parse_exec_nice,             0,                             offsetof($1, exec_context)
 $1.OOMScoreAdjust,               config_parse_exec_oom_score_adjust, 0,                             offsetof($1, exec_context)
+$1.CoredumpFilter,               config_parse_exec_coredump_filter,  0,                             offsetof($1, exec_context)
 $1.IOSchedulingClass,            config_parse_exec_io_class,         0,                             offsetof($1, exec_context)
 $1.IOSchedulingPriority,         config_parse_exec_io_priority,      0,                             offsetof($1, exec_context)
 $1.CPUSchedulingPolicy,          config_parse_exec_cpu_sched_policy, 0,                             offsetof($1, exec_context)

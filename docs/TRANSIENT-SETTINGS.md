@@ -114,6 +114,7 @@ All execution-related settings are available for transient units.
 ✓ SupplementaryGroups=
 ✓ Nice=
 ✓ OOMScoreAdjust=
+✓ CoredumpFilter=
 ✓ IOSchedulingClass=
 ✓ IOSchedulingPriority=
 ✓ CPUSchedulingPolicy=

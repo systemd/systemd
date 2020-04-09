@@ -8,6 +8,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "escape.h"
 #include "exec-util.h"
@@ -119,6 +120,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou);
 DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, coredump_filter_mask_from_string);
 
 static int bus_append_string(sd_bus_message *m, const char *field, const char *eq) {
         int r;
@@ -897,6 +899,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field, "CPUSchedulingPriority",
                               "OOMScoreAdjust"))
                 return bus_append_safe_atoi(m, field, eq);
+
+        if (streq(field, "CoredumpFilter"))
+                return bus_append_coredump_filter_mask_from_string(m, field, eq);
 
         if (streq(field, "Nice"))
                 return bus_append_parse_nice(m, field, eq);
