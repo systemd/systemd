@@ -80,6 +80,7 @@ struct ServiceFDStore {
         int fd;
         char *fdname;
         sd_event_source *event_source;
+        bool poll;
 
         LIST_FIELDS(ServiceFDStore, fd_store);
 };
