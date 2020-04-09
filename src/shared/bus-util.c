@@ -21,6 +21,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
+#include "escape.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
@@ -500,18 +501,20 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 return r;
 
                         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
-                                bool good;
+                                _cleanup_free_ char *e = NULL;
 
-                                if (first && !value)
-                                        printf("%s=", name);
+                                e = shell_maybe_quote(str, ESCAPE_BACKSLASH_ONELINE);
+                                if (!e)
+                                        return -ENOMEM;
 
-                                /* This property has multiple space-separated values, so
-                                 * neither spaces nor newlines can be allowed in a value. */
-                                good = str[strcspn(str, " \n")] == '\0';
+                                if (first) {
+                                        if (!value)
+                                                printf("%s=", name);
+                                        first = false;
+                                } else
+                                        fputs(" ", stdout);
 
-                                printf("%s%s", first ? "" : " ", good ? str : "[unprintable]");
-
-                                first = false;
+                                fputs(e, stdout);
                         }
                         if (r < 0)
                                 return r;
