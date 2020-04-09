@@ -217,12 +217,15 @@
         is set, the default group of the user is used. This setting does not affect commands whose command line is
         prefixed with <literal>+</literal>.</para>
 
-        <para>Note that restrictions on the user/group name syntax are enforced: the specified name must consist only
-        of the characters a-z, A-Z, 0-9, <literal>_</literal> and <literal>-</literal>, except for the first character
-        which must be one of a-z, A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted
-        as first character). The user/group name must have at least one character, and at most 31. These restrictions
-        are enforced in order to avoid ambiguities and to ensure user/group names and unit files remain portable among
-        Linux systems.</para>
+        <para>Note that this enforces only weak restrictions on the user/group name syntax, but will generate
+        warnings in many cases where user/group names do not adhere to the following rules: the specified
+        name should consist only of the characters a-z, A-Z, 0-9, <literal>_</literal> and
+        <literal>-</literal>, except for the first character which must be one of a-z, A-Z and
+        <literal>_</literal> (i.e. digits and <literal>-</literal> are not permitted as first character). The
+        user/group name must have at least one character, and at most 31. These restrictions are made in
+        order to avoid ambiguities and to ensure user/group names and unit files remain portable among Linux
+        systems. For further details on the names accepted and the names warned about see <ulink
+        url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
 
         <para>When used in conjunction with <varname>DynamicUser=</varname> the user/group name specified is
         dynamically allocated at the time the service is started, and released at the time the service is

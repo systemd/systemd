@@ -600,7 +600,7 @@ int json_dispatch_user_group_list(const char *name, JsonVariant *variant, JsonDi
                 if (!json_variant_is_string(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a string.");
 
-                if (!valid_user_group_name_compat(json_variant_string(e)))
+                if (!valid_user_group_name(json_variant_string(e), FLAGS_SET(flags, JSON_RELAX) ? VALID_USER_RELAX : 0))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not a valid user/group name: %s", json_variant_string(e));
 
                 r = strv_extend(&l, json_variant_string(e));
@@ -938,7 +938,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "imagePath",                  JSON_VARIANT_STRING,        json_dispatch_path,                offsetof(UserRecord, image_path),                    0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,             offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,             offsetof(UserRecord, gid),                           0         },
-                { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,     offsetof(UserRecord, member_of),                     0         },
+                { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,     offsetof(UserRecord, member_of),                     JSON_RELAX},
                 { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 { "partitionUuid",              JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, partition_uuid),                0         },
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, luks_uuid),                     0         },
@@ -1231,7 +1231,7 @@ int user_group_record_mangle(
 int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_flags) {
 
         static const JsonDispatch user_dispatch_table[] = {
-                { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,     offsetof(UserRecord, user_name),                     0         },
+                { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,     offsetof(UserRecord, user_name),                     JSON_RELAX},
                 { "realm",                      JSON_VARIANT_STRING,        json_dispatch_realm,               offsetof(UserRecord, realm),                         0         },
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,               offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, email_address),                 JSON_SAFE },
@@ -1270,7 +1270,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "homeDirectory",              JSON_VARIANT_STRING,        json_dispatch_home_directory,      offsetof(UserRecord, home_directory),                0         },
                 { "uid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,             offsetof(UserRecord, uid),                           0         },
                 { "gid",                        JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,             offsetof(UserRecord, gid),                           0         },
-                { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,     offsetof(UserRecord, member_of),                     0         },
+                { "memberOf",                   JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,     offsetof(UserRecord, member_of),                     JSON_RELAX},
                 { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, file_system_type),              JSON_SAFE },
                 { "partitionUuid",              JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, partition_uuid),                0         },
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, luks_uuid),                     0         },

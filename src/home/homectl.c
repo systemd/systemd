@@ -540,7 +540,7 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
 
                 r = parse_uid(*i, &uid);
                 if (r < 0) {
-                        if (!valid_user_group_name(*i)) {
+                        if (!valid_user_group_name(*i, 0)) {
                                 log_error("Invalid user name '%s'.", *i);
                                 if (ret == 0)
                                         ret = -EINVAL;
@@ -1395,7 +1395,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
         if (argc >= 2) {
                 /* If a username was specified, use it */
 
-                if (valid_user_group_name(argv[1]))
+                if (valid_user_group_name(argv[1], 0))
                         r = json_variant_set_field_string(&arg_identity_extra, "userName", argv[1]);
                 else {
                         _cleanup_free_ char *un = NULL, *rr = NULL;
@@ -3357,7 +3357,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r == 0)
                                         break;
 
-                                if (!valid_user_group_name(word))
+                                if (!valid_user_group_name(word, 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
 
                                 mo = json_variant_ref(json_variant_by_key(arg_identity_extra, "memberOf"));

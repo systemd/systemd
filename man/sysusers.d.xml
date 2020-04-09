@@ -154,6 +154,9 @@ r     -        500-900
       A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted as first character). The
       user/group name must have at least one character, and at most 31.</para>
 
+      <para>For further details about the syntax of user/group names, see <ulink
+      url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
+
       <para>It is strongly recommended to pick user and group names that are unlikely to clash with normal users
       created by the administrator. A good scheme to guarantee this is by prefixing all system and group names with the
       underscore, and avoiding too generic names.</para>

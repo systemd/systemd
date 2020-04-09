@@ -88,7 +88,7 @@ static int acquire_user_record(
 
         /* Let's bypass all IPC complexity for the two user names we know for sure we don't manage, and for
          * user names we don't consider valid. */
-        if (STR_IN_SET(username, "root", NOBODY_USER_NAME) || !valid_user_group_name(username))
+        if (STR_IN_SET(username, "root", NOBODY_USER_NAME) || !valid_user_group_name(username, 0))
                 return PAM_USER_UNKNOWN;
 
         /* Let's check if a previous run determined that this user is not managed by homed. If so, let's exit early */
