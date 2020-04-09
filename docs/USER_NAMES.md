@@ -1,4 +1,4 @@
---
+---
 title: User/Group Name Syntax
 category: Concepts
 layout: default
