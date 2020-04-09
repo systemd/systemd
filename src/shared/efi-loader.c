@@ -135,10 +135,7 @@ int efi_set_reboot_to_firmware(bool value) {
         if (r < 0)
                 return r;
 
-        if (value)
-                b_new = b | EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
-        else
-                b_new = b & ~EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+        b_new = UPDATE_FLAG(b, EFI_OS_INDICATIONS_BOOT_TO_FW_UI, value);
 
         /* Avoid writing to efi vars store if we can due to firmware bugs. */
         if (b != b_new)
