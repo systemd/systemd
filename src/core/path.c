@@ -144,6 +144,7 @@ void path_spec_unwatch(PathSpec *s) {
         assert(s);
 
         s->event_source = sd_event_source_unref(s->event_source);
+        inotify_rm_watch(s->inotify_fd,s->primary_wd);
         s->inotify_fd = safe_close(s->inotify_fd);
 }
 

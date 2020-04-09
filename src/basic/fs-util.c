@@ -705,15 +705,17 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
 }
 
 int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask) {
+        int r = -1 ;
 
-        if (inotify_add_watch(fd, pathname, mask) < 0) {
+        r = inotify_add_watch(fd, pathname, mask);
+        if (r < 0) {
                 if (errno == ENOSPC)
                         return log_error_errno(errno, "Failed to add a watch for %s: inotify watch limit reached", pathname);
 
                 return log_error_errno(errno, "Failed to add a watch for %s: %m", pathname);
         }
 
-        return 0;
+        return r;
 }
 
 static bool unsafe_transition(const struct stat *a, const struct stat *b) {
