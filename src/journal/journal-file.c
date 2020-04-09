@@ -873,8 +873,9 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                le64toh(o->tag.epoch), offset);
 
                 break;
+        default:
+                return -EBADMSG;
         }
-
         return 0;
 }
 

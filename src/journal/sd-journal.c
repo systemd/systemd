@@ -126,6 +126,10 @@ static void init_location(Location *l, LocationType type, JournalFile *f, Object
         assert(l);
         assert(IN_SET(type, LOCATION_DISCRETE, LOCATION_SEEK));
         assert(f);
+
+        if (o->object.type != OBJECT_ENTRY || o->object.size == 0){
+                return;
+        }
         assert(o->object.type == OBJECT_ENTRY);
 
         l->type = type;
@@ -855,7 +859,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 return r;
 
         set_location(j, new_file, o);
-
+        if (o->object.size == 0)
+                return -EBADMSG;
         return 1;
 }
 
@@ -2355,9 +2360,12 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
         size_t t;
         uint64_t l;
         int compression;
-
-        l = le64toh(o->object.size) - offsetof(Object, data.payload);
+        le64_t osize = o->object.size;
+        if (osize == 0 || o->object.type == 0 || le64toh(osize) < offsetof(Object, data.payload))
+                return -EBADMSG;
+        l = le64toh(osize) - offsetof(Object, data.payload);
         t = (size_t) l;
+
 
         /* We can't read objects larger than 4G on a 32bit machine */
         if ((uint64_t) t != l)
@@ -2368,7 +2376,6 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
 #if HAVE_XZ || HAVE_LZ4
                 size_t rsize;
                 int r;
-
                 r = decompress_blob(compression,
                                     o->data.payload, l, &f->compress_buffer,
                                     &f->compress_buffer_size, &rsize, j->data_threshold);
