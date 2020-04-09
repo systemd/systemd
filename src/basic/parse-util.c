@@ -433,7 +433,7 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atollu(const char *s, long long unsigned *ret_llu) {
+int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;
 
@@ -442,7 +442,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoull(s, &x, 0);
+        l = strtoull(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)

@@ -561,6 +561,44 @@ static void test_safe_atoi64(void) {
         assert_se(r == -EINVAL);
 }
 
+static void test_safe_atoux64(void) {
+        int r;
+        uint64_t l;
+
+        r = safe_atoux64("12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x12345);
+
+        r = safe_atoux64("  12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x12345);
+
+        r = safe_atoux64("0x12345", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x12345);
+
+        r = safe_atoux64("18446744073709551617", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux64("-1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux64("  -1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux64("junk", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux64("123x", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux64("12.3", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux64("", &l);
+        assert_se(r == -EINVAL);
+}
+
 static void test_safe_atod(void) {
         int r;
         double d;
@@ -836,6 +874,7 @@ int main(int argc, char *argv[]) {
         test_safe_atoux16();
         test_safe_atou64();
         test_safe_atoi64();
+        test_safe_atoux64();
         test_safe_atod();
         test_parse_percent();
         test_parse_percent_unbounded();
