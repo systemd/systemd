@@ -160,6 +160,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:pvr*
  KEYBOARD_KEY_e0=!pageup
 
+# Predator PH 315-52
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:pvr*
+ KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
+ KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F9
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
