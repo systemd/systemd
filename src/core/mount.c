@@ -427,29 +427,17 @@ static bool mount_is_extrinsic(Mount *m) {
         return false;
 }
 
-static int mount_add_default_dependencies(Mount *m) {
+static int mount_add_default_ordering_dependencies(
+                Mount *m,
+                MountParameters *p,
+                UnitDependencyMask mask) {
+
         const char *after, *before, *e;
-        UnitDependencyMask mask;
-        MountParameters *p;
         bool nofail;
         int r;
 
         assert(m);
 
-        if (!UNIT(m)->default_dependencies)
-                return 0;
-
-        /* We do not add any default dependencies to /, /usr or /run/initramfs/, since they are guaranteed to stay
-         * mounted the whole time, since our system is on it.  Also, don't bother with anything mounted below virtual
-         * file systems, it's also going to be virtual, and hence not worth the effort. */
-        if (mount_is_extrinsic(m))
-                return 0;
-
-        p = get_mount_parameters(m);
-        if (!p)
-                return 0;
-
-        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_DEFAULT;
         nofail = m->from_fragment ? fstab_test_yes_no_option(m->parameters_fragment.options, "nofail\0" "fail\0") : false;
 
         e = path_startswith(m->where, "/sysroot");
@@ -502,7 +490,34 @@ static int mount_add_default_dependencies(Mount *m) {
                         return r;
         }
 
-        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET, true, mask);
+        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS,
+                                                 SPECIAL_UMOUNT_TARGET, true, mask);
+}
+
+static int mount_add_default_dependencies(Mount *m) {
+        UnitDependencyMask mask;
+        MountParameters *p;
+        int r;
+
+        assert(m);
+
+        if (!UNIT(m)->default_dependencies)
+                return 0;
+
+        /* We do not add any default dependencies to /, /usr or /run/initramfs/, since they are
+         * guaranteed to stay mounted the whole time, since our system is on it.  Also, don't
+         * bother with anything mounted below virtual file systems, it's also going to be virtual,
+         * and hence not worth the effort. */
+        if (mount_is_extrinsic(m))
+                return 0;
+
+        p = get_mount_parameters(m);
+        if (!p)
+                return 0;
+
+        mask = m->from_fragment ? UNIT_DEPENDENCY_FILE : UNIT_DEPENDENCY_MOUNTINFO_DEFAULT;
+
+        r = mount_add_default_ordering_dependencies(m, p, mask);
         if (r < 0)
                 return r;
 
