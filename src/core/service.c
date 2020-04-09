@@ -453,6 +453,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
 
         fs->fd = fd;
         fs->service = s;
+        fs->do_poll = do_poll;
         fs->fdname = strdup(name ?: "stored");
         if (!fs->fdname) {
                 free(fs);
@@ -2717,7 +2718,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (!c)
                         return log_oom();
 
-                (void) serialize_item_format(f, "fd-store-fd", "%i %s", copy, c);
+                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %i", copy, c, fs->do_poll);
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -2946,30 +2947,36 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->socket_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "fd-store-fd")) {
-                const char *fdv;
-                size_t pf;
+                _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
                 int fd;
+                int do_poll;
 
-                pf = strcspn(value, WHITESPACE);
-                fdv = strndupa(value, pf);
-
-                if (safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0 || safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
-                else {
-                        _cleanup_free_ char *t = NULL;
-                        const char *fdn;
-
-                        fdn = value + pf;
-                        fdn += strspn(fdn, WHITESPACE);
-                        (void) cunescape(fdn, 0, &t);
-
-                        r = service_add_fd_store(s, fd, t, true);
-                        if (r < 0)
-                                log_unit_error_errno(u, r, "Failed to add fd to store: %m");
-                        else
-                                fdset_remove(fds, fd);
+                        return 0;
                 }
 
+                r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
+                if (r <= 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        return 0;
+                }
+
+                r = extract_first_word(&value, &fdp, NULL, 0);
+                if (r == 0) {
+                        /* If the value is not present, we assume the default */
+                        do_poll = 1;
+                } else if (r < 0 || safe_atoi(fdp, &do_poll) < 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        return 0;
+                }
+
+                r = service_add_fd_store(s, fd, fdn, do_poll);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "Failed to add fd to store: %m");
+                else
+                        fdset_remove(fds, fd);
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
