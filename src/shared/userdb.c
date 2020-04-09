@@ -614,7 +614,7 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
                         iterator->nss_lock = r;
 
                         /* Client-side NSS fallback */
-                        r = nss_user_record_by_name(name, ret);
+                        r = nss_user_record_by_name(name, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
                 }
@@ -661,7 +661,7 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
                         iterator->nss_lock = r;
 
                         /* Client-side NSS fallback */
-                        r = nss_user_record_by_uid(uid, ret);
+                        r = nss_user_record_by_uid(uid, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
                 }
@@ -819,7 +819,7 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
                 if (r >= 0 || r == -EBUSY) {
                         iterator->nss_lock = r;
 
-                        r = nss_group_record_by_name(name, ret);
+                        r = nss_group_record_by_name(name, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
                 }
@@ -865,7 +865,7 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
                 if (r >= 0 || r == -EBUSY) {
                         iterator->nss_lock = r;
 
-                        r = nss_group_record_by_gid(gid, ret);
+                        r = nss_group_record_by_gid(gid, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
                 }
@@ -1046,7 +1046,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
                 return iterator->nss_lock;
 
         /* We ignore all errors here, since the group might be defined by a userdb native service, and we queried them already above. */
-        (void) nss_group_record_by_name(name, &gr);
+        (void) nss_group_record_by_name(name, false, &gr);
         if (gr) {
                 iterator->members_of_group = strv_copy(gr->members);
                 if (!iterator->members_of_group)

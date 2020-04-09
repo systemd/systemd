@@ -106,12 +106,16 @@ int nss_sgrp_for_group(const struct group *grp, struct sgrp *ret_sgrp, char **re
         }
 }
 
-int nss_group_record_by_name(const char *name, GroupRecord **ret) {
+int nss_group_record_by_name(
+                const char *name,
+                bool with_shadow,
+                GroupRecord **ret) {
+
         _cleanup_free_ char *buf = NULL, *sbuf = NULL;
         struct group grp, *result;
         bool incomplete = false;
         size_t buflen = 4096;
-        struct sgrp sgrp;
+        struct sgrp sgrp, *sresult = NULL;
         int r;
 
         assert(name);
@@ -141,13 +145,17 @@ int nss_group_record_by_name(const char *name, GroupRecord **ret) {
                 buf = mfree(buf);
         }
 
-        r = nss_sgrp_for_group(result, &sgrp, &sbuf);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
-                incomplete = ERRNO_IS_PRIVILEGE(r);
-        }
+        if (with_shadow) {
+                r = nss_sgrp_for_group(result, &sgrp, &sbuf);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
+                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                } else
+                        sresult = &sgrp;
+        } else
+                incomplete = true;
 
-        r = nss_group_to_group_record(result, r >= 0 ? &sgrp : NULL, ret);
+        r = nss_group_to_group_record(result, sresult, ret);
         if (r < 0)
                 return r;
 
@@ -155,12 +163,16 @@ int nss_group_record_by_name(const char *name, GroupRecord **ret) {
         return 0;
 }
 
-int nss_group_record_by_gid(gid_t gid, GroupRecord **ret) {
+int nss_group_record_by_gid(
+                gid_t gid,
+                bool with_shadow,
+                GroupRecord **ret) {
+
         _cleanup_free_ char *buf = NULL, *sbuf = NULL;
         struct group grp, *result;
         bool incomplete = false;
         size_t buflen = 4096;
-        struct sgrp sgrp;
+        struct sgrp sgrp, *sresult = NULL;
         int r;
 
         assert(ret);
@@ -188,13 +200,17 @@ int nss_group_record_by_gid(gid_t gid, GroupRecord **ret) {
                 buf = mfree(buf);
         }
 
-        r = nss_sgrp_for_group(result, &sgrp, &sbuf);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
-                incomplete = ERRNO_IS_PRIVILEGE(r);
-        }
+        if (with_shadow) {
+                r = nss_sgrp_for_group(result, &sgrp, &sbuf);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to do shadow lookup for group %s, ignoring: %m", result->gr_name);
+                        incomplete = ERRNO_IS_PRIVILEGE(r);
+                } else
+                        sresult = &sgrp;
+        } else
+                incomplete = true;
 
-        r = nss_group_to_group_record(result, r >= 0 ? &sgrp : NULL, ret);
+        r = nss_group_to_group_record(result, sresult, ret);
         if (r < 0)
                 return r;
 

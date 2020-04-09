@@ -16,9 +16,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UserDBIterator*, userdb_iterator_free);
 
 typedef enum UserDBFlags {
         USERDB_AVOID_NSS          = 1 << 0,  /* don't do client-side nor server-side NSS */
-        USERDB_AVOID_DYNAMIC_USER = 1 << 1,  /* exclude looking up in io.systemd.DynamicUser */
-        USERDB_AVOID_MULTIPLEXER  = 1 << 2,  /* exclude looking up via io.systemd.Multiplexer */
-        USERDB_DONT_SYNTHESIZE    = 1 << 3,  /* don't synthesize root/nobody */
+        USERDB_AVOID_SHADOW       = 1 << 1,  /* don't do client-side shadow calls (server side might happen though) */
+        USERDB_AVOID_DYNAMIC_USER = 1 << 2,  /* exclude looking up in io.systemd.DynamicUser */
+        USERDB_AVOID_MULTIPLEXER  = 1 << 3,  /* exclude looking up via io.systemd.Multiplexer */
+        USERDB_DONT_SYNTHESIZE    = 1 << 4,  /* don't synthesize root/nobody */
 } UserDBFlags;
 
 int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret);

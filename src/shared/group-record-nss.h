@@ -11,5 +11,5 @@
 int nss_group_to_group_record(const struct group *grp, const struct sgrp *sgrp, GroupRecord **ret);
 int nss_sgrp_for_group(const struct group *grp, struct sgrp *ret_sgrp, char **ret_buffer);
 
-int nss_group_record_by_name(const char *name, GroupRecord **ret);
-int nss_group_record_by_gid(gid_t gid, GroupRecord **ret);
+int nss_group_record_by_name(const char *name, bool with_shadow, GroupRecord **ret);
+int nss_group_record_by_gid(gid_t gid, bool with_shadow, GroupRecord **ret);

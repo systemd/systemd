@@ -137,9 +137,9 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
 
         if (streq_ptr(p.service, "io.systemd.NameServiceSwitch")) {
                 if (uid_is_valid(p.uid))
-                        r = nss_user_record_by_uid(p.uid, &hr);
+                        r = nss_user_record_by_uid(p.uid, true, &hr);
                 else if (p.user_name)
-                        r = nss_user_record_by_name(p.user_name, &hr);
+                        r = nss_user_record_by_name(p.user_name, true, &hr);
                 else {
                         _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
@@ -324,9 +324,9 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         if (streq_ptr(p.service, "io.systemd.NameServiceSwitch")) {
 
                 if (gid_is_valid(p.gid))
-                        r = nss_group_record_by_gid(p.gid, &g);
+                        r = nss_group_record_by_gid(p.gid, true, &g);
                 else if (p.group_name)
-                        r = nss_group_record_by_name(p.group_name, &g);
+                        r = nss_group_record_by_name(p.group_name, true, &g);
                 else {
                         _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
@@ -467,7 +467,7 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                         const char *last = NULL;
                         char **i;
 
-                        r = nss_group_record_by_name(p.group_name, &g);
+                        r = nss_group_record_by_name(p.group_name, true, &g);
                         if (r == -ESRCH)
                                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                         if (r < 0)
