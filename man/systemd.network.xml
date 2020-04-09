@@ -459,6 +459,7 @@
             reception.</para>
           </listitem>
         </varlistentry>
+
         <varlistentry>
           <term><varname>BindCarrier=</varname></term>
           <listitem>
@@ -2346,6 +2347,28 @@
             means the address is associated with master devices fdb. <literal>router</literal> means
             the destination address is associated with a router. Note that it's valid if the referenced
             device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[LLDP] Section Options</title>
+      <para>The <literal>[LLDP]</literal> section manages the Link Layer Discovery Protocol (LLDP) and accepts the
+      following keys.</para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>MUDURL=</varname></term>
+          <listitem>
+            <para>Controls support for Ethernet LLDP packet's Manufacturer Usage Description (MUD). MUD is an embedded software
+            standard defined by the IETF that allows IoT Device makers to advertise device specifications, including the intended
+            communication patterns for their device when it connects to the network. The network can then use this intent to author
+            a context-specific access policy, so the device functions only within those parameters. Takes an URL of length up to 255
+            characters. A superficial verification that the string is a valid URL
+            will be performed. See
+            <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink> for details. The MUD URL received
+            from the LLDP packets will be saved at the state files and can be read via
+            <function>sd_lldp_neighbor_get_mud_url()</function> function.</para>
           </listitem>
         </varlistentry>
       </variablelist>

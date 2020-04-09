@@ -259,6 +259,7 @@ IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,      
 IPv6Prefix.Assign,                           config_parse_prefix_assign,                               0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
+LLDP.MUDURL,                                 config_parse_lldp_mud,                                    0,                             0
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
 CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)

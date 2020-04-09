@@ -54,6 +54,7 @@ struct sd_lldp_neighbor {
         char *port_description;
         char *system_name;
         char *system_description;
+        char *mud_url;
 
         uint16_t port_vlan_id;
 

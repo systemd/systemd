@@ -20,3 +20,4 @@ int link_lldp_emit_start(Link *link);
 void link_lldp_emit_stop(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_lldp_emit);
+CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mud);

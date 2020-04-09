@@ -258,8 +258,10 @@ struct Network {
         bool required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
 
+        /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
         LLDPEmit lldp_emit; /* LLDP transmission */
+        char *lldp_mud;    /* LLDP MUD URL */
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);

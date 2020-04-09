@@ -6,6 +6,7 @@
 #include <net/if_arp.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -18,6 +19,7 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
+#include "web-util.h"
 
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
 #define LLDP_TX_FAST_INIT 4U
@@ -81,9 +83,11 @@ static int lldp_make_packet(
                 const char *pretty_hostname,
                 uint16_t system_capabilities,
                 uint16_t enabled_capabilities,
+                char *mud,
                 void **ret, size_t *sz) {
 
-        size_t machine_id_length, ifname_length, port_description_length = 0, hostname_length = 0, pretty_hostname_length = 0;
+        size_t machine_id_length, ifname_length, port_description_length = 0, hostname_length = 0,
+                pretty_hostname_length = 0, mud_length = 0;
         _cleanup_free_ void *packet = NULL;
         struct ether_header *h;
         uint8_t *p;
@@ -110,6 +114,9 @@ static int lldp_make_packet(
         if (pretty_hostname)
                 pretty_hostname_length = strlen(pretty_hostname);
 
+        if (mud)
+                mud_length = strlen(mud);
+
         l = sizeof(struct ether_header) +
                 /* Chassis ID */
                 2 + 1 + machine_id_length +
@@ -133,6 +140,10 @@ static int lldp_make_packet(
         /* System Description */
         if (pretty_hostname)
                 l += 2 + pretty_hostname_length;
+
+        /* MUD URL */
+        if (mud)
+                l += 2 + sizeof(SD_LLDP_OUI_MUD) + 1 + mud_length;
 
         packet = malloc(l);
         if (!packet)
@@ -182,6 +193,32 @@ static int lldp_make_packet(
                 if (r < 0)
                         return r;
                 p = mempcpy(p, pretty_hostname, pretty_hostname_length);
+        }
+
+        if (mud) {
+                uint8_t oui_mud[sizeof(SD_LLDP_OUI_MUD)] = {0x00, 0x00, 0x5E};
+                /*
+                 * +--------+--------+----------+---------+--------------
+                 * |TLV Type|  len   |   OUI    |subtype  | MUDString
+                 * |  =127  |        |= 00 00 5E|  = 1    |
+                 * |(7 bits)|(9 bits)|(3 octets)|(1 octet)|(1-255 octets)
+                 * +--------+--------+----------+---------+--------------
+                 * where:
+
+                 * o  TLV Type = 127 indicates a vendor-specific TLV
+                 * o  len = indicates the TLV string length
+                 * o  OUI = 00 00 5E is the organizationally unique identifier of IANA
+                 * o  subtype = 1 (as assigned by IANA for the MUDstring)
+                 * o  MUDstring = the length MUST NOT exceed 255 octets
+                 */
+
+                r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_PRIVATE, sizeof(SD_LLDP_OUI_MUD) + 1 + mud_length);
+                if (r < 0)
+                        return r;
+
+                p = mempcpy(p, &oui_mud, sizeof(SD_LLDP_OUI_MUD));
+                *(p++) = SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION;
+                p = mempcpy(p, mud, mud_length);
         }
 
         r = lldp_write_tlv_header(&p, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
@@ -281,6 +318,7 @@ static int link_send_lldp(Link *link) {
                              pretty_hostname,
                              SD_LLDP_SYSTEM_CAPABILITIES_STATION|SD_LLDP_SYSTEM_CAPABILITIES_BRIDGE|SD_LLDP_SYSTEM_CAPABILITIES_ROUTER,
                              caps,
+                             link->network ? link->network->lldp_mud : NULL,
                              &packet, &packet_size);
         if (r < 0)
                 return r;
@@ -413,4 +451,41 @@ int config_parse_lldp_emit(
         }
 
         return 0;
+}
+
+int config_parse_lldp_mud(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL;
+        Network *n = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to Failed to unescape LLDP MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse LLDP MUD URL '%s', ignoring: %m", rvalue);
+
+                return 0;
+        }
+
+        return free_and_replace(n->lldp_mud, unescaped);
 }

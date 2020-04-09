@@ -485,6 +485,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "IPv6PrefixDelegation\0"
                               "IPv6Prefix\0"
                               "IPv6RoutePrefix\0"
+                              "LLDP\0"
                               "TrafficControlQueueingDiscipline\0"
                               "CAN\0"
                               "QDisc\0"
@@ -725,6 +726,8 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_sip);
 
         set_free_free(network->dnssec_negative_trust_anchors);
+
+        free(network->lldp_mud);
 
         ordered_hashmap_free(network->dhcp_client_send_options);
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
