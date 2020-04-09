@@ -692,28 +692,30 @@ int unlink_or_warn(const char *filename) {
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
-        int r;
+        int wd;
 
         /* This is like inotify_add_watch(), except that the file to watch is not referenced by a path, but by an fd */
         xsprintf(path, "/proc/self/fd/%i", what);
 
-        r = inotify_add_watch(fd, path, mask);
-        if (r < 0)
+        wd = inotify_add_watch(fd, path, mask);
+        if (wd < 0)
                 return -errno;
 
-        return r;
+        return wd;
 }
 
 int inotify_add_watch_and_warn(int fd, const char *pathname, uint32_t mask) {
+        int wd;
 
-        if (inotify_add_watch(fd, pathname, mask) < 0) {
+        wd = inotify_add_watch(fd, pathname, mask);
+        if (wd < 0) {
                 if (errno == ENOSPC)
                         return log_error_errno(errno, "Failed to add a watch for %s: inotify watch limit reached", pathname);
 
                 return log_error_errno(errno, "Failed to add a watch for %s: %m", pathname);
         }
 
-        return 0;
+        return wd;
 }
 
 static bool unsafe_transition(const struct stat *a, const struct stat *b) {
