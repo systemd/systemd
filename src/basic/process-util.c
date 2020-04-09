@@ -628,6 +628,23 @@ int get_process_ppid(pid_t pid, pid_t *_ppid) {
         return 0;
 }
 
+int get_process_umask(pid_t pid, mode_t *umask) {
+        _cleanup_free_ char *m = NULL;
+        const char *p;
+        int r;
+
+        assert(umask);
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "status");
+
+        r = get_proc_field(p, "Umask", WHITESPACE, &m);
+        if (r == -ENOENT)
+                return -ESRCH;
+
+        return parse_mode(m, umask);
+}
+
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
         siginfo_t dummy;
 
