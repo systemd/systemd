@@ -48,6 +48,7 @@ manpages = [
  ['org.freedesktop.import1', '5', [], 'ENABLE_IMPORTD'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
+ ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],
  ['os-release', '5', [], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],

@@ -1,0 +1,132 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="org.freedesktop.timedate1" conditional='ENABLE_TIMEDATED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.timedate1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.timedate1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.timedate1</refname>
+    <refpurpose>The D-Bus interface of systemd-timedated</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service that can be used to control the system time and related settings.  This page
+    describes the D-Bus interface.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>The D-Bus API</title>
+
+    <para>The service exposes the following interfaces on the bus:</para>
+
+    <programlisting>
+$ gdbus introspect --system \
+        --dest org.freedesktop.timedate1 \
+        --object-path /org/freedesktop/timedate1
+
+node /org/freedesktop/timedate1 {
+  interface org.freedesktop.timedate1 {
+    methods:
+      SetTime(in  x usec_utc,
+              in  b relative,
+              in  b user_interaction);
+      SetTimezone(in  s timezone,
+                  in  b user_interaction);
+      SetLocalRTC(in  b local_rtc,
+                  in  b fix_system,
+                  in  b user_interaction);
+      SetNTP(in  b use_ntp,
+             in  b user_interaction);
+    signals:
+    properties:
+      readonly s Timezone = 'Europe/Berlin';
+      readonly b LocalRTC = false;
+      readonly b NTP = true;
+  };
+  interface org.freedesktop.DBus.Properties {
+  };
+  interface org.freedesktop.DBus.Introspectable {
+  };
+  interface org.freedesktop.DBus.Peer {
+  };
+};
+    </programlisting>
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para>Use <function>SetTime()</function> to change the system clock. Pass a value of microseconds since
+      the UNIX epoch (1 Jan 1970 UTC). If <varname>relative</varname> is true, the passed usec value will be
+      added to the current system time, if it is false the current system time will be set to the passed usec
+      value. If the system time is set with this call the RTC will be updated as well.</para>
+
+      <para>Use <function>SetTimezone()</function> to set the system timezone. Pass a value like
+      <literal>Europe/Berlin</literal> to set the timezone. Valid timezones are listed in
+      <filename>/usr/share/zoneinfo/zone.tab</filename>. If the RTC is configured to be maintained in local
+      time, it will be updated accordingly.</para>
+
+      <para>Use <function>SetLocalRTC()</function> to control whether the RTC is in local time or UTC. It is
+      strongly recommended to maintain the RTC in UTC. Some OSes (Windows) however maintain the RTC in local
+      time, which might make it necessary to enable this feature. However, this creates various problems as
+      daylight changes might be missed. If <varname>fix_system</varname> is passed <literal>true</literal>,
+      the time from the RTC is read again and the system clock adjusted according to the new setting. If
+      <varname>fix_system</varname> is passed <literal>false</literal> the system time is written to the RTC
+      taking the new setting into account. Use <varname>fix_system=true</varname> in installers and livecds
+      where the RTC is probably more reliable than the system time. Use <varname>fix_system=false</varname>
+      in configuration UIs that are run during normal operation and where the system clock is probably more
+      reliable than the RTC.</para>
+
+      <para>Use <function>SetNTP()</function> to control whether the system clock is synchronized with the
+      network using <filename>systemd-timesyncd</filename>. This will enable and start or disable and stop
+      the chosen time synchronization service.</para>
+
+      <para>Whenever the timezone and local_rtc settings are changed via the daemon
+      <function>PropertyChanged</function> signals are sent out to which clients can subscribe. Changing the
+      time settings using this interface is authenticated via PolicyKit.</para>
+
+      <para>Note that this service will not inform you about system time changes. Use
+      <citerefentry project='man-pages'><refentrytitle>timerfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      with <constant>CLOCK_REALTIME</constant> and <constant>TFD_TIMER_CANCEL_ON_SET</constant> for that.
+      </para>
+
+      <para>The <varname>user_interaction</varname> boolean parameters can be used to control whether
+      PolicyKit should interactively ask the user for authentication credentials if it needs to.</para>
+
+      <para>The PolicyKit action for <function>SetTimezone()</function> is
+      <interfacename>org.freedesktop.timedate1.set-timezone</interfacename>. For
+      <function>SetLocalRTC()</function> it is
+      <interfacename>org.freedesktop.timedate1.set-local-rtc</interfacename>, for
+      <function>SetTime()</function> it is <interfacename>org.freedesktop.timedate1.set-time</interfacename>
+      and for <function>SetNTP()</function> it is
+      <interfacename>org.freedesktop.timedate1.set-ntp</interfacename>.</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Versioning</title>
+
+    <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
+    the usual interface versioning guidelines</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See also</title>
+
+      <para><ulink url="https://lists.freedesktop.org/archives/systemd-devel/2011-May/002526.html">More information on how the system clock and RTC interact</ulink></para>
+  </refsect1>
+</refentry>
