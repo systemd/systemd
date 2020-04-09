@@ -54,13 +54,15 @@ ssize_t udev_event_apply_format(UdevEvent *event,
 int udev_check_format(const char *value, size_t *offset, const char **hint);
 int udev_event_spawn(UdevEvent *event,
                      usec_t timeout_usec,
+                     int timeout_signal,
                      bool accept_failure,
                      const char *cmd, char *result, size_t ressize);
 int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
+                             int timeout_signal,
                              Hashmap *properties_list,
                              UdevRules *rules);
-void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec);
+void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal);
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
         return DIV_ROUND_UP(timeout_usec, 3);

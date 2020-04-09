@@ -41,6 +41,7 @@ typedef struct Spawn {
         pid_t pid;
         usec_t timeout_warn_usec;
         usec_t timeout_usec;
+        int timeout_signal;
         usec_t event_birth_usec;
         bool accept_failure;
         int fd_stdout;
@@ -596,7 +597,7 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         assert(spawn);
 
-        kill_and_sigcont(spawn->pid, SIGKILL);
+        kill_and_sigcont(spawn->pid, spawn->timeout_signal);
 
         log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing",
                          spawn->cmd, spawn->pid,
@@ -717,6 +718,7 @@ static int spawn_wait(Spawn *spawn) {
 
 int udev_event_spawn(UdevEvent *event,
                      usec_t timeout_usec,
+                     int timeout_signal,
                      bool accept_failure,
                      const char *cmd,
                      char *result, size_t ressize) {
@@ -793,6 +795,7 @@ int udev_event_spawn(UdevEvent *event,
                 .accept_failure = accept_failure,
                 .timeout_warn_usec = udev_warn_timeout(timeout_usec),
                 .timeout_usec = timeout_usec,
+                .timeout_signal = timeout_signal,
                 .event_birth_usec = event->birth_usec,
                 .fd_stdout = outpipe[READ_END],
                 .fd_stderr = errpipe[READ_END],
@@ -896,6 +899,7 @@ static int update_devnode(UdevEvent *event) {
 static void event_execute_rules_on_remove(
                 UdevEvent *event,
                 usec_t timeout_usec,
+                int timeout_signal,
                 Hashmap *properties_list,
                 UdevRules *rules) {
 
@@ -917,7 +921,7 @@ static void event_execute_rules_on_remove(
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_watch_end(dev);
 
-        (void) udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
+        (void) udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
         if (sd_device_get_devnum(dev, NULL) >= 0)
                 (void) udev_node_remove(dev);
@@ -944,6 +948,7 @@ static int udev_event_on_move(UdevEvent *event) {
 
 int udev_event_execute_rules(UdevEvent *event,
                              usec_t timeout_usec,
+                             int timeout_signal,
                              Hashmap *properties_list,
                              UdevRules *rules) {
         const char *subsystem;
@@ -965,7 +970,7 @@ int udev_event_execute_rules(UdevEvent *event,
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
         if (action == DEVICE_ACTION_REMOVE) {
-                event_execute_rules_on_remove(event, timeout_usec, properties_list, rules);
+                event_execute_rules_on_remove(event, timeout_usec, timeout_signal, properties_list, rules);
                 return 0;
         }
 
@@ -983,7 +988,7 @@ int udev_event_execute_rules(UdevEvent *event,
                         return r;
         }
 
-        r = udev_rules_apply_to_event(rules, event, timeout_usec, properties_list);
+        r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to apply udev rules: %m");
 
@@ -1016,7 +1021,7 @@ int udev_event_execute_rules(UdevEvent *event,
         return 0;
 }
 
-void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
+void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal) {
         const char *command;
         void *val;
         Iterator i;
@@ -1040,7 +1045,8 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec) {
                         }
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
-                        r = udev_event_spawn(event, timeout_usec, false, command, NULL, 0);
+
+                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */

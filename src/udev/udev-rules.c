@@ -1520,6 +1520,7 @@ static int udev_rule_apply_token_to_event(
                 sd_device *dev,
                 UdevEvent *event,
                 usec_t timeout_usec,
+                int timeout_signal,
                 Hashmap *properties_list) {
 
         UdevRuleToken *token;
@@ -1662,7 +1663,7 @@ static int udev_rule_apply_token_to_event(
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Running PROGRAM '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, true, buf, result, sizeof(result));
+                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result));
                 if (r != 0) {
                         if (r < 0)
                                 log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
@@ -1732,7 +1733,7 @@ static int udev_rule_apply_token_to_event(
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, true, buf, result, sizeof result);
+                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof result);
                 if (r != 0) {
                         if (r < 0)
                                 log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
@@ -2162,7 +2163,8 @@ static bool token_is_for_parents(UdevRuleToken *token) {
 
 static int udev_rule_apply_parent_token_to_event(
                 UdevRules *rules,
-                UdevEvent *event) {
+                UdevEvent *event,
+                int timeout_signal) {
 
         UdevRuleLine *line;
         UdevRuleToken *head;
@@ -2175,7 +2177,7 @@ static int udev_rule_apply_parent_token_to_event(
                 LIST_FOREACH(tokens, line->current_token, head) {
                         if (!token_is_for_parents(line->current_token))
                                 return true; /* All parent tokens match. */
-                        r = udev_rule_apply_token_to_event(rules, event->dev_parent, event, 0, NULL);
+                        r = udev_rule_apply_token_to_event(rules, event->dev_parent, event, 0, timeout_signal, NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2196,6 +2198,7 @@ static int udev_rule_apply_line_to_event(
                 UdevRules *rules,
                 UdevEvent *event,
                 usec_t timeout_usec,
+                int timeout_signal,
                 Hashmap *properties_list,
                 UdevRuleLine **next_line) {
 
@@ -2229,7 +2232,7 @@ static int udev_rule_apply_line_to_event(
                         if (parents_done)
                                 continue;
 
-                        r = udev_rule_apply_parent_token_to_event(rules, event);
+                        r = udev_rule_apply_parent_token_to_event(rules, event, timeout_signal);
                         if (r <= 0)
                                 return r;
 
@@ -2237,7 +2240,7 @@ static int udev_rule_apply_line_to_event(
                         continue;
                 }
 
-                r = udev_rule_apply_token_to_event(rules, event->dev, event, timeout_usec, properties_list);
+                r = udev_rule_apply_token_to_event(rules, event->dev, event, timeout_usec, timeout_signal, properties_list);
                 if (r <= 0)
                         return r;
         }
@@ -2252,6 +2255,7 @@ int udev_rules_apply_to_event(
                 UdevRules *rules,
                 UdevEvent *event,
                 usec_t timeout_usec,
+                int timeout_signal,
                 Hashmap *properties_list) {
 
         UdevRuleFile *file;
@@ -2264,7 +2268,7 @@ int udev_rules_apply_to_event(
         LIST_FOREACH(rule_files, file, rules->rule_files) {
                 rules->current_file = file;
                 LIST_FOREACH_SAFE(rule_lines, file->current_line, next_line, file->rule_lines) {
-                        r = udev_rule_apply_line_to_event(rules, event, timeout_usec, properties_list, &next_line);
+                        r = udev_rule_apply_line_to_event(rules, event, timeout_usec, timeout_signal, properties_list, &next_line);
                         if (r < 0)
                                 return r;
                 }

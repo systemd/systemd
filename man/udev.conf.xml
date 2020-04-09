@@ -97,6 +97,16 @@
           <para>This is the same as the <option>--resolve-names=</option> option.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>timeout_signal=</varname></term>
+
+        <listitem>
+          <para>Specifies a signal that <filename>systemd-udevd</filename> will send on worker
+          timeouts. Note that both workers and spawned processes will be killed using this
+          signal. Defaults to <option>SIGKILL</option>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>
