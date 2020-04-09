@@ -1390,3 +1390,142 @@ const struct hash_ops bus_message_hash_ops = {
         .compare = trivial_compare_func,
         .free_value = bus_message_unref_wrapper,
 };
+
+/* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface
+ * strings encapsulated within a single struct.
+ */
+int bus_call_method_async(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata,
+                const char *types, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(address);
+
+        va_start(ap, types);
+        r = sd_bus_call_method_asyncv(bus, slot, address->destination, address->path, address->interface, member, callback, userdata, types, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_call_method(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *types, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(address);
+
+        va_start(ap, types);
+        r = sd_bus_call_methodv(bus, address->destination, address->path, address->interface, member, error, reply, types, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_get_property(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *type) {
+
+        assert(address);
+
+        return sd_bus_get_property(bus, address->destination, address->path, address->interface, member, error, reply, type);
+}
+
+int bus_get_property_trivial(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                char type, void *ptr) {
+
+        assert(address);
+
+        return sd_bus_get_property_trivial(bus, address->destination, address->path, address->interface, member, error, type, ptr);
+}
+
+int bus_get_property_string(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                char **ret) {
+
+        assert(address);
+
+        return sd_bus_get_property_string(bus, address->destination, address->path, address->interface, member, error, ret);
+}
+
+int bus_get_property_strv(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                char ***ret) {
+
+        assert(address);
+
+        return sd_bus_get_property_strv(bus, address->destination, address->path, address->interface, member, error, ret);
+}
+
+int bus_set_property(
+                sd_bus *bus,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_error *error,
+                const char *type, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(address);
+
+        va_start(ap, type);
+        r = sd_bus_set_propertyv(bus, address->destination, address->path, address->interface, member, error, type, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_match_signal(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        assert(address);
+
+        return sd_bus_match_signal(bus, ret, address->destination, address->path, address->interface, member, callback, userdata);
+}
+
+int bus_match_signal_async(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const BusAddress *address,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata) {
+
+        assert(address);
+
+        return sd_bus_match_signal_async(bus, ret, address->destination, address->path, address->interface, member, callback, install_callback, userdata);
+}
