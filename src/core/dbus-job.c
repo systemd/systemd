@@ -118,9 +118,21 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
 
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
+
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetAfter", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetAfter",
+                                 NULL,,
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 bus_job_method_get_waiting_jobs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetBefore",
+                                 NULL,,
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 bus_job_method_get_waiting_jobs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
