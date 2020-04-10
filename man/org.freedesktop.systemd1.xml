@@ -625,7 +625,7 @@ node /org/freedesktop/systemd1 {
   <refsect1>
     <title>Unit Objects</title>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Unit">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice
 
@@ -909,7 +909,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <interfacename>org.freedesktop.systemd1.Service</interfacename> interface (described here) in addition to
     the generic <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Service">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice
 
@@ -1120,7 +1120,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
   <refsect1>
     <title>Socket Unit Objects</title>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Socket">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket
 
@@ -1288,7 +1288,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
   <refsect1>
     <title>Target Unit Objects</title>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Target">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/basic_2etarget
 
@@ -1323,11 +1323,11 @@ node /org/freedesktop/systemd1/unit/basic_2etarget {
     <para>All device unit objects implement the <interfacename>org.freedesktop.systemd1.Device</interfacename> interface (described here)
     in addition to the generic <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Device">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
-      --object-path /org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2data_5cx2dSAMSUNG_5fHD501LJ_5fS0MUJ1KQ161445_2edevice
+      --object-path /org/freedesktop/systemd1/unit/dev_2dfoo_2edevice
 
-node /org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2data_5cx2dSAMSUNG_5fHD501LJ_5fS0MUJ1KQ161445_2edevice {
+node /org/freedesktop/systemd1/unit/dev_2d_foo_2edevice {
   interface org.freedesktop.systemd1.Unit {
     ...
   };
@@ -1367,7 +1367,7 @@ node /org/freedesktop/systemd1/unit/dev_2ddisk_2dby_5cx2did_2data_5cx2dSAMSUNG_5
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above)</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Mount">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/home_2emount
 
@@ -1507,7 +1507,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <interfacename>org.freedesktop.systemd1.Automount</interfacename> interface (described here) in addition
     to the generic <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Automount">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount
 
@@ -1555,7 +1555,7 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Timer">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer
 
@@ -1622,7 +1622,7 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Swap">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap
 
@@ -1760,7 +1760,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
   <refsect1>
     <title>Path Unit Objects</title>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Path">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/cups_2epath
 
@@ -1816,7 +1816,7 @@ node /org/freedesktop/systemd1/unit/cups_2epath {
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Slice">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/system_2eslice
 
@@ -1868,7 +1868,7 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
-    <programlisting>
+    <programlisting interface="org.freedesktop.systemd1.Scope">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       --object-path /org/freedesktop/systemd1/unit/session_2d1_2escope
 

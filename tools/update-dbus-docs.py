@@ -99,12 +99,15 @@ def print_property(declarations, elem, *, prefix, file):
     access = ACCESS_MAP.get(access, access)
     print(f'''{prefix}{access} {type} {name} = {value_ellipsis(type)};''', file=file)
 
-def print_interface(iface, *, prefix, file, print_boring, declarations):
+def print_interface(iface, *, prefix, file, print_boring, only_interface, declarations):
     name = iface.get('name')
 
-    is_boring = name in BORING_INTERFACES
+    is_boring = (name in BORING_INTERFACES or
+                 only_interface is not None and name != only_interface)
+
     if is_boring and print_boring:
         print(f'''{prefix}interface {name} {{ ... }};''', file=file)
+
     elif not is_boring and not print_boring:
         print(f'''{prefix}interface {name} {{''', file=file)
         prefix2 = prefix + '  '
@@ -157,7 +160,7 @@ def check_documented(document, declarations):
 
     return missing
 
-def xml_to_text(destination, xml):
+def xml_to_text(destination, xml, *, only_interface=None):
     file = io.StringIO()
 
     declarations = collections.defaultdict(list)
@@ -168,6 +171,7 @@ def xml_to_text(destination, xml):
         for iface in xml.findall('./interface'):
             print_interface(iface, prefix='  ', file=file,
                             print_boring=print_boring,
+                            only_interface=only_interface,
                             declarations=declarations)
 
     print(f'''}};''', file=file)
@@ -179,6 +183,8 @@ def subst_output(document, programlisting):
         cmd, prefix_lines, footer = find_command(programlisting.text.splitlines())
     except NoCommand:
         return
+
+    only_interface = programlisting.get('interface', None)
 
     argv = shlex.split(cmd)
     argv += ['--xml']
@@ -195,7 +201,7 @@ def subst_output(document, programlisting):
 
     xml = etree.fromstring(out, parser=PARSER)
 
-    new_text, declarations = xml_to_text(object_path, xml)
+    new_text, declarations = xml_to_text(object_path, xml, only_interface=only_interface)
 
     programlisting.text = '\n'.join(prefix_lines) + '\n' + new_text + footer
 
