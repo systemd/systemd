@@ -66,6 +66,12 @@ node /org/freedesktop/import1 {
                 in  b read_only,
                 out u transfer_id,
                 out o transfer_path);
+      ImportFileSystem(in  h fd,
+                       in  s local_name,
+                       in  b force,
+                       in  b read_only,
+                       out u transfer_id,
+                       out o transfer_path);
       ExportTar(in  s local_name,
                 in  h fd,
                 in  s format,
@@ -88,7 +94,7 @@ node /org/freedesktop/import1 {
               in  b force,
               out u transfer_id,
               out o transfer_path);
-      ListTransfers(out a(usssdo) list);
+      ListTransfers(out a(usssdo) transfers);
       CancelTransfer(in  u transfer_id);
     signals:
       TransferNew(u transfer_id,
@@ -97,14 +103,13 @@ node /org/freedesktop/import1 {
                       o transfer_path,
                       s result);
   };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Properties {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
-</programlisting>
+    </programlisting>
+
+    <!--method ImportFileSystem is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -215,21 +220,26 @@ node /org/freedesktop/import1/transfer/_1 {
       LogMessage(u priority,
                  s line);
     properties:
-      readonly u Id = 1;
-      readonly s Local = 'xenial-server-cloudimg-amd64-root';
-      readonly s Remote = 'https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz';
-      readonly s Type = 'pull-tar';
-      readonly s Verify = 'signature';
-      readonly d Progress = 0.253;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Id = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Local = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Remote = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Type = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Verify = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly d Progress = ...;
   };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Properties {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
-</programlisting>
+    </programlisting>
+
+    <!--signal LogMessage is not documented!-->
 
     <refsect2>
       <title>Methods</title>

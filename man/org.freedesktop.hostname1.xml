@@ -46,32 +46,80 @@ $ gdbus introspect --system \
 node /org/freedesktop/hostname1 {
   interface org.freedesktop.hostname1 {
     methods:
-      SetHostname(in  s name,
-                  in  b user_interaction);
-      SetStaticHostname(in  s name,
-                        in  b user_interaction);
-      SetPrettyHostname(in  s name,
-                        in  b user_interaction);
-      SetIconName(in  s name,
-                  in  b user_interaction);
-      SetChassis(in  s name,
-                 in  b user_interaction);
-    signals:
+      SetHostname(in  s hostname,
+                  in  b interactive);
+      SetStaticHostname(in  s hostname,
+                        in  b interactive);
+      SetPrettyHostname(in  s hostname,
+                        in  b interactive);
+      SetIconName(in  s icon,
+                  in  b interactive);
+      SetChassis(in  s chassis,
+                 in  b interactive);
+      SetDeployment(in  s deployment,
+                    in  b interactive);
+      SetLocation(in  s location,
+                  in  b interactive);
+      GetProductUUID(in  b interactive,
+                     out ay uuid);
     properties:
-      readonly s Hostname = 'dhcp-192-168-47-11';
-      readonly s StaticHostname = 'lennarts-computer';
-      readonly s PrettyHostname = 'Lennart’s Computer';
-      readonly s IconName = 'computer-laptop';
-      readonly s Chassis = 'laptop';
+      readonly s Hostname = '...';
+      readonly s StaticHostname = '...';
+      readonly s PrettyHostname = '...';
+      readonly s IconName = '...';
+      readonly s Chassis = '...';
+      readonly s Deployment = '...';
+      readonly s Location = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelRelease = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s KernelVersion = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemPrettyName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemCPEName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HomeURL = '...';
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method SetDeployment is not documented!-->
+
+    <!--method SetLocation is not documented!-->
+
+    <!--method GetProductUUID is not documented!-->
+
+    <!--property Hostname is not documented!-->
+
+    <!--property StaticHostname is not documented!-->
+
+    <!--property PrettyHostname is not documented!-->
+
+    <!--property IconName is not documented!-->
+
+    <!--property Chassis is not documented!-->
+
+    <!--property Deployment is not documented!-->
+
+    <!--property Location is not documented!-->
+
+    <!--property KernelName is not documented!-->
+
+    <!--property KernelRelease is not documented!-->
+
+    <!--property KernelVersion is not documented!-->
+
+    <!--property OperatingSystemPrettyName is not documented!-->
+
+    <!--property OperatingSystemCPEName is not documented!-->
+
+    <!--property HomeURL is not documented!-->
 
     <para>Whenever the hostname or other meta data is changed via the daemon,
     <function>PropertyChanged</function> signals are sent out to subscribed clients. Changing a hostname
@@ -84,13 +132,13 @@ node /org/freedesktop/hostname1 {
     <para>The <emphasis>static (configured) host name</emphasis> is the one configured in
     <filename>/etc/hostname</filename>. It is chosen by the local user. It is not always in sync with the
     current hostname as returned by the
-    <citerefentry project='man-pages'><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     system call. If no host name is configured this property will be the empty string. Setting this property
     to the empty string will remove <filename>/etc/hostname</filename>. This hostname should be an
     internet-style hostname, 7-bit lowercase ASCII, no special chars/spaces.</para>
 
     <para>The <emphasis>transient (dynamic) host name</emphasis> is the one configured via the kernel's
-    <citerefentry project='man-pages'><refentrytitle>sethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry project="man-pages"><refentrytitle>sethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It can be different from the static hostname in case DHCP or mDNS have been configured to change the name
     based on network information. <!-- FIXME: it's not DHCP that configures this... -->
     This property is never empty. If no hostname is set this will default to
@@ -134,14 +182,14 @@ node /org/freedesktop/hostname1 {
     assumed to be highly dynamic, and hence should be watched directly, without involving
     <function>PropertyChanged</function> messages from <filename>systemd-hostnamed</filename>. For that, open
     <filename>/proc/sys/kernel/hostname</filename> and
-    <citerefentry project='man-pages'><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project="man-pages"><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for <constant>SIGHUP</constant> which is triggered by the kernel every time the hostname changes. Again:
     this is special for the transient (dynamic) hostname, and does not apply to the configured (fixed)
     hostname.</para>
 
     <para>Applications may bypass the daemon to read the hostname data if notifications of host name changes
     are not necessary. Use
-    <citerefentry project='man-pages'><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <filename>/etc/hostname</filename> (possibly with per-distribution fallbacks), and
     <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for that. For more information on these files and syscalls see the respective man pages.</para>

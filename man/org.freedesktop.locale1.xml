@@ -43,35 +43,45 @@ node /org/freedesktop/locale1 {
   interface org.freedesktop.locale1 {
     methods:
       SetLocale(in  as locale,
-                in  b user_interaction);
+                in  b interactive);
       SetVConsoleKeyboard(in  s keymap,
                           in  s keymap_toggle,
                           in  b convert,
-                          in  b user_interaction);
+                          in  b interactive);
       SetX11Keyboard(in  s layout,
                      in  s model,
                      in  s variant,
                      in  s options,
                      in  b convert,
-                     in  b user_interaction);
-    signals:
+                     in  b interactive);
     properties:
-      readonly as Locale = ['LANG=en_US.UTF-8'];
-      readonly s VConsoleKeymap = 'de';
-      readonly s VConsoleKeymapToggle = '';
-      readonly s X11Layout = 'de';
-      readonly s X11Model = '';
-      readonly s X11Variant = '';
-      readonly s X11Options = '';
+      readonly as Locale = ['...', ...];
+      readonly s X11Layout = '...';
+      readonly s X11Model = '...';
+      readonly s X11Variant = '...';
+      readonly s X11Options = '...';
+      readonly s VConsoleKeymap = '...';
+      readonly s VConsoleKeymapToggle = '...';
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--property Locale is not documented!-->
+
+    <!--property X11Layout is not documented!-->
+
+    <!--property X11Model is not documented!-->
+
+    <!--property X11Variant is not documented!-->
+
+    <!--property X11Options is not documented!-->
+
+    <!--property VConsoleKeymap is not documented!-->
+
+    <!--property VConsoleKeymapToggle is not documented!-->
 
     <para>The system locale consists of an array of environment-variable-assignment-like strings. The
     following strings are known: <varname>LANG=</varname>, <varname>LC_CTYPE=</varname>,

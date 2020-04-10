@@ -87,39 +87,99 @@ node /org/freedesktop/resolve1 {
                      out s canonical_type,
                      out s canonical_domain,
                      out t flags);
-      ResetStatistics();
       GetLink(in  i ifindex,
               out o path);
       SetLinkDNS(in  i ifindex,
                  in  a(iay) addresses);
       SetLinkDomains(in  i ifindex,
                      in  a(sb) domains);
+      SetLinkDefaultRoute(in  i ifindex,
+                          in  b enable);
       SetLinkLLMNR(in  i ifindex,
                    in  s mode);
       SetLinkMulticastDNS(in  i ifindex,
                           in  s mode);
+      SetLinkDNSOverTLS(in  i ifindex,
+                        in  s mode);
       SetLinkDNSSEC(in  i ifindex,
                     in  s mode);
       SetLinkDNSSECNegativeTrustAnchors(in  i ifindex,
                                         in  as names);
       RevertLink(in  i ifindex);
+      RegisterService(in  s name,
+                      in  s name_template,
+                      in  s type,
+                      in  q service_port,
+                      in  q service_priority,
+                      in  q serwise_weight,
+                      in  aa{say} txt_datas,
+                      out o service_path);
+      UnregisterService(in  o service_path);
+      ResetStatistics();
+      FlushCaches();
+      ResetServerFeatures();
     properties:
-      readonly s LLMNRHostname = 'delta';
-      readonly a(iiay) DNS = [(0, 2, [0xac, 0x1f, 0x00, 0x01])];
-      readonly a(isb) Domains = [(0, 'fritz.box', false)];
-      readonly (tt) TransactionStatistics = (0, 846);
-      readonly (ttt) CacheStatistics = (55, 406, 439);
-      readonly (tttt) DNSSECStatistics = (0, 0, 0, 0);
-      readonly b DNSSECSupported = false;
+      readonly s LLMNRHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s LLMNR = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s MulticastDNS = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DNSOverTLS = '...';
+      readonly a(iiay) DNS = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iiay) FallbackDNS = [...];
+      readonly (iiay) CurrentDNSServer = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(isb) Domains = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tt) TransactionStatistics = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (ttt) CacheStatistics = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DNSSEC = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (tttt) DNSSECStatistics = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DNSSECSupported = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as DNSSECNegativeTrustAnchors = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DNSStubListener = '...';
   };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Properties {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method SetLinkDefaultRoute is not documented!-->
+
+    <!--method SetLinkDNSOverTLS is not documented!-->
+
+    <!--method RegisterService is not documented!-->
+
+    <!--method UnregisterService is not documented!-->
+
+    <!--method FlushCaches is not documented!-->
+
+    <!--method ResetServerFeatures is not documented!-->
+
+    <!--property LLMNR is not documented!-->
+
+    <!--property MulticastDNS is not documented!-->
+
+    <!--property DNSOverTLS is not documented!-->
+
+    <!--property FallbackDNS is not documented!-->
+
+    <!--property CurrentDNSServer is not documented!-->
+
+    <!--property DNSSEC is not documented!-->
+
+    <!--property DNSSECNegativeTrustAnchors is not documented!-->
+
+    <!--property DNSStubListener is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -165,7 +225,7 @@ node /org/freedesktop/resolve1 {
       ANY). Finally, a <varname>flags</varname> field may be passed in to alter behaviour of the look-up (see
       below). On return an array of RR items is returned. Each array entry consists of the network interface
       index the RR was discovered on, the type and class field of the RR found, and a byte array of the raw
-      RR discovered. The raw RR data starts with the RR&#39;s domain name, in the original casing, followed
+      RR discovered. The raw RR data starts with the RR's domain name, in the original casing, followed
       by the RR type, class, TTL and RDATA, in the binary format documented in
       <ulink url="https://www.ietf.org/rfc/rfc1035.txt">RFC 1035</ulink>. For RRs that support name
       compression in the payload (such as MX or PTR), the compression is expanded in the returned
@@ -185,7 +245,7 @@ node /org/freedesktop/resolve1 {
       name, a service type and a service domain. The call may be invoked in three different modes:</para>
 
       <orderedlist>
-        <listitem><para>To resolve a DNS-SD service, specify the service name (e.g. <literal>Lennart&#39;s
+        <listitem><para>To resolve a DNS-SD service, specify the service name (e.g. <literal>Lennart's
         Files</literal>), the service type (e.g. <literal>_webdav._tcp</literal>) and the domain to search in
         (e.g. <literal>local</literal>) in the three service parameters. The service name must be in UTF-8
         format, and no IDNA conversion is applied to it in this mode (as mandated by the DNS-SD
@@ -351,7 +411,7 @@ node /org/freedesktop/resolve1 {
 
       <varname>LLMNRHostname</varname> contains the hostname currently exposed on the network via LLMNR. It
       usually follows the system hostname as may be queried via
-      <citerefentry project='man-pages'><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       but may differ if a conflict is detected on the network.
 
       <para><varname>DNS</varname> contains an array containing all DNS servers currently used by
@@ -417,32 +477,74 @@ $ gdbus introspect --system \
 node /org/freedesktop/resolve1/link/_34 {
   interface org.freedesktop.resolve1.Link {
     methods:
-      SetDNS(in  a(iay) arg_0);
-      SetDomains(in  a(sb) arg_0);
-      SetLLMNR(in  s arg_0);
-      SetMulticastDNS(in  s arg_0);
-      SetDNSSEC(in  s arg_0);
-      SetDNSSECNegativeTrustAnchors(in  as arg_0);
+      SetDNS(in  a(iay) addresses);
+      SetDomains(in  a(sb) domains);
+      SetDefaultRoute(in  b enable);
+      SetLLMNR(in  s mode);
+      SetMulticastDNS(in  s mode);
+      SetDNSOverTLS(in  s mode);
+      SetDNSSEC(in  s mode);
+      SetDNSSECNegativeTrustAnchors(in  as names);
       Revert();
-    signals:
     properties:
-      readonly t ScopesMask = 6;
-      readonly a(iay) DNS = [];
-      readonly a(sb) Domains = [];
-      readonly s LLMNR = 'yes';
-      readonly s MulticastDNS = 'no';
-      readonly s DNSSEC = '';
-      readonly as DNSSECNegativeTrustAnchors = [];
-      readonly b DNSSECSupported = true;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ScopesMask = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iay) DNS = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (iay) CurrentDNSServer = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(sb) Domains = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DefaultRoute = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s LLMNR = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s MulticastDNS = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DNSOverTLS = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DNSSEC = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly as DNSSECNegativeTrustAnchors = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DNSSECSupported = ...;
   };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Properties {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method SetDomains is not documented!-->
+
+    <!--method SetDefaultRoute is not documented!-->
+
+    <!--method SetLLMNR is not documented!-->
+
+    <!--method SetMulticastDNS is not documented!-->
+
+    <!--method SetDNSOverTLS is not documented!-->
+
+    <!--method SetDNSSEC is not documented!-->
+
+    <!--method SetDNSSECNegativeTrustAnchors is not documented!-->
+
+    <!--method Revert is not documented!-->
+
+    <!--property CurrentDNSServer is not documented!-->
+
+    <!--property DefaultRoute is not documented!-->
+
+    <!--property LLMNR is not documented!-->
+
+    <!--property MulticastDNS is not documented!-->
+
+    <!--property DNSOverTLS is not documented!-->
+
+    <!--property DNSSEC is not documented!-->
+
+    <!--property DNSSECNegativeTrustAnchors is not documented!-->
 
     <para>For each Linux network interface a "Link" object is created, which exposes per-link DNS
     configuration and state. Use <function>GetLink()</function> on the Manager interface to retrieve the

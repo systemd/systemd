@@ -44,28 +44,49 @@ node /org/freedesktop/timedate1 {
     methods:
       SetTime(in  x usec_utc,
               in  b relative,
-              in  b user_interaction);
+              in  b interactive);
       SetTimezone(in  s timezone,
-                  in  b user_interaction);
+                  in  b interactive);
       SetLocalRTC(in  b local_rtc,
                   in  b fix_system,
-                  in  b user_interaction);
+                  in  b interactive);
       SetNTP(in  b use_ntp,
-             in  b user_interaction);
-    signals:
+             in  b interactive);
+      ListTimezones(out as timezones);
     properties:
-      readonly s Timezone = 'Europe/Berlin';
-      readonly b LocalRTC = false;
-      readonly b NTP = true;
+      readonly s Timezone = '...';
+      readonly b LocalRTC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b CanNTP = ...;
+      readonly b NTP = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b NTPSynchronized = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t TimeUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t RTCTimeUSec = ...;
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method ListTimezones is not documented!-->
+
+    <!--property Timezone is not documented!-->
+
+    <!--property LocalRTC is not documented!-->
+
+    <!--property CanNTP is not documented!-->
+
+    <!--property NTP is not documented!-->
+
+    <!--property NTPSynchronized is not documented!-->
+
+    <!--property TimeUSec is not documented!-->
+
+    <!--property RTCTimeUSec is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -100,7 +121,7 @@ node /org/freedesktop/timedate1 {
       time settings using this interface is authenticated via PolicyKit.</para>
 
       <para>Note that this service will not inform you about system time changes. Use
-      <citerefentry project='man-pages'><refentrytitle>timerfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project="man-pages"><refentrytitle>timerfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       with <constant>CLOCK_REALTIME</constant> and <constant>TFD_TIMER_CANCEL_ON_SET</constant> for that.
       </para>
 

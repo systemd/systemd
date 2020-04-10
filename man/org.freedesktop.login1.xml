@@ -42,6 +42,7 @@
 $ gdbus introspect --system \
         --dest org.freedesktop.login1 \
         --object-path /org/freedesktop/login1
+
 node /org/freedesktop/login1 {
   interface org.freedesktop.login1.Manager {
     methods:
@@ -55,10 +56,10 @@ node /org/freedesktop/login1 {
                    out o object_path);
       GetSeat(in  s seat_id,
               out o object_path);
-      ListSessions(out a(susso) session_list);
-      ListUsers(out a(uso) user_list);
-      ListSeats(out a(so) seat_list);
-      ListInhibitors(out a(ssssuu) inhibitor_list);
+      ListSessions(out a(susso) sessions);
+      ListUsers(out a(uso) users);
+      ListSeats(out a(so) seats);
+      ListInhibitors(out a(ssssuu) inhibitors);
       CreateSession(in  u uid,
                     in  u pid,
                     in  s service,
@@ -91,29 +92,33 @@ node /org/freedesktop/login1 {
       UnlockSessions();
       KillSession(in  s session_id,
                   in  s who,
-                  in  i signo);
+                  in  i signal_number);
       KillUser(in  u uid,
-               in  i signo);
+               in  i signal_number);
       TerminateSession(in  s session_id);
       TerminateUser(in  u uid);
       TerminateSeat(in  s seat_id);
       SetUserLinger(in  u uid,
-                    in  b linger,
+                    in  b enable,
                     in  b interactive);
       AttachDevice(in  s seat_id,
-                   in  s sysfs,
+                   in  s sysfs_path,
                    in  b interactive);
       FlushDevices(in  b interactive);
       PowerOff(in  b interactive);
       Reboot(in  b interactive);
+      Halt(in  b interactive);
       Suspend(in  b interactive);
       Hibernate(in  b interactive);
       HybridSleep(in  b interactive);
+      SuspendThenHibernate(in  b interactive);
       CanPowerOff(out s result);
       CanReboot(out s result);
+      CanHalt(out s result);
       CanSuspend(out s result);
       CanHibernate(out s result);
       CanHybridSleep(out s result);
+      CanSuspendThenHibernate(out s result);
       ScheduleShutdown(in  s type,
                        in  t usec);
       CancelScheduledShutdown(out b cancelled);
@@ -122,8 +127,14 @@ node /org/freedesktop/login1 {
               in  s why,
               in  s mode,
               out h pipe_fd);
+      CanRebootParameter(out s result);
+      SetRebootParameter(in  s parameter);
       CanRebootToFirmwareSetup(out s result);
       SetRebootToFirmwareSetup(in  b enable);
+      CanRebootToBootLoaderMenu(out s result);
+      SetRebootToBootLoaderMenu(in  t timeout);
+      CanRebootToBootLoaderEntry(out s result);
+      SetRebootToBootLoaderEntry(in  s boot_loader_entry);
       SetWallMessage(in  s wall_message,
                      in  b enable);
     signals:
@@ -142,40 +153,201 @@ node /org/freedesktop/login1 {
       PrepareForShutdown(b start);
       PrepareForSleep(b start);
     properties:
-      readwrite b EnableWallMessages = false;
-      readwrite s WallMessage = '';
-      readonly u NAutoVTs = 6;
-      readonly as KillOnlyUsers = [];
-      readonly as KillExcludeUsers = ['root'];
-      readonly b KillUserProcesses = false;
-      readonly b RebootToFirmwareSetup = false;
-      readonly b IdleHint = false;
-      readonly t IdleSinceHint = 0;
-      readonly t IdleSinceHintMonotonic = 0;
-      readonly s BlockInhibited = 'handle-power-key:handle-suspend-key:handle-hibernate-key';
-      readonly s DelayInhibited = 'sleep';
-      readonly t InhibitDelayMaxUSec = 5000000;
-      readonly s HandlePowerKey = 'poweroff';
-      readonly s HandleSuspendKey = 'suspend';
-      readonly s HandleHibernateKey = 'hibernate';
-      readonly s HandleLidSwitch = 'suspend';
-      readonly s HandleLidSwitchDocked = 'ignore';
-      readonly t HoldoffTimeoutUSec = 30000000;
-      readonly s IdleAction = 'ignore';
-      readonly t IdleActionUSec = 1800000000;
-      readonly b PreparingForShutdown = false;
-      readonly b PreparingForSleep = false;
-      readonly (st) ScheduledShutdown = ('', 0);
-      readonly b Docked = false;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.systemd1.Privileged("true")
+      readwrite b EnableWallMessages = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.systemd1.Privileged("true")
+      readwrite s WallMessage = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u NAutoVTs = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as KillOnlyUsers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as KillExcludeUsers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b KillUserProcesses = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s RebootParameter = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b RebootToFirmwareSetup = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t RebootToBootLoaderMenu = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s RebootToBootLoaderEntry = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as BootLoaderEntries = ['...', ...];
+      readonly b IdleHint = ...;
+      readonly t IdleSinceHint = ...;
+      readonly t IdleSinceHintMonotonic = ...;
+      readonly s BlockInhibited = '...';
+      readonly s DelayInhibited = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t InhibitDelayMaxUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t UserStopDelayUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandlePowerKey = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleSuspendKey = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleHibernateKey = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleLidSwitch = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleLidSwitchExternalPower = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s HandleLidSwitchDocked = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t HoldoffTimeoutUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s IdleAction = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t IdleActionUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PreparingForShutdown = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PreparingForSleep = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (st) ScheduledShutdown = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b Docked = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b LidClosed = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b OnExternalPower = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b RemoveIPC = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeDirectorySize = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t InhibitorsMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t NCurrentInhibitors = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t SessionsMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t NCurrentSessions = ...;
   };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
-  interface org.freedesktop.DBus.Properties {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method Halt is not documented!-->
+
+    <!--method SuspendThenHibernate is not documented!-->
+
+    <!--method CanHalt is not documented!-->
+
+    <!--method CanSuspendThenHibernate is not documented!-->
+
+    <!--method ScheduleShutdown is not documented!-->
+
+    <!--method CancelScheduledShutdown is not documented!-->
+
+    <!--method CanRebootParameter is not documented!-->
+
+    <!--method SetRebootParameter is not documented!-->
+
+    <!--method CanRebootToFirmwareSetup is not documented!-->
+
+    <!--method SetRebootToFirmwareSetup is not documented!-->
+
+    <!--method CanRebootToBootLoaderMenu is not documented!-->
+
+    <!--method SetRebootToBootLoaderMenu is not documented!-->
+
+    <!--method CanRebootToBootLoaderEntry is not documented!-->
+
+    <!--method SetRebootToBootLoaderEntry is not documented!-->
+
+    <!--method SetWallMessage is not documented!-->
+
+    <!--signal SessionNew is not documented!-->
+
+    <!--signal SessionRemoved is not documented!-->
+
+    <!--signal UserNew is not documented!-->
+
+    <!--signal UserRemoved is not documented!-->
+
+    <!--signal SeatNew is not documented!-->
+
+    <!--signal SeatRemoved is not documented!-->
+
+    <!--property EnableWallMessages is not documented!-->
+
+    <!--property WallMessage is not documented!-->
+
+    <!--property NAutoVTs is not documented!-->
+
+    <!--property KillOnlyUsers is not documented!-->
+
+    <!--property KillExcludeUsers is not documented!-->
+
+    <!--property KillUserProcesses is not documented!-->
+
+    <!--property RebootParameter is not documented!-->
+
+    <!--property RebootToFirmwareSetup is not documented!-->
+
+    <!--property RebootToBootLoaderMenu is not documented!-->
+
+    <!--property RebootToBootLoaderEntry is not documented!-->
+
+    <!--property BootLoaderEntries is not documented!-->
+
+    <!--property BlockInhibited is not documented!-->
+
+    <!--property DelayInhibited is not documented!-->
+
+    <!--property InhibitDelayMaxUSec is not documented!-->
+
+    <!--property UserStopDelayUSec is not documented!-->
+
+    <!--property HandlePowerKey is not documented!-->
+
+    <!--property HandleSuspendKey is not documented!-->
+
+    <!--property HandleHibernateKey is not documented!-->
+
+    <!--property HandleLidSwitch is not documented!-->
+
+    <!--property HandleLidSwitchExternalPower is not documented!-->
+
+    <!--property HandleLidSwitchDocked is not documented!-->
+
+    <!--property HoldoffTimeoutUSec is not documented!-->
+
+    <!--property IdleAction is not documented!-->
+
+    <!--property IdleActionUSec is not documented!-->
+
+    <!--property PreparingForShutdown is not documented!-->
+
+    <!--property PreparingForSleep is not documented!-->
+
+    <!--property ScheduledShutdown is not documented!-->
+
+    <!--property Docked is not documented!-->
+
+    <!--property LidClosed is not documented!-->
+
+    <!--property OnExternalPower is not documented!-->
+
+    <!--property RemoveIPC is not documented!-->
+
+    <!--property RuntimeDirectorySize is not documented!-->
+
+    <!--property InhibitorsMax is not documented!-->
+
+    <!--property NCurrentInhibitors is not documented!-->
+
+    <!--property SessionsMax is not documented!-->
+
+    <!--property NCurrentSessions is not documented!-->
 
     <refsect2>
       <title>Security</title>
@@ -382,6 +554,7 @@ node /org/freedesktop/login1 {
     <programlisting>
 $ gdbus introspect --system --dest org.freedesktop.login1 \
       --object-path /org/freedesktop/login1/seat/seat0
+
 node /org/freedesktop/login1/seat/seat0 {
   interface org.freedesktop.login1.Seat {
     methods:
@@ -391,24 +564,35 @@ node /org/freedesktop/login1/seat/seat0 {
       SwitchToNext();
       SwitchToPrevious();
     properties:
-      readonly s Id = 'seat0';
-      readonly (so) ActiveSession = ('', '/');
-      readonly b CanMultiSession = true;
-      readonly b CanTTY = true;
-      readonly b CanGraphical = true;
-      readonly a(so) Sessions = [('c1', '/org/freedesktop/login1/session/c1')];
-      readonly b IdleHint = true;
-      readonly t IdleSinceHint = 1389368976087311;
-      readonly t IdleSinceHintMonotonic = 48213948;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Id = '...';
+      readonly (so) ActiveSession = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanMultiSession = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanTTY = ...;
+      readonly b CanGraphical = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(so) Sessions = [...];
+      readonly b IdleHint = ...;
+      readonly t IdleSinceHint = ...;
+      readonly t IdleSinceHintMonotonic = ...;
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method SwitchTo is not documented!-->
+
+    <!--method SwitchToNext is not documented!-->
+
+    <!--method SwitchToPrevious is not documented!-->
+
+    <!--property CanTTY is not documented!-->
+
+    <!--property CanGraphical is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -457,32 +641,42 @@ node /org/freedesktop/login1/user/_1000 {
   interface org.freedesktop.login1.User {
     methods:
       Terminate();
-      Kill(in  i signo);
+      Kill(in  i signal_number);
     properties:
-      readonly u UID = 1000;
-      readonly u GID = 1000;
-      readonly s Name = 'test';
-      readonly t Timestamp = 1389368964102424;
-      readonly t TimestampMonotonic = 36229061;
-      readonly s RuntimePath = '/run/user/1000';
-      readonly s Service = 'user@1000.service';
-      readonly s Slice = 'user-1000.slice';
-      readonly (so) Display = ('', '/');
-      readonly s State = 'active';
-      readonly a(so) Sessions = [('28', '/org/freedesktop/login1/session/_328'), ('3', '/org/freedesktop/login1/session/_33')];
-      readonly b IdleHint = false;
-      readonly t IdleSinceHint = 0;
-      readonly t IdleSinceHintMonotonic = 0;
-      readonly b Linger = false;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u UID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u GID = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Name = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t Timestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t TimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RuntimePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Service = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Slice = '...';
+      readonly (so) Display = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(so) Sessions = [...];
+      readonly b IdleHint = ...;
+      readonly t IdleSinceHint = ...;
+      readonly t IdleSinceHintMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b Linger = ...;
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--property Linger is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -547,9 +741,9 @@ node /org/freedesktop/login1/user/_1000 {
 
     <programlisting>
 $ gdbus introspect --system --dest org.freedesktop.login1 \
-        --object-path /org/freedesktop/login1/session/3
+        --object-path /org/freedesktop/login1/session/45
 
-node /org/freedesktop/login1/session/3 {
+node /org/freedesktop/login1/session/45 {
   interface org.freedesktop.login1.Session {
     methods:
       Terminate();
@@ -557,8 +751,9 @@ node /org/freedesktop/login1/session/3 {
       Lock();
       Unlock();
       SetIdleHint(in  b idle);
+      SetLockedHint(in  b locked);
       Kill(in  s who,
-           in  i signo);
+           in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
       TakeDevice(in  u major,
@@ -569,6 +764,9 @@ node /org/freedesktop/login1/session/3 {
                     in  u minor);
       PauseDeviceComplete(in  u major,
                           in  u minor);
+      SetBrightness(in  s subsystem,
+                    in  s name,
+                    in  u brightness);
     signals:
       PauseDevice(u major,
                   u minor,
@@ -579,39 +777,64 @@ node /org/freedesktop/login1/session/3 {
       Lock();
       Unlock();
     properties:
-      readonly s Id = '3';
-      readonly (uo) User = (1000, '/org/freedesktop/login1/user/_1000');
-      readonly s Name = 'test';
-      readonly t Timestamp = 1389370644734067;
-      readonly t TimestampMonotonic = 72063381;
-      readonly u VTNr = 0;
-      readonly (so) Seat = ('', '/');
-      readonly s TTY = '';
-      readonly s Display = '';
-      readonly b Remote = true;
-      readonly s RemoteHost = '129.174.150.217';
-      readonly s RemoteUser = '';
-      readonly s Service = 'sshd';
-      readonly s Desktop = '';
-      readonly s Scope = 'session-3.scope';
-      readonly u Leader = 1854;
-      readonly u Audit = 3;
-      readonly s Type = 'tty';
-      readonly s Class = 'user';
-      readonly b Active = true;
-      readonly s State = 'active';
-      readonly b IdleHint = false;
-      readonly t IdleSinceHint = 0;
-      readonly t IdleSinceHintMonotonic = 0;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Id = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (uo) User = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Name = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t Timestamp = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t TimestampMonotonic = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u VTNr = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly (so) Seat = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s TTY = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Display = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b Remote = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RemoteHost = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RemoteUser = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Service = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Desktop = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Scope = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Leader = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Audit = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Type = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Class = '...';
+      readonly b Active = ...;
+      readonly s State = '...';
+      readonly b IdleHint = ...;
+      readonly t IdleSinceHint = ...;
+      readonly t IdleSinceHintMonotonic = ...;
+      readonly b LockedHint = ...;
   };
-  interface org.freedesktop.DBus.Properties {
-  };
-  interface org.freedesktop.DBus.Peer {
-  };
-  interface org.freedesktop.DBus.Introspectable {
-  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--method SetLockedHint is not documented!-->
+
+    <!--method SetBrightness is not documented!-->
+
+    <!--property Desktop is not documented!-->
+
+    <!--property LockedHint is not documented!-->
 
     <refsect2>
       <title>Methods</title>
