@@ -80,7 +80,7 @@
     dictionary entries, followed by a pair of values for each entry matching the element type of the
     dictionary entries.</para>
 
-    <para>The <function>sd_bus_message_appendv()</function> is equivalent to the
+    <para><function>sd_bus_message_appendv()</function> is equivalent to
     <function>sd_bus_message_append()</function>, except that it is called with a
     <literal>va_list</literal> instead of a variable number of arguments. This function does not
     call the <function>va_end()</function> macro. Because it invokes the
