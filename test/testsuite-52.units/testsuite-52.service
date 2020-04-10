@@ -1,0 +1,6 @@
+[Unit]
+Description=Testsuite service
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/%N.units/%N.sh
+Type=oneshot

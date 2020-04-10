@@ -1,0 +1,11 @@
+[Unit]
+Description=Honor First Shutdown feature
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStop=sh -c 'kill -SIGKILL $MAINPID'
+FailureAction=reboot
+
+[Install]
+WantedBy=multi-user.target

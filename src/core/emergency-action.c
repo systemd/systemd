@@ -12,6 +12,18 @@
 #include "terminal-util.h"
 #include "virt.h"
 
+static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
+        [EMERGENCY_ACTION_NONE] =               "none",
+        [EMERGENCY_ACTION_REBOOT] =             "reboot",
+        [EMERGENCY_ACTION_REBOOT_FORCE] =       "reboot-force",
+        [EMERGENCY_ACTION_REBOOT_IMMEDIATE] =   "reboot-immediate",
+        [EMERGENCY_ACTION_POWEROFF] =           "poweroff",
+        [EMERGENCY_ACTION_POWEROFF_FORCE] =     "poweroff-force",
+        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
+        [EMERGENCY_ACTION_EXIT] =               "exit",
+        [EMERGENCY_ACTION_EXIT_FORCE] =         "exit-force",
+};
+
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
         log_full(warn ? LOG_WARNING : LOG_DEBUG, "%s: %s", message, reason);
         if (warn)
@@ -28,9 +40,21 @@ void emergency_action(
                 int exit_status,
                 const char *reason) {
 
+        Unit *u;
+
         assert(m);
         assert(action >= 0);
         assert(action < _EMERGENCY_ACTION_MAX);
+
+        /* Is the special shutdown target active or queued? If so, we are in shutdown state */
+        if (IN_SET(action, EMERGENCY_ACTION_REBOOT, EMERGENCY_ACTION_POWEROFF, EMERGENCY_ACTION_EXIT)) {
+                u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+                if (u && unit_active_or_pending(u)) {
+                        log_notice("Shutdown is already active. Skipping emergency action request %s.",
+                                   emergency_action_table[action]);
+                        return;
+                }
+        }
 
         if (action == EMERGENCY_ACTION_NONE)
                 return;
@@ -126,17 +150,6 @@ void emergency_action(
         }
 }
 
-static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
-        [EMERGENCY_ACTION_NONE] = "none",
-        [EMERGENCY_ACTION_REBOOT] = "reboot",
-        [EMERGENCY_ACTION_REBOOT_FORCE] = "reboot-force",
-        [EMERGENCY_ACTION_REBOOT_IMMEDIATE] = "reboot-immediate",
-        [EMERGENCY_ACTION_POWEROFF] = "poweroff",
-        [EMERGENCY_ACTION_POWEROFF_FORCE] = "poweroff-force",
-        [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
-        [EMERGENCY_ACTION_EXIT] = "exit",
-        [EMERGENCY_ACTION_EXIT_FORCE] = "exit-force",
-};
 DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
 
 int parse_emergency_action(
