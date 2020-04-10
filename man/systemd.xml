@@ -280,6 +280,9 @@
     files or parameters passed on the kernel command line. For details, see
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
+    <para>The D-Bus API of <command>systemd</command> is described in
+    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
     <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
     url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink
     url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
@@ -1252,6 +1255,7 @@
       <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
