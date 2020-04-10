@@ -1538,3 +1538,14 @@ int bus_match_signal_async(
 
         return sd_bus_match_signal_async(bus, ret, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
 }
+
+int bus_message_new_method_call(
+                sd_bus *bus,
+                sd_bus_message **m,
+                const BusLocator *locator,
+                const char *member) {
+
+        assert(locator);
+
+        return sd_bus_message_new_method_call(bus, m, locator->destination, locator->path, locator->interface, member);
+}
