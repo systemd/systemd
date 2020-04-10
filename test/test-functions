@@ -299,6 +299,7 @@ setup_basic_environment() {
     install_terminfo
     install_execs
     install_fsck
+    install_pkill
     install_plymouth
     install_debug_tools
     install_ld_so_conf
@@ -502,6 +503,10 @@ install_fsck() {
 
     # fskc.reiserfs calls reiserfsck. so, install it
     dracut_install -o reiserfsck
+}
+
+install_pkill() {
+    dracut_install /usr/bin/pkill*
 }
 
 install_dmevent() {

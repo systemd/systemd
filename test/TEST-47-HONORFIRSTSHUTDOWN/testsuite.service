@@ -1,0 +1,6 @@
+[Unit]
+Description=Testsuite service
+
+[Service]
+ExecStart=/testsuite.sh
+Type=oneshot

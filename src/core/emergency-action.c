@@ -39,21 +39,18 @@ void emergency_action(
                 const char *reboot_arg,
                 int exit_status,
                 const char *reason) {
-        Unit *u;
 
         assert(m);
         assert(action >= 0);
         assert(action < _EMERGENCY_ACTION_MAX);
 
         /* Is the special shutdown target active or queued? If so, we are in shutdown state */
-        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if ((u && unit_active_or_pending(u))) {
-                if ( (action == EMERGENCY_ACTION_REBOOT) ||
-                     (action == EMERGENCY_ACTION_POWEROFF) ) {
-                        log_info("EmergencyAction Special Shutdown Tgt is active Skip %s",
-                                 emergency_action_table[action]);
-                        return;
-                }
+        if ((manager_state(m) == MANAGER_STOPPING) &&
+            ((action == EMERGENCY_ACTION_REBOOT) ||
+             (action == EMERGENCY_ACTION_POWEROFF))) {
+                log_info("EmergencyAction: Shutdown is already active Skipping %s request",
+                         emergency_action_table[action]);
+                return;
         }
 
         if (action == EMERGENCY_ACTION_NONE)
