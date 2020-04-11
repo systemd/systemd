@@ -284,6 +284,14 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# Geo Computers
+#########################################
+
+# Geoflex
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnGEO*:pnGeoFlex*:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Google Chromebooks
 #########################################
 sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE*
