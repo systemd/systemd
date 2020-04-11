@@ -251,7 +251,7 @@ enum nss_status userdb_getgrnam(
                 if (lock_fd < 0 && lock_fd != -EBUSY)
                         return lock_fd;
 
-                r = nss_group_record_by_name(name, &g);
+                r = nss_group_record_by_name(name, false, &g);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
                 if (r < 0) {
@@ -310,7 +310,7 @@ enum nss_status userdb_getgrgid(
                 if (lock_fd < 0 && lock_fd != -EBUSY)
                         return lock_fd;
 
-                r = nss_group_record_by_gid(gid, &g);
+                r = nss_group_record_by_gid(gid, false, &g);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
 

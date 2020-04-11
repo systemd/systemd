@@ -482,7 +482,7 @@ enum nss_status _nss_systemd_getgrent_r(
                                 }
                         }
 
-                        r = nss_group_record_by_name(group_name, &gr);
+                        r = nss_group_record_by_name(group_name, false, &gr);
                         if (r == -ESRCH)
                                 continue;
                         if (r < 0) {

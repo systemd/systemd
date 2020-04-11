@@ -11,5 +11,5 @@
 int nss_passwd_to_user_record(const struct passwd *pwd, const struct spwd *spwd, UserRecord **ret);
 int nss_spwd_for_passwd(const struct passwd *pwd, struct spwd *ret_spwd, char **ret_buffer);
 
-int nss_user_record_by_name(const char *name, UserRecord **ret);
-int nss_user_record_by_uid(uid_t uid, UserRecord **ret);
+int nss_user_record_by_name(const char *name, bool with_shadow, UserRecord **ret);
+int nss_user_record_by_uid(uid_t uid, bool with_shadow, UserRecord **ret);
