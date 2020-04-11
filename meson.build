@@ -1195,6 +1195,18 @@ else
 endif
 conf.set10('HAVE_LZ4', have)
 
+want_zstd = get_option('zstd')
+if want_zstd != 'false' and not skip_deps
+        libzstd = dependency('libzstd',
+                             required : want_zstd == 'true',
+                             version : '>= 1.4.0')
+        have = libzstd.found()
+else
+        have = false
+        libzstd = []
+endif
+conf.set10('HAVE_ZSTD', have)
+
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
         libxkbcommon = dependency('xkbcommon',
@@ -1543,6 +1555,7 @@ libsystemd = shared_library(
         dependencies : [threads,
                         librt,
                         libxz,
+                        libzstd,
                         liblz4],
         link_depends : libsystemd_sym,
         install : true,
@@ -1566,6 +1579,7 @@ install_libsystemd_static = static_library(
         dependencies : [threads,
                         librt,
                         libxz,
+                        libzstd,
                         liblz4,
                         libcap,
                         libblkid,
@@ -1727,7 +1741,8 @@ executable(
         dependencies : [threads,
                         libxz,
                         liblz4,
-                        libselinux],
+                        libselinux,
+                        libzstd],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootlibexecdir)
@@ -1751,7 +1766,8 @@ public_programs += executable(
                         libqrencode,
                         libxz,
                         liblz4,
-                        libpcre2],
+                        libpcre2,
+                        libzstd],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)
@@ -1906,7 +1922,8 @@ if conf.get('ENABLE_LOGIND') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 liblz4,
-                                libxz],
+                                libxz,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2036,7 +2053,8 @@ public_programs += executable(
                         libcap,
                         libselinux,
                         libxz,
-                        liblz4],
+                        liblz4,
+                        libzstd],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)
@@ -2386,7 +2404,8 @@ if conf.get('ENABLE_MACHINED') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
@@ -2467,7 +2486,8 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
                                 libcurl,
                                 libgnutls,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2484,7 +2504,8 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                 libmicrohttpd,
                                 libgnutls,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2498,7 +2519,8 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                 libmicrohttpd,
                                 libgnutls,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2514,7 +2536,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                                 libacl,
                                 libdw,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2526,7 +2549,8 @@ if conf.get('ENABLE_COREDUMP') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true)
 endif
@@ -2541,7 +2565,8 @@ if conf.get('ENABLE_PSTORE') == 1
                                 libacl,
                                 libdw,
                                 libxz,
-                                liblz4],
+                                liblz4,
+                                libzstd],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3496,6 +3521,7 @@ foreach tuple : [
         ['SMACK'],
         ['zlib'],
         ['xz'],
+        ['zstd'],
         ['lz4'],
         ['bzip2'],
         ['ACL'],

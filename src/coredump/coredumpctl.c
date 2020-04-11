@@ -765,7 +765,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                 if (access(filename, R_OK) < 0)
                         return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
-                if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
+                if (path && !ENDSWITH_SET(filename, ".xz", ".lz4", ".zst")) {
                         *path = TAKE_PTR(filename);
 
                         return 0;
@@ -824,7 +824,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
         }
 
         if (filename) {
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
                 _cleanup_close_ int fdf;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
