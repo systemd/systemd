@@ -146,6 +146,7 @@ manpages = [
    'sd_bus_call_method_asyncv',
    'sd_bus_call_methodv'],
   ''],
+ ['sd_bus_can_send', '3', [], ''],
  ['sd_bus_close', '3', ['sd_bus_default_flush_close', 'sd_bus_flush'], ''],
  ['sd_bus_creds_get_pid',
   '3',
