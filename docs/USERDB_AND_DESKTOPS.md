@@ -1,6 +1,6 @@
 ---
 title: systemd-homed and JSON User/Group Record Support in Desktop Environments
-category: Interfaces
+category: Users, Groups and Home Directories
 layout: default
 ---
 

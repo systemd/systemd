@@ -1,6 +1,6 @@
 ---
 title: User/Group Name Syntax
-category: Concepts
+category: Users, Groups and Home Directories
 layout: default
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Home Directories
-category: Concepts
+category: Users, Groups and Home Directories
 layout: default
 ---
 

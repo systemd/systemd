@@ -1,6 +1,6 @@
 ---
 title: Users, Groups, UIDs and GIDs on systemd Systems
-category: Concepts
+category: Users, Groups and Home Directories
 layout: default
 ---
 

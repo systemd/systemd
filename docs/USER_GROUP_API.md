@@ -1,6 +1,6 @@
 ---
 title: User/Group Record Lookup API via Varlink
-category: Interfaces
+category: Users, Groups and Home Directories
 layout: default
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: JSON Group Records
-category: Interfaces
+category: Users, Groups and Home Directories
 layout: default
 ---
 

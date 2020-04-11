@@ -1,6 +1,6 @@
 ---
 title: Converting Existing Users to systemd-homed
-category: Interfaces
+category: Users, Groups and Home Directories
 layout: default
 ---
 
