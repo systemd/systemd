@@ -8,6 +8,7 @@
 
 #include "blkid-util.h"
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "chattr-util.h"
 #include "dm-util.h"
 #include "errno-util.h"
@@ -2037,8 +2038,10 @@ int home_create_luks(
                 goto fail;
         }
 
-        if (mkdir(subdir, 0700) < 0) {
-                r = log_error_errno(errno, "Failed to create user directory in mounted image file: %m");
+        /* Prefer using a btrfs subvolume if we can, fall back to directory otherwise */
+        r = btrfs_subvol_make_fallback(subdir, 0700);
+        if (r < 0) {
+                log_error_errno(r, "Failed to create user directory in mounted image file: %m");
                 goto fail;
         }
 

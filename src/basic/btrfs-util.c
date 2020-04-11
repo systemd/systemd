@@ -160,6 +160,31 @@ int btrfs_subvol_make(const char *path) {
         return btrfs_subvol_make_fd(fd, subvolume);
 }
 
+int btrfs_subvol_make_fallback(const char *path, mode_t mode) {
+        mode_t old, combined;
+        int r;
+
+        assert(path);
+
+        /* Let's work like mkdir(), i.e. take the specified mode, and mask it with the current umask. */
+        old = umask(~mode);
+        combined = old | ~mode;
+        if (combined != ~mode)
+                umask(combined);
+        r = btrfs_subvol_make(path);
+        umask(old);
+
+        if (r >= 0)
+                return 1; /* subvol worked */
+        if (r != -ENOTTY)
+                return r;
+
+        if (mkdir(path, mode) < 0)
+                return -errno;
+
+        return 0; /* plain directory */
+}
+
 int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         uint64_t flags, nflags;
         struct stat st;
