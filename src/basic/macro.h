@@ -451,8 +451,10 @@ static inline int __coverity_check_and_return__(int condition) {
                 ans;                                    \
         })
 
+#define UPDATE_FLAG(orig, flag, b)                      \
+        ((b) ? ((orig) | (flag)) : ((orig) & ~(flag)))
 #define SET_FLAG(v, flag, b) \
-        (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
+        (v) = UPDATE_FLAG(v, flag, b)
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
 

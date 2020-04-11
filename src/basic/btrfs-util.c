@@ -175,11 +175,7 @@ int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
                 return -errno;
 
-        if (b)
-                nflags = flags | BTRFS_SUBVOL_RDONLY;
-        else
-                nflags = flags & ~BTRFS_SUBVOL_RDONLY;
-
+        nflags = UPDATE_FLAG(flags, BTRFS_SUBVOL_RDONLY, b);
         if (flags == nflags)
                 return 0;
 
