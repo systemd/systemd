@@ -96,7 +96,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
         if (c->encoding)
                 return -EINVAL;
 
-        if (size <= 0)
+        if (size == 0)
                 return 1;
 
         assert(data);
@@ -260,7 +260,7 @@ int import_compress(ImportCompress *c, const void *data, size_t size, void **buf
         if (!c->encoding)
                 return -EINVAL;
 
-        if (size <= 0)
+        if (size == 0)
                 return 0;
 
         assert(data);

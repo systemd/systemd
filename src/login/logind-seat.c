@@ -189,7 +189,7 @@ int seat_preallocate_vts(Seat *s) {
         assert(s);
         assert(s->manager);
 
-        if (s->manager->n_autovts <= 0)
+        if (s->manager->n_autovts == 0)
                 return 0;
 
         if (!seat_has_vts(s))

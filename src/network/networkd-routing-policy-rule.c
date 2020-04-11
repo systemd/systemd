@@ -1184,7 +1184,7 @@ static int routing_policy_rule_read_full_file(const char *state_file, char **ret
                 return -ENODATA;
         if (r < 0)
                 return r;
-        if (size <= 0)
+        if (size == 0)
                 return -ENODATA;
 
         *ret = TAKE_PTR(s);

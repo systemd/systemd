@@ -915,7 +915,7 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(cursor, -EINVAL);
 
-        if (!j->current_file || j->current_file->current_offset <= 0)
+        if (!j->current_file || j->current_file->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(j->current_file, OBJECT_ENTRY, j->current_file->current_offset, &o);
@@ -1050,7 +1050,7 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(!isempty(cursor), -EINVAL);
 
-        if (!j->current_file || j->current_file->current_offset <= 0)
+        if (!j->current_file || j->current_file->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(j->current_file, OBJECT_ENTRY, j->current_file->current_offset, &o);
@@ -2190,7 +2190,7 @@ _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
         if (!f)
                 return -EADDRNOTAVAIL;
 
-        if (f->current_offset <= 0)
+        if (f->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
@@ -2214,7 +2214,7 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (!f)
                 return -EADDRNOTAVAIL;
 
-        if (f->current_offset <= 0)
+        if (f->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
@@ -2284,7 +2284,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
         if (!f)
                 return -EADDRNOTAVAIL;
 
-        if (f->current_offset <= 0)
+        if (f->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
@@ -2419,7 +2419,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
         if (!f)
                 return -EADDRNOTAVAIL;
 
-        if (f->current_offset <= 0)
+        if (f->current_offset == 0)
                 return -EADDRNOTAVAIL;
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);

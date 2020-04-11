@@ -1247,7 +1247,7 @@ static int dns_packet_read_memdup(
         if (r < 0)
                 return r;
 
-        if (size <= 0)
+        if (size == 0)
                 *ret = NULL;
         else {
                 void *copy;
@@ -1693,7 +1693,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
 
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
-                if (rdlength <= 0) {
+                if (rdlength == 0) {
                         r = dns_txt_item_new_empty(&rr->txt.items);
                         if (r < 0)
                                 return r;
@@ -1842,7 +1842,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (r < 0)
                         return r;
 
-                if (rr->ds.digest_size <= 0)
+                if (rr->ds.digest_size == 0)
                         /* the accepted size depends on the algorithm, but for now
                            just ensure that the value is greater than zero */
                         return -EBADMSG;
@@ -1995,7 +1995,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (r < 0)
                         return r;
 
-                if (size <= 0)
+                if (size == 0)
                         return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, size,

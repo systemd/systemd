@@ -49,7 +49,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                 if (r >= DNS_LABEL_MAX)
                         return -EINVAL;
 
-                if (sz <= 0)
+                if (sz == 0)
                         return -ENOBUFS;
 
                 if (*n == '\\') {
@@ -222,7 +222,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
          * zero-length label does not exist. See RFC 2182, Section
          * 11. */
 
-        if (l <= 0 || l > DNS_LABEL_MAX)
+        if (l == 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
         if (sz < 1)
                 return -ENOBUFS;
@@ -288,7 +288,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         assert(p);
         assert(ret);
 
-        if (l <= 0 || l > DNS_LABEL_MAX)
+        if (l == 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
 
         s = new(char, DNS_LABEL_ESCAPED_MAX);
@@ -317,7 +317,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
 
         /* Converts an U-label into an A-label */
 
-        if (encoded_size <= 0)
+        if (encoded_size == 0)
                 return -EINVAL;
 
         for (p = encoded; p < encoded + encoded_size; p++)
@@ -341,7 +341,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         l = strlen(buffer);
 
         /* Verify that the result is not longer than one DNS label. */
-        if (l <= 0 || l > DNS_LABEL_MAX)
+        if (l == 0 || l > DNS_LABEL_MAX)
                 return -EINVAL;
         if (l > decoded_max)
                 return -ENOBUFS;
@@ -367,7 +367,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         assert(encoded);
         assert(decoded);
 
-        if (encoded_size <= 0 || encoded_size > DNS_LABEL_MAX)
+        if (encoded_size == 0 || encoded_size > DNS_LABEL_MAX)
                 return -EINVAL;
 
         if (!memory_startswith(encoded, encoded_size, IDNA_ACE_PREFIX))
@@ -385,7 +385,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         result = stringprep_ucs4_to_utf8(output, output_size, NULL, &w);
         if (!result)
                 return -ENOMEM;
-        if (w <= 0)
+        if (w == 0)
                 return -EINVAL;
         if (w > decoded_max)
                 return -ENOBUFS;
@@ -859,7 +859,7 @@ int dns_name_to_wire_format(const char *domain, uint8_t *buffer, size_t len, boo
 
         do {
                 /* Reserve a byte for label length */
-                if (len <= 0)
+                if (len == 0)
                         return -ENOBUFS;
                 len--;
                 label_length = out;
@@ -975,7 +975,7 @@ bool dns_service_name_is_valid(const char *name) {
                 return false;
 
         l = strlen(name);
-        if (l <= 0)
+        if (l == 0)
                 return false;
         if (l > 63)
                 return false;

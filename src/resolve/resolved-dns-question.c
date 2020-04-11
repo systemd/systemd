@@ -115,7 +115,7 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
         if (!q)
                 return 0;
 
-        if (q->n_keys <= 0)
+        if (q->n_keys == 0)
                 return 0;
 
         if (q->n_keys > 65535)
@@ -199,7 +199,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
         assert(ret);
         assert(IN_SET(cname->key->type, DNS_TYPE_CNAME, DNS_TYPE_DNAME));
 
-        if (dns_question_size(q) <= 0) {
+        if (dns_question_size(q) == 0) {
                 *ret = NULL;
                 return 0;
         }

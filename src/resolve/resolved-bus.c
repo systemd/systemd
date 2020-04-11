@@ -188,7 +188,7 @@ static void bus_method_resolve_hostname_complete(DnsQuery *q) {
                 added++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }
@@ -423,7 +423,7 @@ static void bus_method_resolve_address_complete(DnsQuery *q) {
                 added++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 _cleanup_free_ char *ip = NULL;
 
                 (void) in_addr_to_string(q->request_family, &q->request_address, &ip);
@@ -593,7 +593,7 @@ static void bus_method_resolve_record_complete(DnsQuery *q) {
                 added++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "Name '%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }
@@ -837,7 +837,7 @@ static int append_txt(sd_bus_message *reply, DnsResourceRecord *rr) {
 
         LIST_FOREACH(items, i, rr->txt.items) {
 
-                if (i->length <= 0)
+                if (i->length == 0)
                         continue;
 
                 r = sd_bus_message_append_array(reply, 'y', i->data, i->length);
@@ -938,7 +938,7 @@ static void resolve_service_all_complete(DnsQuery *q) {
                 added++;
         }
 
-        if (added <= 0) {
+        if (added == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }
@@ -1114,7 +1114,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 found++;
         }
 
-        if (has_root_domain && found <= 0) {
+        if (has_root_domain && found == 0) {
                 /* If there's exactly one SRV RR and it uses
                  * the root domain as hostname, then the
                  * service is explicitly not offered on the
@@ -1125,7 +1125,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
                 goto finish;
         }
 
-        if (found <= 0) {
+        if (found == 0) {
                 r = sd_bus_reply_method_errorf(q->request, BUS_ERROR_NO_SUCH_RR, "'%s' does not have any RR of the requested type", dns_query_string(q));
                 goto finish;
         }

@@ -741,7 +741,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         if (!gmtime_r(&sec, &tm))
                 return -EINVAL;
 
-        if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) <= 0)
+        if (strftime(buf, l, "%Y%m%d%H%M%S", &tm) == 0)
                 return -EINVAL;
 
         return 0;

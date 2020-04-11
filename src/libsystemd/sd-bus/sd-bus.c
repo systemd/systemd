@@ -1939,7 +1939,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
         if (m->dont_send)
                 goto finish;
 
-        if (IN_SET(bus->state, BUS_RUNNING, BUS_HELLO) && bus->wqueue_size <= 0) {
+        if (IN_SET(bus->state, BUS_RUNNING, BUS_HELLO) && bus->wqueue_size == 0) {
                 size_t idx = 0;
 
                 r = bus_write_message(bus, m, &idx);
@@ -2207,7 +2207,7 @@ _public_ int sd_bus_call(
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
 
-                                        if (incoming->n_fds <= 0 || bus->accept_fd) {
+                                        if (incoming->n_fds == 0 || bus->accept_fd) {
                                                 if (reply)
                                                         *reply = TAKE_PTR(incoming);
 
@@ -2337,7 +2337,7 @@ _public_ int sd_bus_get_events(sd_bus *bus) {
 
         case BUS_RUNNING:
         case BUS_HELLO:
-                if (bus->rqueue_size <= 0)
+                if (bus->rqueue_size == 0)
                         flags |= POLLIN;
                 if (bus->wqueue_size > 0)
                         flags |= POLLOUT;
@@ -2716,7 +2716,7 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
         if (bus->is_monitor)
                 return 0;
 
-        if (m->n_fds <= 0)
+        if (m->n_fds == 0)
                 return 0;
 
         if (bus->accept_fd)
@@ -3164,7 +3164,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        if (bus->wqueue_size <= 0)
+        if (bus->wqueue_size == 0)
                 return 0;
 
         for (;;) {
@@ -3178,7 +3178,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
                         return r;
                 }
 
-                if (bus->wqueue_size <= 0)
+                if (bus->wqueue_size == 0)
                         return 0;
 
                 r = bus_poll(bus, false, (uint64_t) -1);

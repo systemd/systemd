@@ -128,7 +128,7 @@ static void job_set_state(Job *j, JobState state) {
 
                 j->unit->manager->n_running_jobs--;
 
-                if (j->unit->manager->n_running_jobs <= 0)
+                if (j->unit->manager->n_running_jobs == 0)
                         j->unit->manager->jobs_in_progress_event_source = sd_event_source_unref(j->unit->manager->jobs_in_progress_event_source);
         }
 }

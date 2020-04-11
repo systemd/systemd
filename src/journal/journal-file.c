@@ -719,7 +719,7 @@ static int journal_file_move_to(
         assert(f);
         assert(ret);
 
-        if (size <= 0)
+        if (size == 0)
                 return -EINVAL;
 
         if (size > UINT64_MAX - offset)
@@ -753,7 +753,7 @@ static uint64_t minimum_header_size(Object *o) {
                 [OBJECT_TAG] = sizeof(TagObject),
         };
 
-        if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] <= 0)
+        if (o->object.type >= ELEMENTSOF(table) || table[o->object.type] == 0)
                 return sizeof(ObjectHeader);
 
         return table[o->object.type];
@@ -824,13 +824,13 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                sz,
                                                offset);
 
-                if ((sz - offsetof(EntryObject, items)) / sizeof(EntryItem) <= 0)
+                if ((sz - offsetof(EntryObject, items)) / sizeof(EntryItem) == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid number items in entry: %" PRIu64 ": %" PRIu64,
                                                (sz - offsetof(EntryObject, items)) / sizeof(EntryItem),
                                                offset);
 
-                if (le64toh(o->entry.seqnum) <= 0)
+                if (le64toh(o->entry.seqnum) <= 0)  // TODO make ==?
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid entry seqnum: %" PRIx64 ": %" PRIu64,
                                                le64toh(o->entry.seqnum),
@@ -858,7 +858,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 sz = le64toh(READ_NOW(o->object.size));
                 if (sz < offsetof(HashTableObject, items) ||
                     (sz - offsetof(HashTableObject, items)) % sizeof(HashItem) != 0 ||
-                    (sz - offsetof(HashTableObject, items)) / sizeof(HashItem) <= 0)
+                    (sz - offsetof(HashTableObject, items)) / sizeof(HashItem) == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid %s hash table size: %" PRIu64 ": %" PRIu64,
                                                o->object.type == OBJECT_DATA_HASH_TABLE ? "data" : "field",
@@ -874,7 +874,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 sz = le64toh(READ_NOW(o->object.size));
                 if (sz < offsetof(EntryArrayObject, items) ||
                     (sz - offsetof(EntryArrayObject, items)) % sizeof(le64_t) != 0 ||
-                    (sz - offsetof(EntryArrayObject, items)) / sizeof(le64_t) <= 0)
+                    (sz - offsetof(EntryArrayObject, items)) / sizeof(le64_t) == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
                                                sz,
@@ -945,7 +945,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to overly short object: %" PRIu64,
                                        offset);
 
-        if (o->object.type <= OBJECT_UNUSED)
+        if (o->object.type == OBJECT_UNUSED)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Attempt to move to object with invalid type: %" PRIu64,
                                        offset);
@@ -1196,7 +1196,7 @@ static int journal_file_link_field(
                 return -EINVAL;
 
         m = le64toh(READ_NOW(f->header->field_hash_table_size)) / sizeof(HashItem);
-        if (m <= 0)
+        if (m == 0)
                 return -EBADMSG;
 
         /* This might alter the window we are looking at */
@@ -1241,7 +1241,7 @@ static int journal_file_link_data(
                 return -EINVAL;
 
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
-        if (m <= 0)
+        if (m == 0)
                 return -EBADMSG;
 
         /* This might alter the window we are looking at */
@@ -1297,7 +1297,7 @@ int journal_file_find_field_object_with_hash(
         osize = offsetof(Object, field.payload) + size;
 
         m = le64toh(READ_NOW(f->header->field_hash_table_size)) / sizeof(HashItem);
-        if (m <= 0)
+        if (m == 0)
                 return -EBADMSG;
 
         h = hash % m;
@@ -1369,7 +1369,7 @@ int journal_file_find_data_object_with_hash(
         osize = offsetof(Object, data.payload) + size;
 
         m = le64toh(READ_NOW(f->header->data_hash_table_size)) / sizeof(HashItem);
-        if (m <= 0)
+        if (m == 0)
                 return -EBADMSG;
 
         h = hash % m;
@@ -2247,12 +2247,12 @@ static int generic_array_bisect(
 
                 k = journal_file_entry_array_n_items(array);
                 right = MIN(k, n);
-                if (right <= 0)
+                if (right == 0)
                         return 0;
 
                 i = right - 1;
                 lp = p = le64toh(array->entry_array.items[i]);
-                if (p <= 0)
+                if (p == 0)
                         r = -EBADMSG;
                 else
                         r = test_object(f, p, needle);
@@ -2285,7 +2285,7 @@ static int generic_array_bisect(
                                         uint64_t x = last_index - 1;
 
                                         p = le64toh(array->entry_array.items[x]);
-                                        if (p <= 0)
+                                        if (p == 0)
                                                 return -EBADMSG;
 
                                         r = test_object(f, p, needle);
@@ -2305,7 +2305,7 @@ static int generic_array_bisect(
                                         uint64_t y = last_index + 1;
 
                                         p = le64toh(array->entry_array.items[y]);
-                                        if (p <= 0)
+                                        if (p == 0)
                                                 return -EBADMSG;
 
                                         r = test_object(f, p, needle);
@@ -2426,7 +2426,7 @@ static int generic_array_bisect_plus_one(
         assert(f);
         assert(test_object);
 
-        if (n <= 0)
+        if (n == 0)
                 return 0;
 
         /* This bisects the array in object 'first', but first checks
@@ -2710,7 +2710,7 @@ static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
 
                 (*i) ++;
         } else {
-                if (*i <= 0)
+                if (*i == 0)
                         return 0;
 
                 (*i) --;
@@ -2744,7 +2744,7 @@ int journal_file_next_entry(
         assert(f->header);
 
         n = le64toh(READ_NOW(f->header->n_entries));
-        if (n <= 0)
+        if (n == 0)
                 return 0;
 
         if (p == 0)
@@ -2817,7 +2817,7 @@ int journal_file_next_entry_for_data(
                 return r;
 
         n = le64toh(READ_NOW(d->data.n_entries));
-        if (n <= 0)
+        if (n == 0)
                 return n;
 
         if (!o)

@@ -1082,7 +1082,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
         if (!IN_SET(p->protocol, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS))
                 return;
 
-        if (DNS_PACKET_RRCOUNT(p) <= 0)
+        if (DNS_PACKET_RRCOUNT(p) == 0)
                 return;
 
         if (p->protocol == DNS_PROTOCOL_LLMNR) {

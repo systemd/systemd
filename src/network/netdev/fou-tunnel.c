@@ -231,7 +231,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
 
         switch (t->fou_encap_type) {
         case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
-                if (t->fou_protocol <= 0)
+                if (t->fou_protocol == 0)
                         return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                       "FooOverUDP protocol not configured in %s. Rejecting configuration.",
                                                       filename);

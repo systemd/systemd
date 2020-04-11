@@ -599,7 +599,7 @@ static int manager_reserve_vt(Manager *m) {
 
         assert(m);
 
-        if (m->reserve_vt <= 0)
+        if (m->reserve_vt == 0)
                 return 0;
 
         if (asprintf(&p, "/dev/tty%u", m->reserve_vt) < 0)

@@ -213,7 +213,7 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         assert(j);
         assert(p);
 
-        if (sz <= 0)
+        if (sz == 0)
                 return 0;
 
         if (j->written_uncompressed + sz < j->written_uncompressed)
@@ -257,7 +257,7 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
         assert(j);
         assert(p);
 
-        if (sz <= 0)
+        if (sz == 0)
                 return 0;
 
         if (j->written_compressed + sz < j->written_compressed)

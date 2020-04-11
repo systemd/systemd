@@ -346,7 +346,7 @@ int unit_show_processes(
 
         if (flags & OUTPUT_FULL_WIDTH)
                 n_columns = 0;
-        else if (n_columns <= 0)
+        else if (n_columns == 0)
                 n_columns = columns();
 
         prefix = strempty(prefix);

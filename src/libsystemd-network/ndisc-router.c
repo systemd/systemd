@@ -36,7 +36,7 @@ _public_ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, si
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(raw || raw_size <= 0, -EINVAL);
+        assert_return(raw || raw_size == 0, -EINVAL);
 
         rt = ndisc_router_new(raw_size);
         if (!rt)
@@ -282,7 +282,7 @@ _public_ int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 
-        if (rt->mtu <= 0)
+        if (rt->mtu == 0)
                 return -ENODATA;
 
         *ret = rt->mtu;

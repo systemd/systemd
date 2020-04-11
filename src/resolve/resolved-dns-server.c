@@ -706,25 +706,26 @@ DnsServer *manager_get_dns_server(Manager *m) {
         manager_read_resolv_conf(m);
 
         /* If no DNS server was chosen so far, pick the first one */
-        if (!m->current_dns_server)
+        if (!m->current_dns_server) {
                 manager_set_dns_server(m, m->dns_servers);
 
-        if (!m->current_dns_server) {
-                bool found = false;
-                Iterator i;
+                if (!m->current_dns_server) {
+                        bool found = false;
+                        Iterator i;
 
-                /* No DNS servers configured, let's see if there are
-                 * any on any links. If not, we use the fallback
-                 * servers */
+                        /* No DNS servers configured, let's see if there are
+                        * any on any links. If not, we use the fallback
+                        * servers */
 
-                HASHMAP_FOREACH(l, m->links, i)
-                        if (l->dns_servers) {
-                                found = true;
-                                break;
-                        }
+                        HASHMAP_FOREACH(l, m->links, i)
+                                if (l->dns_servers) {
+                                        found = true;
+                                        break;
+                                }
 
-                if (!found)
-                        manager_set_dns_server(m, m->fallback_dns_servers);
+                        if (!found)
+                                manager_set_dns_server(m, m->fallback_dns_servers);
+                }
         }
 
         return m->current_dns_server;

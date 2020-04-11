@@ -510,7 +510,7 @@ static int server_send_ack(
 
         for (sd_dhcp_lease_server_type k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
 
-                if (server->servers[k].size <= 0)
+                if (server->servers[k].size == 0)
                         continue;
 
                 r = dhcp_option_append(
@@ -683,7 +683,7 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
         if (req->max_optlen < DHCP_MIN_OPTIONS_SIZE)
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
 
-        if (req->lifetime <= 0)
+        if (req->lifetime == 0)
                 req->lifetime = MAX(1ULL, server->default_lease_time);
 
         if (server->max_lease_time > 0 && req->lifetime > server->max_lease_time)

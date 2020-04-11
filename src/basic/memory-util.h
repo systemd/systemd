@@ -58,7 +58,7 @@ static inline void *mempset(void *s, int c, size_t n) {
 /* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
 static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
 
-        if (needlelen <= 0)
+        if (needlelen == 0)
                 return (void*) haystack;
 
         if (haystacklen < needlelen)

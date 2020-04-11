@@ -211,7 +211,7 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        if (to <= 0)
+        if (to == 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
 
         r = bus_verify_polkit_async(

@@ -263,7 +263,7 @@ static int lldp_send_packet(
 
         assert(ifindex > 0);
         assert(address);
-        assert(packet || packet_size <= 0);
+        assert(packet || packet_size == 0);
 
         memcpy(sa.ll.sll_addr, address, ETH_ALEN);
 

@@ -1062,7 +1062,7 @@ static int macsec_transmit_association_verify(TransmitAssociation *t) {
         if (r < 0)
                 return r;
 
-        if (t->sa.key_len <= 0)
+        if (t->sa.key_len == 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: MACsec transmit secure association without key configured. "
                                               "Ignoring [MACsecTransmitAssociation] section from line %u",
@@ -1088,7 +1088,7 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
         if (r < 0)
                 return r;
 
-        if (a->sa.key_len <= 0)
+        if (a->sa.key_len == 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "%s: MACsec receive secure association without key configured. "
                                               "Ignoring [MACsecReceiveAssociation] section from line %u",

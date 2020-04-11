@@ -3315,7 +3315,7 @@ static int logind_check_inhibitors(enum action a) {
                 c++;
         }
 
-        if (c <= 0)
+        if (c == 0)
                 return 0;
 
         log_error("Please retry operation after closing inhibitors and logging out other users.\nAlternatively, ignore inhibitors and users with 'systemctl %s -i'.",

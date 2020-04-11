@@ -434,9 +434,9 @@ int bus_message_from_header(
         size_t a, label_sz;
 
         assert(bus);
-        assert(header || header_accessible <= 0);
-        assert(footer || footer_accessible <= 0);
-        assert(fds || n_fds <= 0);
+        assert(header || header_accessible == 0);
+        assert(footer || footer_accessible == 0);
+        assert(fds || n_fds == 0);
         assert(ret);
 
         if (header_accessible < sizeof(struct bus_header))
@@ -1101,7 +1101,7 @@ _public_ int sd_bus_message_get_seqnum(sd_bus_message *m, uint64_t *seqnum) {
         assert_return(m, -EINVAL);
         assert_return(seqnum, -EINVAL);
 
-        if (m->seqnum <= 0)
+        if (m->seqnum == 0)
                 return -ENODATA;
 
         *seqnum = m->seqnum;
@@ -1203,7 +1203,7 @@ struct bus_body_part *message_append_part(sd_bus_message *m) {
         if (m->poisoned)
                 return NULL;
 
-        if (m->n_body_parts <= 0) {
+        if (m->n_body_parts == 0) {
                 part = &m->body;
                 zero(*part);
         } else {
@@ -1300,10 +1300,10 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
 static void message_extend_containers(sd_bus_message *m, size_t expand) {
         assert(m);
 
-        if (expand <= 0)
+        if (expand == 0)
                 return;
 
-        if (m->n_containers <= 0)
+        if (m->n_containers == 0)
                 return;
 
         /* Update counters */
@@ -1348,7 +1348,7 @@ static void *message_extend_body(
                 bool add_new_part;
 
                 add_new_part =
-                        m->n_body_parts <= 0 ||
+                        m->n_body_parts == 0 ||
                         m->body_end->sealed ||
                         (padding != ALIGN_TO(m->body_end->size, align) - m->body_end->size) ||
                         (force_inline && m->body_end->size > MEMFD_MIN_SIZE);
@@ -2192,7 +2192,7 @@ static int bus_message_close_struct(sd_bus_message *m, struct bus_container *c, 
                         return -ENOMEM;
 
                 *a = 0;
-        } else if (n_variable <= 0) {
+        } else if (n_variable == 0) {
                 int alignment = 1;
 
                 /* Structures with fixed-size members only have to be
@@ -2314,7 +2314,7 @@ static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const cha
         assert(n_struct);
         assert(n_array);
 
-        if (*i <= 0)
+        if (*i == 0)
                 return 0;
 
         (*i)--;
@@ -3011,7 +3011,7 @@ int bus_body_part_map(struct bus_body_part *part) {
         if (part->data)
                 return 0;
 
-        if (part->size <= 0)
+        if (part->size == 0)
                 return 0;
 
         /* For smaller zero parts (as used for padding) we don't need to map anything... */
@@ -3644,7 +3644,7 @@ static int bus_message_enter_array(
 
                 *array_size = (uint32_t*) q;
 
-        } else if (c->item_size <= 0) {
+        } else if (c->item_size == 0) {
 
                 /* gvariant: empty array */
                 *item_size = 0;
@@ -3832,7 +3832,7 @@ static int build_struct_offsets(
         }
 
         sz = bus_gvariant_determine_word_size(size, 0);
-        if (sz <= 0)
+        if (sz == 0)
                 return -EBADMSG;
 
         /* First, loop over signature and count variable elements and
@@ -4920,7 +4920,7 @@ static int message_peek_field_string(
 
         if (BUS_MESSAGE_IS_GVARIANT(m)) {
 
-                if (item_size <= 0)
+                if (item_size == 0)
                         return -EBADMSG;
 
                 r = message_peek_fields(m, ri, 1, item_size, &q);
@@ -4974,7 +4974,7 @@ static int message_peek_field_signature(
 
         if (BUS_MESSAGE_IS_GVARIANT(m)) {
 
-                if (item_size <= 0)
+                if (item_size == 0)
                         return -EBADMSG;
 
                 r = message_peek_fields(m, ri, 1, item_size, &q);

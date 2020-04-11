@@ -334,7 +334,7 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                                 continue;
 
                         r = safe_atou_full(dent->d_name, 10, &i);
-                        if (r < 0 || i <= 0)
+                        if (r < 0 || i == 0)
                                 continue;
 
                         /* match slot address with device by stripping the function */

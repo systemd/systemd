@@ -634,7 +634,7 @@ static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord 
                                strna(dns_resource_record_to_string(rr))),
                    "TRUST_ANCHOR=%s", dns_resource_record_to_string(rr));
 
-        if (dns_answer_size(new_answer) <= 0) {
+        if (dns_answer_size(new_answer) == 0) {
                 assert_se(hashmap_remove(d->positive_by_key, rr->key) == old_answer);
                 dns_answer_unref(old_answer);
                 return 1;

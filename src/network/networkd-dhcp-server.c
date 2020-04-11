@@ -71,7 +71,7 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
                 }
         }
 
-        if (n_addresses <= 0)
+        if (n_addresses == 0)
                 return 0;
 
         return sd_dhcp_server_set_dns(s, addresses, n_addresses);
@@ -159,7 +159,7 @@ static int link_push_uplink_to_dhcp_server(
                 }
         }
 
-        if (n_addresses <= 0)
+        if (n_addresses == 0)
                 return 0;
 
         return sd_dhcp_server_set_servers(s, what, addresses, n_addresses);
@@ -240,7 +240,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
                         log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
         }
 
-        if (n_addresses <= 0)
+        if (n_addresses == 0)
                 return 0;
 
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);

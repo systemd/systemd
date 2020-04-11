@@ -183,9 +183,9 @@ static int shovel(PTYForward *f) {
 
         assert(f);
 
-        while ((f->stdin_readable && f->in_buffer_full <= 0) ||
+        while ((f->stdin_readable && f->in_buffer_full == 0) ||
                (f->master_writable && f->in_buffer_full > 0) ||
-               (f->master_readable && f->out_buffer_full <= 0) ||
+               (f->master_readable && f->out_buffer_full == 0) ||
                (f->stdout_writable && f->out_buffer_full > 0)) {
 
                 if (f->stdin_readable && f->in_buffer_full < LINE_MAX) {
@@ -306,8 +306,8 @@ static int shovel(PTYForward *f) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
 
-                if ((f->out_buffer_full <= 0 || f->stdout_hangup) &&
-                    (f->in_buffer_full <= 0 || f->master_hangup))
+                if ((f->out_buffer_full == 0 || f->stdout_hangup) &&
+                    (f->in_buffer_full == 0 || f->master_hangup))
                         return pty_forward_done(f, 0);
         }
 

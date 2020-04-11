@@ -651,7 +651,7 @@ _public_ int sd_watchdog_enabled(int unset_environment, uint64_t *usec) {
         r = safe_atou64(s, &u);
         if (r < 0)
                 goto finish;
-        if (u <= 0 || u >= USEC_INFINITY) {
+        if (u == 0 || u >= USEC_INFINITY) {
                 r = -EINVAL;
                 goto finish;
         }

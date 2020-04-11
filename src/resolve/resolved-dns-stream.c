@@ -398,10 +398,11 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                                 s->read_packet->destination.in6 = s->local.in6.sin6_addr;
                                                 s->read_packet->destination_port = be16toh(s->local.in6.sin6_port);
 
-                                                if (s->read_packet->ifindex == 0)
+                                                if (s->read_packet->ifindex == 0) {
                                                         s->read_packet->ifindex = s->peer.in6.sin6_scope_id;
-                                                if (s->read_packet->ifindex == 0)
-                                                        s->read_packet->ifindex = s->local.in6.sin6_scope_id;
+                                                        if (s->read_packet->ifindex == 0)
+                                                                s->read_packet->ifindex = s->local.in6.sin6_scope_id;
+                                                }
                                         }
                                 }
 

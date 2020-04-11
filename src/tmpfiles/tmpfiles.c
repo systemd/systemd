@@ -3184,7 +3184,7 @@ static int link_parent(ItemArray *a) {
          * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
          * before their children, and clean up/remove children before their parents. */
 
-        if (a->n_items <= 0)
+        if (a->n_items == 0)
                 return 0;
 
         path = a->items[0].path;

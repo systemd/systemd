@@ -2349,7 +2349,7 @@ static int unhex_ucs2(const char *c, uint16_t *ret) {
                 ((uint16_t) cc << 4) |
                 ((uint16_t) dd);
 
-        if (x <= 0)
+        if (x == 0)
                 return -EINVAL;
 
         *ret = x;

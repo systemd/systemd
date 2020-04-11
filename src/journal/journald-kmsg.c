@@ -109,7 +109,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         assert(s);
         assert(p);
 
-        if (l <= 0)
+        if (l == 0)
                 return;
 
         e = memchr(p, ',', l);

@@ -187,7 +187,7 @@ static int tar_export_process(TarExport *e) {
                 }
         }
 
-        while (e->buffer_size <= 0) {
+        while (e->buffer_size == 0) {
                 uint8_t input[COPY_BUFFER_SIZE];
 
                 if (e->eof) {

@@ -148,7 +148,7 @@ static int verify_executables(Unit *u) {
                 u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
                 u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
         k = verify_executable(u, exec);
-        if (k < 0 && r == 0)
+        if (k < 0)
                 r = k;
 
         if (u->type == UNIT_SERVICE)

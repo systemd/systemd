@@ -171,7 +171,7 @@ int show_cgroup_by_path(
 
         assert(path);
 
-        if (n_columns <= 0)
+        if (n_columns == 0)
                 n_columns = columns();
 
         prefix = strempty(prefix);
@@ -273,10 +273,10 @@ static int show_extra_pids(
 
         assert(path);
 
-        if (n_pids <= 0)
+        if (n_pids == 0)
                 return 0;
 
-        if (n_columns <= 0)
+        if (n_columns == 0)
                 n_columns = columns();
 
         prefix = strempty(prefix);

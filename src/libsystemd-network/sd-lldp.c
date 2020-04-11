@@ -89,7 +89,7 @@ static bool lldp_keep_neighbor(sd_lldp *lldp, sd_lldp_neighbor *n) {
         assert(n);
 
         /* Don't keep data with a zero TTL */
-        if (n->ttl <= 0)
+        if (n->ttl == 0)
                 return false;
 
         /* Filter out data from the filter address */

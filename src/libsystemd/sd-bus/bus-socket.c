@@ -276,7 +276,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (!b->anonymous_auth)
                 return 0;
 
-        if (l <= 0)
+        if (l == 0)
                 return 1;
 
         assert(p[0] == ' ');
@@ -308,7 +308,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (!b->anonymous_auth && !b->ucred_valid)
                 return 0;
 
-        if (l <= 0)
+        if (l == 0)
                 return 1;
 
         assert(p[0] == ' ');
@@ -393,7 +393,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                 return 0;
 
         /* Begin with the first line */
-        if (b->auth_rbegin <= 0)
+        if (b->auth_rbegin == 0)
                 b->auth_rbegin = 1;
 
         for (;;) {
@@ -815,7 +815,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                if (max_follow <= 0) { /* Let's make sure we don't follow symlinks forever */
+                if (max_follow == 0) { /* Let's make sure we don't follow symlinks forever */
                         r = -ELOOP;
                         goto fail;
                 }

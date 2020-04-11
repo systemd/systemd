@@ -389,7 +389,7 @@ int pull_verify(PullJob *main_job,
 
         assert(checksum_job->state == PULL_JOB_DONE);
 
-        if (!checksum_job->payload || checksum_job->payload_size <= 0) {
+        if (!checksum_job->payload || checksum_job->payload_size == 0) {
                 log_error("Checksum is empty, cannot verify.");
                 return -EBADMSG;
         }
@@ -414,7 +414,7 @@ int pull_verify(PullJob *main_job,
 
         assert(signature_job->state == PULL_JOB_DONE);
 
-        if (!signature_job->payload || signature_job->payload_size <= 0) {
+        if (!signature_job->payload || signature_job->payload_size == 0) {
                 log_error("Signature is empty, cannot verify.");
                 return -EBADMSG;
         }

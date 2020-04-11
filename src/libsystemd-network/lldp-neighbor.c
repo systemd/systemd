@@ -67,7 +67,7 @@ _public_ sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n) {
         assert(n->n_ref > 0);
         n->n_ref--;
 
-        if (n->n_ref <= 0 && !n->lldp)
+        if (n->n_ref == 0 && !n->lldp)
                 lldp_neighbor_free(n);
 
         return NULL;
@@ -93,7 +93,7 @@ sd_lldp_neighbor *lldp_neighbor_unlink(sd_lldp_neighbor *n) {
 
         n->lldp = NULL;
 
-        if (n->n_ref <= 0)
+        if (n->n_ref == 0)
                 lldp_neighbor_free(n);
 
         return NULL;
@@ -128,7 +128,7 @@ static int parse_string(char **s, const void *q, size_t n) {
         while (n > 0 && p[n-1] == 0)
                 n--;
 
-        if (n <= 0) /* Ignore empty strings */
+        if (n == 0) /* Ignore empty strings */
                 return 0;
 
         /* Look for inner NULs */
@@ -404,7 +404,7 @@ static int format_mac_address(const void *data, size_t sz, char **ret) {
         struct ether_addr a;
         char *k;
 
-        assert(data || sz <= 0);
+        assert(data || sz == 0);
 
         if (sz != 7)
                 return 0;
@@ -643,7 +643,7 @@ _public_ int sd_lldp_neighbor_from_raw(sd_lldp_neighbor **ret, const void *raw, 
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(raw || raw_size <= 0, -EINVAL);
+        assert_return(raw || raw_size == 0, -EINVAL);
 
         n = lldp_neighbor_new(raw_size);
         if (!n)

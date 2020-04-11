@@ -161,7 +161,7 @@ static ssize_t request_reader_entries(
                  * one */
 
                 if (m->n_entries_set &&
-                    m->n_entries <= 0)
+                    m->n_entries == 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
                 if (m->n_skip < 0)
@@ -330,7 +330,7 @@ static int request_parse_range(
                         if (r < 0)
                                 return r;
 
-                        if (m->n_entries <= 0)
+                        if (m->n_entries == 0)
                                 return -EINVAL;
 
                         m->n_entries_set = true;
@@ -555,7 +555,7 @@ static ssize_t request_reader_fields(
                  * one */
 
                 if (m->n_fields_set &&
-                    m->n_fields <= 0)
+                    m->n_fields == 0)
                         return MHD_CONTENT_READER_END_OF_STREAM;
 
                 r = sd_journal_enumerate_unique(m->journal, &d, &l);

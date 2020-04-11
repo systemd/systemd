@@ -102,10 +102,7 @@ static void client_bisect(const char *address, const char *server_name) {
 
                 csize = (lsize + rsize) / 2;
 
-                if (csize <= lsize)
-                        break;
-
-                if (csize <= 0)
+                if (csize == 0 || csize <= lsize)
                         break;
 
                 printf("%zu\t", csize);

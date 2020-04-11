@@ -130,7 +130,7 @@ int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputF
         sd_device **dev_list;
         int r;
 
-        if (n_columns <= 0)
+        if (n_columns == 0)
                 n_columns = columns();
 
         prefix = strempty(prefix);

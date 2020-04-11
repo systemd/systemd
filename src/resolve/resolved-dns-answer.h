@@ -70,7 +70,7 @@ static inline size_t dns_answer_size(DnsAnswer *a) {
 }
 
 static inline bool dns_answer_isempty(DnsAnswer *a) {
-        return dns_answer_size(a) <= 0;
+        return dns_answer_size(a) == 0;
 }
 
 void dns_answer_dump(DnsAnswer *answer, FILE *f);

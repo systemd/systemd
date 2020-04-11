@@ -137,7 +137,7 @@ int journal_directory_vacuum(
 
         assert(directory);
 
-        if (max_use <= 0 && max_retention_usec <= 0 && n_max_files <= 0)
+        if (max_use == 0 && max_retention_usec == 0 && n_max_files == 0)
                 return 0;
 
         if (max_retention_usec > 0)
@@ -287,8 +287,8 @@ int journal_directory_vacuum(
                 left = n_active_files + n_list - i;
 
                 if ((max_retention_usec <= 0 || list[i].realtime >= retention_limit) &&
-                    (max_use <= 0 || sum <= max_use) &&
-                    (n_max_files <= 0 || left <= n_max_files))
+                    (max_use == 0 || sum <= max_use) &&
+                    (n_max_files == 0 || left <= n_max_files))
                         break;
 
                 r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);

@@ -41,7 +41,7 @@ int config_parse_can_bitrate(
         }
 
         /* Linux uses __u32 for bitrates, so the value should not exceed that. */
-        if (sz <= 0 || sz > UINT32_MAX) {
+        if (sz == 0 || sz > UINT32_MAX) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Bit rate out of permitted range 1...4294967295");
                 return 0;

@@ -141,7 +141,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        if (c <= 0) {
+        if (c == 0) {
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
@@ -293,7 +293,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        if (c <= 0) {
+        if (c == 0) {
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }

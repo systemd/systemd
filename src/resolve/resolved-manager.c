@@ -1066,10 +1066,10 @@ uint32_t manager_find_mtu(Manager *m) {
          * interfaces we know of */
 
         HASHMAP_FOREACH(l, m->links, i) {
-                if (l->mtu <= 0)
+                if (l->mtu == 0)
                         continue;
 
-                if (mtu <= 0 || l->mtu < mtu)
+                if (mtu == 0 || l->mtu < mtu)
                         mtu = l->mtu;
         }
 
@@ -1126,7 +1126,7 @@ static int manager_next_random_name(const char *old, char **ret_new) {
                 p--;
         }
 
-        if (*p == 0 || safe_atou64(p, &u) < 0 || u <= 0)
+        if (*p == 0 || safe_atou64(p, &u) < 0 || u == 0)
                 u = 1;
 
         /* Add a random number to the old value. This way we can avoid

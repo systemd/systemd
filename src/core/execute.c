@@ -97,7 +97,7 @@
 static int shift_fds(int fds[], size_t n_fds) {
         int start, restart_from;
 
-        if (n_fds <= 0)
+        if (n_fds == 0)
                 return 0;
 
         /* Modifies the fds array! (sorts it) */
@@ -144,7 +144,7 @@ static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds,
         int r;
 
         n_fds = n_socket_fds + n_storage_fds;
-        if (n_fds <= 0)
+        if (n_fds == 0)
                 return 0;
 
         assert(fds);
@@ -2430,7 +2430,7 @@ static int compile_bind_mounts(
                 n += strv_length(context->directories[t].paths);
         }
 
-        if (n <= 0) {
+        if (n == 0) {
                 *ret_bind_mounts = NULL;
                 *ret_n_bind_mounts = 0;
                 *ret_empty_directories = NULL;
@@ -3533,9 +3533,6 @@ static int exec_child(
 #if HAVE_APPARMOR
                 use_apparmor = mac_apparmor_use();
 #endif
-        }
-
-        if (needs_sandboxing) {
                 int which_failed;
 
                 /* Let's set the resource limits before we call into PAM, so that pam_limits wins over what
@@ -4045,7 +4042,7 @@ int exec_spawn(Unit *unit,
         assert(context);
         assert(ret);
         assert(params);
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds == 0));
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||

@@ -264,12 +264,12 @@ _public_ int sd_bus_track_remove_name(sd_bus_track *track, const char *name) {
         i = hashmap_get(track->names, name);
         if (!i)
                 return -EUNATCH;
-        if (i->n_ref <= 0)
+        if (i->n_ref == 0)
                 return -EUNATCH;
 
         i->n_ref--;
 
-        if (i->n_ref <= 0)
+        if (i->n_ref == 0)
                 return bus_track_remove_name_fully(track, name);
 
         return 1;

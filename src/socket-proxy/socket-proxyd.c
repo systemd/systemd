@@ -240,11 +240,11 @@ static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
                 goto quit;
 
         /* Server closed, and all data written to client? */
-        if (c->server_fd == -1 && c->server_to_client_buffer_full <= 0)
+        if (c->server_fd == -1 && c->server_to_client_buffer_full == 0)
                 goto quit;
 
         /* Client closed, and all data written to server? */
-        if (c->client_fd == -1 && c->client_to_server_buffer_full <= 0)
+        if (c->client_fd == -1 && c->client_to_server_buffer_full == 0)
                 goto quit;
 
         r = connection_enable_event_sources(c);

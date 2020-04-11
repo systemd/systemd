@@ -1927,7 +1927,7 @@ static int context_discard_range(Context *context, uint64_t offset, uint64_t siz
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        if (size <= 0)
+        if (size == 0)
                 return 0;
 
         assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
@@ -1956,7 +1956,7 @@ static int context_discard_range(Context *context, uint64_t offset, uint64_t siz
                         return 0;
 
                 range[1] = round_down_size(end - range[0], 512);
-                if (range[1] <= 0)
+                if (range[1] == 0)
                         return 0;
 
                 if (ioctl(fd, BLKDISCARD, range) < 0) {

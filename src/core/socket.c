@@ -444,7 +444,7 @@ static int socket_verify(Socket *s) {
                 return -ENOEXEC;
         }
 
-        if (s->accept && s->max_connections <= 0) {
+        if (s->accept && s->max_connections == 0) {
                 log_unit_error(UNIT(s), "MaxConnection= setting too small. Refusing.");
                 return -ENOEXEC;
         }
@@ -3211,7 +3211,7 @@ int socket_collect_fds(Socket *s, int **fds) {
                 n += p->n_auxiliary_fds;
         }
 
-        if (n <= 0) {
+        if (n == 0) {
                 *fds = NULL;
                 return 0;
         }

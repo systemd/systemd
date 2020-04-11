@@ -733,7 +733,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
                                 return r;
                 }
 
-                if (!arg_field && n_found <= 0) {
+                if (!arg_field && n_found == 0) {
                         if (!arg_quiet)
                                 log_notice("No coredumps found.");
                         return -ESRCH;

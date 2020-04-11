@@ -562,7 +562,7 @@ static int varlink_parse_message(Varlink *v) {
 
         if (v->current)
                 return 0;
-        if (v->input_buffer_unscanned <= 0)
+        if (v->input_buffer_unscanned == 0)
                 return 0;
 
         assert(v->input_buffer_unscanned <= v->input_buffer_size);
@@ -1082,7 +1082,7 @@ int varlink_get_events(Varlink *v) {
         if (!v->read_disconnected &&
             IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING, VARLINK_IDLE_SERVER) &&
             !v->current &&
-            v->input_buffer_unscanned <= 0)
+            v->input_buffer_unscanned == 0)
                 ret |= EPOLLIN;
 
         if (!v->write_disconnected &&

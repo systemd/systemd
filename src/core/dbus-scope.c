@@ -122,7 +122,7 @@ static int bus_scope_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (n <= 0)
+                if (n == 0)
                         return -EINVAL;
 
                 return 1;

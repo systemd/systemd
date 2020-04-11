@@ -242,7 +242,7 @@ static int server_process_entry(
                 }
         }
 
-        if (n <= 0)
+        if (n == 0)
                 goto finish;
 
         tn = n++;

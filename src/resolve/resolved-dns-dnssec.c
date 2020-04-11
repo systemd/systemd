@@ -210,7 +210,7 @@ static int dnssec_rsa_verify(
                 exponent = (uint8_t*) dnskey->dnskey.key + 1;
                 exponent_size = (size_t) ((uint8_t*) dnskey->dnskey.key)[0];
 
-                if (exponent_size <= 0)
+                if (exponent_size == 0)
                         return -EINVAL;
 
                 if (1 + exponent_size >= dnskey->dnskey.key_size)
@@ -742,7 +742,7 @@ int dnssec_verify_rrset(
                         return -E2BIG;
         }
 
-        if (n <= 0)
+        if (n == 0)
                 return -ENODATA;
 
         /* Bring the RRs into canonical order */
@@ -943,7 +943,7 @@ int dnssec_verify_rrset_search(
 
         /* Verifies all RRs from "a" that match the key "key" against DNSKEYs in "validated_dnskeys" */
 
-        if (!a || a->n_rrs <= 0)
+        if (!a || a->n_rrs == 0)
                 return -ENODATA;
 
         /* Iterate through each RRSIG RR. */

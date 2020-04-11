@@ -380,7 +380,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
-        if (option <= 0 || option >= UINT8_MAX)
+        if (option == 0 || option >= UINT8_MAX)
                 return -EINVAL;
 
         for (t = 0; t < client->req_opts_len; t++)

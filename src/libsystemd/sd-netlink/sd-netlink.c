@@ -261,7 +261,7 @@ static int dispatch_rqueue(sd_netlink *rtnl, sd_netlink_message **message) {
         assert(rtnl);
         assert(message);
 
-        if (rtnl->rqueue_size <= 0) {
+        if (rtnl->rqueue_size == 0) {
                 /* Try to read a new message */
                 r = socket_read_message(rtnl);
                 if (r == -ENOBUFS) { /* FIXME: ignore buffer overruns for now */

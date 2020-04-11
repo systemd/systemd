@@ -175,7 +175,7 @@ static int raw_export_process(RawExport *e) {
                 }
         }
 
-        while (e->buffer_size <= 0) {
+        while (e->buffer_size == 0) {
                 uint8_t input[COPY_BUFFER_SIZE];
 
                 if (e->eof) {

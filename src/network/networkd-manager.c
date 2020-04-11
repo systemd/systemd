@@ -323,7 +323,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         } else if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
+        } else if (ifindex == 0) {
                 log_warning("rtnl: received route message with invalid ifindex %d, ignoring.", ifindex);
                 return 0;
         }

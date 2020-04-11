@@ -450,7 +450,7 @@ int efi_get_boot_order(uint16_t **order) {
         if (r < 0)
                 return r;
 
-        if (l <= 0)
+        if (l == 0)
                 return -ENOENT;
 
         if (l % sizeof(uint16_t) > 0 ||

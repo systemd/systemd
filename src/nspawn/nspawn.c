@@ -3609,7 +3609,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                 char lock_path[STRLEN("/run/systemd/nspawn-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
                 _cleanup_(release_lock_file) LockFile lf = LOCK_FILE_INIT;
 
-                if (--n_tries <= 0)
+                if (--n_tries == 0)
                         return -EBUSY;
 
                 if (candidate < CONTAINER_UID_BASE_MIN || candidate > CONTAINER_UID_BASE_MAX)

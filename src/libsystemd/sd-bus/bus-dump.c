@@ -580,7 +580,7 @@ int bus_message_pcap_frame(sd_bus_message *m, size_t snaplen, FILE *f) {
 
         /* write the dbus body */
         MESSAGE_FOREACH_PART(part, i, m) {
-                if (snaplen <= 0)
+                if (snaplen == 0)
                         break;
 
                 w = MIN(part->size, snaplen);

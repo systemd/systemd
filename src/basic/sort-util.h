@@ -21,7 +21,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
  */
 static inline void* bsearch_safe(const void *key, const void *base,
                                  size_t nmemb, size_t size, __compar_fn_t compar) {
-        if (nmemb <= 0)
+        if (nmemb == 0)
                 return NULL;
 
         assert(base);

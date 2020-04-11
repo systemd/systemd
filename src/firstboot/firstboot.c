@@ -189,7 +189,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 
                 r = safe_atou(p, &u);
                 if (r >= 0) {
-                        if (u <= 0 || u > strv_length(l)) {
+                        if (u == 0 || u > strv_length(l)) {
                                 log_error("Specified entry number out of range.");
                                 continue;
                         }

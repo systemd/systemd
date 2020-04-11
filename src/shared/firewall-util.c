@@ -186,10 +186,10 @@ int fw_add_local_dnat(
         if (!IN_SET(protocol, IPPROTO_TCP, IPPROTO_UDP))
                 return -EOPNOTSUPP;
 
-        if (local_port <= 0)
+        if (local_port == 0)
                 return -EINVAL;
 
-        if (remote_port <= 0)
+        if (remote_port == 0)
                 return -EINVAL;
 
         h = iptc_init("nat");

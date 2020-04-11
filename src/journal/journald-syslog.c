@@ -146,7 +146,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
         t = tv ? tv->tv_sec : ((time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC));
         if (!localtime_r(&t, &tm))
                 return;
-        if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
+        if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) == 0)
                 return;
         iovec[n++] = IOVEC_MAKE_STRING(header_time);
 
@@ -196,7 +196,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         p += strspn(p, WHITESPACE);
         l = strcspn(p, WHITESPACE);
 
-        if (l <= 0 ||
+        if (l == 0 ||
             p[l-1] != ':')
                 return 0;
 
@@ -512,7 +512,7 @@ void server_maybe_warn_forward_syslog_missed(Server *s) {
 
         assert(s);
 
-        if (s->n_forward_syslog_missed <= 0)
+        if (s->n_forward_syslog_missed == 0)
                 return;
 
         n = now(CLOCK_MONOTONIC);

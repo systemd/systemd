@@ -487,7 +487,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "ip6tnl without mode configured in %s. Ignoring", filename);
 
-        if (t->fou_tunnel && t->fou_destination_port <= 0)
+        if (t->fou_tunnel && t->fou_destination_port == 0)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "FooOverUDP missing port configured in %s. Ignoring", filename);
 

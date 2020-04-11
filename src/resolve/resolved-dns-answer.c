@@ -318,12 +318,12 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
 
         assert(ret);
 
-        if (dns_answer_size(a) <= 0) {
+        if (dns_answer_size(a) == 0) {
                 *ret = dns_answer_ref(b);
                 return 0;
         }
 
-        if (dns_answer_size(b) <= 0) {
+        if (dns_answer_size(b) == 0) {
                 *ret = dns_answer_ref(a);
                 return 0;
         }
@@ -614,7 +614,7 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
 
         assert(a);
 
-        if (n_free <= 0)
+        if (n_free == 0)
                 return 0;
 
         if (*a) {

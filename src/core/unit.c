@@ -4559,7 +4559,7 @@ ExecContext *unit_get_exec_context(Unit *u) {
                 return NULL;
 
         offset = UNIT_VTABLE(u)->exec_context_offset;
-        if (offset <= 0)
+        if (offset == 0)
                 return NULL;
 
         return (ExecContext*) ((uint8_t*) u + offset);
@@ -4573,7 +4573,7 @@ KillContext *unit_get_kill_context(Unit *u) {
                 return NULL;
 
         offset = UNIT_VTABLE(u)->kill_context_offset;
-        if (offset <= 0)
+        if (offset == 0)
                 return NULL;
 
         return (KillContext*) ((uint8_t*) u + offset);
@@ -4586,7 +4586,7 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
                 return NULL;
 
         offset = UNIT_VTABLE(u)->cgroup_context_offset;
-        if (offset <= 0)
+        if (offset == 0)
                 return NULL;
 
         return (CGroupContext*) ((uint8_t*) u + offset);
@@ -4599,7 +4599,7 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
                 return NULL;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
-        if (offset <= 0)
+        if (offset == 0)
                 return NULL;
 
         return *(ExecRuntime**) ((uint8_t*) u + offset);
@@ -5642,7 +5642,7 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         if (u->exported_log_extra_fields)
                 return 0;
 
-        if (c->n_log_extra_fields <= 0)
+        if (c->n_log_extra_fields == 0)
                 return 0;
 
         sizes = newa(le64_t, c->n_log_extra_fields);

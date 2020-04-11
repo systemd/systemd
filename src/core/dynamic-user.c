@@ -214,7 +214,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 uid_t candidate;
                 ssize_t l;
 
-                if (--n_tries <= 0) /* Give up retrying eventually */
+                if (--n_tries == 0) /* Give up retrying eventually */
                         return -EBUSY;
 
                 switch (phase) {

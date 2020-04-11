@@ -365,14 +365,14 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 case OUTPUT_SHORT_ISO:
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO time");
                         break;
 
                 case OUTPUT_SHORT_ISO_PRECISE:
                         /* No usec in strftime, so we leave space and copy over */
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO-precise time");
                         xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
@@ -382,7 +382,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 case OUTPUT_SHORT:
                 case OUTPUT_SHORT_PRECISE:
 
-                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format syslog time");
 
@@ -1219,7 +1219,7 @@ int show_journal_entry(
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        if (n_columns <= 0)
+        if (n_columns == 0)
                 n_columns = columns();
 
         r = set_put_strdupv(&fields, output_fields);
@@ -1576,7 +1576,7 @@ int show_journal_by_unit(
         assert(mode < _OUTPUT_MODE_MAX);
         assert(unit);
 
-        if (how_many <= 0)
+        if (how_many == 0)
                 return 0;
 
         r = sd_journal_open_namespace(&j, log_namespace, journal_open_flags | SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE);

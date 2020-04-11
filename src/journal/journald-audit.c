@@ -330,7 +330,7 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
 
         assert(s);
 
-        if (size <= 0)
+        if (size == 0)
                 return;
 
         if (!data)

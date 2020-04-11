@@ -862,7 +862,7 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         unsigned i;
         int r;
 
-        if (n_components <= 0)
+        if (n_components == 0)
                 return strdup("");
 
         assert(components);
@@ -1068,7 +1068,7 @@ enum bus_match_scope bus_match_get_scope(const struct bus_match_component *compo
         bool found_driver = false;
         unsigned i;
 
-        if (n_components <= 0)
+        if (n_components == 0)
                 return BUS_MATCH_GENERIC;
 
         assert(components);

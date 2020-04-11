@@ -157,7 +157,7 @@ void dns_cache_flush(DnsCache *c) {
 static void dns_cache_make_space(DnsCache *c, unsigned add) {
         assert(c);
 
-        if (add <= 0)
+        if (add == 0)
                 return;
 
         /* Makes space for n new entries. Note that we actually allow
@@ -169,7 +169,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
 
-                if (prioq_size(c->by_expiry) <= 0)
+                if (prioq_size(c->by_expiry) == 0)
                         break;
 
                 if (prioq_size(c->by_expiry) + add < CACHE_MAX)
@@ -405,7 +405,7 @@ static int dns_cache_put_positive(
                 return 0;
 
         /* New TTL is 0? Delete this specific entry... */
-        if (rr->ttl <= 0) {
+        if (rr->ttl == 0) {
                 k = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
                           k > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
@@ -507,7 +507,7 @@ static int dns_cache_put_negative(
                         return 0;
 
                 /* For negative replies, check if we have a TTL of a SOA */
-                if (nsec_ttl <= 0 || soa->soa.minimum <= 0 || soa->ttl <= 0) {
+                if (nsec_ttl == 0 || soa->soa.minimum == 0 || soa->ttl == 0) {
                         log_debug("Not caching negative entry with zero SOA/NSEC/NSEC3 TTL: %s",
                                   dns_resource_key_to_string(key, key_str, sizeof key_str));
                         return 0;
@@ -648,7 +648,7 @@ int dns_cache_put(
          * short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
-                if (dns_answer_size(answer) <= 0) {
+                if (dns_answer_size(answer) == 0) {
                         if (key) {
                                 char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
@@ -932,7 +932,7 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
                   nxdomain ? "NXDOMAIN" : "NODATA",
                   dns_resource_key_to_string(key, key_str, sizeof key_str));
 
-        if (n <= 0) {
+        if (n == 0) {
                 c->n_hit++;
 
                 *ret = NULL;

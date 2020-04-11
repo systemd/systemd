@@ -56,7 +56,7 @@ int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
         assert_return(lease, -EINVAL);
         assert_return(lifetime, -EINVAL);
 
-        if (lease->lifetime <= 0)
+        if (lease->lifetime == 0)
                 return -ENODATA;
 
         *lifetime = lease->lifetime;
@@ -67,7 +67,7 @@ int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint32_t *t1) {
         assert_return(lease, -EINVAL);
         assert_return(t1, -EINVAL);
 
-        if (lease->t1 <= 0)
+        if (lease->t1 == 0)
                 return -ENODATA;
 
         *t1 = lease->t1;
@@ -78,7 +78,7 @@ int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint32_t *t2) {
         assert_return(lease, -EINVAL);
         assert_return(t2, -EINVAL);
 
-        if (lease->t2 <= 0)
+        if (lease->t2 == 0)
                 return -ENODATA;
 
         *t2 = lease->t2;
@@ -89,7 +89,7 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);
         assert_return(mtu, -EINVAL);
 
-        if (lease->mtu <= 0)
+        if (lease->mtu == 0)
                 return -ENODATA;
 
         *mtu = lease->mtu;
@@ -106,7 +106,7 @@ int sd_dhcp_lease_get_servers(
         assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (lease->servers[what].size <= 0)
+        if (lease->servers[what].size == 0)
                 return -ENODATA;
 
         *addr = lease->servers[what].addr;
@@ -169,7 +169,7 @@ int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) 
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (lease->router_size <= 0)
+        if (lease->router_size == 0)
                 return -ENODATA;
 
         *addr = lease->router;
@@ -220,7 +220,7 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
         assert_return(lease, -EINVAL);
         assert_return(routes, -EINVAL);
 
-        if (lease->static_route_size <= 0)
+        if (lease->static_route_size == 0)
                 return -ENODATA;
 
         ret = new(sd_dhcp_route *, lease->static_route_size);
@@ -254,7 +254,7 @@ int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, s
         assert_return(data, -EINVAL);
         assert_return(data_len, -EINVAL);
 
-        if (lease->vendor_specific_len <= 0)
+        if (lease->vendor_specific_len == 0)
                 return -ENODATA;
 
         *data = lease->vendor_specific;
@@ -335,7 +335,7 @@ static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
         assert(option);
         assert(ret);
 
-        if (len <= 0)
+        if (len == 0)
                 *ret = mfree(*ret);
         else {
                 char *string;
@@ -392,7 +392,7 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
         assert(ret);
         assert(n_ret);
 
-        if (len <= 0) {
+        if (len == 0) {
                 *ret = mfree(*ret);
                 *n_ret = 0;
         } else {
@@ -421,7 +421,7 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
         assert(ret);
         assert(n_ret);
 
-        if (len <= 0)
+        if (len == 0)
                 return -EINVAL;
 
         /* The SIP record is like the other, regular server records, but prefixed with a single "encoding"
@@ -443,12 +443,12 @@ static int lease_parse_routes(
 
         struct in_addr addr;
 
-        assert(option || len <= 0);
+        assert(option || len == 0);
         assert(routes);
         assert(routes_size);
         assert(routes_allocated);
 
-        if (len <= 0)
+        if (len == 0)
                 return 0;
 
         if (len % 8 != 0)
@@ -487,12 +487,12 @@ static int lease_parse_classless_routes(
                 const uint8_t *option, size_t len,
                 struct sd_dhcp_route **routes, size_t *routes_size, size_t *routes_allocated) {
 
-        assert(option || len <= 0);
+        assert(option || len == 0);
         assert(routes);
         assert(routes_size);
         assert(routes_allocated);
 
-        if (len <= 0)
+        if (len == 0)
                 return 0;
 
         /* option format: (subnet-mask-width significant-subnet-octets gateway-ip)*  */
@@ -704,7 +704,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
         case SD_DHCP_OPTION_VENDOR_SPECIFIC:
 
-                if (len <= 0)
+                if (len == 0)
                         lease->vendor_specific = mfree(lease->vendor_specific);
                 else {
                         void *p;
@@ -1342,7 +1342,7 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
         assert_return(lease, -EINVAL);
         assert_return(client_id || client_id_len <= 0, -EINVAL);
 
-        if (client_id_len <= 0)
+        if (client_id_len == 0)
                 lease->client_id = mfree(lease->client_id);
         else {
                 void *p;

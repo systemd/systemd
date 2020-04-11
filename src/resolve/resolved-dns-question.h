@@ -40,7 +40,7 @@ static inline size_t dns_question_size(DnsQuestion *q) {
 }
 
 static inline bool dns_question_isempty(DnsQuestion *q) {
-        return dns_question_size(q) <= 0;
+        return dns_question_size(q) == 0;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);

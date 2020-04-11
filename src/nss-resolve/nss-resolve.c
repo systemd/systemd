@@ -552,7 +552,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        if (c <= 0)
+        if (c == 0)
                 goto not_found;
 
         ms += ALIGN(len) +              /* the address */

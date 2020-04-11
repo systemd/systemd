@@ -1279,7 +1279,7 @@ static int oci_cgroup_cpu_quota(const char *name, JsonVariant *v, JsonDispatchFl
         assert(u);
 
         k = json_variant_unsigned(v);
-        if (k <= 0 || k >= UINT64_MAX)
+        if (k == 0 || k >= UINT64_MAX)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "period/quota value out of range.");
 

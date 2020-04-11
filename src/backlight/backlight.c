@@ -224,7 +224,7 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
 
-        if (max_brightness <= 0) {
+        if (max_brightness == 0) {
                 log_device_warning(device, "Maximum brightness is 0, ignoring device.");
                 return -EINVAL;
         }

@@ -558,7 +558,7 @@ static int manager_acquire_uid(
                 uid_t candidate;
                 Home *other;
 
-                if (--n_tries <= 0)
+                if (--n_tries == 0)
                         return -EBUSY;
 
                 switch (phase) {

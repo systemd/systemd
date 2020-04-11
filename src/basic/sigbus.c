@@ -127,7 +127,7 @@ void sigbus_install(void) {
 
 void sigbus_reset(void) {
 
-        if (n_installed <= 0)
+        if (n_installed == 0)
                 return;
 
         n_installed--;

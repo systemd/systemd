@@ -152,7 +152,7 @@ bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
                 l = strlen(p);
 
         /* No empty field names */
-        if (l <= 0)
+        if (l == 0)
                 return false;
 
         /* Don't allow names longer than 64 chars */

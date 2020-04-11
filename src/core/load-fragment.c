@@ -3383,8 +3383,8 @@ int config_parse_memory_limit(
                 } else
                         bytes = physical_memory_scale(r, 1000U);
 
-                if (bytes >= UINT64_MAX ||
-                    (bytes <= 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
+                if (bytes == UINT64_MAX ||
+                    (bytes == 0 && !STR_IN_SET(lvalue, "MemorySwapMax", "MemoryLow", "MemoryMin", "DefaultMemoryLow", "DefaultMemoryMin"))) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3459,7 +3459,7 @@ int config_parse_tasks_max(
                         return 0;
                 }
 
-                if (v <= 0 || v >= UINT64_MAX) {
+                if (v == 0 || v == UINT64_MAX) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range, ignoring.", rvalue);
                         return 0;
                 }
@@ -3819,7 +3819,7 @@ int config_parse_io_limit(
                 num = CGROUP_LIMIT_MAX;
         else {
                 r = parse_size(p, 1000, &num);
-                if (r < 0 || num <= 0) {
+                if (r < 0 || num == 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid IO limit '%s', ignoring.", p);
                         return 0;
                 }
@@ -3985,7 +3985,7 @@ int config_parse_blockio_bandwidth(
                 return 0;
 
         r = parse_size(p, 1000, &bytes);
-        if (r < 0 || bytes <= 0) {
+        if (r < 0 || bytes == 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid Block IO Bandwidth '%s', ignoring.", p);
                 return 0;
         }

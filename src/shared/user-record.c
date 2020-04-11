@@ -560,7 +560,7 @@ static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *vari
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a integer.", strna(name));
 
         k = json_variant_unsigned(variant);
-        if (k <= 0 || k >= UINT64_MAX)
+        if (k == 0 || k >= UINT64_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' is not in valid range %" PRIu64 "…%" PRIu64 ".", strna(name), (uint64_t) 1, UINT64_MAX-1);
 
         *limit = k;
@@ -1853,7 +1853,7 @@ int user_record_test_password_change_required(UserRecord *h) {
                 if (h->last_password_change_usec == UINT64_MAX)
                         return -ENETDOWN;
 
-                if (h->password_change_min_usec >= UINT64_MAX - h->last_password_change_usec)
+                if (h->password_change_min_usec == UINT64_MAX - h->last_password_change_usec)
                         change_permitted = false;
                 else
                         change_permitted = n >= h->last_password_change_usec + h->password_change_min_usec;
@@ -1863,7 +1863,7 @@ int user_record_test_password_change_required(UserRecord *h) {
 
         /* Let's check whether the password has expired.  */
         if (!(h->password_change_max_usec == UINT64_MAX ||
-              h->password_change_max_usec >= UINT64_MAX - h->last_password_change_usec)) {
+              h->password_change_max_usec == UINT64_MAX - h->last_password_change_usec)) {
 
                 uint64_t change_before;
 

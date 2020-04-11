@@ -377,7 +377,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                 }
         }
 
-        if (n_answer <= 0 && !need_soa)
+        if (n_answer == 0 && !need_soa)
                 goto return_empty;
 
         if (n_answer > 0) {

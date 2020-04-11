@@ -584,7 +584,7 @@ static int verify_hash_table(
         assert(last_usec);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
-        if (n <= 0)
+        if (n == 0)
                 return 0;
 
         r = journal_file_map_data_hash_table(f);
@@ -645,7 +645,7 @@ static int data_object_in_hash_table(JournalFile *f, uint64_t hash, uint64_t p) 
         assert(f);
 
         n = le64toh(f->header->data_hash_table_size) / sizeof(HashItem);
-        if (n <= 0)
+        if (n == 0)
                 return 0;
 
         r = journal_file_map_data_hash_table(f);
@@ -959,7 +959,7 @@ int journal_file_verify(
                         break;
 
                 case OBJECT_ENTRY:
-                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags <= 0) {
+                        if (JOURNAL_HEADER_SEALED(f->header) && n_tags == 0) {
                                 error(p, "First entry before first tag");
                                 r = -EBADMSG;
                                 goto fail;

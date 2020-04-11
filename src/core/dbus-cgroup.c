@@ -687,7 +687,7 @@ static int bus_cgroup_set_boolean(
                         return r;                                       \
                                                                         \
                 v = scale(raw, UINT32_MAX);                             \
-                if (v < minimum || v >= UINT64_MAX)                     \
+                if (v < minimum || v == UINT64_MAX)                     \
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
                                                  "Value specified in %s is out of range", name); \
                                                                         \
@@ -770,7 +770,7 @@ static int bus_cgroup_set_tasks_max_scale(
         if (r < 0)
                 return r;
 
-        if (v < 1 || v >= UINT32_MAX)
+        if (v == 0 || v == UINT32_MAX)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Value specified in %s is out of range", name);
 
@@ -936,7 +936,7 @@ int bus_cgroup_set_property(
                 if (r < 0)
                         return r;
 
-                if (u64 <= 0)
+                if (u64 == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "CPUQuotaPerSecUSec= value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

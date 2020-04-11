@@ -448,12 +448,7 @@ int bpf_devices_whitelist_major(
                 if (r == 0)
                         break;
 
-                if (type == 'c' && streq(line, "Character devices:")) {
-                        good = true;
-                        continue;
-                }
-
-                if (type == 'b' && streq(line, "Block devices:")) {
+                if ((type == 'c' && streq(line, "Character devices:")) || (type == 'b' && streq(line, "Block devices:"))) {
                         good = true;
                         continue;
                 }
@@ -474,9 +469,7 @@ int bpf_devices_whitelist_major(
                 *w = 0;
 
                 r = safe_atou(p, &maj);
-                if (r < 0)
-                        continue;
-                if (maj <= 0)
+                if (r < 0 || maj == 0)
                         continue;
 
                 w++;
