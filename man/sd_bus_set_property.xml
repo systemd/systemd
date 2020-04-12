@@ -1,0 +1,176 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_set_property"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_set_property</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_set_property</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_set_property</refname>
+    <refname>sd_bus_set_propertyv</refname>
+    <refname>sd_bus_get_property</refname>
+    <refname>sd_bus_get_property_trivial</refname>
+    <refname>sd_bus_get_property_string</refname>
+    <refname>sd_bus_get_property_strv</refname>
+
+    <refpurpose>Set or query D-Bus service properties</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_property</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>const char *<parameter>type</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_propertyv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>const char *<parameter>type</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_property</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>reply</parameter></paramdef>
+        <paramdef>const char *<parameter>type</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_property_trivial</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>void *<parameter>ret_ptr</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_property_string</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>char **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_property_strv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+        <paramdef>char ***<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These functions set or query D-Bus properties. D-Bus properties are service fields exposed
+    via the <constant>org.freedesktop.DBus.Properties</constant> interface. Under the hood, these
+    functions call methods of the <constant>org.freedesktop.DBus.Properties</constant> interface and
+    as a result their semantics are similar to
+    <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_set_property()</function> sets a D-Bus property. On success, the response
+    is stored in <parameter>reply</parameter>. If setting the property fails or an internal error
+    occurs, an error is returned and an extended description of the error is optionally stored in
+    <parameter>ret_error</parameter> if it is not <constant>NULL</constant>.
+    <parameter>type</parameter> and the arguments that follow it describe the new value of the
+    property and must follow the format described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_set_propertyv()</function> is equivalent to
+    <function>sd_bus_set_property()</function>, except that it is called with a
+    <literal>va_list</literal> instead of a variable number of arguments.</para>
+
+    <para><function>sd_bus_get_property()</function> queries a D-Bus property. If retrieving the
+    property fails or an internal error occurs, an error is returned and an extended description of
+    the error is optionally stored in <parameter>ret_error</parameter> if it is not
+    <constant>NULL</constant>. On success, the property is stored in <parameter>reply</parameter>.
+    <parameter>type</parameter> describes the property type and must follow the format described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_get_property_trivial()</function>,
+    <function>sd_bus_get_property_string()</function> and
+    <function>sd_bus_get_property_strv()</function> are shorthands for
+    <function>sd_bus_get_property()</function> that are used to query basic, string and string
+    vector properties respectively. The caller is responsible for freeing the string and string
+    vector results stored in <parameter>ret</parameter> by
+    <function>sd_bus_get_property_string()</function> and
+    <function>sd_bus_get_property_strv()</function>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>See the
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      man page for a list of possible errors</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
