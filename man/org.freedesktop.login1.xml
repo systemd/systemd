@@ -235,161 +235,6 @@ node /org/freedesktop/login1 {
 };
     </programlisting>
 
-    <!--method Halt is not documented!-->
-
-    <!--method SuspendThenHibernate is not documented!-->
-
-    <!--method CanHalt is not documented!-->
-
-    <!--method CanSuspendThenHibernate is not documented!-->
-
-    <!--method ScheduleShutdown is not documented!-->
-
-    <!--method CancelScheduledShutdown is not documented!-->
-
-    <!--method CanRebootParameter is not documented!-->
-
-    <!--method SetRebootParameter is not documented!-->
-
-    <!--method CanRebootToFirmwareSetup is not documented!-->
-
-    <!--method SetRebootToFirmwareSetup is not documented!-->
-
-    <!--method CanRebootToBootLoaderMenu is not documented!-->
-
-    <!--method SetRebootToBootLoaderMenu is not documented!-->
-
-    <!--method CanRebootToBootLoaderEntry is not documented!-->
-
-    <!--method SetRebootToBootLoaderEntry is not documented!-->
-
-    <!--method SetWallMessage is not documented!-->
-
-    <!--signal SessionNew is not documented!-->
-
-    <!--signal SessionRemoved is not documented!-->
-
-    <!--signal UserNew is not documented!-->
-
-    <!--signal UserRemoved is not documented!-->
-
-    <!--signal SeatNew is not documented!-->
-
-    <!--signal SeatRemoved is not documented!-->
-
-    <!--property EnableWallMessages is not documented!-->
-
-    <!--property WallMessage is not documented!-->
-
-    <!--property NAutoVTs is not documented!-->
-
-    <!--property KillOnlyUsers is not documented!-->
-
-    <!--property KillExcludeUsers is not documented!-->
-
-    <!--property KillUserProcesses is not documented!-->
-
-    <!--property RebootParameter is not documented!-->
-
-    <!--property RebootToFirmwareSetup is not documented!-->
-
-    <!--property RebootToBootLoaderMenu is not documented!-->
-
-    <!--property RebootToBootLoaderEntry is not documented!-->
-
-    <!--property BootLoaderEntries is not documented!-->
-
-    <!--property BlockInhibited is not documented!-->
-
-    <!--property DelayInhibited is not documented!-->
-
-    <!--property InhibitDelayMaxUSec is not documented!-->
-
-    <!--property UserStopDelayUSec is not documented!-->
-
-    <!--property HandlePowerKey is not documented!-->
-
-    <!--property HandleSuspendKey is not documented!-->
-
-    <!--property HandleHibernateKey is not documented!-->
-
-    <!--property HandleLidSwitch is not documented!-->
-
-    <!--property HandleLidSwitchExternalPower is not documented!-->
-
-    <!--property HandleLidSwitchDocked is not documented!-->
-
-    <!--property HoldoffTimeoutUSec is not documented!-->
-
-    <!--property IdleAction is not documented!-->
-
-    <!--property IdleActionUSec is not documented!-->
-
-    <!--property PreparingForShutdown is not documented!-->
-
-    <!--property PreparingForSleep is not documented!-->
-
-    <!--property ScheduledShutdown is not documented!-->
-
-    <!--property Docked is not documented!-->
-
-    <!--property LidClosed is not documented!-->
-
-    <!--property OnExternalPower is not documented!-->
-
-    <!--property RemoveIPC is not documented!-->
-
-    <!--property RuntimeDirectorySize is not documented!-->
-
-    <!--property InhibitorsMax is not documented!-->
-
-    <!--property NCurrentInhibitors is not documented!-->
-
-    <!--property SessionsMax is not documented!-->
-
-    <!--property NCurrentSessions is not documented!-->
-
-    <refsect2>
-      <title>Security</title>
-
-      <para>A number of operations are protected via the PolicyKit privilege
-      system. <function>SetUserLinger()</function> requires the
-      <interfacename>org.freedesktop.login1.set-user-linger</interfacename>
-      privilege. <function>AttachDevice()</function> requires
-      <interfacename>org.freedesktop.login1.attach-device</interfacename> and
-      <function>FlushDevices()</function>
-      <interfacename>org.freedesktop.login1.flush-devices</interfacename>. <function>PowerOff()</function>,
-      <function>Reboot()</function>, <function>Suspend()</function>, <function>Hibernate()</function>,
-      <function>HybridSleep()</function> require
-      <interfacename>org.freedesktop.login1.power-off</interfacename>,
-      <interfacename>org.freedesktop.login1.power-off-multiple-sessions</interfacename>,
-      <interfacename>org.freedesktop.login1.power-off-ignore-inhibit</interfacename>,
-      <interfacename>org.freedesktop.login1.reboot</interfacename>,
-      <interfacename>org.freedesktop.login1.reboot-multiple-sessions</interfacename>,
-      <interfacename>org.freedesktop.login1.reboot-ignore-inhibit</interfacename>,
-      <interfacename>org.freedesktop.login1.suspend</interfacename>,
-      <interfacename>org.freedesktop.login1.suspend-multiple-sessions</interfacename>,
-      <interfacename>org.freedesktop.login1.suspend-ignore-inhibit</interfacename>,
-      <interfacename>org.freedesktop.login1.hibernate</interfacename>,
-      <interfacename>org.freedesktop.login1.hibernate-multiple-sessions</interfacename>,
-      respectively.
-      <interfacename>org.freedesktop.login1.hibernate-ignore-inhibit</interfacename>, depending whether
-      there are other sessions around or active inhibits. <function>Inhibit()</function> is protected via
-      either one of <interfacename>org.freedesktop.login1.inhibit-block-shutdown</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-delay-shutdown</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-block-sleep</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-delay-sleep</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-block-idle</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-handle-power-key</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-handle-suspend-key</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-handle-hibernate-key</interfacename>,
-      <interfacename>org.freedesktop.login1.inhibit-handle-lid-switch</interfacename> depending on the lock
-      type and mode taken.</para>
-
-      <para>The <varname>user_interaction</varname> boolean parameters can be used to control whether
-      PolicyKit should interactively ask the user for authentication credentials if it needs to.</para>
-    </refsect2>
-
     <refsect2>
       <title>Methods</title>
 
@@ -408,6 +253,10 @@ node /org/freedesktop/login1 {
 
       <para><function>ListSeats()</function> returns an array with all currently available seats. The
       structure in the array consists of the following fields: seat id, seat object path.</para>
+
+      <para><function>ListInhibitors()</function> lists all currently active inhibitors. Returns an array of
+      structures consisting of <varname>what</varname>, <varname>who</varname>, <varname>why</varname>,
+      <varname>mode</varname>, user ID <varname>uid</varname>, and process ID <varname>pid</varname>.</para>
 
       <para><function>CreateSession()</function> and <function>ReleaseSession()</function> may be used to
       open or close login sessions. These calls should <emphasis>never</emphasis> be invoked directly by
@@ -460,43 +309,77 @@ node /org/freedesktop/login1 {
       all assignments to the automatic defaults. The only argument this takes is the PolicyKit interactivity
       boolean (see above).</para>
 
-      <para><function>PowerOff()</function>, <function>Reboot()</function>, <function>Suspend()</function>,
-      <function>Hibernate()</function>, <function>HybridSleep()</function> results in the system being
-      powered off, rebooted, suspend, hibernated or hibernated+suspended. The only argument is the PolicyKit
-      interactivity boolean (see above). The main purpose of these calls is that they enforce PolicyKit
-      policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged users. They
-      also enforce inhibition locks. UIs should expose these calls as primary mechanism to
-      poweroff/reboot/suspend/hibernate/hybrid-sleep the machine.</para>
+      <para><function>PowerOff()</function>, <function>Reboot()</function>, <function>Halt()</function>,
+      <function>Suspend()</function>, <function>Hibernate()</function> result in the system being powered
+      off, rebooted, halted (shut down without turning off power), suspended (the store of the system is
+      saved to RAM and the CPU is turned off), or hibernated (the store of the system is saved to disk and
+      the machine is powered down). <function>HybridSleep()</function> results in the system entering a
+      hybrid-sleep mode, i.e. the system is both hibernated and suspended.
+      <function>SuspendThenHibernate()</function> results in the system being suspended, then later woken
+      using an RTC timer, and hibernated. The only argument is the PolicyKit interactivity boolean
+      <varname>interactive</varname> (see above). The main purpose of these calls is that they enforce
+      PolicyKit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
+      users. They also enforce inhibition locks. UIs should expose these calls as primary mechanism to
+      poweroff/reboot/suspend/hibernate the machine.</para>
+
+      <para><function>SetRebootParameter()</function> sets the parameter for the subsequent reboot operation.
+      See the description of <command>reboot</command> in
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+      <citerefentry project="man-pages"><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      for more information.</para>
+
+      <para><function>SetRebootToFirmwareSetup()</function>,
+      <function>SetRebootToBootLoaderMenu()</function>, and <function>SetRebootToBootLoaderEntry()</function>
+      configure the action to be taken from the boot loader after a reboot: respectively entering firmware
+      setup mode, or the boot loader menu, or a specific boot loader entry. See
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
+      command line interface.</para>
 
       <para><function>CanPowerOff()</function>, <function>CanReboot()</function>,
-      <function>CanSuspend()</function>, <function>CanHibernate()</function>,
-      <function>CanHybridSleep()</function> tests whether the system supports the respective operation and
-      whether the calling user is eligible for the desired operation. Returns one of <literal>na</literal>,
-      <literal>yes</literal>, <literal>no</literal> or <literal>challenge</literal>. If <literal>na</literal>
-      is returned the operation is not available because hardware, kernel or drivers do not support it. If
-      <literal>yes</literal> is returned the operation is supported and the user may execute the operation
-      without further authentication. If <literal>no</literal> is returned the operation is available but the
-      user is not allowed to execute the operation. If <literal>challenge</literal> is returned the operation
-      is available, but only after authorization.</para>
+      <function>CanHalt()</function>, <function>CanSuspend()</function>, <function>CanHibernate()</function>,
+      <function>CanHybridSleep()</function>, <function>CanSuspendThenHibernate()</function>,
+      <function>CanRebootParameter()</function>, <function>CanRebootToFirmwareSetup()</function>,
+      <function>CanRebootToBootLoaderMenu()</function>, and
+      <function>CanRebootToBootLoaderEntry()</function>, test whether the system supports the respective
+      operation and whether the calling user is allowed to request it. Returns one of <literal>na</literal>,
+      <literal>yes</literal>, <literal>no</literal>, and <literal>challenge</literal>. If
+      <literal>na</literal> is returned, the operation is not available because hardware, kernel, or drivers
+      do not support it. If <literal>yes</literal> is returned, the operation is supported and the user may
+      execute the operation without further authentication. If <literal>no</literal> is returned the
+      operation is available but the user is not allowed to execute the operation. If
+      <literal>challenge</literal> is returned the operation is available, but only after
+      authorization.</para>
+
+      <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
+      time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
+      of <literal>poweroff</literal>, <literal>dry-poweroff</literal>, <literal>reboot</literal>,
+      <literal>dry-reboot</literal>, <literal>halt</literal>, and <literal>dry-halt</literal>. (The
+      <literal>dry-</literal> variants do not actually execute the shutdown action.)
+      <function>CancelScheduledShutdown()</function> cancels a scheduled shutdown. The output parameter
+      <varname>cancelled</varname> is true if a shutdown operation was scheduled.</para>
+
+      <para><function>SetWallMessage()</function> sets the wall message (the message that will be sent out to
+      all terminals and stored in an
+      <citerefentry><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry> record) for a
+      subsequent scheduled shutdown operation. The parameter <varname>wall_message</varname> specifies the
+      shutdown reason (and may be empty) which will be included in the shutdown message. The parameter
+      <varname>enable</varname> specifies whether to print a wall message on shutdown.</para>
 
       <para><function>Inhibit()</function> creates an inhibition lock. It takes four parameters:
-      <varname>What</varname>, <varname>Who</varname>, <varname>Why</varname>, and
-      <varname>Mode</varname>. <varname>What</varname> is one or more of <literal>shutdown</literal>,
+      <varname>what</varname>, <varname>who</varname>, <varname>why</varname>, and
+      <varname>mode</varname>. <varname>what</varname> is one or more of <literal>shutdown</literal>,
       <literal>sleep</literal>, <literal>idle</literal>, <literal>handle-power-key</literal>,
       <literal>handle-suspend-key</literal>, <literal>handle-hibernate-key</literal>,
       <literal>handle-lid-switch</literal>, separated by colons, for inhibiting poweroff/reboot,
-      suspend/hibernate, the automatic idle logic, or hardware key handling. <varname>Who</varname> should be
-      a short human readable string identifying the application taking the lock. <varname>Why</varname>
+      suspend/hibernate, the automatic idle logic, or hardware key handling. <varname>who</varname> should be
+      a short human readable string identifying the application taking the lock. <varname>why</varname>
       should be a short human readable string identifying the reason why the lock is taken. Finally,
-      <varname>Mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
+      <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time. The call returns a file descriptor. The lock is released the moment this file
       descriptor (and all its duplicates) are closed. For more information on the inhibition logic see
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
-
-      <para><function>ListInhibitors()</function> lists all currently active inhibitors. Returns an array of
-      structures consisting of what, who, why, mode, user ID and process ID.</para>
     </refsect2>
 
     <refsect2>
@@ -505,9 +388,9 @@ node /org/freedesktop/login1 {
       <para>Whenever the inhibition state or idle hint changes daemon <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
 
-      <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
-      <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>,
-      <function>SeatRemoved()</function> signals are sent each time a session is created or removed, a user
+      <para>The <function>SessionNew</function>, <function>SessionRemoved</function>,
+      <function>UserNew</function>, <function>UserRemoved</function>, <function>SeatNew</function>,
+      <function>SeatRemoved</function> signals are sent each time a session is created or removed, a user
       logs in or out, or a seat is added or removed. They each contain the ID of the object plus the object
       path.</para>
 
@@ -525,26 +408,126 @@ node /org/freedesktop/login1 {
     <refsect2>
       <title>Properties</title>
 
-      <para>Most properties simply reflect the configuration stored in logind.conf. For more information,
-      see
-      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      <para>Most properties simply reflect the configuration, see
+      <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
+      includes: <varname>NAutoVTs</varname>, <varname>KillOnlyUsers</varname>,
+      <varname>KillExcludeUsers</varname>, <varname>KillUserProcesses</varname>, <varname>IdleAction</varname>,
+      <varname>InhibitDelayMaxUSec</varname>,
+      <varname>InhibitorsMax</varname>,
+      <varname>UserStopDelayUSec</varname>,
+      <varname>HandlePowerKey</varname>, <varname>HandleSuspendKey</varname>,
+      <varname>HandleHibernateKey</varname>, <varname>HandleLidSwitch</varname>,
+      <varname>HandleLidSwitchExternalPower</varname>, <varname>HandleLidSwitchDocked</varname>,
+      <varname>IdleActionUSec</varname>, <varname>HoldoffTimeoutUSec</varname>,
+      <varname>RemoveIPC</varname>, <varname>RuntimeDirectorySize</varname>,
+      <varname>InhibitorsMax</varname>, and <varname>SessionsMax</varname>.
       </para>
 
-      <para>The <function>IdleHint</function> property reflects the idle hint state of the system. If the
+      <para>The <varname>IdleHint</varname> property reflects the idle hint state of the system. If the
       system is idle it might get into automatic suspend or shutdown, depending on configuration.</para>
 
-      <para><function>IdleSinceHint</function> and <function>IdleSinceHintMonotonic</function> encode the
+      <para><varname>IdleSinceHint</varname> and <varname>IdleSinceHintMonotonic</varname> encode the
       timestamps of the last change of the idle hint boolean, in <constant>CLOCK_REALTIME</constant> and
       <constant>CLOCK_MONOTONIC</constant> timestamps, respectively, in microseconds since the epoch.</para>
 
-      <para>The <function>BlockInhibited</function> and <function>DelayInhibited</function> properties encode
+      <para>The <varname>BlockInhibited</varname> and <varname>DelayInhibited</varname> properties encode
       the currently active locks of the respective modes. They are colon separated lists of
       <literal>shutdown</literal>, <literal>sleep</literal>, <literal>idle</literal> (see above).</para>
 
-      <para>The <function>PreparingForShutdown</function> and <function>PreparingForSleep</function> boolean
+      <para><varname>NCurrentSessions</varname> and <varname>NCurrentInhibitors</varname> contain the number
+      of currently registered sessions and inhibitors.</para>
+
+      <para>The <varname>BootLoaderEntries</varname> property contains a list of boot loader entries.
+      This includes boot loader entries defined in configuration, and any additional loader entries
+      reported by the boot loader. See
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for more information.</para>
+
+      <para>The <varname>PreparingForShutdown</varname> and <varname>PreparingForSleep</varname> boolean
       properties are true between the time when the two <function>PrepareForShutdown</function> and
       <function>PrepareForSleep</function> signals are sent, respectively. Note that these properties do not
       send out <function>PropertyChanged</function> signals.</para>
+
+      <para>The <varname>RebootParameter</varname> property shows the value set with
+      <function>SetRebootParameter()</function> method described above.</para>
+
+      <para>The <varname>ScheduledShutdown</varname> shows the value pair set with
+      <function>ScheduleShutdown()</function> method described above.</para>
+
+      <para><varname>RebootToFirmwareSetup</varname>, <varname>RebootToBootLoaderMenu</varname>, and
+      <varname>RebootToBootLoaderEntry</varname> are true when the resprective post-reboot operation was
+      selected with <function>SetRebootToFirmwareSetup</function>,
+      <function>SetRebootToBootLoaderMenu</function>, or
+      <function>SetRebootToBootLoaderEntry</function>.</para>
+
+      <para><varname>WallMessage</varname> and <varname>EnableWallMessages</varname> properties reflect the
+      shutdown reasoson and wall message enablement switch which can be set with
+      <varname>SetWallMessage()</varname> method described above.</para>
+
+      <para><varname>Docked</varname> is true if the machine is connected to dock.
+      <varname>LidClosed</varname> is true when the lid (of a laptop) is closed.
+      <varname>OnExternalPower</varname> is true when the machine is connected to an external power supply.
+      </para>
+    </refsect2>
+
+    <refsect2>
+      <title>Security</title>
+
+      <para>A number of operations are protected via the PolicyKit privilege
+      system. <function>SetUserLinger()</function> requires the
+      <interfacename>org.freedesktop.login1.set-user-linger</interfacename>
+      privilege. <function>AttachDevice()</function> requires
+      <interfacename>org.freedesktop.login1.attach-device</interfacename> and
+      <function>FlushDevices()</function>
+      <interfacename>org.freedesktop.login1.flush-devices</interfacename>. <function>PowerOff()</function>,
+      <function>Reboot()</function>, <function>Halt()</function>, <function>Suspend()</function>,
+      <function>Hibernate()</function> require
+      <interfacename>org.freedesktop.login1.power-off</interfacename>,
+      <interfacename>org.freedesktop.login1.power-off-multiple-sessions</interfacename>,
+      <interfacename>org.freedesktop.login1.power-off-ignore-inhibit</interfacename>,
+      <interfacename>org.freedesktop.login1.reboot</interfacename>,
+      <interfacename>org.freedesktop.login1.reboot-multiple-sessions</interfacename>,
+      <interfacename>org.freedesktop.login1.reboot-ignore-inhibit</interfacename>,
+      <interfacename>org.freedesktop.login1.halt</interfacename>,
+      <interfacename>org.freedesktop.login1.halt-multiple-sessions</interfacename>,
+      <interfacename>org.freedesktop.login1.halt-ignore-inhibit</interfacename>,
+      <interfacename>org.freedesktop.login1.suspend</interfacename>,
+      <interfacename>org.freedesktop.login1.suspend-multiple-sessions</interfacename>,
+      <interfacename>org.freedesktop.login1.suspend-ignore-inhibit</interfacename>,
+      <interfacename>org.freedesktop.login1.hibernate</interfacename>,
+      <interfacename>org.freedesktop.login1.hibernate-multiple-sessions</interfacename>,
+      <interfacename>org.freedesktop.login1.hibernate-ignore-inhibit</interfacename>,
+      respectively, depending on whether there are other sessions around or active inhibits.
+      <function>HybridSleep()</function> and <function>SuspendThenHibernate()</function>
+      use the same privileges as <function>Hibernate()</function>.
+      <function>SetRebootParameter()</function> requires
+      <interfacename>org.freedesktop.login1.set-reboot-parameter</interfacename>.</para>
+
+      <para><function>SetRebootToFirmwareSetup</function> requires
+      <interfacename>org.freedesktop.login1.set-reboot-to-firmware-setup</interfacename>.
+      <function>SetRebootToBootLoaderMenu</function> requires
+      <interfacename>org.freedesktop.login1.set-reboot-to-boot-loader-menu</interfacename>.
+      <function>SetRebootToBootLoaderEntry</function> requires
+      <interfacename>org.freedesktop.login1.set-reboot-to-boot-loader-entry</interfacename>.
+      </para>
+
+      <para><function>ScheduleShutdown</function> and <function>CancelScheduledShutdown</function> require
+      the same privileges (listed above) as the immediate poweroff/reboot/halt operations.</para>
+
+      <para><function>Inhibit()</function> is protected via either one of
+      <interfacename>org.freedesktop.login1.inhibit-block-shutdown</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-delay-shutdown</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-block-sleep</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-delay-sleep</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-block-idle</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-handle-power-key</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-handle-suspend-key</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-handle-hibernate-key</interfacename>,
+      <interfacename>org.freedesktop.login1.inhibit-handle-lid-switch</interfacename> depending on the lock
+      type and mode taken.</para>
+
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
+      should interactively ask the user for authentication credentials if it needs to.</para>
     </refsect2>
   </refsect1>
 
@@ -584,21 +567,17 @@ node /org/freedesktop/login1/seat/seat0 {
 };
     </programlisting>
 
-    <!--method SwitchTo is not documented!-->
-
-    <!--method SwitchToNext is not documented!-->
-
-    <!--method SwitchToPrevious is not documented!-->
-
-    <!--property CanTTY is not documented!-->
-
-    <!--property CanGraphical is not documented!-->
-
     <refsect2>
       <title>Methods</title>
 
       <para><function>Terminate()</function> and <function>ActivateSession()</function> work similar to
       TerminateSeat(), ActivationSessionOnSeat() on the Manager object.</para>
+
+      <para><function>SwitchTo()</function> switches to the session on the virtual terminal
+      <varname>vtnr</varname>. <function>SwitchToNext()</function> and
+      <function>SwitchToPrevious()</function> switch to, respectively, the next and previous sessions on the
+      seat in the order of virtual terminals. If there is no active session, they switch to, respectively,
+      the first and last session on the seat.</para>
     </refsect2>
 
     <refsect2>
@@ -618,10 +597,11 @@ node /org/freedesktop/login1/seat/seat0 {
       <para><varname>ActiveSession</varname> encodes the currently active session if there is one. It is a
       structure consisting of session id and object path.</para>
 
-      <para><varname>CanMultiSession</varname> encodes whether the session is multi-session capable, CanTTY
-      whether it is suitable for text logins, CanGraphical whether it is suitable for graphical sessions.</para>
+      <para><varname>CanMultiSession</varname> encodes whether the session is multi-session capable,
+      <varname>CanTTY</varname> whether it is suitable for text logins, <varname>CanGraphical</varname>
+      whether it is suitable for graphical sessions.</para>
 
-      <para>The <varname>Sessions</varname> array is an array of all current sessions of this seat, each
+      <para>The <varname>Sessions</varname> property is an array of all current sessions of this seat, each
       encoded in a structure consisting of the ID and the object path.</para>
 
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
@@ -675,8 +655,6 @@ node /org/freedesktop/login1/user/_1000 {
   interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
-
-    <!--property Linger is not documented!-->
 
     <refsect2>
       <title>Methods</title>
@@ -733,6 +711,8 @@ node /org/freedesktop/login1/user/_1000 {
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
       <varname>IdleSinceHintMonotonic</varname> properties encode the idle hint state of the user, similar to
       the <interfacename>Manager</interfacename>'s properties, but specific for this user.</para>
+
+      <para>The <varname>Linger</varname> property shows whether lingering is enabled for the user.</para>
     </refsect2>
   </refsect1>
 
@@ -828,14 +808,6 @@ node /org/freedesktop/login1/session/45 {
 };
     </programlisting>
 
-    <!--method SetLockedHint is not documented!-->
-
-    <!--method SetBrightness is not documented!-->
-
-    <!--property Desktop is not documented!-->
-
-    <!--property LockedHint is not documented!-->
-
     <refsect2>
       <title>Methods</title>
 
@@ -878,6 +850,20 @@ node /org/freedesktop/login1/session/45 {
       device after receiving a <function>PauseDevice(<literal>pause</literal>)</function> signal. Forced
       signals (or after an internal timeout) are automatically completed by
       <filename>systemd-logind</filename> asynchronously.</para>
+
+      <para><function>SetLockedHint()</function> may be used to set the "idle hint" to
+      <varname>locked</varname>, i.e. information whether the session is locked. This is intended to be used
+      by the desktop environment to tell <command>systemd-logind</command> when the session is locked and
+      unlocked.</para>
+
+      <para><function>SetBrightness()</function> may be used to set the display brightness. This is intended
+      to be used by the desktop environment, and allows unprivileged programs to access hardware settings in
+      a controlled way. The <varname>subsystem</varname> parameter specifies a kernel subsystem, either
+      <literal>backlight</literal> or <literal>leds</literal>. The <varname>name</varname> parameter
+      specifies a device name under the specified subsystem. The <varname>brightness</varname> parameter
+      specifies the brightness. The range is defined by individual drivers, see
+      <filename>/sys/class/<varname>subsystem</varname>/<varname>name</varname>/max_brightness</filename>.
+      </para>
     </refsect2>
 
     <refsect2>
@@ -952,6 +938,9 @@ node /org/freedesktop/login1/session/45 {
 
       <para><varname>Service</varname> encodes the PAM service name that registered the session.</para>
 
+      <para><varname>Desktop</varname> describes the desktop environment running in the session (if
+      known).</para>
+
       <para><varname>Scope</varname> contains the systemd scope unit name of this session.</para>
 
       <para><varname>Leader</varname> encodes the PID of the process that registered the session.</para>
@@ -978,6 +967,9 @@ node /org/freedesktop/login1/session/45 {
       <para><varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
       <varname>IdleSinceHintMonotonic</varname> encapsulate the idle hint state of this session, similarly to
       how the respective properties on the manager object do it for the whole system.</para>
+
+      <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by
+      <function>SetLockedHint()</function> described above.</para>
     </refsect2>
   </refsect1>
 
