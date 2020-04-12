@@ -13,7 +13,7 @@ Documentation=man:systemd-rfkill.service(8)
 DefaultDependencies=no
 BindsTo=sys-devices-virtual-misc-rfkill.device
 Conflicts=shutdown.target
-After=sys-devices-virtual-misc-rfkill.device systemd-remount-fs.service
+After=sys-devices-virtual-misc-rfkill.device
 Before=shutdown.target
 
 [Service]

@@ -1055,6 +1055,16 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return 0;
 
+        /* For the following three directory types we need write access, and /var/ is possibly on the root
+         * fs. Hence order after systemd-remount-fs.service, to ensure things are writable. */
+        if (!strv_isempty(c->directories[EXEC_DIRECTORY_STATE].paths) ||
+            !strv_isempty(c->directories[EXEC_DIRECTORY_CACHE].paths) ||
+            !strv_isempty(c->directories[EXEC_DIRECTORY_LOGS].paths)) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         if (c->private_tmp) {
                 const char *p;
 
