@@ -45,9 +45,12 @@ static int parse_argv(
                         else if (please_suspend)
                                 *please_suspend = k;
 
+                } else if (streq(argv[i], "debug")) {
+                        if (debug)
+                                *debug = true;
+
                 } else if ((v = startswith(argv[i], "debug="))) {
                         int k;
-
                         k = parse_boolean(v);
                         if (k < 0)
                                 pam_syslog(handle, LOG_WARNING, "Failed to parse debug= argument, ignoring: %s", v);
