@@ -69,37 +69,13 @@ node /org/freedesktop/locale1 {
 };
     </programlisting>
 
-    <!--property Locale is not documented!-->
-
-    <!--property X11Layout is not documented!-->
-
-    <!--property X11Model is not documented!-->
-
-    <!--property X11Variant is not documented!-->
-
-    <!--property X11Options is not documented!-->
-
-    <!--property VConsoleKeymap is not documented!-->
-
-    <!--property VConsoleKeymapToggle is not documented!-->
-
-    <para>The system locale consists of an array of environment-variable-assignment-like strings. The
-    following strings are known: <varname>LANG=</varname>, <varname>LC_CTYPE=</varname>,
-    <varname>LC_NUMERIC=</varname>, <varname>LC_TIME=</varname>, <varname>LC_COLLATE=</varname>,
-    <varname>LC_MONETARY=</varname>, <varname>LC_MESSAGES=</varname>, <varname>LC_PAPER=</varname>,
-    <varname>LC_NAME=</varname>, <varname>LC_ADDRESS=</varname>, <varname>LC_TELEPHONE=</varname>,
-    <varname>LC_MEASUREMENT=</varname>, <varname>LC_IDENTIFICATION=</varname>.</para>
-
-    <para>Whenever the system locale or keymap is changed via the daemon <function>PropertyChanged</function>
-    signals are sent out to which clients can subscribe.</para>
-
     <refsect2>
       <title>Methods</title>
 
       <para>If you set a new system locale all old system locale settings will be dropped, and the new
       settings will be saved to disk. It will also be passed to the system manager, and subsequently started
-      daemons will inherit the new system locale from it. Note that already running daemons will not learn
-      about the new system locale.</para>
+      daemons will inherit the new system locale. Note that already running daemons will not learn about the
+      new value.</para>
 
       <para>The <function>SetVConsoleKeyboard()</function> call may be used to set the key mapping on the
       virtual console. Similarly, <function>SetX11Keyboard()</function> may be used to set the default key
@@ -110,7 +86,7 @@ node /org/freedesktop/locale1 {
       sessions.</para>
 
       <para>The boolean argument <varname>convert</varname> may be set to optionally convert the console
-      keyboard configuration to X11 keyboard mappings, resp. vice versa. If true and
+      keyboard configuration to X11 keyboard mappings and vice versa. If true and
       <function>SetVConsoleKeyboard()</function> is used the nearest X11 keyboard setting for the chosen
       console setting is set. If true and <function>SetX11Keyboard()</function> is used, the nearest console
       keyboard setting for the chosen X11 setting is set. Usually it is hence sufficient to call one of the
@@ -122,14 +98,45 @@ node /org/freedesktop/locale1 {
 
       <para>Use the empty string for the keymap parameters you wish not to set.</para>
 
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
+      should interactively ask the user for authentication credentials if it needs to.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Signals</title>
+
+      <para>Whenever the system locale or keymap is changed via the daemon,
+      <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Properties</title>
+
+      <para>The system locale is shown in the <varname>Locale</varname> property. It is an array containing
+      environment-variable-assignment-like strings. The following strings are known:
+      <varname>LANG=</varname>, <varname>LC_CTYPE=</varname>, <varname>LC_NUMERIC=</varname>,
+      <varname>LC_TIME=</varname>, <varname>LC_COLLATE=</varname>, <varname>LC_MONETARY=</varname>,
+      <varname>LC_MESSAGES=</varname>, <varname>LC_PAPER=</varname>, <varname>LC_NAME=</varname>,
+      <varname>LC_ADDRESS=</varname>, <varname>LC_TELEPHONE=</varname>, <varname>LC_MEASUREMENT=</varname>,
+      <varname>LC_IDENTIFICATION=</varname>.</para>
+
+      <para>The <varname>X11Layout</varname>, <varname>X11Model</varname>, <varname>X11Variant</varname>, and
+      <varname>X11Options</varname> properties show values configurable with
+      <function>SetX11Keyboard()</function> described above (or <function>SetVConsoleKeyboard()</function>
+      with <varname>convert=true</varname>). The <varname>VConsoleKeymap</varname> and
+      <varname>VConsoleKeymapToggle</varname> propries sohw values configurable with
+      <function>SetVConsoleKeyboard()</function> (or <function>SetX11Keyboard()</function> with
+      <varname>convert=true</varname>).</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Security</title>
+
       <para>Changing the system locale or keymap using this interface is authenticated via PolicyKit. The
       PolicyKit action for <function>SetLocale()</function> is
       <constant>org.freedesktop.locale1.set-locale</constant>. The PolicyKit action for
       <function>SetX11Keyboard()</function> and <function>SetVConsoleKeyboard()</function> is
       <constant>org.freedesktop.locale1.set-keyboard</constant>.</para>
-
-      <para>The <varname>user_interaction</varname> boolean parameters can be used to control whether
-      PolicyKit should interactively ask the user for authentication credentials if it needs to.</para>
     </refsect2>
   </refsect1>
 
