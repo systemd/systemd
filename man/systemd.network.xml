@@ -971,6 +971,10 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>FirewalldZone=</varname></term>
+        <listitem><para>The name of the firewalld zone to add the link to.</para></listitem>
+      </varlistentry>
 
       </variablelist>
 

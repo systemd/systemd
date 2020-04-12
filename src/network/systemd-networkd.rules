@@ -8,3 +8,11 @@ polkit.addRule(function(action, subject) {
         return polkit.Result.YES;
     }
 });
+
+// Allow systemd-networkd to configure firewalld
+polkit.addRule(function(action, subject) {
+    if ((action.id == "org.fedoraproject.FirewallD1.config") &&
+        subject.user == "systemd-network") {
+        return polkit.Result.YES;
+     }
+});
