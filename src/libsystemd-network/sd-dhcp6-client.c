@@ -112,6 +112,7 @@ const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
         [DHCP6_STATUS_NO_BINDING] = "Binding unavailable",
         [DHCP6_STATUS_NOT_ON_LINK] = "Not on link",
         [DHCP6_STATUS_USE_MULTICAST] = "Use multicast",
+        [DHCP6_STATUS_NO_PREFIX_AVAIL] = "No prefix available",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);

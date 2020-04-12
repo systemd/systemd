@@ -89,7 +89,8 @@ enum {
         DHCP6_STATUS_NO_BINDING                 = 3,
         DHCP6_STATUS_NOT_ON_LINK                = 4,
         DHCP6_STATUS_USE_MULTICAST              = 5,
-        _DHCP6_STATUS_MAX                       = 6,
+        DHCP6_STATUS_NO_PREFIX_AVAIL            = 6,
+        _DHCP6_STATUS_MAX                       = 7,
 };
 
 enum {
