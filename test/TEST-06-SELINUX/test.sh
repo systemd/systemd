@@ -46,7 +46,9 @@ test_create_image() {
         cp systemd_test.if $initdir/systemd-test-module
         dracut_install -o sesearch
         dracut_install runcon
-        dracut_install checkmodule semodule semodule_package m4 make /usr/libexec/selinux/hll/pp load_policy sefcontext_compile
+        dracut_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
+        dracut_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
+        dracut_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
     )
 }
 

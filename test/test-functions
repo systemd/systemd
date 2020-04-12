@@ -675,7 +675,7 @@ cleanup_loopdev() {
     fi
 }
 
-trap cleanup_loopdev EXIT
+trap cleanup_loopdev EXIT INT QUIT PIPE
 
 create_empty_image() {
     if [ -z "$IMAGE_NAME" ]; then
@@ -790,16 +790,39 @@ check_asan_reports() {
     return $ret
 }
 
+save_journal() {
+    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
+        dest="${ARTIFACT_DIRECTORY}/${testname}.journal"
+    else
+        dest="$TESTDIR/system.journal"
+    fi
+
+    for j in $1/*; do
+        /usr/lib/systemd/systemd-journal-remote \
+            -o $dest \
+            --getter="journalctl -o export -D $j"
+
+        if [ -n "${TEST_SHOW_JOURNAL}" ]; then
+            echo "---- $j ----"
+            journalctl --no-pager -o short-monotonic --no-hostname --priority=${TEST_SHOW_JOURNAL} -D $j
+        fi
+
+        rm -r $j
+    done
+
+    # we want to print this sometime later, so save this in a variable
+    JOURNAL_LIST="$(ls -l $dest*)"
+}
+
 check_result_nspawn() {
     local ret=1
     local journald_report=""
     local pids=""
     [[ -e $1/testok ]] && ret=0
     [[ -f $1/failed ]] && cp -a $1/failed $TESTDIR
-    cp -a $1/var/log/journal $TESTDIR
-    rm -r $1/var/log/journal/*
+    save_journal $1/var/log/journal
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$1" || ret=$(($ret+1))
@@ -813,12 +836,11 @@ check_result_qemu() {
     mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
-    cp -a $initdir/var/log/journal $TESTDIR
-    rm -r $initdir/var/log/journal/*
+    save_journal $initdir/var/log/journal
     check_asan_reports "$initdir" || ret=$(($ret+1))
     _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     return $ret
@@ -919,6 +941,12 @@ install_config_files() {
 
     # set the hostname
     echo systemd-testsuite > $initdir/etc/hostname
+
+    # let's set up just one image with the traditional verbose output
+    if [ ${IMAGE_NAME} != "basic" ]; then
+        mkdir -p $initdir/etc/systemd/system.conf.d
+        echo -e '[Manager]\nStatusUnitFormat=name' >$initdir/etc/systemd/system.conf.d/status.conf
+    fi
 }
 
 install_basic_tools() {
