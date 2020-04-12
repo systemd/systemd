@@ -243,14 +243,6 @@ node /org/freedesktop/systemd1 {
     </programlisting>
 
     <refsect2>
-      <title>Security</title>
-
-      <para>Read access is generally granted to all clients, but changes may only be made by privileged
-      clients. PolicyKit is not used by this service, and access is controlled exclusively via the D-Bus
-      policy.</para>
-    </refsect2>
-
-    <refsect2>
       <title>Methods</title>
 
       <para>Note that many of the calls exist twice: once on the <interfacename>Manager</interfacename>
@@ -487,7 +479,6 @@ node /org/freedesktop/systemd1 {
       url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
-
     </refsect2>
 
     <refsect2>
@@ -619,6 +610,26 @@ node /org/freedesktop/systemd1 {
       that the root path is encoded as empty string here (not as <literal>/</literal>!), so that it can be
       appended to <filename>/sys/fs/cgroup/systemd</filename> easily. This value will be set to the empty
       string for the host instance, and some other string for container instances</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Security</title>
+
+      <para>Read access is generally granted to all clients. Additionally, for unprivileged clients, some
+      operations are allowed through the PolicyKit privilege system. Operations which modify unit state
+      (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
+      <function>RestartUnit()</function> and similar, <function>SetProperty</function>) require
+      <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
+      enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
+      <function>ReenableUnitFiles()</function>, <function>LinkUnitFiles()</function>,
+      <function>PresetUnitFiles</function>, <function>MaskUnitFiles</function>, and similar) require
+      <interfacename>org.freedesktop.systemd1.manage-unit-files</interfacename>). Operations which modify the
+      exported environment ( <function>SetEnvironment()</function>, <function>UnsetEnvironment()</function>,
+      <function>UnsetAndSetEnvironment()</function>) require
+      <interfacename>org.freedesktop.systemd1.set-environment</interfacename>.  <function>Reload()</function>
+      and <function>Reexecute()</function> require
+      <interfacename>org.freedesktop.systemd1.reload-daemon</interfacename>.
+      </para>
     </refsect2>
   </refsect1>
 
@@ -886,7 +897,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>Conditions</varname> contains all configured conditions of the unit. For each condition
       five fields are given: condition type (e.g. <varname>ConditionPathExists</varname>), whether the
       condition is a trigger condition, whether the condition is reversed, the right hand side of the
-      condtion (e.g. the path in case of <varname>ConditionPathExists</varname>), and the status. The status
+      condition (e.g. the path in case of <varname>ConditionPathExists</varname>), and the status. The status
       can be 0, in which case the condition hasn't been checked yet, a positive value, in which case the
       condition passed, or a negative value, in which case the condition failed. Currently only 0, +1, and -1
       are used, but additional values may be used in the future, retaining the meaning of
@@ -899,6 +910,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as
       transient unit (i.e. via <function>CreateTransientUnit()</function> on the manager object)</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Security</title>
+
+      <para>Similarly to methods on the <interfacename>Manager</interfacename> object, read-only access is
+      allowed for everyone. All operations are allowed for clients with the
+      <constant>CAP_SYS_ADMIN</constant> capability or when the
+      <interfacename>org.freedesktop.systemd1.manage-units</interfacename> privilege is granted by
+      PolicyKit.</para>
     </refsect2>
   </refsect1>
 
