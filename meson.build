@@ -133,6 +133,7 @@ pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgc
 polkitpolicydir = join_paths(datadir, 'polkit-1/actions')
 polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
 polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
+firewalldzonesdir = join_paths(prefixdir, 'lib/firewalld/zones')
 xinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
 rpmmacrosdir = get_option('rpmmacrosdir')
 if rpmmacrosdir != 'no'
@@ -965,6 +966,12 @@ conf.set10('HAVE_APPARMOR', have)
 smack_run_label = get_option('smack-run-label')
 if smack_run_label != ''
         conf.set_quoted('SMACK_RUN_LABEL', smack_run_label)
+endif
+
+want_firewalld = get_option('firewalld')
+install_firewalld = false
+if want_firewalld != 'false' and not skip_deps
+        install_firewalld = true
 endif
 
 want_polkit = get_option('polkit')

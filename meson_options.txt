@@ -286,6 +286,8 @@ option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'polkit support')
+option('firewalld', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'firewalld support')
 option('ima', type : 'boolean',
        description : 'IMA support')
 
