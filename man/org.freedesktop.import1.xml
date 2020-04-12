@@ -25,18 +25,18 @@
 
     <para>
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is a system service which may be used to import, export and download additional system images, for
-    running them as local containers using tools such as
-    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> The
-    service is used as backend for <command>machinectl pull-raw</command> and <command>machinectl
-    pull-tar</command> and related commands.
-    This page describes the D-Bus interface.</para>
+    is a system service which may be used to import, export and download additional system images. These
+    images can be used by tools such as
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+     to run local containers. The service is used as the backend for <command>machinectl pull-raw</command>,
+     <command>machinectl pull-tar</command> and related commands. This page describes the D-Bus interface.
+    </para>
 
     <para>Note that
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is mostly a small companion service for
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    Many operations to manipulate local container and VM images are hence available via the <command>systemd-machined</command> bus API, c.f.
+    Many operations to manipulate local container and VM images are hence available via the <command>systemd-machined</command> D-Bus API, c.f.
     <citerefentry><refentrytitle>org.freedesktop.machine1.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>
@@ -116,8 +116,8 @@ node /org/freedesktop/import1 {
 
       <para><function>ImportTar()</function> and <function>ImportRaw()</function> import a system image and
       place it into <filename>/var/lib/machines/</filename>. The first argument should be a file descriptor
-      (opened for reading) referring to the tar or raw file to import. It should reference either a file on
-      disk or a pipe or socket. When <function>ImportTar()</function> is used the file descriptor should
+      (opened for reading) referring to the tar or raw file to import. It should reference a file on disk,
+      a pipe or a socket. When <function>ImportTar()</function> is used the file descriptor should
       refer to a tar file, optionally compressed with
       <citerefentry project="die-net"><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project="die-net"><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -126,58 +126,59 @@ node /org/freedesktop/import1 {
       <command>systemd-importd</command> will detect the used compression scheme (if any) automatically. When
       <function>ImportRaw()</function> is used the file descriptor should refer to a raw or qcow2 disk image
       containing an MBR or GPT disk label, also optionally compressed with gzip, bzip2 or xz. In either case,
-      if the file is specified as file descriptor on disk, progress information is generated for the import
-      operation (since the size on disk is known then), if a socket or pipe is specified this is not
+      if the file is specified as a file descriptor on disk, progress information is generated for the import
+      operation (as in that case we know the total size on disk). If a socket or pipe is specified, progress information is not
       available. The file descriptor argument is followed by a local name for the image. This should be a
       name suitable as a hostname and will be used to name the imported image below
-      <filename>/var/lib/machines</filename>. A tar import is placed as directory tree or
+      <filename>/var/lib/machines</filename>. A tar import is placed as a directory tree or a
       <citerefentry project="man-pages"><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      subvolume below <filename>/var/lib/machines/</filename>, under the name specified with no suffix
-      appended. A raw import is placed as file in <filename>/var/lib/machines/</filename> with the
-      <filename>.raw</filename> suffix appended. The <option>force</option> argument controls whether any
-      pre-existing image with the same name shall be removed for the operation. If true, it is removed, if
-      false the operation fails on a name conflict. Finally, the <option>read_only</option> argument controls
-      whether to create a writable or read-only image. The two calls return immediately after invocation,
+      subvolume below <filename>/var/lib/machines/</filename> under the specified name with no suffix
+      appended. A raw import is placed as a file in <filename>/var/lib/machines/</filename> with the
+      <filename>.raw</filename> suffix appended. If the <option>force</option> argument is true, any
+      pre-existing image with the same name is removed before starting the operation. Otherwise, the
+      operation fails if an image with the same name already exists. Finally, the
+      <option>read_only</option> argument controls
+      whether to create a writable or read-only image. Both methods return immediately after starting the import,
       with the import transfer ongoing. They return a pair of transfer identifier and object path, which may
-      be used to retrieve progress information about the transfer, or cancel it. The transfer identifier is a
+      be used to retrieve progress information about the transfer or to cancel it. The transfer identifier is a
       simple numeric identifier, the object path references an
       <interfacename>org.freedesktop.import1.Transfer</interfacename> object, see below. Listen for a
-      <function>TransferRemoved</function> signal for the transfer ID it order to detect when a transfer is
+      <function>TransferRemoved</function> signal for the transfer ID in order to detect when a transfer is
       complete. The returned transfer object is useful to determine the current progress or log output of the
       ongoing import operation.</para>
 
       <para><function>ExportTar()</function> and <function>ExportRaw()</function> implement the reverse
       operation, and may be used to export a system image in order to place it in a tar or raw image. They
-      take the machine name to export as first parameter, followed by a file descriptor (opened for writing)
+      take the machine name to export as their first parameter, followed by a file descriptor (opened for writing)
       where the tar or raw file will be written. It may either reference a file on disk or a pipe/socket. The
       third argument specifies in which compression format to write the image. It takes one of
       <literal>uncompressed</literal>, <literal>xz</literal>, <literal>bzip2</literal> or
       <literal>gzip</literal>, depending on which compression scheme is required. The image written to the
       specified file descriptor will be a tar file in case of <function>ExportTar()</function> or a raw disk
       image in case of <function>ExportRaw()</function>. Note that currently raw disk images may not be
-      exported as tar files, and vice versa, however this restriction might be lifted eventually. The call
-      returns a transfer identifier and object path for canceling or tracking the export operation, similar
-      to <function>ImportTar()</function> or <function>ImportRaw()</function> described above.</para>
+      exported as tar files, and vice versa. This restriction might be lifted eventually. The call
+      returns a transfer identifier and object path for cancelling or tracking the export operation, similar
+      to <function>ImportTar()</function> or <function>ImportRaw()</function> as described above.</para>
 
       <para><function>PullTar()</function> and <function>PullRaw()</function> may be used to download, verify
-      and import a system image from a web site. They take an URL argument, that should reference a tar or
+      and import a system image from a URL. They take an URL argument which should point to a tar or
       raw file on the <literal>http://</literal> or <literal>https://</literal> protocols, possibly
       compressed with xz, bzip2 or gzip. The second argument is a local name for the image. It should be
-      suitable as hostname, similar to the matching argument of the <function>ImportTar()</function> and
-      <function>ImportRaw()</function> calls above. The third argument indicates the verification mode for
+      suitable as a hostname, similar to the matching argument of the <function>ImportTar()</function> and
+      <function>ImportRaw()</function> methods above. The third argument indicates the verification mode for
       the image. It may be one of <literal>no</literal>, <literal>checksum</literal>,
-      <literal>signature</literal>. <literal>no</literal> turns of any kind of verification of the image;
+      <literal>signature</literal>. <literal>no</literal> turns off any kind of verification of the image;
       <literal>checksum</literal> looks for a <filename>SHA256SUM</filename> file next to the downloaded
-      image, and verifies any SHA256 hash value in that file again the image; <literal>signature</literal>
+      image and verifies any SHA256 hash value in that file against the image; <literal>signature</literal>
       does the same but also tries to authenticate the <filename>SHA256SUM</filename> file via
       <citerefentry project="man-pages"><refentrytitle>gpg</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       first. The last argument indicates whether to replace a possibly pre-existing image with the same local
       name (if <literal>true</literal>), or whether to fail (if <literal>false</literal>). Like the import
-      and export calls above these calls return a pair of transfer identifier and object path for the ongoing
+      and export calls above, these calls return a pair of transfer identifier and object path for the ongoing
       download.</para>
 
       <para><function>ListTransfers()</function> returns a list of ongoing import, export or download
-      operations, as created with the six calls described above. It returns an array of structures, which
+      operations as created with the six calls described above. It returns an array of structures which
       consist of the numeric transfer identifier, a string indicating the operation (one of
       <literal>import-tar</literal>, <literal>import-raw</literal>, <literal>export-tar</literal>,
       <literal>export-raw</literal>, <literal>pull-tar</literal> or <literal>pull-raw</literal>), a string
@@ -187,18 +188,18 @@ node /org/freedesktop/import1 {
       the transfer object path.</para>
 
       <para><function>CancelTransfer()</function> may be used to cancel an ongoing import, export or download
-      operation. Simply specify the transfer identifier to cancel.</para>
+      operation. Simply specify the transfer identifier to cancel the ongoing operation.</para>
     </refsect2>
 
     <refsect2>
       <title>Signals</title>
 
-      <para>The <function>TransferNew</function> signal is generated each time a new transfer is added with
-      the import, export or download calls described above. It carries the transfer ID and object path just
-      created.</para>
+      <para>The <function>TransferNew</function> signal is generated each time a new transfer is started with
+      the import, export or download calls described above. It carries the transfer ID and object path that
+      have just been created.</para>
 
-      <para>The <function>TransferRemoved</function> signal is sent each time a transfer was completed,
-      canceled or failed. It also carries the transfer ID and object path, followed by a string indicating
+      <para>The <function>TransferRemoved</function> signal is sent each time a transfer finishes,
+      is canceled or fails. It also carries the transfer ID and object path, followed by a string indicating
       the result of the operation, which is one of <literal>done</literal> (on success),
       <literal>canceled</literal> or <literal>failed</literal>.</para>
     </refsect2>
@@ -255,17 +256,17 @@ node /org/freedesktop/import1/transfer/_1 {
 
       <para>The <varname>Id</varname> property exposes the numeric transfer ID of the transfer object.</para>
 
-      <para>The <varname>Local</varname>, <varname>Remote</varname>, <varname>Type</varname> properties
+      <para>The <varname>Local</varname>, <varname>Remote</varname> and <varname>Type</varname> properties
       expose the local container name of this transfer, the remote source (in case of download: the URL, in
-      case of import/export a string describing the file descriptor passed in), and the type of operation
-      (see the Manager's <function>ListTransfer()</function> call above for an explanation of the possible
+      case of import/export: a string describing the file descriptor passed in), and the type of operation
+      (see the Manager's <function>ListTransfer()</function> method above for an explanation of the possible
       values).</para>
 
-      <para>The <varname>Verify</varname> property exposes the selected verification setting, and is only
+      <para>The <varname>Verify</varname> property exposes the selected verification setting and is only
       defined for download operations (see above).</para>
 
-      <para>The <varname>Progress</varname> property exposes the current progress of the transfer, as a value
-      between 0.0 and 1.0. To show a progress bar on screen it recommend to query this value in regular
+      <para>The <varname>Progress</varname> property exposes the current progress of the transfer as a value
+      between 0.0 and 1.0. To show a progress bar on screen we recommend to query this value in regular
       intervals, for example every 500 ms or so.</para>
     </refsect2>
   </refsect1>
