@@ -408,9 +408,8 @@ static void test_strv_split_newlines(void) {
         l = strv_split_newlines(str);
         assert_se(l);
 
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH(s, l)
                 assert_se(streq(*s, input_table_multiple[i++]));
-        }
 }
 
 static void test_strv_split_nulstr(void) {

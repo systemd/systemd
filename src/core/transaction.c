@@ -336,9 +336,8 @@ static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
 
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
                 next = strlen(unit_log_field) + strlen(*unit_id);
-                if (!GREEDY_REALLOC(ans, alloc, size + next + 1)) {
+                if (!GREEDY_REALLOC(ans, alloc, size + next + 1))
                         return mfree(ans);
-                }
 
                 sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
                 if (*(unit_id+1))

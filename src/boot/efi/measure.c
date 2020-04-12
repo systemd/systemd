@@ -302,9 +302,8 @@ EFI_STATUS tpm_log_event(UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer, UIN
         EFI_TCG2 *tpm2;
 
         tpm2 = tcg2_interface_check();
-        if (tpm2) {
+        if (tpm2)
                 return tpm2_measure_to_pcr_and_event_log(tpm2, pcrindex, buffer, buffer_size, description);
-        }
 
         tpm1 = tcg1_interface_check();
         if (tpm1)

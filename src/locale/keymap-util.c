@@ -267,9 +267,8 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                                 else if (streq(a[1], "XkbOptions"))
                                         p = &c->x11_options;
 
-                                if (p) {
+                                if (p)
                                         free_and_replace(*p, a[2]);
-                                }
                         }
 
                 } else if (!in_section && first_word(l, "Section")) {

@@ -535,9 +535,8 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
                         }
 
                         r = bus_call_method(bus, &home_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
-                } else {
+                } else
                         r = bus_call_method(bus, &home_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
-                }
 
                 if (r < 0) {
                         log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
