@@ -17,6 +17,7 @@
 #include "def.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glob-util.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "log.h"
@@ -44,12 +45,15 @@ static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 static const char* arg_field = NULL;
 static const char *arg_debugger = NULL;
 static const char *arg_directory = NULL;
+static char **arg_file = NULL;
 static PagerFlags arg_pager_flags = 0;
 static int arg_no_legend = false;
 static int arg_one = false;
 static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
+
+STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
@@ -111,6 +115,10 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 r = sd_journal_open_directory(&j, arg_directory, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
+        } else if (arg_file) {
+                r = sd_journal_open_files(&j, (const char**)arg_file, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open journal files: %m");
         } else {
                 r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
                 if (r < 0)
@@ -164,6 +172,7 @@ static int help(void) {
                "  -r --reverse           Show the newest entries first\n"
                "  -F --field=FIELD       List all values a certain field takes\n"
                "  -o --output=FILE       Write output to FILE\n"
+               "     --file=PATH         Use journal file\n"
                "  -D --directory=DIR     Use journal files from directory\n\n"
                "  -q --quiet             Do not show info messages and privilege warning\n"
                "\nSee the %s for details.\n"
@@ -182,6 +191,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_DEBUGGER,
+                ARG_FILE,
         };
 
         int c, r;
@@ -194,6 +204,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
+                { "file",         required_argument, NULL, ARG_FILE      },
                 { "directory",    required_argument, NULL, 'D'           },
                 { "reverse",      no_argument,       NULL, 'r'           },
                 { "since",        required_argument, NULL, 'S'           },
@@ -223,6 +234,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEBUGGER:
                         arg_debugger = optarg;
+                        break;
+
+                case ARG_FILE:
+                        r = glob_extend(&arg_file, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add paths: %m");
                         break;
 
                 case 'o':
@@ -1096,6 +1113,7 @@ static int run(int argc, char *argv[]) {
                        ansi_highlight_red(),
                        units_active, units_active == 1 ? "unit is running" : "units are running",
                        ansi_normal());
+
         return r;
 }
 
