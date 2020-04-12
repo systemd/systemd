@@ -166,9 +166,8 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
         if (g->curl)
                 curl_multi_cleanup(g->curl);
 
-        while ((io = hashmap_steal_first(g->ios))) {
+        while ((io = hashmap_steal_first(g->ios)))
                 sd_event_source_unref(io);
-        }
 
         hashmap_free(g->ios);
 

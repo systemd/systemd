@@ -111,9 +111,8 @@ static char *get_value(char **buffer) {
                  */
                 (*buffer)++;
                 end = quote_string;
-        } else {
+        } else
                 end = comma_string;
-        }
         val = strsep(buffer, end);
         if (val && end == quote_string)
                 /*

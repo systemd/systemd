@@ -228,9 +228,8 @@ static bool test_pointers(sd_device *dev,
                         is_touchscreen = true;
                 else if (has_joystick_axes_or_buttons)
                         is_joystick = true;
-        } else if (has_joystick_axes_or_buttons) {
+        } else if (has_joystick_axes_or_buttons)
                 is_joystick = true;
-        }
 
         if (has_mt_coordinates) {
                 if (stylus_or_pen)

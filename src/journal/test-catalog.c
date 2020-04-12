@@ -116,9 +116,8 @@ static void test_catalog_import_merge(void) {
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
 
-        ORDERED_HASHMAP_FOREACH(payload, h, j) {
+        ORDERED_HASHMAP_FOREACH(payload, h, j)
                 assert_se(streq(combined, payload));
-        }
 }
 
 static void test_catalog_import_merge_no_body(void) {
@@ -149,9 +148,8 @@ static void test_catalog_import_merge_no_body(void) {
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
 
-        ORDERED_HASHMAP_FOREACH(payload, h, j) {
+        ORDERED_HASHMAP_FOREACH(payload, h, j)
                 assert_se(streq(combined, payload));
-        }
 }
 
 static void test_catalog_update(const char *database) {
