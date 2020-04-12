@@ -284,7 +284,7 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         return 0;
 }
 
-_public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
+_public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv) {
         _cleanup_strv_free_ char **a = NULL;
         int r;
 

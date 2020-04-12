@@ -143,7 +143,7 @@ int sd_bus_new(sd_bus **ret);
 
 int sd_bus_set_address(sd_bus *bus, const char *address);
 int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd);
-int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]);
+int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv);
 int sd_bus_get_address(sd_bus *bus, const char **address);
 int sd_bus_set_bus_client(sd_bus *bus, int b);
 int sd_bus_is_bus_client(sd_bus *bus);

@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>sd_bus_set_address</refname>
     <refname>sd_bus_get_address</refname>
+    <refname>sd_bus_set_exec</refname>
 
     <refpurpose>Set or query the address of the bus connection</refpurpose>
   </refnamediv>
@@ -30,15 +31,21 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_set_address</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char* <parameter>address</parameter></paramdef>
+        <paramdef>const char *<parameter>address</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_get_address</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
-        <paramdef>const char** <parameter>address</parameter></paramdef>
+        <paramdef>const char **<parameter>address</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_exec</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>char *const *<parameter>argv</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -68,13 +75,13 @@
         the rest is optional. <replaceable>family</replaceable> may be either <option>ipv4</option> or
         <option>ipv6</option>.</para>
       </listitem>
-      
+
       <listitem>
         <para>An executable to spawn specified as
         <literal>unixexec:guid=<replaceable>guid</replaceable>,path=<replaceable>path</replaceable>,argv1=<replaceable>argument</replaceable>,argv2=<replaceable>argument</replaceable>,...</literal>.
         The <varname>path=</varname> key must be present, while <varname>guid=</varname> is optional.</para>
       </listitem>
-      
+
       <listitem>
         <para>A machine (container) to connect to specified as
         <literal>x-machine-unix:guid=<replaceable>guid</replaceable>,machine=<replaceable>machine</replaceable>,pid=<replaceable>pid</replaceable></literal>.
@@ -104,6 +111,11 @@
     automatically by
     <citerefentry><refentrytitle>sd_bus_open</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     similar calls, based on environment variables or built-in defaults.</para>
+
+    <para><function>sd_bus_set_exec</function> is a shorthand function for setting a
+    <literal>unixexec</literal> address that spawns the given executable with the given arguments.
+    If <parameter>argv</parameter> is <constant>NULL</constant>, the given executable is spawned
+    without any extra arguments.</para>
   </refsect1>
 
   <refsect1>
