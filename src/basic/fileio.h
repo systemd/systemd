@@ -85,7 +85,9 @@ int read_timestamp_file(const char *fn, usec_t *ret);
 int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
 
 typedef enum ReadLineFlags {
-        READ_LINE_ONLY_NUL = 1 << 0,
+        READ_LINE_ONLY_NUL  = 1 << 0,
+        READ_LINE_IS_A_TTY  = 1 << 1,
+        READ_LINE_NOT_A_TTY = 1 << 2,
 } ReadLineFlags;
 
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret);
