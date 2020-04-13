@@ -40,11 +40,26 @@ int introspect_write_default_interfaces(struct introspect *i, bool object_manage
         return 0;
 }
 
+static int set_interface_name(struct introspect *intro, const char *interface_name) {
+        if (streq_ptr(intro->interface_name, interface_name))
+                return 0;
+
+        if (intro->interface_name)
+                fputs(" </interface>\n", intro->f);
+
+        if (interface_name)
+                fprintf(intro->f, " <interface name=\"%s\">\n", interface_name);
+
+        return free_and_strdup(&intro->interface_name, interface_name);
+}
+
 int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefix) {
         char *node;
 
         assert(i);
         assert(prefix);
+
+        assert_se(set_interface_name(i, NULL) >= 0);
 
         while ((node = set_steal_first(s))) {
                 const char *e;
@@ -115,12 +130,22 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
         }
 }
 
-int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
+int introspect_write_interface(
+                struct introspect *i,
+                const char *interface_name,
+                const sd_bus_vtable *v) {
+
         const sd_bus_vtable *vtable = v;
         const char *names = "";
+        int r;
 
         assert(i);
+        assert(interface_name);
         assert(v);
+
+        r = set_interface_name(i, interface_name);
+        if (r < 0)
+                return r;
 
         for (; v->type != _SD_BUS_VTABLE_END; v = bus_vtable_next(vtable, v)) {
 
@@ -178,6 +203,8 @@ int introspect_finish(struct introspect *i, char **ret) {
 
         assert(i);
 
+        assert_se(set_interface_name(i, NULL) >= 0);
+
         fputs("</node>\n", i->f);
 
         r = fflush_and_check(i->f);
@@ -196,5 +223,6 @@ void introspect_free(struct introspect *i) {
         /* Normally introspect_finish() does all the work, this is just a backup for error paths */
 
         safe_fclose(i->f);
+        free(i->interface_name);
         free(i->introspection);
 }
