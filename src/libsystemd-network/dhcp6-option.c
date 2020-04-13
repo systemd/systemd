@@ -464,8 +464,8 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                         if (status < 0)
                                 return status;
                         if (status > 0) {
-                                log_dhcp6_client(client, "IA status %d",
-                                                 status);
+                                log_dhcp6_client(client, "IA status %s",
+                                                 dhcp6_message_status_to_string(status));
 
                                 return -EINVAL;
                         }
