@@ -294,7 +294,7 @@ int config_parse(const char *unit,
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
-        int r;
+        int r, fd;
 
         assert(filename);
         assert(lookup);
@@ -311,7 +311,9 @@ int config_parse(const char *unit,
                 }
         }
 
-        fd_warn_permissions(filename, fileno(f));
+        fd = fileno(f);
+        if (fd >= 0) /* stream might not have an fd, let's be careful hence */
+                fd_warn_permissions(filename, fd);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
