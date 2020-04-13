@@ -488,11 +488,13 @@ static int transfer_start(Transfer *t) {
 
         t->stdin_fd = safe_close(t->stdin_fd);
 
-        r = sd_event_add_child(t->manager->event, &t->pid_event_source, t->pid, WEXITED, transfer_on_pid, t);
+        r = sd_event_add_child(t->manager->event, &t->pid_event_source,
+                               t->pid, WEXITED, transfer_on_pid, t);
         if (r < 0)
                 return r;
 
-        r = sd_event_add_io(t->manager->event, &t->log_event_source, t->log_fd, EPOLLIN, transfer_on_log, t);
+        r = sd_event_add_io(t->manager->event, &t->log_event_source,
+                            t->log_fd, EPOLLIN, transfer_on_log, t);
         if (r < 0)
                 return r;
 
@@ -657,7 +659,8 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_event_add_io(m->event, &m->notify_event_source, m->notify_fd, EPOLLIN, manager_on_notify, m);
+        r = sd_event_add_io(m->event, &m->notify_event_source,
+                            m->notify_fd, EPOLLIN, manager_on_notify, m);
         if (r < 0)
                 return r;
 
@@ -718,13 +721,15 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return -EINVAL;
 
         if (!machine_name_is_valid(local))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Local name %s is invalid", local);
 
         r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ? TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
+        type = streq_ptr(sd_bus_message_get_member(msg), "ImportTar") ?
+                TRANSFER_IMPORT_TAR : TRANSFER_IMPORT_RAW;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -786,7 +791,8 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
                 return r;
 
         if (!machine_name_is_valid(local))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Local name %s is invalid", local);
 
         r = setup_machine_directory(error);
         if (r < 0)
@@ -850,7 +856,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 return r;
 
         if (!machine_name_is_valid(local))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Local name %s is invalid", local);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -858,7 +865,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ? TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
+        type = streq_ptr(sd_bus_message_get_member(msg), "ExportTar") ?
+                TRANSFER_EXPORT_TAR : TRANSFER_EXPORT_RAW;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -922,28 +930,33 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                 return r;
 
         if (!http_url_is_valid(remote))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "URL %s is invalid", remote);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "URL %s is invalid", remote);
 
         if (isempty(local))
                 local = NULL;
         else if (!machine_name_is_valid(local))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Local name %s is invalid", local);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Local name %s is invalid", local);
 
         if (isempty(verify))
                 v = IMPORT_VERIFY_SIGNATURE;
         else
                 v = import_verify_from_string(verify);
         if (v < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown verification mode %s", verify);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Unknown verification mode %s", verify);
 
         r = setup_machine_directory(error);
         if (r < 0)
                 return r;
 
-        type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
+        type = streq_ptr(sd_bus_message_get_member(msg), "PullTar") ?
+                TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
         if (manager_find(m, type, remote))
-                return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS, "Transfer for %s already in progress.", remote);
+                return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS,
+                                         "Transfer for %s already in progress.", remote);
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -1230,7 +1243,14 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static int transfer_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int transfer_object_find(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                void *userdata,
+                void **found,
+                sd_bus_error *error) {
+
         Manager *m = userdata;
         Transfer *t;
         const char *p;
@@ -1259,7 +1279,13 @@ static int transfer_object_find(sd_bus *bus, const char *path, const char *inter
         return 1;
 }
 
-static int transfer_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int transfer_node_enumerator(
+                sd_bus *bus,
+                const char *path,
+                void *userdata,
+                char ***nodes,
+                sd_bus_error *error) {
+
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Transfer *t;
@@ -1289,15 +1315,23 @@ static int manager_add_bus_objects(Manager *m) {
 
         assert(m);
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/import1", "org.freedesktop.import1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus, NULL,
+                                     "/org/freedesktop/import1",
+                                     "org.freedesktop.import1.Manager",
+                                     manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/import1/transfer", "org.freedesktop.import1.Transfer", transfer_vtable, transfer_object_find, m);
+        r = sd_bus_add_fallback_vtable(m->bus, NULL,
+                                       "/org/freedesktop/import1/transfer",
+                                       "org.freedesktop.import1.Transfer",
+                                       transfer_vtable, transfer_object_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/import1/transfer", transfer_node_enumerator, m);
+        r = sd_bus_add_node_enumerator(m->bus, NULL,
+                                       "/org/freedesktop/import1/transfer",
+                                       transfer_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add transfer enumerator: %m");
 
