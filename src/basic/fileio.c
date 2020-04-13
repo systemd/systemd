@@ -1009,7 +1009,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
-        int r, tty = -1;
+        int r;
 
         assert(f);
 
@@ -1088,17 +1088,17 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                                  * \n as the single EOL marker, so there is no need to wait. We check
                                  * this condition last to avoid isatty() check if not necessary. */
 
-                                if (tty < 0) {
+                                if ((flags & (READ_LINE_IS_A_TTY|READ_LINE_NOT_A_TTY)) == 0) {
                                         int fd;
 
                                         fd = fileno(f);
                                         if (fd < 0) /* Maybe an fmemopen() stream? Handle this gracefully,
                                                      * and don't call isatty() on an invalid fd */
-                                                tty = false;
+                                                flags |= READ_LINE_NOT_A_TTY;
                                         else
-                                                tty = isatty(fd);
+                                                flags |= isatty(fd) ? READ_LINE_IS_A_TTY : READ_LINE_NOT_A_TTY;
                                 }
-                                if (tty > 0)
+                                if (FLAGS_SET(flags, READ_LINE_IS_A_TTY))
                                         break;
                         }
 
