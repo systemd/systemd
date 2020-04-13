@@ -106,13 +106,29 @@ const char * dhcp6_message_type_table[_DHCP6_MESSAGE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_type, int);
 
 const char * dhcp6_message_status_table[_DHCP6_STATUS_MAX] = {
-        [DHCP6_STATUS_SUCCESS] = "Success",
-        [DHCP6_STATUS_UNSPEC_FAIL] = "Unspecified failure",
-        [DHCP6_STATUS_NO_ADDRS_AVAIL] = "No addresses available",
-        [DHCP6_STATUS_NO_BINDING] = "Binding unavailable",
-        [DHCP6_STATUS_NOT_ON_LINK] = "Not on link",
-        [DHCP6_STATUS_USE_MULTICAST] = "Use multicast",
-        [DHCP6_STATUS_NO_PREFIX_AVAIL] = "No prefix available",
+        [DHCP6_STATUS_SUCCESS]                      = "Success",
+        [DHCP6_STATUS_UNSPEC_FAIL]                  = "Unspecified failure",
+        [DHCP6_STATUS_NO_ADDRS_AVAIL]               = "No addresses available",
+        [DHCP6_STATUS_NO_BINDING]                   = "Binding unavailable",
+        [DHCP6_STATUS_NOT_ON_LINK]                  = "Not on link",
+        [DHCP6_STATUS_USE_MULTICAST]                = "Use multicast",
+        [DHCP6_STATUS_NO_PREFIX_AVAIL]              = "No prefix available",
+        [DHCP6_STATUS_UNKNOWN_QUERY_TYPE]           = "Unknown query type",
+        [DHCP6_STATUS_MALFORMED_QUERY]              = "Malformed query",
+        [DHCP6_STATUS_NOT_CONFIGURED]               = "Not configured",
+        [DHCP6_STATUS_NOT_ALLOWED]                  = "Not allowed",
+        [DHCP6_STATUS_QUERY_TERMINATED]             = "Query terminated",
+        [DHCP6_STATUS_DATA_MISSING]                 = "Data missing",
+        [DHCP6_STATUS_CATCHUP_COMPLETE]             = "Catch up complete",
+        [DHCP6_STATUS_NOT_SUPPORTED]                = "Not supported",
+        [DHCP6_STATUS_TLS_CONNECTION_REFUSED]       = "TLS connection refused",
+        [DHCP6_STATUS_ADDRESS_IN_USE]               = "Address in use",
+        [DHCP6_STATUS_CONFIGURATION_CONFLICT]       = "Configuration conflict",
+        [DHCP6_STATUS_MISSING_BINDING_INFORMATION]  = "Missing binding information",
+        [DHCP6_STATUS_OUTDATED_BINDING_INFORMATION] = "Outdated binding information",
+        [DHCP6_STATUS_SERVER_SHUTTING_DOWN]         = "Server shutting down",
+        [DHCP6_STATUS_DNS_UPDATE_NOT_SUPPORTED]     = "DNS update not supported",
+        [DHCP6_STATUS_EXCESSIVE_TIME_SKEW]          = "Excessive time skew",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp6_message_status, int);
