@@ -19,6 +19,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* journalctl --image= which is like --root= but operates on disk images
+
+* when systemd-nspawn and suchlike dissect an OS image, and there are multiple
+  root partitions, do an strverscmp() on the partition label and boot
+  first. That is inspired how sd-boot figures out which kernel to boot, and
+  thus allows defining OS images which can be A/B updated and we default to the
+  newest version automatically, both in nspawn and in sd-boot
+
 * drop sd_bus_message_set_priority() from sd-bus API and documentation as much
   as we can, it's a kdbus left-over and unlikely to come back on AF_UNIX, since
   it's not really implementable there.
