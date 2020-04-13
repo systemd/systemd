@@ -1046,9 +1046,11 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         count++;
 
                         if (eol != EOL_NONE) {
-                                /* If we are on a tty, we can't wait for more input. But we expect only
-                                 * \n as the single EOL marker, so there is no need to wait. We check
-                                 * this condition last to avoid isatty() check if not necessary. */
+                                /* If we are on a tty, we can't shouldn't wait for more input, because that
+                                 * generally means waiting for the user, interactively. In the case of a TTY
+                                 * we expect only \n as the single EOL marker, so we are in the lucky
+                                 * position that there is no need to wait. We check this condition last, to
+                                 * avoid isatty() check if not necessary. */
 
                                 if ((flags & (READ_LINE_IS_A_TTY|READ_LINE_NOT_A_TTY)) == 0) {
                                         int fd;
