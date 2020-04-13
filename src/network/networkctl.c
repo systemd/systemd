@@ -1549,9 +1549,17 @@ static int link_status_one(
                 }
 
                 if (IN_SET(info->vxlan_info.group_family, AF_INET, AF_INET6)) {
+                        const char *p;
+
+                        r = in_addr_is_multicast(info->vxlan_info.group_family, &info->vxlan_info.group);
+                        if (r <= 0)
+                                p = "Remote:";
+                        else
+                                p = "Group:";
+
                         r = table_add_many(table,
                                            TABLE_EMPTY,
-                                           TABLE_STRING, "Group:",
+                                           TABLE_STRING, p,
                                            info->vxlan_info.group_family == AF_INET ? TABLE_IN_ADDR : TABLE_IN6_ADDR,
                                            &info->vxlan_info.group);
                         if (r < 0)
