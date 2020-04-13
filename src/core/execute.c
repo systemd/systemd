@@ -1577,7 +1577,7 @@ static int apply_protect_kernel_logs(const Unit *u, const ExecContext *c) {
         return seccomp_protect_syslog();
 }
 
-static int apply_protect_clock(const Unit *u, const ExecContext *c)  {
+static int apply_protect_clock(const Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
@@ -1645,6 +1645,41 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 }
 
 #endif
+
+static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_exit_status) {
+        int r;
+
+        assert(u);
+        assert(c);
+
+        if (!c->protect_hostname)
+                return 0;
+
+        if (ns_type_supported(NAMESPACE_UTS)) {
+                if (unshare(CLONE_NEWUTS) < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
+                                *ret_exit_status = EXIT_NAMESPACE;
+                                return log_unit_error_errno(u, errno, "Failed to set up UTS namespacing: %m");
+                        }
+
+                        log_unit_warning(u, "ProtectHostname=yes is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.");
+                }
+        } else
+                log_unit_warning(u, "ProtectHostname=yes is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.");
+
+#if HAVE_SECCOMP
+        if (skip_seccomp_unavailable(u, "ProtectHostname="))
+                return 0;
+
+        r = seccomp_protect_hostname();
+        if (r < 0) {
+                *ret_exit_status = EXIT_SECCOMP;
+                return log_unit_error_errno(u, r, "Failed to apply hostname restrictions: %m");
+        }
+#endif
+
+        return 0;
+}
 
 static void do_idle_pipe_dance(int idle_pipe[static 4]) {
         assert(idle_pipe);
@@ -3588,25 +3623,10 @@ static int exec_child(
                 }
         }
 
-        if (context->protect_hostname) {
-                if (ns_type_supported(NAMESPACE_UTS)) {
-                        if (unshare(CLONE_NEWUTS) < 0) {
-                                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno)) {
-                                        *exit_status = EXIT_NAMESPACE;
-                                        return log_unit_error_errno(unit, errno, "Failed to set up UTS namespacing: %m");
-                                }
-
-                                log_unit_warning(unit, "ProtectHostname=yes is configured, but UTS namespace setup is prohibited (container manager?), ignoring namespace setup.");
-                        }
-                } else
-                        log_unit_warning(unit, "ProtectHostname=yes is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.");
-#if HAVE_SECCOMP
-                r = seccomp_protect_hostname();
-                if (r < 0) {
-                        *exit_status = EXIT_SECCOMP;
-                        return log_unit_error_errno(unit, r, "Failed to apply hostname restrictions: %m");
-                }
-#endif
+        if (needs_sandboxing) {
+                r = apply_protect_hostname(unit, context, exit_status);
+                if (r < 0)
+                        return r;
         }
 
         /* Drop groups as early as possible.
