@@ -180,9 +180,10 @@ def _extract_directives(directive_groups, formatting, page):
     storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
         klass = variablelist.attrib.get('class')
+        searchpath = variablelist.attrib.get('xpath','./varlistentry/term/varname')
         storvar = directive_groups[klass or 'miscellaneous']
         # <option>s go in OPTIONS, unless class is specified
-        for xpath, stor in (('./varlistentry/term/varname', storvar),
+        for xpath, stor in ((searchpath, storvar),
                             ('./varlistentry/term/option',
                              storvar if klass else storopt)):
             for name in variablelist.iterfind(xpath):
