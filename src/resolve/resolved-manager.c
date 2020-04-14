@@ -581,8 +581,8 @@ int manager_new(Manager **ret) {
                 .dns_stub_tcp_fd = -1,
                 .hostname_fd = -1,
 
-                .llmnr_support = RESOLVE_SUPPORT_YES,
-                .mdns_support = RESOLVE_SUPPORT_YES,
+                .llmnr_support = DEFAULT_LLMNR_MODE,
+                .mdns_support = DEFAULT_MDNS_MODE,
                 .dnssec_mode = DEFAULT_DNSSEC_MODE,
                 .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
                 .enable_cache = DNS_CACHE_MODE_YES,
