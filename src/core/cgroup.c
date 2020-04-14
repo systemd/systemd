@@ -557,7 +557,7 @@ static void cgroup_apply_unified_cpuset(Unit *u, CPUSet cpus, const char *name) 
         _cleanup_free_ char *buf = NULL;
         int r;
 
-        buf = cpu_set_to_range_string(&cpus);
+        buf = cpu_set_to_range_string_kernel(&cpus);
         if (!buf)
             return;
 
