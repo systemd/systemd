@@ -846,8 +846,8 @@ node /org/freedesktop/login1/seat/seat0 {
       encoded in a structure consisting of the ID and the object path.</para>
 
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
-      <varname>IdleSinceHint</varname> properties encode the idle state, similar to the one exposed on the
-      Manager object, but specific for this seat.</para>
+      <varname>IdleSinceHintMonotonic</varname> properties encode the idle state, similar to the ones exposed
+      on the <interfacename>Manager</interfacename> object, but specific for this seat.</para>
     </refsect2>
   </refsect1>
 
