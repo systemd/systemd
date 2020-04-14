@@ -6,6 +6,23 @@
 
 #include "macro.h"
 
+/* 4MB for contents of regular files, 64k inodes for directories, symbolic links and device specials,
+   using large storage array systems as a baseline */
+#define TMPFS_LIMITS_DEV             ",size=4m,nr_inodes=64k"
+/* Very little, if any use expected */
+#define TMPFS_LIMITS_EMPTY_OR_ALMOST ",size=4m,nr_inodes=1k"
+#define TMPFS_LIMITS_SYS             TMPFS_LIMITS_EMPTY_OR_ALMOST
+#define TMPFS_LIMITS_SYS_FS_CGROUP   TMPFS_LIMITS_EMPTY_OR_ALMOST
+/* 10% of RAM (using 16GB of RAM as a baseline) translates to 400k inodes (assuming 4k each) and 25%
+   translates to 1M inodes */
+#define TMPFS_LIMITS_TMP             ",size=10%,nr_inodes=400k"
+#define TMPFS_LIMITS_DEV_SHM         TMPFS_LIMITS_TMP
+#define TMPFS_LIMITS_RUN             TMPFS_LIMITS_TMP
+#define TMPFS_LIMITS_TEMPORARY_FS    TMPFS_LIMITS_TMP
+#define TMPFS_LIMITS_VAR             ",size=25%,nr_inodes=1m"
+#define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
+#define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
+
 int repeat_unmount(const char *path, int flags);
 int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist);

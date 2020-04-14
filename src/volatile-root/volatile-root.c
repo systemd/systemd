@@ -29,7 +29,7 @@ static int make_volatile(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't generate volatile sysroot directory: %m");
 
-        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/volatile-sysroot", "tmpfs", MS_STRICTATIME, "mode=755");
+        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/volatile-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
         if (r < 0)
                 goto finish_rmdir;
 
@@ -80,7 +80,7 @@ static int make_overlay(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't create overlay sysroot directory: %m");
 
-        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=755");
+        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
         if (r < 0)
                 goto finish;
 

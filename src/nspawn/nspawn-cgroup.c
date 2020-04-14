@@ -319,7 +319,7 @@ static int mount_legacy_cgns_supported(
                  * uid/gid as seen from e.g. /proc/1/mountinfo. So we simply
                  * pass uid 0 and not uid_shift to tmpfs_patch_options().
                  */
-                r = tmpfs_patch_options("mode=755", 0, selinux_apifs_context, &options);
+                r = tmpfs_patch_options("mode=755" TMPFS_LIMITS_SYS_FS_CGROUP, 0, selinux_apifs_context, &options);
                 if (r < 0)
                         return log_oom();
 
@@ -421,7 +421,7 @@ static int mount_legacy_cgns_unsupported(
         if (r == 0) {
                 _cleanup_free_ char *options = NULL;
 
-                r = tmpfs_patch_options("mode=755", uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &options);
+                r = tmpfs_patch_options("mode=755" TMPFS_LIMITS_SYS_FS_CGROUP, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &options);
                 if (r < 0)
                         return log_oom();
 
