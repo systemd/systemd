@@ -253,13 +253,19 @@ static sd_device *handle_scsi_iscsi(sd_device *parent, char **path) {
         return parent;
 }
 
-static sd_device *handle_scsi_ata(sd_device *parent, char **path) {
+static sd_device *handle_scsi_ata(sd_device *parent, char **path, char **compat_path) {
         sd_device *targetdev, *target_parent;
         _cleanup_(sd_device_unrefp) sd_device *atadev = NULL;
-        const char *port_no, *sysname;
+        const char *port_no, *sysname, *name;
+        unsigned host, bus, target, lun;
 
         assert(parent);
         assert(path);
+
+        if (sd_device_get_sysname(parent, &name) < 0)
+                return NULL;
+        if (sscanf(name, "%u:%u:%u:%u", &host, &bus, &target, &lun) != 4)
+                return NULL;
 
         if (sd_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host", &targetdev) < 0)
                 return NULL;
@@ -275,7 +281,17 @@ static sd_device *handle_scsi_ata(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(atadev, "port_no", &port_no) < 0)
                 return NULL;
 
-        path_prepend(path, "ata-%s", port_no);
+        if (bus != 0)
+                /* Devices behind port multiplier have a bus != 0*/
+                path_prepend(path, "ata-%s.%u.0", port_no, bus);
+        else
+                /* Master/slave are distinguished by target id */
+                path_prepend(path, "ata-%s.%u", port_no, target);
+
+        /* old compatible persistent link for ATA devices */
+        if (compat_path)
+                path_prepend(compat_path, "ata-%s", port_no);
+
         return parent;
 }
 
@@ -392,7 +408,7 @@ static sd_device *handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         return parent;
 }
 
-static sd_device *handle_scsi(sd_device *parent, char **path, bool *supported_parent) {
+static sd_device *handle_scsi(sd_device *parent, char **path, char **compat_path, bool *supported_parent) {
         const char *devtype, *id, *name;
 
         if (sd_device_get_devtype(parent, &devtype) < 0 ||
@@ -426,7 +442,7 @@ static sd_device *handle_scsi(sd_device *parent, char **path, bool *supported_pa
         }
 
         if (strstr(name, "/ata"))
-                return handle_scsi_ata(parent, path);
+                return handle_scsi_ata(parent, path, compat_path);
 
         if (strstr(name, "/vmbus_"))
                 return handle_scsi_hyperv(parent, path, 37);
@@ -520,6 +536,7 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
 static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
         sd_device *parent;
         _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *compat_path = NULL;
         bool supported_transport = false;
         bool supported_parent = false;
         const char *subsystem;
@@ -537,7 +554,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                 } else if (streq(subsys, "scsi_tape")) {
                         handle_scsi_tape(parent, &path);
                 } else if (streq(subsys, "scsi")) {
-                        parent = handle_scsi(parent, &path, &supported_parent);
+                        parent = handle_scsi(parent, &path, &compat_path, &supported_parent);
                         supported_transport = true;
                 } else if (streq(subsys, "cciss")) {
                         parent = handle_cciss(parent, &path);
@@ -557,19 +574,27 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                         }
                 } else if (streq(subsys, "pci")) {
                         path_prepend(&path, "pci-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "pci-%s", sysname);
                         parent = skip_subsystem(parent, "pci");
                         supported_parent = true;
                 } else if (streq(subsys, "platform")) {
                         path_prepend(&path, "platform-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "platform-%s", sysname);
                         parent = skip_subsystem(parent, "platform");
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "acpi")) {
                         path_prepend(&path, "acpi-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "acpi-%s", sysname);
                         parent = skip_subsystem(parent, "acpi");
                         supported_parent = true;
                 } else if (streq(subsys, "xen")) {
                         path_prepend(&path, "xen-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "xen-%s", sysname);
                         parent = skip_subsystem(parent, "xen");
                         supported_parent = true;
                 } else if (streq(subsys, "virtio")) {
@@ -577,16 +602,22 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                         supported_transport = true;
                 } else if (streq(subsys, "scm")) {
                         path_prepend(&path, "scm-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "scm-%s", sysname);
                         parent = skip_subsystem(parent, "scm");
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "ccw")) {
                         path_prepend(&path, "ccw-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "ccw-%s", sysname);
                         parent = skip_subsystem(parent, "ccw");
                         supported_transport = true;
                         supported_parent = true;
                 } else if (streq(subsys, "ccwgroup")) {
                         path_prepend(&path, "ccwgroup-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "ccwgroup-%s", sysname);
                         parent = skip_subsystem(parent, "ccwgroup");
                         supported_transport = true;
                         supported_parent = true;
@@ -596,6 +627,8 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                         supported_parent = true;
                 } else if (streq(subsys, "iucv")) {
                         path_prepend(&path, "iucv-%s", sysname);
+                        if (compat_path)
+                                path_prepend(&compat_path, "iucv-%s", sysname);
                         parent = skip_subsystem(parent, "iucv");
                         supported_transport = true;
                         supported_parent = true;
@@ -604,6 +637,8 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
 
                         if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
+                                if (compat_path)
+                                        path_prepend(&compat_path, "nvme-%s", nsid);
                                 parent = skip_subsystem(parent, "nvme");
                                 supported_parent = true;
                                 supported_transport = true;
@@ -670,6 +705,14 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                 udev_builtin_add_property(dev, test, "ID_PATH", path);
                 udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
         }
+
+        /*
+         * Compatible link generation for ATA devices
+         * we assign compat_link to the env variable
+         * ID_PATH_ATA_COMPAT
+         */
+        if (compat_path)
+                udev_builtin_add_property(dev, test, "ID_PATH_ATA_COMPAT", compat_path);
 
         return 0;
 }
