@@ -211,27 +211,7 @@ int pkcs11_token_login(
 
         for (unsigned tries = 0; tries < 3; tries++) {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
-                _cleanup_free_ char *text = NULL;
                 char **i, *e;
-
-                if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
-                        r = asprintf(&text,
-                                     "Please enter correct PIN for security token '%s' in order to unlock %s (final try):",
-                                     token_label, friendly_name);
-                else if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
-                        r = asprintf(&text,
-                                     "PIN has been entered incorrectly previously, please enter correct PIN for security token '%s' in order to unlock %s:",
-                                     token_label, friendly_name);
-                else if (tries == 0)
-                        r = asprintf(&text,
-                                     "Please enter PIN for security token '%s' in order to unlock %s:",
-                                     token_label, friendly_name);
-                else
-                        r = asprintf(&text,
-                                     "Please enter PIN for security token '%s' in order to unlock %s (try #%u):",
-                                     token_label, friendly_name, tries+1);
-                if (r < 0)
-                        return log_oom();
 
                 e = getenv("PIN");
                 if (e) {
@@ -243,6 +223,27 @@ int pkcs11_token_login(
                         if (unsetenv("PIN") < 0)
                                 return log_error_errno(errno, "Failed to unset $PIN: %m");
                 } else {
+                        _cleanup_free_ char *text = NULL;
+
+                        if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
+                                r = asprintf(&text,
+                                             "Please enter correct PIN for security token '%s' in order to unlock %s (final try):",
+                                             token_label, friendly_name);
+                        else if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
+                                r = asprintf(&text,
+                                             "PIN has been entered incorrectly previously, please enter correct PIN for security token '%s' in order to unlock %s:",
+                                             token_label, friendly_name);
+                        else if (tries == 0)
+                                r = asprintf(&text,
+                                             "Please enter PIN for security token '%s' in order to unlock %s:",
+                                             token_label, friendly_name);
+                        else
+                                r = asprintf(&text,
+                                             "Please enter PIN for security token '%s' in order to unlock %s (try #%u):",
+                                             token_label, friendly_name, tries+1);
+                        if (r < 0)
+                                return log_oom();
+
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
                         r = ask_password_auto(text, icon_name, id, keyname, until, 0, &passwords);
                         if (r < 0)
