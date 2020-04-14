@@ -1153,6 +1153,17 @@ else
 endif
 conf.set10('HAVE_P11KIT', have)
 
+want_libfido2 = get_option('libfido2')
+if want_libfido2 != 'false' and not skip_deps
+        libfido2 = dependency('libfido2',
+                              required : want_libfido2 == 'true')
+        have = libfido2.found()
+else
+        have = false
+        libfido2 = []
+endif
+conf.set10('HAVE_LIBFIDO2', have)
+
 want_elfutils = get_option('elfutils')
 if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
@@ -3575,6 +3586,7 @@ foreach tuple : [
         ['pwquality'],
         ['libfdisk'],
         ['p11kit'],
+        ['libfido2'],
         ['AUDIT'],
         ['IMA'],
         ['AppArmor'],
