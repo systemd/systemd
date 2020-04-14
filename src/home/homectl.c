@@ -236,7 +236,7 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
         return 0;
 }
 
-static int acquire_pkcs11_pin(const char *user_name, UserRecord *hr) {
+static int acquire_token_pin(const char *user_name, UserRecord *hr) {
         _cleanup_(strv_free_erasep) char **pin = NULL;
         _cleanup_free_ char *question = NULL;
         char *e;
@@ -247,9 +247,9 @@ static int acquire_pkcs11_pin(const char *user_name, UserRecord *hr) {
 
         e = getenv("PIN");
         if (e) {
-                r = user_record_set_pkcs11_pin(hr, STRV_MAKE(e), false);
+                r = user_record_set_token_pin(hr, STRV_MAKE(e), false);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to store PKCS#11 PIN: %m");
+                        return log_error_errno(r, "Failed to store token PIN: %m");
 
                 string_erase(e);
 
@@ -263,11 +263,11 @@ static int acquire_pkcs11_pin(const char *user_name, UserRecord *hr) {
                 return log_oom();
 
         /* We never cache or use cached PINs, since usually there are only very few attempts allowed before the PIN is blocked */
-        r = ask_password_auto(question, "user-home", NULL, "pkcs11-pin", USEC_INFINITY, 0, &pin);
+        r = ask_password_auto(question, "user-home", NULL, "token-pin", USEC_INFINITY, 0, &pin);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire security token PIN: %m");
 
-        r = user_record_set_pkcs11_pin(hr, pin, false);
+        r = user_record_set_token_pin(hr, pin, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to store security token PIN: %m");
 
@@ -315,7 +315,7 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
 
-                r = acquire_pkcs11_pin(user_name, hr);
+                r = acquire_token_pin(user_name, hr);
                 if (r < 0)
                         return r;
 
@@ -334,7 +334,7 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again.");
 
-                r = acquire_pkcs11_pin(user_name, hr);
+                r = acquire_token_pin(user_name, hr);
                 if (r < 0)
                         return r;
 
@@ -342,7 +342,7 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only a few tries left!).");
 
-                r = acquire_pkcs11_pin(user_name, hr);
+                r = acquire_token_pin(user_name, hr);
                 if (r < 0)
                         return r;
 
@@ -350,7 +350,7 @@ static int handle_generic_user_record_error(
 
                 log_notice("Security token PIN incorrect, please try again (only one try left!).");
 
-                r = acquire_pkcs11_pin(user_name, hr);
+                r = acquire_token_pin(user_name, hr);
                 if (r < 0)
                         return r;
         } else
@@ -1005,7 +1005,7 @@ static int encrypt_bytes(
         return 0;
 }
 
-static int add_pkcs11_pin(JsonVariant **v, const char *pin) {
+static int add_token_pin(JsonVariant **v, const char *pin) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *l = NULL;
         _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
@@ -1016,7 +1016,7 @@ static int add_pkcs11_pin(JsonVariant **v, const char *pin) {
                 return 0;
 
         w = json_variant_ref(json_variant_by_key(*v, "secret"));
-        l = json_variant_ref(json_variant_by_key(w, "pkcs11Pin"));
+        l = json_variant_ref(json_variant_by_key(w, "tokenPin"));
 
         r = json_variant_strv(l, &pins);
         if (r < 0)
@@ -1039,7 +1039,7 @@ static int add_pkcs11_pin(JsonVariant **v, const char *pin) {
 
         json_variant_sensitive(l);
 
-        r = json_variant_set_field(&w, "pkcs11Pin", l);
+        r = json_variant_set_field(&w, "tokenPin", l);
         if (r < 0)
                 return log_error_errno(r, "Failed to update PIN field: %m");
 
@@ -1212,7 +1212,7 @@ static int add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         /* If we acquired the PIN also include it in the secret section of the record, so that systemd-homed
          * can use it if it needs to, given that it likely needs to decrypt the key again to pass to LUKS or
          * fscrypt. */
-        r = add_pkcs11_pin(v, pin);
+        r = add_token_pin(v, pin);
         if (r < 0)
                 return r;
 

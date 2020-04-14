@@ -120,7 +120,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         strv_free_erase(h->hashed_password);
         strv_free_erase(h->ssh_authorized_keys);
         strv_free_erase(h->password);
-        strv_free_erase(h->pkcs11_pin);
+        strv_free_erase(h->token_pin);
 
         free(h->cifs_service);
         free(h->cifs_user_name);
@@ -620,7 +620,8 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
 
         static const JsonDispatch secret_dispatch_table[] = {
                 { "password",                                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, password),                                       0 },
-                { "pkcs11Pin",                                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, pkcs11_pin),                                     0 },
+                { "tokenPin",                                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
+                { "pkcs11Pin",   /* legacy alias */             _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11ProtectedAuthenticationPathPermitted", JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, pkcs11_protected_authentication_path_permitted), 0 },
                 {},
         };

@@ -47,7 +47,7 @@ int user_record_set_disk_size(UserRecord *h, uint64_t disk_size);
 int user_record_set_password(UserRecord *h, char **password, bool prepend);
 int user_record_make_hashed_password(UserRecord *h, char **password, bool extend);
 int user_record_set_hashed_password(UserRecord *h, char **hashed_password);
-int user_record_set_pkcs11_pin(UserRecord *h, char **pin, bool prepend);
+int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend);
 int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h, int b);
 int user_record_set_password_change_now(UserRecord *h, int b);
 int user_record_merge_secret(UserRecord *h, UserRecord *secret);

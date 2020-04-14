@@ -359,7 +359,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -388,7 +388,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -407,7 +407,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -426,7 +426,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;

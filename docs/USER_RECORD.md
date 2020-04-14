@@ -864,8 +864,10 @@ The `secret` field of the top-level user record contains the following fields:
 
 `password` → an array of strings, each containing a plain text password.
 
-`pkcs11Pin` → an array of strings, each containing a plain text PIN, suitable
-for unlocking PKCS#11 security tokens that require that.
+`tokenPin` → an array of strings, each containing a plain text PIN, suitable
+for unlocking security tokens that require that. (The field `pkcs11Pin` should
+be considered a compatibility alias for this field, and merged with `tokenPin`
+in case both are set.)
 
 `pkcs11ProtectedAuthenticationPathPermitted` → a boolean. If set to true allows
 the receiver to use the PKCS#11 "protected authentication path" (i.e. a

@@ -239,7 +239,7 @@ typedef struct UserRecord {
         char **hashed_password;
         char **ssh_authorized_keys;
         char **password;
-        char **pkcs11_pin;
+        char **token_pin;
 
         char *cifs_domain;
         char *cifs_user_name;
