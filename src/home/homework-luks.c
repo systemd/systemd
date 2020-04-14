@@ -216,7 +216,7 @@ static int luks_setup(
                 const char *cipher_mode,
                 uint64_t volume_key_size,
                 char **passwords,
-                char **pkcs11_decrypted_passwords,
+                const PasswordCache *cache,
                 bool discard,
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
@@ -227,6 +227,7 @@ static int luks_setup(
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
+        char **list;
         int r;
 
         assert(node);
@@ -278,12 +279,14 @@ static int luks_setup(
         if (!vk)
                 return log_oom();
 
-        r = luks_try_passwords(cd, pkcs11_decrypted_passwords, vk, &vks);
-        if (r == -ENOKEY) {
-                r = luks_try_passwords(cd, passwords, vk, &vks);
-                if (r == -ENOKEY)
-                        return log_error_errno(r, "No valid password for LUKS superblock.");
+        r = -ENOKEY;
+        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, passwords) {
+                r = luks_try_passwords(cd, list, vk, &vks);
+                if (r != -ENOKEY)
+                        break;
         }
+        if (r == -ENOKEY)
+                return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
@@ -312,7 +315,7 @@ static int luks_setup(
 static int luks_open(
                 const char *dm_name,
                 char **passwords,
-                char **pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 struct crypt_device **ret,
                 sd_id128_t *ret_found_uuid,
                 void **ret_volume_key,
@@ -321,6 +324,7 @@ static int luks_open(
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
+        char **list;
         size_t vks;
         int r;
 
@@ -361,12 +365,14 @@ static int luks_open(
         if (!vk)
                 return log_oom();
 
-        r = luks_try_passwords(cd, pkcs11_decrypted_passwords, vk, &vks);
-        if (r == -ENOKEY) {
-                r = luks_try_passwords(cd, passwords, vk, &vks);
-                if (r == -ENOKEY)
-                        return log_error_errno(r, "No valid password for LUKS superblock.");
+        r = -ENOKEY;
+        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, passwords) {
+                r = luks_try_passwords(cd, list, vk, &vks);
+                if (r != -ENOKEY)
+                        break;
         }
+        if (r == -ENOKEY)
+                return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
@@ -622,7 +628,7 @@ static int luks_validate_home_record(
                 struct crypt_device *cd,
                 UserRecord *h,
                 const void *volume_key,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 UserRecord **ret_luks_home_record) {
 
         int r, token;
@@ -727,7 +733,7 @@ static int luks_validate_home_record(
                 if (!user_record_compatible(h, lhr))
                         return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "LUKS home record not compatible with host record, refusing.");
 
-                r = user_record_authenticate(lhr, h, pkcs11_decrypted_passwords, /* strict_verify= */ true);
+                r = user_record_authenticate(lhr, h, cache, /* strict_verify= */ true);
                 if (r < 0)
                         return r;
                 assert(r > 0); /* Insist that a password was verified */
@@ -982,7 +988,7 @@ int home_prepare_luks(
                 UserRecord *h,
                 bool already_activated,
                 const char *force_image_path,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_luks_home) {
 
@@ -1010,7 +1016,7 @@ int home_prepare_luks(
 
                 r = luks_open(setup->dm_name,
                               h->password,
-                              pkcs11_decrypted_passwords ? *pkcs11_decrypted_passwords : NULL,
+                              cache,
                               &cd,
                               &found_luks_uuid,
                               &volume_key,
@@ -1018,7 +1024,7 @@ int home_prepare_luks(
                 if (r < 0)
                         return r;
 
-                r = luks_validate_home_record(cd, h, volume_key, pkcs11_decrypted_passwords, &luks_home);
+                r = luks_validate_home_record(cd, h, volume_key, cache, &luks_home);
                 if (r < 0)
                         return r;
 
@@ -1133,7 +1139,7 @@ int home_prepare_luks(
                                h->luks_cipher_mode,
                                h->luks_volume_key_size,
                                h->password,
-                               pkcs11_decrypted_passwords ? *pkcs11_decrypted_passwords : NULL,
+                               cache,
                                user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                                &cd,
                                &found_luks_uuid,
@@ -1144,7 +1150,7 @@ int home_prepare_luks(
 
                 dm_activated = true;
 
-                r = luks_validate_home_record(cd, h, volume_key, pkcs11_decrypted_passwords, &luks_home);
+                r = luks_validate_home_record(cd, h, volume_key, cache, &luks_home);
                 if (r < 0)
                         goto fail;
 
@@ -1218,7 +1224,7 @@ static void print_size_summary(uint64_t host_size, uint64_t encrypted_size, stru
 
 int home_activate_luks(
                 UserRecord *h,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *luks_home_record = NULL;
@@ -1250,7 +1256,7 @@ int home_activate_luks(
                         h,
                         false,
                         NULL,
-                        pkcs11_decrypted_passwords,
+                        cache,
                         &setup,
                         &luks_home_record);
         if (r < 0)
@@ -1268,7 +1274,7 @@ int home_activate_luks(
                         h,
                         &setup,
                         luks_home_record,
-                        pkcs11_decrypted_passwords,
+                        cache,
                         &sfs,
                         &new_home);
         if (r < 0)
@@ -1464,7 +1470,7 @@ static int luks_format(
                 const char *dm_name,
                 sd_id128_t uuid,
                 const char *label,
-                char **pkcs11_decrypted_passwords,
+                const PasswordCache *cache,
                 char **effective_passwords,
                 bool discard,
                 UserRecord *hr,
@@ -1533,7 +1539,8 @@ static int luks_format(
 
         STRV_FOREACH(pp, effective_passwords) {
 
-                if (strv_contains(pkcs11_decrypted_passwords, *pp)) {
+                if (strv_contains(cache->pkcs11_passwords, *pp) ||
+                    strv_contains(cache->fido2_passwords, *pp)) {
                         log_debug("Using minimal PBKDF for slot %i", slot);
                         r = crypt_set_pbkdf_type(cd, &minimal_pbkdf);
                 } else {
@@ -1858,7 +1865,7 @@ static int home_truncate(
 
 int home_create_luks(
                 UserRecord *h,
-                char **pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 char **effective_passwords,
                 UserRecord **ret_home) {
 
@@ -2055,7 +2062,7 @@ int home_create_luks(
                         dm_name,
                         luks_uuid,
                         user_record_user_name_and_realm(h),
-                        pkcs11_decrypted_passwords,
+                        cache,
                         effective_passwords,
                         user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                         h,
@@ -2561,7 +2568,7 @@ static int apply_resize_partition(int fd, sd_id128_t disk_uuids, struct fdisk_ta
 int home_resize_luks(
                 UserRecord *h,
                 bool already_activated,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_home) {
 
@@ -2647,11 +2654,11 @@ int home_resize_luks(
                 }
         }
 
-        r = home_prepare_luks(h, already_activated, whole_disk, pkcs11_decrypted_passwords, setup, &header_home);
+        r = home_prepare_luks(h, already_activated, whole_disk, cache, setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, pkcs11_decrypted_passwords, &embedded_home, &new_home);
+        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
         if (r < 0)
                 return r;
 
@@ -2855,13 +2862,14 @@ int home_resize_luks(
 int home_passwd_luks(
                 UserRecord *h,
                 HomeSetup *setup,
-                char **pkcs11_decrypted_passwords, /* the passwords acquired via PKCS#11 security tokens */
-                char **effective_passwords         /* new passwords */) {
+                PasswordCache *cache,      /* the passwords acquired via PKCS#11/FIDO2 security tokens */
+                char **effective_passwords /* new passwords */) {
 
         size_t volume_key_size, i, max_key_slots, n_effective;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         const char *type;
+        char **list;
         int r;
 
         assert(h);
@@ -2886,12 +2894,14 @@ int home_passwd_luks(
         if (!volume_key)
                 return log_oom();
 
-        r = luks_try_passwords(setup->crypt_device, pkcs11_decrypted_passwords, volume_key, &volume_key_size);
-        if (r == -ENOKEY) {
-                r = luks_try_passwords(setup->crypt_device, h->password, volume_key, &volume_key_size);
-                if (r == -ENOKEY)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to unlock LUKS superblock with supplied passwords.");
+        r = -ENOKEY;
+        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, h->password) {
+                r = luks_try_passwords(setup->crypt_device, list, volume_key, &volume_key_size);
+                if (r != -ENOKEY)
+                        break;
         }
+        if (r == -ENOKEY)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to unlock LUKS superblock with supplied passwords.");
         if (r < 0)
                 return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
 
@@ -2911,7 +2921,8 @@ int home_passwd_luks(
                         continue;
                 }
 
-                if (strv_find(pkcs11_decrypted_passwords, effective_passwords[i])) {
+                if (strv_contains(cache->pkcs11_passwords, effective_passwords[i]) ||
+                    strv_contains(cache->fido2_passwords, effective_passwords[i])) {
                         log_debug("Using minimal PBKDF for slot %zu", i);
                         r = crypt_set_pbkdf_type(setup->crypt_device, &minimal_pbkdf);
                 } else {
@@ -3008,9 +3019,10 @@ static int luks_try_resume(
         return -ENOKEY;
 }
 
-int home_unlock_luks(UserRecord *h, char ***pkcs11_decrypted_passwords) {
+int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        char **list;
         int r;
 
         assert(h);
@@ -3026,12 +3038,14 @@ int home_unlock_luks(UserRecord *h, char ***pkcs11_decrypted_passwords) {
         log_info("Discovered used LUKS device %s.", dm_node);
         crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
 
-        r = luks_try_resume(cd, dm_name, pkcs11_decrypted_passwords ? *pkcs11_decrypted_passwords : NULL);
-        if (r == -ENOKEY) {
-                r = luks_try_resume(cd, dm_name, h->password);
-                if (r == -ENOKEY)
-                        return log_error_errno(r, "No valid password for LUKS superblock.");
+        r = -ENOKEY;
+        FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, h->password) {
+                r = luks_try_resume(cd, dm_name, list);
+                if (r != -ENOKEY)
+                        break;
         }
+        if (r == -ENOKEY)
+                return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
                 return log_error_errno(r, "Failed to resume LUKS superblock: %m");
 

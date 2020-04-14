@@ -81,6 +81,7 @@ UserRecord* user_record_new(void) {
                 .password_change_inactive_usec = UINT64_MAX,
                 .password_change_now = -1,
                 .pkcs11_protected_authentication_path_permitted = -1,
+                .fido2_user_presence_permitted = -1,
         };
 
         return h;
@@ -644,6 +645,7 @@ static int dispatch_secret(const char *name, JsonVariant *variant, JsonDispatchF
                 { "tokenPin",                                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11Pin",   /* legacy alias */             _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,     offsetof(UserRecord, token_pin),                                      0 },
                 { "pkcs11ProtectedAuthenticationPathPermitted", JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, pkcs11_protected_authentication_path_permitted), 0 },
+                { "fido2UserPresencePermitted",                 JSON_VARIANT_BOOLEAN,       json_dispatch_tristate, offsetof(UserRecord, fido2_user_presence_permitted),                  0 },
                 {},
         };
 

@@ -457,6 +457,10 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PIN_NEEDED, "PIN for security token required.");
         case -ERFKILL:
                 return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED, "Security token requires protected authentication path.");
+        case -EMEDIUMTYPE:
+                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED, "Security token requires user presence.");
+        case -ENOSTR:
+                return sd_bus_error_setf(error, BUS_ERROR_TOKEN_ACTION_TIMEOUT, "Token action timeout. (User was supposed to verify presence or similar, by interacting with the token, and didn't do that in time.)");
         case -EOWNERDEAD:
                 return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PIN_LOCKED, "PIN of security token locked.");
         case -ENOLCK:
@@ -1357,7 +1361,13 @@ static int user_record_extend_with_binding(UserRecord *hr, UserRecord *with_bind
         return 0;
 }
 
-static int home_update_internal(Home *h, const char *verb, UserRecord *hr, UserRecord *secret, sd_bus_error *error) {
+static int home_update_internal(
+                Home *h,
+                const char *verb,
+                UserRecord *hr,
+                UserRecord *secret,
+                sd_bus_error *error) {
+
         _cleanup_(user_record_unrefp) UserRecord *new_hr = NULL, *saved_secret = NULL, *signed_hr = NULL;
         int r, c;
 

@@ -208,7 +208,7 @@ static int fscrypt_slot_try_many(
 }
 
 static int fscrypt_setup(
-                char **pkcs11_decrypted_passwords,
+                const PasswordCache *cache,
                 char **password,
                 HomeSetup *setup,
                 void **ret_volume_key,
@@ -230,6 +230,7 @@ static int fscrypt_setup(
                 _cleanup_free_ char *value = NULL;
                 size_t salt_size, encrypted_size;
                 const char *nr, *e;
+                char **list;
                 int n;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32bit unsigned integer */
@@ -256,19 +257,17 @@ static int fscrypt_setup(
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
-                r = fscrypt_slot_try_many(
-                                pkcs11_decrypted_passwords,
-                                salt, salt_size,
-                                encrypted, encrypted_size,
-                                setup->fscrypt_key_descriptor,
-                                ret_volume_key, ret_volume_key_size);
-                if (r == -ENOANO)
+                r = -ENOANO;
+                FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
                         r = fscrypt_slot_try_many(
-                                        password,
+                                        list,
                                         salt, salt_size,
                                         encrypted, encrypted_size,
                                         setup->fscrypt_key_descriptor,
                                         ret_volume_key, ret_volume_key_size);
+                        if (r != -ENOANO)
+                                break;
+                }
                 if (r < 0) {
                         if (r != -ENOANO)
                                 return r;
@@ -282,7 +281,7 @@ static int fscrypt_setup(
 int home_prepare_fscrypt(
                 UserRecord *h,
                 bool already_activated,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 HomeSetup *setup) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
@@ -314,7 +313,7 @@ int home_prepare_fscrypt(
         memcpy(setup->fscrypt_key_descriptor, policy.master_key_descriptor, FS_KEY_DESCRIPTOR_SIZE);
 
         r = fscrypt_setup(
-                        pkcs11_decrypted_passwords ? *pkcs11_decrypted_passwords : NULL,
+                        cache,
                         h->password,
                         setup,
                         &volume_key,
@@ -584,7 +583,7 @@ int home_create_fscrypt(
 int home_passwd_fscrypt(
                 UserRecord *h,
                 HomeSetup *setup,
-                char **pkcs11_decrypted_passwords, /* the passwords acquired via PKCS#11 security tokens */
+                PasswordCache *cache,               /* the passwords acquired via PKCS#11/FIDO2 security tokens */
                 char **effective_passwords          /* new passwords */) {
 
         _cleanup_(erase_and_freep) void *volume_key = NULL;
@@ -600,7 +599,7 @@ int home_passwd_fscrypt(
         assert(setup);
 
         r = fscrypt_setup(
-                        pkcs11_decrypted_passwords,
+                        cache,
                         h->password,
                         setup,
                         &volume_key,

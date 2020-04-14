@@ -330,6 +330,7 @@ typedef struct UserRecord {
         size_t n_fido2_hmac_credential;
         Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
+        int fido2_user_presence_permitted;
 
         JsonVariant *json;
 } UserRecord;

@@ -331,8 +331,18 @@ static int handle_generic_user_record_error(
                 if (r < 0)
                         return log_error_errno(r, "Failed to set PKCS#11 protected authentication path permitted flag: %m");
 
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
+
+                log_notice("%s%sAuthentication requires presence verification on security token.",
+                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
+
+                r = user_record_set_fido2_user_presence_permitted(hr, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set FIDO2 user presence permitted flag: %m");
+
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED))
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Security token PIN is locked, please unlock security token PIN first.");
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)");
 
         else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN)) {
 

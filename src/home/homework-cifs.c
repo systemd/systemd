@@ -98,7 +98,7 @@ int home_prepare_cifs(
 
 int home_activate_cifs(
                 UserRecord *h,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 UserRecord **ret_home) {
 
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
@@ -120,7 +120,7 @@ int home_activate_cifs(
         if (r < 0)
                 return r;
 
-        r = home_refresh(h, &setup, NULL, pkcs11_decrypted_passwords, NULL, &new_home);
+        r = home_refresh(h, &setup, NULL, cache, NULL, &new_home);
         if (r < 0)
                 return r;
 

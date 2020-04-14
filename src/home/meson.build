@@ -14,6 +14,7 @@ systemd_homework_sources = files('''
         homework-mount.c
         homework-mount.h
         homework-pkcs11.h
+        homework-fido2.h
         homework-quota.c
         homework-quota.h
         homework.c
@@ -24,6 +25,9 @@ systemd_homework_sources = files('''
 
 if conf.get('HAVE_P11KIT') == 1
         systemd_homework_sources += files('homework-pkcs11.c')
+endif
+if conf.get('HAVE_LIBFIDO2') == 1
+        systemd_homework_sources += files('homework-fido2.c')
 endif
 
 systemd_homed_sources = files('''
