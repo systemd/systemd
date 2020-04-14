@@ -161,6 +161,30 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>dbus methods</title>
+
+                <para>Methods exposed on dbus.</para>
+
+                <variablelist id='dbus-methods' />
+        </refsect1>
+
+        <refsect1>
+                <title>dbus properties</title>
+
+                <para>Properties exposed on dbus.</para>
+
+                <variablelist id='dbus-properties' />
+        </refsect1>
+
+        <refsect1>
+                <title>dbus signals</title>
+
+                <para>Signals emitted on dbus.</para>
+
+                <variablelist id='dbus-signals' />
+        </refsect1>
+
+        <refsect1>
                 <title>Colophon</title>
                 <para id='colophon' />
         </refsect1>
