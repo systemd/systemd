@@ -410,6 +410,85 @@ static void test_system_tasks_max_scale(void) {
         assert_se(system_tasks_max_scale(UINT64_MAX/4, UINT64_MAX) == UINT64_MAX);
 }
 
+static void test_foreach_pointer(void) {
+        int a, b, c, *i;
+        size_t k = 0;
+
+        FOREACH_POINTER(i, &a, &b, &c) {
+                switch (k) {
+
+                case 0:
+                        assert_se(i == &a);
+                        break;
+
+                case 1:
+                        assert_se(i == &b);
+                        break;
+
+                case 2:
+                        assert_se(i == &c);
+                        break;
+
+                default:
+                        assert_not_reached("unexpected index");
+                        break;
+                }
+
+                k++;
+        }
+
+        assert(k == 3);
+
+        FOREACH_POINTER(i, &b) {
+                assert(k == 3);
+                assert(i == &b);
+                k = 4;
+        }
+
+        assert(k == 4);
+
+        FOREACH_POINTER(i, NULL, &c, NULL, &b, NULL, &a, NULL) {
+                switch (k) {
+
+                case 4:
+                        assert_se(i == NULL);
+                        break;
+
+                case 5:
+                        assert_se(i == &c);
+                        break;
+
+                case 6:
+                        assert_se(i == NULL);
+                        break;
+
+                case 7:
+                        assert_se(i == &b);
+                        break;
+
+                case 8:
+                        assert_se(i == NULL);
+                        break;
+
+                case 9:
+                        assert_se(i == &a);
+                        break;
+
+                case 10:
+                        assert_se(i == NULL);
+                        break;
+
+                default:
+                        assert_not_reached("unexpected index");
+                        break;
+                }
+
+                k++;
+        }
+
+        assert(k == 11);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -428,6 +507,7 @@ int main(int argc, char *argv[]) {
         test_physical_memory_scale();
         test_system_tasks_max();
         test_system_tasks_max_scale();
+        test_foreach_pointer();
 
         return 0;
 }
