@@ -65,6 +65,8 @@ systemd_homed_sources += [homed_gperf_c]
 homectl_sources = files('''
         home-util.c
         home-util.h
+        homectl-fido2.c
+        homectl-fido2.h
         homectl.c
         pwquality-util.c
         pwquality-util.h

@@ -19,6 +19,7 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "home-util.h"
+#include "homectl-fido2.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "main-func.h"
@@ -56,6 +57,7 @@ static char **arg_identity_filter_rlimits = NULL;
 static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
+static char **arg_fido2_device = NULL;
 static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
 static bool arg_and_resize = false;
@@ -73,6 +75,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_rlimits, json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 
 static bool identity_properties_specified(void) {
         return
@@ -83,7 +86,8 @@ static bool identity_properties_specified(void) {
                 !json_variant_is_blank_object(arg_identity_extra_rlimits) ||
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
-                !strv_isempty(arg_pkcs11_token_uri);
+                !strv_isempty(arg_pkcs11_token_uri) ||
+                !strv_isempty(arg_fido2_device);
 }
 
 static int acquire_bus(sd_bus **bus) {
@@ -1251,6 +1255,12 @@ static int acquire_new_home_record(UserRecord **ret) {
                         return r;
         }
 
+        STRV_FOREACH(i, arg_fido2_device) {
+                r = identity_add_fido2_parameters(&v, *i);
+                if (r < 0)
+                        return r;
+        }
+
         r = update_last_change(&v, true, false);
         if (r < 0)
                 return r;
@@ -1571,9 +1581,15 @@ static int acquire_updated_home_record(
                         return r;
         }
 
+        STRV_FOREACH(i, arg_fido2_device) {
+                r = identity_add_fido2_parameters(&json, *i);
+                if (r < 0)
+                        return r;
+        }
+
         /* If the user supplied a full record, then add in lastChange, but do not override. Otherwise always
          * override. */
-        r = update_last_change(&json, !!arg_pkcs11_token_uri, !arg_identity);
+        r = update_last_change(&json, arg_pkcs11_token_uri || arg_fido2_device, !arg_identity);
         if (r < 0)
                 return r;
 
@@ -1732,6 +1748,8 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
         if (arg_pkcs11_token_uri)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "To change the PKCS#11 security token use 'homectl update --pkcs11-token-uri=…'.");
+        if (arg_fido2_device)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "To change the FIDO2 security token use 'homectl update --fido2-device=…'.");
         if (identity_properties_specified())
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The 'passwd' verb does not permit changing other record properties at the same time.");
 
@@ -2182,6 +2200,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              Specify SSH public keys\n"
                "     --pkcs11-token-uri=URI   URI to PKCS#11 security token containing\n"
                "                              private key and matching X.509 certificate\n"
+               "     --fido2-device=PATH      Path to FIDO2 hidraw device with hmac-secret\n"
+               "                              extension\n"
                "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL            Set locked account state\n"
                "     --not-before=TIMESTAMP   Do not allow logins before\n"
@@ -2328,6 +2348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXPORT_FORMAT,
                 ARG_AUTO_LOGIN,
                 ARG_PKCS11_TOKEN_URI,
+                ARG_FIDO2_DEVICE,
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
         };
@@ -2405,6 +2426,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
+                { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 {}
@@ -3388,6 +3410,41 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_FIDO2_DEVICE: {
+                        const char *p;
+
+                        if (streq(optarg, "list"))
+                                return list_fido2_devices();
+
+                        FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
+                                r = drop_from_identity(p);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (isempty(optarg)) {
+                                arg_fido2_device = strv_free(arg_fido2_device);
+                                break;
+                        }
+
+                        if (streq(optarg, "auto")) {
+                                _cleanup_free_ char *found = NULL;
+
+                                r = find_fido2_auto(&found);
+                                if (r < 0)
+                                        return r;
+
+                                r = strv_consume(&arg_fido2_device, TAKE_PTR(found));
+                        } else
+                                r = strv_extend(&arg_fido2_device, optarg);
+
+                        if (r < 0)
+                                return r;
+
+                        strv_uniq(arg_fido2_device);
+                        break;
+                }
+
                 case 'j':
                         arg_json = true;
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
@@ -3458,7 +3515,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (!strv_isempty(arg_pkcs11_token_uri))
+        if (!strv_isempty(arg_pkcs11_token_uri) || !strv_isempty(arg_fido2_device))
                 arg_and_change_password = true;
 
         if (arg_disk_size != UINT64_MAX || arg_disk_size_relative != UINT64_MAX)
