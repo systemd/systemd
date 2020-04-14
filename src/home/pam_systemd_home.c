@@ -385,6 +385,11 @@ static int handle_generic_user_record_error(
                         return PAM_SERVICE_ERR;
                 }
 
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED)) {
+
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)");
+                return PAM_SERVICE_ERR;
+
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
