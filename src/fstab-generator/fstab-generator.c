@@ -809,7 +809,7 @@ static int add_volatile_var(void) {
                          "/var",
                          NULL,
                          "tmpfs",
-                         "mode=0755",
+                         "mode=0755" TMPFS_LIMITS_VAR,
                          0,
                          0,
                          SPECIAL_LOCAL_FS_TARGET,

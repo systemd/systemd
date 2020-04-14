@@ -130,9 +130,9 @@ static const MountEntry protect_home_read_only_table[] = {
 
 /* ProtectHome=tmpfs table */
 static const MountEntry protect_home_tmpfs_table[] = {
-        { "/home",               TMPFS,        true, .read_only = true, .options_const = "mode=0755", .flags = MS_NODEV|MS_STRICTATIME },
-        { "/run/user",           TMPFS,        true, .read_only = true, .options_const = "mode=0755", .flags = MS_NODEV|MS_STRICTATIME },
-        { "/root",               TMPFS,        true, .read_only = true, .options_const = "mode=0700", .flags = MS_NODEV|MS_STRICTATIME },
+        { "/home",               TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/run/user",           TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/root",               TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectHome=yes table */
@@ -295,7 +295,7 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
                         .mode = EMPTY_DIR,
                         .ignore = false,
                         .read_only = true,
-                        .options_const = "mode=755",
+                        .options_const = "mode=755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
                 };
         }
@@ -341,7 +341,7 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
                                                "Path is not absolute: %s",
                                                t->path);
 
-                str = strjoin("mode=0755,", t->options);
+                str = strjoin("mode=0755" TMPFS_LIMITS_TEMPORARY_FS ",", t->options);
                 if (!str)
                         return -ENOMEM;
 
@@ -686,7 +686,7 @@ static int mount_private_dev(MountEntry *m) {
 
         dev = strjoina(temporary_mount, "/dev");
         (void) mkdir(dev, 0755);
-        if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755") < 0) {
+        if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV) < 0) {
                 r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
                 goto fail;
         }
