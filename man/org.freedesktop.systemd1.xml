@@ -16,7 +16,7 @@
 
   <refnamediv>
     <refname>org.freedesktop.systemd1</refname>
-    <refpurpose>The D-Bus interface of systemd-systemdd</refpurpose>
+    <refpurpose>The D-Bus interface of systemd</refpurpose>
   </refnamediv>
 
   <refsect1>
@@ -24,27 +24,27 @@
 
     <para>
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> and its
-    auxiliary daemons expose a number of APIs over D-Bus. This page describes the various APIs exposed by the
-    system and service manager itself, and does not cover the auxiliary daemons.
+    auxiliary daemons expose a number of APIs over D-Bus. This page only describes the various APIs exposed by the
+    system and service manager itself. It does not cover the auxiliary daemons.
     </para>
 
     <para>The service manager exposes a number of objects on the bus: one
-    <interfacename>Manager</interfacename> object as central entry point for clients, and individual objects
+    <interfacename>Manager</interfacename> object as a central entry point for clients along with individual objects
     for each unit and for each queued job. The unit objects each implement a generic
-    <interfacename>Unit</interfacename> interface plus a type-specific interface. For example, service units
-    implement <interfacename>org.freedesktop.systemd1.Unit</interfacename> as well as
-    <interfacename>org.freedesktop.system1.Service</interfacename>. The manager object can be used to list
-    unit and job objects, or to directly convert a unit name or job id into a bus path of the corresponding
+    <interfacename>Unit</interfacename> interface as well as a type-specific interface. For example, service units
+    implement both <interfacename>org.freedesktop.systemd1.Unit</interfacename> and
+    <interfacename>org.freedesktop.system1.Service</interfacename>. The manager object can list
+    unit and job objects or directly convert a unit name or job id into a bus path of the corresponding
     D-Bus object.</para>
 
     <para>Properties exposing time values are usually encoded in microseconds (usec) on the bus, even if
     their corresponding settings in the unit files are in seconds.</para>
 
-    <para>In contrast to most of the other services of the systemd suite PID 1 does not use PolicyKit for
+    <para>In contrast to most of the other services of the systemd suite, PID 1 does not use PolicyKit for
     controlling access to privileged operations, but relies exclusively on the low-level D-Bus policy
     language. (This is done in order to avoid a cyclic dependency between PolicyKit and systemd/PID 1.) This
     means that sensitive operations exposed by PID 1 on the bus are generally not available to unprivileged
-    processes directly. However some (such as shutdown/reboot/suspend) are made available through the D-Bus
+    processes directly. However, some operations (such as shutdown/reboot/suspend) are made available through the D-Bus
     API of logind, see
     <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
@@ -245,76 +245,75 @@ node /org/freedesktop/systemd1 {
     <refsect2>
       <title>Methods</title>
 
-      <para>Note that many of the calls exist twice: once on the <interfacename>Manager</interfacename>
-      object, and once on the respective unit objects. This is to optimize access times so that methods that
+      <para>Note that many of the methods exist twice: once on the <interfacename>Manager</interfacename>
+      object and once on the respective unit objects. This is to optimize access times so that methods that
       belong to unit objects do not have to be called with a resolved unit path, but can be called with only
       the unit id, too.</para>
 
       <para><function>GetUnit()</function> may be used to get the unit object path for a unit name. It takes
-      the unit name and returns the object path. If a unit has not been loaded yet by this name this call
+      the unit name and returns the object path. If a unit has not been loaded yet by this name this method
       will fail.</para>
 
       <para><function>GetUnitByPID()</function> may be used to get the unit object path of the unit a process
-      ID belongs to. Takes a UNIX PID and returns the object path. The PID must refer to an existing process
-      of the system.</para>
+      ID belongs to. It takes a UNIX PID and returns the object path. The PID must refer to an existing system process.</para>
 
       <para><function>LoadUnit()</function> is similar to <function>GetUnit()</function> but will load the
       unit from disk if possible.</para>
 
-      <para><function>StartUnit()</function> enqeues a start job, and possibly depending jobs. Takes the unit
-      to activate, plus a mode string. The mode needs to be one of <literal>replace</literal>,
-      <literal>fail</literal>, <literal>isolate</literal>, <literal>ignore-dependencies</literal>,
-      <literal>ignore-requirements</literal>. If <literal>replace</literal> the call will start the unit and
-      its dependencies, possibly replacing already queued jobs that conflict with this. If
-      <literal>fail</literal> the call will start the unit and its dependencies, but will fail if this would
-      change an already queued job. If <literal>isolate</literal> the call will start the unit in question
-      and terminate all units that aren't dependencies of it. If <literal>ignore-dependencies</literal> it
-      will start a unit but ignore all its dependencies. If <literal>ignore-requirements</literal> it will
+      <para><function>StartUnit()</function> enqueues a start job and possibly depending jobs. It takes the unit
+      to activate and a mode string as arguments. The mode needs to be one of <literal>replace</literal>,
+      <literal>fail</literal>, <literal>isolate</literal>, <literal>ignore-dependencies</literal>, or
+      <literal>ignore-requirements</literal>. If <literal>replace</literal>, the method will start the unit and
+      its dependencies, possibly replacing already queued jobs that conflict with it. If
+      <literal>fail</literal>, the method will start the unit and its dependencies, but will fail if this would
+      change an already queued job. If <literal>isolate</literal>, the method will start the unit in question
+      and terminate all units that aren't dependencies of it. If <literal>ignore-dependencies</literal>, it
+      will start a unit but ignore all its dependencies. If <literal>ignore-requirements</literal>, it will
       start a unit but only ignore the requirement dependencies. It is not recommended to make use of the
-      latter two options. Returns the newly created job object.</para>
+      latter two options. On completion, this method returns the newly created job object.</para>
 
       <para><function>StartUnitReplace()</function> is similar to <function>StartUnit()</function> but
-      replaces a job that is queued for one unit by a job for another.</para>
+      replaces a job that is queued for one unit by a job for another unit.</para>
 
       <para><function>StopUnit()</function> is similar to <function>StartUnit()</function> but stops the
-      specified unit rather than starting it. Note that <literal>isolate</literal> mode is invalid for this
-      call.</para>
+      specified unit rather than starting it. Note that the <literal>isolate</literal> mode is invalid for this
+      method.</para>
 
       <para><function>ReloadUnit()</function>, <function>RestartUnit()</function>,
-      <function>TryRestartUnit()</function>, <function>ReloadOrRestartUnit()</function>,
-      <function>ReloadOrTryRestartUnit()</function> may be used to restart and/or reload a unit, and takes
+      <function>TryRestartUnit()</function>, <function>ReloadOrRestartUnit()</function>, or
+      <function>ReloadOrTryRestartUnit()</function> may be used to restart and/or reload a unit. These methods take
       similar arguments as <function>StartUnit()</function>. Reloading is done only if the unit is already
-      running and fails otherwise. If a service is restarted that isn't running it will be started, unless
+      running and fails otherwise. If a service is restarted that isn't running, it will be started unless
       the "Try" flavor is used in which case a service that isn't running is not affected by the restart. The
       "ReloadOrRestart" flavors attempt a reload if the unit supports it and use a restart otherwise.</para>
 
       <para><function>KillUnit()</function> may be used to kill (i.e. send a signal to) all processes of a
-      unit. Takes the unit <varname>name</varname>, an enum <varname>who</varname> and a UNIX
+      unit. It takes the unit <varname>name</varname>, an enum <varname>who</varname> and a UNIX
       <varname>signal</varname> number to send. The <varname>who</varname> enum is one of
       <literal>main</literal>, <literal>control</literal> or <literal>all</literal>. If
-      <literal>main</literal>, only the main process of a unit is killed. If <literal>control</literal> only
-      the control process of the unit is killed, if <literal>all</literal> all processes are killed. A
+      <literal>main</literal>, only the main process of the unit is killed. If <literal>control</literal>, only
+      the control process of the unit is killed. If <literal>all</literal>, all processes are killed. A
       <literal>control</literal> process is for example a process that is configured via
-      <varname>ExecStop=</varname> and is spawned in parallel to the main daemon process, in order to shut it
+      <varname>ExecStop=</varname> and is spawned in parallel to the main daemon process in order to shut it
       down.</para>
 
       <para><function>GetJob()</function> returns the job object path for a specific job, identified by its
       id.</para>
 
-      <para><function>CancelJob()</function> cancels a specific job identified by its numer ID. This
-      operation is also available in the <function>Cancel()</function> method of Job objects (see below), and
+      <para><function>CancelJob()</function> cancels a specific job identified by its numeric ID. This
+      operation is also available in the <function>Cancel()</function> method of Job objects (see below) and
       exists primarily to reduce the necessary round trips to execute this operation. Note that this will not
       have any effect on jobs whose execution has already begun.</para>
 
       <para><function>ClearJobs()</function> flushes the job queue, removing all jobs that are still
-      queued. Note that this does not have any effect on jobs whose execution has already begun, it only
+      queued. Note that this does not have any effect on jobs whose execution has already begun. It only
       flushes jobs that are queued and have not yet begun execution.</para>
 
       <para><function>ResetFailedUnit()</function> resets the "failed" state of a specific unit.</para>
 
       <para><function>ResetFailed()</function> resets the "failed" state of all units.</para>
 
-      <para><function>ListUnits()</function> returns an array with all currently loaded units. Note that
+      <para><function>ListUnits()</function> returns an array of all currently loaded units. Note that
       units may be known by multiple names at the same name, and hence there might be more unit names loaded
       than actual units behind them. The array consists of structures with the following elements:
       <itemizedlist>
@@ -336,7 +335,7 @@ node /org/freedesktop/systemd1 {
 
         <listitem><para>The unit object path</para></listitem>
 
-        <listitem><para>If there is a job queued for the job unit the numeric job id, 0
+        <listitem><para>If there is a job queued for the job unit, the numeric job id, 0
         otherwise</para></listitem>
 
         <listitem><para>The job type as string</para></listitem>
@@ -361,8 +360,8 @@ node /org/freedesktop/systemd1 {
       </itemizedlist></para>
 
       <para><function>Subscribe()</function> enables most bus signals to be sent out. Clients which are
-      interested in signals need to call this function. Signals are only sent out if at least one client
-      invoked this function. <function>Unsubscribe()</function> undoes the signal subscription that
+      interested in signals need to call this method. Signals are only sent out if at least one client
+      invoked this method. <function>Unsubscribe()</function> reverts the signal subscription that
       <function>Subscribe()</function> implements. It is not necessary to invoke
       <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
       all clients which previously asked for <function>Subscribe()</function> either closed the bus

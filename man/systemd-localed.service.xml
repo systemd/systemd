@@ -40,7 +40,7 @@
     <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     is a command line client to this service.</para>
 
-    <para>See the
+    <para>See
     <citerefentry><refentrytitle>org.freedesktop.locale1</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     for a description of the D-Bus API.</para>
   </refsect1>

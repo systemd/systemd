@@ -67,7 +67,7 @@
       containers, connecting to the container's init system for that.</para></listitem>
 
       <listitem><para>systemctl's <option>--recursive</option> switch has the effect of not only showing the
-      locally running services, but recursively the services of all registered containers.</para></listitem>
+      locally running services, but recursively showing the services of all registered containers.</para></listitem>
 
       <listitem><para>The <command>machinectl</command> command provides access to a number of useful
       operations on registered containers, such as introspecting them, rebooting, shutting them down, and

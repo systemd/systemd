@@ -25,7 +25,7 @@
 
     <para>
     <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is a system service that can be used to control the system time and related settings.  This page
+    is a system service that can be used to control the system time and related settings. This page
     describes the D-Bus interface.</para>
   </refsect1>
 
@@ -93,8 +93,8 @@ node /org/freedesktop/timedate1 {
 
       <para>Use <function>SetTime()</function> to change the system clock. Pass a value of microseconds since
       the UNIX epoch (1 Jan 1970 UTC). If <varname>relative</varname> is true, the passed usec value will be
-      added to the current system time, if it is false the current system time will be set to the passed usec
-      value. If the system time is set with this call the RTC will be updated as well.</para>
+      added to the current system time. If it is false, the current system time will be set to the passed usec
+      value. If the system time is set with this method, the RTC will be updated as well.</para>
 
       <para>Use <function>SetTimezone()</function> to set the system timezone. Pass a value like
       <literal>Europe/Berlin</literal> to set the timezone. Valid timezones are listed in
@@ -102,11 +102,11 @@ node /org/freedesktop/timedate1 {
       time, it will be updated accordingly.</para>
 
       <para>Use <function>SetLocalRTC()</function> to control whether the RTC is in local time or UTC. It is
-      strongly recommended to maintain the RTC in UTC. Some OSes (Windows) however maintain the RTC in local
-      time, which might make it necessary to enable this feature. However, this creates various problems as
-      daylight changes might be missed. If <varname>fix_system</varname> is passed <literal>true</literal>,
-      the time from the RTC is read again and the system clock adjusted according to the new setting. If
-      <varname>fix_system</varname> is passed <literal>false</literal> the system time is written to the RTC
+      strongly recommended to maintain the RTC in UTC. However, some OSes (Windows) maintain the RTC in local
+      time, which might make it necessary to enable this feature. Note that this might create various problems as
+      daylight changes could be missed. If <varname>fix_system</varname> is <literal>true</literal>,
+      the time from the RTC is read again and the system clock is adjusted according to the new setting. If
+      <varname>fix_system</varname> is <literal>false</literal>, the system time is written to the RTC
       taking the new setting into account. Use <varname>fix_system=true</varname> in installers and livecds
       where the RTC is probably more reliable than the system time. Use <varname>fix_system=false</varname>
       in configuration UIs that are run during normal operation and where the system clock is probably more
@@ -116,7 +116,7 @@ node /org/freedesktop/timedate1 {
       network using <filename>systemd-timesyncd</filename>. This will enable and start or disable and stop
       the chosen time synchronization service.</para>
 
-      <para>Whenever the timezone and local_rtc settings are changed via the daemon
+      <para>Whenever the timezone and local_rtc settings are changed via the daemon,
       <function>PropertyChanged</function> signals are sent out to which clients can subscribe. Changing the
       time settings using this interface is authenticated via PolicyKit.</para>
 
@@ -126,7 +126,7 @@ node /org/freedesktop/timedate1 {
       </para>
 
       <para>The <varname>user_interaction</varname> boolean parameters can be used to control whether
-      PolicyKit should interactively ask the user for authentication credentials if it needs to.</para>
+      PolicyKit should interactively ask the user for authentication credentials if required.</para>
 
       <para>The PolicyKit action for <function>SetTimezone()</function> is
       <interfacename>org.freedesktop.timedate1.set-timezone</interfacename>. For

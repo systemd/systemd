@@ -72,24 +72,24 @@ node /org/freedesktop/locale1 {
     <refsect2>
       <title>Methods</title>
 
-      <para>If you set a new system locale all old system locale settings will be dropped, and the new
-      settings will be saved to disk. It will also be passed to the system manager, and subsequently started
+      <para>If you set a new system locale all old system locale settings will be dropped and the new
+      settings will be saved to disk. The locale will also be passed to the system manager, and subsequently started
       daemons will inherit the new system locale. Note that already running daemons will not learn about the
       new value.</para>
 
-      <para>The <function>SetVConsoleKeyboard()</function> call may be used to set the key mapping on the
+      <para>The <function>SetVConsoleKeyboard()</function> call may be used to set the key mapping for the
       virtual console. Similarly, <function>SetX11Keyboard()</function> may be used to set the default key
-      mapping of the X11 servers.</para>
+      mapping of any X11 servers.</para>
 
-      <para>Note that <function>SetVConsoleKeyboard()</function> instantly applies the new keymapping to the
+      <para>Note that <function>SetVConsoleKeyboard()</function> instantly applies the new key mapping to the
       console, while <function>SetX11Keyboard()</function> simply sets a default that may be used by later
       sessions.</para>
 
       <para>The boolean argument <varname>convert</varname> may be set to optionally convert the console
       keyboard configuration to X11 keyboard mappings and vice versa. If true and
-      <function>SetVConsoleKeyboard()</function> is used the nearest X11 keyboard setting for the chosen
+      <function>SetVConsoleKeyboard()</function> is used, the nearest X11 keyboard setting for the chosen
       console setting is set. If true and <function>SetX11Keyboard()</function> is used, the nearest console
-      keyboard setting for the chosen X11 setting is set. Usually it is hence sufficient to call one of the
+      keyboard setting for the chosen X11 setting is set. Hence, it is usually sufficient to call only one of the
       two functions.</para>
 
       <para>For graphical UIs that need to set the system keyboard mapping simply invoke
@@ -99,7 +99,7 @@ node /org/freedesktop/locale1 {
       <para>Use the empty string for the keymap parameters you wish not to set.</para>
 
       <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
-      should interactively ask the user for authentication credentials if it needs to.</para>
+      should interactively ask the user for authentication credentials if required.</para>
     </refsect2>
 
     <refsect2>
@@ -124,7 +124,7 @@ node /org/freedesktop/locale1 {
       <varname>X11Options</varname> properties show values configurable with
       <function>SetX11Keyboard()</function> described above (or <function>SetVConsoleKeyboard()</function>
       with <varname>convert=true</varname>). The <varname>VConsoleKeymap</varname> and
-      <varname>VConsoleKeymapToggle</varname> propries sohw values configurable with
+      <varname>VConsoleKeymapToggle</varname> properties show values configurable with
       <function>SetVConsoleKeyboard()</function> (or <function>SetX11Keyboard()</function> with
       <varname>convert=true</varname>).</para>
     </refsect2>

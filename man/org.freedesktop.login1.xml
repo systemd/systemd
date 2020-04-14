@@ -24,11 +24,11 @@
     <title>Introduction</title>
 
     <para><citerefentry><refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is a system service that keeps track of user logins and seats in various ways.</para>
+    is a system service that keeps track of user logins and seats.</para>
 
     <para>The daemon provides both a C library interface as well as a D-Bus interface. The library interface
     may be used to introspect and watch the state of user logins and seats. The bus interface provides the
-    same, but in addition may also be used to make changes to system state. For more information please
+    same functionality but in addition may also be used to make changes to the system state. For more information please
     consult <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
   </refsect1>
@@ -244,19 +244,19 @@ node /org/freedesktop/login1 {
       <function>GetUserByPID()</function> get the session/user object the specified PID belongs to if there
       is any.</para>
 
-      <para><function>ListSessions()</function> returns an array with all current sessions. The structures in
+      <para><function>ListSessions()</function> returns an array of all current sessions. The structures in
       the array consist of the following fields: session id, user id, user name, seat id, session object
-      path. If a session does not have a seat attached the seat id field will be an empty string.</para>
+      path. If a session does not have a seat attached, the seat id field will be an empty string.</para>
 
-      <para><function>ListUsers()</function> returns an array with all currently logged in users. The
+      <para><function>ListUsers()</function> returns an array of all currently logged in users. The
       structures in the array consist of the following fields: user id, user name, user object path.</para>
 
-      <para><function>ListSeats()</function> returns an array with all currently available seats. The
+      <para><function>ListSeats()</function> returns an array of all currently available seats. The
       structure in the array consists of the following fields: seat id, seat object path.</para>
 
-      <para><function>ListInhibitors()</function> lists all currently active inhibitors. Returns an array of
+      <para><function>ListInhibitors()</function> lists all currently active inhibitors. It returns an array of
       structures consisting of <varname>what</varname>, <varname>who</varname>, <varname>why</varname>,
-      <varname>mode</varname>, user ID <varname>uid</varname>, and process ID <varname>pid</varname>.</para>
+      <varname>mode</varname>, <varname>uid</varname> (user ID), and <varname>pid</varname> (process ID).</para>
 
       <para><function>CreateSession()</function> and <function>ReleaseSession()</function> may be used to
       open or close login sessions. These calls should <emphasis>never</emphasis> be invoked directly by
@@ -273,8 +273,8 @@ node /org/freedesktop/login1 {
       screen lock, if there is any. This is implemented by sending out the Lock() and Unlock() signals from
       the respective session object which session managers are supposed to listen on.</para>
 
-      <para><function>LockSessions()</function> asks all sessions to activate the screen locks. This may be
-      used to lock any access to the machine in one action. Similarly, <function>UnlockSessions()</function>
+      <para><function>LockSessions()</function> asks all sessions to activate their screen locks. This may be
+      used to lock access to the entire machine in one action. Similarly, <function>UnlockSessions()</function>
       asks all sessions to deactivate their screen locks.</para>
 
       <para><function>KillSession()</function> may be used to send a Unix signal to one or all processes of a
@@ -284,45 +284,46 @@ node /org/freedesktop/login1 {
       are killed.</para>
 
       <para><function>KillUser()</function> may be used to send a Unix signal to all processes of a user. As
-      argument it takes the user id and a signal number.</para>
+      arguments it takes the user id and a signal number.</para>
 
       <para><function>TerminateSession()</function>, <function>TerminateUser()</function>,
       <function>TerminateSeat()</function> may be used to forcibly terminate one specific session, all
       processes of a user, and all sessions attached to a specific seat, respectively. The session, user,
       and seat are identified by their respective IDs.</para>
 
-      <para><function>SetUserLinger()</function> enables or disables user lingering. If enabled the runtime
+      <para><function>SetUserLinger()</function> enables or disables user lingering. If enabled, the runtime
       directory of a user is kept around and he may continue to run processes while he is logged out. If
-      disabled the runtime directory goes away as soon as he logs out. Expects three arguments: the UID, a
-      boolean whether to enable/disable and a boolean controlling the PolicyKit authorization interactivity
-      (see above). Note that the user linger state is persistently stored on disk.</para>
+      disabled, the runtime directory goes away as soon as they log out. <function>SetUserLinger()</function>
+      expects three arguments: the UID, a boolean whether to enable/disable and a boolean controlling the
+      PolicyKit authorization interactivity (see below). Note that the user linger state is persistently
+      stored on disk.</para>
 
       <para><function>AttachDevice()</function> may be used to assign a specific device to a specific
-      seat. The device is identified by its /sys path, and must be eligible for seat assignments. Takes three
+      seat. The device is identified by its /sys path and must be eligible for seat assignments. <function>AttachDevice()</function> takes three
       arguments: the seat id, the sysfs path, and a boolean for controlling PolicyKit interactivity (see
-      above). Device assignments are persistently stored to disk. To create a new seat, simply specify a
+      below). Device assignments are persistently stored on disk. To create a new seat, simply specify a
       previously unused seat id. For more information about the seat assignment logic see
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat for Linux</ulink>.
       </para>
 
       <para><function>FlushDevices()</function> removes all explicit seat assignments for devices, resetting
-      all assignments to the automatic defaults. The only argument this takes is the PolicyKit interactivity
-      boolean (see above).</para>
+      all assignments to the automatic defaults. The only argument it takes is the PolicyKit interactivity
+      boolean (see below).</para>
 
       <para><function>PowerOff()</function>, <function>Reboot()</function>, <function>Halt()</function>,
-      <function>Suspend()</function>, <function>Hibernate()</function> result in the system being powered
-      off, rebooted, halted (shut down without turning off power), suspended (the store of the system is
-      saved to RAM and the CPU is turned off), or hibernated (the store of the system is saved to disk and
+      <function>Suspend()</function>, and <function>Hibernate()</function> result in the system being powered
+      off, rebooted, halted (shut down without turning off power), suspended (the system state is
+      saved to RAM and the CPU is turned off), or hibernated (the system state is saved to disk and
       the machine is powered down). <function>HybridSleep()</function> results in the system entering a
       hybrid-sleep mode, i.e. the system is both hibernated and suspended.
       <function>SuspendThenHibernate()</function> results in the system being suspended, then later woken
-      using an RTC timer, and hibernated. The only argument is the PolicyKit interactivity boolean
-      <varname>interactive</varname> (see above). The main purpose of these calls is that they enforce
+      using an RTC timer and hibernated. The only argument is the PolicyKit interactivity boolean
+      <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
       PolicyKit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
-      users. They also enforce inhibition locks. UIs should expose these calls as primary mechanism to
+      users. They also enforce inhibition locks. UIs should expose these calls as the primary mechanism to
       poweroff/reboot/suspend/hibernate the machine.</para>
 
-      <para><function>SetRebootParameter()</function> sets the parameter for the subsequent reboot operation.
+      <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
       <citerefentry project="man-pages"><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
@@ -331,23 +332,23 @@ node /org/freedesktop/login1 {
       <para><function>SetRebootToFirmwareSetup()</function>,
       <function>SetRebootToBootLoaderMenu()</function>, and <function>SetRebootToBootLoaderEntry()</function>
       configure the action to be taken from the boot loader after a reboot: respectively entering firmware
-      setup mode, or the boot loader menu, or a specific boot loader entry. See
+      setup mode, the boot loader menu, or a specific boot loader entry. See
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
-      command line interface.</para>
+      corresponding command line interface.</para>
 
       <para><function>CanPowerOff()</function>, <function>CanReboot()</function>,
       <function>CanHalt()</function>, <function>CanSuspend()</function>, <function>CanHibernate()</function>,
       <function>CanHybridSleep()</function>, <function>CanSuspendThenHibernate()</function>,
       <function>CanRebootParameter()</function>, <function>CanRebootToFirmwareSetup()</function>,
       <function>CanRebootToBootLoaderMenu()</function>, and
-      <function>CanRebootToBootLoaderEntry()</function>, test whether the system supports the respective
-      operation and whether the calling user is allowed to request it. Returns one of <literal>na</literal>,
+      <function>CanRebootToBootLoaderEntry()</function> test whether the system supports the respective
+      operation and whether the calling user is allowed to execute it. Returns one of <literal>na</literal>,
       <literal>yes</literal>, <literal>no</literal>, and <literal>challenge</literal>. If
       <literal>na</literal> is returned, the operation is not available because hardware, kernel, or drivers
       do not support it. If <literal>yes</literal> is returned, the operation is supported and the user may
-      execute the operation without further authentication. If <literal>no</literal> is returned the
+      execute the operation without further authentication. If <literal>no</literal> is returned, the
       operation is available but the user is not allowed to execute the operation. If
-      <literal>challenge</literal> is returned the operation is available, but only after
+      <literal>challenge</literal> is returned, the operation is available but only after
       authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
@@ -359,7 +360,7 @@ node /org/freedesktop/login1 {
       <varname>cancelled</varname> is true if a shutdown operation was scheduled.</para>
 
       <para><function>SetWallMessage()</function> sets the wall message (the message that will be sent out to
-      all terminals and stored in an
+      all terminals and stored in a
       <citerefentry><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry> record) for a
       subsequent scheduled shutdown operation. The parameter <varname>wall_message</varname> specifies the
       shutdown reason (and may be empty) which will be included in the shutdown message. The parameter
@@ -377,7 +378,7 @@ node /org/freedesktop/login1 {
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time. The call returns a file descriptor. The lock is released the moment this file
-      descriptor (and all its duplicates) are closed. For more information on the inhibition logic see
+      descriptor and all its duplicates are closed. For more information on the inhibition logic see
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
     </refsect2>
@@ -385,21 +386,21 @@ node /org/freedesktop/login1 {
     <refsect2>
       <title>Signals</title>
 
-      <para>Whenever the inhibition state or idle hint changes daemon <function>PropertyChanged</function>
+      <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
 
       <para>The <function>SessionNew</function>, <function>SessionRemoved</function>,
-      <function>UserNew</function>, <function>UserRemoved</function>, <function>SeatNew</function>,
+      <function>UserNew</function>, <function>UserRemoved</function>, <function>SeatNew</function>, and
       <function>SeatRemoved</function> signals are sent each time a session is created or removed, a user
       logs in or out, or a seat is added or removed. They each contain the ID of the object plus the object
       path.</para>
 
       <para>The <function>PrepareForShutdown()</function> and <function>PrepareForSleep()</function> signals
-      are sent right before (with the argument <literal>true</literal>) and after (with the argument
+      are sent right before (with the argument <literal>true</literal>) or after (with the argument
       <literal>false</literal>) the system goes down for reboot/poweroff and suspend/hibernate,
-      respetively. This may be used by applications to save data on disk, release memory, or do other jobs
-      that shall be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
-      completion of this work they should release their inhibition locks in order not to delay the operation
+      respectively. This may be used by applications to save data on disk, release memory, or do other jobs
+      that should be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
+      completion of this work they should release their inhibition locks in order to not delay the operation
       any further. For more information see
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
@@ -424,7 +425,7 @@ node /org/freedesktop/login1 {
       </para>
 
       <para>The <varname>IdleHint</varname> property reflects the idle hint state of the system. If the
-      system is idle it might get into automatic suspend or shutdown, depending on configuration.</para>
+      system is idle it might get into automatic suspend or shutdown depending on the configuration.</para>
 
       <para><varname>IdleSinceHint</varname> and <varname>IdleSinceHintMonotonic</varname> encode the
       timestamps of the last change of the idle hint boolean, in <constant>CLOCK_REALTIME</constant> and
@@ -432,26 +433,26 @@ node /org/freedesktop/login1 {
 
       <para>The <varname>BlockInhibited</varname> and <varname>DelayInhibited</varname> properties encode
       the currently active locks of the respective modes. They are colon separated lists of
-      <literal>shutdown</literal>, <literal>sleep</literal>, <literal>idle</literal> (see above).</para>
+      <literal>shutdown</literal>, <literal>sleep</literal>, and <literal>idle</literal> (see above).</para>
 
       <para><varname>NCurrentSessions</varname> and <varname>NCurrentInhibitors</varname> contain the number
       of currently registered sessions and inhibitors.</para>
 
       <para>The <varname>BootLoaderEntries</varname> property contains a list of boot loader entries.
-      This includes boot loader entries defined in configuration, and any additional loader entries
+      This includes boot loader entries defined in configuration and any additional loader entries
       reported by the boot loader. See
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
       for more information.</para>
 
       <para>The <varname>PreparingForShutdown</varname> and <varname>PreparingForSleep</varname> boolean
-      properties are true between the time when the two <function>PrepareForShutdown</function> and
-      <function>PrepareForSleep</function> signals are sent, respectively. Note that these properties do not
+      properties are true during the interval between the two <function>PrepareForShutdown</function> and
+      <function>PrepareForSleep</function> signals respectively. Note that these properties do not
       send out <function>PropertyChanged</function> signals.</para>
 
-      <para>The <varname>RebootParameter</varname> property shows the value set with
+      <para>The <varname>RebootParameter</varname> property shows the value set with the
       <function>SetRebootParameter()</function> method described above.</para>
 
-      <para>The <varname>ScheduledShutdown</varname> shows the value pair set with
+      <para><varname>ScheduledShutdown</varname> shows the value pair set with the
       <function>ScheduleShutdown()</function> method described above.</para>
 
       <para><varname>RebootToFirmwareSetup</varname>, <varname>RebootToBootLoaderMenu</varname>, and
@@ -460,11 +461,11 @@ node /org/freedesktop/login1 {
       <function>SetRebootToBootLoaderMenu</function>, or
       <function>SetRebootToBootLoaderEntry</function>.</para>
 
-      <para><varname>WallMessage</varname> and <varname>EnableWallMessages</varname> properties reflect the
-      shutdown reasoson and wall message enablement switch which can be set with
-      <varname>SetWallMessage()</varname> method described above.</para>
+      <para>The <varname>WallMessage</varname> and <varname>EnableWallMessages</varname> properties reflect the
+      shutdown reason and wall message enablement switch which can be set with the
+      <function>SetWallMessage()</function> method described above.</para>
 
-      <para><varname>Docked</varname> is true if the machine is connected to dock.
+      <para><varname>Docked</varname> is true if the machine is connected to a dock.
       <varname>LidClosed</varname> is true when the lid (of a laptop) is closed.
       <varname>OnExternalPower</varname> is true when the machine is connected to an external power supply.
       </para>
@@ -478,7 +479,7 @@ node /org/freedesktop/login1 {
       <interfacename>org.freedesktop.login1.set-user-linger</interfacename>
       privilege. <function>AttachDevice()</function> requires
       <interfacename>org.freedesktop.login1.attach-device</interfacename> and
-      <function>FlushDevices()</function>
+      <function>FlushDevices()</function> requires
       <interfacename>org.freedesktop.login1.flush-devices</interfacename>. <function>PowerOff()</function>,
       <function>Reboot()</function>, <function>Halt()</function>, <function>Suspend()</function>,
       <function>Hibernate()</function> require
@@ -497,7 +498,7 @@ node /org/freedesktop/login1 {
       <interfacename>org.freedesktop.login1.hibernate</interfacename>,
       <interfacename>org.freedesktop.login1.hibernate-multiple-sessions</interfacename>,
       <interfacename>org.freedesktop.login1.hibernate-ignore-inhibit</interfacename>,
-      respectively, depending on whether there are other sessions around or active inhibits.
+      respectively depending on whether there are other sessions around or active inhibits are present.
       <function>HybridSleep()</function> and <function>SuspendThenHibernate()</function>
       use the same privileges as <function>Hibernate()</function>.
       <function>SetRebootParameter()</function> requires
@@ -514,7 +515,7 @@ node /org/freedesktop/login1 {
       <para><function>ScheduleShutdown</function> and <function>CancelScheduledShutdown</function> require
       the same privileges (listed above) as the immediate poweroff/reboot/halt operations.</para>
 
-      <para><function>Inhibit()</function> is protected via either one of
+      <para><function>Inhibit()</function> is protected via one of
       <interfacename>org.freedesktop.login1.inhibit-block-shutdown</interfacename>,
       <interfacename>org.freedesktop.login1.inhibit-delay-shutdown</interfacename>,
       <interfacename>org.freedesktop.login1.inhibit-block-sleep</interfacename>,
@@ -527,7 +528,7 @@ node /org/freedesktop/login1 {
       type and mode taken.</para>
 
       <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
-      should interactively ask the user for authentication credentials if it needs to.</para>
+      should interactively ask the user for authentication credentials if required.</para>
     </refsect2>
   </refsect1>
 
@@ -585,7 +586,7 @@ node /org/freedesktop/login1/seat/seat0 {
 
       <para>Whenever <function>ActiveSession</function>, <function>Sessions</function>,
       <function>CanGraphical</function>, <function>CanMultiSession</function> and <function>CanTTY</function>
-      or the idle state changes <function>PropertyChanged</function> signals are sent out to which clients
+      or the idle state changes, <function>PropertyChanged</function> signals are sent out to which clients
       can subscribe.</para>
     </refsect2>
 
@@ -595,7 +596,7 @@ node /org/freedesktop/login1/seat/seat0 {
       <para>The <varname>Id</varname> property encodes the ID of the seat.</para>
 
       <para><varname>ActiveSession</varname> encodes the currently active session if there is one. It is a
-      structure consisting of session id and object path.</para>
+      structure consisting of the session id and the object path.</para>
 
       <para><varname>CanMultiSession</varname> encodes whether the session is multi-session capable,
       <varname>CanTTY</varname> whether it is suitable for text logins, <varname>CanGraphical</varname>
@@ -604,7 +605,7 @@ node /org/freedesktop/login1/seat/seat0 {
       <para>The <varname>Sessions</varname> property is an array of all current sessions of this seat, each
       encoded in a structure consisting of the ID and the object path.</para>
 
-      <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
+      <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
       <varname>IdleSinceHint</varname> properties encode the idle state, similar to the one exposed on the
       Manager object, but specific for this seat.</para>
     </refsect2>
@@ -660,14 +661,14 @@ node /org/freedesktop/login1/user/_1000 {
       <title>Methods</title>
 
       <para><function>Terminate()</function> and <function>Kill()</function> work similar to the
-      <function>TerminateUser()</function> and <function>KillUser()</function> calls on the manager
+      <function>TerminateUser()</function> and <function>KillUser()</function> methods on the manager
       object.</para>
     </refsect2>
 
     <refsect2>
       <title>Signals</title>
 
-      <para>Whenever <varname>Sessions</varname> or the idle state changes
+      <para>Whenever <varname>Sessions</varname> or the idle state changes,
       <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
     </refsect2>
 
@@ -680,39 +681,39 @@ node /org/freedesktop/login1/user/_1000 {
       <para>The <varname>Name</varname> property encodes the user name.</para>
 
       <para><varname>Timestamp</varname> and <varname>TimestampMonotonic</varname> encode the login time of
-      the user in usec since the epoch, in the <constant>CLOCK_REALTIME</constant> and
+      the user in microseconds since the epoch, in the <constant>CLOCK_REALTIME</constant> and
       <constant>CLOCK_MONOTONIC</constant> clocks, respectively.</para>
 
       <para><varname>RuntimePath</varname> encodes the runtime path of the user,
-      i.e. <varname>$XDG_RUNTIME_DIR</varname>, for details see the
+      i.e. <varname>$XDG_RUNTIME_DIR</varname>. For details see the
       <ulink url="https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html">
         XDG Basedir Specification
       </ulink>.</para>
 
-      <para><varname>Service</varname> contains the name of the user systemd service unit name of this
-      user. Each logged in user gets a user service unit assigned that runs a user systemd instance. This is
+      <para><varname>Service</varname> contains the unit name of the user systemd service of this
+      user. Each logged in user is assigned a user service that runs a user systemd instance. This is
       usually an instance of <filename>user@.service</filename>.</para>
 
-      <para><varname>Slice</varname> contains the name of the user systemd slice unit name of this user. Each
+      <para><varname>Slice</varname> contains the unit name of the user systemd slice of this user. Each
       logged in user gets a private slice.</para>
 
-      <para><varname>Display</varname> encodes which graphical session should be used as primary UI display
-      for the use. It is a structure encoding session ID and object path of the session to use.</para>
+      <para><varname>Display</varname> encodes which graphical session should be used as the primary UI display
+      for the user. It is a structure encoding the session ID and the object path of the session to use.</para>
 
-      <para><varname>State</varname> encodes the user state, one of <literal>offline</literal>,
-      <literal>lingering</literal>, <literal>online</literal>, <literal>active</literal>,
+      <para><varname>State</varname> encodes the user state and is one of <literal>offline</literal>,
+      <literal>lingering</literal>, <literal>online</literal>, <literal>active</literal>, or
       <literal>closing</literal>. See
       <citerefentry><refentrytitle>sd_uid_get_state</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       for more information about the states.</para>
 
       <para><varname>Sessions</varname> is an array of structures encoding all current sessions of the
-      user. Each structure consists of ID and object path.</para>
+      user. Each structure consists of the ID and object path.</para>
 
-      <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
+      <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
       <varname>IdleSinceHintMonotonic</varname> properties encode the idle hint state of the user, similar to
       the <interfacename>Manager</interfacename>'s properties, but specific for this user.</para>
 
-      <para>The <varname>Linger</varname> property shows whether lingering is enabled for the user.</para>
+      <para>The <varname>Linger</varname> property shows whether lingering is enabled for this user.</para>
     </refsect2>
   </refsect1>
 
@@ -812,41 +813,41 @@ node /org/freedesktop/login1/session/45 {
       <title>Methods</title>
 
       <para><function>Terminate()</function>, <function>Activate()</function>, <function>Lock()</function>,
-      <function>Unlock()</function>, <function>Kill()</function> work similarly to the respective calls on
+      <function>Unlock()</function>, and <function>Kill()</function> work similarly to the respective calls on
       the <interfacename>Manager</interfacename> object.</para>
 
-      <para><function>SetIdleHint()</function> shall be called by the session object to update the idle state
-      of the session, whenever it changes.</para>
+      <para><function>SetIdleHint()</function> is called by the session object to update the idle state
+      of the session whenever it changes.</para>
 
       <para><function>TakeControl()</function> allows a process to take exclusive managed device
-      access-control for that session. Only one dbus-connection can be a controller for a given session at a
-      time. If the <function>force</function> argument is set (root only), an existing controller is kicked
-      out and replaced. Otherwise, this call fails if there is already a controller.  Note that this call is
-      limited to dbus-users with the effective UID set to the User of the Session or root.</para>
+      access-control for that session. Only one D-Bus connection can be a controller for a given session at any
+      time. If the <varname>force</varname> argument is set (root only), an existing controller is kicked
+      out and replaced. Otherwise, this call fails if there is already a controller. Note that this call is
+      limited to D-Bus users with the effective UID set to the user of the session or root.</para>
 
-      <para><function>ReleaseControl()</function> drops control of a given session again. Closing the
-      dbus-connection implicitly releases control, too. See <function>TakeControl()</function> for more. This
-      also releases all devices for the controller that were requested via <function>TakeDevice()</function>.
+      <para><function>ReleaseControl()</function> drops control of a given session. Closing the
+      D-Bus connection implicitly releases control as well. See <function>TakeControl()</function> for more information. This
+      method also releases all devices for which the controller requested ownership via <function>TakeDevice()</function>.
       </para>
 
-      <para><function>TakeDevice()</function> allows a session-controller to get a file-descriptor for a
-      specific device. Pass in the major and minor numbers of the character-device and
-      <filename>systemd-logind</filename> will return a file-descriptor for the device. Only a limited set of
+      <para><function>TakeDevice()</function> allows a session controller to get a file descriptor for a
+      specific device. Pass in the major and minor numbers of the character device and
+      <filename>systemd-logind</filename> will return a file descriptor for the device. Only a limited set of
       device-types is currently supported (but may be extended). <filename>systemd-logind</filename>
-      automatically mutes the file-descriptor if the session is inactive and resumes it once the session gets
-      active again. This guarantees that a session can only access session-devices if the session is
+      automatically mutes the file descriptor if the session is inactive and resumes it once the session is
+      activated again. This guarantees that a session can only access session devices if the session is
       active. Note that this revoke/resume mechanism is asynchronous and may happen at any given time.  This
       only works on devices that are attached to the seat of the given session. A process is not required to
-      have direct access to the device-node. <filename>systemd-logind</filename> only requires you to be the
+      have direct access to the device node. <filename>systemd-logind</filename> only requires you to be the
       active session controller (see <function>TakeControl()</function>). Also note that any device can only
       be requested once. As long as you don't release it, further <function>TakeDevice()</function> calls
       will fail.</para>
 
       <para><function>ReleaseDevice()</function> releases a device again (see
       <function>TakeDevice()</function>). This is also implicitly done by
-      <function>ReleaseControl()</function> or when closing the dbus-connection.</para>
+      <function>ReleaseControl()</function> or when closing the D-Bus connection.</para>
 
-      <para><function>PauseDeviceComplete()</function> allows a session-controller to synchronously pause a
+      <para><function>PauseDeviceComplete()</function> allows a session controller to synchronously pause a
       device after receiving a <function>PauseDevice(<literal>pause</literal>)</function> signal. Forced
       signals (or after an internal timeout) are automatically completed by
       <filename>systemd-logind</filename> asynchronously.</para>
@@ -857,7 +858,7 @@ node /org/freedesktop/login1/session/45 {
       unlocked.</para>
 
       <para><function>SetBrightness()</function> may be used to set the display brightness. This is intended
-      to be used by the desktop environment, and allows unprivileged programs to access hardware settings in
+      to be used by the desktop environment and allows unprivileged programs to access hardware settings in
       a controlled way. The <varname>subsystem</varname> parameter specifies a kernel subsystem, either
       <literal>backlight</literal> or <literal>leds</literal>. The <varname>name</varname> parameter
       specifies a device name under the specified subsystem. The <varname>brightness</varname> parameter
@@ -869,34 +870,33 @@ node /org/freedesktop/login1/session/45 {
     <refsect2>
       <title>Signals</title>
 
-      <para>The active session-controller exclusively gets <function>PauseDevice</function> and
+      <para>The active session controller exclusively gets <function>PauseDevice</function> and
       <function>ResumeDevice</function> events for any device it requested via
       <function>TakeDevice()</function>. They notify the controller whenever a device is paused or resumed. A
-      device is never resumed if a session is inactive. Also note that <function>PauseDevice</function>
+      device is never resumed if its session is inactive. Also note that <function>PauseDevice</function>
       signals are sent before the <function>PropertyChanged</function> signal for the
       <function>Active</function> state. The inverse is true for <function>ResumeDevice</function>. A device
       may remain paused for unknown reasons even though the <interfacename>Session</interfacename> is active.
       </para>
 
-      <para>A <function>PauseDevice</function> signal carries the major and minor and a string describing the
-      type as arguments. <function>force</function> means the device got paused by
-      <filename>systemd-logind</filename> already and this is only an asynchronous
-      notification. <function>pause</function> means <filename>systemd-logind</filename> tries to pause the
-      device and grants you limited amount of time to pause it. You must respond to this via
-      <function>PauseDeviceComplete()</function>. This synchronous pausing-mechanism is used for
+      <para>A <function>PauseDevice</function> signal carries the major and minor numbers and a string describing the
+      type as arguments. <function>force</function> means the device was already paused by
+      <filename>systemd-logind</filename> and the signal is only an asynchronous
+      notification. <function>pause</function> means <filename>systemd-logind</filename> grants you a limited amount of time to pause the device. You must respond to this via
+      <function>PauseDeviceComplete()</function>. This synchronous pausing mechanism is used for
       backwards-compatibility to VTs and <filename>systemd-logind</filename> is free to not make use of
       it. It is also free to send a forced <function>PauseDevice</function> if you don't respond in a timely
       manner (or for any other reason). <function>gone</function> means the device was unplugged from the
-      system and you will no longer get any notifications about it. There is no reason to call
+      system and you will no longer get any notifications about it. There is no need to call
       <function>ReleaseDevice()</function>. You may call <function>TakeDevice()</function> again if a new
-      device gets the major+minor combination assigned.</para>
+      device is assigned the major+minor combination.</para>
 
       <para><function>ResumeDevice</function> is sent whenever a session is active and a device is
-      resumed. It carries the major/minor as arguments and provides a new open file-descriptor. You should
+      resumed. It carries the major/minor numbers as arguments and provides a new open file descriptor. You should
       switch to the new descriptor and close the old one. They are not guaranteed to have the same underlying
-      open-file-descriptor in the kernel (except for a limited set of device types).</para>
+      open file descriptor in the kernel (except for a limited set of device types).</para>
 
-      <para>Whenever <function>Active</function> or the idle state changes
+      <para>Whenever <function>Active</function> or the idle state changes,
       <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
 
       <para><function>Lock</function>/<function>Unlock</function> is sent when the session is asked to be
@@ -911,18 +911,18 @@ node /org/freedesktop/login1/session/45 {
       <para><varname>Id</varname> encodes the session ID.</para>
 
       <para><varname>User</varname> encodes the user ID of the user this session belongs to. This is a
-      structure encoding the Unix UID and the object path.</para>
+      structure consisting of the Unix UID and the object path.</para>
 
       <para><varname>Name</varname> encodes the user name.</para>
 
-      <para><varname>Timestamp</varname> and <varname>TimestampMonotonic</varname> encode the usec timestamp
+      <para><varname>Timestamp</varname> and <varname>TimestampMonotonic</varname> encode the microseconds
       since the epoch when the session was created, in <constant>CLOCK_REALTIME</constant> or
       <constant>CLOCK_MONOTONIC</constant>, respectively.</para>
 
       <para><varname>VTNr</varname> encodes the virtual terminal number of the session if there is any, 0
       otherwise.</para>
 
-      <para><varname>Seat</varname> encodes the seat this session belongs to, if there is any. This is a
+      <para><varname>Seat</varname> encodes the seat this session belongs to if there is any. This is a
       structure consisting of the ID and the seat object path.</para>
 
       <para><varname>TTY</varname> encodes the kernel TTY path of the session if this is a text login. If not
@@ -945,7 +945,7 @@ node /org/freedesktop/login1/session/45 {
 
       <para><varname>Leader</varname> encodes the PID of the process that registered the session.</para>
 
-      <para><varname>Audit</varname> encodes the Kernel Audit session ID of the session, if auditing is
+      <para><varname>Audit</varname> encodes the Kernel Audit session ID of the session if auditing is
       available.</para>
 
       <para><varname>Type</varname> encodes the session type. It's one of <literal>unspecified</literal> (for
@@ -953,23 +953,23 @@ node /org/freedesktop/login1/session/45 {
       <literal>x11</literal>/<literal>mir</literal>/<literal>wayland</literal> (for graphical logins).</para>
 
       <para><varname>Class</varname> encodes the session class. It's one of <literal>user</literal> (for
-      normal user sessions), <literal>greeter</literal> (for display manager pseudo-sessions),
+      normal user sessions), <literal>greeter</literal> (for display manager pseudo-sessions), or
       <literal>lock-screen</literal> (for display lock screens).</para>
 
       <para><varname>Active</varname> is a boolean that is true if the session is active, i.e. currently in the
-      foreground. This field is semi-redundant due to State.</para>
+      foreground. This field is semi-redundant due to <varname>State</varname>.</para>
 
       <para><varname>State</varname> encodes the session state and one of <literal>online</literal>,
-      <literal>active</literal>, <literal>closing</literal>. See
+      <literal>active</literal>, or <literal>closing</literal>. See
       <citerefentry><refentrytitle>sd_session_get_state</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       for more information about the states.</para>
 
-      <para><varname>IdleHint</varname>, <varname>IdleSinceHint</varname>,
+      <para><varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
       <varname>IdleSinceHintMonotonic</varname> encapsulate the idle hint state of this session, similarly to
       how the respective properties on the manager object do it for the whole system.</para>
 
-      <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by
-      <function>SetLockedHint()</function> described above.</para>
+      <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by the
+      <function>SetLockedHint()</function> method described above.</para>
     </refsect2>
   </refsect1>
 
