@@ -441,6 +441,7 @@ static const char *const container_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_PODMAN]         = "podman",
         [VIRTUALIZATION_RKT]            = "rkt",
         [VIRTUALIZATION_WSL]            = "wsl",
+        [VIRTUALIZATION_PROOT]          = "proot",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
@@ -449,6 +450,7 @@ int detect_container(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL;
         _cleanup_free_ char *o = NULL;
+        _cleanup_free_ char *p = NULL;
         const char *e = NULL;
         int r;
 
@@ -470,6 +472,22 @@ int detect_container(void) {
             (strstr(o, "Microsoft") || strstr(o, "microsoft") || strstr(o, "WSL"))) {
                 r = VIRTUALIZATION_WSL;
                 goto finish;
+        }
+
+        /* proot doesn't use PID namespacing, so we can just check if we have a matching tracer for this
+         * invocation without worrying about it being elsewhere.
+         */
+        r = get_proc_field("/proc/self/status", "TracerPid", WHITESPACE, &p);
+        if (r == 0 && !streq(p, "0")) {
+                pid_t ptrace_pid;
+                r = parse_pid(p, &ptrace_pid);
+                if (r == 0) {
+                        const char *pf = procfs_file_alloca(ptrace_pid, "comm");
+                        _cleanup_free_ char *ptrace_comm = NULL;
+                        r = read_one_line_file(pf, &ptrace_comm);
+                        if (r >= 0 && startswith(ptrace_comm, "proot"))
+                                return VIRTUALIZATION_PROOT;
+                }
         }
 
         if (getpid_cached() == 1) {
@@ -660,6 +678,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_PODMAN] = "podman",
         [VIRTUALIZATION_RKT] = "rkt",
         [VIRTUALIZATION_WSL] = "wsl",
+        [VIRTUALIZATION_PROOT] = "proot",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 
