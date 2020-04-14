@@ -256,10 +256,15 @@ static sd_device *handle_scsi_iscsi(sd_device *parent, char **path) {
 static sd_device *handle_scsi_ata(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent;
         _cleanup_(sd_device_unrefp) sd_device *atadev = NULL;
-        const char *port_no, *sysname;
+        const char *port_no, *sysname, *name;
+        int host, bus, target, lun;
 
         assert(parent);
         assert(path);
+
+        name = udev_device_get_sysname(parent);
+        if (sscanf(name, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4)
+                return NULL;
 
         if (sd_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host", &targetdev) < 0)
                 return NULL;
@@ -275,7 +280,13 @@ static sd_device *handle_scsi_ata(sd_device *parent, char **path) {
         if (sd_device_get_sysattr_value(atadev, "port_no", &port_no) < 0)
                 return NULL;
 
-        path_prepend(path, "ata-%s", port_no);
+        if (bus != 0)
+                /* Devices behind port multiplier have a bus != 0*/
+                path_prepend(path, "ata-%s.%u.0", port_no, bus);
+        else
+                /* Master/slave are distinguished by target id */
+                path_prepend(path, "ata-%s.%u", port_no, target);
+
         return parent;
 }
 
