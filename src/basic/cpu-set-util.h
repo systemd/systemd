@@ -27,6 +27,7 @@ int cpu_set_add_all(CPUSet *a, const CPUSet *b);
 
 char* cpu_set_to_string(const CPUSet *a);
 char *cpu_set_to_range_string(const CPUSet *a);
+char *cpu_set_to_range_string_kernel(const CPUSet *a);
 int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus);
 
 int parse_cpu_set_full(
