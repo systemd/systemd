@@ -1170,6 +1170,7 @@
           <literal>podman</literal>,
           <literal>rkt</literal>,
           <literal>wsl</literal>,
+          <literal>proot</literal>,
           <literal>acrn</literal> to test
           against a specific implementation, or
           <literal>private-users</literal> to check whether we are running in a user namespace. See
