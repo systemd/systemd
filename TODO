@@ -1165,7 +1165,7 @@ Features:
      a carrier is lost on a link. It should be removed instantly.
    - expose in the API the following bits:
          - option 15, domain name and/or option 119, search list
-         - option 12, host name and/or option 81, fqdn
+         - option 12, hostname and/or option 81, fqdn
          - option 123, 144, geolocation
          - option 252, configure http proxy (PAC/wpad)
    - provide a way to define a per-network interface default metric value

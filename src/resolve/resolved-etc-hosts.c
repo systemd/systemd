@@ -100,7 +100,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "/etc/hosts:%u: couldn't extract host name: %m", nr);
+                        return log_error_errno(r, "/etc/hosts:%u: couldn't extract hostname: %m", nr);
                 if (r == 0)
                         break;
 
@@ -162,7 +162,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         }
 
         if (!found)
-                log_warning("/etc/hosts:%u: line is missing any host names", nr);
+                log_warning("/etc/hosts:%u: line is missing any hostnames", nr);
 
         return 0;
 }

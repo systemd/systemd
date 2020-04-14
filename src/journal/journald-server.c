@@ -1746,7 +1746,7 @@ static int server_open_hostname(Server *s) {
 
         r = sd_event_source_set_priority(s->hostname_event_source, SD_EVENT_PRIORITY_IMPORTANT-10);
         if (r < 0)
-                return log_error_errno(r, "Failed to adjust priority of host name event source: %m");
+                return log_error_errno(r, "Failed to adjust priority of hostname event source: %m");
 
         return 0;
 }

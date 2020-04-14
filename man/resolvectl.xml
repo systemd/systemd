@@ -45,7 +45,7 @@
     interface the data was discovered. It also contains information on whether the information could be
     authenticated. All data for which local DNSSEC validation succeeds is considered authenticated. Moreover all data
     originating from local, trusted sources is also reported authenticated, including resolution of the local host
-    name, the <literal>localhost</literal> host name or all data from <filename>/etc/hosts</filename>.</para>
+    name, the <literal>localhost</literal> hostname or all data from <filename>/etc/hosts</filename>.</para>
   </refsect1>
 
   <refsect1>

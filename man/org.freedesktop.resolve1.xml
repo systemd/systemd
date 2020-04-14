@@ -394,7 +394,7 @@ node /org/freedesktop/resolve1 {
       default LLMNR setting is used. If <literal>yes</literal>, LLMNR is used for resolution of single-label
       names and the local hostname is registered on all local LANs for LLMNR resolution by peers. If
       <literal>no</literal>, LLMNR is turned off fully on this interface. If <literal>resolve</literal>, LLMNR
-      is only enabled for resolving names, but the local host name is not registered for other peers to
+      is only enabled for resolving names, but the local hostname is not registered for other peers to
       use.</para>
 
       <para>Similarly, the <function>SetLinkMulticastDNS()</function> method enables or disables MulticastDNS

@@ -29,7 +29,7 @@
     <title>Description</title>
 
     <para><command>nss-resolve</command> is a plug-in module for the GNU Name Service Switch (NSS) functionality of the
-    GNU C Library (<command>glibc</command>) enabling it to resolve host names via the
+    GNU C Library (<command>glibc</command>) enabling it to resolve hostnames via the
     <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> local network
     name resolution service. It replaces the <command>nss-dns</command> plug-in module that traditionally resolves
     hostnames via DNS.</para>

@@ -2032,7 +2032,7 @@ CHANGES WITH 239:
           lookup is likely to trigger nss-ldap which in turn might use NSS to
           ask systemd-resolved for hostname lookups. This will hence result in
           a deadlock: a user name lookup in order to start
-          systemd-resolved.service will result in a host name lookup for which
+          systemd-resolved.service will result in a hostname lookup for which
           systemd-resolved.service needs to be started already. There are
           multiple ways to work around this problem: pre-allocate the
           "systemd-resolve" user on such systems, so that nss-ldap won't be
@@ -3001,7 +3001,7 @@ CHANGES WITH 235:
           A/AAAA resource record for the "_gateway" hostname, pointing to the
           current default IP gateway. Previously it did that for the "gateway"
           name, hampering adoption, as some distributions wanted to leave that
-          host name open for local use. The old behaviour may still be
+          hostname open for local use. The old behaviour may still be
           requested at build time.
 
         * systemd-networkd's [Address] section in .network files gained a new
@@ -4342,7 +4342,7 @@ CHANGES WITH 230:
           again don't consider turning this on in your stable, LTS or
           production release just yet. (Note that you have to enable
           nss-resolve in /etc/nsswitch.conf, to actually use systemd-resolved
-          and its DNSSEC mode for host name resolution from local
+          and its DNSSEC mode for hostname resolution from local
           applications.)
 
         * systemd-resolve conveniently resolves DANE records with the --tlsa
@@ -6160,14 +6160,14 @@ CHANGES WITH 218:
           for a unit, as declared in the (usually vendor-supplied)
           system preset files.
 
-        * nss-myhostname will now resolve the single-label host name
+        * nss-myhostname will now resolve the single-label hostname
           "gateway" to the locally configured default IP routing
           gateways, ordered by their metrics. This assigns a stable
           name to the used gateways, regardless which ones are
           currently configured. Note that the name will only be
           resolved after all other name sources (if nss-myhostname is
           configured properly) and should hence not negatively impact
-          systems that use the single-label host name "gateway" in
+          systems that use the single-label hostname "gateway" in
           other contexts.
 
         * systemd-inhibit now allows filtering by mode when listing
@@ -7595,7 +7595,7 @@ CHANGES WITH 210:
           reported by uname()'s "machine" field.
 
         * systemd-networkd now supports matching on the system
-          virtualization, architecture, kernel command line, host name
+          virtualization, architecture, kernel command line, hostname
           and machine ID.
 
         * logind is now a lot more aggressive when suspending the
@@ -7913,12 +7913,12 @@ CHANGES WITH 209:
           example, a line that creates /run/nologin).
 
         * A new API "sd-resolve.h" has been added which provides a simple
-          asynchronous wrapper around glibc NSS host name resolution
+          asynchronous wrapper around glibc NSS hostname resolution
           calls, such as getaddrinfo(). In contrast to glibc's
           getaddrinfo_a(), it does not use signals. In contrast to most
           other asynchronous name resolution libraries, this one does
           not reimplement DNS, but reuses NSS, so that alternate
-          host name resolution systems continue to work, such as mDNS,
+          hostname resolution systems continue to work, such as mDNS,
           LDAP, etc. This API is based on libasyncns, but it has been
           cleaned up for inclusion in systemd.
 
@@ -9702,7 +9702,7 @@ CHANGES WITH 190:
           when he over-mounts a non-empty directory.
 
         * There are new specifiers that are resolved in unit files,
-          for the host name (%H), the machine ID (%m) and the boot ID
+          for the hostname (%H), the machine ID (%m) and the boot ID
           (%b).
 
         Contributions from: Allin Cottrell, Auke Kok, Brandon Philips,

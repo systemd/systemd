@@ -57,7 +57,7 @@
 
     <para>Use
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize the system host name for mounted (but not booted)
+    to initialize the system hostname for mounted (but not booted)
     system images.</para>
   </refsect1>
 
@@ -84,7 +84,7 @@
         simplified in regards to the character set used before the latter are updated. This is done by removing special
         characters and spaces. This ensures that the pretty and the static hostname are always closely related while
         still following the validity rules of the specific name. This simplification of the hostname string is not done
-        if only the transient and/or static host names are set, and the pretty host name is left untouched.</para>
+        if only the transient and/or static hostnames are set, and the pretty hostname is left untouched.</para>
 
         <para>Pass the empty string <literal></literal> as the
         hostname to reset the selected hostnames to their default

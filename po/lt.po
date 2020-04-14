@@ -68,22 +68,22 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Nustatyti serverio pavadinimą"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr ""
 "Norint nustatyti vietinio serverio pavadinimą, reikia nustatyti tapatybę."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Nustatyti statinį serverio pavadinimą"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Norint nustatyti statiškai sukonfigūruotą serverio pavadinimą, o taip pat "
 "lengvai įsimenamą serverio pavadinimą, reikia nustatyti tapatybę."

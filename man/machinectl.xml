@@ -56,7 +56,7 @@
     </itemizedlist>
 
     <para>Machines are identified by names that follow the same rules
-    as UNIX and DNS host names. For details, see below.</para>
+    as UNIX and DNS hostnames. For details, see below.</para>
 
     <para>Machines are instantiated from disk or file system images that
     frequently — but not necessarily — carry the same name as machines running
@@ -383,7 +383,7 @@
         image is optimized for file systems that support copy-on-write, and might not be efficient on others, due to
         file system limitations.</para>
 
-        <para>Note that this command leaves host name, machine ID and
+        <para>Note that this command leaves hostname, machine ID and
         all other settings that could identify the instance
         unmodified. The original image and the cloned copy will hence
         share these credentials, and it might be necessary to manually
@@ -851,7 +851,7 @@
 
     <para>The <command>machinectl</command> tool operates on machines
     and images whose names must be chosen following strict
-    rules. Machine names must be suitable for use as host names
+    rules. Machine names must be suitable for use as hostnames
     following a conservative subset of DNS and UNIX/Linux
     semantics. Specifically, they must consist of one or more
     non-empty label strings, separated by dots. No leading or trailing

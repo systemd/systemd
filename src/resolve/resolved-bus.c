@@ -1115,7 +1115,7 @@ static void bus_method_resolve_service_complete(DnsQuery *q) {
 
         if (has_root_domain && found <= 0) {
                 /* If there's exactly one SRV RR and it uses
-                 * the root domain as host name, then the
+                 * the root domain as hostname, then the
                  * service is explicitly not offered on the
                  * domain. Report this as a recognizable
                  * error. See RFC 2782, Section "Usage

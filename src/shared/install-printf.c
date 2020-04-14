@@ -115,7 +115,7 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
          * %U the UID of the running user
          * %u the username of running user
          * %m the machine ID of the running system
-         * %H the host name of the running system
+         * %H the hostname of the running system
          * %b the boot ID of the running system
          * %v `uname -r` of the running system
          */

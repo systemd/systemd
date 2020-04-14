@@ -71,21 +71,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Se requiere autenticación para recargar el estado de systemd."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Establecer el nombre del equipo"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Se requiere autenticación para establecer el nombre del equipo local."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Establecer nombre estático del equipo"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Se requiere autenticación para establecer el nombre estático de equipo "
 "local, así como el nombre visible del equipo."

@@ -21,7 +21,7 @@ bool hostname_is_set(void) {
         if (isempty(u.nodename))
                 return false;
 
-        /* This is the built-in kernel default host name */
+        /* This is the built-in kernel default hostname */
         if (streq(u.nodename, "(none)"))
                 return false;
 
@@ -77,7 +77,7 @@ bool valid_ldh_char(char c) {
 }
 
 /**
- * Check if s looks like a valid host name or FQDN. This does not do
+ * Check if s looks like a valid hostname or FQDN. This does not do
  * full DNS validation, but only checks if the name is composed of
  * allowed characters and the length is not above the maximum allowed
  * by Linux (c.f. dns_name_is_valid()). Trailing dot is allowed if

@@ -72,21 +72,21 @@ msgstr ""
 "Потребно је да се идентификујете да бисте поново учитали стање систем-деа."
 
 #: src/hostname/org.freedesktop.hostname1.policy.in:22
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Постави назив машине"
 
 #: src/hostname/org.freedesktop.hostname1.policy.in:23
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Потребно је да се идентификујете да бисте поставили назив машине."
 
 #: src/hostname/org.freedesktop.hostname1.policy.in:32
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Постави статички назив машине"
 
 #: src/hostname/org.freedesktop.hostname1.policy.in:33
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Потребно је да се идентификујете да бисте поставили статички назив машине и "
 "да бисте поставили леп назив машине."

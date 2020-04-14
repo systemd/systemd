@@ -54,7 +54,7 @@
 
       <listitem><para>The system time zone</para></listitem>
 
-      <listitem><para>The system host name</para></listitem>
+      <listitem><para>The system hostname</para></listitem>
 
       <listitem><para>The machine ID of the system</para></listitem>
 
@@ -133,7 +133,7 @@
         <term><option>--hostname=<replaceable>HOSTNAME</replaceable></option></term>
 
         <listitem><para>Sets the system hostname. The argument should
-        be a host name, compatible with DNS. This controls the
+        be a hostname, compatible with DNS. This controls the
         <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         configuration file.</para></listitem>
       </varlistentry>
