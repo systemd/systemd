@@ -488,7 +488,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 size_t len;
                 char *pos;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_line_full(f, LONG_LINE_MAX, READ_LINE_NOT_A_TTY, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)

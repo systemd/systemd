@@ -119,13 +119,21 @@ int write_string_stream_ts(
                 struct timespec *ts) {
 
         bool needs_nl;
-        int r;
+        int r, fd;
 
         assert(f);
         assert(line);
 
         if (ferror(f))
                 return -EIO;
+
+        if (ts) {
+                /* If we shall set the timestamp we need the fd. But fmemopen() streams generally don't have
+                 * an fd. Let's fail early in that case. */
+                fd = fileno(f);
+                if (fd < 0)
+                        return -EBADF;
+        }
 
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
@@ -154,7 +162,7 @@ int write_string_stream_ts(
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
 
-                if (futimens(fileno(f), twice) < 0)
+                if (futimens(fd, twice) < 0)
                         return -errno;
         }
 
@@ -886,7 +894,7 @@ int fflush_and_check(FILE *f) {
 }
 
 int fflush_sync_and_check(FILE *f) {
-        int r;
+        int r, fd;
 
         assert(f);
 
@@ -894,10 +902,16 @@ int fflush_sync_and_check(FILE *f) {
         if (r < 0)
                 return r;
 
-        if (fsync(fileno(f)) < 0)
+        /* Not all file streams have an fd associated (think: fmemopen()), let's handle this gracefully and
+         * assume that in that case we need no explicit syncing */
+        fd = fileno(f);
+        if (fd < 0)
+                return 0;
+
+        if (fsync(fd) < 0)
                 return -errno;
 
-        r = fsync_directory_of_file(fileno(f));
+        r = fsync_directory_of_file(fd);
         if (r < 0)
                 return r;
 
@@ -995,7 +1009,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
-        int r, tty = -1;
+        int r;
 
         assert(f);
 
@@ -1070,13 +1084,23 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         count++;
 
                         if (eol != EOL_NONE) {
-                                /* If we are on a tty, we can't wait for more input. But we expect only
-                                 * \n as the single EOL marker, so there is no need to wait. We check
-                                 * this condition last to avoid isatty() check if not necessary. */
+                                /* If we are on a tty, we can't shouldn't wait for more input, because that
+                                 * generally means waiting for the user, interactively. In the case of a TTY
+                                 * we expect only \n as the single EOL marker, so we are in the lucky
+                                 * position that there is no need to wait. We check this condition last, to
+                                 * avoid isatty() check if not necessary. */
 
-                                if (tty < 0)
-                                        tty = isatty(fileno(f));
-                                if (tty > 0)
+                                if ((flags & (READ_LINE_IS_A_TTY|READ_LINE_NOT_A_TTY)) == 0) {
+                                        int fd;
+
+                                        fd = fileno(f);
+                                        if (fd < 0) /* Maybe an fmemopen() stream? Handle this gracefully,
+                                                     * and don't call isatty() on an invalid fd */
+                                                flags |= READ_LINE_NOT_A_TTY;
+                                        else
+                                                flags |= isatty(fd) ? READ_LINE_IS_A_TTY : READ_LINE_NOT_A_TTY;
+                                }
+                                if (FLAGS_SET(flags, READ_LINE_IS_A_TTY))
                                         break;
                         }
 
