@@ -706,7 +706,7 @@ static int dispatch_pkcs11_key_data(const char *name, JsonVariant *variant, Json
         int r;
 
         if (json_variant_is_null(variant)) {
-                k->data = mfree(k->data);
+                k->data = erase_and_free(k->data);
                 k->size = 0;
                 return 0;
         }
