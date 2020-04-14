@@ -1302,6 +1302,16 @@ conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
 substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
 
+default_mdns = get_option('default-mdns')
+conf.set('DEFAULT_MDNS_MODE',
+         'RESOLVE_SUPPORT_' + default_mdns.to_upper())
+substs.set('DEFAULT_MDNS_MODE', default_mdns)
+
+default_llmnr = get_option('default-llmnr')
+conf.set('DEFAULT_LLMNR_MODE',
+         'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
+substs.set('DEFAULT_LLMNR_MODE', default_llmnr)
+
 want_repart = get_option('repart')
 if want_repart != 'false'
         have = (conf.get('HAVE_OPENSSL') == 1 and
@@ -3354,6 +3364,8 @@ status = [
 
         'default DNSSEC mode:               @0@'.format(default_dnssec),
         'default DNS-over-TLS mode:         @0@'.format(default_dns_over_tls),
+        'default mDNS mode:                 @0@'.format(default_mdns),
+        'default LLMNR mode:                @0@'.format(default_llmnr),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
         'default net.naming-scheme setting: @0@'.format(default_net_naming_scheme),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes),
