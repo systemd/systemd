@@ -135,12 +135,12 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (keyctl(KEYCTL_SET_TIMEOUT,
                    (unsigned long) serial,
                    (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
-                log_debug_errno(errno, "Failed to adjust timeout: %m");
+                log_debug_errno(errno, "Failed to adjust kernel keyring key timeout: %m");
 
         /* Tell everyone to check the keyring */
         (void) touch("/run/systemd/ask-password");
 
-        log_debug("Added key to keyring as %" PRIi32 ".", serial);
+        log_debug("Added key to kernel keyring as %" PRIi32 ".", serial);
 
         return 1;
 }
@@ -152,7 +152,7 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
 
         r = add_to_keyring(keyname, flags, passwords);
         if (r < 0)
-                return log_debug_errno(r, "Failed to add password to keyring: %m");
+                return log_debug_errno(r, "Failed to add password to kernel keyring: %m");
 
         return 0;
 }
