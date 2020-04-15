@@ -68,6 +68,8 @@ typedef enum {
 
 const char *special_glyph(SpecialGlyph code) _const_;
 
+bool emoji_enabled(void);
+
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;
 

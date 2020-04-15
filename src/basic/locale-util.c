@@ -305,7 +305,7 @@ out:
         return (bool) cached_answer;
 }
 
-static bool emoji_enabled(void) {
+bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
 
         if (cached_emoji_enabled < 0) {
