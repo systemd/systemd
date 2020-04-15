@@ -742,6 +742,7 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = TRUE;
                         break;
 
