@@ -1549,3 +1549,52 @@ int bus_message_new_method_call(
 
         return sd_bus_message_new_method_call(bus, m, locator->destination, locator->path, locator->interface, member);
 }
+
+int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, void *userdata) {
+        int r;
+
+        log_debug("Registering bus object implementation for path=%s iface=%s", impl->path, impl->interface);
+
+        for (const sd_bus_vtable **p = impl->vtables; p && *p; p++) {
+                r = sd_bus_add_object_vtable(bus, NULL,
+                                             impl->path,
+                                             impl->interface,
+                                             *p,
+                                             userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register bus path %s with interface %s: %m",
+                                               impl->path,
+                                               impl->interface);
+        }
+
+        for (const BusObjectVtablePair *p = impl->fallback_vtables; p && p->vtable; p++) {
+                r = sd_bus_add_fallback_vtable(bus, NULL,
+                                               impl->path,
+                                               impl->interface,
+                                               p->vtable,
+                                               p->object_find,
+                                               userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register bus path %s with interface %s: %m",
+                                               impl->path,
+                                               impl->interface);
+        }
+
+        if (impl->node_enumerator) {
+                r = sd_bus_add_node_enumerator(bus, NULL,
+                                               impl->path,
+                                               impl->node_enumerator,
+                                               userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add node enumerator for %s: %m",
+                                               impl->path);
+        }
+
+        for (size_t i = 0; impl->children && impl->children[i]; i++) {
+                r = bus_add_implementation(bus, impl->children[i], userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}

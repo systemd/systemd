@@ -107,17 +107,8 @@ static const sd_bus_vtable log_control_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-int bus_log_control_api_register(sd_bus *bus) {
-        int r;
-
-        r = sd_bus_add_object_vtable(
-                        bus,
-                        NULL,
-                        "/org/freedesktop/LogControl1",
-                        "org.freedesktop.LogControl1",
-                        log_control_vtable, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register service API object: %m");
-
-        return 0;
-}
+const BusObjectImplementation log_control_object = {
+        "/org/freedesktop/LogControl1",
+        "org.freedesktop.LogControl1",
+        .vtables = BUS_VTABLES(log_control_vtable),
+};
