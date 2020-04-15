@@ -123,6 +123,7 @@
 
       <varlistentry>
         <term><keycap>↵</keycap> (Enter)</term>
+        <term><keycap>→</keycap> (Right)</term>
         <listitem><para>Boot selected entry</para></listitem>
       </varlistentry>
 
