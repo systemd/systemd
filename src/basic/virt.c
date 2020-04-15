@@ -485,8 +485,10 @@ int detect_container(void) {
                         const char *pf = procfs_file_alloca(ptrace_pid, "comm");
                         _cleanup_free_ char *ptrace_comm = NULL;
                         r = read_one_line_file(pf, &ptrace_comm);
-                        if (r >= 0 && startswith(ptrace_comm, "proot"))
-                                return VIRTUALIZATION_PROOT;
+                        if (r >= 0 && startswith(ptrace_comm, "proot")) {
+                                r = VIRTUALIZATION_PROOT;
+                                goto finish;
+                        }
                 }
         }
 
