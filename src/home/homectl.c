@@ -1423,7 +1423,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
 
                 r = json_variant_format(hr->json, 0, &formatted);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to format user record: %m");
 
                 r = bus_message_new_method_call(bus, &m, bus_home_mgr, "CreateHome");
                 if (r < 0)
@@ -1631,7 +1631,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
                 r = json_variant_format(hr->json, 0, &formatted);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to format user record: %m");
 
                 (void) sd_bus_message_sensitive(m);
 
