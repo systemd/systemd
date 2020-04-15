@@ -34,14 +34,15 @@
     name resolution service. It replaces the <command>nss-dns</command> plug-in module that traditionally resolves
     hostnames via DNS.</para>
 
-    <para>To activate the NSS module, add <literal>resolve</literal> to the line starting with
-    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifically, it is recommended to place
-    <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>'s <literal>hosts:</literal> line (but
-    after the <literal>files</literal> or <literal>mymachines</literal> entries), right before the
-    <literal>dns</literal> entry if it exists, followed by <literal>[!UNAVAIL=return]</literal>, to ensure DNS queries
-    are always routed via
-    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> if it is
-    running, but are routed to <command>nss-dns</command> if this service is not available.</para>
+    <para>To activate the NSS module, add <literal>resolve [!UNAVAIL=return]</literal> to the line starting
+    with <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>. Specifically, it is
+    recommended to place <literal>resolve</literal> early in <filename>/etc/nsswitch.conf</filename>'s
+    <literal>hosts:</literal> line. It should be before the <literal>files</literal> entry, since
+    <filename>systemd-resolved</filename> supports <filename>/etc/hosts</filename> internally, but with
+    caching. To the contrary, it should be after <literal>mymachines</literal>, to give hostnames given to
+    local VMs and containers precedence over names received over DNS. Finally, we recommend placing
+    <literal>dns</literal> somewhere after <literal>resolve</literal>, to fall back to
+    <command>nss-dns</command> if <filename>systemd-resolved.service</filename> is not available.</para>
 
     <para>Note that <command>systemd-resolved</command> will synthesize DNS resource
     records in a few cases, for example for <literal>localhost</literal> and the
@@ -66,7 +67,7 @@
 group:          compat mymachines systemd
 shadow:         compat
 
-hosts:          files mymachines <command>resolve [!UNAVAIL=return]</command> dns myhostname
+hosts:          mymachines <command>resolve [!UNAVAIL=return]</command> files dns myhostname
 networks:       files
 
 protocols:      db files
