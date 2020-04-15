@@ -4,6 +4,3 @@ Name=veth99
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=false
-
-[DHCPv4]
-RoutesToDNS=yes

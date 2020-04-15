@@ -3026,19 +3026,21 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.8 proto dhcp scope link src 192.168.5.181 metric 1024')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
-        for (routes, gateway) in itertools.product([True, False, None], repeat=2):
+        for (routes, gateway, dnsroutes) in itertools.product([True, False, None], repeat=3):
             self.setUp()
-            with self.subTest(routes=routes, gateway=gateway):
-                self._test_dhcp_client_ipv4_use_routes_gateway(routes, gateway)
+            with self.subTest(routes=routes, gateway=gateway, dnsroutes=dnsroutes):
+                self._test_dhcp_client_ipv4_use_routes_gateway(routes, gateway, dnsroutes)
             self.tearDown()
 
-    def _test_dhcp_client_ipv4_use_routes_gateway(self, routes, gateway):
+    def _test_dhcp_client_ipv4_use_routes_gateway(self, routes, gateway, dnsroutes):
         testunit = 'dhcp-client-ipv4-use-routes-use-gateway.network'
         testunits = ['25-veth.netdev', 'dhcp-server-veth-peer.network', testunit]
         if routes != None:
             testunits.append(f'{testunit}.d/use-routes-{routes}.conf');
         if gateway != None:
             testunits.append(f'{testunit}.d/use-gateway-{gateway}.conf');
+        if dnsroutes != None:
+            testunits.append(f'{testunit}.d/use-dns-routes-{dnsroutes}.conf');
         copy_unit_to_networkd_unit_path(*testunits, dropins=False)
 
         start_networkd()
@@ -3066,8 +3068,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         else:
             self.assertNotRegex(output, r'default via 192.168.5.1')
 
-        # check for routes to DNS server, only if using gateway
-        if usegateway:
+        # Check RoutesToDNS=, which defaults to false
+        if dnsroutes:
             self.assertRegex(output, r'192.168.5.6 proto dhcp scope link src 192.168.5.181 metric 1024')
             self.assertRegex(output, r'192.168.5.7 proto dhcp scope link src 192.168.5.181 metric 1024')
         else:
