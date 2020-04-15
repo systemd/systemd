@@ -325,7 +325,9 @@ static int handle_generic_user_record_error(
 
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PROTECTED_AUTHENTICATION_PATH_NEEDED)) {
 
-                log_notice("Please authenticate physically on security token.");
+                log_notice("%s%sPlease authenticate physically on security token.",
+                           emoji_enabled() ? special_glyph(SPECIAL_GLYPH_TOUCH) : "",
+                           emoji_enabled() ? " " : "");
 
                 r = user_record_set_pkcs11_protected_authentication_path_permitted(hr, true);
                 if (r < 0)
