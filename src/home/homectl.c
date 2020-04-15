@@ -1459,25 +1459,28 @@ static int create_home(int argc, char *argv[], void *userdata) {
 
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
-                        if (!sd_bus_error_has_name(&error, BUS_ERROR_LOW_PASSWORD_QUALITY))
-                                return log_error_errno(r, "Failed to create user home: %s", bus_error_message(&error, r));
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_LOW_PASSWORD_QUALITY)) {
+                                log_error_errno(r, "%s", bus_error_message(&error, r));
+                                log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
 
-                        log_error_errno(r, "%s", bus_error_message(&error, r));
-                        log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
+                                r = user_record_set_hashed_password(hr, original_hashed_passwords);
+                                if (r < 0)
+                                        return r;
+
+                                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false);
+                                if (r < 0)
+                                        return r;
+
+                                r = user_record_make_hashed_password(hr, hr->password, /* extend = */ true);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to hash passwords: %m");
+                        } else {
+                                r = handle_generic_user_record_error(hr->user_name, hr, &error, r, false);
+                                if (r < 0)
+                                        return r;
+                        }
                 } else
                         break; /* done */
-
-                r = user_record_set_hashed_password(hr, original_hashed_passwords);
-                if (r < 0)
-                        return r;
-
-                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false);
-                if (r < 0)
-                        return r;
-
-                r = user_record_make_hashed_password(hr, hr->password, /* extend = */ true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to hash passwords: %m");
         }
 
         return 0;
