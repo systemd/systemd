@@ -1623,6 +1623,26 @@ static int acquire_updated_home_record(
         return 0;
 }
 
+static int home_record_reset_human_interaction_permission(UserRecord *hr) {
+        int r;
+
+        assert(hr);
+
+        /* When we execute multiple operations one after the other, let's reset the permission to ask the
+         * user each time, so that if interaction is necessary we will be told so again and thus can print a
+         * nice message to the user, telling the user so. */
+
+        r = user_record_set_pkcs11_protected_authentication_path_permitted(hr, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset PKCS#11 protected authentication path permission flag: %m");
+
+        r = user_record_set_fido2_user_presence_permitted(hr, -1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset FIDO2 user presence permission flag: %m");
+
+        return 0;
+}
+
 static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
@@ -1650,6 +1670,12 @@ static int update_home(int argc, char *argv[], void *userdata) {
         r = acquire_updated_home_record(bus, username, &hr);
         if (r < 0)
                 return r;
+
+        /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
+         * authentication might be confusing. */
+
+        if (arg_and_resize || arg_and_change_password)
+                log_info("Updating home directory.");
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1686,12 +1712,15 @@ static int update_home(int argc, char *argv[], void *userdata) {
                         break;
         }
 
+        if (arg_and_resize)
+                log_info("Resizing home.");
+
+        (void) home_record_reset_human_interaction_permission(hr);
+
         /* Also sync down disk size to underlying LUKS/fscrypt/quota */
         while (arg_and_resize) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                log_debug("Resizing");
 
                 r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ResizeHome");
                 if (r < 0)
@@ -1719,12 +1748,15 @@ static int update_home(int argc, char *argv[], void *userdata) {
                         break;
         }
 
+        if (arg_and_change_password)
+                log_info("Synchronizing passwords and encryption keys.");
+
+        (void) home_record_reset_human_interaction_permission(hr);
+
         /* Also sync down passwords to underlying LUKS/fscrypt */
         while (arg_and_change_password) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-
-                log_debug("Propagating password");
 
                 r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ChangePasswordHome");
                 if (r < 0)
