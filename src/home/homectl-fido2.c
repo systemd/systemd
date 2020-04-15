@@ -9,6 +9,7 @@
 #include "format-table.h"
 #include "hexdecoct.h"
 #include "homectl-fido2.h"
+#include "homectl-pkcs11.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "memory-util.h"
@@ -396,6 +397,13 @@ int identity_add_fido2_parameters(
                            FIDO2_SALT_SIZE,
                            secret,
                            secret_size);
+        if (r < 0)
+                return r;
+
+        /* If we acquired the PIN also include it in the secret section of the record, so that systemd-homed
+         * can use it if it needs to, given that it likely needs to decrypt the key again to pass to LUKS or
+         * fscrypt. */
+        r = identity_add_token_pin(v, used_pin);
         if (r < 0)
                 return r;
 
