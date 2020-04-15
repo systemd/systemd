@@ -6,4 +6,4 @@ DHCP=ipv4
 IPv6AcceptRA=false
 
 [DHCPv4]
-UseRoutes=no
+RoutesToDNS=yes
