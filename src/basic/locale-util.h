@@ -54,18 +54,21 @@ typedef enum {
         SPECIAL_GLYPH_LIGHT_SHADE,
         SPECIAL_GLYPH_DARK_SHADE,
         SPECIAL_GLYPH_SIGMA,
-        _SPECIAL_GLYPH_FIRST_SMILEY,
-        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_SMILEY,
+        _SPECIAL_GLYPH_FIRST_EMOJI,
+        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_EMOJI,
         SPECIAL_GLYPH_HAPPY_SMILEY,
         SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY,
         SPECIAL_GLYPH_NEUTRAL_SMILEY,
         SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY,
         SPECIAL_GLYPH_UNHAPPY_SMILEY,
         SPECIAL_GLYPH_DEPRESSED_SMILEY,
+        SPECIAL_GLYPH_LOCK_AND_KEY,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 
 const char *special_glyph(SpecialGlyph code) _const_;
+
+bool emoji_enabled(void);
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;

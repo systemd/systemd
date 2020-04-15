@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -134,12 +135,12 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (keyctl(KEYCTL_SET_TIMEOUT,
                    (unsigned long) serial,
                    (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
-                log_debug_errno(errno, "Failed to adjust timeout: %m");
+                log_debug_errno(errno, "Failed to adjust kernel keyring key timeout: %m");
 
         /* Tell everyone to check the keyring */
         (void) touch("/run/systemd/ask-password");
 
-        log_debug("Added key to keyring as %" PRIi32 ".", serial);
+        log_debug("Added key to kernel keyring as %" PRIi32 ".", serial);
 
         return 1;
 }
@@ -151,7 +152,7 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
 
         r = add_to_keyring(keyname, flags, passwords);
         if (r < 0)
-                return log_debug_errno(r, "Failed to add password to keyring: %m");
+                return log_debug_errno(r, "Failed to add password to kernel keyring: %m");
 
         return 0;
 }
@@ -429,6 +430,9 @@ int ask_password_tty(
 
         if (!message)
                 message = "Password:";
+
+        if (emoji_enabled())
+                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
 
         if (flag_file || ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
