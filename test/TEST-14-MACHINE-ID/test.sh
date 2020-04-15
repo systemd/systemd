@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="/etc/machine-id testing"
-IMAGE_NAME=badid
+IMAGE_NAME="badid"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
