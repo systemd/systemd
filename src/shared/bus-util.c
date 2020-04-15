@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "bus-internal.h"
+#include "bus-introspect.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
@@ -1596,5 +1597,108 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
                         return r;
         }
 
+        return 0;
+}
+
+static const BusObjectImplementation* find_implementation(
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects) {
+
+        for (size_t i = 0; bus_objects && bus_objects[i]; i++) {
+                const BusObjectImplementation *impl = bus_objects[i];
+
+                if (STR_IN_SET(pattern, impl->path, impl->interface))
+                        return impl;
+
+                impl = find_implementation(pattern, impl->children);
+                if (impl)
+                        return impl;
+        }
+
+        return NULL;
+}
+
+static int bus_introspect_implementation(
+                struct introspect *intro,
+                const BusObjectImplementation *impl) {
+        int r;
+
+        for (const sd_bus_vtable **p = impl->vtables; p && *p; p++) {
+                r = introspect_write_interface(intro, impl->interface, *p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write introspection data: %m");
+        }
+
+        for (const BusObjectVtablePair *p = impl->fallback_vtables; p && p->vtable; p++) {
+                r = introspect_write_interface(intro, impl->interface, p->vtable);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write introspection data: %m");
+        }
+
+        return 0;
+}
+
+int bus_introspect_implementations(
+                FILE *out,
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects) {
+
+        const BusObjectImplementation *impl, *main_impl = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        struct introspect intro = {};
+        bool is_interface = interface_name_is_valid(pattern);
+
+        impl = find_implementation(pattern, bus_objects);
+        if (!impl)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "%s %s not found",
+                                       is_interface ? "Interface" : "Object path",
+                                       pattern);
+
+        /* We use trusted=false here to get all the @org.freedesktop.systemd1.Privileged annotations. */
+        r = introspect_begin(&intro, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        r = introspect_write_default_interfaces(&intro, impl->manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        /* Check if there is a non-fallback path that applies to the given interface, also
+         * print it. This is useful in the case of units: o.fd.systemd1.Service is declared
+         * as a fallback vtable for o/fd/systemd1/unit, and we also want to print
+         * o.fd.systemd1.Unit, which is the non-fallback implementation. */
+        if (impl->fallback_vtables && is_interface)
+                main_impl = find_implementation(impl->path, bus_objects);
+
+        if (main_impl)
+                bus_introspect_implementation(&intro, main_impl);
+
+        if (impl != main_impl)
+                bus_introspect_implementation(&intro, impl);
+
+        _cleanup_set_free_free_ Set *nodes = NULL;
+
+        for (size_t i = 0; impl->children && impl->children[i]; i++) {
+                r = set_ensure_allocated(&nodes, &string_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put_strdup(nodes, impl->children[i]->path);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = introspect_write_child_nodes(&intro, nodes, impl->path);
+        if (r < 0)
+                return r;
+
+        r = introspect_finish(&intro, &s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        fputs(s, out);
         return 0;
 }

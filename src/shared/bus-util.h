@@ -222,3 +222,7 @@ int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const BusLocator *loc
 int bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const BusLocator *locator, const char *member);
 
 int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, void *userdata);
+int bus_introspect_implementations(
+                FILE *out,
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects);
