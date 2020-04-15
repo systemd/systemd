@@ -69,7 +69,7 @@
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
     <filename>/etc/systemd/network/*.network</filename> files (in case
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is used), the per-link dynamic settings received over DHCP, user request made via
+    is used), the per-link dynamic settings received over DHCP, information provided via
     <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, and any
     DNS server information made available by other system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
@@ -104,6 +104,8 @@
 
       <listitem><para>The mappings defined in <filename>/etc/hosts</filename> are resolved to their
       configured addresses and back, but they will not affect lookups for non-address types (like MX).
+      Support for <filename>/etc/hosts</filename> may be disabled with <varname>ReadEtcHosts=no</varname>,
+      see <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       </para></listitem>
     </itemizedlist>
   </refsect1>
@@ -111,32 +113,48 @@
   <refsect1>
     <title>Protocols and Routing</title>
 
-    <para>Lookup requests are routed to the available DNS servers, LLMNR and MulticastDNS interfaces
+    <para>Lookup requests are routed to the available DNS servers, LLMNR, and MulticastDNS interfaces
     according to the following rules:</para>
 
     <itemizedlist>
-      <listitem><para>Lookups for the special hostname <literal>localhost</literal> are never routed to the
-      network. (A few other, special domains are handled the same way.)</para></listitem>
+      <listitem><para>Names for which synthetic records are generated (as listed in the previous section) are
+      never routed to the network and a reply is sent immediately. In particular this means that lookups for
+      <literal>localhost</literal> are never routed to the network.</para></listitem>
 
-      <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, using
-      the LLMNR protocol. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6
-      addresses are only sent via LLMNR on IPv6. Lookups for the locally configured hostname and the
-      <literal>_gateway</literal> hostname are never routed to LLMNR.</para></listitem>
+      <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, where
+      LLMNR is not disabled, using the LLMNR protocol. Lookups for IPv4 addresses are only sent via LLMNR on
+      IPv4, and lookups for IPv6 addresses are only sent via LLMNR on IPv6. Lookups for the locally
+      configured hostname and the <literal>_gateway</literal> hostname are never routed to LLMNR.
+      </para></listitem>
 
       <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are routed to all
-      local interfaces capable of IP multicasting, using the MulticastDNS protocol. As with LLMNR IPv4
-      address lookups are sent via IPv4 and IPv6 address lookups are sent via IPv6.</para></listitem>
+      local interfaces capable of IP multicasting, where MulticastDNS is not disabled, using the MulticastDNS
+      protocol. As with LLMNR, IPv4 address lookups are sent via IPv4 and IPv6 address lookups are sent via
+      IPv6.</para></listitem>
+
+      <listitem><para>Resolution of address records (A and AAAA) via unicast DNS (i.e. not LLMNR or
+      MulticastDNS) for non-synthesized single-label names is only allowed for non-top-level domains. This
+      means that such records can only be resolved when search domains are defined. For any interface which
+      defines search domains, such look-ups are routed to that interface, suffixed with each of the search
+      domains defined on that interface in turn. When global search domains are defined, such look-ups are
+      routed to all interfaces, suffixed by each of the global search domains in turn. The details of which
+      servers are queried and how the final reply is chosen are described below. Note that this means that
+      address queries for single-label names are never sent out to remote DNS servers, and if no search
+      domains are defined, resolution will fail.</para></listitem>
 
       <listitem><para>Other multi-label names are routed to all local interfaces that have a DNS server
-      configured, plus the globally configured DNS server if there is one. Address lookups from the
-      link-local address range are never routed to DNS. Note that by default lookups for domains with the
-      <literal>.local</literal> suffix are not routed to DNS servers, unless the domain is specified
-      explicitly as routing or search domain for the DNS server and interface. This means that on networks
-      where the <literal>.local</literal> domain is defined in a site-specific DNS server, explicit search or
-      routing domains need to be configured to make lookups within this DNS domain work. Note that today it's
-      generally recommended to avoid defining <literal>.local</literal> in a DNS server, as <ulink
-      url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
+      configured, plus the globally configured DNS servers if there are any. Note that by default, lookups for
+      domains with the <literal>.local</literal> suffix are not routed to DNS servers, unless the domain is
+      specified explicitly as routing or search domain for the DNS server and interface. This means that on
+      networks where the <literal>.local</literal> domain is defined in a site-specific DNS server, explicit
+      search or routing domains need to be configured to make lookups within this DNS domain work. Note that
+      these days, it's generally recommended to avoid defining <literal>.local</literal> in a DNS server, as
+      <ulink url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
       MulticastDNS use.</para></listitem>
+
+      <listitem><para>Address lookups are routed similarly to multi-label names, with the exception that
+      addresses from the link-local address range are never routed to unicast DNS and are only resolved using
+      LLMNR and MulticastDNS (when enabled).</para></listitem>
     </itemizedlist>
 
     <para>If lookups are routed to multiple interfaces, the first successful response is returned (thus
@@ -151,12 +169,18 @@
 
     <itemizedlist>
       <listitem><para>If a name to look up matches (that is: is equal to or has as suffix) any of the
-      configured search or route-only domains of any link (or the globally configured DNS settings), the
+      configured search or route-only domains of any link (see
+      <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      or the globally configured DNS settings (see the discussion of <varname>Domains=</varname> in
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
       "best matching" search/route-only domain is determined: the matching one with the most labels. The
       query is then sent to all DNS servers of any links or the globally configured DNS servers associated
       with this "best matching" search/route-only domain. (Note that more than one link might have this same
       "best matching" search/route-only domain configured, in which case the query is sent to all of them in
-      parallel).</para></listitem>
+      parallel).</para>
+
+      <para>In case of single-label names, when search domains are defined, the same logic applies, except
+      that the name is first suffixed by the search domain.</para></listitem>
 
       <listitem><para>If a query does not match any configured search/route-only domain (neither per-link nor
       global), it is sent to all DNS servers that are configured on links with the "DNS default route" option
@@ -174,14 +198,15 @@
     configured DNS domains for a link: if there's any route-only domain (not matching <literal>~.</literal>)
     it defaults to false, otherwise to true.</para>
 
-    <para>Effectively this means: in order to preferably route all DNS queries not explicitly matched by
-    search/route-only domain configuration to a specific link, configure a <literal>~.</literal> route-only
-    domain on it. This will ensure that other links will not be considered for the queries (unless they too
-    carry such a route-only domain). In order to route all such DNS queries to a specific link only in case
-    no other link is preferable, then set the "DNS default route" option for the link to true, and do not
-    configure a <literal>~.</literal> route-only domain on it. Finally, in order to ensure that a specific
-    link never receives any DNS traffic not matching any of its configured search/route-only domains, set the
-    "DNS default route" option for it to false.</para>
+    <para>Effectively this means: in order to support single-label non-synthetized names, define appropriate
+    search domains. In order to preferably route all DNS queries not explicitly matched by search/route-only
+    domain configuration to a specific link, configure a <literal>~.</literal> route-only domain on it. This
+    will ensure that other links will not be considered for these queries (unless they too carry such a
+    route-only domain). In order to route all such DNS queries to a specific link only if no other link
+    is preferable, set the "DNS default route" option for the link to true and do not configure a
+    <literal>~.</literal> route-only domain on it. Finally, in order to ensure that a specific link never
+    receives any DNS traffic not matching any of its configured search/route-only domains, set the "DNS
+    default route" option for it to false.</para>
 
     <para>See the <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved">resolved D-Bus API
     Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.
