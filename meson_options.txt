@@ -364,3 +364,5 @@ option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
 option('kernel-install', type: 'boolean', value: 'true',
        description : 'include kernel-install feature')
+option('analyze', type: 'boolean', value: 'true',
+       description : 'include systemd-analyze')
