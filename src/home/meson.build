@@ -71,6 +71,8 @@ homectl_sources = files('''
         home-util.h
         homectl-fido2.c
         homectl-fido2.h
+        homectl-pkcs11.c
+        homectl-pkcs11.h
         homectl.c
         pwquality-util.c
         pwquality-util.h
