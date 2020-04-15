@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -429,6 +430,9 @@ int ask_password_tty(
 
         if (!message)
                 message = "Password:";
+
+        if (emoji_enabled())
+                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
 
         if (flag_file || ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
