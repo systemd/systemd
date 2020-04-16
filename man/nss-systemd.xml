@@ -65,7 +65,7 @@
 group:          compat [SUCCESS=merge] mymachines [SUCCESS=merge] <command>systemd</command>
 shadow:         compat
 
-hosts:          files mymachines resolve [!UNAVAIL=return] dns myhostname
+hosts:          mymachines resolve [!UNAVAIL=return] myhostname files dns
 networks:       files
 
 protocols:      db files
