@@ -546,6 +546,11 @@ below). It's undefined how precise the URI is: during log-in it is tested
 against all plugged in security tokens and if there's exactly one matching
 private key found with it it is used.
 
+`fido2HmacCredential` → An array of strings, each with a Base64-encoded FIDO2
+credential ID that shell be used for authentication with FIDO2 devices that
+implement the `hmac-secret` extension. The salt to pass to the FIDO2 device is
+found in `fido2HmacSalt`.
+
 `privileged` → An object, which contains the fields of the `privileged` section
 of the user record, see below.
 
@@ -594,7 +599,7 @@ as the lines in the traditional `~/.ssh/authorized_key` file.
 
 `pkcs11EncryptedKey` → An array of objects. Each element of the array should be
 an object consisting of three string fields: `uri` shall contain a PKCS#11
-security token URI, `data` shall contain a Base64 encoded encrypted key and
+security token URI, `data` shall contain a Base64-encoded encrypted key and
 `hashedPassword` shall contain a UNIX password hash to test the key
 against. Authenticating with a security token against this account shall work
 as follows: the encrypted secret key is converted from its Base64
@@ -602,12 +607,28 @@ representation into binary, then decrypted with the PKCS#11 `C_Decrypt()`
 function of the PKCS#11 module referenced by the specified URI, using the
 private key found on the same token. The resulting decrypted key is then
 Base64-encoded and tested against the specified UNIX hashed password. The
-Base64-enceded decrypted key may also be used to unlock further resources
+Base64-encoded decrypted key may also be used to unlock further resources
 during log-in, for example the LUKS or `fscrypt` storage backend. It is
 generally recommended that for each entry in `pkcs11EncryptedKey` there's also
 a matching one in `pkcs11TokenUri` and vice versa, with the same URI, appearing
 in the same order, but this should not be required by applications processing
 user records.
+
+`fido2HmacSalt` → An array of objects, implementing authentication support with
+FIDO2 devices that implement the `hmac-secret` extension. Each element of the
+array should be an object consisting of three string fields: `credential`,
+`salt`, `hashedPassword`. The first two shall contain Base64-encoded binary
+data: the FIDO2 credential ID and the salt value to pass to the FIDO2
+device. During authentication this salt along with the credential ID is sent to
+the FIDO2 token, which will HMAC hash the salt with its internal secret key and
+return the result. This resulting binary key should then be Base64-encoded and
+used as string password for the further layers of the stack. The
+`hashedPassword` field of the `fido2HmacSalt` field shall be a UNIX password
+hash to test this derived secret key against for authentication. It is
+generally recommended that for each entry in `fido2HmacSalt` there's also a
+matching one in `fido2HmacCredential`, and vice versa, with the same credential
+ID, appearing in the same order, but this should not be required by
+applications processing user recrods.
 
 ## Fields in the `perMachine` section
 
@@ -652,13 +673,13 @@ that may be used in this section are identical to the equally named ones in the
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
 `cifsUserName`, `cifsService`, `imagePath`, `uid`, `gid`, `memberOf`,
 `fileSystemType`, `partitionUuid`, `luksUuid`, `fileSystemUuid`, `luksDiscard`,
-`luksOfflineDiscard`, `luksOfflineDiscard`, `luksCipher`, `luksCipherMode`,
-`luksVolumeKeySize`, `luksPbkdfHashAlgorithm`, `luksPbkdfType`,
-`luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`, `luksPbkdfParallelThreads`,
-`rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
-`passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
-`passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`.
+`luksOfflineDiscard`, `luksCipher`, `luksCipherMode`, `luksVolumeKeySize`,
+`luksPbkdfHashAlgorithm`, `luksPbkdfType`, `luksPbkdfTimeCostUSec`,
+`luksPbkdfMemoryCost`, `luksPbkdfParallelThreads`, `rateLimitIntervalUSec`,
+`rateLimitBurst`, `enforcePasswordPolicy`, `autoLogin`, `stopDelayUSec`,
+`killProcesses`, `passwordChangeMinUSec`, `passwordChangeMaxUSec`,
+`passwordChangeWarnUSec`, `passwordChangeInactiveUSec`, `passwordChangeNow`,
+`pkcs11TokenUri`, `fido2HmacCredential`.
 
 ## Fields in the `binding` section
 
@@ -810,7 +831,7 @@ public key.
 The `signature` field in the top-level user record object is an array of
 objects. Each object encapsulates one signature and has two fields: `data` and
 `key` (both are strings). The `data` field contains the actual signature,
-encoded in base64, the `key` field contains a copy of the public key whose
+encoded in Base64, the `key` field contains a copy of the public key whose
 private key was used to make the signature, in PEM format. Currently only
 signatures with Ed25519 keys are defined.
 
@@ -872,7 +893,12 @@ in case both are set.)
 `pkcs11ProtectedAuthenticationPathPermitted` → a boolean. If set to true allows
 the receiver to use the PKCS#11 "protected authentication path" (i.e. a
 physical button/touch element on the security token) for authenticating the
-user. If false or unset authentication this way shall not be attempted.
+user. If false or unset, authentication this way shall not be attempted.
+
+`fido2UserPresencePermitted` → a boolean. If set to true allows the receiver to
+use the FIDO2 "user presence" flag. This is similar to the concept of
+`pkcs11ProtectedAuthenticationPathPermitted`, but exposes the FIDO2 concept
+behind it. If false or unset authentication this way shall not be attempted.
 
 ## Mapping to `struct passwd` and `struct spwd`
 
