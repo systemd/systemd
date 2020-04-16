@@ -539,10 +539,16 @@ int server_open_audit(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        /* We are listening now, try to enable audit */
-        r = enable_audit(s->audit_fd, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to issue audit enable call: %m");
+        if (s->set_audit >= 0) {
+                /* We are listening now, try to enable audit if configured so */
+                r = enable_audit(s->audit_fd, s->set_audit);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to issue audit enable call: %m");
+                else if (s->set_audit > 0)
+                        log_debug("Auditing in kernel turned on.");
+                else
+                        log_debug("Auditing in kernel turned off.");
+        }
 
         return 0;
 }

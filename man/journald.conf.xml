@@ -403,6 +403,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Audit=</varname></term>
+
+        <listitem><para>Takes a boolean value. If enabled <command>systemd-journal</command> will turn on
+        kernel auditing on start-up. If disabled it will turn it off. If unset it will neither enable nor
+        disable it, leaving the previous state unchanged. Note that this option does not control whether
+        <command>systemd-journald</command> collects generated audit records, it just controls whether it
+        tells the kernel to generate them. This means if another tool turns on auditing even if
+        <command>systemd-journald</command> left it off, it will still collect the generated
+        messages. Defaults to on.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TTYPath=</varname></term>
 
         <listitem><para>Change the console TTY to use if
