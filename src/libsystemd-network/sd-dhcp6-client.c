@@ -998,10 +998,11 @@ static int client_parse_message(
                 size_t len,
                 sd_dhcp6_lease *lease) {
 
+        uint16_t ia_na_status = 0, ia_pd_status = 0;
         uint32_t lt_t1 = ~0, lt_t2 = ~0;
+        usec_t irt = IRT_DEFAULT;
         bool clientid = false;
         size_t pos = 0;
-        usec_t irt = IRT_DEFAULT;
         int r;
 
         assert(client);
@@ -1015,8 +1016,8 @@ static int client_parse_message(
                 DHCP6Option *option = (DHCP6Option *) &message->options[pos];
                 uint16_t optcode, optlen;
                 be32_t iaid_lease;
+                int  status;
                 uint8_t *optval;
-                int status;
 
                 if (len < pos + offsetof(DHCP6Option, data))
                         return -ENOBUFS;
@@ -1093,9 +1094,14 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->ia);
+                        r = dhcp6_option_parse_ia(option, &lease->ia, &ia_na_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
+
+                        if (ia_na_status == DHCP6_STATUS_NO_ADDRS_AVAIL) {
+                                pos += offsetof(DHCP6Option, data) + optlen;
+                                continue;
+                        }
 
                         r = dhcp6_lease_get_iaid(lease, &iaid_lease);
                         if (r < 0)
@@ -1121,9 +1127,14 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(option, &lease->pd);
+                        r = dhcp6_option_parse_ia(option, &lease->pd, &ia_pd_status);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
+
+                        if (ia_pd_status == DHCP6_STATUS_NO_PREFIX_AVAIL) {
+                                pos += offsetof(DHCP6Option, data) + optlen;
+                                continue;
+                        }
 
                         r = dhcp6_lease_get_pd_iaid(lease, &iaid_lease);
                         if (r < 0)
@@ -1186,6 +1197,11 @@ static int client_parse_message(
                 }
 
                 pos += offsetof(DHCP6Option, data) + optlen;
+        }
+
+        if (ia_na_status > 0 && ia_pd_status > 0) {
+                log_dhcp6_client(client, "No IA_PD prefix or IA_NA address received. Ignoring.");
+                return -EINVAL;
         }
 
         if (!clientid) {
