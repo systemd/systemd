@@ -417,13 +417,13 @@ static int dhcp6_option_parse_pdprefix(DHCP6Option *option, DHCP6IA *ia,
         return 0;
 }
 
-int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
-        uint16_t iatype, optlen;
-        size_t i, len;
-        int r = 0, status;
-        uint16_t opt;
-        size_t iaaddr_offset;
+int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia, uint16_t *ret_status_code) {
         uint32_t lt_t1, lt_t2, lt_valid = 0, lt_min = UINT32_MAX;
+        uint16_t iatype, optlen;
+        size_t iaaddr_offset;
+        int r = 0, status;
+        size_t i, len;
+        uint16_t opt;
 
         assert_return(ia, -EINVAL);
         assert_return(!ia->addresses, -EINVAL);
@@ -533,11 +533,15 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                         status = dhcp6_option_parse_status(option, optlen + offsetof(DHCP6Option, data));
                         if (status < 0)
                                 return status;
+
                         if (status > 0) {
+                                if (ret_status_code)
+                                        *ret_status_code = status;
+
                                 log_dhcp6_client(client, "IA status %s",
                                                  dhcp6_message_status_to_string(status));
 
-                                return -EINVAL;
+                                return 0;
                         }
 
                         break;
@@ -581,7 +585,10 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                 break;
         }
 
-        return 0;
+        if (ret_status_code)
+                *ret_status_code = 0;
+
+        return 1;
 }
 
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
