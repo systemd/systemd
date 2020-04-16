@@ -3098,6 +3098,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PKCS11_TOKEN_URI: {
                         const char *p;
 
+                        if (streq(optarg, "list"))
+                                return list_pkcs11_tokens();
+
                         /* If --pkcs11-token-uri= is specified we always drop everything old */
                         FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
                                 r = drop_from_identity(p);
@@ -3110,10 +3113,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        if (!pkcs11_uri_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", optarg);
+                        if (streq(optarg, "auto")) {
+                                _cleanup_free_ char *found = NULL;
 
-                        r = strv_extend(&arg_pkcs11_token_uri, optarg);
+                                r = find_pkcs11_token_auto(&found);
+                                if (r < 0)
+                                        return r;
+                                r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
+                        } else {
+                                if (!pkcs11_uri_valid(optarg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid PKCS#11 URI: %s", optarg);
+
+                                r = strv_extend(&arg_pkcs11_token_uri, optarg);
+                        }
                         if (r < 0)
                                 return r;
 
