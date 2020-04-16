@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "audit-type.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -512,7 +513,7 @@ int server_open_audit(Server *s) {
 
                 s->audit_fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
                 if (s->audit_fd < 0) {
-                        if (IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT))
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_debug("Audit not supported in the kernel.");
                         else
                                 log_warning_errno(errno, "Failed to create audit socket, ignoring: %m");
