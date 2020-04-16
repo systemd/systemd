@@ -423,7 +423,7 @@ int server_open_kernel_seqnum(Server *s) {
 
         assert(s);
 
-        /* We store the seqnum we last read in an mmaped file. That way we can just use it like a variable,
+        /* We store the seqnum we last read in an mmapped file. That way we can just use it like a variable,
          * but it is persistent and automatically flushed at reboot. */
 
         if (!s->read_kmsg)

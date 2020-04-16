@@ -2767,7 +2767,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = json_variant_set_field(&arg_identity_extra, "environment", ne);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set environent list: %m");
+                                return log_error_errno(r, "Failed to set environment list: %m");
 
                         break;
                 }

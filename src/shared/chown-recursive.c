@@ -150,7 +150,7 @@ int fd_chown_recursive(
         struct stat st;
 
         /* Note that the slightly different order of fstat() and the checks here and in
-         * path_chown_recursive(). That's because when we open the dirctory ourselves we can specify
+         * path_chown_recursive(). That's because when we open the directory ourselves we can specify
          * O_DIRECTORY and we always want to ensure we are operating on a directory before deciding whether
          * the operation is otherwise redundant. */
 

@@ -774,7 +774,7 @@ static int vtable_append_all_properties(
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
-                /* Let's not include properties marked as "explicit" in any message that contians a generic
+                /* Let's not include properties marked as "explicit" in any message that contains a generic
                  * dump of properties, but only in those generated as a response to an explicit request. */
                 if (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
                         continue;

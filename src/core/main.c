@@ -95,7 +95,7 @@ static enum {
         ACTION_DUMP_BUS_PROPERTIES,
 } arg_action = ACTION_RUN;
 
-/* Those variables are initalized to 0 automatically, so we avoid uninitialized memory access.
+/* Those variables are initialized to 0 automatically, so we avoid uninitialized memory access.
  * Real defaults are assigned in reset_arguments() below. */
 static char *arg_default_unit;
 static bool arg_system;
@@ -479,7 +479,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = parse_cpu_set(value, &arg_cpu_affinity);
                 if (r < 0)
-                        log_warning_errno(r, "Faile to parse CPU affinity mask '%s', ignoring: %m", value);
+                        log_warning_errno(r, "Failed to parse CPU affinity mask '%s', ignoring: %m", value);
 
         } else if (proc_cmdline_key_streq(key, "systemd.watchdog_device")) {
 

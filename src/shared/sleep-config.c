@@ -208,7 +208,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
 }
 
 /*
- * Attempt to calculate the swap file offset on supported filesystems. On unsuported
+ * Attempt to calculate the swap file offset on supported filesystems. On unsupported
  * filesystems, a debug message is logged and ret_offset is set to UINT64_MAX.
  */
 static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offset) {

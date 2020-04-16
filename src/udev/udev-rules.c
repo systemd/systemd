@@ -78,7 +78,7 @@ typedef enum {
         TK_M_ATTR,                          /* string, takes filename through attribute, sd_device_get_sysattr_value(), util_resolve_subsys_kernel(), etc. */
         TK_M_SYSCTL,                        /* string, takes kernel parameter through attribute */
 
-        /* matches parent paramters */
+        /* matches parent parameters */
         TK_M_PARENTS_KERNEL,                /* string */
         TK_M_PARENTS_SUBSYSTEM,             /* string */
         TK_M_PARENTS_DRIVER,                /* string */

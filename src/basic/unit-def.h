@@ -7,7 +7,7 @@
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.
- * In this case service units have the hightest priority. */
+ * In this case service units have the highest priority. */
 typedef enum UnitType {
         UNIT_SERVICE = 0,
         UNIT_MOUNT,

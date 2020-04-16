@@ -460,7 +460,7 @@ int user_record_test_image_path(UserRecord *h) {
                 if (S_ISBLK(st.st_mode)) {
                         /* For block devices we can't really be sure if the device referenced actually is the
                          * fs we look for or some other file system (think: what does /dev/sdb1 refer
-                         * to?). Hence, let's return USER_TEST_MAYBE as an ambigious return value for these
+                         * to?). Hence, let's return USER_TEST_MAYBE as an ambiguous return value for these
                          * case, except if the device path used is one of the paths that is based on a
                          * filesystem or partition UUID or label, because in those cases we can be sure we
                          * are referring to the right device. */

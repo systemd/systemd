@@ -386,7 +386,7 @@ static uint64_t free_area_available_for_new_partitions(const FreeArea *a) {
         uint64_t avail;
 
         /* Similar to free_area_available(), but takes into account that the required size and padding of the
-         * preceeding partition is honoured. */
+         * preceding partition is honoured. */
 
         avail = free_area_available(a);
         if (a->after) {
@@ -553,7 +553,7 @@ static int context_grow_partitions_phase(
         LIST_FOREACH(partitions, p, context->partitions) {
 
                 /* Look only at partitions associated with this free area, i.e. immediately
-                 * preceeding it, or allocated into it */
+                 * preceding it, or allocated into it */
                 if (p->allocated_to_area != a && p->padding_area != a)
                         continue;
 
@@ -682,7 +682,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                         break;
         }
 
-        /* We still have space left over? Donate to preceeding partition if we have one */
+        /* We still have space left over? Donate to preceding partition if we have one */
         if (span > 0 && a->after && !PARTITION_IS_FOREIGN(a->after)) {
                 uint64_t m, xsz;
 
@@ -697,7 +697,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 a->after->new_size = m;
         }
 
-        /* What? Even still some space left (maybe because there was no preceeding partition, or it had a
+        /* What? Even still some space left (maybe because there was no preceding partition, or it had a
          * size limit), then let's donate it to whoever wants it. */
         if (span > 0) {
                 Partition *p;
@@ -726,7 +726,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                 }
         }
 
-        /* Yuck, still noone? Then make it padding */
+        /* Yuck, still no one? Then make it padding */
         if (span > 0 && a->after) {
                 assert(a->after->new_padding != UINT64_MAX);
                 a->after->new_padding += span;
@@ -2864,7 +2864,7 @@ static int acquire_root_devno(const char *p, int mode, char **ret) {
         /* From partition to whole disk containing it */
         r = block_get_whole_disk(devno, &devno);
         if (r < 0)
-                log_debug_errno(r, "Failed to find whole disk block device for '%s', ingoring: %m", p);
+                log_debug_errno(r, "Failed to find whole disk block device for '%s', ignoring: %m", p);
 
         return device_path_make_canonical(S_IFBLK, devno, ret);
 }
