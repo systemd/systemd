@@ -3170,6 +3170,12 @@ static int method_set_wall_message(
         if (r < 0)
                 return r;
 
+        /* Short-circuit the operation if the desired state is already in place, to
+         * avoid an unnecessary polkit permission check. */
+        if (streq_ptr(m->wall_message, empty_to_null(wall_message)) &&
+            m->enable_wall_messages == enable_wall_messages)
+                goto done;
+
         r = bus_verify_polkit_async(message,
                                     CAP_SYS_ADMIN,
                                     "org.freedesktop.login1.set-wall-message",
@@ -3189,6 +3195,7 @@ static int method_set_wall_message(
 
         m->enable_wall_messages = enable_wall_messages;
 
+ done:
         return sd_bus_reply_method_return(message, NULL);
 }
 
