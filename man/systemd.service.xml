@@ -1106,10 +1106,10 @@
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
-    own, on the command line, in which case it will be replaced by the
-    value of the environment variable including all whitespace it
-    contains, resulting in a single argument. Use
-    <literal>$FOO</literal> as a separate word on the command line, in
+    own, on the command line, in which case it will be erased and replaced
+    by the exact value of the environment variable (if any) including all
+    whitespace it contains, always resulting in exactly a single argument.
+    Use <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
     variable split at whitespace, resulting in zero or more arguments.
     For this type of expansion, quotes are respected when splitting
