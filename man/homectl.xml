@@ -332,7 +332,49 @@
         then generated, encrypted with the public key of the X.509 certificate, and stored as part of the
         user record. At login time it is decrypted with the PKCS#11 module and then used to unlock the
         account and associated resources. See below for an example how to set up authentication with security
-        token.</para></listitem>
+        token.</para>
+
+        <para>Instead of a valid PKCS#11 URI, the special strings <literal>list</literal> and
+        <literal>auto</literal> may be specified. If <literal>list</literal> is passed, a brief table of
+        suitable, currently plugged in PKCS#11 hardware tokens is shown, along with their URIs. If
+        <literal>auto</literal> is passed, a suitable PKCS#11 hardware token is automatically selected (this
+        operation will fail if there isn't exactly one suitable token discovered). The latter is a useful
+        shortcut for the most common case where a single PKCS#11 hardware token is plugged in.</para>
+
+        <para>Note that many hardware security tokens implement both PKCS#11/PIV and FIDO2 with the
+        <literal>hmac-secret</literal> extension (for example: the YubiKey 5 series), as supported with the
+        <option>--fido2-device=</option> option below. Both mechanisms are similarly powerful, though FIDO2
+        is the more modern technology. PKCS#11/PIV tokens have the benefit of being recognizable before
+        authentication and hence can be used for implying the user identity to use for logging in, which
+        FIDO2 does not allow. PKCS#11/PIV devices generally require initialization (i.e. storing a
+        private/public key pair on them, see example below) before they can be used; FIDO2 security tokens
+        generally do not required that, and work out of the box.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fido2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Takes a path to a Linux <literal>hidraw</literal> device
+        (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
+        <literal>hmac-secret</literal> extension, that shall be able to unlock the user account. If used, a
+        random salt value is generated on the host, which is passed to the FIDO2 device, which calculates a
+        HMAC hash of it, keyed by its internal secret key. The result is then used as key for unlocking the
+        user account. The random salt is included in the user record, so that whenever authentication is
+        needed it can be passed again to the FIDO2 token, to retrieve the actual key.</para>
+
+        <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
+        <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
+        passed, a brief table of suitable discovered FIDO2 devices is shown. If <literal>auto</literal> is
+        passed, a suitable FIDO2 token is automatically selected, if exactly one is discovered. The latter is
+        a useful shortcut for the most common case where a single FIDO2 hardware token is plugged in.</para>
+
+        <para>Note that FIDO2 devices suitable for this option must implement the
+        <literal>hmac-secret</literal> extension. Most current devices (such as the YubiKey 5 series) do. If
+        the extension is not implemented the device cannot be used for unlocking home directories.</para>
+
+        <para>Note that many hardware security tokens implement both FIDO2 and PKCS#11/PIV (and thus may be
+        used with either <option>--fido2-device=</option> or <option>--pkcs11-token-uri=</option>), for a
+        discussion see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -810,7 +852,7 @@
     </example>
 
     <example>
-      <title>Set up authentication with a YubiKey security token:</title>
+      <title>Set up authentication with a YubiKey security token using PKCS#11/PIV:</title>
 
       <programlisting># Clear the Yubikey from any old keys (careful!)
 ykman piv reset
@@ -821,16 +863,18 @@ ykman piv generate-key -a RSA2048 9d pubkey.pem
 # Create a self-signed certificate from this public key, and store it on the device.
 ykman piv generate-certificate --subject "Knobelei" 9d pubkey.pem
 
-# We don't need the publibc key on disk anymore
+# We don't need the public key on disk anymore
 rm pubkey.pem
 
-# Check if the newly create key on the Yubikey shows up as token in PKCS#11. Have a look at the output, and
-# copy the resulting token URI to the clipboard.
-p11tool --list-tokens
+# Allow the security token to unlock the account of user 'lafcadio'.
+homectl update lafcadio --pkcs11-token-uri=auto</programlisting>
+    </example>
 
-# Allow the security token referenced by the determined PKCS#11 URI to unlock the account of user
-# 'lafcadio'. (Replace the '…' by the URI from the clipboard.)
-homectl update lafcadio --pkcs11-token-uri=…</programlisting>
+    <example>
+      <title>Set up authentication with a FIDO2 security token:</title>
+
+      <programlisting># Allow a FIDO2 security token to unlock the account of user 'nihilbaxter'.
+homectl update nihilbaxter --fido2-device=auto</programlisting>
     </example>
   </refsect1>
 
