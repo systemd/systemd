@@ -168,7 +168,7 @@ int config_parse_ip_protocol(
                 r = safe_atou(rvalue, &protocol);
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse IP protocol '%s' for Foo over UDP tunnel, "
+                                   "Failed to parse IP protocol '%s' for FooOverUDP tunnel, "
                                    "ignoring assignment: %m", rvalue);
                 return 0;
         }
@@ -213,7 +213,7 @@ int config_parse_fou_tunnel_address(
         r = in_addr_from_string_auto(rvalue, f, addr);
         if (r < 0)
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Foo over UDP tunnel '%s' address is invalid, ignoring assignment: %s",
+                           "FooOverUDP tunnel '%s' address is invalid, ignoring assignment: %s",
                            lvalue, rvalue);
 
         return 0;
