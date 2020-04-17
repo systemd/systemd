@@ -165,7 +165,9 @@
         <term><option>--key=</option></term>
 
         <listitem><para>
-          Takes a path to a SSL key file in PEM format.
+          Takes a path to a SSL key file in PEM format, or <option>-</option>.
+          If <option>-</option> is set, then client certificate authentication checking
+          will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/private/journal-upload.pem</filename>.
         </para></listitem>
       </varlistentry>
@@ -174,7 +176,9 @@
         <term><option>--cert=</option></term>
 
         <listitem><para>
-          Takes a path to a SSL certificate file in PEM format.
+          Takes a path to a SSL certificate file in PEM format, or <option>-</option>.
+          If <option>-</option> is set, then client certificate authentication checking
+          will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/certs/journal-upload.pem</filename>.
         </para></listitem>
       </varlistentry>
@@ -183,9 +187,8 @@
         <term><option>--trust=</option></term>
 
         <listitem><para>
-          Takes a path to a SSL CA certificate file in PEM format,
-          or <option>all</option>. If <option>all</option> is set,
-          then certificate checking will be disabled.
+          Takes a path to a SSL CA certificate file in PEM format, or <option>-</option>/<option>all</option>.
+          If <option>-</option>/<option>all</option> is set, then certificate checking will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.
         </para></listitem>
       </varlistentry>
