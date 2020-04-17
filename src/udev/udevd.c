@@ -916,9 +916,8 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
                 };
-                struct cmsghdr *cmsg;
                 ssize_t size;
-                struct ucred *ucred = NULL;
+                struct ucred *ucred;
                 struct worker *worker;
 
                 size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
@@ -937,12 +936,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         continue;
                 }
 
-                CMSG_FOREACH(cmsg, &msghdr)
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_CREDENTIALS &&
-                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                                ucred = (struct ucred*) CMSG_DATA(cmsg);
-
+                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
                 if (!ucred || ucred->pid <= 0) {
                         log_warning("Ignoring worker message without valid PID");
                         continue;
