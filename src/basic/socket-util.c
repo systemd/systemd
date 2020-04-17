@@ -1171,3 +1171,24 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
 
         return socket_bind_to_ifname(fd, ifname);
 }
+
+ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
+        ssize_t n;
+
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC, and turns it into an error, in a reasonably
+         * safe way, closing any SCM_RIGHTS fds in the error path.
+         *
+         * Note that unlike our usual coding style this might modify *msg on failure. */
+
+        n = recvmsg(sockfd, msg, flags);
+        if (n < 0)
+                return -errno;
+
+        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC)) {
+                cmsg_close_all(msg);
+                return -EXFULL; /* a recognizable error code */
+        }
+
+        return n;
+
+}
