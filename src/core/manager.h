@@ -474,7 +474,15 @@ void manager_clear_jobs(Manager *m);
 
 void manager_unwatch_pid(Manager *m, pid_t pid);
 
-unsigned manager_dispatch_load_queue(Manager *m);
+unsigned int manager_dispatch_load_queue_realm(Manager *m);
+
+#define manager_dispatch_load_queue(m)                                  \
+        ({                                                              \
+                assert(m);                                              \
+                (!m->dispatching_load_queue)                            \
+                        ? manager_dispatch_load_queue_realm(m)          \
+                        : 0;                                            \
+        })
 
 int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);

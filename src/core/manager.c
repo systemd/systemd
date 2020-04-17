@@ -1914,15 +1914,9 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
         return r;
 }
 
-unsigned manager_dispatch_load_queue(Manager *m) {
+unsigned int manager_dispatch_load_queue_realm(Manager *m) {
         Unit *u;
         unsigned n = 0;
-
-        assert(m);
-
-        /* Make sure we are not run recursively */
-        if (m->dispatching_load_queue)
-                return 0;
 
         m->dispatching_load_queue = true;
 
