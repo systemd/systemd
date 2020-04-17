@@ -557,9 +557,8 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct ucred *ucred = NULL;
+        struct ucred *ucred;
         Manager *m = userdata;
-        struct cmsghdr *cmsg;
         char *p, *e;
         Transfer *t;
         Iterator i;
@@ -574,17 +573,12 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         cmsg_close_all(&msghdr);
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
-
         if (msghdr.msg_flags & MSG_TRUNC) {
                 log_warning("Got overly long notification datagram, ignoring.");
                 return 0;
         }
 
+        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid <= 0) {
                 log_warning("Got notification datagram lacking credential information, ignoring.");
                 return 0;
