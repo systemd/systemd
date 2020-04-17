@@ -104,11 +104,10 @@ int seat_save(Seat *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "IS_SEAT0=%i\n"
-                "CAN_MULTI_SESSION=%i\n"
+                "CAN_MULTI_SESSION=1\n"
                 "CAN_TTY=%i\n"
                 "CAN_GRAPHICAL=%i\n",
                 seat_is_seat0(s),
-                seat_can_multi_session(s),
                 seat_can_tty(s),
                 seat_can_graphical(s));
 
@@ -556,13 +555,6 @@ bool seat_is_seat0(Seat *s) {
         assert(s);
 
         return s->manager->seat0 == s;
-}
-
-bool seat_can_multi_session(Seat *s) {
-        assert(s);
-
-        /* multiple sessions are supported on all seats now */
-        return true;
 }
 
 bool seat_can_tty(Seat *s) {

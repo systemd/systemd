@@ -183,7 +183,7 @@ int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
 
 /* Return whether the seat is multi-session capable */
-int sd_seat_can_multi_session(const char *seat);
+int sd_seat_can_multi_session(const char *seat) _sd_deprecated_;
 
 /* Return whether the seat is TTY capable, i.e. suitable for showing console UIs */
 int sd_seat_can_tty(const char *seat);

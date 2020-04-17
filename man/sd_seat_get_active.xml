@@ -19,7 +19,6 @@
   <refnamediv>
     <refname>sd_seat_get_active</refname>
     <refname>sd_seat_get_sessions</refname>
-    <refname>sd_seat_can_multi_session</refname>
     <refname>sd_seat_can_tty</refname>
     <refname>sd_seat_can_graphical</refname>
     <refpurpose>Determine state of a specific seat</refpurpose>
@@ -42,11 +41,6 @@
         <paramdef>char ***<parameter>sessions</parameter></paramdef>
         <paramdef>uid_t **<parameter>uid</parameter></paramdef>
         <paramdef>unsigned int *<parameter>n_uids</parameter></paramdef>
-      </funcprototype>
-
-      <funcprototype>
-        <funcdef>int <function>sd_seat_can_multi_session</function></funcdef>
-        <paramdef>const char *<parameter>seat</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -90,11 +84,6 @@
     <constant>NULL</constant> may be returned and should be considered
     equivalent to an empty array.</para>
 
-    <para><function>sd_seat_can_multi_session()</function> may be used
-    to determine whether a specific seat is capable of multi-session,
-    i.e. allows multiple login sessions in parallel (with only one
-    being active at a time).</para>
-
     <para><function>sd_seat_can_tty()</function> may be used to
     determine whether a specific seat provides TTY functionality, i.e.
     is useful as a text console.</para>
@@ -114,7 +103,7 @@
 
     <para> On success, <function>sd_seat_get_active()</function> returns 0 or a positive integer. On success,
     <function>sd_seat_get_sessions()</function> returns the number of entries in the session identifier
-    array. If the test succeeds, <function>sd_seat_can_multi_session</function>,
+    array. If the test succeeds,
     <function>sd_seat_can_tty</function> and <function>sd_seat_can_graphical</function> return a positive
     integer, if it fails 0. On failure, these calls return a negative errno-style error code.</para>
 
@@ -156,6 +145,14 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+
+    <para>In the past, <function>sd_seat_can_multi_session()</function> was used to check whether the seat
+    supports multiple sessions. All seats support that now, so that function has been deprecated and always
+    returns true.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

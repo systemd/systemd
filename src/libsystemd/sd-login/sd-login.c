@@ -746,7 +746,7 @@ static int seat_get_can(const char *seat, const char *variable) {
 }
 
 _public_ int sd_seat_can_multi_session(const char *seat) {
-        return seat_get_can(seat, "CAN_MULTI_SESSION");
+        return true;
 }
 
 _public_ int sd_seat_can_tty(const char *seat) {
