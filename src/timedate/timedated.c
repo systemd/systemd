@@ -1035,6 +1035,7 @@ static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error
 
 static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_START(0),
+
         SD_BUS_PROPERTY("Timezone", "s", NULL, offsetof(Context, zone), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("LocalRTC", "b", bus_property_get_bool, offsetof(Context, local_rtc), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CanNTP", "b", property_get_can_ntp, 0, 0),
@@ -1042,11 +1043,44 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_PROPERTY("NTPSynchronized", "b", property_get_ntp_sync, 0, 0),
         SD_BUS_PROPERTY("TimeUSec", "t", property_get_time, 0, 0),
         SD_BUS_PROPERTY("RTCTimeUSec", "t", property_get_rtc_time, 0, 0),
-        SD_BUS_METHOD("SetTime", "xbb", NULL, method_set_time, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetTimezone", "sb", NULL, method_set_timezone, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetLocalRTC", "bbb", NULL, method_set_local_rtc, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetNTP", "bb", NULL, method_set_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListTimezones", NULL, "as", method_list_timezones, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("SetTime",
+                                 "xbb",
+                                 SD_BUS_PARAM(usec_utc)
+                                 SD_BUS_PARAM(relative)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_time,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetTimezone",
+                                 "sb",
+                                 SD_BUS_PARAM(timezone)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_timezone,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetLocalRTC",
+                                 "bbb",
+                                 SD_BUS_PARAM(local_rtc)
+                                 SD_BUS_PARAM(fix_system)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_local_rtc,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetNTP",
+                                 "bb",
+                                 SD_BUS_PARAM(use_ntp)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_ntp,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListTimezones",
+                                 NULL,,
+                                 "as",
+                                 SD_BUS_PARAM(timezones),
+                                 method_list_timezones,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_VTABLE_END,
 };
 

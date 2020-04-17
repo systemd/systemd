@@ -1112,30 +1112,128 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_verify, import_verify, ImportVe
 
 static const sd_bus_vtable transfer_vtable[] = {
         SD_BUS_VTABLE_START(0),
+
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Transfer, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Local", "s", NULL, offsetof(Transfer, local), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Remote", "s", NULL, offsetof(Transfer, remote), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Transfer, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Verify", "s", property_get_verify, offsetof(Transfer, verify), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
+
         SD_BUS_METHOD("Cancel", NULL, NULL, method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_SIGNAL("LogMessage", "us", 0),
+
+        SD_BUS_SIGNAL_WITH_NAMES("LogMessage",
+                                 "us",
+                                 SD_BUS_PARAM(priority)
+                                 SD_BUS_PARAM(line),
+                                 0),
+
         SD_BUS_VTABLE_END,
 };
 
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("ImportTar", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ImportRaw", "hsbb", "uo", method_import_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ImportFileSystem", "hsbb", "uo", method_import_fs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ExportTar", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ExportRaw", "shs", "uo", method_export_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PullTar", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PullRaw", "sssb", "uo", method_pull_tar_or_raw, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListTransfers", NULL, "a(usssdo)", method_list_transfers, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CancelTransfer", "u", NULL, method_cancel_transfer, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_SIGNAL("TransferNew", "uo", 0),
-        SD_BUS_SIGNAL("TransferRemoved", "uos", 0),
+
+        SD_BUS_METHOD_WITH_NAMES("ImportTar",
+                                 "hsbb",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(force)
+                                 SD_BUS_PARAM(read_only),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ImportRaw",
+                                 "hsbb",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(force)
+                                 SD_BUS_PARAM(read_only),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ImportFileSystem",
+                                 "hsbb",
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(force)
+                                 SD_BUS_PARAM(read_only),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_import_fs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ExportTar",
+                                 "shs",
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(format),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_export_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ExportRaw",
+                                 "shs",
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(fd)
+                                 SD_BUS_PARAM(format),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_export_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PullTar",
+                                 "sssb",
+                                 SD_BUS_PARAM(url)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(verify_mode)
+                                 SD_BUS_PARAM(force),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_pull_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PullRaw",
+                                 "sssb",
+                                 SD_BUS_PARAM(url)
+                                 SD_BUS_PARAM(local_name)
+                                 SD_BUS_PARAM(verify_mode)
+                                 SD_BUS_PARAM(force),
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 method_pull_tar_or_raw,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListTransfers",
+                                 NULL,,
+                                 "a(usssdo)",
+                                 SD_BUS_PARAM(transfers),
+                                 method_list_transfers,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("CancelTransfer",
+                                 "u",
+                                 SD_BUS_PARAM(transfer_id),
+                                 NULL,,
+                                 method_cancel_transfer,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_SIGNAL_WITH_NAMES("TransferNew",
+                                 "uo",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("TransferRemoved",
+                                 "uos",
+                                 SD_BUS_PARAM(transfer_id)
+                                 SD_BUS_PARAM(transfer_path)
+                                 SD_BUS_PARAM(result),
+                                 0),
+
         SD_BUS_VTABLE_END,
 };
 

@@ -55,12 +55,12 @@ int read_reboot_parameter(char **parameter) {
 int reboot_with_parameter(RebootFlags flags) {
         int r;
 
-        /* Reboots the system with a parameter that is read from /run/systemd/reboot-param. Returns 0 if REBOOT_DRY_RUN
-         * was set and the actual reboot operation was hence skipped. If REBOOT_FALLBACK is set and the reboot with
-         * parameter doesn't work out a fallback to classic reboot() is attempted. If REBOOT_FALLBACK is not set, 0 is
-         * returned instead, which should be considered indication for the caller to fall back to reboot() on its own,
-         * or somehow else deal with this. If REBOOT_LOG is specified will log about what it is going to do, as well as
-         * all errors. */
+        /* Reboots the system with a parameter that is read from /run/systemd/reboot-param. Returns 0 if
+         * REBOOT_DRY_RUN was set and the actual reboot operation was hence skipped. If REBOOT_FALLBACK is
+         * set and the reboot with parameter doesn't work out a fallback to classic reboot() is attempted. If
+         * REBOOT_FALLBACK is not set, 0 is returned instead, which should be considered indication for the
+         * caller to fall back to reboot() on its own, or somehow else deal with this. If REBOOT_LOG is
+         * specified will log about what it is going to do, as well as all errors. */
 
         if (detect_container() == 0) {
                 _cleanup_free_ char *parameter = NULL;
@@ -71,7 +71,6 @@ int reboot_with_parameter(RebootFlags flags) {
                                        "Failed to read reboot parameter file, ignoring: %m");
 
                 if (!isempty(parameter)) {
-
                         log_full(flags & REBOOT_LOG ? LOG_INFO : LOG_DEBUG,
                                  "Rebooting with argument '%s'.", parameter);
 
