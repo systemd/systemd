@@ -887,7 +887,7 @@ ssize_t receive_one_fd_iov(
                 .msg_iov = iov,
                 .msg_iovlen = iovlen,
         };
-        struct cmsghdr *cmsg, *found = NULL;
+        struct cmsghdr *found;
         ssize_t k;
 
         assert(transport_fd >= 0);
@@ -905,16 +905,7 @@ ssize_t receive_one_fd_iov(
         if (k < 0)
                 return k;
 
-        CMSG_FOREACH(cmsg, &mh) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_RIGHTS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        assert(!found);
-                        found = cmsg;
-                        break;
-                }
-        }
-
+        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
         if (!found) {
                 cmsg_close_all(&mh);
 
