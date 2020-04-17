@@ -69,7 +69,7 @@ int get_testdata_dir(const char *suffix, char **ret) {
         if (!dir)
                 dir = SYSTEMD_TEST_DATA;
         if (access(dir, F_OK) < 0)
-                return log_error_errno(errno, "ERROR: $SYSTEMD_TEST_DATA directory [%s] not accesible: %m", dir);
+                return log_error_errno(errno, "ERROR: $SYSTEMD_TEST_DATA directory [%s] not accessible: %m", dir);
 
         p = path_join(dir, suffix);
         if (!p)

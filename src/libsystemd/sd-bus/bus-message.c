@@ -46,7 +46,7 @@ static void message_free_part(sd_bus_message *m, struct bus_body_part *part) {
         assert(part);
 
         if (part->memfd >= 0) {
-                /* erase if requested, but ony if the memfd is not sealed yet, i.e. is writable */
+                /* erase if requested, but only if the memfd is not sealed yet, i.e. is writable */
                 if (m->sensitive && !m->sealed)
                         explicit_bzero_safe(part->data, part->size);
 

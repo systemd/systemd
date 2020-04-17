@@ -239,7 +239,7 @@ static int show_group(GroupRecord *gr, Table *table) {
                 break;
 
         default:
-                assert_not_reached("Unexpected disply mode");
+                assert_not_reached("Unexpected display mode");
         }
 
         return 0;

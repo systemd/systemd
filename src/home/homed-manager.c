@@ -367,7 +367,7 @@ static int manager_add_home_by_record(
 
                 /* If we acquired a record now for a previously unallocated entry, then reset the state. This
                  * makes sure home_get_state() will check for the availability of the image file dynamically
-                 * in order to detect to distuingish HOME_INACTIVE and HOME_ABSENT. */
+                 * in order to detect to distinguish HOME_INACTIVE and HOME_ABSENT. */
                 if (h->state == HOME_UNFIXATED)
                         h->state = _HOME_STATE_INVALID;
         } else {
@@ -1042,7 +1042,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
         h = hashmap_get(m->homes_by_worker_pid, PID_TO_PTR(sender.pid));
         if (!h) {
-                log_warning("Recieved notify datagram of unknown process, ignoring.");
+                log_warning("Received notify datagram of unknown process, ignoring.");
                 return 0;
         }
 
@@ -1656,7 +1656,7 @@ int manager_enqueue_gc(Manager *m, Home *focus) {
 
                 return 0;
         } else
-                m->gc_focus = focus; /* start focussed */
+                m->gc_focus = focus; /* start focused */
 
         r = sd_event_add_defer(m->event, &m->deferred_gc_event_source, on_deferred_gc, m);
         if (r < 0)

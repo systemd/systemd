@@ -1071,7 +1071,7 @@ static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
                         return json_log_oom(h->json, json_flags);
         }
 
-        /* Let's add in the following automatisms only for regular users, they dont make sense for any others */
+        /* Let's add in the following automatisms only for regular users, they don't make sense for any others */
         if (user_record_disposition(h) != USER_REGULAR)
                 return 0;
 
@@ -1802,7 +1802,7 @@ int user_record_test_password_change_required(UserRecord *h) {
                        0: No password change required, but permitted
          */
 
-        /* If a pasword change request has been set explicitly, it overrides everything */
+        /* If a password change request has been set explicitly, it overrides everything */
         if (h->password_change_now > 0)
                 return -EKEYREVOKED;
 

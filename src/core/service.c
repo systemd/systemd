@@ -655,7 +655,7 @@ static void service_fix_stdio(Service *s) {
 
         /* Note that EXEC_INPUT_NULL and EXEC_OUTPUT_INHERIT play a special role here: they are both the
          * default value that is subject to automatic overriding triggered by other settings and an explicit
-         * choice the user can make. We don't distuingish between these cases currently. */
+         * choice the user can make. We don't distinguish between these cases currently. */
 
         if (s->exec_context.std_input == EXEC_INPUT_NULL &&
             s->exec_context.stdin_data_size > 0)

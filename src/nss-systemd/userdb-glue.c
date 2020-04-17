@@ -329,7 +329,7 @@ enum nss_status userdb_getgrgid(
                 return NSS_STATUS_UNAVAIL;
         }
 
-        /* If we acquired the record via NSS then there's no reason to respond unless we have to agument the
+        /* If we acquired the record via NSS then there's no reason to respond unless we have to augment the
          * list of members of the group */
         if (from_nss && strv_isempty(members))
                 return NSS_STATUS_NOTFOUND;

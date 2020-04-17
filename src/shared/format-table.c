@@ -2001,7 +2001,7 @@ int table_print(Table *t, FILE *f) {
                                                 _cleanup_free_ char *padded = NULL;
 
                                                 /* We truncated more lines of this cell, let's add an
-                                                 * ellipsis. We first append it, but thta might make our
+                                                 * ellipsis. We first append it, but that might make our
                                                  * string grow above what we have space for, hence ellipsize
                                                  * right after. This will truncate the ellipsis and add a new
                                                  * one. */

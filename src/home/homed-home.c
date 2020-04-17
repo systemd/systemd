@@ -436,9 +436,9 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         switch (e) {
 
         case -EMSGSIZE:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot be shrinked");
+                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type cannot be shrunk");
         case -ETXTBSY:
-                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type can only be shrinked offline");
+                return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File systems of this type can only be shrunk offline");
         case -ERANGE:
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_HOME_SIZE, "File system size too small");
         case -ENOLINK:
@@ -1748,7 +1748,7 @@ void home_process_notify(Home *h, char **l) {
 
         r = safe_atoi(e, &error);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse receieved error number, ignoring: %s", e);
+                log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
                 return;
         }
         if (error <= 0) {

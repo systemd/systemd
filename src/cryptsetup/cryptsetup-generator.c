@@ -202,7 +202,7 @@ static int print_dependencies(FILE *f, const char* device_path) {
                 return 0;
 
         if (path_startswith(udev_node, "/dev/")) {
-                /* We are dealing with a block device, add dependency for correspoding unit */
+                /* We are dealing with a block device, add dependency for corresponding unit */
                 _cleanup_free_ char *unit = NULL;
 
                 r = unit_name_from_path(udev_node, ".device", &unit);

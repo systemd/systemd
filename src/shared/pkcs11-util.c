@@ -190,7 +190,7 @@ int pkcs11_token_login(
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
 
-                log_info("Successully logged into security token '%s' via protected authentication path.", token_label);
+                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
                 *ret_used_pin = NULL;
                 return 0;
         }

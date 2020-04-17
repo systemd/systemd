@@ -7,7 +7,7 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# Names with prefixes are prefered, and the run-together names should be
+# Names with prefixes are preferred, and the run-together names should be
 # considered deprecated (though there is no plan to remove them). New names
 # shall have underscores.
 

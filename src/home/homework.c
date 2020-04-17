@@ -1401,8 +1401,8 @@ static int run(int argc, char *argv[]) {
 
         /* Well known return values of these operations, that systemd-homed knows and converts to proper D-Bus errors:
          *
-         * EMSGSIZE        → file systems of this type cannnot be shrinked
-         * ETXTBSY         → file systems of this type can only be shrinked offline
+         * EMSGSIZE        → file systems of this type cannot be shrunk
+         * ETXTBSY         → file systems of this type can only be shrunk offline
          * ERANGE          → file system size too small
          * ENOLINK         → system does not support selected storage backend
          * EPROTONOSUPPORT → system does not support selected file system

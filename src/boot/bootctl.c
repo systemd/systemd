@@ -1435,7 +1435,7 @@ static int install_random_seed(const char *esp) {
                          * the EFI variable space we can make sure that even though the random seeds on disk
                          * are all the same they will be different on each system under the assumption that
                          * the EFI variable space is maintained separate from the random seed storage. That
-                         * is generally the case on physical systems, as the ESP is stored on persistant
+                         * is generally the case on physical systems, as the ESP is stored on persistent
                          * storage, and the EFI variables in NVRAM. However in virtualized environments this
                          * is generally not true: the EFI variable set is typically stored along with the
                          * disk image itself. For example, using the OVMF EFI firmware the EFI variables are

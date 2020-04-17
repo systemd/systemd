@@ -1711,7 +1711,7 @@ int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char *
          *
          * ret_dst is set in cases where "instance propagation" happens, i.e. when the instance part is
          * inserted into dst. It is not normally set, even on success, so that the caller can easily
-         * distinguish the case where instance propagation occured.
+         * distinguish the case where instance propagation occurred.
          */
 
         const char *path_alias = strrchr(dst, '/');

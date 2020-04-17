@@ -1381,7 +1381,7 @@ void json_variant_sensitive(JsonVariant *v) {
 
         /* Marks a variant as "sensitive", so that it is erased from memory when it is destroyed. This is a
          * one-way operation: as soon as it is marked this way it remains marked this way until it's
-         * destoryed. A magic variant is never sensitive though, even when asked, since it's too
+         * destroyed. A magic variant is never sensitive though, even when asked, since it's too
          * basic. Similar, const string variant are never sensitive either, after all they are included in
          * the source code as they are, which is not suitable for inclusion of secrets.
          *

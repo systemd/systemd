@@ -4930,7 +4930,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* We take an exclusive lock on this image, since it's our private, ephemeral copy
-                         * only owned by us and noone else. */
+                         * only owned by us and no one else. */
                         r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", np);

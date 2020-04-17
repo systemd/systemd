@@ -1105,8 +1105,8 @@ static void test_verify_alias(void) {
         verify_one(&bare_template, "foo.target.wants/plain.service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
-         /* Name mistmatch: we cannot allow this, because plain@foo.service would be pulled in by foo.taget,
-          * but would not be resolvable on its own, since systemd doesn't know how to load the fragment. */
+         /* Name mismatch: we cannot allow this, because plain@foo.service would be pulled in by foo.target,
+          * but would not be resolveable on its own, since systemd doesn't know how to load the fragment. */
         verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/template1@foo.service", 0, NULL);
         verify_one(&bare_template, "foo.target.wants/service", -EXDEV, NULL);
@@ -1116,7 +1116,7 @@ static void test_verify_alias(void) {
         verify_one(&bare_template, "foo.target.requires/template1@inst.service", 0, NULL);
         verify_one(&bare_template, "foo.target.requires/service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.conf/plain.service", -EXDEV, NULL);
-        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&bare_template, "FOO@.target.requires/plain@.service", -EXDEV, NULL); /* template name mismatch */
         verify_one(&bare_template, "FOO@inst.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&bare_template, "FOO@inst.target.requires/plain@inst.service", -EXDEV, NULL);
         verify_one(&bare_template, "FOO@.target.requires/template1@.service", 0, NULL); /* instance propagated */
@@ -1170,7 +1170,7 @@ static void test_verify_alias(void) {
         verify_one(&inst_template, "bar.target.requires/template3@inst.service", 0, NULL);
         verify_one(&inst_template, "bar.target.requires/service", -EXDEV, NULL);
         verify_one(&inst_template, "bar.target.conf/plain.service", -EXDEV, NULL);
-        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, NULL); /* template name mistatch */
+        verify_one(&inst_template, "BAR@.target.requires/plain@.service", -EXDEV, NULL); /* template name mismatch */
         verify_one(&inst_template, "BAR@inst.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&inst_template, "BAR@inst.target.requires/plain@inst.service", -EXDEV, NULL);
         verify_one(&inst_template, "BAR@.target.requires/template3@.service", -EXDEV, NULL); /* instance missing */

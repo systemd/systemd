@@ -31,7 +31,7 @@ struct Manager {
 
         sd_event_source *inotify_event_source;
 
-        /* An even source we receieve sd_notify() messages from our worker from */
+        /* An event source we receive sd_notify() messages from our worker from */
         sd_event_source *notify_socket_event_source;
 
         sd_device_monitor *device_monitor;
