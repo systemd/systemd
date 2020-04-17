@@ -6,6 +6,10 @@ CHANGES WITH 246 in spe:
           the core file, systemd-coredump will use the effective uid and gid of
           the process that faulted.
 
+        * "systemctl list-units" and "systemctl list-machines" no longer hide
+          their first output column with --no-legend. To hide the first column,
+          use --plain.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an

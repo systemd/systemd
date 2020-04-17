@@ -38,7 +38,7 @@ __get_all_devs() {
 }
 
 __get_all_device_units() {
-    systemctl list-units -t device --full --no-legend --no-pager 2>/dev/null | \
+    systemctl list-units -t device --full --no-legend --no-pager --plain 2>/dev/null | \
         { while read -r a b; do echo "$a"; done; }
 }
 

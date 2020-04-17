@@ -18,7 +18,7 @@
 
 __systemctl() {
     local mode=$1; shift 1
-    systemctl $mode --full --no-legend "$@"
+    systemctl $mode --full --no-legend --no-pager --plain "$@"
 }
 
 __get_slice_units () { __systemctl $1 list-units --all -t slice \

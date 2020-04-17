@@ -31,7 +31,7 @@ __get_machines() {
 }
 
 __get_services() {
-    systemctl list-units --no-legend --no-pager -t service --all $1 | \
+    systemctl list-units --no-legend --no-pager --plain -t service --all $1 | \
         { while read -r a b c; do [[ $b == "loaded" ]]; echo " $a"; done }
 }
 
