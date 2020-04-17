@@ -921,19 +921,11 @@ static int process_socket(int fd) {
                 /* The final zero-length datagram carries the file descriptor and tells us
                  * that we're done. */
                 if (n == 0) {
-                        struct cmsghdr *cmsg, *found = NULL;
+                        struct cmsghdr *found;
 
                         free(iovec.iov_base);
 
-                        CMSG_FOREACH(cmsg, &mh) {
-                                if (cmsg->cmsg_level == SOL_SOCKET &&
-                                    cmsg->cmsg_type == SCM_RIGHTS &&
-                                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                                        assert(!found);
-                                        found = cmsg;
-                                }
-                        }
-
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
                         if (!found) {
                                 cmsg_close_all(&mh);
                                 r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
