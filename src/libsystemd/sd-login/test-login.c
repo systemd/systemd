@@ -142,8 +142,11 @@ static void test_login(void) {
 
                         log_info("sd_session_get_seat(\"%s\") → \"%s\"", session, seat);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
                         r = sd_seat_can_multi_session(seat);
-                        assert_se(r >= 0);
+#pragma GCC diagnostic pop
+                        assert_se(r == 1);
                         log_info("sd_session_can_multi_seat(\"%s\") → %s", seat, yes_no(r));
 
                         r = sd_seat_can_tty(seat);

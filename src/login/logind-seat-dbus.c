@@ -17,7 +17,7 @@
 #include "user-util.h"
 #include "util.h"
 
-static BUS_DEFINE_PROPERTY_GET(property_get_can_multi_session, "b", Seat, seat_can_multi_session);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_const_true, "b", true);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
 
@@ -296,7 +296,7 @@ const sd_bus_vtable seat_vtable[] = {
 
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_can_multi_session, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_const_true, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),

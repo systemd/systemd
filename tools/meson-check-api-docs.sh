@@ -11,6 +11,7 @@ deprecated="
     -e sd_bus_process_priority
     -e sd_bus_message_get_priority
     -e sd_bus_message_set_priority
+    -e sd_seat_can_multi_session
 "
 
 for symbol in `nm -g --defined-only "$@" | grep " T " | cut -d" " -f3 | grep -wv $deprecated | sort -u` ; do
