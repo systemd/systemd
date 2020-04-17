@@ -162,7 +162,7 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, int prot, bool ke
         if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
 
                 /* Allocate a new window */
-                w = new0(Window, 1);
+                w = new(Window, 1);
                 if (!w)
                         return NULL;
                 m->n_windows++;
@@ -171,16 +171,17 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, int prot, bool ke
                 /* Reuse an existing one */
                 w = m->last_unused;
                 window_unlink(w);
-                zero(*w);
         }
 
-        w->cache = m;
-        w->fd = f;
-        w->prot = prot;
-        w->keep_always = keep_always;
-        w->offset = offset;
-        w->size = size;
-        w->ptr = ptr;
+        *w = (Window) {
+                .cache = m,
+                .fd = f,
+                .prot = prot,
+                .keep_always = keep_always,
+                .offset = offset,
+                .size = size,
+                .ptr = ptr,
+        };
 
         LIST_PREPEND(by_fd, f->windows, w);
 

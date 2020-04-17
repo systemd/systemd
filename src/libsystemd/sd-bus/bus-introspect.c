@@ -13,8 +13,9 @@
 int introspect_begin(struct introspect *i, bool trusted) {
         assert(i);
 
-        zero(*i);
-        i->trusted = trusted;
+        *i = (struct introspect) {
+                .trusted = trusted,
+        };
 
         i->f = open_memstream_unlocked(&i->introspection, &i->size);
         if (!i->f)

@@ -860,7 +860,6 @@ int ask_password_agent(
 
         for (;;) {
                 char passphrase[LINE_MAX+1];
-                struct msghdr msghdr;
                 struct iovec iovec;
                 struct ucred *ucred;
                 union {
@@ -919,11 +918,12 @@ int ask_password_agent(
                 iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
 
                 zero(control);
-                zero(msghdr);
-                msghdr.msg_iov = &iovec;
-                msghdr.msg_iovlen = 1;
-                msghdr.msg_control = &control;
-                msghdr.msg_controllen = sizeof(control);
+                struct msghdr msghdr = {
+                        .msg_iov = &iovec,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
 
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
                 if (IN_SET(n, -EAGAIN, -EINTR))

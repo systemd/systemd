@@ -1149,7 +1149,6 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                 FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
                         _cleanup_free_ char *p = NULL;
                         const struct btrfs_root_ref *ref;
-                        struct btrfs_ioctl_ino_lookup_args ino_args;
 
                         btrfs_ioctl_search_args_set(&args, sh);
 
@@ -1164,9 +1163,10 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                         if (!p)
                                 return -ENOMEM;
 
-                        zero(ino_args);
-                        ino_args.treeid = subvol_id;
-                        ino_args.objectid = htole64(ref->dirid);
+                        struct btrfs_ioctl_ino_lookup_args ino_args = {
+                                .treeid = subvol_id,
+                                .objectid = htole64(ref->dirid),
+                        };
 
                         if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
@@ -1504,7 +1504,6 @@ static int subvol_snapshot_children(
 
                 FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
                         _cleanup_free_ char *p = NULL, *c = NULL, *np = NULL;
-                        struct btrfs_ioctl_ino_lookup_args ino_args;
                         const struct btrfs_root_ref *ref;
                         _cleanup_close_ int old_child_fd = -1, new_child_fd = -1;
 
@@ -1528,9 +1527,10 @@ static int subvol_snapshot_children(
                         if (!p)
                                 return -ENOMEM;
 
-                        zero(ino_args);
-                        ino_args.treeid = old_subvol_id;
-                        ino_args.objectid = htole64(ref->dirid);
+                        struct btrfs_ioctl_ino_lookup_args ino_args = {
+                                .treeid = old_subvol_id,
+                                .objectid = htole64(ref->dirid),
+                        };
 
                         if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
