@@ -256,15 +256,18 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         assert(fd >= 0);
         assert(iov);
 
-        n = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
+        n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
         if (n < 0) {
                 /* no data */
-                if (errno == ENOBUFS)
+                if (n == -ENOBUFS)
                         log_debug("rtnl: kernel receive buffer overrun");
-                else if (errno == EAGAIN)
+                else if (n == -EAGAIN)
                         log_debug("rtnl: no data in socket");
 
-                return IN_SET(errno, EAGAIN, EINTR) ? 0 : -errno;
+                if (IN_SET(n, -EAGAIN, -EINTR))
+                        return 0;
+
+                return (int) n;
         }
 
         if (sender.nl.nl_pid != 0) {

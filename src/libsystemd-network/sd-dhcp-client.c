@@ -1927,14 +1927,14 @@ static int client_receive_message_raw(
 
         iov = IOVEC_MAKE(packet, buflen);
 
-        len = recvmsg(fd, &msg, 0);
-        if (len < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR, ENETDOWN))
-                        return 0;
-
-                return log_dhcp_client_errno(client, errno,
+        len = recvmsg_safe(fd, &msg, 0);
+        if (IN_SET(len, -EAGAIN, -EINTR, -ENETDOWN))
+                return 0;
+        if (len < 0)
+                return log_dhcp_client_errno(client, len,
                                              "Could not receive message from raw socket: %m");
-        } else if ((size_t)len < sizeof(DHCPPacket))
+
+        if ((size_t) len < sizeof(DHCPPacket))
                 return 0;
 
         CMSG_FOREACH(cmsg, &msg)

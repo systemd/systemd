@@ -545,6 +545,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+                        assert(!ucred);
                         ucred = (struct ucred *)CMSG_DATA(cmsg);
                         break;
                 }

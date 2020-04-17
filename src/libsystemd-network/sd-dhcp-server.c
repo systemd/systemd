@@ -985,14 +985,12 @@ static int server_receive_message(sd_event_source *s, int fd,
 
         iov = IOVEC_MAKE(message, buflen);
 
-        len = recvmsg(fd, &msg, 0);
-        if (len < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0;
-
-                return -errno;
-        }
-        if ((size_t)len < sizeof(DHCPMessage))
+        len = recvmsg_safe(fd, &msg, 0);
+        if (IN_SET(len, -EAGAIN, -EINTR))
+                return 0;
+        if (len < 0)
+                return len;
+        if ((size_t) len < sizeof(DHCPMessage))
                 return 0;
 
         CMSG_FOREACH(cmsg, &msg) {
