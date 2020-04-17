@@ -7,7 +7,7 @@
 
 __systemctl() {
     local mode=$1; shift 1
-    systemctl $mode --full --no-legend --no-pager "$@" 2>/dev/null
+    systemctl $mode --full --no-legend --no-pager --plain "$@" 2>/dev/null
 }
 
 __systemd_properties() {

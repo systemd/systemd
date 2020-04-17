@@ -5,7 +5,7 @@
 __systemctl() {
     local -a _modes
     _modes=("--user" "--system")
-    systemctl ${words:*_modes} --full --no-legend --no-pager "$@" 2>/dev/null
+    systemctl ${words:*_modes} --full --no-legend --no-pager --plain "$@" 2>/dev/null
 }
 
 (( $+functions[__systemd-run_get_slices] )) ||

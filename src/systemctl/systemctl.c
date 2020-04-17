@@ -401,8 +401,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
-        if (arg_no_legend) {
-                /* Hide the 'glyph' column when --no-legend is requested */
+        if (arg_plain) {
+                /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hide column: %m");
@@ -1987,8 +1987,8 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                 return log_oom();
 
         table_set_header(table, !arg_no_legend);
-        if (arg_no_legend) {
-                /* Hide the 'glyph' column when --no-legend is requested */
+        if (arg_plain) {
+                /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to hide column: %m");

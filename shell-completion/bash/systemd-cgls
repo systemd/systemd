@@ -29,7 +29,7 @@ __get_machines() {
 }
 
 __get_units_have_cgroup() {
-    systemctl $1 list-units | {
+    systemctl $1 --full --no-legend --no-pager --plain list-units | {
         while read -r a b c d; do
             [[ $c == "active" && ${a##*.} =~ (service|socket|mount|swap|slice|scope) ]] && echo " $a"
         done
