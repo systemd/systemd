@@ -243,8 +243,9 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        zero(*a);
-        a->type = SOCK_RAW;
+        *a = (SocketAddress) {
+                .type = SOCK_RAW,
+        };
 
         r = extract_first_word(&s, &word, NULL, 0);
         if (r < 0)

@@ -1783,7 +1783,6 @@ static int setup_keys(void) {
         int fd = -1, r;
         sd_id128_t machine, boot;
         char *p = NULL, *k = NULL;
-        struct FSSHeader h;
         uint64_t n;
         struct stat st;
 
@@ -1873,15 +1872,17 @@ static int setup_keys(void) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes: %m");
 
-        zero(h);
+        struct FSSHeader h = {
+                .machine_id = machine,
+                .boot_id = boot,
+                .header_size = htole64(sizeof(h)),
+                .start_usec = htole64(n * arg_interval),
+                .interval_usec = htole64(arg_interval),
+                .fsprg_secpar = htole16(FSPRG_RECOMMENDED_SECPAR),
+                .fsprg_state_size = htole64(state_size),
+        };
+
         memcpy(h.signature, "KSHHRHLP", 8);
-        h.machine_id = machine;
-        h.boot_id = boot;
-        h.header_size = htole64(sizeof(h));
-        h.start_usec = htole64(n * arg_interval);
-        h.interval_usec = htole64(arg_interval);
-        h.fsprg_secpar = htole16(FSPRG_RECOMMENDED_SECPAR);
-        h.fsprg_state_size = htole64(state_size);
 
         r = loop_write(fd, &h, sizeof(h), false);
         if (r < 0) {
