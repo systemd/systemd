@@ -14,7 +14,7 @@
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
 
-        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_new(&server, 1, NULL, NULL) >= 0);
 
         assert_se(sd_dhcp_server_configure_pool(server, address, 8, 0, size) == ret);
 }
@@ -30,7 +30,7 @@ static int test_basic(sd_event *event) {
         int r;
 
         /* attach to loopback interface */
-        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_new(&server, 1, NULL, NULL) >= 0);
         assert_se(server);
 
         assert_se(sd_dhcp_server_attach_event(server, event, 0) >= 0);
@@ -107,7 +107,7 @@ static void test_message_handler(void) {
                 .s_addr = htonl(INADDR_LOOPBACK),
         };
 
-        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_new(&server, 1, NULL, NULL) >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
         assert_se(sd_dhcp_server_start(server) >= 0);

@@ -20,6 +20,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-can.h"
+#include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
@@ -2766,11 +2767,22 @@ static int link_configure_traffic_control(Link *link) {
 }
 
 static int link_configure(Link *link) {
+        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
+
+        path = link_bus_path(link);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_add_object_vtable(link->manager->bus, NULL, path,
+                                     "org.freedesktop.network1.Link",
+                                     link_vtable, link);
+        if (r < 0)
+                return r;
 
         r = link_configure_traffic_control(link);
         if (r < 0)
@@ -2836,11 +2848,18 @@ static int link_configure(Link *link) {
         }
 
         if (link_dhcp4_server_enabled(link)) {
-                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex,
+                                       &dhcp_server_cb, link);
                 if (r < 0)
                         return r;
 
                 r = sd_dhcp_server_attach_event(link->dhcp_server, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_add_object_vtable(link->manager->bus, NULL, path,
+                                             "org.freedesktop.network1.DHCPServer",
+                                             dhcp_server_vtable, link);
                 if (r < 0)
                         return r;
         }

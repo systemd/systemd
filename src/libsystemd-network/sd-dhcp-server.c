@@ -91,6 +91,9 @@ int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *addres
 
                 /* Drop any leases associated with the old address range */
                 hashmap_clear(server->leases_by_client_id);
+
+                if (server->cb && server->cb->on_leases_changed)
+                        server->cb->on_leases_changed(server, server->cb_data);
         }
 
         return 0;
@@ -155,7 +158,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_server, sd_dhcp_server, dhcp_server_free);
 
-int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
+int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex, const sd_dhcp_server_cb *cb, void *data) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
 
         assert_return(ret, -EINVAL);
@@ -171,6 +174,8 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->address = htobe32(INADDR_ANY);
         server->netmask = htobe32(INADDR_ANY);
         server->ifindex = ifindex;
+        server->cb = cb;
+        server->cb_data = data;
 
         server->leases_by_client_id = hashmap_new(&dhcp_lease_hash_ops);
         if (!server->leases_by_client_id)
@@ -923,6 +928,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                 hashmap_put(server->leases_by_client_id,
                                             &lease->client_id, lease);
 
+                                if (server->cb && server->cb->on_leases_changed)
+                                        server->cb->on_leases_changed(server, server->cb_data);
+
                                 return DHCP_ACK;
                         }
 
@@ -959,6 +967,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         server->bound_leases[pool_offset] = NULL;
                         hashmap_remove(server->leases_by_client_id, existing_lease);
                         dhcp_lease_free(existing_lease);
+
+                        if (server->cb && server->cb->on_leases_changed)
+                                server->cb->on_leases_changed(server, server->cb_data);
                 }
 
                 return 0;

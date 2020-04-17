@@ -28,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size < sizeof(DHCPMessage))
                 return 0;
 
-        assert_se(sd_dhcp_server_new(&server, 1) >= 0);
+        assert_se(sd_dhcp_server_new(&server, 1, NULL, NULL) >= 0);
         server->fd = open("/dev/null", O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(server->fd >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address, 24, 0, 0) >= 0);

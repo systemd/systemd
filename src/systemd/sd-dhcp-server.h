@@ -31,7 +31,12 @@ _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp_server sd_dhcp_server;
 
-int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex);
+typedef struct sd_dhcp_server_cb {
+        void (*on_leases_changed)(sd_dhcp_server *s, void *data);
+} sd_dhcp_server_cb;
+
+int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex,
+                       const sd_dhcp_server_cb *cbs, void *data);
 
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
