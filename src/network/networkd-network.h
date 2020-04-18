@@ -259,6 +259,7 @@ struct Network {
         bool configure_without_carrier;
         bool ignore_carrier_loss;
         KeepConfiguration keep_configuration;
+        LinkIPv6AddressGenMode ipv6_address_gen_mode;
         uint32_t iaid;
         DUID duid;
 

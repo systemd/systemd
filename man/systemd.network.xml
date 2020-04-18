@@ -194,6 +194,16 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>IPv6LinkLocalAddressGenerationMode=</varname></term>
+        <listitem>
+          <para>Specifies how IPv6 link local address is generated. Takes one of <literal>eui64</literal>,
+          <literal>none</literal>, <literal>stable-privacy</literal> and <literal>random</literal>.
+          When unset, the kernel's default will be used. Note that if <varname>LinkLocalAdressing=</varname>
+          not configured as <literal>ipv6</literal> then <varname>IPv6LinkLocalAddressGenerationMode=</varname>
+          is ignored.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Unmanaged=</varname></term>
         <listitem>
           <para>Takes a boolean. When <literal>yes</literal>, no attempts are

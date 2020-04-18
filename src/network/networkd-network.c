@@ -461,7 +461,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_start_dhcp6_client = true,
 
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
-
+                .ipv6_address_gen_mode = _LINK_IPV6_ADDRESS_GEN_MODE_INVALID,
                 .can_triple_sampling = -1,
                 .can_termination = -1,
                 .ip_service_type = -1,
