@@ -77,7 +77,8 @@ supports is directly available in these JSON records. Hence it makes sense for
 any user management UI to expose them directly.
 
 `systemd-homed` exposes APIs to add, remove and make changes to local users via
-D-Bus, with full PolicyKit hook-up. On the command line this is exposed via the
+D-Bus, with full [polkit](https://www.freedesktop.org/software/polkit/docs/latest/)
+hook-up. On the command line this is exposed via the
 `homectl` command. A graphical UI that exposes similar functionality would be
 very useful, exposing the various new account settings, and in particular
 providing a stream-lined UI for enrolling new-style authentication tokens such

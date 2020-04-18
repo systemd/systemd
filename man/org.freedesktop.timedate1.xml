@@ -165,9 +165,10 @@ node /org/freedesktop/timedate1 {
       <title>Security</title>
 
       <para>The <varname>interactive</varname> boolean parameters can be used to control whether
-      PolicyKit should interactively ask the user for authentication credentials if required.</para>
+      <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
+      should interactively ask the user for authentication credentials if required.</para>
 
-      <para>The PolicyKit action for <function>SetTimezone()</function> is
+      <para>The polkit action for <function>SetTimezone()</function> is
       <interfacename>org.freedesktop.timedate1.set-timezone</interfacename>. For
       <function>SetLocalRTC()</function> it is
       <interfacename>org.freedesktop.timedate1.set-local-rtc</interfacename>, for

@@ -141,7 +141,8 @@ node /org/freedesktop/hostname1 {
 
     <para>Whenever the hostname or other metadata is changed via the daemon,
     <function>PropertyChanged</function> signals are sent out to subscribed clients. Changing a hostname
-    using this interface is authenticated via PolicyKit.</para>
+    using this interface is authenticated via
+    <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>.</para>
   </refsect1>
 
   <refsect1>
@@ -237,7 +238,7 @@ node /org/freedesktop/hostname1 {
 
       <para><function>GetProductUUID()</function> returns the "product uuid" as exposed by the kernel based
       on DMI information in <filename>/sys/class/dmi/id/product_uuid</filename>. Reading the file directly
-      requires root privileges, and this method allows access to unprivileged clients through the PolicyKit
+      requires root privileges, and this method allows access to unprivileged clients through the polkit
       framework.</para>
 
       <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
@@ -256,10 +257,10 @@ node /org/freedesktop/hostname1 {
     <refsect2>
       <title>Security</title>
 
-      <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether polkit
       should interactively ask the user for authentication credentials if required.</para>
 
-      <para>The PolicyKit action for <function>SetHostname()</function> is
+      <para>The polkit action for <function>SetHostname()</function> is
       <interfacename>org.freedesktop.hostname1.set-hostname</interfacename>. For
       <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
       <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For

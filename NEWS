@@ -280,7 +280,7 @@ CHANGES WITH 245:
           such files in version 243.
 
         * systemd-logind will now validate access to the operation of changing
-          the virtual terminal via a PolicyKit action. By default, only users
+          the virtual terminal via a polkit action. By default, only users
           with at least one session on a local VT are granted permission.
 
         * When systemd sets up PAM sessions that invoked service processes

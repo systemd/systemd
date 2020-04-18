@@ -40,9 +40,10 @@
     <para>Properties exposing time values are usually encoded in microseconds (usec) on the bus, even if
     their corresponding settings in the unit files are in seconds.</para>
 
-    <para>In contrast to most of the other services of the systemd suite, PID 1 does not use PolicyKit for
-    controlling access to privileged operations, but relies exclusively on the low-level D-Bus policy
-    language. (This is done in order to avoid a cyclic dependency between PolicyKit and systemd/PID 1.) This
+    <para>In contrast to most of the other services of the systemd suite, PID 1 does not use
+    <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
+    for controlling access to privileged operations, but relies exclusively on the low-level D-Bus policy
+    language. (This is done in order to avoid a cyclic dependency between polkit and systemd/PID 1.) This
     means that sensitive operations exposed by PID 1 on the bus are generally not available to unprivileged
     processes directly. However, some operations (such as shutdown/reboot/suspend) are made available through the D-Bus
     API of logind, see
@@ -1463,7 +1464,7 @@ node /org/freedesktop/systemd1 {
       <title>Security</title>
 
       <para>Read access is generally granted to all clients. Additionally, for unprivileged clients, some
-      operations are allowed through the PolicyKit privilege system. Operations which modify unit state
+      operations are allowed through the polkit privilege system. Operations which modify unit state
       (<function>StartUnit()</function>, <function>StopUnit()</function>, <function>KillUnit()</function>,
       <function>RestartUnit()</function> and similar, <function>SetProperty</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
@@ -2127,7 +2128,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       allowed for everyone. All operations are allowed for clients with the
       <constant>CAP_SYS_ADMIN</constant> capability or when the
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename> privilege is granted by
-      PolicyKit.</para>
+      polkit.</para>
     </refsect2>
   </refsect1>
 
