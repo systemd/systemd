@@ -200,6 +200,13 @@ def _extract_directives(directive_groups, formatting, page):
                         name.tail = ''
                     name.text = text
                     formatting[text] = name
+        extra = variablelist.attrib.get('extra-ref')
+        if extra:
+            stor[extra].append((pagename, section))
+            if extra not in formatting:
+                elt = tree.Element("varname")
+                elt.text= extra
+                formatting[extra] = elt
 
     storfile = directive_groups['filenames']
     for xpath, absolute_only in (('.//refsynopsisdiv//filename', False),
