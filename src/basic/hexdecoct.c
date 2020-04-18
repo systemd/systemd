@@ -599,13 +599,13 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
 
 static int base64_append_width(
                 char **prefix, int plen,
-                const char *sep, int indent,
+                char sep, int indent,
                 const void *p, size_t l,
                 int width) {
 
         _cleanup_free_ char *x = NULL;
         char *t, *s;
-        ssize_t len, slen, avail, line, lines;
+        ssize_t len, avail, line, lines;
 
         len = base64mem(p, l, &x);
         if (len <= 0)
@@ -613,21 +613,20 @@ static int base64_append_width(
 
         lines = DIV_ROUND_UP(len, width);
 
-        slen = strlen_ptr(sep);
-        if (plen >= SSIZE_MAX - 1 - slen ||
-            lines > (SSIZE_MAX - plen - 1 - slen) / (indent + width + 1))
+        if ((size_t) plen >= SSIZE_MAX - 1 - 1 ||
+            lines > (SSIZE_MAX - plen - 1 - 1) / (indent + width + 1))
                 return -ENOMEM;
 
-        t = realloc(*prefix, (ssize_t) plen + 1 + slen + (indent + width + 1) * lines);
+        t = realloc(*prefix, (ssize_t) plen + 1 + 1 + (indent + width + 1) * lines);
         if (!t)
                 return -ENOMEM;
 
-        memcpy_safe(t + plen, sep, slen);
+        t[plen] = sep;
 
-        for (line = 0, s = t + plen + slen, avail = len; line < lines; line++) {
+        for (line = 0, s = t + plen + 1, avail = len; line < lines; line++) {
                 int act = MIN(width, avail);
 
-                if (line > 0 || sep) {
+                if (line > 0 || sep == '\n') {
                         memset(s, ' ', indent);
                         s += indent;
                 }
@@ -650,10 +649,10 @@ int base64_append(
 
         if (plen > width / 2 || plen + indent > width)
                 /* leave indent on the left, keep last column free */
-                return base64_append_width(prefix, plen, "\n", indent, p, l, width - indent - 1);
+                return base64_append_width(prefix, plen, '\n', indent, p, l, width - indent - 1);
         else
                 /* leave plen on the left, keep last column free */
-                return base64_append_width(prefix, plen, " ", plen, p, l, width - plen - 1);
+                return base64_append_width(prefix, plen, ' ', plen + 1, p, l, width - plen - 1);
 }
 
 static int unbase64_next(const char **p, size_t *l) {
