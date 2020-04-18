@@ -129,8 +129,8 @@ def print_interface(iface, *, prefix, file, print_boring, only_interface, declar
 
         print(f'''{prefix}}};''', file=file)
 
-def document_has_elem_with_text(document, elem, item_repr):
-    predicate = f".//{elem}" # [text() = 'foo'] doesn't seem supported :(
+def document_has_elem_with_text(document, elem, elem2, item_repr):
+    predicate = f".//{elem}/{elem2}" # [text() = 'foo'] doesn't seem supported :(
     for loc in document.findall(predicate):
         if loc.text == item_repr:
             return True
@@ -142,18 +142,21 @@ def check_documented(document, declarations):
     for klass, items in declarations.items():
         for item in items:
             if klass == 'method':
-                elem = 'function'
+                elem = 'firstterm'
+                elem2 = 'function'
                 item_repr = f'{item}()'
             elif klass == 'signal':
-                elem = 'function'
+                elem = 'firstterm'
+                elem2 = 'function'
                 item_repr = item
             elif klass == 'property':
-                elem = 'varname'
+                elem = 'firstterm'
+                elem2 = 'varname'
                 item_repr = item
             else:
                 assert False, (klass, item)
 
-            if not document_has_elem_with_text(document, elem, item_repr):
+            if not document_has_elem_with_text(document, elem, elem2, item_repr):
                 if PRINT_ERRORS:
                     print(f'{klass} {item} is not documented :(')
                 missing.append((klass, item))
