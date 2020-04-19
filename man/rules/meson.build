@@ -129,6 +129,7 @@ manpages = [
    'sd_bus_match_signal',
    'sd_bus_match_signal_async'],
   ''],
+ ['sd_bus_add_node_enumerator', '3', [], ''],
  ['sd_bus_add_object',
   '3',
   ['SD_BUS_METHOD',
