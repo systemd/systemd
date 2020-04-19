@@ -3,6 +3,7 @@
 # systemd-networkd tests
 
 import argparse
+import glob
 import itertools
 import os
 import re
@@ -22,6 +23,8 @@ network_sysctl_ipv4_path='/proc/sys/net/ipv4/conf'
 
 dnsmasq_pid_file='/run/networkd-ci/test-test-dnsmasq.pid'
 dnsmasq_log_file='/run/networkd-ci/test-dnsmasq-log-file'
+dnsmasq_2_pid_file='/run/networkd-ci/test-test-dnsmasq-2.pid'
+dnsmasq_2_log_file='/run/networkd-ci/test-dnsmasq-2-log-file'
 
 systemd_lib_paths=['/usr/lib/systemd', '/lib/systemd']
 which_paths=':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
@@ -386,7 +389,11 @@ def remove_unit_from_networkd_path(units):
                 shutil.rmtree(os.path.join(network_unit_file_path, unit + '.d'))
 
 def start_dnsmasq(additional_options='', ipv4_range='192.168.5.10,192.168.5.200', ipv6_range='2600::10,2600::20', lease_time='1h'):
-    dnsmasq_command = f'dnsmasq -8 /var/run/networkd-ci/test-dnsmasq-log-file --log-queries=extra --log-dhcp --pid-file=/var/run/networkd-ci/test-test-dnsmasq.pid --conf-file=/dev/null --interface=veth-peer --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+    dnsmasq_command = f'dnsmasq -8 {dnsmasq_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_pid_file} --conf-file=/dev/null --interface=veth-peer --bind-interfaces --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease --dhcp-option=26,1492 --dhcp-option=option:router,192.168.5.1 --dhcp-option=33,192.168.5.4,192.168.5.5 --port=0 ' + additional_options
+    check_output(dnsmasq_command)
+
+def start_dnsmasq_2(additional_options='', ipv4_range='192.168.6.10,192.168.6.200', ipv6_range='2601::10,2601::20', lease_time='1h'):
+    dnsmasq_command = f'dnsmasq -8 {dnsmasq_2_log_file} --log-queries=extra --log-dhcp --pid-file={dnsmasq_2_pid_file} --conf-file=/dev/null --interface=veth-peer-2 --bind-interfaces --enable-ra --dhcp-range={ipv6_range},{lease_time} --dhcp-range={ipv4_range},{lease_time} -R --dhcp-leasefile=/var/run/networkd-ci/lease-2 --dhcp-option=26,1492 --dhcp-option=option:router,192.168.6.1 --dhcp-option=33,192.168.6.4,192.168.6.5 --port=0 ' + additional_options
     check_output(dnsmasq_command)
 
 def stop_dnsmasq(pid_file):
@@ -411,8 +418,8 @@ def search_words_in_dnsmasq_log(words, show_all=False):
     return False
 
 def remove_lease_file():
-    if os.path.exists(os.path.join(networkd_ci_path, 'lease')):
-        os.remove(os.path.join(networkd_ci_path, 'lease'))
+    for f in glob.iglob(os.path.join(networkd_ci_path, 'lease*')):
+        os.remove(f)
 
 def remove_log_file():
     if os.path.exists(dnsmasq_log_file):
@@ -2908,16 +2915,20 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     links = [
         'veth99',
+        'veth99-2',
         'vrf99']
 
     units = [
         '25-veth.netdev',
+        '25-veth-2.netdev',
         '25-vrf.netdev',
         '25-vrf.network',
         'dhcp-client-anonymize.network',
         'dhcp-client-decline.network',
         'dhcp-client-gateway-ipv4.network',
         'dhcp-client-gateway-ipv6.network',
+        'dhcp-client-gateway-multipath.network',
+        'dhcp-client-gateway-multipath-2.network',
         'dhcp-client-gateway-onlink-implicit.network',
         'dhcp-client-ipv4-dhcp-settings.network',
         'dhcp-client-ipv4-only-ipv6-disabled.network',
@@ -2954,6 +2965,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def tearDown(self):
         stop_dnsmasq(dnsmasq_pid_file)
+        stop_dnsmasq(dnsmasq_2_pid_file)
         remove_lease_file()
         remove_log_file()
         remove_links(self.links)
@@ -3477,6 +3489,48 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
         print(output)
         self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
+
+    def test_dhcp_client_gateway_multipath(self):
+        copy_unit_to_networkd_unit_path('25-veth.netdev', '25-veth-2.netdev',
+                                        'dhcp-server-veth-peer.network',
+                                        'dhcp-server-veth-peer-2.network',
+                                        'dhcp-client-gateway-multipath.network',
+                                        'dhcp-client-gateway-multipath-2.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier', 'veth-peer-2:carrier'])
+        start_dnsmasq()
+        start_dnsmasq_2()
+        self.wait_online(['veth99:routable', 'veth-peer:routable',
+                          'veth99-2:routable', 'veth-peer-2:routable'])
+        time.sleep(3)
+
+        output = check_output('ip route show 1.2.3.4')
+        print(output)
+        self.assertRegex(output, '1.2.3.4 proto static')
+        self.assertRegex(output, 'nexthop via 192.168.5.1 dev veth99')
+        self.assertRegex(output, 'nexthop via 192.168.6.1 dev veth99-2')
+        self.assertRegex(output, 'nexthop via 192.168.5.42 dev veth99')
+
+        output = check_output('ip route show 1.2.3.5')
+        print(output)
+        self.assertRegex(output, '1.2.3.5 proto static')
+        self.assertRegex(output, 'nexthop via 192.168.6.43 dev veth99-2')
+        self.assertRegex(output, 'nexthop via 192.168.6.1 dev veth99-2')
+        self.assertRegex(output, 'nexthop via 192.168.5.1 dev veth99')
+
+        output = check_output('ip -6 route show 2001:1234::5678')
+        print(output)
+        self.assertRegex(output, '2001:1234::5678')
+        self.assertRegex(output, 'nexthop via fe80::1034:56ff:fe78:9abd dev veth99')
+        self.assertRegex(output, 'nexthop via fe80::1034:56ff:fe78:9abf dev veth99-2')
+        self.assertRegex(output, 'nexthop via fe80:1234::5678 dev veth99')
+
+        output = check_output('ip -6 route show 2001:1234::5679')
+        print(output)
+        self.assertRegex(output, '2001:1234::5679')
+        self.assertRegex(output, 'nexthop via fe80:1234::5679 dev veth99-2')
+        self.assertRegex(output, 'nexthop via fe80::1034:56ff:fe78:9abf dev veth99-2')
+        self.assertRegex(output, 'nexthop via fe80::1034:56ff:fe78:9abd dev veth99')
 
     def test_dhcp_client_gateway_onlink_implicit(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',

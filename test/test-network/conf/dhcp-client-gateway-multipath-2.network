@@ -1,0 +1,17 @@
+[Match]
+Name=veth99-2
+
+[Network]
+DHCP=yes
+
+[Route]
+Destination=1.2.3.5/32
+MultiPathRoute=192.168.6.43@veth99-2
+MultiPathRoute=_dhcp@veth99-2
+MultiPathRoute=_dhcp@veth99
+
+[Route]
+Destination=2001:1234::5679/128
+MultiPathRoute=fe80:1234::5679@veth99-2
+MultiPathRoute=_dhcp@veth99-2
+MultiPathRoute=_dhcp@veth99
