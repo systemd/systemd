@@ -379,6 +379,7 @@ manpages = [
    'sd_bus_set_propertyv'],
   ''],
  ['sd_bus_set_sender', '3', ['sd_bus_get_sender'], ''],
+ ['sd_bus_set_server', '3', ['sd_bus_get_bus_id'], ''],
  ['sd_bus_set_watch_bind', '3', ['sd_bus_get_watch_bind'], ''],
  ['sd_bus_slot_get_bus',
   '3',
