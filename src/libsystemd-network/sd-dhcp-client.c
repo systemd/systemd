@@ -850,11 +850,82 @@ static int dhcp_client_send_raw(
                                             packet, len);
 }
 
+static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
+        sd_dhcp_option *j;
+        Iterator i;
+        int r;
+
+        assert(client);
+
+        if (client->hostname) {
+                /* According to RFC 4702 "clients that send the Client FQDN option in
+                   their messages MUST NOT also send the Host Name option". Just send
+                   one of the two depending on the hostname type.
+                */
+                if (dns_name_is_single_label(client->hostname)) {
+                        /* it is unclear from RFC 2131 if client should send hostname in
+                           DHCPDISCOVER but dhclient does and so we do as well
+                        */
+                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                               SD_DHCP_OPTION_HOST_NAME,
+                                               strlen(client->hostname), client->hostname);
+                } else
+                        r = client_append_fqdn_option(&packet->dhcp, optlen, optoffset,
+                                                      client->hostname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->vendor_class_identifier) {
+                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                       SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
+                                       strlen(client->vendor_class_identifier),
+                                       client->vendor_class_identifier);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->mudurl) {
+                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                       SD_DHCP_OPTION_MUD_URL,
+                                       strlen(client->mudurl),
+                                       client->mudurl);
+                if (r < 0)
+                        return r;
+        }
+
+        if (client->user_class) {
+                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                       SD_DHCP_OPTION_USER_CLASS,
+                                       strv_length(client->user_class),
+                                       client->user_class);
+                if (r < 0)
+                        return r;
+        }
+
+        ORDERED_HASHMAP_FOREACH(j, client->extra_options, i) {
+                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                       j->option, j->length, j->data);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!ordered_hashmap_isempty(client->vendor_options)) {
+                r = dhcp_option_append(
+                                &packet->dhcp, optlen, optoffset, 0,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                ordered_hashmap_size(client->vendor_options), client->vendor_options);
+                if (r < 0)
+                        return r;
+        }
+
+
+        return 0;
+}
+
 static int client_send_discover(sd_dhcp_client *client) {
         _cleanup_free_ DHCPPacket *discover = NULL;
         size_t optoffset, optlen;
-        sd_dhcp_option *j;
-        Iterator i;
         int r;
 
         assert(client);
@@ -881,67 +952,9 @@ static int client_send_discover(sd_dhcp_client *client) {
                         return r;
         }
 
-        if (client->hostname) {
-                /* According to RFC 4702 "clients that send the Client FQDN option in
-                   their messages MUST NOT also send the Host Name option". Just send
-                   one of the two depending on the hostname type.
-                */
-                if (dns_name_is_single_label(client->hostname)) {
-                        /* it is unclear from RFC 2131 if client should send hostname in
-                           DHCPDISCOVER but dhclient does and so we do as well
-                        */
-                        r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                               SD_DHCP_OPTION_HOST_NAME,
-                                               strlen(client->hostname), client->hostname);
-                } else
-                        r = client_append_fqdn_option(&discover->dhcp, optlen, &optoffset,
-                                                      client->hostname);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->vendor_class_identifier) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
-                                       strlen(client->vendor_class_identifier),
-                                       client->vendor_class_identifier);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->mudurl) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_MUD_URL,
-                                       strlen(client->mudurl),
-                                       client->mudurl);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->user_class) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_USER_CLASS,
-                                       strv_length(client->user_class),
-                                       client->user_class);
-                if (r < 0)
-                        return r;
-        }
-
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options, i) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       j->option, j->length, j->data);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!ordered_hashmap_isempty(client->vendor_options)) {
-                r = dhcp_option_append(
-                                &discover->dhcp, optlen, &optoffset, 0,
-                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_hashmap_size(client->vendor_options), client->vendor_options);
-                if (r < 0)
-                        return r;
-        }
+        r = client_append_common_discover_request_options(client, discover, &optoffset, optlen);
+        if (r < 0)
+                return r;
 
         r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
@@ -1034,36 +1047,9 @@ static int client_send_request(sd_dhcp_client *client) {
                 return -EINVAL;
         }
 
-        if (client->hostname) {
-                if (dns_name_is_single_label(client->hostname))
-                        r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                               SD_DHCP_OPTION_HOST_NAME,
-                                               strlen(client->hostname), client->hostname);
-                else
-                        r = client_append_fqdn_option(&request->dhcp, optlen, &optoffset,
-                                                      client->hostname);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->vendor_class_identifier) {
-                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
-                                       strlen(client->vendor_class_identifier),
-                                       client->vendor_class_identifier);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->mudurl) {
-                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_MUD_URL,
-                                       strlen(client->mudurl),
-                                       client->mudurl);
-                if (r < 0)
-                        return r;
-        }
-
+        r = client_append_common_discover_request_options(client, request, &optoffset, optlen);
+        if (r < 0)
+                return r;
 
         r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
                                SD_DHCP_OPTION_END, 0, NULL);
