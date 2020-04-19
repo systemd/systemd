@@ -169,10 +169,6 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         pid_t pid;
         int r;
 
-        /* Any part can be set independently */
-        if (isempty(font) && isempty(map) && isempty(unimap))
-                return 0;
-
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
         args[i++] = vc;
