@@ -1,0 +1,243 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_emit_signal"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_emit_signal</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_emit_signal</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_emit_signal</refname>
+    <refname>sd_bus_emit_signalv</refname>
+    <refname>sd_bus_emit_interfaces_added</refname>
+    <refname>sd_bus_emit_interfaces_added_strv</refname>
+    <refname>sd_bus_emit_interfaces_removed</refname>
+    <refname>sd_bus_emit_interfaces_removed_strv</refname>
+    <refname>sd_bus_emit_properties_changed</refname>
+    <refname>sd_bus_emit_properties_changed_strv</refname>
+    <refname>sd_bus_emit_object_added</refname>
+    <refname>sd_bus_emit_object_removed</refname>
+
+    <refpurpose>Convenience functions for emitting (standard) D-Bus signals</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus-vtable.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_signal</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_signalv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>member</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_interfaces_added</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_interfaces_added_strv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char **<parameter>interfaces</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_interfaces_removed</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_interfaces_removed_strv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char **<parameter>interfaces</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_properties_changed</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_properties_changed_strv</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>const char *<parameter>interface</parameter></paramdef>
+        <paramdef>const char **<parameter>names</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_object_added</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_emit_object_removed</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_emit_signal()</function> is a convenience function for initializing a
+    bus message object and emitting the corresponding D-Bus signal. It combines the
+    <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    functions into a single function call. <function>sd_bus_emit_signalv()</function> is
+    equivalent to <function>sd_bus_message_append()</function>, except that it is called with a
+    <literal>va_list</literal> instead of a variable number of arguments.</para>
+
+    <para><function>sd_bus_emit_interfaces_added()</function> and
+    <function>sd_bus_emit_interfaces_removed()</function> are used to implement the
+    <function>InterfacesAdded</function> and <function>InterfacesRemoved</function> signals of the
+    <constant>org.freedesktop.DBus.ObjectManager</constant> interface. They take a path whose
+    interfaces have been modified as an argument and a variable list of interfaces that have been
+    added or removed, respectively. The final argument passed to
+    <function>sd_bus_emit_interfaces_added()</function> and
+    <function>sd_bus_emit_interfaces_removed()</function> <emphasis>must</emphasis> be
+    <constant>NULL</constant>. This allows both functions to safely determine the number of passed
+    interface arguments. <function>sd_bus_emit_interfaces_added_strv()</function> and
+    <function>sd_bus_emit_interfaces_removed_strv()</function> are identical to their respective
+    counterparts but both take the list of interfaces as a single argument instead of a variable
+    number of arguments.</para>
+
+    <para><function>sd_bus_emit_properties_changed()</function> is used to implement the
+    <function>PropertiesChanged</function> signal of the
+    <constant>org.freedesktop.DBus.Properties</constant> interface. It takes an object path,
+    interface and a variable list of property names as its arguments.  The final argument passed to
+    <function>sd_bus_emit_properties_changed()</function> <emphasis>must</emphasis> be
+    <constant>NULL</constant>. This allows it to safely determine the number of passed property
+    names. <function>sd_bus_emit_properties_changed_strv()</function> is identical to
+    <function>sd_bus_emit_properties_changed()</function> but takes the list of property names as a
+    single argument instead of a variable number of arguments.</para>
+
+    <para><function>sd_bus_emit_object_added()</function> and
+    <function>sd_bus_emit_object_removed()</function> are convenience functions for emitting the
+    <function>InterfacesAdded</function> or <function>InterfacesRemoved</function> signals for all
+    interfaces registered on a specific object path, respectively. This includes any parent fallback
+    vtables if they are not overridden by a more applicable child vtable. It also includes all the
+    standard D-Bus interfaces implemented by sd-bus itself on any registered object.</para>
+
+    <para>Note that <function>sd_bus_emit_interfaces_added()</function>,
+    <function>sd_bus_emit_interfaces_removed()</function>,
+    <function>sd_bus_emit_object_added()</function> and
+    <function>sd_bus_emit_object_removed()</function> require an object manager to have been
+    registered on the given object path or one of its parent object paths using
+    <citerefentry><refentrytitle>sd_bus_add_object_manager</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A
+          reserved D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ESRCH</constant></term>
+
+          <listitem><para>One of <function>sd_bus_emit_interfaces_added()</function>,
+          <function>sd_bus_emit_interfaces_removed()</function>,
+          <function>sd_bus_emit_object_added()</function> or
+          <function>sd_bus_emit_object_removed()</function> was called on an object without an
+          object manager registered on its own object path or one of its parent object paths.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>See the man pages of
+      <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      for more possible errors.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
