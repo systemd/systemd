@@ -488,8 +488,8 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_bus_add_object_vtable</function> and
-    <function>sd_bus_add_fallback_vtable</function> calls return 0 or a positive integer. On
+    <para>On success, <function>sd_bus_add_object_vtable()</function> and
+    <function>sd_bus_add_fallback_vtable()</function> return a non-negative integer. On
     failure, they return a negative errno-style error code.</para>
 
     <refsect2>
