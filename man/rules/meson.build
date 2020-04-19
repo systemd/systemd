@@ -144,6 +144,7 @@ manpages = [
    'SD_BUS_WRITABLE_PROPERTY',
    'sd_bus_add_fallback',
    'sd_bus_add_fallback_vtable',
+   'sd_bus_add_filter',
    'sd_bus_add_object_vtable'],
   ''],
  ['sd_bus_attach_event', '3', ['sd_bus_detach_event', 'sd_bus_get_event'], ''],

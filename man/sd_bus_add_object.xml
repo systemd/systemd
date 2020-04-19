@@ -21,6 +21,7 @@
     <refname>sd_bus_add_fallback</refname>
     <refname>sd_bus_add_object_vtable</refname>
     <refname>sd_bus_add_fallback_vtable</refname>
+    <refname>sd_bus_add_filter</refname>
     <refname>SD_BUS_VTABLE_START</refname>
     <refname>SD_BUS_VTABLE_END</refname>
     <refname>SD_BUS_METHOD_WITH_NAMES_OFFSET</refname>
@@ -114,6 +115,14 @@
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const sd_bus_vtable *<parameter>vtable</parameter></paramdef>
         <paramdef>sd_bus_object_find_t <parameter>find</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_filter</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>sd_bus_message_handler_t <parameter>callback</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
       </funcprototype>
 
@@ -246,9 +255,14 @@
     <function>sd_bus_add_fallback()</function> is similar to
     <function>sd_bus_add_object()</function> but applies to fallback paths instead.</para>
 
+    <para><function>sd_bus_add_filter()</function> installs a callback that is invoked for each
+    incoming D-Bus message. Filters can be used to handle logic common to all messages received by
+    a service (e.g. authentication or authorization).</para>
+
     <para>When a request is received, any associated callbacks are called sequentially until a
     callback returns a non-zero integer. Return zero from a callback to give other callbacks the
-    chance to process the request. Callbacks are called in the following order: first, callbacks
+    chance to process the request. Callbacks are called in the following order: first, global
+    callbacks installed with <function>sd_bus_add_filter()</function> are called. Second, callbacks
     attached directly to the request object path are called, followed by any D-Bus method callbacks
     attached to the request object path, interface and member. Finally, the property callbacks
     attached to the request object path, interface and member are called. If the final callback
