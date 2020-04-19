@@ -2168,6 +2168,41 @@ int manager_rtnl_enumerate_nexthop(Manager *m) {
         return r;
 }
 
+int manager_dispatch_multipath_dhcp_routes(Manager *manager) {
+        Iterator i, j;
+        Network *n;
+        Route *rt;
+        MultipathRoute *m;
+        int r;
+
+        ORDERED_HASHMAP_FOREACH(n, manager->networks, i) {
+                LIST_FOREACH(routes, rt, n->static_routes) {
+                        ORDERED_SET_FOREACH(m, rt->multipath_routes, j) {
+                                Link *link;
+
+                                r = link_get(manager, m->ifindex, &link);
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to get link from ifindex %i, ignoring: %m", m->ifindex);
+                                        break;
+                                }
+
+                                if (!rt->link)
+                                        rt->link = link;
+
+                                r = set_ensure_allocated(&link->multipath_dhcp_routes, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                r = set_put(link->multipath_dhcp_routes, rt);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        return 0;
+}
+
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
         AddressPool *p;
         int r;

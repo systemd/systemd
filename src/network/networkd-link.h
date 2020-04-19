@@ -91,6 +91,7 @@ typedef struct Link {
         Set *routes_foreign;
         Set *nexthops;
         Set *nexthops_foreign;
+        Set *multipath_dhcp_routes;
 
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease, *dhcp_lease_old;

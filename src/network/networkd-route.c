@@ -813,6 +813,28 @@ int route_configure(
         return 1;
 }
 
+bool route_any_nexthop_gw_from_dhcp(const Route *route) {
+        MultipathRoute *m;
+        Iterator i;
+
+        ORDERED_SET_FOREACH(m, route->multipath_routes, i) {
+                if (m->gateway_from_dhcp)
+                        return true;
+        }
+        return false;
+}
+
+bool route_all_nexthops_gw_resolved(const Route *route) {
+        MultipathRoute *m;
+        Iterator i;
+
+        ORDERED_SET_FOREACH(m, route->multipath_routes, i) {
+                if (in_addr_is_null(m->gateway.family, &m->gateway.address))
+                        return false;
+        }
+        return true;
+}
+
 int network_add_ipv4ll_route(Network *network) {
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
@@ -1637,14 +1659,18 @@ int config_parse_multipath_route(
         } else
                 ip = word;
 
-        r = in_addr_from_string_auto(ip, &family, &a);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
-                return 0;
+        if (streq(ip, "_dhcp")) {
+                m->gateway_from_dhcp = true;
+        } else {
+                r = in_addr_from_string_auto(ip, &family, &a);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+                m->gateway.address = a;
+                m->gateway.family = family;
         }
-        m->gateway.address = a;
-        m->gateway.family = family;
 
         if (dev) {
                 r = resolve_interface(NULL, dev);

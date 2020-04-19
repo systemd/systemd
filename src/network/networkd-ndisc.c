@@ -154,7 +154,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t time_now;
         int r;
         Address *address;
-        Iterator i;
+        Iterator i, j;
 
         assert(link);
         assert(rt);
@@ -250,6 +250,31 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 }
                 if (r > 0)
                         link->ndisc_messages++;
+        }
+
+        SET_FOREACH(route_gw, link->multipath_dhcp_routes, i) {
+                if (route_gw->family != AF_INET6)
+                        continue;
+
+                MultipathRoute *m;
+                ORDERED_SET_FOREACH(m, route_gw->multipath_routes, j) {
+                        if (!m->gateway_from_dhcp)
+                                continue;
+
+                        if (m->ifindex != link->ifindex)
+                                continue;
+
+                        m->gateway.family = AF_INET6;
+                        m->gateway.address = gateway;
+                }
+
+                if (route_all_nexthops_gw_resolved(route_gw)) {
+                        r = route_configure(route_gw, route_gw->link, ndisc_netlink_route_message_handler);
+                        if (r < 0)
+                                return log_link_error_errno(route_gw->link, r, "Could not set multipath route: %m");
+                        if (r > 0)
+                                route_gw->link->ndisc_messages++;
+                }
         }
 
         return 0;

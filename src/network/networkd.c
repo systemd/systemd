@@ -112,6 +112,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate nexthop: %m");
 
+        r = manager_dispatch_multipath_dhcp_routes(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not dispatch multipath routes: %m");
+
         r = manager_start(m);
         if (r < 0)
                 return log_error_errno(r, "Could not start manager: %m");

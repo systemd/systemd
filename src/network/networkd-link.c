@@ -699,6 +699,8 @@ static Link *link_free(Link *link) {
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
+        link->multipath_dhcp_routes = set_free(link->multipath_dhcp_routes);
+
         link->routes = set_free_with_destructor(link->routes, route_free);
         link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
 
@@ -1045,6 +1047,9 @@ int link_request_set_routes(Link *link) {
         for (phase = 0; phase < _PHASE_MAX; phase++)
                 LIST_FOREACH(routes, rt, link->network->static_routes) {
                         if (rt->gateway_from_dhcp)
+                                continue;
+
+                        if (route_any_nexthop_gw_from_dhcp(rt))
                                 continue;
 
                         if ((in_addr_is_null(rt->family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
