@@ -9,9 +9,16 @@ if ! test -x /usr/bin/homectl ; then
 fi
 
 inspect() {
+        # As updating disk-size-related attributes can take some time on
+        # some filesystems, let's drop these fields before comparing the
+        # outputs to avoid unexpected fails. To see the full outputs of both
+        # homectl & userdbctl (for debugging purposes) drop the fields just
+        # before the comparison.
         homectl inspect $1 | tee /tmp/a
         userdbctl user $1 | tee /tmp/b
-        cmp /tmp/a /tmp/b
+
+        local PATTERN='/^\s*Disk (Size|Free|Floor|Ceiling):/d'
+        diff <(sed -r "$PATTERN" /tmp/a) <(sed -r "$PATTERN" /tmp/b)
         rm /tmp/a /tmp/b
 }
 
