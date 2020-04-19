@@ -297,8 +297,16 @@
     <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     similar to how <option>dns</option> and <option>domain</option> commands operate. Note that
     <command>systemd-resolved.service</command> is the only supported backend, which is different from other
-    implementations of this command. Note that not all operations supported by other implementations are supported
-    natively. Specifically:</para>
+    implementations of this command.</para>
+
+    <para><filename>/etc/resolv.conf</filename> will only be updated with servers added with this command
+    when <filename>/etc/resolv.conf</filename> is a symlink to
+    <filename>/run/systemd/resolve/resolv.conf</filename>, and not a static file. See the discussion of
+    <filename>/etc/resolv.conf</filename> handling in
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
+
+    <para>Not all operations supported by other implementations are supported natively. Specifically:</para>
 
     <variablelist>
       <varlistentry>
