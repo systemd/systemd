@@ -147,6 +147,7 @@ manpages = [
    'sd_bus_add_filter',
    'sd_bus_add_object_vtable'],
   ''],
+ ['sd_bus_add_object_manager', '3', [], ''],
  ['sd_bus_attach_event', '3', ['sd_bus_detach_event', 'sd_bus_get_event'], ''],
  ['sd_bus_call', '3', ['sd_bus_call_async'], ''],
  ['sd_bus_call_method',
