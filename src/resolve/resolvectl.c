@@ -2516,6 +2516,48 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int verb_log_level(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        if (argc == 1) {
+                _cleanup_free_ char *level = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "LogLevel",
+                                &error,
+                                &level);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
+
+                puts(level);
+
+        } else {
+                assert(argc == 2);
+
+                r = sd_bus_set_property(
+                                bus,
+                                "org.freedesktop.resolve1",
+                                "/org/freedesktop/resolve1",
+                                "org.freedesktop.resolve1.Manager",
+                                "LogLevel",
+                                &error,
+                                "s",
+                                argv[1]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -3190,6 +3232,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
                 { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
+                { "log-level",             VERB_ANY, 2,        0,            verb_log_level        },
                 {}
         };
 
