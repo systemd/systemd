@@ -65,11 +65,11 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_bus_set_close_on_exit()</function> returns a non-negative
+    <para>On success, <function>sd_bus_set_exit_on_disconnect()</function> returns a non-negative
     integer. On failure, it returns a negative errno-style error code.</para>
 
-    <para><function>sd_bus_get_close_on_exit()</function> returns a positive integer if the exit on
-    disconnect behavior is enabled. Otherwise, it returns zero.</para>
+    <para><function>sd_bus_get_exit_on_disconnect()</function> returns a positive integer if the
+    exit on disconnect behavior is enabled. Otherwise, it returns zero.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -77,6 +77,18 @@
       <para>Returned errors may indicate the following problems:</para>
 
       <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A required parameter was <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus object could not be resolved.</para></listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
