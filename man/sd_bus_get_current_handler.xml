@@ -55,13 +55,12 @@
 
     <para>Whenever sd-bus is about to invoke a user-supplied callback function, it stores the
     current callback, D-Bus message, slot and userdata pointer and allows these to be queried via
-    these <function>sd_bus_get_current_handler()</function>,
+    <function>sd_bus_get_current_handler()</function>,
     <function>sd_bus_get_current_message()</function>,
     <function>sd_bus_get_current_slot()</function> and
     <function>sd_bus_get_current_userdata()</function>, respectively. If <parameter>bus</parameter>
     cannot be resolved or if execution does not reside in a user-supplied callback of
-    <parameter>bus</parameter> when calling any of these functions, they return
-    <constant>NULL</constant>.</para>
+    <parameter>bus</parameter>, these functions return <constant>NULL</constant>.</para>
   </refsect1>
 
   <refsect1>
