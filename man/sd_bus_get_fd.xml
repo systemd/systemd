@@ -106,7 +106,7 @@
     <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
-    <para>Note that these function are only one of three supported ways to implement I/O event
+    <para>Note that these functions are only one of three supported ways to implement I/O event
     handling for bus connections. Alternatively use
     <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to attach a bus connection to an
