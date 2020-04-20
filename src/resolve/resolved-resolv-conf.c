@@ -359,22 +359,19 @@ int manager_write_resolv_conf(Manager *m) {
 
         (void) fchmod(fileno(f_uplink), 0644);
 
-        r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to open new %s for writing: %m", PRIVATE_STUB_RESOLV_CONF);
-
-        (void) fchmod(fileno(f_stub), 0644);
-
         r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);
         if (r < 0) {
                 log_error_errno(r, "Failed to write new %s: %m", PRIVATE_UPLINK_RESOLV_CONF);
                 goto fail;
         }
 
-        if (rename(temp_path_uplink, PRIVATE_UPLINK_RESOLV_CONF) < 0) {
-                r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_UPLINK_RESOLV_CONF);
+        r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open new %s for writing: %m", PRIVATE_STUB_RESOLV_CONF);
                 goto fail;
         }
+
+        (void) fchmod(fileno(f_stub), 0644);
 
         r = write_stub_resolv_conf_contents(f_stub, dns, domains);
         if (r < 0) {
@@ -382,18 +379,18 @@ int manager_write_resolv_conf(Manager *m) {
                 goto fail;
         }
 
-        if (rename(temp_path_stub, PRIVATE_STUB_RESOLV_CONF) < 0) {
+        if (rename(temp_path_uplink, PRIVATE_UPLINK_RESOLV_CONF) < 0)
+                r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_UPLINK_RESOLV_CONF);
+
+        if (rename(temp_path_stub, PRIVATE_STUB_RESOLV_CONF) < 0)
                 r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_STUB_RESOLV_CONF);
-                goto fail;
+
+ fail:
+        if (r < 0) {
+                /* Something went wrong, perform cleanup... */
+                (void) unlink(temp_path_uplink);
+                (void) unlink(temp_path_stub);
         }
-
-        return 0;
-
-fail:
-        (void) unlink(PRIVATE_UPLINK_RESOLV_CONF);
-        (void) unlink(temp_path_uplink);
-        (void) unlink(PRIVATE_STUB_RESOLV_CONF);
-        (void) unlink(temp_path_stub);
 
         return r;
 }
