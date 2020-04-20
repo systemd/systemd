@@ -24,6 +24,9 @@
     <refname>sd_bus_is_trusted</refname>
     <refname>sd_bus_set_allow_interactive_authorization</refname>
     <refname>sd_bus_get_allow_interactive_authorization</refname>
+    <refname>sd_bus_get_scope</refname>
+    <refname>sd_bus_get_tid</refname>
+    <refname>sd_bus_get_unique_name</refname>
 
     <refpurpose>Set or query properties of a bus object</refpurpose>
   </refnamediv>
@@ -76,6 +79,24 @@
         <funcdef>int <function>sd_bus_get_allow_interactive_authorization</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_scope</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char **<parameter>scope</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_tid</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_unique_name</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char **<parameter>unique</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -125,6 +146,27 @@
 
     <para><function>sd_bus_get_allow_interactive_authorization()</function> returns true if
     interactive authorization is allowed and false if not.</para>
+
+    <para><function>sd_bus_get_scope()</function> stores the scope of the given bus object in
+    <parameter>scope</parameter>. The scope of the system bus is <literal>system</literal>. The
+    scope of a user session bus is <literal>user</literal>. If the given bus object is not the
+    system or a user session bus, <function>sd_bus_get_scope()</function> returns an error.</para>
+
+    <para><function>sd_bus_get_tid()</function> stores the kernel thread id of the thread associated
+    with the given bus object in <parameter>tid</parameter>. If <parameter>bus</parameter> is a
+    default bus object obtained by calling one of the functions of the
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    family of functions, it stores the thread id of the thread the bus object was created in.
+    Otherwise, if the bus object is attached to an event loop, it stores the thread id of the
+    thread the event loop object was created in. If <parameter>bus</parameter> is not a default bus
+    object and is not attached to an event loop, <function>sd_bus_get_tid()</function> returns an
+    error.</para>
+
+    <para><function>sd_bus_get_unique_name()</function> stores the unique name of the bus object on
+    the bus in <parameter>unique</parameter>. See
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">
+    The D-Bus specification</ulink> for more information on bus names. Note that the caller does not
+    own the string stored in <parameter>unique</parameter> and should not free it.</para>
   </refsect1>
 
   <refsect1>
@@ -168,8 +210,21 @@
 
           <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
-      </variablelist>
 
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The bus object passed to <function>sd_bus_get_scope()</function> was not a
+          system or user session bus.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The bus object passed to <function>sd_bus_get_tid()</function> was not a
+          default bus object and is not attached to an event loop.</para></listitem>
+        </varlistentry>
+      </variablelist>
     </refsect2>
   </refsect1>
 
