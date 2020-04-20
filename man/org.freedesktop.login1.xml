@@ -377,7 +377,7 @@ node /org/freedesktop/login1 {
       should be a short human readable string identifying the reason why the lock is taken. Finally,
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
-      certain maximum time. The call returns a file descriptor. The lock is released the moment this file
+      certain maximum time. The method returns a file descriptor. The lock is released the moment this file
       descriptor and all its duplicates are closed. For more information on the inhibition logic see
       <ulink url="http://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
       </para>
@@ -822,7 +822,7 @@ node /org/freedesktop/login1/session/45 {
       <para><function>TakeControl()</function> allows a process to take exclusive managed device
       access-control for that session. Only one D-Bus connection can be a controller for a given session at any
       time. If the <varname>force</varname> argument is set (root only), an existing controller is kicked
-      out and replaced. Otherwise, this call fails if there is already a controller. Note that this call is
+      out and replaced. Otherwise, this method fails if there is already a controller. Note that this method is
       limited to D-Bus users with the effective UID set to the user of the session or root.</para>
 
       <para><function>ReleaseControl()</function> drops control of a given session. Closing the

@@ -364,8 +364,8 @@ node /org/freedesktop/systemd1 {
       invoked this method. <function>Unsubscribe()</function> reverts the signal subscription that
       <function>Subscribe()</function> implements. It is not necessary to invoke
       <function>Unsubscribe()</function> as clients are tracked. Signals are no longer sent out as soon as
-      all clients which previously asked for <function>Subscribe()</function> either closed the bus
-      connection or invoked <function>Unsubscribe()</function>.</para>
+      all clients which previously asked for <function>Subscribe()</function> either closed their connection
+      to the bus or invoked <function>Unsubscribe()</function>.</para>
 
       <para><function>Reload()</function> may be invoked to reload all unit files.</para>
 
@@ -376,57 +376,57 @@ node /org/freedesktop/systemd1 {
       <para><function>Exit()</function> may be invoked to ask the manager to exit. This is not available for
       the system manager and is useful only for user session managers.</para>
 
-      <para><function>Reboot()</function>, <function>PowerOff()</function>, <function>Halt()</function>,
+      <para><function>Reboot()</function>, <function>PowerOff()</function>, <function>Halt()</function>, or
       <function>KExec()</function> may be used to ask for immediate reboot, powering down, halt or kexec
       based reboot of the system. Note that this does not shut down any services and immediately transitions
-      into the reboot process. These functions are normally only called as last step of shutdown, and should
-      not be called directly. To shut down the machine it is a much better choice generally to invoke
-      <function>Reboot()</function> and <function>PoweOff()</function> on the
+      into the reboot process. These functions are normally only called as the last step of shutdown and should
+      not be called directly. To shut down the machine, it is generally a better idea to invoke
+      <function>Reboot()</function> or <function>PowerOff()</function> on the
       <filename>systemd-logind</filename> manager object; see
       <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for more information.</para>
 
       <para><function>SwitchRoot()</function> may be used to transition to a new root directory. This is
-      intended to be used by initial RAM disks. The call takes two arguments: the new root directory (which
-      needs to be specified), plus an init binary path (which may be left empty, in which case it is
+      intended to be used by initial RAM disks. The method takes two arguments: the new root directory (which
+      needs to be specified) and an init binary path (which may be left empty, in which case it is
       automatically searched for). The state of the system manager will be serialized before the
-      transition. After the transition the manager binary on the main system is invoked and replaces the old
+      transition. After the transition, the manager binary on the main system is invoked and replaces the old
       PID 1. All state will then be deserialized.</para>
 
       <para><function>SetEnvironment()</function> may be used to alter the environment block that is passed
-      to all spawned processes. Takes a string array with environment variable assignments. Settings passed
-      will override previously set variables.</para>
+      to all spawned processes. It takes a string array of environment variable assignments. Any previously set
+      environment variables will be overridden.</para>
 
-      <para><function>UnsetEnvironment()</function> may be used to unset environment variables. Takes a
-      string array with environment variable names. All variables specified will be unset (if they have been
-      set previously) and no longer be passed to all spawned processes. This call has no effect for variables
+      <para><function>UnsetEnvironment()</function> may be used to unset environment variables. It takes a
+      string array of environment variable names. All variables specified will be unset (if they have been
+      set previously) and no longer be passed to all spawned processes. This method has no effect for variables
       that were previously not set, but will not fail in that case.</para>
 
       <para><function>UnsetAndSetEnvironment()</function> is a combination of
       <function>UnsetEnvironment()</function> and <function>SetEnvironment()</function>. It takes two
-      lists. The first one is a list of variables to unset, the second one of assignments to set. If a
-      variable is listed in both, the variable is set after this call, i.e. the set list overrides the unset
-      list.</para>
+      lists. The first list contains variables to unset, the second one contains assignments to set. If a
+      variable is listed in both, the variable is set after this method returns, i.e. the set list overrides the
+      unset list.</para>
 
-      <para><function>ListUnitFiles()</function> returns an array of unit names plus their enablement
+      <para><function>ListUnitFiles()</function> returns an array of unit names and their enablement
       status. Note that <function>ListUnit()</function> returns a list of units currently loaded into memory,
-      while <function>ListUnitFiles()</function> returns a list of unit <emphasis>files</emphasis> that could
-      be found on disk. Note that while most units are read directly from a unit file with the same name some
-      units are not backed by files, and some files (templates) cannot directly be loaded as units but need
-      to be instantiated.</para>
+      while <function>ListUnitFiles()</function> returns a list of unit <emphasis>files</emphasis> that were
+      found on disk. Note that while most units are read directly from a unit file with the same name, some
+      units are not backed by files and some files (templates) cannot directly be loaded as units but need
+      to be instantiated instead.</para>
 
-      <para><function>GetUnitFileState()</function> returns the current enablement status of specific unit
+      <para><function>GetUnitFileState()</function> returns the current enablement status of a specific unit
       file.</para>
 
       <para><function>EnableUnitFiles()</function> may be used to enable one or more units in the system (by
       creating symlinks to them in <filename>/etc</filename> or <filename>/run</filename>). It takes a list
       of unit files to enable (either just file names or full absolute paths if the unit files are residing
-      outside the usual unit search paths), and two booleans: the first controls whether the unit shall be
+      outside the usual unit search paths) and two booleans: the first controls whether the unit shall be
       enabled for runtime only (true, <filename>/run</filename>), or persistently (false,
       <filename>/etc</filename>). The second one controls whether symlinks pointing to other units shall be
-      replaced if necessary. This call returns one boolean and an array with the changes made. The boolean
+      replaced if necessary. This method returns one boolean and an array of the changes made. The boolean
       signals whether the unit files contained any enablement information (i.e. an [Install]) section. The
-      changes list consists of structures with three strings: the type of the change (one of
+      changes array consists of structures with three strings: the type of the change (one of
       <literal>symlink</literal> or <literal>unlink</literal>), the file name of the symlink and the
       destination of the symlink. Note that most of the following calls return a changes list in the same
       format.</para>
@@ -441,40 +441,40 @@ node /org/freedesktop/systemd1 {
       <para>Similarly, <function>LinkUnitFiles()</function> links unit files (that are located outside of the
       usual unit search paths) into the unit search path.</para>
 
-      <para>Similarly, <function>PresetUnitFiles()</function> enables/disables one or more units file
+      <para>Similarly, <function>PresetUnitFiles()</function> enables/disables one or more unit files
       according to the preset policy. See
       <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
       information.</para>
 
-      <para>Similarly, <function>MaskUnitFiles()</function> masks unit files, and
+      <para>Similarly, <function>MaskUnitFiles()</function> masks unit files and
       <function>UnmaskUnitFiles()</function> unmasks them again.</para>
 
       <para><function>SetDefaultTarget()</function> changes the <filename>default.target</filename> link. See
       <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for more
-      information</para>
+      information.</para>
 
       <para><function>GetDefaultTarget()</function> retrieves the name of the unit to which
-      <filename>default.target</filename> is aliased</para>
+      <filename>default.target</filename> is aliased.</para>
 
       <para><function>SetUnitProperties()</function> may be used to modify certain unit properties at
       runtime. Not all properties may be changed at runtime, but many resource management settings (primarily
       those listed in
       <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-      may. The changes are applied instantly, and stored on disk for future boots, unless
+      may. The changes are applied instantly and stored on disk for future boots, unless
       <varname>runtime</varname> is true, in which case the settings only apply until the next
       reboot. <varname>name</varname> is the name of the unit to modify. <varname>properties</varname> are
       the settings to set, encoded as an array of property name and value pairs. Note that this is not a
-      dictionary! Note that when setting array properties with this call this usually results in appending to
-      the pre-configured array. To reset the configured arrays set the property to an empty array first, then
-      append to it.</para>
+      dictionary! Also note that when setting array properties with this method usually results in appending to
+      the pre-configured array. To reset the configured arrays, set the property to an empty array first and
+      then append to it.</para>
 
-      <para><function>StartTransientUnit()</function> may be used to create and start a transient unit, which
+      <para><function>StartTransientUnit()</function> may be used to create and start a transient unit which
       will be released as soon as it is not running or referenced anymore or the system is
-      rebooted. <varname>name</varname> is the unit name including suffix, and must be
+      rebooted. <varname>name</varname> is the unit name including its suffix and must be
       unique. <varname>mode</varname> is the same as in <function>StartUnit()</function>,
       <varname>properties</varname> contains properties of the unit, specified like in
       <function>SetUnitProperties()</function>. <varname>aux</varname> is currently unused and should be
-      passed as empty array. See the <ulink
+      passed as an empty array. See the <ulink
       url="http://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface/">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
@@ -484,7 +484,7 @@ node /org/freedesktop/systemd1 {
       <title>Signals</title>
 
       <para>Note that most signals are sent out only after <function>Subscribe()</function> has been invoked
-      by at least one client. Make sure to invoke this call when subscribing to these signals!</para>
+      by at least one client. Make sure to invoke this method when subscribing to these signals!</para>
 
       <para><function>UnitNew()</function> and <function>UnitRemoved()</function> are sent out each time a
       new unit is loaded or unloaded. Note that this has little to do with whether a unit is available on
@@ -493,24 +493,24 @@ node /org/freedesktop/systemd1 {
 
       <para><function>JobNew()</function> and <function>JobRemoved()</function> are sent out each time a new
       job is queued or dequeued. Both signals take the numeric job ID, the bus path and the primary unit name
-      for this job as argument. <function>JobRemoved()</function> also includes a result string, being one of
-      <literal>done</literal>, <literal>canceled</literal>, <literal>timeout</literal>,
-      <literal>failed</literal>, <literal>dependency</literal>,
+      for this job as arguments. <function>JobRemoved()</function> also includes a result string which is one
+      of <literal>done</literal>, <literal>canceled</literal>, <literal>timeout</literal>,
+      <literal>failed</literal>, <literal>dependency</literal>, or
       <literal>skipped</literal>. <literal>done</literal> indicates successful execution of a
       job. <literal>canceled</literal> indicates that a job has been canceled (via
       <function>CancelJob()</function> above) before it finished execution (this doesn't necessarily mean
       though that the job operation is actually cancelled too, see above). <literal>timeout</literal>
       indicates that the job timeout was reached. <literal>failed</literal> indicates that the job
-      failed. <literal>dependency</literal> indicates that a job this job has been depending on failed and
-      the job hence has been removed too. <literal>skipped</literal> indicates that a job was skipped because
-      it didn't apply to the units current state.</para>
+      failed. <literal>dependency</literal> indicates that a job this job depended on failed and the job hence
+      was removed as well. <literal>skipped</literal> indicates that a job was skipped because
+      it didn't apply to the unit's current state.</para>
 
-      <para><function>StartupFinished()</function> is sent out when startup finished. It carries six
-      microsecond timespan values each indicating how much boot time has been spent in the firmware (if
+      <para><function>StartupFinished()</function> is sent out when startup finishes. It carries six
+      microsecond timespan values, each indicating how much boot time has been spent in the firmware (if
       known), in the boot loader (if known), in the kernel initialization phase, in the initrd (if known), in
       userspace and in total. These values may also be calculated from the
       <varname>FirmwareTimestampMonotonic</varname>, <varname>LoaderTimestampMonotonic</varname>,
-      <varname>InitRDTimestampMonotonic</varname>, <varname>UserspaceTimestampMonotonic</varname>,
+      <varname>InitRDTimestampMonotonic</varname>, <varname>UserspaceTimestampMonotonic</varname>, and
       <varname>FinishTimestampMonotonic</varname> properties (see below).</para>
 
       <para><function>UnitFilesChanged()</function> is sent out each time the list of enabled or masked unit
@@ -518,7 +518,7 @@ node /org/freedesktop/systemd1 {
 
       <para><function>Reloading()</function> is sent out immediately before a daemon reload is done (with the
       boolean parameter set to True) and after a daemon reload is completed (with the boolean parameter set
-      to False). This may be used by UIs to optimize UI updates</para>
+      to False). This may be used by UIs to optimize UI updates.</para>
     </refsect2>
 
     <refsect2>
@@ -530,15 +530,15 @@ node /org/freedesktop/systemd1 {
       <para>The others:</para>
 
       <para><varname>Version</varname> encodes the version string of the running systemd instance. Note that
-      the version string is purely informational, it should not be parsed, one may not assume the version to
+      the version string is purely informational. It should not be parsed and one may not assume the version to
       be formatted in any particular way. We take the liberty to change the versioning scheme at any time and
-      it is not part of the API.</para>
+      it is not part of the public API.</para>
 
       <para><varname>Features</varname> encodes the features that have been enabled and disabled for this
       build. Enabled options are prefixed with +, disabled options with -.</para>
 
-      <para><varname>Tainted</varname> encodes a couple of taint flags, as a colon-separated list. When
-      systemd detects it is run on a system with certain problems it will set an appropriate taint
+      <para><varname>Tainted</varname> encodes a couple of taint flags as a colon-separated list. When
+      systemd detects it is running on a system with certain problems, it will set an appropriate taint
       flag. Taints may be used to lower the chance of bogus bug reports. The following taints are currently
       known: <literal>split-usr</literal>, <literal>mtab-not-symlink</literal>,
       <literal>cgroups-missing</literal>, <literal>local-hwclock</literal>. <literal>split-usr</literal> is
@@ -556,26 +556,27 @@ node /org/freedesktop/systemd1 {
       <varname>KernelTimestamp</varname>, <varname>KernelTimestampMonotonic</varname>,
       <varname>InitRDTimestamp</varname>, <varname>InitRDTimestampMonotonic</varname>,
       <varname>UserspaceTimestamp</varname>, <varname>UserspaceTimestampMonotonic</varname>,
-      <varname>FinishTimestamp</varname>, <varname>FinishTimestampMonotonic</varname> encode
+      <varname>FinishTimestamp</varname>, and <varname>FinishTimestampMonotonic</varname> encode
       <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> microsecond timestamps
       taken when the firmware first began execution, when the boot loader first began execution, when the
       kernel first began execution, when the initrd first began execution, when the main systemd instance
       began execution and finally, when all queued startup jobs finished execution. These values are useful
-      for determining boot-time performance. Note that as monotonic time begins with the kernel startup the
-      KernelTimestampMonotonic timestamp will always be 0, and FirmwareTimestampMonotonic and
-      LoaderTimestampMonotonic are to be read as negative values. Also, not all fields are available,
-      depending on the used firmware, boot loader or initrd implementation. In these cases the respective
-      pairs of timestamps are both 0, indicating that no data is available.</para>
+      for determining boot-time performance. Note that as monotonic time begins with the kernel startup, the
+      <varname>KernelTimestampMonotonic</varname> timestamp will always be 0 and
+      <varname>FirmwareTimestampMonotonic</varname> and <varname>LoaderTimestampMonotonic</varname> are to
+      be read as negative values. Also, not all fields are always available, depending on the used firmware,
+      boot loader or initrd implementation. In these cases the respective pairs of timestamps are both 0,
+      indicating that no data is available.</para>
 
       <para>Similarly, the <varname>SecurityStartTimestamp</varname>,
-      <varname>GeneratorsStartTimestamp</varname> and <varname>LoadUnitTimestamp</varname> (plus their
+      <varname>GeneratorsStartTimestamp</varname> and <varname>LoadUnitTimestamp</varname> (as well as their
       monotonic and stop counterparts) expose performance data for uploading the security policies to the
       kernel (such as the SELinux, IMA, or SMACK policies), for running the generator tools and for loading
-      the unit files</para>
+      the unit files.</para>
 
       <para><varname>NNames</varname> encodes how many unit names are currently known. This only includes
-      names of units that are currently loaded and can be more than actually loaded units since units may
-      have more than one name.</para>
+      names of units that are currently loaded and can be more than the amount of actually loaded units since
+      units may have more than one name.</para>
 
       <para><varname>NJobs</varname> encodes how many jobs are currently queued.</para>
 
@@ -583,20 +584,21 @@ node /org/freedesktop/systemd1 {
 
       <para><varname>NFailedJobs</varname> encodes how many jobs have ever failed in total.</para>
 
-      <para><varname>Progress</varname> encodes boot progress as floating point value between 0.0 and
+      <para><varname>Progress</varname> encodes boot progress as a floating point value between 0.0 and
       1.0. This value begins at 0.0 at early-boot and ends at 1.0 when boot is finished and is based on the
-      number of executed and queued jobs. After startup this field is always 1.0 indicating a finished
+      number of executed and queued jobs. After startup, this field is always 1.0 indicating a finished
       boot.</para>
 
       <para><varname>Environment</varname> encodes the environment block passed to all executed services. It
       may be altered with bus calls such as <function>SetEnvironment()</function> (see above).</para>
 
       <para><varname>UnitPath</varname> encodes the currently active unit file search path. It is an array of
-      strings, each being one file system path</para>
+      file system paths encoded as strings.</para>
 
       <para><varname>Virtualization</varname> contains a short ID string describing the virtualization
-      technology the system runs in. On bare-metal hardware this is the empty string, otherwise an identifier
-      such as <literal>kvm</literal>, <literal>vmware</literal> and so on. For a full list of IDs see
+      technology the system runs in. On bare-metal hardware this is the empty string. Otherwise, it contains
+      an identifier such as <literal>kvm</literal>, <literal>vmware</literal> and so on. For a full list of
+      IDs see
       <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
       Note that only the "innermost" virtualization technology is exported here. This detects both
       full-machine virtualizations (VMs) and shared-kernel virtualization (containers).</para>
@@ -606,9 +608,9 @@ node /org/freedesktop/systemd1 {
       <varname>ConditionArchitectures=</varname>.</para>
 
       <para><varname>ControlGroup</varname> contains the root control group path of this system manager. Note
-      that the root path is encoded as empty string here (not as <literal>/</literal>!), so that it can be
+      that the root path is encoded as the empty string here (not as <literal>/</literal>!), so that it can be
       appended to <filename>/sys/fs/cgroup/systemd</filename> easily. This value will be set to the empty
-      string for the host instance, and some other string for container instances</para>
+      string for the host instance and some other string for container instances.</para>
     </refsect2>
 
     <refsect2>
@@ -623,9 +625,9 @@ node /org/freedesktop/systemd1 {
       <function>ReenableUnitFiles()</function>, <function>LinkUnitFiles()</function>,
       <function>PresetUnitFiles</function>, <function>MaskUnitFiles</function>, and similar) require
       <interfacename>org.freedesktop.systemd1.manage-unit-files</interfacename>). Operations which modify the
-      exported environment ( <function>SetEnvironment()</function>, <function>UnsetEnvironment()</function>,
+      exported environment (<function>SetEnvironment()</function>, <function>UnsetEnvironment()</function>,
       <function>UnsetAndSetEnvironment()</function>) require
-      <interfacename>org.freedesktop.systemd1.set-environment</interfacename>.  <function>Reload()</function>
+      <interfacename>org.freedesktop.systemd1.set-environment</interfacename>. <function>Reload()</function>
       and <function>Reexecute()</function> require
       <interfacename>org.freedesktop.systemd1.reload-daemon</interfacename>.
       </para>
@@ -749,11 +751,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <function>Restart()</function>, <function>TryRestart()</function>,
       <function>ReloadOrRestart()</function>, <function>ReloadOrTryRestart()</function>,
       <function>Kill()</function>, <function>ResetFailed()</function>, and
-      <function>SetProperties()</function> implement the same operation as the respective method calls on the
-      <interfacename>Manager</interfacename> object (see above), however operate on the unit object and hence
-      do not take a unit name parameter. Invoking the methods directly on the Manager object has the
-      advantage of not requiring a <function>GetUnit()</function> call to get the unit object for a specific
-      unit name. Calling the methods on the Manager object is hence a round trip optimization.</para>
+      <function>SetProperties()</function> implement the same operation as the respective methods on the
+      <interfacename>Manager</interfacename> object (see above). However, these methods operate on the unit
+      object and hence do not take a unit name parameter. Invoking the methods directly on the Manager
+      object has the advantage of not requiring a <function>GetUnit()</function> call to get the unit object
+      for a specific unit name. Calling the methods on the Manager object is hence a round trip
+      optimization.</para>
     </refsect2>
 
     <refsect2>
@@ -774,9 +777,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>WantedBy</varname>, <varname>BoundBy</varname>, <varname>Conflicts</varname>,
       <varname>ConflictedBy</varname>, <varname>Before</varname>, <varname>After</varname>,
       <varname>OnFailure</varname>, <varname>Triggers</varname>, <varname>TriggeredBy</varname>,
-      <varname>PropagatesReloadTo</varname>, <varname>RequiresMountsFor</varname> contain arrays which encode
-      the dependencies and their inverse dependencies (where this applies), as configured in the unit file or
-      determined automatically. </para>
+      <varname>PropagatesReloadTo</varname>, and <varname>RequiresMountsFor</varname> contain arrays which encode
+      the dependencies and their inverse dependencies (where this applies) as configured in the unit file or
+      determined automatically.</para>
 
       <para><varname>Description</varname> contains the human readable description string for the
       unit.</para>
@@ -784,16 +787,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>SourcePath</varname> contains the path to a configuration file this unit is
       automatically generated from in case it is not a native unit (in which case it contains the empty
       string). For example, all mount units generated from <filename>/etc/fstab</filename> have this field
-      set to this value.</para>
+      set to <filename>/etc/fstab</filename>.</para>
 
       <para><varname>Documentation</varname> contains a string array with URLs of documentation for this
       unit.</para>
 
       <para><varname>LoadState</varname> contains a state value that reflects whether the configuration file
       of this unit has been loaded. The following states are currently defined: <literal>loaded</literal>,
-      <literal>error</literal>, <literal>masked</literal>. <literal>loaded</literal> indicates that the
+      <literal>error</literal>, and <literal>masked</literal>. <literal>loaded</literal> indicates that the
       configuration was successfully loaded. <literal>error</literal> indicates that the configuration failed
-      to load, the <varname>LoadError</varname> field (see below) contains information about the cause of
+      to load. The <varname>LoadError</varname> field (see below) contains information about the cause of
       this failure. <literal>masked</literal> indicates that the unit is currently masked out (i.e. symlinked
       to <filename>/dev/null</filename> or empty). Note that the <varname>LoadState</varname> is fully
       orthogonal to the <varname>ActiveState</varname> (see below) as units without valid loaded
@@ -803,7 +806,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <para><varname>ActiveState</varname> contains a state value that reflects whether the unit is currently
       active or not. The following states are currently defined: <literal>active</literal>,
       <literal>reloading</literal>, <literal>inactive</literal>, <literal>failed</literal>,
-      <literal>activating</literal>, <literal>deactivating</literal>. <literal>active</literal> indicates
+      <literal>activating</literal>, and <literal>deactivating</literal>. <literal>active</literal> indicates
       that unit is active (obviously...). <literal>reloading</literal> indicates that the unit is active and
       currently reloading its configuration. <literal>inactive</literal> indicates that it is inactive and
       the previous run was successful or no previous run has taken place yet. <literal>failed</literal>
@@ -824,47 +827,46 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       later on than the common high-level states explained above.</para>
 
       <para><varname>FragmentPath</varname> contains the unit file path this unit was read from, if there is
-      any (if not this contains the empty string).</para>
+      one (if not, it contains the empty string).</para>
 
       <para><varname>UnitFileState</varname> encodes the install state of the unit file of
       <varname>FragmentPath</varname>. It currently knows the following states: <literal>enabled</literal>,
       <literal>enabled-runtime</literal>, <literal>linked</literal>, <literal>linked-runtime</literal>,
       <literal>masked</literal>, <literal>masked-runtime</literal>, <literal>static</literal>,
-      <literal>disabled</literal>, <literal>invalid</literal>. <literal>enabled</literal> indicates that a
+      <literal>disabled</literal>, and <literal>invalid</literal>. <literal>enabled</literal> indicates that a
       unit file is permanently enabled. <literal>enable-runtime</literal> indicates the unit file is only
-      temporarily enabled, and will no longer be enabled after a reboot (that means, it is enabled via
+      temporarily enabled and will no longer be enabled after a reboot (that means, it is enabled via
       <filename>/run</filename> symlinks, rather than <filename>/etc</filename>). <literal>linked</literal>
-      indicates that a unit is linked into <filename>/etc</filename> permanently, <literal>linked</literal>
+      indicates that a unit is linked into <filename>/etc</filename> permanently. <literal>linked-runtime</literal>
       indicates that a unit is linked into <filename>/run</filename> temporarily (until the next
-      reboot). <literal>masked</literal> indicates that the unit file is masked permanently,
-      <literal>masked-runtime</literal> indicates that it is only temporarily masked in
-      <filename>/run</filename>, until the next reboot. <literal>static</literal> indicates that the unit is
-      statically enabled, i.e. always enabled and doesn't need to be enabled
-      explicitly. <literal>invalid</literal> indicates that it could not be determined whether the unit file
-      is enabled.</para>
+      reboot). <literal>masked</literal> indicates that the unit file is masked permanently.
+      <literal>masked-runtime</literal> indicates that it is masked in <filename>/run</filename> temporarily
+      (until the next reboot). <literal>static</literal> indicates that the unit is statically enabled, i.e.
+      always enabled and doesn't need to be enabled explicitly. <literal>invalid</literal> indicates that it
+      could not be determined whether the unit file is enabled.</para>
 
       <para><varname>InactiveExitTimestamp</varname>, <varname>InactiveExitTimestampMonotonic</varname>,
       <varname>ActiveEnterTimestamp</varname>, <varname>ActiveEnterTimestampMonotonic</varname>,
       <varname>ActiveExitTimestamp</varname>, <varname>ActiveExitTimestampMonotonic</varname>,
-      <varname>InactiveEnterTimestamp</varname>, <varname>InactiveEnterTimestampMonotonic</varname> contain
-      <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> 64-bit microsecond
+      <varname>InactiveEnterTimestamp</varname>, and <varname>InactiveEnterTimestampMonotonic</varname>
+      contain <constant>CLOCK_REALTIME</constant> and <constant>CLOCK_MONOTONIC</constant> 64-bit microsecond
       timestamps of the last time a unit left the inactive state, entered the active state, exited the active
       state, or entered an inactive state. These are the points in time where the unit transitioned
       <literal>inactive</literal>/<literal>failed</literal> → <literal>activating</literal>,
       <literal>activating</literal> → <literal>active</literal>, <literal>active</literal> →
       <literal>deactivating</literal>, and finally <literal>deactivating</literal> →
       <literal>inactive</literal>/<literal>failed</literal>. The fields are 0 in case such a transition has
-      not been recording on this boot yet.</para>
+      not yet been recorded on this boot.</para>
 
-      <para><varname>CanStart</varname>, <varname>CanStop</varname>, <varname>CanReload</varname> encodes as
-      booleans whether the unit supports the start, stop or reload operations. Even if a unit supports such
-      an operation the client might not necessary have the right privileges to execute them.</para>
+      <para><varname>CanStart</varname>, <varname>CanStop</varname>, and <varname>CanReload</varname> encode
+      as booleans whether the unit supports the start, stop or reload operations. Even if a unit supports
+      such an operation, the client might not necessary have the necessary privileges to execute them.</para>
 
-      <para><varname>CanIsolate</varname> encodes as boolean whether the unit may be started in isolation
+      <para><varname>CanIsolate</varname> encodes as a boolean whether the unit may be started in isolation
       mode.</para>
 
       <para><varname>Job</varname> encodes the job ID and job object path of the job currently scheduled or
-      executed for this unit, if there is any. If no job is scheduled or executed the job id field will be
+      executed for this unit, if there is any. If no job is scheduled or executed, the job id field will be
       0.</para>
 
       <para><varname>StopWhenUnneeded</varname>, <varname>RefuseManualStart</varname>,
@@ -887,28 +889,28 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>ConditionTimestamp</varname> and <varname>ConditionTimestampMonotonic</varname> contain
       the <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps of
-      the last time the configured conditions of the unit have been checked, or 0 if they have never been
+      the last time the configured conditions of the unit have been checked or 0 if they have never been
       checked. Conditions are checked when a unit is requested to start.</para>
 
       <para><varname>ConditionResult</varname> contains the condition result of the last time the configured
       conditions of this unit were checked. </para>
 
-      <para><varname>Conditions</varname> contains all configured conditions of the unit. For each condition
+      <para><varname>Conditions</varname> contains all configured conditions of the unit. For each condition,
       five fields are given: condition type (e.g. <varname>ConditionPathExists</varname>), whether the
       condition is a trigger condition, whether the condition is reversed, the right hand side of the
       condition (e.g. the path in case of <varname>ConditionPathExists</varname>), and the status. The status
       can be 0, in which case the condition hasn't been checked yet, a positive value, in which case the
       condition passed, or a negative value, in which case the condition failed. Currently only 0, +1, and -1
       are used, but additional values may be used in the future, retaining the meaning of
-      zero/positive/negative values</para>
+      zero/positive/negative values.</para>
 
       <para><varname>LoadError</varname> contains a pair of strings. If the unit failed to load (as encoded
       in <varname>LoadState</varname>, see above), then this will include a D-Bus error pair consisting of
-      the error ID and an explanatory human readable string of what happened. If it succeeded to load this
+      the error ID and an explanatory human readable string of what happened. If it loaded successfully, this
       will be a pair of empty strings.</para>
 
-      <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as
-      transient unit (i.e. via <function>CreateTransientUnit()</function> on the manager object)</para>
+      <para><varname>Transient</varname> contains a boolean that indicates whether the unit was created as a
+      transient unit (i.e. via <function>CreateTransientUnit()</function> on the manager object).</para>
     </refsect2>
 
     <refsect2>
@@ -1073,10 +1075,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       last watchdog ping received from the service, or 0 if none was ever received.</para>
 
       <para><varname>ExecStartPre</varname>, <varname>ExecStart</varname>, <varname>ExecStartPost</varname>,
-      <varname>ExecReload</varname>, <varname>ExecStop</varname>, <varname>ExecStop</varname> each are arrays
-      of structures each containing: the binary path to execute; an array with all arguments to pass to the
-      executed command, starting with argument 0; a boolean whether it should be considered a failure if the
-      process exits uncleanly; two pairs of
+      <varname>ExecReload</varname>, <varname>ExecStop</varname>, and <varname>ExecStop</varname> are arrays
+      of structures where each struct contains: the binary path to execute; an array with all arguments to
+      pass to the executed command, starting with argument 0; a boolean whether it should be considered a
+      failure if the process exits uncleanly; two pairs of
       <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps when
       the process began and finished running the last time, or 0 if it never ran or never finished running;
       the PID of the process, or 0 if it has not run yet; the exit code and status of the last run. This
@@ -1084,16 +1086,17 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       with runtime data.</para>
 
       <para><varname>LimitCPU</varname> (and related properties) map more or less directly to the
-      corresponding settings in the service unit files, however are set to 18446744073709551615 (i.e. -1) if
-      they aren't set.</para>
+      corresponding settings in the service unit files except that if they aren't set, their value is
+      18446744073709551615 (i.e. -1).</para>
 
       <para><varname>Capabilities</varname> contains the configured capabilities, as formatted with
       <citerefentry project='man-pages'><refentrytitle>cap_to_text</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
       </para>
 
       <para><varname>SecureBits</varname>, <varname>CapabilityBoundingSet</varname>,
-      <varname>MountFlags</varname> also correspond to the configured settings of the unit files, but are
-      encoded as the actual binary flag fields they are, rather than formatted as string.</para>
+      <varname>MountFlags</varname> also correspond to the configured settings of the unit files, but
+      instead of being formatted as strings, they are encoded as the actual binary flags they are.
+      </para>
 
       <para><varname>ExecMainStartTimestamp</varname>, <varname>ExecMainStartTimestampMonotonic</varname>,
       <varname>ExecMainExitTimestamp</varname>, <varname>ExecMainExitTimestampMonotonic</varname>,
@@ -1119,17 +1122,17 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       explanatory string.</para>
 
       <para><varname>Result</varname> encodes the execution result of the last run of the service. It is
-      useful to determine the reason a service failed if it is in <literal>failed</literal> state (see
+      useful to determine the reason a service failed if it is in the <literal>failed</literal> state (see
       <varname>ActiveState</varname> above). The following values are currently known:
       <literal>success</literal> is set if the unit didn't fail. <literal>resources</literal> indicates that
-      not enough resources have been available to fork off and execute the service
+      not enough resources were available to fork off and execute the service
       processes. <literal>timeout</literal> indicates that a time-out occurred while executing a service
       operation. <literal>exit-code</literal> indicates that a service process exited with an unclean exit
       code. <literal>signal</literal> indicates that a service process exited with an uncaught
       signal. <literal>core-dump</literal> indicates that a service process exited uncleanly and dumped
       core. <literal>watchdog</literal> indicates that a service did not send out watchdog ping messages
       often enough. <literal>start-limit</literal> indicates that a service has been started too frequently
-      in a time frame (as configured in <varname>StartLimitInterval</varname>,
+      in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
       <varname>StartLimitBurst</varname>).</para>
 
       <para><varname>ControlGroup</varname> indicates the control group path the processes of this service
@@ -1292,15 +1295,15 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       i.e. those where systemd is responsible for accepted connections. </para>
 
       <para>Similarly <varname>NConnections</varname> contains the number of currently open connections on
-      this socket, and also applies only to socket with <varname>Accept</varname> set to
+      this socket. It only applies only to socket units with <varname>Accept</varname> set to
       <literal>true</literal>.</para>
 
-      <para><varname>Result</varname> encodes the reason why a socket unit failed if it is in
+      <para><varname>Result</varname> encodes the reason why a socket unit failed if it is in the
       <literal>failed</literal> state (see <varname>ActiveState</varname> above). The values
       <literal>success</literal>, <literal>resources</literal>, <literal>timeout</literal>,
       <literal>exit-code</literal>, <literal>signal</literal> and <literal>core-dump</literal> have the same
-      meaning as they have for the corresponding field of service units (see above). In addition to that the
-      value <literal>service-failed-permanent</literal> indicates that the service of this socket failed
+      meaning as they have for the corresponding field of service units (see above). In addition to that,
+      the value <literal>service-failed-permanent</literal> indicates that the service of this socket failed
       continuously.</para>
     </refsect2>
   </refsect1>
@@ -1379,13 +1382,12 @@ node /org/freedesktop/systemd1/unit/dev_2d_foo_2edevice {
     </refsect2>
   </refsect1>
 
-
   <refsect1>
     <title>Mount Unit Objects</title>
 
     <para>All mount unit objects implement the <interfacename>org.freedesktop.systemd1.Mount</interfacename>
     interface (described here) in addition to the generic
-    <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above)</para>
+    <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 
     <programlisting interface="org.freedesktop.systemd1.Mount">
 $ gdbus introspect --system --dest org.freedesktop.systemd1 \
@@ -1503,7 +1505,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       <title>Properties</title>
 
       <para>Most of the properties map directly to the corresponding settings in mount unit files. As mount
-      units invoke the <filename>/usr/bin/mount</filename> command their bus objects include implicit
+      units invoke the <filename>/usr/bin/mount</filename> command, their bus objects include implicit
       <varname>ExecMount</varname> (and similar) fields which contain information about processes to
       execute. They also share most of the fields related to the execution context that Service objects
       expose (see above). In addition to these properties there are the following:</para>
@@ -1514,7 +1516,7 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
       <para><varname>Result</varname> contains a value explaining why a mount unit failed if it failed. It
       can take the values <literal>success</literal>, <literal>resources</literal>,
-      <literal>timeout</literal>, <literal>exit-code</literal>, <literal>signal</literal>,
+      <literal>timeout</literal>, <literal>exit-code</literal>, <literal>signal</literal>, or
       <literal>core-dump</literal> which have the identical meaning as the corresponding values of the
       corresponding field of service unit objects (see above).</para>
     </refsect2>
@@ -1562,7 +1564,7 @@ node /org/freedesktop/systemd1/unit/proc_2dsys_2dfs_2dbinfmt_5fmisc_2eautomount 
       files.</para>
 
       <para><varname>Result</varname> knows the values <literal>success</literal> and
-      <literal>resources</literal>, at this time. They have the same meanings as the corresponding values of
+      <literal>resources</literal> at this time. They have the same meanings as the corresponding values of
       the corresponding field of the Service object.</para>
     </refsect2>
   </refsect1>
@@ -1611,10 +1613,10 @@ node /org/freedesktop/systemd1/unit/systemd_2dtmpfiles_2dclean_2etimer {
       <para><varname>TimersMonotonic</varname> contains an array of structs that contain information about
       all monotonic timers of this timer unit. The structs contain a string identifying the timer base, which
       is one of <literal>OnActiveUSec</literal>, <literal>OnBootUSec</literal>,
-      <literal>OnStartupUSec</literal>, <literal>OnUnitActiveUSec</literal>,
-      <literal>OnUnitInactiveUSec</literal>, which correspond to the settings of the same names in the timer
+      <literal>OnStartupUSec</literal>, <literal>OnUnitActiveUSec</literal>, or
+      <literal>OnUnitInactiveUSec</literal> which correspond to the settings of the same names in the timer
       unit files; the microsecond offset from this timer base in monotonic time; the next elapsation point on
-      the <constant>CLOCK_MONOTONIC</constant> clock, relative its epoch.</para>
+      the <constant>CLOCK_MONOTONIC</constant> clock, relative to its epoch.</para>
 
       <para><varname>TimersCalendar</varname> contains an array of structs that contain information about all
       realtime/calendar timers of this timer unit. The structs contain a string identifying the timer base,
@@ -1757,7 +1759,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
       <para>Most of the properties map directly to the corresponding settings in swap unit files. As mount
       units invoke the
-      <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command
+      <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
       their bus objects include implicit <varname>ExecActivate</varname> (and similar) fields which contain
       information about processes to execute. They also share most of the fields related to the execution
       context that Service objects expose (see above). In addition to these properties there are the
@@ -1770,7 +1772,7 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
       <para><varname>Result</varname> contains a value explaining why a mount unit failed if it failed. It
       can take the values <literal>success</literal>, <literal>resources</literal>,
-      <literal>timeout</literal>, <literal>exit-code</literal>, <literal>signal</literal>,
+      <literal>timeout</literal>, <literal>exit-code</literal>, <literal>signal</literal>, or
       <literal>core-dump</literal> which have the identical meanings as the corresponding values of the
       corresponding field of service unit objects (see above).</para>
     </refsect2>
@@ -1819,12 +1821,12 @@ node /org/freedesktop/systemd1/unit/cups_2epath {
 
       <para><varname>Paths</varname> contains an array of structs. Each struct contains the condition to
       watch, which can be one of <literal>PathExists</literal>, <literal>PathExistsGlob</literal>,
-      <literal>PathChanged</literal>, <literal>PathModified</literal>, <literal>DirectoryNotEmpty</literal>
+      <literal>PathChanged</literal>, <literal>PathModified</literal>, or <literal>DirectoryNotEmpty</literal>
       which correspond directly to the matching settings in the path unit files; and the path to watch,
       possibly including glob expressions.</para>
 
       <para><varname>Result</varname> contains a result value which can be <literal>success</literal> or
-      <literal>resources</literal>, which have the same meaning as the corresponding field of the service
+      <literal>resources</literal> which have the same meaning as the corresponding field of the Service
       interface.</para>
     </refsect2>
   </refsect1>
@@ -1942,7 +1944,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
       <para><function>Abandon()</function> may be used to place a scope unit in the "abandoned" state. This
       may be used to inform the system manager that the manager that created the scope lost interest in the
-      scope (for example, because it is terminating), without wanting to shut down the scope entirely</para>
+      scope (for example, because it is terminating), without wanting to shut down the scope entirely.</para>
     </refsect2>
 
     <refsect2>
@@ -1950,18 +1952,18 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
       <para><function>RequestStop</function> is sent to the peer that is configured in the
       <varname>Controller</varname> property when systemd is requested to terminate the scope unit. A program
-      registering a scope can use this to cleanly shut down the processes it added to the scope, instead of
+      registering a scope can use this to cleanly shut down the processes it added to the scope instead of
       letting systemd do it with the usual <constant>SIGTERM</constant> logic.</para>
     </refsect2>
 
     <refsect2>
       <title>Properties</title>
 
-      <para>All properties correspond directly with the matching properties of service units</para>
+      <para>All properties correspond directly with the matching properties of service units.</para>
 
       <para><varname>Controller</varname> contains the bus name (unique or well-known) that is notified when
       the scope unit is to be shut down via a <function>RequestStop</function> signal (see below). This is
-      set when the scope is created. If not set the scope's processes will terminated with
+      set when the scope is created. If not set, the scope's processes will terminated with
       <constant>SIGTERM</constant> directly.</para>
     </refsect2>
   </refsect1>
@@ -2015,17 +2017,17 @@ node /org/freedesktop/systemd1/job/1292 {
       <para><varname>Id</varname> is the numeric Id of the job. During the runtime of a systemd instance each
       numeric ID is only assigned once.</para>
 
-      <para><varname>Unit</varname> refers to the unit this job belongs two. It is a structure consisting of
+      <para><varname>Unit</varname> refers to the unit this job belongs to. It is a structure consisting of
       the name of the unit and a bus path to the unit's object.</para>
 
       <para><varname>JobType</varname> refers to the job's type and is one of <literal>start</literal>,
       <literal>verify-active</literal>, <literal>stop</literal>, <literal>reload</literal>,
-      <literal>restart</literal>, <literal>try-restart</literal>, <literal>reload-or-start</literal>. Note
+      <literal>restart</literal>, <literal>try-restart</literal>, or <literal>reload-or-start</literal>. Note
       that later versions might define additional values.</para>
 
       <para><varname>State</varname> refers to the job's state and is one of <literal>waiting</literal> and
       <literal>running</literal>. The former indicates that a job is currently queued but has not begun to
-      execute yet, the latter indicates that a job is currently being executed.</para>
+      execute yet. The latter indicates that a job is currently being executed.</para>
     </refsect2>
   </refsect1>
 

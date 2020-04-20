@@ -156,7 +156,7 @@ node /org/freedesktop/import1 {
       <literal>gzip</literal>, depending on which compression scheme is required. The image written to the
       specified file descriptor will be a tar file in case of <function>ExportTar()</function> or a raw disk
       image in case of <function>ExportRaw()</function>. Note that currently raw disk images may not be
-      exported as tar files, and vice versa. This restriction might be lifted eventually. The call
+      exported as tar files, and vice versa. This restriction might be lifted eventually. The method
       returns a transfer identifier and object path for cancelling or tracking the export operation, similar
       to <function>ImportTar()</function> or <function>ImportRaw()</function> as described above.</para>
 
@@ -246,8 +246,8 @@ node /org/freedesktop/import1/transfer/_1 {
       <title>Methods</title>
 
       <para>The <function>Cancel()</function> method may be used to cancel the transfer. It takes no
-      parameters. This call is pretty much equivalent to the <function>CancelTransfer()</function> call on
-      the <structname>Manager</structname> interface (see above), but is exposed on the
+      parameters. This method is pretty much equivalent to the <function>CancelTransfer()</function> method
+      on the <structname>Manager</structname> interface (see above), but is exposed on the
       <structname>Transfer</structname> object itself instead of taking a transfer ID.</para>
     </refsect2>
 

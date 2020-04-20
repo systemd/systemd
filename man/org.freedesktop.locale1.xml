@@ -77,7 +77,7 @@ node /org/freedesktop/locale1 {
       daemons will inherit the new system locale. Note that already running daemons will not learn about the
       new value.</para>
 
-      <para>The <function>SetVConsoleKeyboard()</function> call may be used to set the key mapping for the
+      <para>The <function>SetVConsoleKeyboard()</function> method may be used to set the key mapping for the
       virtual console. Similarly, <function>SetX11Keyboard()</function> may be used to set the default key
       mapping of any X11 servers.</para>
 
