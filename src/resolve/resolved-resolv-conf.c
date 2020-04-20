@@ -355,35 +355,35 @@ int manager_write_resolv_conf(Manager *m) {
 
         r = fopen_temporary_label(PRIVATE_UPLINK_RESOLV_CONF, PRIVATE_UPLINK_RESOLV_CONF, &f_uplink, &temp_path_uplink);
         if (r < 0)
-                return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
+                return log_warning_errno(r, "Failed to open new %s for writing: %m", PRIVATE_UPLINK_RESOLV_CONF);
 
         (void) fchmod(fileno(f_uplink), 0644);
 
         r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
         if (r < 0)
-                return log_warning_errno(r, "Failed to open private stub-resolv.conf file for writing: %m");
+                return log_warning_errno(r, "Failed to open new %s for writing: %m", PRIVATE_STUB_RESOLV_CONF);
 
         (void) fchmod(fileno(f_stub), 0644);
 
         r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);
         if (r < 0) {
-                log_error_errno(r, "Failed to write private resolv.conf contents: %m");
+                log_error_errno(r, "Failed to write new %s: %m", PRIVATE_UPLINK_RESOLV_CONF);
                 goto fail;
         }
 
         if (rename(temp_path_uplink, PRIVATE_UPLINK_RESOLV_CONF) < 0) {
-                r = log_error_errno(errno, "Failed to move private resolv.conf file into place: %m");
+                r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_UPLINK_RESOLV_CONF);
                 goto fail;
         }
 
         r = write_stub_resolv_conf_contents(f_stub, dns, domains);
         if (r < 0) {
-                log_error_errno(r, "Failed to write private stub-resolv.conf contents: %m");
+                log_error_errno(r, "Failed to write new %s: %m", PRIVATE_STUB_RESOLV_CONF);
                 goto fail;
         }
 
         if (rename(temp_path_stub, PRIVATE_STUB_RESOLV_CONF) < 0) {
-                r = log_error_errno(errno, "Failed to move private stub-resolv.conf file into place: %m");
+                r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_STUB_RESOLV_CONF);
                 goto fail;
         }
 
