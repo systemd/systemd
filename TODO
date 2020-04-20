@@ -821,6 +821,10 @@ Features:
 
 * teach ConditionKernelCommandLine= globs or regexes (in order to match foobar={no,0,off})
 
+* Add ConditionDirectoryNotEmpty= handle non-absoute paths as a search path or add
+  ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
+  https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
+
 * BootLoaderSpec: Clarify that the kernel has to be in $BOOT. Clarify
   that the boot loader should be installed to the ESP. Define a way
   how an installer can figure out whether a BLS compliant boot loader
