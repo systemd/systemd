@@ -18,9 +18,12 @@
 
   <refnamediv>
     <refname>sd_bus_set_server</refname>
+    <refname>sd_bus_is_server</refname>
     <refname>sd_bus_get_bus_id</refname>
+    <refname>sd_bus_set_bus_client</refname>
+    <refname>sd_bus_is_bus_client</refname>
 
-    <refpurpose>Configure server mode for a bus object</refpurpose>
+    <refpurpose>Configure direct connection mode for a bus object</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -35,9 +38,25 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_is_server</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_get_bus_id</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>sd_id128_t *<parameter>id</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_bus_client</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_bus_client</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -55,16 +74,44 @@
     <citerefentry><refentrytitle>sd_id128_randomize</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     can be used to generate a random id instead.</para>
 
+    <para><function>sd_bus_is_server()</function> returns whether the server mode is enabled for
+    the given bus object.</para>
+
     <para><function>sd_bus_get_bus_id()</function> stores the D-Bus server id configured using
     <function>sd_bus_set_server()</function> (for server bus objects) or received during
     D-Bus authentication (for client bus objects) in <parameter>id</parameter>.</para>
+
+    <para><function>sd_bus_set_bus_client()</function> configures the bus object as a D-Bus daemon
+    client. <parameter>b</parameter> enables/disables the client mode. If zero, the client mode is
+    disabled and the bus object should connect directly to a D-Bus server. Otherwise, the client
+    mode is enabled and the bus object should connect to a D-Bus daemon. When connecting to an
+    existing bus using any of the functions in the
+    <citerefentry><refentrytitle>sd_bus_open</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    family of functions or any of the functions in the
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    family of functions, the bus object is automatically configured as a bus client. However, when
+    connecting to a D-Bus daemon by calling
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    followed by
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    the bus object should be manually configured as a bus client using
+    <function>sd_bus_set_bus_client()</function>. By default, a bus object is not configured as a
+    D-Bus daemon client.</para>
+
+    <para><function>sd_bus_is_bus_client()</function> returns whether the client mode is
+    enabled/disabled for the given bus object.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return a non-negative integer. On failure, they return a
-    negative errno-style error code.</para>
+    <para>On success, <function>sd_bus_set_server()</function>,
+    <function>sd_bus_get_bus_id()</function> and <function>sd_bus_set_bus_client()</function> return
+    a non-negative integer. On failure, they return a negative errno-style error code.</para>
+
+    <para><function>sd_bus_is_server()</function> and <function>sd_bus_is_bus_client()</function>
+    return 1 when the server or client mode is enabled, respectively. Otherwise, they return 0.
+    </para>
 
     <refsect2>
       <title>Errors</title>
