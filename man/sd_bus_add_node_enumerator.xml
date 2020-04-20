@@ -1,0 +1,137 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_add_node_enumerator"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_add_node_enumerator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_add_node_enumerator</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_add_node_enumerator</refname>
+
+    <refpurpose>Add a node enumerator for a D-Bus object path prefix</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_node_enumerator_t</function>)</funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>prefix</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+        <paramdef>char ***<parameter>ret_nodes</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_node_enumerator</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_bus_node_enumerator_t <parameter>callback</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_add_node_enumerator()</function> adds a D-Bus node enumerator for the
+    given path prefix. The given callback is called to enumerate all the available objects with
+    the given path prefix when required (e.g. when
+    <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> or
+    <constant>org.freedesktop.DBus.ObjectManager.GetManagedObjects</constant> are called on a
+    D-Bus service managed by sd-bus).</para>
+
+    <para><parameter>callback</parameter> is called with the path and userdata pointer registered
+    with <function>sd_bus_add_node_enumerator()</function>. When called, it should store all the
+    child object paths of the given path prefix in <parameter>ret_nodes</parameter> and return the
+    number of child objects under the given prefix. If an error occurs, it can either return a
+    negative integer, set <parameter>ret_error</parameter> to a non-empty error or do both. Any
+    errors returned by the callback are encoded as D-Bus errors and sent back to the caller. Errors
+    in <parameter>ret_error</parameter> take priority over negative return values.</para>
+
+    <para>Note that a node enumerator callback will only ever be called for a single  path prefix
+    and hence, for normal operation, <parameter>prefix</parameter> can be ignored. Also, a node
+    enumerator is only used to enumerate the available child objects under a given prefix. To
+    install a handler for a set of dynamic child objects, use
+    <citerefentry><refentrytitle>sd_bus_add_fallback_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para>When <function>sd_bus_add_node_enumerator()</function> succeeds, a slot is created
+    internally. If the output parameter <replaceable>slot</replaceable> is <constant>NULL</constant>,
+    a "floating" slot object is created, see
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot
+    object should be dropped when the node enumerator is not needed anymore, see
+    <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_add_node_enumerator()</function> returns a non-negative
+    integer. On failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>One of the required parameters is <constant>NULL</constant> or
+          <parameter>path</parameter> is not a valid object path.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_add_fallback_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

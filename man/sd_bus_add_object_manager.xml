@@ -51,7 +51,7 @@
     <citerefentry><refentrytitle>sd_bus_emit_interfaces_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     whenever interfaces are added or removed from the sub-tree, respectively.</para>
 
-    <para>When <function>sd_bus_add_object_manager</function> succeeds, a slot is created
+    <para>When <function>sd_bus_add_object_manager()</function> succeeds, a slot is created
     internally. If the output parameter <replaceable>slot</replaceable> is <constant>NULL</constant>,
     a "floating" slot object is created, see
     <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
