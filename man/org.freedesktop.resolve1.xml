@@ -409,10 +409,10 @@ node /org/freedesktop/resolve1 {
     <refsect2>
       <title>Properties</title>
 
-      <varname>LLMNRHostname</varname> contains the hostname currently exposed on the network via LLMNR. It
-      usually follows the system hostname as may be queried via
+      <para><varname>LLMNRHostname</varname> contains the hostname currently exposed on the network via
+      LLMNR. It usually follows the system hostname as may be queried via
       <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      but may differ if a conflict is detected on the network.
+      but may differ if a conflict is detected on the network.</para>
 
       <para><varname>DNS</varname> contains an array of all DNS servers currently used by
       <filename>systemd-resolved</filename>. It contains similar information as the DNS server data written to
