@@ -153,8 +153,9 @@ int sd_bus_set_anonymous(sd_bus *bus, int b);
 int sd_bus_is_anonymous(sd_bus *bus);
 int sd_bus_set_trusted(sd_bus *bus, int b);
 int sd_bus_is_trusted(sd_bus *bus);
-int sd_bus_set_monitor(sd_bus *bus, int b);
-int sd_bus_is_monitor(sd_bus *bus);
+/* Use https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-become-monitor instead. */
+int sd_bus_set_monitor(sd_bus *bus, int b) _sd_deprecated_;
+int sd_bus_is_monitor(sd_bus *bus) _sd_deprecated_;
 int sd_bus_set_description(sd_bus *bus, const char *description);
 int sd_bus_get_description(sd_bus *bus, const char **description);
 int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t creds_mask);
