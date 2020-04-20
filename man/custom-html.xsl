@@ -1,9 +1,5 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
-
-<!--
-  SPDX-License-Identifier: LGPL-2.1+
-
--->
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 
@@ -91,6 +87,21 @@
       <xsl:text>.</xsl:text>
       <xsl:value-of select="manvolnum"/>
       <xsl:text>.html</xsl:text>
+    </xsl:attribute>
+    <xsl:call-template name="inline.charseq"/>
+  </a>
+</xsl:template>
+
+<xsl:template match="citerefentry[@project='debian']">
+  <a>
+    <xsl:attribute name="href">
+      <xsl:text>https://manpages.debian.org/unstable/</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+      <xsl:text>/</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+      <xsl:text>.</xsl:text>
+      <xsl:value-of select="manvolnum"/>
+      <xsl:text>.en.html</xsl:text>
     </xsl:attribute>
     <xsl:call-template name="inline.charseq"/>
   </a>
