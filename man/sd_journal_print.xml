@@ -22,6 +22,12 @@
     <refname>sd_journal_sendv</refname>
     <refname>sd_journal_perror</refname>
     <refname>SD_JOURNAL_SUPPRESS_LOCATION</refname>
+    <refname>sd_journal_print_with_location</refname>
+    <refname>sd_journal_printv_with_location</refname>
+    <refname>sd_journal_send_with_location</refname>
+    <refname>sd_journal_sendv_with_location</refname>
+    <refname>sd_journal_perror_with_location</refname>
+
     <refpurpose>Submit log entries to the journal</refpurpose>
   </refnamediv>
 
@@ -60,6 +66,51 @@
         <paramdef>const char *<parameter>message</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef>int <function>sd_journal_print_with_location</function></funcdef>
+        <paramdef>const char *<parameter>file</parameter></paramdef>
+        <paramdef>const char *<parameter>line</parameter></paramdef>
+        <paramdef>const char *<parameter>func</parameter></paramdef>
+        <paramdef>int <parameter>priority</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_printv_with_location</function></funcdef>
+        <paramdef>int <parameter>priority</parameter></paramdef>
+        <paramdef>const char *<parameter>file</parameter></paramdef>
+        <paramdef>const char *<parameter>line</parameter></paramdef>
+        <paramdef>const char *<parameter>func</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_send_with_location</function></funcdef>
+        <paramdef>const char *<parameter>file</parameter></paramdef>
+        <paramdef>const char *<parameter>line</parameter></paramdef>
+        <paramdef>const char *<parameter>func</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_sendv_with_location</function></funcdef>
+        <paramdef>const char *<parameter>file</parameter></paramdef>
+        <paramdef>const char *<parameter>line</parameter></paramdef>
+        <paramdef>const char *<parameter>func</parameter></paramdef>
+        <paramdef>const struct iovec *<parameter>iov</parameter></paramdef>
+        <paramdef>int <parameter>n</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_perror_with_location</function></funcdef>
+        <paramdef>const char *<parameter>file</parameter></paramdef>
+        <paramdef>const char *<parameter>line</parameter></paramdef>
+        <paramdef>const char *<parameter>func</parameter></paramdef>
+        <paramdef>const char *<parameter>message</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -136,11 +187,20 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
                 "PRIORITY=%i", LOG_INFO,
                 NULL);</programlisting>
 
-    <para>Note that these calls implicitly add fields for the source
-    file, function name and code line where invoked. This is
-    implemented with macros. If this is not desired, it can be turned
-    off by defining SD_JOURNAL_SUPPRESS_LOCATION before including
-    <filename>sd-journal.h</filename>.</para>
+    <para>Note that these calls implicitly add fields for the source file, function name and code line where
+    invoked. This is implemented with macros. If this is not desired, it can be turned off by defining
+    <constant>SD_JOURNAL_SUPPRESS_LOCATION</constant> before including <filename>sd-journal.h</filename>.
+    </para>
+
+    <para><function>sd_journal_print_with_location</function>,
+    <function>sd_journal_printv_with_location</function>, <function>sd_journal_send_with_location</function>,
+    <function>sd_journal_sendv_with_location</function>, and
+    <function>sd_journal_perror_with_location</function> are similar to their counterparts without
+    <literal>_with_location</literal>, but accept additional parameters to explicitly set the source file
+    name, function, and line. Those arguments must contain valid journal entries including the variable name,
+    e.g. <literal>CODE_FILE=src/foo.c</literal>, <literal>CODE_LINE=666</literal>,
+    <literal>CODE_FUNC=myfunc</literal>. These variants are primarily useful when writing custom wrappers,
+    for example in bindings for a different language.</para>
 
     <para><citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and <function>sd_journal_print()</function> may
@@ -163,9 +223,9 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
   <refsect1>
     <title>Return Value</title>
 
-    <para>The five calls return 0 on success or a negative errno-style error code. The <citerefentry
-    project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> variable itself is
-    not altered.</para>
+    <para>The ten functions return 0 on success or a negative errno-style error code. The
+    <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    variable itself is not altered.</para>
 
     <para>If
     <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -178,15 +238,17 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
     <xi:include href="threads-aware.xml" xpointer="safe"/>
 
-    <para><function>sd_journal_sendv()</function> is "async signal safe" in the meaning of <citerefentry
-    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    <para><function>sd_journal_sendv()</function> and <function>sd_journal_sendv_with_location()</function>
+    are "async signal safe" in the meaning of
+    <citerefentry project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
     <para><function>sd_journal_print</function>,
     <function>sd_journal_printv</function>,
-    <function>sd_journal_send</function>, and
-    <function>sd_journal_perror</function> are
-    not async signal safe.</para>
+    <function>sd_journal_send</function>,
+    <function>sd_journal_perror</function>,
+    and their counterparts with <literal>_with_location</literal>
+    are not async signal safe.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
