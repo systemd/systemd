@@ -9,6 +9,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "alloc-util.h"
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
@@ -180,7 +181,6 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char **user_cl
 
                 if (len > 0xffff)
                         return -ENAMETOOLONG;
-
                 q = realloc(p, total + len + 2);
                 if (!q)
                         return -ENOMEM;
@@ -195,6 +195,46 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char **user_cl
         }
 
         return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, total, p);
+}
+
+int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char **vendor_class) {
+        _cleanup_free_ uint8_t *p = NULL;
+        uint32_t enterprise_identifier;
+        size_t total, offset;
+        char **s;
+
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(vendor_class);
+
+        enterprise_identifier = htobe32(SYSTEMD_PEN);
+
+        p = memdup(&enterprise_identifier, sizeof(enterprise_identifier));
+        if (!p)
+                return -ENOMEM;
+
+        total = sizeof(enterprise_identifier);
+        offset = total;
+
+        STRV_FOREACH(s, vendor_class) {
+                size_t len = strlen(*s);
+                uint8_t *q;
+
+                q = realloc(p, total + len + 2);
+                if (!q)
+                        return -ENOMEM;
+
+                p = q;
+
+                unaligned_write_be16(&p[offset], len);
+                memcpy(&p[offset + 2], *s, len);
+
+                offset += 2 + len;
+                total += 2 + len;
+        }
+
+        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_CLASS, total, p);
 }
 
 int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd, DHCP6Address *hint_pd_prefix) {
