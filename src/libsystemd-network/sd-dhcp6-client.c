@@ -357,18 +357,8 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
-        switch(option) {
-
-        case SD_DHCP6_OPTION_DNS_SERVERS:
-        case SD_DHCP6_OPTION_DOMAIN_LIST:
-        case SD_DHCP6_OPTION_SNTP_SERVERS:
-        case SD_DHCP6_OPTION_NTP_SERVER:
-        case SD_DHCP6_OPTION_RAPID_COMMIT:
-                break;
-
-        default:
+        if (option <= 0 || option >= 255)
                 return -EINVAL;
-        }
 
         for (t = 0; t < client->req_opts_len; t++)
                 if (client->req_opts[t] == htobe16(option))
