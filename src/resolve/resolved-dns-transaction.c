@@ -1350,7 +1350,16 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         }
 
         if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
-                dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
+                DnsTransactionState result;
+
+                if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
+                        /* If we didn't find anything on LLMNR, it's not an error, but a failure to resolve
+                         * the name. */
+                        result = DNS_TRANSACTION_NOT_FOUND;
+                else
+                        result = DNS_TRANSACTION_ATTEMPTS_MAX_REACHED;
+
+                dns_transaction_complete(t, result);
                 return 0;
         }
 
