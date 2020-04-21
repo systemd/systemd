@@ -313,9 +313,9 @@ static int manager_check_ask_password(Manager *m) {
                                     m->ask_password_inotify_fd, EPOLLIN,
                                     manager_dispatch_ask_password_fd, m);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to add event source for /run/systemd/ask-password: %m");
+                        log_error_errno(r, "Failed to add event source for /run/systemd/ask-password: %m");
                         manager_close_ask_password(m);
-                        return -errno;
+                        return r;
                 }
 
                 (void) sd_event_source_set_description(m->ask_password_event_source, "manager-ask-password");
