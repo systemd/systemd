@@ -95,7 +95,7 @@ services are listening there, that have special relevance:
 2. `io.systemd.Multiplexer` → This service multiplexes client queries to all
    other running services. It's supposed to simplify client development: in
    order to look up or enumerate user/group records it's sufficient to talk to
-   one service instead of all of them in parallel. Note that it is not availabe
+   one service instead of all of them in parallel. Note that it is not available
    during earliest boot and final shutdown phases, hence for programs running
    in that context it is preferable to implement the parallel lookup
    themselves.

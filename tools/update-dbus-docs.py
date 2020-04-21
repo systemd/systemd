@@ -279,7 +279,7 @@ def process(page):
         subst_output(xml, pl)
 
     out_text = etree.tostring(xml, encoding='unicode')
-    # massage format to avoid some lxml whitespace handling idiosyncracies
+    # massage format to avoid some lxml whitespace handling idiosyncrasies
     # https://bugs.launchpad.net/lxml/+bug/526799
     out_text = (src[:src.find('<refentryinfo')] +
                 out_text[out_text.find('<refentryinfo'):] +

@@ -50,7 +50,7 @@
       <listitem><para>An individual LUKS2 encrypted loopback file for a user, stored in
       <filename>/home/*.home</filename>. At login the file system contained in this files is mounted, after
       the LUKS2 encrypted volume has been attached. The user's password is identical to the encryption
-      passphrase of the LUKS2 volume. Access to data without preceeding user authentication is thus not
+      passphrase of the LUKS2 volume. Access to data without preceding user authentication is thus not
       possible, even for the system administrator. This storage mechanism provides the strongest data
       security and is thus recommended.</para></listitem>
 
@@ -267,7 +267,7 @@
         matching the user in name and numeric UID/GID. Thus any groups listed here must be registered
         independently, for example with <citerefentry
         project='man-pages'><refentrytitle>groupadd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. If
-        non-existant groups that are listed there are ignored. This option may be used more than once, in
+        non-existent groups that are listed there are ignored. This option may be used more than once, in
         which case all specified group lists are combined.</para></listitem>
       </varlistentry>
 
@@ -467,7 +467,7 @@
         project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry> or a
         similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
         running under the UID of the user, thus excluding any child processes that might have changed user
-        identity. This controls the <varname>TasksMax=</varname> settting of the per-user systemd slice unit
+        identity. This controls the <varname>TasksMax=</varname> setting of the per-user systemd slice unit
         <filename>user-$UID.slice</filename>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for further details.</para></listitem>
@@ -707,7 +707,7 @@
       <varlistentry>
         <term><command>passwd</command> <replaceable>USER</replaceable></term>
 
-        <listitem><para>Change the password of the specified home direcory/user account.</para></listitem>
+        <listitem><para>Change the password of the specified home directory/user account.</para></listitem>
       </varlistentry>
 
       <varlistentry>

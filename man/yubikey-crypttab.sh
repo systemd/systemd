@@ -1,4 +1,4 @@
-# Make sure noone can read the files we generate but us
+# Make sure no one can read the files we generate but us
 umask 077
 
 # Destroy any old key on the Yubikey (careful!)
@@ -40,7 +40,7 @@ shred -u plaintext.bin plaintext.base64
 rm pubkey.pem
 
 # Test: Let's run systemd-cryptsetup to test if this all worked. The option string should contain the full
-# PKCS#11 URI we have in the clipboard, it tells the tool how to decypher the encrypted LUKS key.
+# PKCS#11 URI we have in the clipboard, it tells the tool how to decipher the encrypted LUKS key.
 sudo systemd-cryptsetup attach mytest /dev/sdXn /etc/encrypted-luks-key.bin 'pkcs11-uri=pkcs11:…'
 
 # If that worked, let's now add the same line persistently to /etc/crypttab, for the future.

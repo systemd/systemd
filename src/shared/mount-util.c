@@ -151,7 +151,7 @@ int bind_remount_recursive_with_mountinfo(
          * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
          * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
          * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
-         * do not have any effect on future submounts that might get propagated, they migt be writable. This includes
+         * do not have any effect on future submounts that might get propagated, they might be writable. This includes
          * future submounts that have been triggered via autofs.
          *
          * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the

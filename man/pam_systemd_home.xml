@@ -70,7 +70,7 @@
 
         <para>Turning this option on by default is highly recommended for all sessions, but only if the
         service managing these sessions correctly implements the aforementioned re-authentication. Note that
-        the re-authentication must take place from a component runing outside of the user's context, so that
+        the re-authentication must take place from a component running outside of the user's context, so that
         it does not require access to the user's home directory for operation. Traditionally, most desktop
         environments do not implement screen locking this way, and need to be updated
         accordingly.</para></listitem>

@@ -66,7 +66,7 @@
     file. This function caches the machine ID internally to make retrieving the machine ID a cheap operation. This ID
     may be used wherever a unique identifier for the local system is needed. However, it is recommended to use this ID
     as-is only in trusted environments. In untrusted environments it is recommended to derive an application specific
-    ID from this machine ID, in an irreversable (cryptographically secure) way. To make this easy
+    ID from this machine ID, in an irreversible (cryptographically secure) way. To make this easy
     <function>sd_id128_get_machine_app_specific()</function> is provided, see below.</para>
 
     <para><function>sd_id128_get_machine_app_specific()</function> is similar to

@@ -36,7 +36,7 @@ else
     FUZZIT_BRANCH="PR-${TRAVIS_PULL_REQUEST}"
 fi
 
-# Because we want Fuzzit to run on every pull-request and Travis/Azure doesnt support encrypted keys
+# Because we want Fuzzit to run on every pull-request and Travis/Azure doesn't support encrypted keys
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
 export FUZZIT_API_KEY=af6992074353998676713818cc6435ef4a750439932dab58b51e9354d6742c54d740a3cd9fc1fc001db82f51734a24bc
 FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-*.so"

@@ -163,7 +163,7 @@ TEMPLATE = '''\
         <refsect1>
                 <title>D-Bus interfaces</title>
 
-                <para>Interaces exposed over D-Bus.</para>
+                <para>Interfaces exposed over D-Bus.</para>
 
                 <variablelist id='dbus-interface' />
         </refsect1>

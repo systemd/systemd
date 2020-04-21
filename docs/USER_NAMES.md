@@ -157,7 +157,7 @@ it creates ambiguity in traditional `chown` syntax (which is still accepted
 today) that uses it to separate user and group names in the command's
 parameter: without consulting the user/group databases it is not possible to
 determine if a `chown` invocation would change just the owning user or both the
-owning user and group. It also allows embeddeding `@` (which is confusing to
+owning user and group. It also allows embedding `@` (which is confusing to
 MTAs).
 
 ## Common Core

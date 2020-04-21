@@ -128,7 +128,7 @@ static int link_push_uplink_to_dhcp_server(
                 break;
 
         default:
-                assert_not_reached("Uknown DHCP lease info item");
+                assert_not_reached("Unknown DHCP lease info item");
         }
 
         char **a;

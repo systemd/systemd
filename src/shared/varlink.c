@@ -1334,7 +1334,7 @@ int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
         if (v->state == VARLINK_DISCONNECTED)
                 return -ENOTCONN;
 
-        /* We allow enqueing multiple method calls at once! */
+        /* We allow enqueuing multiple method calls at once! */
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
                 return -EBUSY;
 
