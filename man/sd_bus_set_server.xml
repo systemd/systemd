@@ -22,8 +22,10 @@
     <refname>sd_bus_get_bus_id</refname>
     <refname>sd_bus_set_bus_client</refname>
     <refname>sd_bus_is_bus_client</refname>
+    <refname>sd_bus_set_monitor</refname>
+    <refname>sd_bus_is_monitor</refname>
 
-    <refpurpose>Configure direct connection mode for a bus object</refpurpose>
+    <refpurpose>Configure connection mode for a bus object</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -56,6 +58,17 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_is_bus_client</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_monitor</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_monitor</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
@@ -98,18 +111,32 @@
 
     <para><function>sd_bus_is_bus_client()</function> returns whether the client mode is enabled/disabled for
     the given bus object.</para>
+
+    <para><function>sd_bus_set_monitor()</function> configures the bus object as a D-Bus monitor object.
+    <parameter>b</parameter> enables/disables the monitor mode. If zero, the monitor mode is disabled. If
+    non-zero, the monitor mode is enabled. When the monitor mode is enabled, no messages may be sent via the
+    bus object and it may not expose any objects on the bus. To start monitoring messages, call the
+    <function>org.freedesktop.DBus.Monitoring.BecomeMonitor</function> method of the D-Bus daemon and pass
+    a list of matches indicating which messages to intercept. See
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-become-monitor">
+    The D-Bus specification</ulink> for more information.</para>
+
+    <para><function>sd_bus_is_monitor()</function> returns whether the monitor mode is enabled/disabled for
+    the given bus object.</para>
+
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
     <para>On success, <function>sd_bus_set_server()</function>,
-    <function>sd_bus_get_bus_id()</function> and <function>sd_bus_set_bus_client()</function> return a
-    non-negative integer. On failure, they return a negative errno-style error code.</para>
+    <function>sd_bus_get_bus_id()</function>, <function>sd_bus_set_bus_client()</function> and
+    <function>sd_bus_set_monitor()</function> return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
 
-    <para><function>sd_bus_is_server()</function> and <function>sd_bus_is_bus_client()</function> return a
-    positive integer when the server or client mode is enabled, respectively. Otherwise, they return zero.
-    </para>
+    <para><function>sd_bus_is_server()</function>, <function>sd_bus_is_bus_client()</function> and
+    <function>sd_bus_is_monitor()</function> return a positive integer when the server or client mode is
+    enabled, respectively. Otherwise, they return zero.</para>
 
     <refsect2>
       <title>Errors</title>
