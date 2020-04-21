@@ -1038,10 +1038,9 @@ static int home_remove(UserRecord *h) {
 
         if (deleted)
                 log_info("Everything completed.");
-        else {
-                log_notice("Nothing to remove.");
-                return -EALREADY;
-        }
+        else
+                return log_notice_errno(SYNTHETIC_ERRNO(EALREADY),
+                                        "Nothing to remove.");
 
         return 0;
 }

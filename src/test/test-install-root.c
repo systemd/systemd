@@ -1058,7 +1058,8 @@ static void verify_one(
         r = unit_file_verify_alias(i, alias, &alias2);
         log_info_errno(r, "alias %s ← %s: %d/%m (expected %d)%s%s%s",
                        i->name, alias, r, expected,
-                       alias2 ? " [" : "", alias2 ?: "", alias2 ? "]" : "");
+                       alias2 ? " [" : "", strempty(alias2),
+                       alias2 ? "]" : "");
         assert(r == expected);
 
         /* This is is test for "instance propagation". This propagation matters mostly for WantedBy= and
