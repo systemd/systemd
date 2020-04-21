@@ -18,6 +18,7 @@
     <refname>sd_hwdb_get</refname>
     <refname>sd_hwdb_seek</refname>
     <refname>sd_hwdb_enumerate</refname>
+    <refname>SD_HWDB_FOREACH_PROPERTY</refname>
 
     <refpurpose>Seek to a location in hwdb or access entries</refpurpose>
   </refnamediv>
@@ -47,6 +48,13 @@
         <paramdef>const char **<parameter>value</parameter></paramdef>
       </funcprototype>
 
+      <funcprototype>
+        <funcdef><function>SD_HWDB_FOREACH_PROPERTY</function></funcdef>
+        <paramdef>hwdb</paramdef>
+        <paramdef>modalias</paramdef>
+        <paramdef>key</paramdef>
+        <paramdef>value</paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
@@ -75,6 +83,10 @@
     <parameter>modalias</parameter>, the combination of all matching key-value pairs is used. See
     <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     details.</para>
+
+    <para>The <function>SD_HWDB_FOREACH_PROPERTY</function> macro combines
+    <function>sd_hwdb_seek()</function> and <function>sd_hwdb_enumerate()</function>. No error handling is
+    performed and interation simply stops on error. See the example below.</para>
   </refsect1>
 
   <refsect1>
@@ -117,6 +129,19 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Look up hwdb entries for a USB device</title>
+
+      <programlisting><xi:include href="hwdb-usb-device.c" parse="text" /></programlisting>
+
+      <para>The effect is similar to calling <command>systemd-hwdb query usb:v046DpC534</command>.
+      </para>
+    </example>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>
