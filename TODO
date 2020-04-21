@@ -22,6 +22,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
+  easily?
+
 * journalctl --image= which is like --root= but operates on disk images
 
 * when systemd-nspawn and suchlike dissect an OS image, and there are multiple
