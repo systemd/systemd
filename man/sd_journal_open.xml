@@ -22,6 +22,7 @@
     <refname>sd_journal_open_directory_fd</refname>
     <refname>sd_journal_open_files</refname>
     <refname>sd_journal_open_files_fd</refname>
+    <refname>sd_journal_open_namespace</refname>
     <refname>sd_journal_close</refname>
     <refname>sd_journal</refname>
     <refname>SD_JOURNAL_LOCAL_ONLY</refname>
