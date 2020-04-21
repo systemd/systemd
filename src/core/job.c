@@ -516,12 +516,20 @@ static bool job_is_runnable(Job *j) {
                 return true;
 
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
-                if (other->job && job_compare(j, other->job, UNIT_AFTER) > 0)
+                if (other->job && job_compare(j, other->job, UNIT_AFTER) > 0) {
+                        log_unit_debug(j->unit,
+                                       "starting held back, waiting for: %s",
+                                       other->id);
                         return false;
+                }
 
         HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
-                if (other->job && job_compare(j, other->job, UNIT_BEFORE) > 0)
+                if (other->job && job_compare(j, other->job, UNIT_BEFORE) > 0) {
+                        log_unit_debug(j->unit,
+                                       "stopping held back, waiting for: %s",
+                                       other->id);
                         return false;
+                }
 
         return true;
 }
