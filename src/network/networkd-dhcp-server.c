@@ -10,6 +10,8 @@
 #include "strv.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "dhcp-server-internal.h"
+#include "ether-addr-util.h"
 
 static Address* link_find_dhcp_server_address(Link *link) {
         Address *address;
@@ -290,6 +292,7 @@ static int link_push_uplink_sip_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
+        sd_dhcp_static_lease *s;
         Link *uplink = NULL;
         Address *address;
         Iterator i;
@@ -443,6 +446,13 @@ int dhcp4_server_configure(Link *link) {
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options, i) {
                 r = sd_dhcp_server_add_vendor_option(link->dhcp_server, p);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
+        }
+        HASHMAP_FOREACH(s, link->network->dhcp_static_leases, i){
+                r = sd_dhcp_server_add_static_lease(link->dhcp_server, s);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -723,5 +733,102 @@ int config_parse_dhcp_server_smtp_servers(
                 n->dhcp_server_smtp = m;
         }
 
+        return 0;
+}
+
+int config_parse_static_leases(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(sd_dhcp_static_lease_unrefp) sd_dhcp_static_lease *lease = NULL, *old = NULL;
+        _cleanup_free_ char *word = NULL, *q = NULL;
+        _cleanup_free_ struct ether_addr *n = NULL;
+        OrderedHashmap **static_leases = data;
+        union in_addr_union addr;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *static_leases = ordered_hashmap_free(*static_leases);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, " ", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid hw address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        n = new(struct ether_addr, 1);
+        if (!n)
+                return log_oom();
+
+        r = ether_addr_from_string(word, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                return 0;
+        }
+
+        word = mfree(word);
+        r = extract_first_word(&p, &word, " ", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid ip address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+        r = in_addr_from_string(AF_INET, word, &addr);
+
+        printf("address parsed %u\n", addr.in.s_addr);
+        if (r < 0) {
+          log_syntax(unit, LOG_ERR, filename, line, r,
+                     "Failed to parse DHCPv4 ipv4address data, ignoring assignment: %s", word);
+          return 0;
+        }
+        DHCPClientId *c = new(DHCPClientId, 1);
+        c->data= malloc0(ETH_ALEN + 1);
+        ((uint8_t*)  c->data)[0] = 0x01;
+        memcpy((uint8_t*) c->data + 1, n->ether_addr_octet, ETH_ALEN);
+        c->length=ETH_ALEN + 1;
+
+        r = sd_dhcp_static_lease_new(c, addr.in.s_addr, &lease);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store DHCPv4 static lease '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        r = ordered_hashmap_ensure_allocated(static_leases, &dhcp_static_leases_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        /* Overwrite existing option */
+        old = ordered_hashmap_remove(*static_leases, c);
+        r = ordered_hashmap_put(*static_leases, c, lease);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store DHCPv4 option '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        TAKE_PTR(lease);
         return 0;
 }

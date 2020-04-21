@@ -121,6 +121,7 @@ struct Network {
         sd_ipv4acd *dhcp_acd;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
+        Hashmap *dhcp_static_leases;
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
         OrderedHashmap *dhcp_server_send_options;
