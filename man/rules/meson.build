@@ -388,6 +388,7 @@ manpages = [
    'sd_bus_set_anonymous',
    'sd_bus_set_trusted'],
   ''],
+ ['sd_bus_set_exit_on_disconnect', '3', ['sd_bus_get_exit_on_disconnect'], ''],
  ['sd_bus_set_method_call_timeout',
   '3',
   ['sd_bus_get_method_call_timeout'],
