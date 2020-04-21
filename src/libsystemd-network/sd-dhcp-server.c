@@ -723,6 +723,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
         _cleanup_free_ char *error_message = NULL;
         DHCPLease *existing_lease;
+        sd_dhcp_static_lease *static_lease;
         int type, r;
 
         assert(server);
@@ -749,6 +750,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         existing_lease = hashmap_get(server->leases_by_client_id,
                                      &req->client_id);
 
+        static_lease = hashmap_get(server->static_leases_by_client_id,
+                                      &req->client_id);
+
         switch(type) {
 
         case DHCP_DISCOVER: {
@@ -761,10 +765,15 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                 if (!server->pool_size)
                         /* no pool allocated */
                         return 0;
-
                 /* for now pick a random free address from the pool */
-                if (existing_lease)
+
+                if(static_lease){
+                        address = static_lease->address;
+                        printf("static address %u\n", address);
+                }else if (existing_lease){
                         address = existing_lease->address;
+                        printf("existing address %u\n", address);
+                }
                 else {
                         struct siphash state;
                         uint64_t hash;
@@ -782,6 +791,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         for (i = 0; i < server->pool_size; i++) {
                                 if (!server->bound_leases[next_offer]) {
                                         address = server->subnet | htobe32(server->pool_offset + next_offer);
+                                        printf("new address %u\n", address);
                                         break;
                                 }
 
@@ -804,6 +814,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         case DHCP_DECLINE:
                 log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
 
+                printf("Declined\n");
                 /* TODO: make sure we don't offer this address again */
 
                 return 1;
@@ -1286,7 +1297,7 @@ int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v) 
         assert_return(server, -EINVAL);
         assert_return(v, -EINVAL);
 
-        r = ordered_hashmap_ensure_allocated(&server->vendor_options, &dhcp_option_hash_ops);
+        r = ordered_hashmap_ensure_allocated(&server->vendor_options, &dhcp_static_leases_hash_ops);
         if (r < 0)
                 return -ENOMEM;
 
@@ -1297,4 +1308,22 @@ int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v) 
         sd_dhcp_option_ref(v);
 
         return 1;
+}
+
+int sd_dhcp_server_add_static_lease(sd_dhcp_server *server, sd_dhcp_static_lease *v) {
+        int r;
+        assert_return(server, -EINVAL);
+        assert_return(v, -EINVAL);
+        printf("address from network to server %u\n", v->address);
+        r = hashmap_ensure_allocated(&server->static_leases_by_client_id, &dhcp_static_leases_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(server->static_leases_by_client_id, &v->client_id, v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp_static_lease_ref(v);
+
+        return 0;
 }
