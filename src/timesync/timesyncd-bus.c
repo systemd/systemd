@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "bus-internal.h"
+#include "bus-log-control-api.h"
 #include "bus-protocol.h"
 #include "bus-util.h"
 #include "in-addr-util.h"
@@ -188,6 +189,10 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL, NULL);
         if (r < 0)
