@@ -139,6 +139,9 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
+        <para>Units making use of <varname>RootImage=</varname> automatically gain an
+        <varname>After=</varname> dependency on <filename>systemd-udevd.service</filename>.</para>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
