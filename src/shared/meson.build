@@ -23,14 +23,16 @@ shared_sources = files('''
         bpf-program.h
         bridge-util.c
         bridge-util.h
+        bus-log-control-api.c
+        bus-log-control-api.h
+        bus-polkit.c
+        bus-polkit.h
         bus-unit-procs.c
         bus-unit-procs.h
         bus-unit-util.c
         bus-unit-util.h
         bus-util.c
         bus-util.h
-        bus-polkit.c
-        bus-polkit.h
         bus-wait-for-jobs.c
         bus-wait-for-jobs.h
         bus-wait-for-units.c
