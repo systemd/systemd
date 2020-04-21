@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "dns-domain.h"
@@ -1836,57 +1837,6 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
         return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
 }
 
-static int property_get_log_level(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_free_ char *t = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = log_level_to_string_alloc(log_get_max_level(), &t);
-        if (r < 0)
-                return r;
-
-        return sd_bus_message_append(reply, "s", t);
-}
-
-static int property_set_log_level(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *value,
-                void *userdata,
-                sd_bus_error *error) {
-
-        const char *t;
-        int r;
-
-        assert(bus);
-        assert(value);
-
-        r = sd_bus_message_read(value, "s", &t);
-        if (r < 0)
-                return r;
-
-        r = log_level_from_string(t);
-        if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log level '%s'", t);
-
-        log_info("Setting log level to %s.", t);
-        log_set_max_level(r);
-
-        return 0;
-}
-
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -1904,8 +1854,6 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
-
-        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
 
         SD_BUS_METHOD_WITH_NAMES("ResolveHostname",
                                  "isit",
@@ -2120,6 +2068,10 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/resolve1/dnssd", dnssd_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register dnssd enumerator: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL, NULL);
         if (r < 0)
