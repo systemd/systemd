@@ -161,6 +161,38 @@ TEMPLATE = '''\
         </refsect1>
 
         <refsect1>
+                <title>D-Bus interfaces</title>
+
+                <para>Interaces exposed over D-Bus.</para>
+
+                <variablelist id='dbus-interface' />
+        </refsect1>
+
+        <refsect1>
+                <title>D-Bus methods</title>
+
+                <para>Methods exposed in the D-Bus interface.</para>
+
+                <variablelist id='dbus-method' />
+        </refsect1>
+
+        <refsect1>
+                <title>D-Bus properties</title>
+
+                <para>Properties exposed in the D-Bus interface.</para>
+
+                <variablelist id='dbus-property' />
+        </refsect1>
+
+        <refsect1>
+                <title>D-Bus signals</title>
+
+                <para>Signals emitted in the D-Bus interface.</para>
+
+                <variablelist id='dbus-signal' />
+        </refsect1>
+
+        <refsect1>
                 <title>Colophon</title>
                 <para id='colophon' />
         </refsect1>
@@ -180,9 +212,10 @@ def _extract_directives(directive_groups, formatting, page):
     storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
         klass = variablelist.attrib.get('class')
+        searchpath = variablelist.attrib.get('xpath','./varlistentry/term/varname')
         storvar = directive_groups[klass or 'miscellaneous']
         # <option>s go in OPTIONS, unless class is specified
-        for xpath, stor in (('./varlistentry/term/varname', storvar),
+        for xpath, stor in ((searchpath, storvar),
                             ('./varlistentry/term/option',
                              storvar if klass else storopt)):
             for name in variablelist.iterfind(xpath):
@@ -199,6 +232,13 @@ def _extract_directives(directive_groups, formatting, page):
                         name.tail = ''
                     name.text = text
                     formatting[text] = name
+        extra = variablelist.attrib.get('extra-ref')
+        if extra:
+            stor[extra].append((pagename, section))
+            if extra not in formatting:
+                elt = tree.Element("varname")
+                elt.text= extra
+                formatting[extra] = elt
 
     storfile = directive_groups['filenames']
     for xpath, absolute_only in (('.//refsynopsisdiv//filename', False),
