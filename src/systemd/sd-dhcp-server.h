@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 
 #include "sd-dhcp-option.h"
+#include "sd-dhcp-static-lease.h"
 #include "sd-event.h"
 
 #include "_sd-common.h"
@@ -56,6 +57,7 @@ int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
+int sd_dhcp_server_add_static_lease(sd_dhcp_server *server, sd_dhcp_static_lease *v);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
