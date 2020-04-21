@@ -496,7 +496,7 @@ node /org/freedesktop/login1 {
       and seat are identified by their respective IDs.</para>
 
       <para><function>SetUserLinger()</function> enables or disables user lingering. If enabled, the runtime
-      directory of a user is kept around and he may continue to run processes while he is logged out. If
+      directory of a user is kept around and they may continue to run processes while logged out. If
       disabled, the runtime directory goes away as soon as they log out. <function>SetUserLinger()</function>
       expects three arguments: the UID, a boolean whether to enable/disable and a boolean controlling the
       <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
@@ -504,10 +504,11 @@ node /org/freedesktop/login1 {
       stored on disk.</para>
 
       <para><function>AttachDevice()</function> may be used to assign a specific device to a specific
-      seat. The device is identified by its /sys path and must be eligible for seat assignments. <function>AttachDevice()</function> takes three
-      arguments: the seat id, the sysfs path, and a boolean for controlling polkit interactivity (see
-      below). Device assignments are persistently stored on disk. To create a new seat, simply specify a
-      previously unused seat id. For more information about the seat assignment logic see
+      seat. The device is identified by its <filename>/sys</filename> path and must be eligible for seat
+      assignments. <function>AttachDevice()</function> takes three arguments: the seat id, the sysfs path,
+      and a boolean for controlling polkit interactivity (see below). Device assignments are persistently
+      stored on disk. To create a new seat, simply specify a previously unused seat id. For more information
+      about the seat assignment logic see
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat for Linux</ulink>.
       </para>
 
