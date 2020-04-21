@@ -3022,6 +3022,21 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+const sd_bus_vtable bus_manager_log_control_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        /* We define a private version of this interface here, since we want slightly different
+         * implementations for the setters. We'll still use the generic getters however, and we share the
+         * setters with the implementations for the Manager interface above (which pre-dates the generic
+         * service API interface). */
+
+        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", bus_property_get_log_level, property_set_log_level, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", bus_property_get_log_target, property_set_log_target, 0, 0),
+        SD_BUS_PROPERTY("SyslogIdentifier", "s", bus_property_get_syslog_identifier, 0, 0),
+
+        SD_BUS_VTABLE_END,
+};
+
 static int send_finished(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         usec_t *times = userdata;
