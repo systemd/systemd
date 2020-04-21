@@ -1099,29 +1099,60 @@
       <varlistentry>
         <term><option>--resolv-conf=</option></term>
 
-        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container (i.e. DNS
-        configuration synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
-        <literal>copy-host</literal>, <literal>copy-static</literal>, <literal>bind-host</literal>,
-        <literal>bind-static</literal>, <literal>delete</literal> or <literal>auto</literal>. If set to
-        <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the container is left as it is
-        included in the image, and neither modified nor bind mounted over. If set to <literal>copy-host</literal>, the
-        <filename>/etc/resolv.conf</filename> file from the host is copied into the container. Similar, if
-        <literal>bind-host</literal> is used, the file is bind mounted from the host into the container. If set to
-        <literal>copy-static</literal> the static <filename>resolv.conf</filename> file supplied with
-        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-        copied into the container, and correspondingly <literal>bind-static</literal> bind mounts it there. If set to
-        <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the container is deleted if it
-        exists. Finally, if set to <literal>auto</literal> the file is left as it is if private networking is turned on
-        (see <option>--private-network</option>). Otherwise, if <filename>systemd-resolved.service</filename> is
-        connectible its static <filename>resolv.conf</filename> file is used, and if not the host's
-        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the image is
-        writable, and bind mounted otherwise. It's recommended to use <literal>copy</literal> if the container shall be
-        able to make changes to the DNS configuration on its own, deviating from the host's settings. Otherwise
-        <literal>bind</literal> is preferable, as it means direct changes to <filename>/etc/resolv.conf</filename> in
-        the container are not allowed, as it is a read-only bind mount (but note that if the container has enough
-        privileges, it might simply go ahead and unmount the bind mount anyway). Note that both if the file is bind
-        mounted and if it is copied no further propagation of configuration is generally done after the one-time early
-        initialization (this is because the file is usually updated through copying and renaming). Defaults to
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container shall be
+        handled (i.e. DNS configuration synchronization from host to container). Takes one of
+        <literal>off</literal>, <literal>copy-host</literal>, <literal>copy-static</literal>,
+        <literal>copy-uplink</literal>, <literal>copy-stub</literal>, <literal>replace-host</literal>,
+        <literal>replace-static</literal>, <literal>replace-uplink</literal>,
+        <literal>replace-stub</literal>, <literal>bind-host</literal>, <literal>bind-static</literal>,
+        <literal>bind-uplink</literal>, <literal>bind-stub</literal>, <literal>delete</literal> or
+        <literal>auto</literal>.</para>
+
+        <para>If set to <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over.</para>
+
+        <para>If set to <literal>copy-host</literal>, the <filename>/etc/resolv.conf</filename> file from the
+        host is copied into the container, unless the file exists already and is not a regular file (e.g. a
+        symlink). Similar, if <literal>replace-host</literal> is used the file is copied, replacing any
+        existing inode, including symlinks. Similar, if <literal>bind-host</literal> is used, the file is
+        bind mounted from the host into the container.</para>
+
+        <para>If set to <literal>copy-static</literal>, <literal>replace-static</literal> or
+        <literal>bind-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        (specifically: <filename>/usr/lib/systemd/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-uplink</literal>, <literal>replace-uplink</literal> or
+        <literal>bind-uplink</literal> the uplink <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-stub</literal>, <literal>replace-stub</literal> or
+        <literal>bind-stub</literal> the stub <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/stub-resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is deleted if it exists.</para>
+
+        <para>Finally, if set to <literal>auto</literal> the file is left as it is if private networking is
+        turned on (see <option>--private-network</option>). Otherwise, if
+        <filename>systemd-resolved.service</filename> is connectible its stub
+        <filename>resolv.conf</filename> file is used, and if not the host's
+        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the
+        image is writable, and bind mounted otherwise.</para>
+
+        <para>It's recommended to use <literal>copy-…</literal> or <literal>replace-…</literal> if the
+        container shall be able to make changes to the DNS configuration on its own, deviating from the
+        host's settings. Otherwise <literal>bind</literal> is preferable, as it means direct changes to
+        <filename>/etc/resolv.conf</filename> in the container are not allowed, as it is a read-only bind
+        mount (but note that if the container has enough privileges, it might simply go ahead and unmount the
+        bind mount anyway). Note that both if the file is bind mounted and if it is copied no further
+        propagation of configuration is generally done after the one-time early initialization (this is
+        because the file is usually updated through copying and renaming). Defaults to
         <literal>auto</literal>.</para></listitem>
       </varlistentry>
 
