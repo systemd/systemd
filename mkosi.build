@@ -88,7 +88,13 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
 fi
 
 ninja -C "$BUILDDIR" all
-[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test
+if [ "$WITH_TESTS" = 1 ] ; then
+        for id in 1 2 3; do
+                groupadd -g $id testgroup$id || :
+        done
+
+        ninja -C "$BUILDDIR" test
+fi
 ninja -C "$BUILDDIR" install
 
 mkdir -p "$DESTDIR"/etc
