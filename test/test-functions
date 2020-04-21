@@ -234,6 +234,7 @@ run_qemu() {
 
     CONSOLE=ttyS0
 
+    rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
     umount_loopback
@@ -362,6 +363,7 @@ $QEMU_OPTIONS \
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
+    rm -f "$initdir"/{testok,failed,skipped}
 
     local _nspawn_cmd=(
         --register=no
@@ -2014,7 +2016,6 @@ test_setup() {
 
 test_run() {
     mount_initdir
-    rm -f "$initdir"/{testok,failed,skipped}
 
     if [ -z "$TEST_NO_QEMU" ]; then
         if run_qemu "$1"; then
