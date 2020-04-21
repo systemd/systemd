@@ -145,6 +145,9 @@ node /org/freedesktop/resolve1 {
       readonly as DNSSECNegativeTrustAnchors = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DNSStubListener = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      @org.freedesktop.systemd1.Privileged("true")
+      readwrite s LogLevel = '...';
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -406,10 +409,10 @@ node /org/freedesktop/resolve1 {
     <refsect2>
       <title>Properties</title>
 
-      <varname>LLMNRHostname</varname> contains the hostname currently exposed on the network via LLMNR. It
-      usually follows the system hostname as may be queried via
+      <para><varname>LLMNRHostname</varname> contains the hostname currently exposed on the network via
+      LLMNR. It usually follows the system hostname as may be queried via
       <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      but may differ if a conflict is detected on the network.
+      but may differ if a conflict is detected on the network.</para>
 
       <para><varname>DNS</varname> contains an array of all DNS servers currently used by
       <filename>systemd-resolved</filename>. It contains similar information as the DNS server data written to
@@ -460,6 +463,10 @@ node /org/freedesktop/resolve1 {
       which DNS is configured and for the system-wide settings if there are any. Note that <filename>systemd-resolved</filename> assumes
       DNSSEC is supported by DNS servers until it verifies that this is not the case. Thus, the reported
       value may initially be true, until the first transactions are executed.</para>
+
+      <para>The <varname>LogLevel</varname> property shows the (maximum) log level of the manager, with the
+      same values as the <option>--log-level=</option> option described in
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
     </refsect2>
   </refsect1>
 
