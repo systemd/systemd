@@ -18,15 +18,6 @@
 #include "strv.h"
 #include "tmpfile-util-label.h"
 
-/* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
-#define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
-
-/* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
-#define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
-
-/* A static resolv.conf file containing no domains, but only our own DNS server address */
-#define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
-
 int manager_check_resolv_conf(const Manager *m) {
         struct stat st, own;
 
