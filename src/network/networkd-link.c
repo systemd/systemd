@@ -3951,9 +3951,9 @@ static void link_save_dns(FILE *f, struct in_addr_data *dns, unsigned n_dns, boo
 }
 
 int link_save(Link *link) {
+        const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *admin_state, *oper_state, *carrier_state, *address_state;
         Address *a;
         Route *route;
         Iterator i;
@@ -4112,6 +4112,12 @@ int link_save(Link *link) {
                 space = false;
                 fputstrv(f, link->network->smtp, NULL, &space);
 
+                fputc('\n', f);
+
+                fputs("LPR_SERVERS=", f);
+                space = false;
+                fputstrv(f, link->network->lpr, NULL, &space);
+
                 if (link->dhcp_lease) {
                         const struct in_addr *addresses;
 
@@ -4125,6 +4131,15 @@ int link_save(Link *link) {
                         const struct in_addr *addresses;
 
                         r = sd_dhcp_lease_get_smtp_server(link->dhcp_lease, &addresses);
+                        if (r > 0)
+                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
+                                        space = true;
+                }
+
+                if (link->dhcp_lease) {
+                        const struct in_addr *addresses;
+
+                        r = sd_dhcp_lease_get_lpr_servers(link->dhcp_lease, &addresses);
                         if (r > 0)
                                 if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
                                         space = true;
