@@ -1109,7 +1109,11 @@ static int start_transient_service(
                         assert_not_reached("Can't allocate tty via ssh");
         }
 
-        if (!arg_no_block) {
+        /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
+         * lets skip this however, because we should start that already when the start job is running, and
+         * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
+         * for EOF anyway, which is going to be much later. */
+        if (!arg_no_block && arg_stdio == ARG_STDIO_NONE) {
                 r = bus_wait_for_jobs_new(bus, &w);
                 if (r < 0)
                         return log_error_errno(r, "Could not watch jobs: %m");
