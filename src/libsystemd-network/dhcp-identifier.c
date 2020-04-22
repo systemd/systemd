@@ -15,7 +15,6 @@
 #include "udev-util.h"
 #include "virt.h"
 
-#define SYSTEMD_PEN    43793
 #define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
 #define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
 #define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */

@@ -9,6 +9,7 @@
 #include <linux/if_infiniband.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "dhcp-identifier.h"
@@ -78,6 +79,7 @@ struct sd_dhcp6_client {
         size_t duid_len;
         usec_t information_request_time_usec;
         usec_t information_refresh_time_usec;
+        OrderedHashmap *vendor_options;
 };
 
 static const uint16_t default_req_opts[] = {
@@ -220,6 +222,25 @@ int sd_dhcp6_client_set_prefix_delegation_hint(
         client->hint_pd_prefix.iapdprefix.prefixlen = prefixlen;
 
         return 0;
+}
+
+int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client, sd_dhcp6_option *v) {
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(v, -EINVAL);
+
+        r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp6_option_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = ordered_hashmap_put(client->vendor_options, v, v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp6_option_ref(v);
+
+        return 1;
 }
 
 static int client_ensure_duid(sd_dhcp6_client *client) {
@@ -553,6 +574,13 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (!ordered_hashmap_isempty(client->vendor_options)) {
+                        r = dhcp6_option_append_option(&opt, &optlen,
+                                                client->vendor_options);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd, &client->hint_pd_prefix);
                         if (r < 0)
@@ -599,6 +627,13 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (!ordered_hashmap_isempty(client->vendor_options)) {
+                        r = dhcp6_option_append_option(&opt, &optlen,
+                                                client->vendor_options);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
@@ -629,6 +664,13 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                         r = dhcp6_option_append(&opt, &optlen,
                                                 SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
                                                 client->mudurl);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (!ordered_hashmap_isempty(client->vendor_options)) {
+                        r = dhcp6_option_append_option(&opt, &optlen,
+                                                               client->vendor_options);
                         if (r < 0)
                                 return r;
                 }

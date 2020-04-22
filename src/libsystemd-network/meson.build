@@ -26,6 +26,7 @@ sources = files('''
         icmp6-util.h
         icmp6-util.c
         sd-dhcp6-client.c
+        dhcp6-client-internal.h
         dhcp6-internal.h
         dhcp6-protocol.h
         dhcp6-network.c

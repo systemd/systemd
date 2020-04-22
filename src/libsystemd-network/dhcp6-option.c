@@ -9,6 +9,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "alloc-util.h"
+#include "dhcp-identifier.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
@@ -74,6 +75,46 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
 
         *buf += optlen;
         *buflen -= optlen;
+
+        return 0;
+}
+
+int dhcp6_option_append_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options) {
+        uint32_t enterprise_identifier;
+        sd_dhcp6_option *options;
+        size_t total, offset;
+        Iterator i;
+        int r;
+
+        assert_return(buf && *buf && buflen && vendor_options, -EINVAL);
+
+        ORDERED_HASHMAP_FOREACH(options, vendor_options, i) {
+                _cleanup_free_ uint8_t *p = NULL;
+
+                unaligned_write_be32(&enterprise_identifier, SYSTEMD_PEN);
+
+                p = memdup(&enterprise_identifier, sizeof(SYSTEMD_PEN));
+                if (!p)
+                        return -ENOMEM;
+
+                total = 4;
+                offset = 4;
+
+                p = realloc(p, total + 2 + 2 + options->length);
+                if (!p)
+                        return -ENOMEM;
+
+                unaligned_write_be16(&p[offset], options->code);
+                unaligned_write_be16(&p[offset + 2], options->length);
+                memcpy(&p[offset + 4], options->data, options->length);
+
+                offset += 4 + options->length;
+                total += 4 + options->length;
+
+                r = dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_OPTS, total, p);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -597,3 +638,43 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
 
         return idx;
 }
+
+static sd_dhcp6_option* dhcp6_option_free(sd_dhcp6_option *i) {
+        if (!i)
+                return NULL;
+
+        free(i->data);
+        return mfree(i);
+}
+
+int sd_dhcp6_option_new(uint8_t option, const void *data, size_t length, sd_dhcp6_option **ret) {
+        assert_return(ret, -EINVAL);
+        assert_return(length == 0 || data, -EINVAL);
+
+        _cleanup_free_ void *q = memdup(data, length);
+        if (!q)
+                return -ENOMEM;
+
+        sd_dhcp6_option *p = new(sd_dhcp6_option, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_dhcp6_option) {
+                    .n_ref = 1,
+                    .code = option,
+                    .length = length,
+                    .data = TAKE_PTR(q),
+        };
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_option, sd_dhcp6_option, dhcp6_option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp6_option_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_dhcp6_option,
+                sd_dhcp6_option_unref);
