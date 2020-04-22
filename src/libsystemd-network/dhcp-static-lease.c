@@ -18,8 +18,6 @@
 static sd_dhcp_static_lease* sd_dhcp_static_lease_free(sd_dhcp_static_lease *i) {
         if (!i)
                 return NULL;
-
-        free(i->data);
         return mfree(i);
 }
 

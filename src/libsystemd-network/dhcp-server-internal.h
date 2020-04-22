@@ -87,8 +87,6 @@ typedef struct sd_dhcp_static_lease {
         unsigned n_ref;
         be32_t address;
         DHCPClientId client_id;
-        void *data;
-        size_t length;
 } sd_dhcp_static_lease;
 
 #define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)

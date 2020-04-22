@@ -749,7 +749,7 @@ int config_parse_dhcp_static_leases(
                 void *userdata) {
 
         _cleanup_(sd_dhcp_static_lease_unrefp) sd_dhcp_static_lease *lease = NULL, *old = NULL;
-        _cleanup_free_ char *word = NULL, *q = NULL;
+        _cleanup_free_ char *word = NULL;
         _cleanup_free_ struct ether_addr *n = NULL;
         OrderedHashmap **static_leases = data;
         union in_addr_union addr;
