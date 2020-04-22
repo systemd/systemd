@@ -99,6 +99,8 @@
 <citerefentry><refentrytitle>sd_bus_message_dump</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_cookie</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_message_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_message_get_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_get_property_trivial</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
