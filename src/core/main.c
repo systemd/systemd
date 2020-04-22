@@ -1196,6 +1196,7 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
 
 static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
+        uint64_t mm;
         int r;
 
         /* BPF_MAP_TYPE_LPM_TRIE bpf maps are charged against RLIMIT_MEMLOCK, even if we have CAP_IPC_LOCK which should
@@ -1206,9 +1207,12 @@ static int bump_rlimit_memlock(struct rlimit *saved_rlimit) {
          * must be unsigned, hence this is a given, but let's make this clear here. */
         assert_cc(RLIM_INFINITY > 0);
 
+        mm = physical_memory() / 8; /* Let's scale how much we allow to be locked by the amount of physical
+                                     * RAM. We allow an eigth to be locked by us, just to pick a value. */
+
         new_rlimit = (struct rlimit) {
-                .rlim_cur = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur),
-                .rlim_max = MAX(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_max),
+                .rlim_cur = MAX3(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_cur, mm),
+                .rlim_max = MAX3(HIGH_RLIMIT_MEMLOCK, saved_rlimit->rlim_max, mm),
         };
 
         if (saved_rlimit->rlim_max >= new_rlimit.rlim_cur &&
