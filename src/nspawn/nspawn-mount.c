@@ -569,7 +569,7 @@ int mount_all(const char *dest,
         static const MountPoint mount_table[] = {
                 /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
                 { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_IN_USERNS },
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,
                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
@@ -599,23 +599,23 @@ int mount_all(const char *dest,
                 PROC_READ_ONLY("/proc/scsi"),
 
                 { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_IN_USERNS },
+                  MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
                 { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP },
+                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
                 { "tmpfs",           "/sys",            "tmpfs", "mode=555",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
                 { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR },    /* skipped if above was mounted */
                 { "sysfs",           "/sys",            "sysfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL },                          /* skipped if above was mounted */
+                  MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
                 { "tmpfs",           "/dev",            "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,
-                  MOUNT_FATAL },
+                  MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
+                  MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
+                  MOUNT_FATAL|MOUNT_MKDIR },
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
@@ -663,17 +663,19 @@ int mount_all(const char *dest,
                                 continue;
                 }
 
-                r = mkdir_userns_p(dest, where, 0755, (use_userns && !in_userns) ? uid_shift : UID_INVALID);
-                if (r < 0 && r != -EEXIST) {
-                        if (fatal && r != -EROFS)
-                                return log_error_errno(r, "Failed to create directory %s: %m", where);
+                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR)) {
+                        r = mkdir_userns_p(dest, where, 0755, (use_userns && !in_userns) ? uid_shift : UID_INVALID);
+                        if (r < 0 && r != -EEXIST) {
+                                if (fatal && r != -EROFS)
+                                        return log_error_errno(r, "Failed to create directory %s: %m", where);
 
-                        log_debug_errno(r, "Failed to create directory %s: %m", where);
-                        /* If we failed mkdir() or chown() due to the root
-                         * directory being read only, attempt to mount this fs
-                         * anyway and let mount_verbose log any errors */
-                        if (r != -EROFS)
-                                continue;
+                                log_debug_errno(r, "Failed to create directory %s: %m", where);
+
+                                /* If we failed mkdir() or chown() due to the root directory being read only,
+                                 * attempt to mount this fs anyway and let mount_verbose log any errors */
+                                if (r != -EROFS)
+                                        continue;
+                        }
                 }
 
                 o = mount_table[k].options;
