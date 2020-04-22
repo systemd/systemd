@@ -1469,6 +1469,9 @@ static int dirname_has_namespace(const char *fn, const char *namespace) {
 
         /* Returns true if the specified directory name matches the specified namespace */
 
+        if (!fn)
+                return false;
+
         e = strchr(fn, '.');
         if (e) {
                 const char *k;
