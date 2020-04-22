@@ -1592,7 +1592,7 @@
           <listitem>
             <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
-            </para>
+           </para>
             <para>When used in combination with <varname>VRF=</varname> the
             VRF's routing table is used unless this parameter is specified.
             </para>
@@ -1712,6 +1712,21 @@
             Takes an URL of length up to 255 characters. A superficial verification that the string is a valid URL
             will be performed. DHCPv6 clients are intended to have at most one MUD URL associated with them. See
             <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SendVendorOption=</varname></term>
+          <listitem>
+            <para>Send an arbitrary vendor option in the DHCPv6 request. Takes a sub option number, data type
+            and data separated with a colon
+            (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
+            The option number must be an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
+            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
+            <literal>string</literal>. Special characters in the data string may be escaped using
+            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+            then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 

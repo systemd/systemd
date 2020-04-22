@@ -620,7 +620,9 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
 int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        sd_dhcp6_option *vendor_option;
         const DUID *duid;
+        Iterator i;
         int r;
 
         assert(link);
@@ -680,6 +682,14 @@ int dhcp6_configure(Link *link) {
                 r = sd_dhcp6_client_set_request_mud_url(client, link->network->dhcp6_mudurl);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(vendor_option, link->network->dhcp6_client_send_options, i) {
+                r = sd_dhcp6_client_add_vendor_option(client, vendor_option);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor option: %m");
         }
 
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
