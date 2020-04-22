@@ -1626,9 +1626,10 @@ static int add_directory(
             !((dirname && dirname_is_machine_id(dirname) > 0) || path_has_prefix(j, path, "/run")))
                 return 0;
 
-        if (!(FLAGS_SET(j->flags, SD_JOURNAL_ALL_NAMESPACES) ||
-              dirname_has_namespace(dirname, j->namespace) > 0 ||
-              (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, NULL) > 0)))
+        if (dirname &&
+            (!(FLAGS_SET(j->flags, SD_JOURNAL_ALL_NAMESPACES) ||
+               dirname_has_namespace(dirname, j->namespace) > 0 ||
+               (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, NULL) > 0))))
                 return 0;
 
         r = directory_open(j, path, &d);
