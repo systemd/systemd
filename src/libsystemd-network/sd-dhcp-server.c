@@ -769,10 +769,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                 if(static_lease){
                         address = static_lease->address;
-                        printf("static address %u\n", address);
                 }else if (existing_lease){
                         address = existing_lease->address;
-                        printf("existing address %u\n", address);
                 }
                 else {
                         struct siphash state;
@@ -791,7 +789,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         for (i = 0; i < server->pool_size; i++) {
                                 if (!server->bound_leases[next_offer]) {
                                         address = server->subnet | htobe32(server->pool_offset + next_offer);
-                                        printf("new address %u\n", address);
                                         break;
                                 }
 
@@ -814,7 +811,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
         case DHCP_DECLINE:
                 log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
 
-                printf("Declined\n");
                 /* TODO: make sure we don't offer this address again */
 
                 return 1;
@@ -890,7 +886,6 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         memcpy(&lease->chaddr, &req->message->chaddr,
                                ETH_ALEN);
                         lease->gateway = req->message->giaddr;
-                        printf("static address from req %u\n", lease->address);
 
                                                 r = sd_event_now(server->event,
                                          clock_boottime_or_monotonic(),
@@ -902,12 +897,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         }
 
                         lease->expiration = req->lifetime * USEC_PER_SEC + time_now;
-                        printf("sending ack\n");
                         r = server_send_ack(server, req, address);
                         if (r < 0) {
                                 /* this only fails on critical errors */
                                 log_dhcp_server_errno(server, r, "Could not send ack: %m");
-                                printf("could not send ack\n");
 
                                 if (!existing_lease)
                                         dhcp_lease_free(lease);
@@ -957,12 +950,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         }
 
                         lease->expiration = req->lifetime * USEC_PER_SEC + time_now;
-                        printf("sending ack\n");
                         r = server_send_ack(server, req, address);
                         if (r < 0) {
                                 /* this only fails on critical errors */
                                 log_dhcp_server_errno(server, r, "Could not send ack: %m");
-                                printf("could not send ack\n");
 
                                 if (!existing_lease)
                                         dhcp_lease_free(lease);
@@ -1366,7 +1357,6 @@ int sd_dhcp_server_add_static_lease(sd_dhcp_server *server, sd_dhcp_static_lease
         int r;
         assert_return(server, -EINVAL);
         assert_return(v, -EINVAL);
-        printf("address from network to server %u\n", v->address);
         r = hashmap_ensure_allocated(&server->static_leases_by_client_id, &dhcp_static_leases_hash_ops);
         if (r < 0)
                 return r;

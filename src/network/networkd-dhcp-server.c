@@ -797,7 +797,6 @@ int config_parse_static_leases(
         }
         r = in_addr_from_string(AF_INET, word, &addr);
 
-        printf("address parsed %u\n", addr.in.s_addr);
         if (r < 0) {
           log_syntax(unit, LOG_ERR, filename, line, r,
                      "Failed to parse DHCPv4 ipv4address data, ignoring assignment: %s", word);
