@@ -91,7 +91,8 @@ static void bus_wait_for_units_clear(BusWaitForUnits *d) {
         while ((item = hashmap_first(d->items))) {
                 d->current = item;
 
-                item->unit_callback(d, item->bus_path, false, item->userdata);
+                if (item->unit_callback)
+                        item->unit_callback(d, item->bus_path, false, item->userdata);
                 wait_for_item_free(item);
         }
 
