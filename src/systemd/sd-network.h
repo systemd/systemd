@@ -173,6 +173,9 @@ int sd_network_link_get_pop3_servers(int ifindex, char ***pop3);
 /* Get the SMTP servers for a given link. */
 int sd_network_link_get_smtp_servers(int ifindex, char ***smtp);
 
+/* Get the LPR servers for a given link. */
+int sd_network_link_get_lpr_servers(int ifindex, char ***lpr);
+
 /* Get whether this link shall be used as 'default route' for DNS queries */
 int sd_network_link_get_dns_default_route(int ifindex);
 
