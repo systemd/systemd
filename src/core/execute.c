@@ -1820,12 +1820,13 @@ static int build_environment(
 
                 tty_path = exec_context_tty_path(c);
 
-                /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try to inherit
-                 * the $TERM set for PID 1. This is useful for containers so that the $TERM the container manager
-                 * passes to PID 1 ends up all the way in the console login shown. */
+                /* If we are forked off PID 1 and we are supposed to operate on /dev/console, then let's try
+                 * to inherit the $TERM set for PID 1. This is useful for containers so that the $TERM the
+                 * container manager passes to PID 1 ends up all the way in the console login shown. */
 
-                if (path_equal(tty_path, "/dev/console") && getppid() == 1)
+                if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
+
                 if (!term)
                         term = default_term_for_tty(tty_path);
 
