@@ -110,6 +110,7 @@
 <citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_read_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_read_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_message_read_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_seal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

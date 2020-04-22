@@ -45,10 +45,9 @@
     <parameter>acquired</parameter> is not <constant>NULL</constant>, the function calls
     <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-list-activatable-names">
     org.freedesktop.DBus.ListActivableNames</ulink> to retrieve the list of all names on the bus that can be
-    activated. Note that ownership of any string arrays returned by <function>sd_bus_list_names()</function>
-    is transferred to the caller and hence, the caller is responsible for freeing any results stored by
-    <function>sd_bus_list_names()</function> in <parameter>acquired</parameter> and
-    <parameter>activatable</parameter>.</para>
+    activated. Note that ownership of the arrays returned by <function>sd_bus_list_names()</function> in
+    <parameter>acquired</parameter> and <parameter>activatable</parameter> is transferred to the caller and
+    hence, the caller is responsible for freeing these arrays and their contents.</para>
   </refsect1>
 
   <refsect1>
