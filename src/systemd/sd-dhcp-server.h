@@ -56,6 +56,7 @@ int sd_dhcp_server_set_servers(
                 const struct in_addr addresses[],
                 unsigned n_addresses);
 
+int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], unsigned n);
 int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n);
 int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n);
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n);
