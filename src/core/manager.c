@@ -779,6 +779,10 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
 
+                .watchdog_overridden[WATCHDOG_RUNTIME] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_REBOOT] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
+
                 .notify_fd = -1,
                 .cgroups_agent_fd = -1,
                 .signal_fd = -1,
@@ -2922,9 +2926,10 @@ int manager_loop(Manager *m) {
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
         while (m->objective == MANAGER_OK) {
-                usec_t wait_usec;
+                usec_t wait_usec, watchdog_usec;
 
-                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m))
+                watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
+                if (timestamp_is_set(watchdog_usec))
                         watchdog_ping();
 
                 if (!ratelimit_below(&rl)) {
@@ -2955,7 +2960,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                if (MANAGER_IS_SYSTEM(m))
+                if (timestamp_is_set(watchdog_usec))
                         wait_usec = watchdog_runtime_wait();
                 else
                         wait_usec = USEC_INFINITY;
@@ -3196,6 +3201,10 @@ int manager_serialize(
         if (m->log_target_overridden)
                 (void) serialize_item(f, "log-target-override", log_target_to_string(log_get_target()));
 
+        (void) serialize_usec(f, "runtime-watchdog-overridden", m->watchdog_overridden[WATCHDOG_RUNTIME]);
+        (void) serialize_usec(f, "reboot-watchdog-overridden", m->watchdog_overridden[WATCHDOG_REBOOT]);
+        (void) serialize_usec(f, "kexec-watchdog-overridden", m->watchdog_overridden[WATCHDOG_KEXEC]);
+
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
@@ -3328,6 +3337,68 @@ static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
         return 0;
 }
 
+usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return USEC_INFINITY;
+
+        if (timestamp_is_set(m->watchdog_overridden[t]))
+                return m->watchdog_overridden[t];
+
+        return m->watchdog[t];
+}
+
+void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
+        int r = 0;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return;
+
+        if (m->watchdog[t] == timeout)
+                return;
+
+        if (t == WATCHDOG_RUNTIME)
+                if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME])) {
+                        if (timestamp_is_set(timeout))
+                                r = watchdog_set_timeout(&timeout);
+                        else
+                                watchdog_close(true);
+                }
+
+        if (r >= 0)
+                m->watchdog[t] = timeout;
+}
+
+int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout) {
+        int r = 0;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (m->watchdog_overridden[t] == timeout)
+                return 0;
+
+        if (t == WATCHDOG_RUNTIME) {
+                usec_t *p;
+
+                p = timestamp_is_set(timeout) ? &timeout : &m->watchdog[t];
+                if (timestamp_is_set(*p))
+                        r = watchdog_set_timeout(p);
+                else
+                        watchdog_close(true);
+        }
+
+        if (r >= 0)
+                m->watchdog_overridden[t] = timeout;
+
+        return 0;
+}
+
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         int r = 0;
 
@@ -3450,6 +3521,30 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse log-target-override value '%s', ignoring.", val);
                         else
                                 manager_override_log_target(m, target);
+
+                } else if ((val = startswith(l, "runtime-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse runtime-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_RUNTIME, t);
+
+                } else if ((val = startswith(l, "reboot-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse reboot-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_REBOOT, t);
+
+                } else if ((val = startswith(l, "kexec-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse kexec-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_KEXEC, t);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(l + 4, &m->client_environment);
