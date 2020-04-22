@@ -2834,9 +2834,10 @@ static int service_deserialize_exec_command(
                                 break;
         }
 
-        if (command && control)
+        if (command && control) {
                 s->control_command = command;
-        else if (command)
+                s->control_command_id = id;
+        } else if (command)
                 s->main_command = command;
         else
                 log_unit_warning(u, "Current command vanished from the unit file, execution of the command list won't be resumed.");
