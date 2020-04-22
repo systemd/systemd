@@ -2569,6 +2569,8 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
         ExecCommand *first, *c;
 
         assert(s);
+        assert(id >= 0);
+        assert(id < _SERVICE_EXEC_COMMAND_MAX);
 
         first = s->exec_command[id];
 
@@ -2632,10 +2634,12 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
 
         p = cescape(command->path);
         if (!p)
-                return -ENOMEM;
+                return log_oom();
 
         key = strjoina(type, "-command");
-        return serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
+        (void) serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
+
+        return 0;
 }
 
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -2737,7 +2741,11 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int service_deserialize_exec_command(Unit *u, const char *key, const char *value) {
+static int service_deserialize_exec_command(
+                Unit *u,
+                const char *key,
+                const char *value) {
+
         Service *s = SERVICE(u);
         int r;
         unsigned idx = 0, i;
