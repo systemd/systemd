@@ -2974,13 +2974,10 @@ static int inner_child(
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
                                 true);
-                if (r < 0)
-                        return r;
-        } else {
+        } else
                 r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         r = setup_boot_id();
         if (r < 0)
