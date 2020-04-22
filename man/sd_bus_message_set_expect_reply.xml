@@ -20,6 +20,8 @@
     <refname>sd_bus_message_get_expect_reply</refname>
     <refname>sd_bus_message_set_auto_start</refname>
     <refname>sd_bus_message_get_auto_start</refname>
+    <refname>sd_bus_message_set_allow_interactive_authorization</refname>
+    <refname>sd_bus_message_get_allow_interactive_authorization</refname>
 
     <refpurpose>Set and query bus message metadata</refpurpose>
   </refnamediv>
@@ -49,41 +51,61 @@
         <funcdef>int <function>sd_bus_message_get_auto_start</function></funcdef>
         <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
       </funcprototype>
-    </funcsynopsis>
 
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_set_allow_interactive_authorization</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_get_allow_interactive_authorization</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
     <para><function>sd_bus_message_set_expect_reply()</function> sets or clears the
-    <constant>NO_REPLY_EXPECTED</constant> flag on the message <parameter>m</parameter>. This flag
-    matters only for method call messages and is used to specify that no method return or error
-    reply is expected. It is ignored for other types. Thus, for a method call message, calling
-    <programlisting>sd_bus_message_set_expect_reply(…, 0)</programlisting> sets the flag and
-    suppresses the reply.</para>
+    <constant>NO_REPLY_EXPECTED</constant> flag on the message <parameter>m</parameter>. This flag matters
+    only for method call messages and is used to specify that no method return or error reply is expected.
+    It is ignored for other types. Thus, for a method call message, calling
+    <programlisting>sd_bus_message_set_expect_reply(…, 0)</programlisting> sets the flag and suppresses the
+    reply.</para>
 
     <para><function>sd_bus_message_get_expect_reply()</function> checks if the
-    <constant>NO_REPLY_EXPECTED</constant> flag is set on the message <parameter>m</parameter>. It
-    will return positive if it is not set, and zero if it is.</para>
+    <constant>NO_REPLY_EXPECTED</constant> flag is set on the message <parameter>m</parameter>. It will
+    return positive if it is not set, and zero if it is.</para>
 
     <para><function>sd_bus_message_set_auto_start()</function> sets or clears the
-    <constant>NO_AUTO_START</constant> flag on the message <parameter>m</parameter>. When the flag
-    is set the bus must not launch an owner for the destination name in response to this message.
-    Calling
-    <programlisting>sd_bus_message_set_auto_start(…, 0)</programlisting> sets the flag.
-    </para>
+    <constant>NO_AUTO_START</constant> flag on the message <parameter>m</parameter>. When the flag is set,
+    the bus must not launch an owner for the destination name in response to this message. Calling
+    <programlisting>sd_bus_message_set_auto_start(…, 0)</programlisting> sets the flag.</para>
 
     <para><function>sd_bus_message_get_auto_start()</function> checks if the
-    <constant>NO_AUTO_START</constant> flag is set on the message <parameter>m</parameter>. It
-    will return positive if it is not set, and zero if it is.</para>
+    <constant>NO_AUTO_START</constant> flag is set on the message <parameter>m</parameter>. It will return
+    positive if it is not set, and zero if it is.</para>
+
+    <para><function>sd_bus_message_set_allow_interactive_authorization()</function> sets or clears the
+    <constant>ALLOW_INTERACTIVE_AUTHORIZATION</constant> flag on the message <parameter>m</parameter>.
+    Setting this flag informs the receiver that the caller is prepared to wait for interactive authorization
+    via polkit or a similar framework. Note that setting this flag does not guarantee that the receiver will
+    actually perform interactive authorization. Also, make sure to set a suitable message timeout when using
+    this flag since interactive authorization could potentially take a long time as it depends on user input.
+    If <parameter>b</parameter> is non-zero, the flag is set.</para>
+
+    <para><function>sd_bus_message_get_allow_interactive_authorization()</function> checks if the
+    <constant>ALLOW_INTERACTIVE_AUTHORIZATION</constant> flag is set on the message <parameter>m</parameter>.
+    It will return a positive integer if the flag is set. Otherwise, it returns zero.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive integer. On failure, they return a
-    negative errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -94,18 +116,17 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The <parameter>message</parameter> parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <listitem><para>The <parameter>message</parameter> parameter is <constant>NULL</constant>.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message <parameter>message</parameter> is sealed
-          when trying to set a flag.</para>
+          <listitem>
+          <para>The message <parameter>message</parameter> is sealed when trying to set a flag.</para>
 
-          <para>The message <parameter>message</parameter> has wrong
-          type.</para>
+          <para>The message <parameter>message</parameter> has wrong type.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -123,5 +144,4 @@
       <citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>
