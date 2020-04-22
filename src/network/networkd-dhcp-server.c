@@ -736,7 +736,7 @@ int config_parse_dhcp_server_smtp_servers(
         return 0;
 }
 
-int config_parse_static_leases(
+int config_parse_dhcp_static_leases(
                 const char *unit,
                 const char *filename,
                 unsigned line,

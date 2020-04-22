@@ -219,7 +219,7 @@ DHCPServer.PoolOffset,                       config_parse_uint32,               
 DHCPServer.PoolSize,                         config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_size)
 DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
 DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
-DHCPServer.StaticLeases,                     config_parse_static_leases,                               0,                             offsetof(Network, dhcp_static_leases)
+DHCPServer.StaticLease,                      config_parse_dhcp_static_leases,                          0,                             offsetof(Network, dhcp_static_leases)
 Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
 Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
 Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)
