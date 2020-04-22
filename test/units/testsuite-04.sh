@@ -5,6 +5,9 @@ set -o pipefail
 
 # Test stdout stream
 
+# https://github.com/systemd/systemd/issues/15528
+journalctl --follow --file=/var/log/journal/*/* | read -n1
+
 # Skip empty lines
 ID=$(journalctl --new-id128 | sed -n 2p)
 >/expected
