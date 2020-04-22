@@ -291,41 +291,7 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable seat_vtable[] = {
-        SD_BUS_VTABLE_START(0),
-
-        SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_const_true, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
-        SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-
-        SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
-
-        SD_BUS_METHOD_WITH_NAMES("ActivateSession",
-                                 "s",
-                                 SD_BUS_PARAM(session_id),
-                                 NULL,,
-                                 method_activate_session,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("SwitchTo",
-                                 "u",
-                                 SD_BUS_PARAM(vtnr),
-                                 NULL,,
-                                 method_switch_to,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-
-        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
-
-        SD_BUS_VTABLE_END
-};
-
-int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
@@ -373,7 +339,7 @@ char *seat_bus_path(Seat *s) {
         return strjoin("/org/freedesktop/login1/seat/", t);
 }
 
-int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
@@ -478,3 +444,44 @@ int seat_send_changed(Seat *s, const char *properties, ...) {
 
         return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Seat", l);
 }
+
+static const sd_bus_vtable seat_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_const_true, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
+        SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("ActivateSession",
+                                 "s",
+                                 SD_BUS_PARAM(session_id),
+                                 NULL,,
+                                 method_activate_session,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SwitchTo",
+                                 "u",
+                                 SD_BUS_PARAM(vtnr),
+                                 NULL,,
+                                 method_switch_to,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation seat_object = {
+        "/org/freedesktop/login1/seat",
+        "org.freedesktop.login1.Seat",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({seat_vtable, seat_object_find}),
+        .node_enumerator = seat_node_enumerator,
+};
