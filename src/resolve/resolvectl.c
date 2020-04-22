@@ -2529,8 +2529,8 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
                 r = sd_bus_get_property_string(
                                 bus,
                                 "org.freedesktop.resolve1",
-                                "/org/freedesktop/resolve1",
-                                "org.freedesktop.resolve1.Manager",
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
                                 "LogLevel",
                                 &error,
                                 &level);
@@ -2545,8 +2545,8 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
                 r = sd_bus_set_property(
                                 bus,
                                 "org.freedesktop.resolve1",
-                                "/org/freedesktop/resolve1",
-                                "org.freedesktop.resolve1.Manager",
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
                                 "LogLevel",
                                 &error,
                                 "s",

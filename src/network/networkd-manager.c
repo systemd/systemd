@@ -11,6 +11,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
@@ -164,6 +165,10 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add network enumerator: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
         if (r < 0)

@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
@@ -262,6 +263,10 @@ static int manager_connect_bus(Manager *m) {
                         NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.machine1", 0, NULL, NULL);
         if (r < 0)

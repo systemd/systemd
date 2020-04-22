@@ -539,6 +539,10 @@ static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register Manager vtable: %m");
 
+        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/LogControl1", "org.freedesktop.LogControl1", bus_manager_log_control_vtable, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register service API vtable: %m");
+
         r = sd_bus_add_fallback_vtable(bus, NULL, "/org/freedesktop/systemd1/job", "org.freedesktop.systemd1.Job", bus_job_vtable, bus_job_find, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register Job vtable: %m");

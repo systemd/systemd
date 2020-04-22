@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clock-util.h"
 #include "conf-files.h"
@@ -1099,6 +1100,10 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
+
+        r = bus_log_control_api_register(bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.timedate1", 0, NULL, NULL);
         if (r < 0)

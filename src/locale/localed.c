@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-log-control-api.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "def.h"
@@ -723,6 +724,10 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to register object: %m");
+
+        r = bus_log_control_api_register(bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.locale1", 0, NULL, NULL);
         if (r < 0)
