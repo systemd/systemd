@@ -351,7 +351,7 @@ static int help(void) {
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
-               "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
+               "     --case-sensitive[=BOOL] Force case sensitive or insensitive matching\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
                "  -f --follow                Follow the journal\n"
                "  -n --lines[=INTEGER]       Number of journal entries to show\n"

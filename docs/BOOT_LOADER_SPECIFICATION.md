@@ -95,7 +95,7 @@ Note that the `$BOOT` partition is not supposed to be exclusive territory of
 this specification. This specification only defines semantics of the `/loader/`
 directory inside the file system (see below), but it doesn't intend to define
 ownership of the whole file system exclusively. Boot loaders, firmware, and
-other software implementating this specification may choose to place other
+other software implementing this specification may choose to place other
 files and directories in the same file system. For example, boot loaders that
 implement this specification might install their own boot code into the `$BOOT`
 partition. On systems where `$BOOT` is the ESP this is a particularly common

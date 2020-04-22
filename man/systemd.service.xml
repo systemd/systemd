@@ -199,7 +199,7 @@
             option is used without <varname>RemainAfterExit=</varname> the service will never enter
             <literal>active</literal> unit state, but directly transition from <literal>activating</literal>
             to <literal>deactivating</literal> or <literal>dead</literal> since no process is configured that
-            shall run continously. In particular this means that after a service of this type ran (and which
+            shall run continuously. In particular this means that after a service of this type ran (and which
             has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
             as dead.</para></listitem>
 
@@ -568,7 +568,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has exended beyond
+        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has extended beyond
         <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
         startup status is finished by <literal>READY=1</literal>. (see
@@ -595,7 +595,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
+        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has extended beyond
         <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
         (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
@@ -624,7 +624,7 @@
         <para>If a service of <varname>Type=notify</varname> handles <constant>SIGABRT</constant> itself (instead of relying
         on the kernel to write a core dump) it can send <literal>EXTEND_TIMEOUT_USEC=…</literal> to
         extended the abort time beyond <varname>TimeoutAbortSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has exended beyond
+        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has extended beyond
         <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
         (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
@@ -650,7 +650,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
-        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
+        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has extended beyond
         <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
         shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see

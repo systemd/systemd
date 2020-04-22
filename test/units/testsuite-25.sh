@@ -119,13 +119,13 @@ machinectl remove scratch4
 ! test -f /var/lib/machines/scratch4
 ! machinectl image-status scratch4
 
-# Test import-tar hypen/stdin pipe behavior
+# Test import-tar hyphen/stdin pipe behavior
 cat /var/tmp/scratch.tar.gz | machinectl import-tar - scratch5
 test -d /var/lib/machines/scratch5
 machinectl image-status scratch5
 diff -r /var/tmp/scratch/ /var/lib/machines/scratch5
 
-# Test export-tar hypen/stdout pipe behavior
+# Test export-tar hyphen/stdout pipe behavior
 mkdir -p /var/tmp/extract
 machinectl export-tar scratch5 - | tar xvf - -C /var/tmp/extract/
 diff -r /var/tmp/scratch/ /var/tmp/extract/

@@ -1061,7 +1061,7 @@ int bus_foreach_bus(
         /* Send to all direct buses, unconditionally */
         SET_FOREACH(b, m->private_buses, i) {
 
-                /* Don't bother with enqueing these messages to clients that haven't started yet */
+                /* Don't bother with enqueuing these messages to clients that haven't started yet */
                 if (sd_bus_is_ready(b) <= 0)
                         continue;
 

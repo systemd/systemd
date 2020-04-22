@@ -170,7 +170,7 @@ emergency.service    |              |              |
     user units. For non-graphical sessions, <filename>default.target</filename> is used. Whenever the user
     logs into a graphical session, the login manager will start the
     <filename>graphical-session.target</filename> target that is used to pull in units required for the
-    grahpical session. A number of targets (shown on the right side) are started when specific hardware is
+    graphical session. A number of targets (shown on the right side) are started when specific hardware is
     available to the user.</para>
 
 <programlisting>

@@ -39,7 +39,7 @@ The purpose of this grouping is to assign different priorities to the
 applications.
 This could e.g. mean reserving memory to session processes,
 preferentially killing background tasks in out-of-memory situations
-or assinging different memory/CPU/IO priorities to ensure that the session
+or assigning different memory/CPU/IO priorities to ensure that the session
 runs smoothly under load.
 
 TODO: Will there be a default to place units into e.g. `apps.slice` by default

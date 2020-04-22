@@ -51,7 +51,7 @@
  * cgrouspv1 crap: kernel, kernelTCP, swapiness, disableOOMKiller, swap, devices, leafWeight
  * general: it shouldn't leak lower level abstractions this obviously
  * unmanagable cgroups stuff: realtimeRuntime/realtimePeriod
- * needs to say what happense when some option is not specified, i.e. which defautls apply
+ * needs to say what happense when some option is not specified, i.e. which defaults apply
  * no architecture? no personality?
  * seccomp example and logic is simply broken: there's no constant "SCMP_ACT_ERRNO".
  * spec should say what to do with unknown props

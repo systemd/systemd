@@ -141,8 +141,8 @@ int sd_dhcp_lease_get_servers(
                 return (int) lease->smtp_server_size;
 
         default:
-                log_debug("Uknown DHCP lease info item %d.", what);
-                return -ENXIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Unknown DHCP lease info item %d.", what);
         }
 }
 

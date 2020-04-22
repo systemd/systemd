@@ -2860,13 +2860,13 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         case JOB_START:
         case JOB_NOP:
                 /* Note that we don't check unit_can_start() here. That's because .device units and suchlike are not
-                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueing
+                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueuing
                  * jobs for it. */
                 return true;
 
         case JOB_STOP:
                 /* Similar as above. However, perpetual units can never be stopped (neither explicitly nor due to
-                 * external events), hence it makes no sense to permit enqueing such a request either. */
+                 * external events), hence it makes no sense to permit enqueuing such a request either. */
                 return !u->perpetual;
 
         case JOB_RESTART:

@@ -1162,8 +1162,8 @@ int sd_dhcp_server_set_servers(
                 break;
 
         default:
-                log_debug("Uknown DHCP lease info item %d.", what);
-                return -ENXIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Unknown DHCP lease info item %d.", what);
         }
 
         if (*n_a == n_addresses &&

@@ -631,7 +631,7 @@
       <varlistentry>
         <term><option>--case-sensitive<optional>=BOOLEAN</optional></option></term>
 
-        <listitem><para>Make pattern matching case sensitive or case insenstive.</para>
+        <listitem><para>Make pattern matching case sensitive or case insensitive.</para>
         </listitem>
       </varlistentry>
 

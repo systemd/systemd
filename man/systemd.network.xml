@@ -622,7 +622,7 @@
           trigger the start of the DHCPv6 client if the relevant flags are set in the RA data, or if no
           routers are found on the link. The default is to disable RA reception for bridge devices or when IP
           forwarding is enabled, and to enable it otherwise. Cannot be enabled on bond devices and when link
-          local adressing is disabled.</para>
+          local addressing is disabled.</para>
 
           <para>Further settings for the IPv6 RA support may be configured in the
           <literal>[IPv6AcceptRA]</literal> section, see below.</para>
@@ -1625,7 +1625,7 @@
         <varlistentry>
           <term><varname>SendDecline=</varname></term>
           <listitem>
-            <para>A boolen. When <literal>true</literal>, DHCPv4 clients receives IP address from DHCP server.
+            <para>A boolean. When <literal>true</literal>, DHCPv4 clients receives IP address from DHCP server.
             After new IP is received, DHCPv4 performs IPv4 Duplicate Address Detection. If duplicate use of IP is detected
             the DHCPv4 client rejects the IP by sending a DHCPDECLINE packet DHCP clients try to obtain an IP address again.
             See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.

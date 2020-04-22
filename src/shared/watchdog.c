@@ -124,7 +124,7 @@ usec_t watchdog_runtime_wait(void) {
         if (!timestamp_is_set(watchdog_timeout))
                 return USEC_INFINITY;
 
-        /* Sleep half the watchdog timeout since the last succesful ping at most */
+        /* Sleep half the watchdog timeout since the last successful ping at most */
         if (timestamp_is_set(watchdog_last_ping)) {
                 ntime = now(clock_boottime_or_monotonic());
                 assert(ntime >= watchdog_last_ping);

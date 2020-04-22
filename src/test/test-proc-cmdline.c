@@ -30,7 +30,7 @@ static void test_proc_cmdline_override(void) {
         log_info("/* %s */", __func__);
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=differnt") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
 
         /* First test if the overrides for /proc/cmdline still work */
         _cleanup_free_ char *line = NULL, *value = NULL;

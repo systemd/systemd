@@ -2566,7 +2566,7 @@ static bool insist_on_sandboxing(
         assert(n_bind_mounts == 0 || bind_mounts);
 
         /* Checks whether we need to insist on fs namespacing. i.e. whether we have settings configured that
-         * would alter the view on the file system beyond making things read-only or invisble, i.e. would
+         * would alter the view on the file system beyond making things read-only or invisible, i.e. would
          * rearrange stuff in a way we cannot ignore gracefully. */
 
         if (context->n_temporary_filesystems > 0)

@@ -50,7 +50,7 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, theis functions return 0 or a positive integer. On failure, it returns a
+    <para>On success, this functions return 0 or a positive integer. On failure, it returns a
     negative errno-style error code.</para>
 
     <refsect2>

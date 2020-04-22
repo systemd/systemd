@@ -30,7 +30,7 @@
 
 _SD_BEGIN_DECLARATIONS;
 
-/* Neightbor Discovery Options, RFC 4861, Section 4.6 and
+/* Neighbor Discovery Options, RFC 4861, Section 4.6 and
  * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-5 */
 enum {
         SD_NDISC_OPTION_SOURCE_LL_ADDRESS  = 1,

@@ -1201,7 +1201,7 @@ static VOID config_entry_parse_tries(
                         }
 
                         new_factor = factor * 10;
-                        if (new_factor < factor) /* overflow chck */
+                        if (new_factor < factor) /* overflow check */
                                 return;
 
                         factor = new_factor;

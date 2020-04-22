@@ -147,7 +147,7 @@ directory-based storage mechanisms (`directory`, `subvolume` and `fscrypt`)
 this is a bind mount, in case of `cifs` this is a CIFS network mount, and in
 case of the LUKS2 backend a regular block device mount of the file system
 contained in the LUKS2 image. By requiring a mount for all cases (even for
-those that already are a directory) a clear logic is defined to distuingish
+those that already are a directory) a clear logic is defined to distinguish
 active and inactive home directories, so that the directories become
 inaccessible under their regular path the instant they are
 deactivated. Moreover, the `nosuid`, `nodev` and `noexec` flags configured in

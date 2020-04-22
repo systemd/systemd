@@ -995,7 +995,7 @@ CHANGES WITH 243:
           space if there are multiple devices with the highest priority.
 
         * /etc/crypttab support has learnt a new keyfile-timeout= per-device
-          option that permits selecting the timout how long to wait for a
+          option that permits selecting the timeout how long to wait for a
           device with an encryption key before asking for the password.
 
         * IOWeight= has learnt to properly set the IO weight when using the
@@ -3520,7 +3520,7 @@ CHANGES WITH 233:
           that is removed when the container dies. Specifically, if the source
           directory is specified as empty string this mechanism is selected. An
           example usage is --overlay=+/var::/var, which creates an overlay
-          mount based on the original /var contained in the image, overlayed
+          mount based on the original /var contained in the image, overlaid
           with a temporary directory in the host's /var/tmp. This way changes
           to /var are automatically flushed when the container shuts down.
 
@@ -6507,7 +6507,7 @@ CHANGES WITH 217:
         * Calendar time specifications in .timer units now also
           understand the strings "semi-annually", "quarterly" and
           "minutely" as shortcuts (in addition to the preexisting
-          "anually", "hourly", ...).
+          "annually", "hourly", ...).
 
         * systemd-tmpfiles will now correctly create files in /dev
           at boot which are marked for creation only at boot. It is
