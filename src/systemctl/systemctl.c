@@ -410,7 +410,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        for (u = unit_infos; u < unit_infos + c; u++) {
+        for (u = unit_infos; unit_infos && u < unit_infos + c; u++) {
                 _cleanup_free_ char *j = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "";
                 const char *on_circle = "", *id;

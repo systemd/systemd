@@ -1619,8 +1619,9 @@ int setup_namespace(
         r = 0;
 
 finish:
-        for (m = mounts; m < mounts + n_mounts; m++)
-                mount_entry_done(m);
+        if (n_mounts > 0)
+                for (m = mounts; m < mounts + n_mounts; m++)
+                        mount_entry_done(m);
 
         free(mounts);
 
