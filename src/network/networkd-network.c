@@ -267,6 +267,9 @@ int network_verify(Network *network) {
                 network->dhcp_use_mtu = false;
         }
 
+        if (network->dhcp_use_gateway < 0)
+                network->dhcp_use_gateway = network->dhcp_use_routes;
+
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0)
                         log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
@@ -385,7 +388,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
-                .dhcp_use_gateway = true,
+                .dhcp_use_gateway = -1,
                 /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,

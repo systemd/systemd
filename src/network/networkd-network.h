@@ -110,7 +110,7 @@ struct Network {
         bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
-        bool dhcp_use_gateway;
+        int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool rapid_commit;
         bool dhcp_use_hostname;
