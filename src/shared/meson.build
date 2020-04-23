@@ -184,6 +184,8 @@ shared_sources = files('''
         securebits-util.h
         serialize.c
         serialize.h
+        service-util.c
+        service-util.h
         sleep-config.c
         sleep-config.h
         socket-netlink.c
