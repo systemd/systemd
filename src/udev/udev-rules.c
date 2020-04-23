@@ -1092,7 +1092,9 @@ static int rule_add_line(UdevRules *rules, const char *line_str, unsigned line_n
         if (isempty(line_str))
                 return 0;
 
-        line = strdup(line_str);
+        /* We use memdup_suffix0() here, since we want to add a second NUL byte to the end, since possibly
+         * some parsers might turn this into a "nulstr", which requires an extra NUL at the end. */
+        line = memdup_suffix0(line_str, strlen(line_str) + 1);
         if (!line)
                 return log_oom();
 
