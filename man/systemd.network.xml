@@ -1652,7 +1652,8 @@
         <varlistentry>
           <term><varname>RequestOptions=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of integers in the range 1–254.</para>
+            <para>When configured, allows to set arbitrary request options in the DHCPv4 request options list and will be
+            sent to the DHCPV4 server. A whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -1726,6 +1727,14 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>RequestOptions=</varname></term>
+          <listitem>
+            <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list and will
+            sent to the DHCPV6 server. A whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
           <listitem>
             <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
@@ -1746,7 +1755,7 @@
           <listitem>
             <para>Takes an IPv6 address with prefix length as <varname>Address=</varname> in
             the "[Network]" section. Specifies the DHCPv6 client for the requesting router to include
-            a prefix-hint in the DHCPv6 solicitation. Prefix ranges 1-128. Defaults to unset.</para>
+            a prefix-hint in the DHCPv6 solicitation. Prefix ranges 1..128. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 

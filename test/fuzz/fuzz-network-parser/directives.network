@@ -114,6 +114,7 @@ PrefixDelegationHint=
 WithoutRA=
 MUDURL=
 SendOption=
+RequestOptions=
 [Route]
 Destination=
 Protocol=

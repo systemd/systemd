@@ -621,6 +621,7 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         sd_dhcp6_option *send_option;
+        void *request_options;
         const DUID *duid;
         Iterator i;
         int r;
@@ -690,6 +691,19 @@ int dhcp6_configure(Link *link) {
                 r = sd_dhcp6_client_set_request_mud_url(client, link->network->dhcp6_mudurl);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
+        }
+
+        SET_FOREACH(request_options, link->network->dhcp6_request_options, i) {
+                uint32_t option = PTR_TO_UINT32(request_options);
+
+                r = sd_dhcp6_client_set_request_option(client, option);
+                if (r == -EEXIST) {
+                        log_link_debug(link, "DHCP6 CLIENT: Failed to set request flag for '%u' already exists, ignoring.", option);
+                        continue;
+                }
+
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for '%u': %m", option);
         }
 
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
