@@ -42,6 +42,14 @@ fi
 if [ ! -f "$BUILDDIR"/build.ninja ] ; then
         sysvinit_path=`realpath /etc/init.d`
 
+        init_path=`realpath /sbin/init 2>/dev/null`
+        if [ -z "$init_path" ] ; then
+            rootprefix=""
+        else
+            rootprefix=${init_path%/lib/systemd/systemd}
+            rootprefix=/${rootprefix#/}
+        fi
+
         nobody_user=`id -u -n 65534 2> /dev/null`
         if [ "$nobody_user" != "" ] ; then
                 # Validate that we can translate forth and back
@@ -76,11 +84,17 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 fi
         fi
 
-        meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D default-hierarchy=unified -D man=false -D "nobody-user=$nobody_user" -D "nobody-group=$nobody_group"
+        meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D "rootprefix=$rootprefix" -D default-hierarchy=unified -D man=false -D "nobody-user=$nobody_user" -D "nobody-group=$nobody_group"
 fi
 
 ninja -C "$BUILDDIR" all
-[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test
+if [ "$WITH_TESTS" = 1 ] ; then
+        for id in 1 2 3; do
+                groupadd -g $id testgroup$id || :
+        done
+
+        ninja -C "$BUILDDIR" test
+fi
 ninja -C "$BUILDDIR" install
 
 mkdir -p "$DESTDIR"/etc
