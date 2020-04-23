@@ -901,9 +901,9 @@ ssize_t receive_one_fd_iov(
          * combination with send_one_fd().
          */
 
-        k = recvmsg(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags);
+        k = recvmsg_safe(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags);
         if (k < 0)
-                return (ssize_t) -errno;
+                return k;
 
         CMSG_FOREACH(cmsg, &mh) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -915,12 +915,13 @@ ssize_t receive_one_fd_iov(
                 }
         }
 
-        if (!found)
+        if (!found) {
                 cmsg_close_all(&mh);
 
-        /* If didn't receive an FD or any data, return an error. */
-        if (k == 0 && !found)
-                return -EIO;
+                /* If didn't receive an FD or any data, return an error. */
+                if (k == 0)
+                        return -EIO;
+        }
 
         if (found)
                 *ret_fd = *(int*) CMSG_DATA(found);
@@ -1170,4 +1171,25 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
                 return -errno;
 
         return socket_bind_to_ifname(fd, ifname);
+}
+
+ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags) {
+        ssize_t n;
+
+        /* A wrapper around recvmsg() that checks for MSG_CTRUNC, and turns it into an error, in a reasonably
+         * safe way, closing any SCM_RIGHTS fds in the error path.
+         *
+         * Note that unlike our usual coding style this might modify *msg on failure. */
+
+        n = recvmsg(sockfd, msg, flags);
+        if (n < 0)
+                return -errno;
+
+        if (FLAGS_SET(msg->msg_flags, MSG_CTRUNC)) {
+                cmsg_close_all(msg);
+                return -EXFULL; /* a recognizable error code */
+        }
+
+        return n;
+
 }

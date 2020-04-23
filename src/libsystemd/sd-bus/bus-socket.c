@@ -557,17 +557,24 @@ static int bus_socket_read_auth(sd_bus *b) {
                 mh.msg_control = &control;
                 mh.msg_controllen = sizeof(control);
 
-                k = recvmsg(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (k < 0 && errno == ENOTSOCK) {
+                k = recvmsg_safe(b->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k == -ENOTSOCK) {
                         b->prefer_readv = true;
                         k = readv(b->input_fd, &iov, 1);
+                        if (k < 0)
+                                k = -errno;
                 } else
                         handle_cmsg = true;
         }
+        if (k == -EAGAIN)
+                return 0;
         if (k < 0)
-                return errno == EAGAIN ? 0 : -errno;
-        if (k == 0)
+                return (int) k;
+        if (k == 0) {
+                if (handle_cmsg)
+                        cmsg_close_all(&mh); /* paranoia, we shouldn't have gotten any fds on EOF */
                 return -ECONNRESET;
+        }
 
         b->rbuffer_size += k;
 
@@ -1193,17 +1200,24 @@ int bus_socket_read_message(sd_bus *bus) {
                 mh.msg_control = &control;
                 mh.msg_controllen = sizeof(control);
 
-                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (k < 0 && errno == ENOTSOCK) {
+                k = recvmsg_safe(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k == -ENOTSOCK) {
                         bus->prefer_readv = true;
                         k = readv(bus->input_fd, &iov, 1);
+                        if (k < 0)
+                                k = -errno;
                 } else
                         handle_cmsg = true;
         }
+        if (k == -EAGAIN)
+                return 0;
         if (k < 0)
-                return errno == EAGAIN ? 0 : -errno;
-        if (k == 0)
+                return (int) k;
+        if (k == 0) {
+                if (handle_cmsg)
+                        cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */
                 return -ECONNRESET;
+        }
 
         bus->rbuffer_size += k;
 
