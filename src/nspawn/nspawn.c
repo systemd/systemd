@@ -2974,13 +2974,10 @@ static int inner_child(
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
                                 true);
-                if (r < 0)
-                        return r;
-        } else {
+        } else
                 r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         r = setup_boot_id();
         if (r < 0)
@@ -4823,6 +4820,58 @@ static int initialize_rlimits(void) {
         return 0;
 }
 
+static int cant_be_in_netns(void) {
+        union sockaddr_union sa = {
+                .un = {
+                        .sun_family = AF_UNIX,
+                        .sun_path = "/run/udev/control",
+                },
+        };
+        char udev_path[STRLEN("/proc//ns/net") + DECIMAL_STR_MAX(pid_t)];
+        _cleanup_free_ char *udev_ns = NULL, *our_ns = NULL;
+        _cleanup_close_ int fd = -1;
+        struct ucred ucred;
+        int r;
+
+        /* Check if we are in the same netns as udev. If we aren't, then device monitoring (and thus waiting
+         * for loopback block devices) won't work, and we will hang. Detect this case and exit early with a
+         * nice message. */
+
+        if (!arg_image) /* only matters if --image= us used, i.e. we actually need to use loopback devices */
+                return 0;
+
+        fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate udev control socket: %m");
+
+        if (connect(fd, &sa.un, SOCKADDR_UN_LEN(sa.un)) < 0) {
+
+                if (errno == ENOENT || ERRNO_IS_DISCONNECT(errno))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
+
+                return log_error_errno(errno, "Failed to connect socket to udev control socket: %m");
+        }
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine peer of udev control socket: %m");
+
+        xsprintf(udev_path, "/proc/" PID_FMT "/ns/net", ucred.pid);
+        r = readlink_malloc(udev_path, &udev_ns);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read network namespace of udev: %m");
+
+        r = readlink_malloc("/proc/self/ns/net", &our_ns);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read our own network namespace: %m");
+
+        if (!streq(our_ns, udev_ns))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Sorry, but --image= is only supported in the main network namespace, since we need access to udev/AF_NETLINK.");
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         bool secondary = false, remove_directory = false, remove_image = false,
                 veth_created = false, remove_tmprootdir = false;
@@ -4846,6 +4895,10 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         r = must_be_root();
+        if (r < 0)
+                goto finish;
+
+        r = cant_be_in_netns();
         if (r < 0)
                 goto finish;
 
