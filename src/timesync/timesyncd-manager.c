@@ -438,12 +438,11 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return manager_connect(m);
         }
 
-        len = recvmsg(fd, &msghdr, MSG_DONTWAIT);
+        len = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
+        if (len == -EAGAIN)
+                return 0;
         if (len < 0) {
-                if (errno == EAGAIN)
-                        return 0;
-
-                log_warning("Error receiving message. Disconnecting.");
+                log_warning_errno(len, "Error receiving message, disconnecting: %m");
                 return manager_connect(m);
         }
 

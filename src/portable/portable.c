@@ -190,9 +190,9 @@ static int recv_item(
         assert(ret_name);
         assert(ret_fd);
 
-        n = recvmsg(socket_fd, &mh, MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(socket_fd, &mh, MSG_CMSG_CLOEXEC);
         if (n < 0)
-                return -errno;
+                return (int) n;
 
         CMSG_FOREACH(cmsg, &mh) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&

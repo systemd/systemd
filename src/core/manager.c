@@ -2360,20 +2360,20 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
-        if (n < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0; /* Spurious wakeup, try again */
-
-                /* If this is any other, real error, then let's stop processing this socket. This of course means we
-                 * won't take notification messages anymore, but that's still better than busy looping around this:
-                 * being woken up over and over again but being unable to actually read the message off the socket. */
-                return log_error_errno(errno, "Failed to receive notification message: %m");
-        }
+        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        if (IN_SET(n, -EAGAIN, -EINTR))
+                return 0; /* Spurious wakeup, try again */
+        if (n < 0)
+                /* If this is any other, real error, then let's stop processing this socket. This of course
+                 * means we won't take notification messages anymore, but that's still better than busy
+                 * looping around this: being woken up over and over again but being unable to actually read
+                 * the message off the socket. */
+                return log_error_errno(n, "Failed to receive notification message: %m");
 
         CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
+                        assert(!fd_array);
                         fd_array = (int*) CMSG_DATA(cmsg);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
@@ -2381,6 +2381,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
+                        assert(!ucred);
                         ucred = (struct ucred*) CMSG_DATA(cmsg);
                 }
         }
