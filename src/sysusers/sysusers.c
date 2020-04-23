@@ -1443,7 +1443,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         if (name) {
                 r = specifier_printf(name, specifier_table, NULL, &resolved_name);
                 if (r < 0)
-                        log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, name);
+                        return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, name);
 
                 if (!valid_user_group_name(resolved_name, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
