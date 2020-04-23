@@ -830,6 +830,5 @@ const UnitVTable path_vtable = {
 
         .reset_failed = path_reset_failed,
 
-        .bus_vtable = bus_path_vtable,
         .bus_set_property = bus_path_set_property,
 };

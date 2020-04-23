@@ -2110,7 +2110,6 @@ const UnitVTable mount_vtable = {
 
         .control_pid = mount_control_pid,
 
-        .bus_vtable = bus_mount_vtable,
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
 

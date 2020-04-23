@@ -140,6 +140,58 @@ const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        Manager *m = userdata;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+        assert(m);
+
+        r = manager_get_job_from_dbus_path(m, path, &j);
+        if (r < 0)
+                return 0;
+
+        *found = j;
+        return 1;
+}
+
+static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
+        unsigned k = 0;
+        Iterator i;
+        Job *j;
+
+        l = new0(char*, hashmap_size(m->jobs)+1);
+        if (!l)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH(j, m->jobs, i) {
+                l[k] = job_dbus_path(j);
+                if (!l[k])
+                        return -ENOMEM;
+
+                k++;
+        }
+
+        assert(hashmap_size(m->jobs) == k);
+
+        *nodes = TAKE_PTR(l);
+
+        return k;
+}
+
+const BusObjectImplementation job_object = {
+        "/org/freedesktop/systemd1/job",
+        "org.freedesktop.systemd1.Job",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({bus_job_vtable, bus_job_find}),
+        .node_enumerator = bus_job_enumerate,
+};
+
 static int send_new_signal(sd_bus *bus, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
