@@ -710,6 +710,12 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static const BusObjectImplementation manager_object = {
+        "/org/freedesktop/locale1",
+        "org.freedesktop.locale1",
+        .vtables = BUS_VTABLES(locale_vtable),
+};
+
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -722,9 +728,9 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
+        r = bus_add_implementation(bus, &manager_object, c);
         if (r < 0)
-                return log_error_errno(r, "Failed to register object: %m");
+                return r;
 
         r = bus_log_control_api_register(bus);
         if (r < 0)
@@ -757,7 +763,8 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-localed.service",
                                "Manage system locale settings and key mappings.",
-                               NULL,
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
                                argc, argv);
         if (r <= 0)
                 return r;
