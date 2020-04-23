@@ -78,8 +78,8 @@ static void test_copy_file_fd(void) {
 }
 
 static void test_copy_tree(void) {
-        char original_dir[] = "/var/tmp/test-copy_tree/";
-        char copy_dir[] = "/var/tmp/test-copy_tree-copy/";
+        char original_dir[] = "/tmp/test-copy_tree/";
+        char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
         char **links = STRV_MAKE("link", "file",
                                  "link2", "dir1/file");
@@ -270,7 +270,7 @@ static void test_copy_atomic(void) {
         q = strjoina(p, "/fstab");
 
         r = copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK);
-        if (r == -ENOENT)
+        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
                 return;
 
         assert_se(copy_file_atomic("/etc/fstab", q, 0644, 0, 0, COPY_REFLINK) == -EEXIST);

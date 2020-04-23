@@ -444,7 +444,10 @@ static void test_write_string_file_verify(void) {
         _cleanup_free_ char *buf = NULL, *buf2 = NULL;
         int r;
 
-        assert_se(read_one_line_file("/proc/version", &buf) >= 0);
+        r = read_one_line_file("/proc/version", &buf);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
+        assert_se(r >= 0);
         assert_se(buf2 = strjoin(buf, "\n"));
 
         r = write_string_file("/proc/version", buf, 0);

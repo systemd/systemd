@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "build.h"
 #include "cgroup-setup.h"
+#include "errno-util.h"
 #include "log.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
@@ -58,6 +61,9 @@ static void test_is_wanted(void) {
 
 int main(void) {
         test_setup_logging(LOG_DEBUG);
+
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return log_tests_skipped("can't read /proc/cmdline");
 
         test_is_wanted_print(true);
         test_is_wanted_print(false); /* run twice to test caching */

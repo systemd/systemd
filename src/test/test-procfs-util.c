@@ -2,9 +2,11 @@
 
 #include <errno.h>
 
+#include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "procfs-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         char buf[CONST_MAX(FORMAT_TIMESPAN_MAX, FORMAT_BYTES_MAX)];
@@ -24,7 +26,11 @@ int main(int argc, char *argv[]) {
         assert_se(procfs_tasks_get_current(&v) >= 0);
         log_info("Current number of tasks: %" PRIu64, v);
 
-        assert_se(procfs_tasks_get_limit(&v) >= 0);
+        r = procfs_tasks_get_limit(&v);
+        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
+                return log_tests_skipped("can't read /proc/sys/kernel/pid_max");
+
+        assert_se(r >= 0);
         log_info("Limit of tasks: %" PRIu64, v);
         assert_se(v > 0);
         assert_se(procfs_tasks_set_limit(v) >= 0);

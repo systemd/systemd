@@ -866,6 +866,7 @@ int main(int argc, char *argv[]) {
         (void) unsetenv("LOGNAME");
         (void) unsetenv("SHELL");
         (void) unsetenv("HOME");
+        (void) unsetenv("TMPDIR");
 
         can_unshare = have_namespaces();
 
