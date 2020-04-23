@@ -115,28 +115,25 @@ static void detach_location(sd_journal *j) {
                 journal_file_reset_location(f);
 }
 
-static void reset_location(sd_journal *j) {
-        assert(j);
-
-        detach_location(j);
-        zero(j->current_location);
-}
-
 static void init_location(Location *l, LocationType type, JournalFile *f, Object *o) {
         assert(l);
         assert(IN_SET(type, LOCATION_DISCRETE, LOCATION_SEEK));
         assert(f);
         assert(o->object.type == OBJECT_ENTRY);
 
-        l->type = type;
-        l->seqnum = le64toh(o->entry.seqnum);
-        l->seqnum_id = f->header->seqnum_id;
-        l->realtime = le64toh(o->entry.realtime);
-        l->monotonic = le64toh(o->entry.monotonic);
-        l->boot_id = o->entry.boot_id;
-        l->xor_hash = le64toh(o->entry.xor_hash);
-
-        l->seqnum_set = l->realtime_set = l->monotonic_set = l->xor_hash_set = true;
+        *l = (Location) {
+                .type = type,
+                .seqnum = le64toh(o->entry.seqnum),
+                .seqnum_id = f->header->seqnum_id,
+                .realtime = le64toh(o->entry.realtime),
+                .monotonic = le64toh(o->entry.monotonic),
+                .boot_id = o->entry.boot_id,
+                .xor_hash = le64toh(o->entry.xor_hash),
+                .seqnum_set = true,
+                .realtime_set = true,
+                .monotonic_set = true,
+                .xor_hash_set = true,
+        };
 }
 
 static void set_location(sd_journal *j, JournalFile *f, Object *o) {
@@ -1014,9 +1011,10 @@ _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
             !realtime_set)
                 return -EINVAL;
 
-        reset_location(j);
-
-        j->current_location.type = LOCATION_SEEK;
+        detach_location(j);
+        j->current_location = (Location) {
+                .type = LOCATION_SEEK,
+        };
 
         if (realtime_set) {
                 j->current_location.realtime = (uint64_t) realtime;
@@ -1129,11 +1127,14 @@ _public_ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, u
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        reset_location(j);
-        j->current_location.type = LOCATION_SEEK;
-        j->current_location.boot_id = boot_id;
-        j->current_location.monotonic = usec;
-        j->current_location.monotonic_set = true;
+        detach_location(j);
+
+        j->current_location = (Location) {
+                .type = LOCATION_SEEK,
+                .boot_id = boot_id,
+                .monotonic = usec,
+                .monotonic_set = true,
+        };
 
         return 0;
 }
@@ -1142,10 +1143,13 @@ _public_ int sd_journal_seek_realtime_usec(sd_journal *j, uint64_t usec) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        reset_location(j);
-        j->current_location.type = LOCATION_SEEK;
-        j->current_location.realtime = usec;
-        j->current_location.realtime_set = true;
+        detach_location(j);
+
+        j->current_location = (Location) {
+                .type = LOCATION_SEEK,
+                .realtime = usec,
+                .realtime_set = true,
+        };
 
         return 0;
 }
@@ -1154,8 +1158,11 @@ _public_ int sd_journal_seek_head(sd_journal *j) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        reset_location(j);
-        j->current_location.type = LOCATION_HEAD;
+        detach_location(j);
+
+        j->current_location = (Location) {
+                .type = LOCATION_HEAD,
+        };
 
         return 0;
 }
@@ -1164,8 +1171,11 @@ _public_ int sd_journal_seek_tail(sd_journal *j) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
-        reset_location(j);
-        j->current_location.type = LOCATION_TAIL;
+        detach_location(j);
+
+        j->current_location = (Location) {
+                .type = LOCATION_TAIL,
+        };
 
         return 0;
 }
