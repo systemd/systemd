@@ -101,9 +101,9 @@ Here's an example walkthrough of how this all fits together.
 
 6. If this boot also fails, on the next boot the boot loader will see the
    tag `+0-3`, i.e. the counter reached zero. At this point the entry will be
-   considered "bad", and ordered to the end of the list of entries. The next
-   newest boot entry is now tried, i.e. the system automatically reverted back
-   to an earlier version.
+   considered "bad", and ordered to the beginning of the list of entries. The
+   next newest boot entry is now tried, i.e. the system automatically reverted
+   back to an earlier version.
 
 The above describes the walkthrough when the selected boot entry continuously
 fails. Let's have a look at an alternative ending to this walkthrough. In this

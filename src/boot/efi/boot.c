@@ -1518,11 +1518,11 @@ static VOID config_load_entries(
 static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
         INTN r;
 
-        /* Order entries that have no tries left to the end of the list */
+        /* Order entries that have no tries left to the beginning of the list */
         if (a->tries_left != 0 && b->tries_left == 0)
-                return -1;
-        if (a->tries_left == 0 && b->tries_left != 0)
                 return 1;
+        if (a->tries_left == 0 && b->tries_left != 0)
+                return -1;
 
         r = str_verscmp(a->id, b->id);
         if (r != 0)
@@ -1532,17 +1532,17 @@ static INTN config_entry_compare(ConfigEntry *a, ConfigEntry *b) {
             b->tries_left == (UINTN) -1)
                 return 0;
 
-        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left first */
+        /* If both items have boot counting, and otherwise are identical, put the entry with more tries left last */
         if (a->tries_left > b->tries_left)
-                return -1;
-        if (a->tries_left < b->tries_left)
                 return 1;
+        if (a->tries_left < b->tries_left)
+                return -1;
 
         /* If they have the same number of tries left, then let the one win which was tried fewer times so far */
         if (a->tries_done < b->tries_done)
-                return -1;
-        if (a->tries_done > b->tries_done)
                 return 1;
+        if (a->tries_done > b->tries_done)
+                return -1;
 
         return 0;
 }
