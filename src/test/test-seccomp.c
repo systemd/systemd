@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
@@ -283,6 +284,7 @@ static void test_restrict_namespace(void) {
 
 static void test_protect_sysctl(void) {
         pid_t pid;
+        _cleanup_free_ char *seccomp = NULL;
 
         log_info("/* %s */", __func__);
 
@@ -300,6 +302,10 @@ static void test_protect_sysctl(void) {
                 log_notice("Testing in container, skipping %s", __func__);
                 return;
         }
+
+        assert_se(get_proc_field("/proc/self/status", "Seccomp", WHITESPACE, &seccomp) == 0);
+        if (!streq(seccomp, "0"))
+                log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 
         pid = fork();
         assert_se(pid >= 0);

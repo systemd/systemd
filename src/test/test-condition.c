@@ -15,6 +15,7 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
+#include "errno-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -274,10 +275,14 @@ static void test_condition_test_architecture(void) {
 
 static void test_condition_test_kernel_command_line(void) {
         Condition *condition;
+        int r;
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        r = condition_test(condition);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
+        assert_se(r == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
@@ -506,6 +511,8 @@ static void test_condition_test_virtualization(void) {
         condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false);
         assert_se(condition);
         r = condition_test(condition);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
         log_info("ConditionVirtualization=garbage → %i", r);
         assert_se(r == 0);
         condition_free(condition);

@@ -7,9 +7,13 @@
 #include "sd-journal.h"
 
 #include "macro.h"
+#include "memory-util.h"
 
 int main(int argc, char *argv[]) {
-        char huge[4096*1024];
+        _cleanup_free_ char *huge = NULL;
+
+#define HUGE_SIZE (4096*1024)
+        assert_se(huge = malloc(HUGE_SIZE));
 
         /* utf-8 and non-utf-8, message-less and message-ful iovecs */
         struct iovec graph1[] = {
@@ -36,9 +40,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_journal_perror("") == 0);
 
-        memset(huge, 'x', sizeof(huge));
-        memcpy(huge, "HUGE=", 5);
-        char_array_0(huge);
+        memcpy(huge, "HUGE=", STRLEN("HUGE="));
+        memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
+        huge[HUGE_SIZE - 1] = '\0';
 
         assert_se(sd_journal_send("MESSAGE=Huge field attached",
                                   huge,

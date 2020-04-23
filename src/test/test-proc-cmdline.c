@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
@@ -249,6 +250,9 @@ static void test_proc_cmdline_key_startswith(void) {
 
 int main(void) {
         test_setup_logging(LOG_INFO);
+
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return log_tests_skipped("can't read /proc/cmdline");
 
         test_proc_cmdline_parse();
         test_proc_cmdline_override();

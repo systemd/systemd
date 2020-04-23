@@ -115,6 +115,9 @@ static void test_execute_directory(bool gather_stdout) {
         assert_se(chmod(masked2e, 0755) == 0);
         assert_se(chmod(mask2e, 0755) == 0);
 
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
+
         if (gather_stdout)
                 execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
@@ -182,6 +185,9 @@ static void test_execution_order(void) {
         assert_se(chmod(overridden, 0755) == 0);
         assert_se(chmod(override, 0755) == 0);
         assert_se(chmod(masked, 0755) == 0);
+
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
@@ -265,6 +271,9 @@ static void test_stdout_gathering(void) {
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
 
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
+
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdout, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -331,6 +340,9 @@ static void test_environment_gathering(void) {
         r = setenv("PATH", "no-sh-built-in-path", 1);
         assert_se(r >= 0);
 
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
+
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -394,6 +406,9 @@ static void test_error_catching(void) {
         assert_se(chmod(name, 0755) == 0);
         assert_se(chmod(name2, 0755) == 0);
         assert_se(chmod(name3, 0755) == 0);
+
+        if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return;
 
         r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_NONE);
 

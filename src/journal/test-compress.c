@@ -233,8 +233,9 @@ static void test_lz4_decompress_partial(void) {
 
 #define HUGE_SIZE (4096*1024)
         assert_se(huge = malloc(HUGE_SIZE));
-        memset(huge, 'x', HUGE_SIZE);
-        memcpy(huge, "HUGE=", 5);
+        memcpy(huge, "HUGE=", STRLEN("HUGE="));
+        memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
+        huge[HUGE_SIZE - 1] = '\0';
 
         r = LZ4_compress_default(huge, buf, HUGE_SIZE, buf_size);
         assert_se(r >= 0);
@@ -274,10 +275,12 @@ int main(int argc, char *argv[]) {
 
         char data[512] = "random\0";
 
-        char huge[4096*1024];
-        memset(huge, 'x', sizeof(huge));
-        memcpy(huge, "HUGE=", 5);
-        char_array_0(huge);
+        _cleanup_free_ char *huge = NULL;
+
+        assert_se(huge = malloc(HUGE_SIZE));
+        memcpy(huge, "HUGE=", STRLEN("HUGE="));
+        memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
+        huge[HUGE_SIZE - 1] = '\0';
 
         test_setup_logging(LOG_DEBUG);
 
@@ -297,7 +300,7 @@ int main(int argc, char *argv[]) {
                                    data, sizeof(data), true);
         test_decompress_startswith(OBJECT_COMPRESSED_XZ,
                                    compress_blob_xz, decompress_startswith_xz,
-                                   huge, sizeof(huge), true);
+                                   huge, HUGE_SIZE, true);
 
         test_compress_stream(OBJECT_COMPRESSED_XZ, "xzcat",
                              compress_stream_xz, decompress_stream_xz, srcfile);
@@ -322,7 +325,7 @@ int main(int argc, char *argv[]) {
                                    data, sizeof(data), true);
         test_decompress_startswith(OBJECT_COMPRESSED_LZ4,
                                    compress_blob_lz4, decompress_startswith_lz4,
-                                   huge, sizeof(huge), true);
+                                   huge, HUGE_SIZE, true);
 
         test_compress_stream(OBJECT_COMPRESSED_LZ4, "lz4cat",
                              compress_stream_lz4, decompress_stream_lz4, srcfile);
