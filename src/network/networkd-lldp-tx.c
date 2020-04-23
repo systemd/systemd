@@ -6,8 +6,8 @@
 #include <net/if_arp.h>
 
 #include "alloc-util.h"
-#include "escape.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "missing_network.h"
@@ -18,6 +18,7 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 #include "web-util.h"
 
@@ -52,6 +53,9 @@ bool link_lldp_emit_enabled(Link *link) {
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
         return link->network->lldp_emit != LLDP_EMIT_NO;
