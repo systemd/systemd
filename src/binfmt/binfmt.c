@@ -32,18 +32,17 @@ static int delete_rule(const char *rule) {
         assert(rule);
         assert(rule[0]);
 
-        x = strdup(rule);
+        e = strchrnul(rule + 1, rule[0]);
+        x = strndup(rule + 1, e - rule - 1);
         if (!x)
                 return log_oom();
 
-        e = strchrnul(x+1, x[0]);
-        *e = 0;
-
-        if (!filename_is_valid(x + 1))
+        if (!filename_is_valid(x) ||
+            STR_IN_SET(x, "register", "status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Rule file name '%s' is not valid, refusing.", x + 1);
+                                       "Rule file name '%s' is not valid, refusing.", x);
 
-        fn = path_join("/proc/sys/fs/binfmt_misc", x+1);
+        fn = path_join("/proc/sys/fs/binfmt_misc", x);
         if (!fn)
                 return log_oom();
 
