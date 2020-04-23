@@ -1638,6 +1638,17 @@ static int bus_introspect_implementation(
         return 0;
 }
 
+static void list_paths(
+                FILE *out,
+                const BusObjectImplementation* const* bus_objects) {
+
+        for (size_t i = 0; bus_objects[i]; i++) {
+                fprintf(out, "%s\t%s\n", bus_objects[i]->path, bus_objects[i]->interface);
+                if (bus_objects[i]->children)
+                        list_paths(out, bus_objects[i]->children);
+        }
+}
+
 int bus_introspect_implementations(
                 FILE *out,
                 const char *pattern,
@@ -1646,6 +1657,11 @@ int bus_introspect_implementations(
         const BusObjectImplementation *impl, *main_impl = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
+
+        if (streq(pattern, "list")) {
+                list_paths(out, bus_objects);
+                return 0;
+        }
 
         struct introspect intro = {};
         bool is_interface = interface_name_is_valid(pattern);
