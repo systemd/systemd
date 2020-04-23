@@ -2365,7 +2365,10 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
         uint64_t l;
         int compression;
 
-        l = le64toh(o->object.size) - offsetof(Object, data.payload);
+        l = le64toh(READ_NOW(o->object.size));
+        if (l < offsetof(Object, data.payload))
+                return -EBADMSG;
+        l -= offsetof(Object, data.payload);
         t = (size_t) l;
 
         /* We can't read objects larger than 4G on a 32bit machine */
