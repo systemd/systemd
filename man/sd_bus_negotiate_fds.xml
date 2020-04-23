@@ -19,6 +19,7 @@
     <refname>sd_bus_negotiate_fds</refname>
     <refname>sd_bus_negotiate_timestamp</refname>
     <refname>sd_bus_negotiate_creds</refname>
+    <refname>sd_bus_get_creds_mask</refname>
 
     <refpurpose>Control feature negotiation on bus connections</refpurpose>
   </refnamediv>
@@ -45,69 +46,69 @@
         <paramdef>int <parameter>b</parameter></paramdef>
         <paramdef>uint64_t <parameter>mask</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_creds_mask</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>mask</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_negotiate_fds()</function> controls whether
-    file descriptor passing shall be negotiated for the specified bus
-    connection. It takes a bus object and a boolean, which, when true,
-    enables file descriptor passing, and, when false, disables
-    it. Note that not all transports and servers support file
-    descriptor passing. In particular, networked transports generally
-    do not support file descriptor passing. To find out whether file
-    descriptor passing is available after negotiation, use
+    <para><function>sd_bus_negotiate_fds()</function> controls whether file descriptor passing shall be
+    negotiated for the specified bus connection. It takes a bus object and a boolean, which, when true,
+    enables file descriptor passing, and, when false, disables it. Note that not all transports and servers
+    support file descriptor passing. In particular, networked transports generally do not support file
+    descriptor passing. To find out whether file descriptor passing is available after negotiation, use
     <citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and pass <constant>SD_BUS_TYPE_UNIX_FD</constant>. Note that file
-    descriptor passing is always enabled for both sending and
-    receiving or for neither, but never only in one direction. By
-    default, file descriptor passing is negotiated for all
-    connections.</para>
+    and pass <constant>SD_BUS_TYPE_UNIX_FD</constant>. Note that file descriptor passing is always enabled
+    for both sending and receiving or for neither, but never only in one direction. By default, file
+    descriptor passing is negotiated for all connections.</para>
 
-    <para><function>sd_bus_negotiate_timestamp()</function> controls whether implicit sender
-    timestamps shall be attached automatically to all incoming messages. Takes a bus object and a
-    boolean, which, when true, enables timestamping, and, when false, disables it.  Use
+    <para><function>sd_bus_negotiate_timestamp()</function> controls whether implicit sender timestamps shall
+    be attached automatically to all incoming messages. Takes a bus object and a boolean, which, when true,
+    enables timestamping, and, when false, disables it.  Use
     <citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_realtime_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    to query the timestamps of incoming messages. If negotiation is disabled or not supported, these
-    calls will fail with <constant>-ENODATA</constant>. Note that currently no transports support
-    timestamping of messages. By default, message timestamping is not negotiated for
-    connections.</para>
+    to query the timestamps of incoming messages. If negotiation is disabled or not supported, these calls
+    will fail with <constant>-ENODATA</constant>. Note that currently no transports support timestamping of
+    messages. By default, message timestamping is not negotiated for connections.</para>
 
     <para><function>sd_bus_negotiate_creds()</function> controls whether and which implicit sender
-    credentials shall be attached automatically to all incoming messages. Takes a bus object and a
-    boolean indicating whether to enable or disable the credential parts encoded in the bit mask
-    value argument. Note that not all transports support attaching sender credentials to messages,
-    or do not support all types of sender credential parameters, or might suppress them under
-    certain circumstances for individual messages. Specifically, dbus1 only supports
-    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>. The sender credentials are suitable for
-    authorization decisions. By default, only <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant> and
-    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant> are enabled. In fact, these two credential fields
-    are always sent along and cannot be turned off.</para>
+    credentials shall be attached automatically to all incoming messages. Takes a bus object and a boolean
+    indicating whether to enable or disable the credential parts encoded in the bit mask value argument. Note
+    that not all transports support attaching sender credentials to messages, or do not support all types of
+    sender credential parameters, or might suppress them under certain circumstances for individual messages.
+    Specifically, dbus1 only supports <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>. The sender credentials
+    are suitable for authorization decisions. By default, only
+    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant> and <constant>SD_BUS_CREDS_UNIQUE_NAME</constant> are
+    enabled. In fact, these two credential fields are always sent along and cannot be turned off.</para>
 
-    <para>The <function>sd_bus_negotiate_fds()</function> function may
-    be called only before the connection has been started with
+    <para><function>sd_bus_get_creds_mask()</function> returns the set of sender credentials that was
+    negotiated to be attached to all incoming messages in <parameter>mask</parameter>. This value is an
+    upper boundary only. Hence, always make sure to explicitly check which credentials are attached to a
+    specific message before using it.</para>
+
+    <para>The <function>sd_bus_negotiate_fds()</function> function may be called only before the connection
+    has been started with
     <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>. Both
-    <function>sd_bus_negotiate_timestamp()</function> and
-    <function>sd_bus_negotiate_creds()</function> may also be called
-    after a connection has been set up. Note that, when operating on a
-    connection that is shared between multiple components of the same
-    program (for example via
-    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
-    it is highly recommended to only enable additional per message
-    metadata fields, but never disable them again, in order not to
-    disable functionality needed by other components.</para>
+    <function>sd_bus_negotiate_timestamp()</function> and <function>sd_bus_negotiate_creds()</function> may
+    also be called after a connection has been set up. Note that, when operating on a connection that is
+    shared between multiple components of the same program (for example via
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>), it
+    is highly recommended to only enable additional per message metadata fields, but never disable them
+    again, in order not to disable functionality needed by other components.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a
-    positive integer. On failure, they return a negative errno-style
-    error code.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -119,6 +120,24 @@
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>The bus connection has already been started.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
