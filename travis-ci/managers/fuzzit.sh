@@ -48,10 +48,30 @@ FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVI
 wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/latest/download/fuzzit_Linux_x86_64
 chmod +x fuzzit
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-asan-ubsan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+# Simple wrapper which retries given command up to three times if it fails
+_retry() {
+    local EC=1
+
+    for _ in {0..2}; do
+        if "$@"; then
+            EC=0
+            break
+        fi
+
+        sleep 1
+    done
+
+    return $EC
+}
+
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | while read -r fuzzer; do
+    _retry ./fuzzit create job ${FUZZIT_ARGS} ${fuzzer}-asan-ubsan out/${fuzzer} ${FUZZIT_ADDITIONAL_FILES}
+done
 
 export SANITIZER="memory -fsanitize-memory-track-origins"
 FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT}"
 tools/oss-fuzz.sh
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-msan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | while read -r fuzzer; do
+    _retry ./fuzzit create job ${FUZZIT_ARGS} ${fuzzer}-msan out/${fuzzer} ${FUZZIT_ADDITIONAL_FILES}
+done
