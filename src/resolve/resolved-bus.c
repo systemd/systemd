@@ -2015,6 +2015,14 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/resolve1",
+        "org.freedesktop.resolve1.Manager",
+        .vtables = BUS_VTABLES(resolve_vtable),
+        .children = BUS_IMPLEMENTATIONS(&link_object,
+                                        &dnssd_object),
+};
+
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = userdata;
         int b, r;
@@ -2049,25 +2057,9 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", resolve_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to register object: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/resolve1/link", "org.freedesktop.resolve1.Link", link_vtable, link_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register link objects: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/resolve1/link", link_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register link enumerator: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/resolve1/dnssd", "org.freedesktop.resolve1.DnssdService", dnssd_vtable, dnssd_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register dnssd objects: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/resolve1/dnssd", dnssd_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to register dnssd enumerator: %m");
+                return r;
 
         r = bus_log_control_api_register(m->bus);
         if (r < 0)
