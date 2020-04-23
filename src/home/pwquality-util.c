@@ -148,7 +148,7 @@ int suggest_passwords(void) {
 
         pwquality_maybe_disable_dictionary(pwq);
 
-        suggestions = new0(char*, N_SUGGESTIONS);
+        suggestions = new0(char*, N_SUGGESTIONS+1);
         if (!suggestions)
                 return log_oom();
 
