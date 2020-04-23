@@ -16,6 +16,10 @@
 #include "socket-util.h"
 #include "util.h"
 
+/* For some reason we need some extra cmsg space on some kernels. It's not clear why, and one of those days
+ * we need to track this down. See: https://github.com/systemd/systemd/pull/15457 */
+#define EXTRA_CMSG_SPACE 1024
+
 int socket_open(int family) {
         int fd;
 
@@ -240,30 +244,27 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
 
 static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
         union sockaddr_union sender;
-        uint8_t cmsg_buffer[CMSG_SPACE(sizeof(struct nl_pktinfo))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo)) + EXTRA_CMSG_SPACE) control;
         struct msghdr msg = {
                 .msg_iov = iov,
                 .msg_iovlen = 1,
                 .msg_name = &sender,
                 .msg_namelen = sizeof(sender),
-                .msg_control = cmsg_buffer,
-                .msg_controllen = sizeof(cmsg_buffer),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
         ssize_t n;
 
         assert(fd >= 0);
         assert(iov);
 
-        n = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (n < 0) {
-                /* no data */
-                if (errno == ENOBUFS)
-                        log_debug("rtnl: kernel receive buffer overrun");
-                else if (errno == EAGAIN)
-                        log_debug("rtnl: no data in socket");
-
-                return IN_SET(errno, EAGAIN, EINTR) ? 0 : -errno;
-        }
+        n = recvmsg_safe(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
+        if (n == -ENOBUFS)
+                return log_debug_errno(n, "rtnl: kernel receive buffer overrun");
+        if (IN_SET(n, -EAGAIN, -EINTR))
+                return 0;
+        if (n < 0)
+                return (int) n;
 
         if (sender.nl.nl_pid != 0) {
                 /* not from the kernel, ignore */
@@ -271,20 +272,20 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
 
                 if (peek) {
                         /* drop the message */
-                        n = recvmsg(fd, &msg, 0);
+                        n = recvmsg_safe(fd, &msg, 0);
                         if (n < 0)
-                                return IN_SET(errno, EAGAIN, EINTR) ? 0 : -errno;
+                                return (int) n;
                 }
 
                 return 0;
         }
 
         if (ret_mcast_group) {
-                struct cmsghdr *cmsg;
+                struct nl_pktinfo *pi;
 
-                cmsg = cmsg_find(&msg, SOL_NETLINK, NETLINK_PKTINFO, CMSG_LEN(sizeof(struct nl_pktinfo)));
-                if (cmsg)
-                        *ret_mcast_group = ((struct nl_pktinfo*) CMSG_DATA(cmsg))->group;
+                pi = CMSG_FIND_DATA(&msg, SOL_NETLINK, NETLINK_PKTINFO, struct nl_pktinfo);
+                if (pi)
+                        *ret_mcast_group = pi->group;
                 else
                         *ret_mcast_group = 0;
         }
