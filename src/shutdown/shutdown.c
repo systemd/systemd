@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "binfmt-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "def.h"
@@ -373,6 +374,7 @@ int main(int argc, char *argv[]) {
                 sync_with_progress();
 
         disable_coredumps();
+        disable_binfmt();
 
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true, arg_timeout);
