@@ -19,11 +19,12 @@
     <refname>sd_bus_message_get_type</refname>
     <refname>sd_bus_message_get_error</refname>
     <refname>sd_bus_message_get_errno</refname>
+    <refname>sd_bus_message_get_creds</refname>
     <refname>sd_bus_message_is_signal</refname>
     <refname>sd_bus_message_is_method_call</refname>
     <refname>sd_bus_message_is_method_error</refname>
 
-    <refpurpose>Query bus message addressing metadata</refpurpose>
+    <refpurpose>Query bus message addressing/credentials metadata</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -43,6 +44,11 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_get_errno</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_creds* <function>sd_bus_message_get_creds</function></funcdef>
         <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
 
@@ -93,6 +99,11 @@
     <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
+    <para><function>sd_bus_message_get_creds()</function> returns the message credentials attached to the
+    message <parameter>m</parameter>. If no credentials are attached to the message, it returns
+    <constant>NULL</constant>. Ownership of the credentials instance is not transferred to the caller and
+    hence should not be freed.</para>
+
     <para><function>sd_bus_message_is_signal()</function> checks if message <parameter>m</parameter> is a
     signal message. If <parameter>interface</parameter> is non-null, it also checks if the message has the
     same interface set. If <parameter>member</parameter> is non-null, it also checks if the message has the
@@ -117,9 +128,10 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return a non-negative integer. On failure, they return a negative
-    errno-style error code. <function>sd_bus_message_get_errno()</function> always returns a non-negative
-    integer, even on failure.</para>
+    <para>On success, these functions (except <function>sd_bus_message_get_error()</function> and
+    <function>sd_bus_message_get_creds()</function>) return a non-negative integer. On failure, they return a
+    negative errno-style error code. <function>sd_bus_message_get_errno()</function> always returns a
+    non-negative integer, even on failure.</para>
 
     <refsect2>
       <title>Errors</title>
