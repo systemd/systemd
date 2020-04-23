@@ -12,7 +12,7 @@
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
-#define PAGE_ALIGN_DOWN(l) (l & ~(page_size() - 1))
+#define PAGE_ALIGN_DOWN(l) ((l) & ~(page_size() - 1))
 
 /* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
 static inline void memcpy_safe(void *dst, const void *src, size_t n) {
