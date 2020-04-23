@@ -140,7 +140,7 @@
         <literal>us</literal>. To turn off any kind of rate limiting,
         set either value to 0.</para>
 
-        <para>Note that the effective rate limit is multiplied with a
+        <para>Note that the effective rate limit is multiplied by a
         factor derived from the available free disk space for the journal.
         Currently, this factor is calculated using the base 2 logarithm.</para>
 
