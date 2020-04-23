@@ -25,6 +25,7 @@
 #include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -754,11 +755,14 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        r = service_parse_argv("systemd-localed.service",
+                               "Manage system locale settings and key mappings.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
+
         umask(0022);
         mac_selinux_init();
-
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

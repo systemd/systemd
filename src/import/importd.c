@@ -22,6 +22,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "service-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1374,12 +1375,13 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-importd.service",
+                               "VM and container image import and export service.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        umask(0022);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 

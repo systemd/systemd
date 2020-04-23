@@ -15,6 +15,7 @@
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "user-util.h"
 
@@ -25,8 +26,11 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        r = service_parse_argv("systemd-resolved.service",
+                               "Provide name resolution with caching using DNS, mDNS, LLMNR.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
         umask(0022);
 

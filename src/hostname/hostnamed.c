@@ -26,6 +26,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -780,13 +781,14 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        r = service_parse_argv("systemd-hostnamed.service",
+                               "Manage the system hostname and related metadata.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
+
         umask(0022);
         mac_selinux_init();
-
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

@@ -22,6 +22,7 @@
 #include "machined.h"
 #include "main-func.h"
 #include "process-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "special.h"
 
@@ -357,12 +358,13 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_AUTH);
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-machined.service",
+                               "Manage registrations of local VMs and containers.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        umask(0022);
 
         /* Always create the directories people can create inotify watches in. Note that some applications might check
          * for the existence of /run/systemd/machines/ to determine whether machined is available, so please always

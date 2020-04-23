@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1201,12 +1202,13 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_AUTH);
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-logind.service",
+                               "Manager for user logins and devices and privileged operations.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        umask(0022);
 
         r = mac_selinux_init();
         if (r < 0)

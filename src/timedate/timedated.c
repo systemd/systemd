@@ -28,6 +28,7 @@
 #include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1126,10 +1127,13 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-timedated.service",
+                               "Manage the system clock and timezone and NTP enablement.",
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        umask(0022);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
