@@ -33,3 +33,4 @@ int bus_forward_agent_released(Manager *m, const char *path);
 uint64_t manager_bus_n_queued_write(Manager *m);
 
 void dump_bus_properties(FILE *f);
+int bus_manager_introspect_implementations(FILE *out, const char *pattern);

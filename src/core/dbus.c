@@ -609,6 +609,14 @@ static const BusObjectImplementation manager_log_control_object = {
         .vtables = BUS_VTABLES(bus_manager_log_control_vtable),
 };
 
+int bus_manager_introspect_implementations(FILE *out, const char *pattern) {
+        return bus_introspect_implementations(
+                        out,
+                        pattern,
+                        BUS_IMPLEMENTATIONS(&bus_manager_object,
+                                            &manager_log_control_object));
+}
+
 static int bus_setup_api_vtables(Manager *m, sd_bus *bus) {
         int r;
 
