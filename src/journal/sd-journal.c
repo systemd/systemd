@@ -119,7 +119,6 @@ static void init_location(Location *l, LocationType type, JournalFile *f, Object
         assert(l);
         assert(IN_SET(type, LOCATION_DISCRETE, LOCATION_SEEK));
         assert(f);
-        assert(o->object.type == OBJECT_ENTRY);
 
         *l = (Location) {
                 .type = type,
