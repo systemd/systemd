@@ -1330,11 +1330,7 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                 match = isempty(str);
                 break;
         case MATCH_TYPE_SUBSYSTEM:
-                NULSTR_FOREACH(i, "subsystem\0class\0bus\0")
-                        if (streq(i, str)) {
-                                match = true;
-                                break;
-                        }
+                match = STR_IN_SET(str, "subsystem", "class", "bus");
                 break;
         case MATCH_TYPE_PLAIN_WITH_EMPTY:
                 if (isempty(str)) {
