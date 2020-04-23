@@ -691,7 +691,7 @@ static int help(void) {
                "     --locale-messages=LOCALE  Set message locale (LC_MESSAGES=)\n"
                "     --keymap=KEYMAP           Set keymap\n"
                "     --timezone=TIMEZONE       Set timezone\n"
-               "     --hostname=NAME           Set host name\n"
+               "     --hostname=NAME           Set hostname\n"
                "     --machine-ID=ID           Set machine ID\n"
                "     --root-password=PASSWORD  Set root password\n"
                "     --root-password-file=FILE Set root password from file\n"

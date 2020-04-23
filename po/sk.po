@@ -72,21 +72,21 @@ msgstr ""
 "Vyžaduje sa overenie totožnosti na znovu načítanie stavu systému systemd."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Nastavenie názvu hostiteľa"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Vyžaduje sa overenie totožnosti na nastavenie názvu hostiteľa."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Nastavenie nemenného názvu hostiteľa"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Vyžaduje sa overenie totožnosti na nastavenie pevne určeného názvu miestneho "
 "hostiteľa, známeho ako zrozumiteľný názov hostiteľa."

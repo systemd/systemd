@@ -424,7 +424,7 @@ layout: default
 
 ## Deadlocks
 
-- Do not issue NSS requests (that includes user name and host name lookups)
+- Do not issue NSS requests (that includes user name and hostname lookups)
   from PID 1 as this might trigger deadlocks when those lookups involve
   synchronously talking to services that we would need to start up.
 

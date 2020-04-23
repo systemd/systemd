@@ -186,7 +186,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
          * %u: the username of the running user
          *
          * %m: the machine ID of the running system
-         * %H: the host name of the running system
+         * %H: the hostname of the running system
          * %b: the boot ID of the running system
          */
 

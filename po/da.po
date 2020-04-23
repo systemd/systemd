@@ -66,21 +66,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Autentificering er nødvendig for at genindlæse systemd tilstanden."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Sæt værtsnavn"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Autentificering er nødvendig for at sætte værtsnavn."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Sæt statisk værstnavn"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Autentificering er nødvendig for at sætte det statisk konfigurerede lokale "
 "værtsnavn, lige så vel som det pæne værtsnavn."

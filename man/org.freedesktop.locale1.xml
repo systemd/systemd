@@ -126,7 +126,8 @@ node /org/freedesktop/locale1 {
 
       <para>Use the empty string for the keymap parameters you wish not to set.</para>
 
-      <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether
+      <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
       should interactively ask the user for authentication credentials if required.</para>
     </refsect2>
 
@@ -160,9 +161,9 @@ node /org/freedesktop/locale1 {
     <refsect2>
       <title>Security</title>
 
-      <para>Changing the system locale or keymap using this interface is authenticated via PolicyKit. The
-      PolicyKit action for <function>SetLocale()</function> is
-      <constant>org.freedesktop.locale1.set-locale</constant>. The PolicyKit action for
+      <para>Changing the system locale or keymap using this interface is authenticated via polkit. The
+      polkit action for <function>SetLocale()</function> is
+      <constant>org.freedesktop.locale1.set-locale</constant>. The polkit action for
       <function>SetX11Keyboard()</function> and <function>SetVConsoleKeyboard()</function> is
       <constant>org.freedesktop.locale1.set-keyboard</constant>.</para>
     </refsect2>

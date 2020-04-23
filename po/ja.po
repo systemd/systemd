@@ -110,21 +110,21 @@ msgid "Authentication is required to change the password of a user's home area."
 msgstr "ユーザのホーム領域のパスワードを変更するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "ホスト名の設定"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "ホスト名を設定するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "静的なホスト名の設定"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr "静的なホスト名を設定するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41

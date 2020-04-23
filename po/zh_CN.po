@@ -64,15 +64,15 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "重新载入 systemd 状态需要认证。"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "设置主机名"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "设置本地主机名需要认证。"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "设置静态主机名"
 
 # For pretty hostname, the zh_CN/zh_TW translation should be discussed again.
@@ -81,8 +81,8 @@ msgstr "设置静态主机名"
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 #, fuzzy
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr "设置静态本地主机名或美观主机名需要认证。"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5

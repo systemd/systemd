@@ -73,21 +73,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Es requereix autenticació per tornar a carregar l'estat de systemd."
 
 #: src/hostname/org.freedesktop.hostname1.policy:22
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Estableix el nom d'amfitrió"
 
 #: src/hostname/org.freedesktop.hostname1.policy:23
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Es requereix autenticació per establir el nom d'amfitrió local."
 
 #: src/hostname/org.freedesktop.hostname1.policy:32
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Estableix el nom d'amfitrió estàtic"
 
 #: src/hostname/org.freedesktop.hostname1.policy:33
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Es requereix autenticació per establir el nom d'amfitrió local configurat "
 "estàticament, així com el nom bonic d'amfitrió."

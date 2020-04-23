@@ -68,7 +68,7 @@
       <varlistentry>
         <term><varname>Domains=</varname></term>
         <listitem><para>A space-separated list of domains. These domains are used as search suffixes when resolving
-        single-label host names (domain names which contain no dot), in order to qualify them into fully-qualified
+        single-label hostnames (domain names which contain no dot), in order to qualify them into fully-qualified
         domain names (FQDNs). Search domains are strictly processed in the order they are specified, until the name
         with the suffix appended is found. For compatibility reasons, if this setting is not specified, the search
         domains listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any domains

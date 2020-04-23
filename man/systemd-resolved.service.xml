@@ -53,7 +53,7 @@
       (<citerefentry project='man-pages'><refentrytitle>nss</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
       Usage of the glibc NSS module
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-      required in order to allow glibc's NSS resolver functions to resolve host names via
+      required in order to allow glibc's NSS resolver functions to resolve hostnames via
       <command>systemd-resolved</command>.</para></listitem>
 
       <listitem><para>Additionally, <command>systemd-resolved</command> provides a local DNS stub listener on
@@ -120,8 +120,8 @@
 
       <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, using
       the LLMNR protocol. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6
-      addresses are only sent via LLMNR on IPv6. Lookups for the locally configured host name and the
-      <literal>_gateway</literal> host name are never routed to LLMNR.</para></listitem>
+      addresses are only sent via LLMNR on IPv6. Lookups for the locally configured hostname and the
+      <literal>_gateway</literal> hostname are never routed to LLMNR.</para></listitem>
 
       <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are routed to all
       local interfaces capable of IP multicasting, using the MulticastDNS protocol. As with LLMNR IPv4

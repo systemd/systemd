@@ -130,21 +130,21 @@ msgstr ""
 "użytkownika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Ustawienie nazwy komputera"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić nazwę lokalnego komputera."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Ustawienie statycznej nazwy komputera"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Wymagane jest uwierzytelnienie, aby ustawić statycznie skonfigurowaną nazwę "
 "lokalnego komputera, a także jego nazwę czytelną dla człowieka."

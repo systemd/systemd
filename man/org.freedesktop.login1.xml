@@ -496,22 +496,24 @@ node /org/freedesktop/login1 {
       and seat are identified by their respective IDs.</para>
 
       <para><function>SetUserLinger()</function> enables or disables user lingering. If enabled, the runtime
-      directory of a user is kept around and he may continue to run processes while he is logged out. If
+      directory of a user is kept around and they may continue to run processes while logged out. If
       disabled, the runtime directory goes away as soon as they log out. <function>SetUserLinger()</function>
       expects three arguments: the UID, a boolean whether to enable/disable and a boolean controlling the
-      PolicyKit authorization interactivity (see below). Note that the user linger state is persistently
+      <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink>
+      authorization interactivity (see below). Note that the user linger state is persistently
       stored on disk.</para>
 
       <para><function>AttachDevice()</function> may be used to assign a specific device to a specific
-      seat. The device is identified by its /sys path and must be eligible for seat assignments. <function>AttachDevice()</function> takes three
-      arguments: the seat id, the sysfs path, and a boolean for controlling PolicyKit interactivity (see
-      below). Device assignments are persistently stored on disk. To create a new seat, simply specify a
-      previously unused seat id. For more information about the seat assignment logic see
+      seat. The device is identified by its <filename>/sys</filename> path and must be eligible for seat
+      assignments. <function>AttachDevice()</function> takes three arguments: the seat id, the sysfs path,
+      and a boolean for controlling polkit interactivity (see below). Device assignments are persistently
+      stored on disk. To create a new seat, simply specify a previously unused seat id. For more information
+      about the seat assignment logic see
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat for Linux</ulink>.
       </para>
 
       <para><function>FlushDevices()</function> removes all explicit seat assignments for devices, resetting
-      all assignments to the automatic defaults. The only argument it takes is the PolicyKit interactivity
+      all assignments to the automatic defaults. The only argument it takes is the polkit interactivity
       boolean (see below).</para>
 
       <para><function>PowerOff()</function>, <function>Reboot()</function>, <function>Halt()</function>,
@@ -521,9 +523,9 @@ node /org/freedesktop/login1 {
       the machine is powered down). <function>HybridSleep()</function> results in the system entering a
       hybrid-sleep mode, i.e. the system is both hibernated and suspended.
       <function>SuspendThenHibernate()</function> results in the system being suspended, then later woken
-      using an RTC timer and hibernated. The only argument is the PolicyKit interactivity boolean
+      using an RTC timer and hibernated. The only argument is the polkit interactivity boolean
       <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
-      PolicyKit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
+      polkit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
       users. They also enforce inhibition locks. UIs should expose these calls as the primary mechanism to
       poweroff/reboot/suspend/hibernate the machine.</para>
 
@@ -678,7 +680,7 @@ node /org/freedesktop/login1 {
     <refsect2>
       <title>Security</title>
 
-      <para>A number of operations are protected via the PolicyKit privilege
+      <para>A number of operations are protected via the polkit privilege
       system. <function>SetUserLinger()</function> requires the
       <interfacename>org.freedesktop.login1.set-user-linger</interfacename>
       privilege. <function>AttachDevice()</function> requires
@@ -731,7 +733,7 @@ node /org/freedesktop/login1 {
       <interfacename>org.freedesktop.login1.inhibit-handle-lid-switch</interfacename> depending on the lock
       type and mode taken.</para>
 
-      <para>The <varname>interactive</varname> boolean parameters can be used to control whether PolicyKit
+      <para>The <varname>interactive</varname> boolean parameters can be used to control whether polkit
       should interactively ask the user for authentication credentials if required.</para>
     </refsect2>
   </refsect1>
@@ -846,8 +848,8 @@ node /org/freedesktop/login1/seat/seat0 {
       encoded in a structure consisting of the ID and the object path.</para>
 
       <para>The <varname>IdleHint</varname>, <varname>IdleSinceHint</varname>, and
-      <varname>IdleSinceHint</varname> properties encode the idle state, similar to the one exposed on the
-      Manager object, but specific for this seat.</para>
+      <varname>IdleSinceHintMonotonic</varname> properties encode the idle state, similar to the ones exposed
+      on the <interfacename>Manager</interfacename> object, but specific for this seat.</para>
     </refsect2>
   </refsect1>
 

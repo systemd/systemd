@@ -281,7 +281,7 @@ static int context_update_kernel_hostname(Context *c) {
         if (hostname_is_useful(static_hn))
                 hn = static_hn;
 
-        /* ... the transient host name, (ie: DHCP) comes next ... */
+        /* ... the transient hostname, (ie: DHCP) comes next ... */
         else if (!isempty(c->data[PROP_HOSTNAME]))
                 hn = c->data[PROP_HOSTNAME];
 
@@ -455,11 +455,11 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to set host name: %m");
+                log_error_errno(r, "Failed to set hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
         }
 
-        log_info("Changed host name to '%s'", strna(c->data[PROP_HOSTNAME]));
+        log_info("Changed hostname to '%s'", strna(c->data[PROP_HOSTNAME]));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
 
@@ -507,17 +507,17 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to set host name: %m");
+                log_error_errno(r, "Failed to set hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
         }
 
         r = context_write_data_static_hostname(c);
         if (r < 0) {
-                log_error_errno(r, "Failed to write static host name: %m");
+                log_error_errno(r, "Failed to write static hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %m");
         }
 
-        log_info("Changed static host name to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
+        log_info("Changed static hostname to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
 
@@ -548,7 +548,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                 if (prop == PROP_ICON_NAME && !filename_is_valid(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
                 if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty hostname '%s'", name);
                 if (prop == PROP_CHASSIS && !valid_chassis(name))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
                 if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
@@ -586,7 +586,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         }
 
         log_info("Changed %s to '%s'",
-                 prop == PROP_PRETTY_HOSTNAME ? "pretty host name" :
+                 prop == PROP_PRETTY_HOSTNAME ? "pretty hostname" :
                  prop == PROP_DEPLOYMENT ? "deployment" :
                  prop == PROP_LOCATION ? "location" :
                  prop == PROP_CHASSIS ? "chassis" : "icon name", strna(c->data[prop]));

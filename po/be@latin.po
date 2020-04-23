@@ -70,21 +70,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Nieabchodna aŭtentyfikacyja dlia pieračytannia stanu systemd."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Ustaliavać imia vuzla"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia imia vuzla."
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Ustaliavać statyčnaje imia vuzla"
 
 #: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia jak statyčnaha tak i "
 "pryhožaha imia vuzla."

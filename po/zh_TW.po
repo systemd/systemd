@@ -62,21 +62,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "重新載入 systemd 狀態需要驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "設定主機名稱"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "設定主機名稱需要驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "設定靜態主機名稱"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr "設定靜態預先設定或 pretty 本地主機名稱需要身份驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41

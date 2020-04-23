@@ -118,21 +118,21 @@ msgid ""
 msgstr "Potrebna je ovjera za promjenu lozinke osobnog prostora korisnika."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Postavi naziv računala"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Potrebna je ovjera za postavljanje naziva lokalnog računala."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Postavi nepromjenjivi naziv račumala"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Potrebna je ovjera za postavljenje nepromjenjivog naziva lokalnog računala, "
 "kao i prijatnog naziva računala."

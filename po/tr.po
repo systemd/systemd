@@ -70,21 +70,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "systemd durumunu yeniden yüklemek kimlik doğrulaması gerektiriyor."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Makine adını ayarla"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Yerel makine adını ayarlamak kimlik doğrulaması gerektiriyor."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Statik makine adı ayarla"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Statik olarak yapılandırılmış konak makine adını ve yerel makine adını "
 "ayarlamak kimlik doğrulaması gerektiriyor."

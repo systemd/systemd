@@ -700,7 +700,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
         case SD_DHCP_OPTION_HOST_NAME:
                 r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse host name, ignoring: %m");
+                        log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
                         return 0;
                 }
 

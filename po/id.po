@@ -66,21 +66,21 @@ msgid "Authentication is required to reload the systemd state."
 msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
 
 #: src/hostname/org.freedesktop.hostname1.policy:22
-msgid "Set host name"
+msgid "Set hostname"
 msgstr "Setel nama host"
 
 #: src/hostname/org.freedesktop.hostname1.policy:23
-msgid "Authentication is required to set the local host name."
+msgid "Authentication is required to set the local hostname."
 msgstr "Otentikasi diperlukan untuk menata nama host lokal."
 
 #: src/hostname/org.freedesktop.hostname1.policy:32
-msgid "Set static host name"
+msgid "Set static hostname"
 msgstr "Setel nama host statik"
 
 #: src/hostname/org.freedesktop.hostname1.policy:33
 msgid ""
-"Authentication is required to set the statically configured local host name, "
-"as well as the pretty host name."
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr ""
 "Otentikasi diperlukan untuk menata nama host lokal yang dikonfigurasi "
 "statik, maupun nama host cantik."
