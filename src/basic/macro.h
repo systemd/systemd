@@ -585,4 +585,17 @@ static inline int __coverity_check_and_return__(int condition) {
         DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
 
+/* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
+ * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
+ * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not
+ * allowed to remove our local copies of the variables. We want this to work for unaligned memory, hence
+ * memcpy() is great for our purposes. */
+#define READ_NOW(x)                                                     \
+        ({                                                              \
+                typeof(x) _copy;                                        \
+                memcpy(&_copy, &(x), sizeof(_copy));                    \
+                asm volatile ("" : : : "memory");                       \
+                _copy;                                                  \
+        })
+
 #include "log.h"
