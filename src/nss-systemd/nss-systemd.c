@@ -310,7 +310,12 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
         getpwent_data.iterator = userdb_iterator_free(getpwent_data.iterator);
         getpwent_data.by_membership = false;
 
-        r = userdb_all(nss_glue_userdb_flags(), &getpwent_data.iterator);
+        /* Don't synthesize root/nobody when iterating. Let nss-files take care of that. If the two records
+         * are missing there, then that's fine, after all getpwent() is known to be possibly incomplete
+         * (think: LDAP/NIS type situations), and our synthesizing of root/nobody is a robustness fallback
+         * only, which matters for getpwnam()/getpwuid() primarily, which are the main NSS entrypoints to the
+         * user database. */
+        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getpwent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -329,7 +334,8 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
         getpwent_data.by_membership = false;
 
-        r = groupdb_all(nss_glue_userdb_flags(), &getgrent_data.iterator);
+        /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
+        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
