@@ -22,6 +22,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* homed: add homed.conf setting DefaultStorage= or so
+
 * homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
   easily?
 
