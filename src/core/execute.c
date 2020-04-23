@@ -1647,8 +1647,6 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 #endif
 
 static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_exit_status) {
-        int r;
-
         assert(u);
         assert(c);
 
@@ -1668,6 +1666,8 @@ static int apply_protect_hostname(const Unit *u, const ExecContext *c, int *ret_
                 log_unit_warning(u, "ProtectHostname=yes is configured, but the kernel does not support UTS namespaces, ignoring namespace setup.");
 
 #if HAVE_SECCOMP
+        int r;
+
         if (skip_seccomp_unavailable(u, "ProtectHostname="))
                 return 0;
 
