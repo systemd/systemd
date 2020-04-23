@@ -1078,6 +1078,11 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
 
         if (r > 0)
                 return -r; /* already warned */
+
+        /* The above procfs paths don't work if /proc is not mounted. */
+        if (r == -ENOENT && proc_mounted() == 0)
+                r = -ENOSYS;
+
         if (r == -EOPNOTSUPP) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
