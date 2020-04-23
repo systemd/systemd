@@ -12,6 +12,7 @@
 #include "networkd-network.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_lldp_mode, lldp_mode, LLDPMode, "Failed to parse LLDP= setting.");
@@ -36,10 +37,10 @@ bool link_lldp_rx_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        /* LLDP should be handled on bridge slaves as those have a direct
-         * connection to their peers not on the bridge master. Linux doesn't
-         * even (by default) forward lldp packets to the bridge master.*/
-        if (streq_ptr("bridge", link->kind))
+        /* LLDP should be handled on bridge and bond slaves as those have a direct connection to their peers,
+         * not on the bridge/bond master. Linux doesn't even (by default) forward lldp packets to the bridge
+         * master.*/
+        if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
         return link->network->lldp_mode != LLDP_MODE_NO;
