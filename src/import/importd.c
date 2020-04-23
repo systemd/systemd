@@ -565,13 +565,11 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         ssize_t n;
         int r;
 
-        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0;
-
-                return -errno;
-        }
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (IN_SET(n, -EAGAIN, -EINTR))
+                return 0;
+        if (n < 0)
+                return (int) n;
 
         cmsg_close_all(&msghdr);
 

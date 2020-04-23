@@ -913,10 +913,10 @@ static int process_socket(int fd) {
 
                 mh.msg_iov = &iovec;
 
-                n = recvmsg(fd, &mh, MSG_CMSG_CLOEXEC);
+                n = recvmsg_safe(fd, &mh, MSG_CMSG_CLOEXEC);
                 if (n < 0)  {
                         free(iovec.iov_base);
-                        r = log_error_errno(errno, "Failed to receive datagram: %m");
+                        r = log_error_errno(n, "Failed to receive datagram: %m");
                         goto finish;
                 }
 
@@ -937,15 +937,17 @@ static int process_socket(int fd) {
                         }
 
                         if (!found) {
-                                log_error("Coredump file descriptor missing.");
-                                r = -EBADMSG;
+                                cmsg_close_all(&mh);
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                    "Coredump file descriptor missing.");
                                 goto finish;
                         }
 
                         assert(input_fd < 0);
                         input_fd = *(int*) CMSG_DATA(found);
                         break;
-                }
+                } else
+                        cmsg_close_all(&mh);
 
                 /* Add trailing NUL byte, in case these are strings */
                 ((char*) iovec.iov_base)[n] = 0;
@@ -954,8 +956,6 @@ static int process_socket(int fd) {
                 r = iovw_put(&iovw, iovec.iov_base, iovec.iov_len);
                 if (r < 0)
                         goto finish;
-
-                cmsg_close_all(&mh);
         }
 
         /* Make sure we got all data we really need */

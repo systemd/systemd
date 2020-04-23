@@ -923,12 +923,11 @@ int ask_password_agent(
                 msghdr.msg_control = &control;
                 msghdr.msg_controllen = sizeof(control);
 
-                n = recvmsg(socket_fd, &msghdr, 0);
+                n = recvmsg_safe(socket_fd, &msghdr, 0);
+                if (IN_SET(n, -EAGAIN, -EINTR))
+                        continue;
                 if (n < 0) {
-                        if (IN_SET(errno, EAGAIN, EINTR))
-                                continue;
-
-                        r = -errno;
+                        r = (int) n;
                         goto finish;
                 }
 

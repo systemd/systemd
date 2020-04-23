@@ -910,16 +910,18 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 struct ucred *ucred = NULL;
                 struct worker *worker;
 
-                size = recvmsg(fd, &msghdr, MSG_DONTWAIT);
-                if (size < 0) {
-                        if (errno == EINTR)
-                                continue;
-                        else if (errno == EAGAIN)
-                                /* nothing more to read */
-                                break;
+                size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
+                if (size == -EINTR)
+                        continue;
+                if (size == -EAGAIN)
+                        /* nothing more to read */
+                        break;
+                if (size < 0)
+                        return log_error_errno(size, "Failed to receive message: %m");
 
-                        return log_error_errno(errno, "Failed to receive message: %m");
-                } else if (size != sizeof(struct worker_message)) {
+                cmsg_close_all(&msghdr);
+
+                if (size != sizeof(struct worker_message)) {
                         log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }

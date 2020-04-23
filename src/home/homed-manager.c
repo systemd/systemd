@@ -976,9 +976,9 @@ static ssize_t read_datagram(int fd, struct ucred *ret_sender, void **ret) {
                         .msg_controllen = sizeof(control),
                 };
 
-                m = recvmsg(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                m = recvmsg_safe(fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
                 if (m < 0)
-                        return -errno;
+                        return m;
 
                 cmsg_close_all(&mh);
 

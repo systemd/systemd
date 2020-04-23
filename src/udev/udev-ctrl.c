@@ -212,13 +212,11 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         if (size == 0)
                 return 0; /* Client disconnects? */
 
-        size = recvmsg(fd, &smsg, 0);
-        if (size < 0) {
-                if (errno != EINTR)
-                        return log_error_errno(errno, "Failed to receive ctrl message: %m");
-
+        size = recvmsg_safe(fd, &smsg, 0);
+        if (size == -EINTR)
                 return 0;
-        }
+        if (size < 0)
+                return log_error_errno(size, "Failed to receive ctrl message: %m");
 
         cmsg_close_all(&smsg);
 
