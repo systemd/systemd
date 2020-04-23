@@ -376,3 +376,15 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
 
         return 0;
 }
+
+int proc_mounted(void) {
+        int r;
+
+        /* A quick check of procfs is properly mounted */
+
+        r = path_is_fs_type("/proc/", PROC_SUPER_MAGIC);
+        if (r == -ENOENT) /* not mounted at all */
+                return false;
+
+        return r;
+}
