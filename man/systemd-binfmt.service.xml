@@ -41,6 +41,14 @@
 
   <refsect1><title>Options</title>
     <variablelist>
+
+      <varlistentry>
+        <term><option>--unregister</option></term>
+        <listitem><para>If passed, instead of registering configured binary formats in the kernel, the
+        reverse operation is executed: all currently registered binary formats are unregistered from the
+        kernel.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="cat-config" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
