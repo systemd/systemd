@@ -1298,19 +1298,18 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
 }
 
 static void message_extend_containers(sd_bus_message *m, size_t expand) {
-        struct bus_container *c;
-
         assert(m);
 
         if (expand <= 0)
                 return;
 
-        /* Update counters */
-        for (c = m->containers; c < m->containers + m->n_containers; c++) {
+        if (m->n_containers <= 0)
+                return;
 
+        /* Update counters */
+        for (struct bus_container *c = m->containers; c < m->containers + m->n_containers; c++)
                 if (c->array_size)
                         *c->array_size += expand;
-        }
 }
 
 static void *message_extend_body(
@@ -1373,7 +1372,6 @@ static void *message_extend_body(
                         if (r < 0)
                                 return NULL;
                 } else {
-                        struct bus_container *c;
                         void *op;
                         size_t os, start_part, end_part;
 
@@ -1394,8 +1392,9 @@ static void *message_extend_body(
                         }
 
                         /* Readjust pointers */
-                        for (c = m->containers; c < m->containers + m->n_containers; c++)
-                                c->array_size = adjust_pointer(c->array_size, op, os, part->data);
+                        if (m->n_containers > 0)
+                                for (struct bus_container *c = m->containers; c < m->containers + m->n_containers; c++)
+                                        c->array_size = adjust_pointer(c->array_size, op, os, part->data);
 
                         m->error.message = (const char*) adjust_pointer(m->error.message, op, os, part->data);
                 }
