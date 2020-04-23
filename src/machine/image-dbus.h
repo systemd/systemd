@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "bus-util.h"
 #include "machined.h"
 
-extern const sd_bus_vtable image_vtable[];
+extern const BusObjectImplementation image_object;
 
 char *image_bus_path(const char *name);
-
-int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 int bus_image_method_remove(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_image_method_rename(sd_bus_message *message, void *userdata, sd_bus_error *error);

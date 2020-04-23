@@ -42,7 +42,7 @@ struct Manager {
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
-extern const sd_bus_vtable manager_vtable[];
+extern const BusObjectImplementation manager_object;
 
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int match_unit_removed(sd_bus_message *message, void *userdata, sd_bus_error *error);

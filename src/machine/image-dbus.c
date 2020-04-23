@@ -354,30 +354,6 @@ int bus_image_method_get_os_release(
         return bus_reply_pair_array(message, image->os_release);
 }
 
-const sd_bus_vtable image_vtable[] = {
-        SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
-        SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
-        SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
-        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
-        SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
-        SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
-        SD_BUS_PROPERTY("Usage", "t", NULL, offsetof(Image, usage), 0),
-        SD_BUS_PROPERTY("Limit", "t", NULL, offsetof(Image, limit), 0),
-        SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
-        SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
-        SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetHostname", NULL, "s", bus_image_method_get_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMachineID", NULL, "ay", bus_image_method_get_machine_id, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetMachineInfo", NULL, "a{ss}", bus_image_method_get_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_VTABLE_END
-};
-
 static int image_flush_cache(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
 
@@ -388,7 +364,7 @@ static int image_flush_cache(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int image_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
         Image *image = NULL;
@@ -462,7 +438,7 @@ char *image_bus_path(const char *name) {
         return strjoin("/org/freedesktop/machine1/image/", e);
 }
 
-int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Image *image;
@@ -497,3 +473,34 @@ int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
 
         return 1;
 }
+
+const sd_bus_vtable image_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
+        SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
+        SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
+        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
+        SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
+        SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
+        SD_BUS_PROPERTY("Usage", "t", NULL, offsetof(Image, usage), 0),
+        SD_BUS_PROPERTY("Limit", "t", NULL, offsetof(Image, limit), 0),
+        SD_BUS_PROPERTY("UsageExclusive", "t", NULL, offsetof(Image, usage_exclusive), 0),
+        SD_BUS_PROPERTY("LimitExclusive", "t", NULL, offsetof(Image, limit_exclusive), 0),
+        SD_BUS_METHOD("Remove", NULL, NULL, bus_image_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Rename", "s", NULL, bus_image_method_rename, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Clone", "sb", NULL, bus_image_method_clone, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("MarkReadOnly", "b", NULL, bus_image_method_mark_read_only, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLimit", "t", NULL, bus_image_method_set_limit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetHostname", NULL, "s", bus_image_method_get_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMachineID", NULL, "ay", bus_image_method_get_machine_id, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetMachineInfo", NULL, "a{ss}", bus_image_method_get_machine_info, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetOSRelease", NULL, "a{ss}", bus_image_method_get_os_release, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation image_object = {
+        "/org/freedesktop/machine1/image",
+        "org.freedesktop.machine1.Image",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({image_vtable, image_object_find}),
+        .node_enumerator = image_node_enumerator,
+};
