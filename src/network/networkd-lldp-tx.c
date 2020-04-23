@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "missing_network.h"
@@ -17,6 +18,7 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unaligned.h"
 
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
@@ -50,6 +52,9 @@ bool link_lldp_emit_enabled(Link *link) {
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (link->kind && STR_IN_SET(link->kind, "bridge", "bond"))
                 return false;
 
         return link->network->lldp_emit != LLDP_EMIT_NO;
