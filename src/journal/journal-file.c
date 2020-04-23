@@ -1768,14 +1768,12 @@ static int link_entry_into_array_plus_one(JournalFile *f,
 static int journal_file_link_entry_item(JournalFile *f, Object *o, uint64_t offset, uint64_t i) {
         uint64_t p;
         int r;
+
         assert(f);
         assert(o);
         assert(offset > 0);
 
         p = le64toh(o->entry.items[i].object_offset);
-        if (p == 0)
-                return -EINVAL;
-
         r = journal_file_move_to_object(f, OBJECT_DATA, p, &o);
         if (r < 0)
                 return r;
