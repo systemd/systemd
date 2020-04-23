@@ -702,7 +702,15 @@ static unsigned type_to_context(ObjectType type) {
         return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
 }
 
-static int journal_file_move_to(JournalFile *f, ObjectType type, bool keep_always, uint64_t offset, uint64_t size, void **ret, size_t *ret_size) {
+static int journal_file_move_to(
+                JournalFile *f,
+                ObjectType type,
+                bool keep_always,
+                uint64_t offset,
+                uint64_t size,
+                void **ret,
+                size_t *ret_size) {
+
         int r;
 
         assert(f);
@@ -1011,10 +1019,10 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
                 return r;
 
         o = (Object*) t;
-
-        zero(o->object);
-        o->object.type = type;
-        o->object.size = htole64(size);
+        o->object = (ObjectHeader) {
+                .type = type,
+                .size = htole64(size),
+        };
 
         f->header->tail_object_offset = htole64(p);
         f->header->n_objects = htole64(le64toh(f->header->n_objects) + 1);
@@ -3038,7 +3046,7 @@ void journal_file_dump(JournalFile *f) {
                 if (p == le64toh(f->header->tail_object_offset))
                         p = 0;
                 else
-                        p = p + ALIGN64(le64toh(o->object.size));
+                        p += ALIGN64(le64toh(o->object.size));
         }
 
         return;
