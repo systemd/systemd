@@ -760,7 +760,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                                                le64toh(o->data.n_entries),
                                                offset);
 
-                if (le64toh(o->object.size) - offsetof(DataObject, payload) <= 0)
+                if (le64toh(o->object.size) <= offsetof(DataObject, payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad object size (<= %zu): %" PRIu64 ": %" PRIu64,
                                                offsetof(DataObject, payload),
@@ -782,7 +782,7 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
                 break;
 
         case OBJECT_FIELD:
-                if (le64toh(o->object.size) - offsetof(FieldObject, payload) <= 0)
+                if (le64toh(o->object.size) <= offsetof(FieldObject, payload))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Bad field size (<= %zu): %" PRIu64 ": %" PRIu64,
                                                offsetof(FieldObject, payload),
