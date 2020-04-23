@@ -2556,7 +2556,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
-                return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+                return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, path);
         }
 
         r = patch_var_run(fname, line, &i.path);
