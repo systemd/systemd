@@ -127,6 +127,11 @@ static int link_push_uplink_to_dhcp_server(
                 lease_condition = link->network->dhcp_use_sip;
                 break;
 
+        case SD_DHCP_LEASE_LPR_SERVERS:
+                servers = link->network->lpr;
+                lease_condition = true;
+                break;
+
         default:
                 assert_not_reached("Unknown DHCP lease info item");
         }
@@ -237,6 +242,11 @@ int dhcp4_server_configure(Link *link) {
                         true,
                         link->network->dhcp_server_smtp,
                         link->network->n_dhcp_server_smtp,
+                },
+                [SD_DHCP_LEASE_LPR_SERVERS] = {
+                        true,
+                        link->network->dhcp_server_lpr,
+                        link->network->n_dhcp_server_lpr,
                 },
         };
         assert_cc(ELEMENTSOF(configs) == _SD_DHCP_LEASE_INFO_MAX);
@@ -452,5 +462,25 @@ int config_parse_dhcp_server_smtp_servers(
         return config_parse_dhcp_lease_server_list(unit, filename, line,
                                                    lvalue, rvalue,
                                                    &n->dhcp_server_smtp, &n->n_dhcp_server_smtp);
+
+}
+
+int config_parse_dhcp_server_lpr_servers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *n = data;
+
+        return config_parse_dhcp_lease_server_list(unit, filename, line,
+                                                   lvalue, rvalue,
+                                                   &n->dhcp_server_lpr, &n->n_dhcp_server_lpr);
 
 }

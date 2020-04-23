@@ -43,6 +43,7 @@ static const char* const dhcp_lease_info_table[_SD_DHCP_LEASE_INFO_MAX] = {
         [SD_DHCP_LEASE_SIP_SERVERS]  = "SIP servers",
         [SD_DHCP_LEASE_POP3_SERVERS] = "POP3 servers",
         [SD_DHCP_LEASE_SMTP_SERVERS] = "SMTP servers",
+        [SD_DHCP_LEASE_LPR_SERVERS]  = "LPR servers",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);

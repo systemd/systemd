@@ -1947,6 +1947,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LPRServers=</varname></term>
+
+        <listitem><para>Similar to the <varname>DNS=</varname> setting described above, this
+        setting configures whether and what LPR (line printer) server information shall be emitted
+        as part of the DHCP lease. The same syntax, propagation semantics and defaults apply as for
+        <varname>DNS=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>EmitRouter=</varname></term>
 
         <listitem><para>Similar to the <varname>EmitDNS=</varname>

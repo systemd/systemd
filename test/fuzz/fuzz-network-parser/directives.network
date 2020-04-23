@@ -278,6 +278,7 @@ EmitSIP=
 SIP=
 POP3Servers=
 SMTPServers=
+LPRServers=
 EmitRouter=
 MaxLeaseTimeSec=
 DefaultLeaseTimeSec=

@@ -1495,7 +1495,7 @@ static int ordered_set_put_in4_addrv(OrderedSet *s,
 
 static int manager_save(Manager *m) {
         _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *pop3 = NULL,
-                *smtp = NULL, *search_domains = NULL, *route_domains = NULL;
+                *smtp = NULL, *lpr = NULL, *search_domains = NULL, *route_domains = NULL;
         const char *operstate_str, *carrier_state_str, *address_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
@@ -1529,8 +1529,12 @@ static int manager_save(Manager *m) {
                 return -ENOMEM;
 
         smtp = ordered_set_new(&string_hash_ops);
-       if (!smtp)
-               return -ENOMEM;
+        if (!smtp)
+                return -ENOMEM;
+
+        lpr = ordered_set_new(&string_hash_ops);
+        if (!lpr)
+                return -ENOMEM;
 
         search_domains = ordered_set_new(&dns_name_hash_ops);
         if (!search_domains)
@@ -1623,6 +1627,14 @@ static int manager_save(Manager *m) {
                 } else if (r < 0 && r != -ENODATA)
                         return r;
 
+                r = sd_dhcp_lease_get_lpr_servers(link->dhcp_lease, &addresses);
+                if (r > 0) {
+                        r = ordered_set_put_in4_addrv(lpr, addresses, r, in4_addr_is_non_local);
+                        if (r < 0)
+                                return r;
+                } else if (r < 0 && r != -ENODATA)
+                        return r;
+
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         const char *domainname;
                         char **domains = NULL;
@@ -1676,6 +1688,7 @@ static int manager_save(Manager *m) {
         ordered_set_print(f, "SIP=", sip);
         ordered_set_print(f, "POP3_SERVERS=", pop3);
         ordered_set_print(f, "SMTP_SERVERS=", smtp);
+        ordered_set_print(f, "LPR_SERVERS=", lpr);
         ordered_set_print(f, "DOMAINS=", search_domains);
         ordered_set_print(f, "ROUTE_DOMAINS=", route_domains);
 

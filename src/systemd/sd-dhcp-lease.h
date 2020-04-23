@@ -39,6 +39,7 @@ typedef enum sd_dhcp_lease_info {
         SD_DHCP_LEASE_SIP_SERVERS,
         SD_DHCP_LEASE_POP3_SERVERS,
         SD_DHCP_LEASE_SMTP_SERVERS,
+        SD_DHCP_LEASE_LPR_SERVERS,
         _SD_DHCP_LEASE_INFO_MAX,
 } sd_dhcp_lease_info;
 
@@ -57,6 +58,7 @@ int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_smtp_server(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_lpr_servers(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);

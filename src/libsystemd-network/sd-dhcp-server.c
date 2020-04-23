@@ -142,6 +142,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->sip);
         free(server->pop3_server);
         free(server->smtp_server);
+        free(server->lpr_server);
 
         hashmap_free(server->leases_by_client_id);
 
@@ -529,6 +530,15 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_SMTP_SERVER,
                                 sizeof(struct in_addr) * server->n_smtp_server, server->smtp_server);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->n_lpr_server > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_LPR_SERVER,
+                                sizeof(struct in_addr) * server->n_lpr_server, server->lpr_server);
                 if (r < 0)
                         return r;
         }
@@ -1161,6 +1171,11 @@ int sd_dhcp_server_set_servers(
                 n_a = &server->n_smtp_server;
                 break;
 
+        case SD_DHCP_LEASE_LPR_SERVERS:
+                a = &server->lpr_server;
+                n_a = &server->n_lpr_server;
+                break;
+
         default:
                 return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "Unknown DHCP lease info item %d.", what);
@@ -1198,6 +1213,9 @@ int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr 
 }
 int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr smtp[], unsigned n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP_SERVERS, smtp, n);
+}
+int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], unsigned n) {
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR_SERVERS, lpr, n);
 }
 
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {
