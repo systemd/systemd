@@ -79,6 +79,7 @@
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
+#include "resolve-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -99,12 +100,6 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
-
-#if HAVE_SPLIT_USR
-#define STATIC_RESOLV_CONF "/lib/systemd/resolv.conf"
-#else
-#define STATIC_RESOLV_CONF "/usr/lib/systemd/resolv.conf"
-#endif
 
 /* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
  * nspawn_notify_socket_path is relative to the container
@@ -1850,12 +1845,13 @@ static int setup_resolv_conf(const char *dest) {
         if (arg_resolv_conf == RESOLV_CONF_AUTO) {
                 if (arg_private_network)
                         m = RESOLV_CONF_OFF;
-                else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
-                        m = etc_writable() ? RESOLV_CONF_COPY_STATIC : RESOLV_CONF_BIND_STATIC;
+                else if (have_resolv_conf(PRIVATE_STUB_RESOLV_CONF) > 0 && resolved_listening() > 0)
+                        m = etc_writable() ? RESOLV_CONF_COPY_STUB : RESOLV_CONF_BIND_STUB;
                 else if (have_resolv_conf("/etc/resolv.conf") > 0)
                         m = etc_writable() ? RESOLV_CONF_COPY_HOST : RESOLV_CONF_BIND_HOST;
                 else
                         m = etc_writable() ? RESOLV_CONF_DELETE : RESOLV_CONF_OFF;
+
         } else
                 m = arg_resolv_conf;
 
@@ -1877,12 +1873,16 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_COPY_STATIC))
-                what = STATIC_RESOLV_CONF;
+        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_REPLACE_STATIC, RESOLV_CONF_COPY_STATIC))
+                what = PRIVATE_STATIC_RESOLV_CONF;
+        else if (IN_SET(m, RESOLV_CONF_BIND_UPLINK, RESOLV_CONF_REPLACE_UPLINK, RESOLV_CONF_COPY_UPLINK))
+                what = PRIVATE_UPLINK_RESOLV_CONF;
+        else if (IN_SET(m, RESOLV_CONF_BIND_STUB, RESOLV_CONF_REPLACE_STUB, RESOLV_CONF_COPY_STUB))
+                what = PRIVATE_STUB_RESOLV_CONF;
         else
                 what = "/etc/resolv.conf";
 
-        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC)) {
+        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_BIND_UPLINK, RESOLV_CONF_BIND_STUB)) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
@@ -1898,17 +1898,22 @@ static int setup_resolv_conf(const char *dest) {
                 r = mount_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+
+                /* If that didn't work, let's copy the file */
         }
 
-        /* If that didn't work, let's copy the file */
-        r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, 0, COPY_REFLINK);
+        if (IN_SET(m, RESOLV_CONF_REPLACE_HOST, RESOLV_CONF_REPLACE_STATIC, RESOLV_CONF_REPLACE_UPLINK, RESOLV_CONF_REPLACE_STUB))
+                r = copy_file_atomic(what, where, 0644, 0, 0, COPY_REFLINK|COPY_REPLACE);
+        else
+                r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, 0, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
                  *
                  * If the disk image is read-only, there's also no point in complaining.
                  */
-                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC) && IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC, RESOLV_CONF_COPY_UPLINK, RESOLV_CONF_COPY_STUB) &&
+                               IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
