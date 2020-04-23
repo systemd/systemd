@@ -106,4 +106,7 @@ systemctl kill --signal=SIGKILL systemd-journald
 sleep 3
 [[ ! -f "/i-lose-my-logs" ]]
 
+# https://github.com/systemd/systemd/issues/15528
+journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
+
 touch /testok
