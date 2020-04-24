@@ -382,7 +382,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         return 0;
 }
 
-int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, char *mudurl) {
+int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, const char *mudurl) {
 
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
