@@ -884,10 +884,7 @@ static int process_socket(int fd) {
         log_debug("Processing coredump received on stdin...");
 
         for (;;) {
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(int))];
-                } control = {};
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
                 struct msghdr mh = {
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),

@@ -361,13 +361,13 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 .iov_base = &buf,
                 .iov_len = sizeof(buf)
         };
-        char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         union sockaddr_union snl;
         struct msghdr smsg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = cred_msg,
-                .msg_controllen = sizeof(cred_msg),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
                 .msg_name = &snl,
                 .msg_namelen = sizeof(snl),
         };

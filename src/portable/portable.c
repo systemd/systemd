@@ -127,10 +127,7 @@ static int send_item(
                 const char *name,
                 int fd) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct iovec iovec;
         struct msghdr mh = {
                 .msg_control = &control,
@@ -168,10 +165,7 @@ static int recv_item(
                 char **ret_name,
                 int *ret_fd) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
         char buffer[PATH_MAX+2];
         struct iovec iov = IOVEC_INIT(buffer, sizeof(buffer)-1);
         struct msghdr mh = {

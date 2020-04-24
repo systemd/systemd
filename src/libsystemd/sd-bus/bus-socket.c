@@ -518,10 +518,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         ssize_t k;
         int r;
         void *p;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
         bool handle_cmsg = false;
 
         assert(b);
@@ -1169,10 +1166,7 @@ int bus_socket_read_message(sd_bus *bus) {
         size_t need;
         int r;
         void *b;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
         bool handle_cmsg = false;
 
         assert(bus);

@@ -906,10 +906,7 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         .iov_base = &msg,
                         .iov_len = sizeof(msg),
                 };
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control = {};
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,

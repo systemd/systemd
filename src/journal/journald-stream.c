@@ -489,7 +489,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 }
 
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         StdoutStream *s = userdata;
         struct ucred *ucred;
         struct iovec iovec;
@@ -500,8 +500,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
                 .msg_iovlen = 1,
-                .msg_control = buf,
-                .msg_controllen = sizeof(buf),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
 
         assert(s);

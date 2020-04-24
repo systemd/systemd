@@ -741,12 +741,9 @@ Manager *manager_free(Manager *m) {
 
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
-                               + CMSG_SPACE(int) /* ttl/hoplimit */
-                               + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
+                         + CMSG_SPACE(int) /* ttl/hoplimit */
+                         + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */) control;
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
@@ -930,10 +927,8 @@ static int manager_ipv4_send(
                 uint16_t port,
                 const struct in_addr *source,
                 DnsPacket *p) {
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
-        } control = {};
+
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
@@ -988,10 +983,7 @@ static int manager_ipv6_send(
                 const struct in6_addr *source,
                 DnsPacket *p) {
 
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in6_pktinfo))) control = {};
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
