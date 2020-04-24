@@ -178,13 +178,12 @@ int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
 }
 
 int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
-        _cleanup_close_ int fd = -1;
+        struct statfs s;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
-        if (fd < 0)
+        if (statfs(path, &s) < 0)
                 return -errno;
 
-        return fd_is_fs_type(fd, magic_value);
+        return is_fs_type(&s, magic_value);
 }
 
 bool is_temporary_fs(const struct statfs *s) {
@@ -376,4 +375,16 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
                 *ret_devno = devno;
 
         return 0;
+}
+
+int proc_mounted(void) {
+        int r;
+
+        /* A quick check of procfs is properly mounted */
+
+        r = path_is_fs_type("/proc/", PROC_SUPER_MAGIC);
+        if (r == -ENOENT) /* not mounted at all */
+                return false;
+
+        return r;
 }

@@ -1078,6 +1078,11 @@ static int fd_set_acls(Item *item, int fd, const char *path, const struct stat *
 
         if (r > 0)
                 return -r; /* already warned */
+
+        /* The above procfs paths don't work if /proc is not mounted. */
+        if (r == -ENOENT && proc_mounted() == 0)
+                r = -ENOSYS;
+
         if (r == -EOPNOTSUPP) {
                 log_debug_errno(r, "ACLs not supported by file system at %s", path);
                 return 0;
@@ -2556,7 +2561,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
-                return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
+                return log_error_errno(r, "[%s:%u] Failed to replace specifiers in '%s': %m", fname, line, path);
         }
 
         r = patch_var_run(fname, line, &i.path);
