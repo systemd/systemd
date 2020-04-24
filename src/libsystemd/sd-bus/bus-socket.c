@@ -1037,8 +1037,10 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 if (m->n_fds > 0 && *idx == 0) {
                         struct cmsghdr *control;
 
-                        mh.msg_control = control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
-                        mh.msg_controllen = control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
+                        mh.msg_controllen = CMSG_SPACE(sizeof(int) * m->n_fds);
+                        mh.msg_control = alloca0(mh.msg_controllen);
+                        control = CMSG_FIRSTHDR(&mh);
+                        control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
                         control->cmsg_level = SOL_SOCKET;
                         control->cmsg_type = SCM_RIGHTS;
                         memcpy(CMSG_DATA(control), m->fds, sizeof(int) * m->n_fds);
