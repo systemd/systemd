@@ -1837,7 +1837,7 @@ static int client_receive_message_raw(
 
         sd_dhcp_client *client = userdata;
         _cleanup_free_ DHCPPacket *packet = NULL;
-        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct tpacket_auxdata))];
+        uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct tpacket_auxdata))];
         struct iovec iov = {};
         struct msghdr msg = {
                 .msg_iov = &iov,

@@ -263,7 +263,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .iov_base = message,
                 .iov_len = len,
         };
-        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))] = {};
+        uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in_pktinfo))] = {};
         struct msghdr msg = {
                 .msg_name = &dest,
                 .msg_namelen = sizeof(dest.in),
@@ -930,7 +930,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ DHCPMessage *message = NULL;
-        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))];
+        uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in_pktinfo))];
         sd_dhcp_server *server = userdata;
         struct iovec iov = {};
         struct msghdr msg = {

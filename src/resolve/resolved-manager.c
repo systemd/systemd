@@ -962,10 +962,10 @@ static int manager_ipv4_send(
                 struct in_pktinfo *pi;
 
                 mh.msg_control = &control;
-                mh.msg_controllen = CMSG_LEN(sizeof(struct in_pktinfo));
+                mh.msg_controllen = sizeof(control);
 
                 cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_len = mh.msg_controllen;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
                 cmsg->cmsg_level = IPPROTO_IP;
                 cmsg->cmsg_type = IP_PKTINFO;
 
@@ -1021,10 +1021,10 @@ static int manager_ipv6_send(
                 struct in6_pktinfo *pi;
 
                 mh.msg_control = &control;
-                mh.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
+                mh.msg_controllen = sizeof(control);
 
                 cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_len = mh.msg_controllen;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
                 cmsg->cmsg_level = IPPROTO_IPV6;
                 cmsg->cmsg_type = IPV6_PKTINFO;
 
