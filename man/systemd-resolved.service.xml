@@ -38,6 +38,8 @@
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus,
       see
       <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       for details. Usage of this API is generally recommended to clients as it is asynchronous and fully
       featured (for example, properly returns DNSSEC validation status and interface scope for addresses as
       necessary for supporting link-local networking).</para></listitem>
