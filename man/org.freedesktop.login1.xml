@@ -751,8 +751,6 @@ node /org/freedesktop/login1/seat/seat0 {
       readonly s Id = '...';
       readonly (so) ActiveSession = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b CanMultiSession = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b CanTTY = ...;
       readonly b CanGraphical = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -787,8 +785,6 @@ node /org/freedesktop/login1/seat/seat0 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ActiveSession"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CanMultiSession"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CanTTY"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CanGraphical"/>
@@ -820,7 +816,7 @@ node /org/freedesktop/login1/seat/seat0 {
       <title>Signals</title>
 
       <para>Whenever <function>ActiveSession</function>, <function>Sessions</function>,
-      <function>CanGraphical</function>, <function>CanMultiSession</function> and <function>CanTTY</function>
+      <function>CanGraphical</function>, <function>CanTTY</function>,
       or the idle state changes, <function>PropertyChanged</function> signals are sent out to which clients
       can subscribe.</para>
     </refsect2>
@@ -833,9 +829,8 @@ node /org/freedesktop/login1/seat/seat0 {
       <para><varname>ActiveSession</varname> encodes the currently active session if there is one. It is a
       structure consisting of the session id and the object path.</para>
 
-      <para><varname>CanMultiSession</varname> encodes whether the session is multi-session capable,
-      <varname>CanTTY</varname> whether it is suitable for text logins, <varname>CanGraphical</varname>
-      whether it is suitable for graphical sessions.</para>
+      <para><varname>CanTTY</varname> encodes whether the session is suitable for text logins, and
+      <varname>CanGraphical</varname> whether it is suitable for graphical sessions.</para>
 
       <para>The <varname>Sessions</varname> property is an array of all current sessions of this seat, each
       encoded in a structure consisting of the ID and the object path.</para>
