@@ -54,7 +54,8 @@
     for a list of possible flags. On success, <parameter>creds</parameter> contains a new
     <structname>sd_bus_creds</structname> instance with the requested information. Ownership of this instance
     belongs to the caller and it should be freed once no longer needed by calling
-    <function>sd_bus_creds_unref()</function>.</para>
+    <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
     <para><function>sd_bus_get_owner_creds()</function> queries the credentials of the creator of the given
     bus. The <parameter>mask</parameter> and <parameter>creds</parameter> parameters behave the same as in
@@ -113,8 +114,8 @@
 
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>
