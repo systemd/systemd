@@ -155,7 +155,6 @@ static int send_item(
         cmsg->cmsg_len = CMSG_LEN(sizeof(int));
         memcpy(CMSG_DATA(cmsg), &data_fd, sizeof(int));
 
-        mh.msg_controllen = CMSG_SPACE(sizeof(int));
         iovec = IOVEC_MAKE_STRING(name);
 
         if (sendmsg(socket_fd, &mh, MSG_NOSIGNAL) < 0)
