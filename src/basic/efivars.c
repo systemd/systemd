@@ -24,6 +24,10 @@
 
 #if ENABLE_EFI
 
+/* Reads from efivarfs sometimes fail with EINTR. Retry that many times. */
+#define EFI_N_RETRIES 5
+#define EFI_RETRY_DELAY (50 * USEC_PER_MSEC)
+
 char* efi_variable_path(sd_id128_t vendor, const char *name) {
         char *p;
 
@@ -56,8 +60,8 @@ int efi_get_variable(
                 return -ENOMEM;
 
         if (!ret_value && !ret_size && !ret_attribute) {
-                /* If caller is not interested in anything, just check if the variable exists and is readable
-                 * to us. */
+                /* If caller is not interested in anything, just check if the variable exists and is
+                 * readable. */
                 if (access(p, R_OK) < 0)
                         return -errno;
 
@@ -66,7 +70,7 @@ int efi_get_variable(
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "open(\"%s\") failed: %m", p);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -76,9 +80,26 @@ int efi_get_variable(
                 return -E2BIG;
 
         if (ret_value || ret_attribute) {
-                n = read(fd, &a, sizeof(a));
-                if (n < 0)
-                        return -errno;
+                /* The kernel ratelimits reads from the efivarfs because EFI is inefficient, and we'll
+                 * occasionally fail with EINTR here. A slowdown is better than a failure for us, so
+                 * retry a few times and eventually fail with -EBUSY.
+                 *
+                 * See https://github.com/torvalds/linux/blob/master/fs/efivarfs/file.c#L75
+                 * and
+                 * https://github.com/torvalds/linux/commit/bef3efbeb897b56867e271cdbc5f8adaacaeb9cd.
+                 */
+                for (unsigned try = 0;; try++) {
+                        n = read(fd, &a, sizeof(a));
+                        if (n >= 0)
+                                break;
+                        log_debug_errno(errno, "read from \"%s\" failed: %m", p);
+                        if (errno != EINTR)
+                                return -errno;
+                        if (try >= EFI_N_RETRIES)
+                                return -EBUSY;
+                        usleep(EFI_RETRY_DELAY);
+                }
+
                 if (n != sizeof(a))
                         return -EIO;
         }
