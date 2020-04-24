@@ -238,7 +238,7 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         return k;
 }
 
-static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool peek) {
+static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
         union sockaddr_union sender;
         uint8_t cmsg_buffer[CMSG_SPACE(sizeof(struct nl_pktinfo))];
         struct msghdr msg = {
@@ -249,8 +249,6 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 .msg_control = cmsg_buffer,
                 .msg_controllen = sizeof(cmsg_buffer),
         };
-        struct cmsghdr *cmsg;
-        uint32_t group = 0;
         ssize_t n;
 
         assert(fd >= 0);
@@ -281,19 +279,15 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
                 return 0;
         }
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_NETLINK &&
-                    cmsg->cmsg_type == NETLINK_PKTINFO &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct nl_pktinfo))) {
-                        struct nl_pktinfo *pktinfo = (void *)CMSG_DATA(cmsg);
+        if (ret_mcast_group) {
+                struct cmsghdr *cmsg;
 
-                        /* multi-cast group */
-                        group = pktinfo->group;
-                }
+                cmsg = cmsg_find(&msg, SOL_NETLINK, NETLINK_PKTINFO, CMSG_LEN(sizeof(struct nl_pktinfo)));
+                if (ret_mcast_group)
+                        *ret_mcast_group = ((struct nl_pktinfo*) CMSG_DATA(cmsg))->group;
+                else
+                        *ret_mcast_group = 0;
         }
-
-        if (_group)
-                *_group = group;
 
         return (int) n;
 }

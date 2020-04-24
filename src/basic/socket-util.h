@@ -158,6 +158,14 @@ int flush_accept(int fd);
 
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
 
+/* Type-safe, dereferencing version of cmsg_find() */
+#define CMSG_FIND_DATA(mh, level, type, ctype) \
+        ({                                                            \
+                struct cmsghdr *_found;                               \
+                _found = cmsg_find(mh, level, type, CMSG_LEN(sizeof(ctype))); \
+                (ctype*) (_found ? CMSG_DATA(_found) : NULL);         \
+        })
+
 /*
  * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
  * (8 bytes) and run over the structure. This macro returns the correct size that

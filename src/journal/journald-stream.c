@@ -491,8 +491,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
 static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
         StdoutStream *s = userdata;
-        struct ucred *ucred = NULL;
-        struct cmsghdr *cmsg;
+        struct ucred *ucred;
         struct iovec iovec;
         size_t limit;
         ssize_t l;
@@ -541,25 +540,14 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 goto terminate;
         }
 
-        CMSG_FOREACH(cmsg, &msghdr)
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_CREDENTIALS &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-                        assert(!ucred);
-                        ucred = (struct ucred *)CMSG_DATA(cmsg);
-                        break;
-                }
-
-        /* Invalidate the context if the pid of the sender changed.
-         * This happens when a forked process inherits stdout / stderr
-         * from a parent. In this case getpeercred returns the ucred
-         * of the parent, which can be invalid if the parent has exited
-         * in the meantime.
+        /* Invalidate the context if the pid of the sender changed.  This happens when a forked process
+         * inherits stdout / stderr from a parent. In this case getpeercred returns the ucred of the parent,
+         * which can be invalid if the parent has exited in the meantime.
          */
+        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (ucred && ucred->pid != s->ucred.pid) {
-                /* force out any previously half-written lines from a
-                 * different process, before we switch to the new ucred
-                 * structure for everything we just added */
+                /* force out any previously half-written lines from a different process, before we switch to
+                 * the new ucred structure for everything we just added */
                 r = stdout_stream_scan(s, true);
                 if (r < 0)
                         goto terminate;
