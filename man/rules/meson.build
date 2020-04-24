@@ -262,6 +262,7 @@ manpages = [
   ['sd_bus_get_events', 'sd_bus_get_timeout', 'sd_bus_set_fd'],
   ''],
  ['sd_bus_get_n_queued_read', '3', ['sd_bus_get_n_queued_write'], ''],
+ ['sd_bus_get_name_creds', '3', ['sd_bus_get_owner_creds'], ''],
  ['sd_bus_get_name_machine_id', '3', [], ''],
  ['sd_bus_is_open', '3', ['sd_bus_is_ready'], ''],
  ['sd_bus_list_names', '3', [], ''],
