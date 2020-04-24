@@ -3,10 +3,24 @@
 # result MUST NOT be committed indiscriminately, but each automated
 # change should be reviewed and only the appropriate ones commited.
 #
-# To apply the coding style you can run the following command (assuming you
-# installed clang-format on your system):
+# The easiest way to apply the formatting to your changes ONLY,
+# is to use the git-clang-format script (usually installed with clang-format).
 #
+# -  Fixup formatting before committing
+# 1. Edit and stage your files.
+# 2. Run `git clang-format`.
+# 3. Verify + correct + (un)stage changes.
+# 4. Commit.
+#
+# -  Fixup formatting after committing
+# 1. Commit your changes.
+# 2. Run `git clang-format HEAD~` - Refer the commit *before* your changes here.
+# 3. Verify + correct changes, `git difftool -d` can help here.
+# 4. Stage + commit, potentially with `--amend` (means to fixup the last commit).
+#
+# To run clang-format on all sourcefiles, use the following line:
 # $ git ls-files 'src/*.[ch]' 'src/*.cc' | xargs clang-format -i -style=file
+#
 # You can find more information on the different config parameters in this file here:
 # https://clang.llvm.org/docs/ClangFormatStyleOptions.html
 ---
