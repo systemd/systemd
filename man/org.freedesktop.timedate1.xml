@@ -34,11 +34,7 @@
 
     <para>The service exposes the following interfaces on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.timedate1 \
-        --object-path /org/freedesktop/timedate1
-
+    <programlisting executable="systemd-timedated" node="/org/freedesktop/timedate1" interface="org.freedesktop.timedate1">
 node /org/freedesktop/timedate1 {
   interface org.freedesktop.timedate1 {
     methods:
@@ -178,6 +174,20 @@ node /org/freedesktop/timedate1 {
       <function>ListTimezones()</function> does not require any privileges.
       </para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.timedate1</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.timedate1 \
+  --object-path /org/freedesktop/timedate1
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

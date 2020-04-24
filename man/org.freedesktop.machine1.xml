@@ -34,11 +34,7 @@
 
     <para>The service exposes the following interfaces on the Manager object on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.machine1 \
-        --object-path /org/freedesktop/machine1
-
+    <programlisting executable="systemd-machined" node="/org/freedesktop/machine1" interface="org.freedesktop.machine1.Manager">
 node /org/freedesktop/machine1 {
   interface org.freedesktop.machine1.Manager {
     methods:
@@ -435,11 +431,7 @@ node /org/freedesktop/machine1 {
   <refsect1>
     <title>Machine Objects</title>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.machine1 \
-        --object-path /org/freedesktop/machine1/machine/rawhide
-
+    <programlisting executable="systemd-machined" node="/org/freedesktop/machine1/machine/rawhide" interface="org.freedesktop.machine1.Machine">
 node /org/freedesktop/machine1/machine/rawhide {
   interface org.freedesktop.machine1.Machine {
     methods:
@@ -615,6 +607,30 @@ node /org/freedesktop/machine1/machine/rawhide {
       part of the API and states might be removed or added without this being considered API breakage.
       </para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.machine1.Manager</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.machine1 \
+  --object-path /org/freedesktop/machine1
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.machine1.Machine</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.machine1 \
+  --object-path /org/freedesktop/machine1/machine/rawhide
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

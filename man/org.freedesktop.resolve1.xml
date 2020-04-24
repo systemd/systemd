@@ -46,11 +46,7 @@
 
     <para>The service exposes the following interfaces on the Manager object on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.resolve1 \
-        --object-path /org/freedesktop/resolve1
-
+    <programlisting executable="systemd-resolved" node="/org/freedesktop/resolve1" interface="org.freedesktop.resolve1.Manager">
 node /org/freedesktop/resolve1 {
   interface org.freedesktop.resolve1.Manager {
     methods:
@@ -551,12 +547,8 @@ node /org/freedesktop/resolve1 {
   <refsect1>
     <title>Link Object</title>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.resolve1 \
-        --object-path /org/freedesktop/resolve1/link/_34
-
-node /org/freedesktop/resolve1/link/_34 {
+    <programlisting executable="systemd-resolved" node="/org/freedesktop/resolve1/link/_1" interface="org.freedesktop.resolve1.Link">
+node /org/freedesktop/resolve1/link/_1 {
   interface org.freedesktop.resolve1.Link {
     methods:
       SetDNS(in  a(iay) addresses);
@@ -788,6 +780,30 @@ node /org/freedesktop/resolve1/link/_34 {
       </para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.resolve1.Manager</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.resolve1 \
+  --object-path /org/freedesktop/resolve1
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.resolve1.Link</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.resolve1 \
+  --object-path /org/freedesktop/resolve1/link/_11
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

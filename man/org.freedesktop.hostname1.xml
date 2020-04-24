@@ -38,11 +38,7 @@
 
     <para>The service exposes the following interfaces on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.hostname1 \
-        --object-path /org/freedesktop/hostname1
-
+    <programlisting executable="systemd-hostnamed" node="/org/freedesktop/hostname1" interface="org.freedesktop.hostname1">
 node /org/freedesktop/hostname1 {
   interface org.freedesktop.hostname1 {
     methods:
@@ -347,6 +343,19 @@ node /org/freedesktop/hostname1 {
 
     <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
     the usual interface versioning guidelines</ulink>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.hostname1</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system \
+  --dest org.freedesktop.hostname1 \
+  --object-path /org/freedesktop/hostname1
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

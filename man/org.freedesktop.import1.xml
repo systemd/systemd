@@ -46,11 +46,7 @@
 
     <para>The service exposes the following interfaces on the Manager object on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.import1 \
-        --object-path /org/freedesktop/import1
-
+    <programlisting executable="systemd-importd" node="/org/freedesktop/import1" interface="org.freedesktop.import1.Manager">
 node /org/freedesktop/import1 {
   interface org.freedesktop.import1.Manager {
     methods:
@@ -238,11 +234,7 @@ node /org/freedesktop/import1 {
   <refsect1>
     <title>The Transfer Object</title>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.import1 \
-        --object-path /org/freedesktop/import1/transfer/_1
-
+    <programlisting executable="systemd-importd" node="/org/freedesktop/import1/transfer/_1" interface="org.freedesktop.import1.Transfer">
 node /org/freedesktop/import1/transfer/_1 {
   interface org.freedesktop.import1.Transfer {
     methods:
@@ -323,6 +315,28 @@ node /org/freedesktop/import1/transfer/_1 {
       between 0.0 and 1.0. To show a progress bar on screen we recommend to query this value in regular
       intervals, for example every 500 ms or so.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.import1.Manager</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system \
+  --dest org.freedesktop.import1 \
+  --object-path /org/freedesktop/import1
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.import1.Transfer</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system \
+  --dest org.freedesktop.import1 \
+  --object-path /org/freedesktop/import1/transfer/_1
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
