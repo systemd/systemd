@@ -422,9 +422,11 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
 
-        r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
+        if (rule->priority > 0) {
+                r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
+        }
 
         if (rule->tos > 0) {
                 r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
