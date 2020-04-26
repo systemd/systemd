@@ -221,7 +221,11 @@ __systemctl()
     _systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
 
 (( $+functions[_systemctl_unit_state] )) ||
-    _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__systemctl list-unit-files "$PREFIX*" ) ) }
+    _systemctl_unit_state() {
+        setopt localoptions extendedglob
+        typeset -gA _sys_unit_state
+        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%%[[:space:]]#}% *} )
+    }
 
 local fun
 # Completion functions for ALL_UNITS
