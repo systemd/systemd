@@ -117,6 +117,8 @@ struct Network {
         bool dhcp_route_table_set;
         bool dhcp_send_release;
         bool dhcp_send_decline;
+        bool dhcp_source_routing_enabled;
+        uint32_t dhcp_source_routing_rule_priority;
         DHCPUseDomains dhcp_use_domains;
         sd_ipv4acd *dhcp_acd;
         Set *dhcp_black_listed_ip;
@@ -133,6 +135,8 @@ struct Network {
         uint8_t dhcp6_pd_length;
         char *dhcp6_mudurl;
         struct in6_addr dhcp6_pd_address;
+        bool dhcp6_source_routing_enabled;
+        uint32_t dhcp6_source_routing_rule_priority;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -241,6 +245,8 @@ struct Network {
         uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_black_listed_prefix;
         OrderedHashmap *ipv6_tokens;
+        bool ipv6_accept_ra_source_routing_enabled;
+        uint32_t ipv6_accept_ra_source_routing_rule_priority;
 
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 

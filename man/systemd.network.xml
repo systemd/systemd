@@ -1676,6 +1676,23 @@
             then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>EnableSourceRoutingRules=</varname></term>
+          <listitem>
+            <para>This option is used to configure source routing for an interface.
+            When combined with setting an explicit route table (with the <literal>RouteTable=</literal> option),
+            this causes routing policy rules to be automatically be created for the DHCP obtained address on the interface,
+            of the form "from $address lookup $routetable".</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SourceRoutingRulesPriority=</varname></term>
+          <listitem>
+            <para>When <literal>EnableSourceRoutingRules=</literal> is enabled, this controls the priority of the routing
+            policy rules that are created.</para>
+          </listitem>
+        </varlistentry>
        </variablelist>
    </refsect1>
 
@@ -1746,6 +1763,23 @@
           <listitem>
             <para>When true, DHCPv6 client starts without router advertisements's managed or other address configuration flag.
             Defaults to false.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>EnableSourceRoutingRules=</varname></term>
+          <listitem>
+            <para>This option is used to configure source routing for an interface.
+            When combined with setting an explicit route table (with the <literal>RouteTable=</literal> option from the DHCPv4 section),
+            this causes routing policy rules to be automatically be created for the DHCP obtained address on the interface,
+            of the form "from $address lookup $routetable".</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SourceRoutingRulesPriority=</varname></term>
+          <listitem>
+            <para>When <literal>EnableSourceRoutingRules=</literal> is enabled, this controls the priority of the routing
+            policy rules that are created.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1828,6 +1862,22 @@
             <para>Takes a boolean, or the special value <literal>always</literal>. When true (the default), the DHCPv6 client will be started when the
             RA has the managed or other information flag. If set to <literal>always</literal>, the DHCPv6 client will be started even if there is no
             managed or other information flag in the RA.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>EnableSourceRoutingRules=</varname></term>
+          <listitem>
+            <para>This option is used to configure source routing for an interface.
+            When combined with setting an explicit route table (with the <literal>RouteTable=</literal> option),
+            this causes routing policy rules to be automatically be created for the autoconf obtained address on the interface,
+            of the form "from $address lookup $routetable".</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SourceRoutingRulesPriority=</varname></term>
+          <listitem>
+            <para>When <literal>EnableSourceRoutingRules=</literal> is enabled, this controls the priority of the routing
+            policy rules that are created.</para>
           </listitem>
         </varlistentry>
       </variablelist>

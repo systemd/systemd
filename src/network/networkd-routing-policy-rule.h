@@ -71,6 +71,7 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
 int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
 void routing_policy_rule_purge(Manager *m, Link *link);
+int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const RoutingPolicyRule *b);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);

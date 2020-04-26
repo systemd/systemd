@@ -2682,6 +2682,7 @@ static int link_drop_config(Link *link) {
         Address *address, *pool_address;
         Neighbor *neighbor;
         Route *route;
+        RoutingPolicyRule *rule, *next_rule;
         Iterator i;
         int r;
 
@@ -2719,6 +2720,24 @@ static int link_drop_config(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        if (link->dhcp4_source_routing_policy_rule) {
+                (void) routing_policy_rule_remove(link->dhcp4_source_routing_policy_rule, link, NULL);
+                routing_policy_rule_free(link->dhcp4_source_routing_policy_rule);
+                link->dhcp4_source_routing_policy_rule = NULL;
+        }
+
+        LIST_FOREACH_SAFE(rules, rule, next_rule, link->ipv6ndisc_source_routing_policy_rules) {
+                (void) routing_policy_rule_remove(rule, link, NULL);
+                routing_policy_rule_free(rule);
+        }
+        link->ipv6ndisc_source_routing_policy_rules = NULL;
+
+        LIST_FOREACH_SAFE(rules, rule, next_rule, link->dhcp6_source_routing_policy_rules) {
+                (void) routing_policy_rule_remove(rule, link, NULL);
+                routing_policy_rule_free(rule);
+        }
+        link->dhcp6_source_routing_policy_rules = NULL;
 
         ndisc_flush(link);
 

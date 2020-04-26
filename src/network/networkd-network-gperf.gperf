@@ -188,6 +188,8 @@ DHCPv4.IPServiceType,                        config_parse_dhcp_ip_service_type, 
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_options)
 DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
 DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
+DHCPv4.EnableSourceRoutingRules,             config_parse_bool,                                        0,                             offsetof(Network, dhcp_source_routing_enabled)
+DHCPv4.SourceRoutingRulesPriority,           config_parse_uint32,                                      0,                             offsetof(Network, dhcp_source_routing_rule_priority)
 DHCPv6.UseDNS,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_dns)
 DHCPv6.UseNTP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_ntp)
 DHCPv6.RapidCommit,                          config_parse_bool,                                        0,                             offsetof(Network, rapid_commit)
@@ -195,6 +197,8 @@ DHCPv6.MUDURL,                               config_parse_dhcp6_mud_url,        
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
 DHCPv6.WithoutRA,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_without_ra)
+DHCPv6.EnableSourceRoutingRules,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_source_routing_enabled)
+DHCPv6.SourceRoutingRulesPriority,           config_parse_uint32,                                      0,                             offsetof(Network, dhcp6_source_routing_rule_priority)
 IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_autonomous_prefix)
 IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_onlink_prefix)
 IPv6AcceptRA.UseDNS,                         config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_dns)
@@ -202,6 +206,8 @@ IPv6AcceptRA.UseDomains,                     config_parse_dhcp_use_domains,     
 IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_dhcp6_client,           0,                             offsetof(Network, ipv6_accept_ra_start_dhcp6_client)
 IPv6AcceptRA.RouteTable,                     config_parse_section_route_table,                         0,                             0
 IPv6AcceptRA.BlackList,                      config_parse_ndisc_black_listed_prefix,                   0,                             0
+IPv6AcceptRA.EnableSourceRoutingRules,       config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_source_routing_enabled)
+IPv6AcceptRA.SourceRoutingRulesPriority,     config_parse_uint32,                                      0,                             offsetof(Network, ipv6_accept_ra_source_routing_rule_priority)
 DHCPServer.MaxLeaseTimeSec,                  config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
 DHCPServer.DefaultLeaseTimeSec,              config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_default_lease_time_usec)
 DHCPServer.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_dns)

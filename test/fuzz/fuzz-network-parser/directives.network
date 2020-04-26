@@ -112,6 +112,8 @@ ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
 WithoutRA=
 MUDURL=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [Route]
 Destination=
 Protocol=
@@ -185,6 +187,8 @@ BindCarrier=
 VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [IPv6Prefix]
 Prefix=
 OnLink=
@@ -267,6 +271,8 @@ DHCPv6Client=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
 BlackList=
+EnableSourceRoutingRules=
+SourceRoutingRulesPriority=
 [DHCPServer]
 EmitNTP=
 PoolSize=
