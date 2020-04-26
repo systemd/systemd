@@ -38,6 +38,7 @@ fi
 
 PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
+[ "$SYSTEMD_JOURNAL_REMOTE" ] || SYSTEMD_JOURNAL_REMOTE=$(which -a $BUILD_DIR/systemd-journal-remote $ROOTLIBDIR/systemd-journal-remote 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD" ] || SYSTEMD=$(which -a $BUILD_DIR/systemd $ROOTLIBDIR/systemd 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
@@ -800,13 +801,13 @@ save_journal() {
     fi
 
     for j in $1/*; do
-        /usr/lib/systemd/systemd-journal-remote \
+        $SYSTEMD_JOURNAL_REMOTE \
             -o $dest \
-            --getter="journalctl -o export -D $j"
+            --getter="$JOURNALCTL -o export -D $j"
 
         if [ -n "${TEST_SHOW_JOURNAL}" ]; then
             echo "---- $j ----"
-            journalctl --no-pager -o short-monotonic --no-hostname --priority=${TEST_SHOW_JOURNAL} -D $j
+            $JOURNALCTL --no-pager -o short-monotonic --no-hostname --priority=${TEST_SHOW_JOURNAL} -D $j
         fi
 
         rm -r $j
@@ -906,7 +907,7 @@ install_plymouth() {
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
     #         dracut_install plymouth plymouthd
     # else
-        rm -f $initdir/{usr/lib,etc}/systemd/system/plymouth* $initdir/{usr/lib,etc}/systemd/system/*/plymouth*
+        rm -f $initdir/{usr/lib,lib,etc}/systemd/system/plymouth* $initdir/{usr/lib,lib,etc}/systemd/system/*/plymouth*
     # fi
 }
 
