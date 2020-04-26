@@ -22,7 +22,9 @@ ADDITIONAL_DEPS=(python3-libevdev
                  libpwquality-dev
                  libfdisk-dev
                  libp11-kit-dev
-                 libssl-dev)
+                 libssl-dev
+                 libzstd-dev
+                 zstd)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
