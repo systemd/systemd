@@ -110,6 +110,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
 static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
+static void manager_vacuum(Manager *m);
 
 static usec_t manager_watch_jobs_next_time(Manager *m) {
         return usec_add(now(CLOCK_MONOTONIC),
@@ -1598,20 +1599,6 @@ static void manager_preset_all(Manager *m) {
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
         else
                 log_info("Populated /etc with preset unit settings.");
-}
-
-static void manager_vacuum(Manager *m) {
-        assert(m);
-
-        /* Release any dynamic users no longer referenced */
-        dynamic_user_vacuum(m, true);
-
-        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
-        manager_vacuum_uid_refs(m);
-        manager_vacuum_gid_refs(m);
-
-        /* Release any runtimes no longer referenced */
-        exec_runtime_vacuum(m);
 }
 
 static void manager_ready(Manager *m) {
@@ -4536,12 +4523,26 @@ static void manager_vacuum_uid_refs_internal(
         }
 }
 
-void manager_vacuum_uid_refs(Manager *m) {
+static void manager_vacuum_uid_refs(Manager *m) {
         manager_vacuum_uid_refs_internal(m, &m->uid_refs, clean_ipc_by_uid);
 }
 
-void manager_vacuum_gid_refs(Manager *m) {
+static void manager_vacuum_gid_refs(Manager *m) {
         manager_vacuum_uid_refs_internal(m, &m->gid_refs, clean_ipc_by_gid);
+}
+
+static void manager_vacuum(Manager *m) {
+        assert(m);
+
+        /* Release any dynamic users no longer referenced */
+        dynamic_user_vacuum(m, true);
+
+        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
+        manager_vacuum_uid_refs(m);
+        manager_vacuum_gid_refs(m);
+
+        /* Release any runtimes no longer referenced */
+        exec_runtime_vacuum(m);
 }
 
 static void manager_serialize_uid_refs_internal(

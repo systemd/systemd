@@ -529,9 +529,6 @@ int manager_ref_uid(Manager *m, uid_t uid, bool clean_ipc);
 void manager_unref_gid(Manager *m, gid_t gid, bool destroy_now);
 int manager_ref_gid(Manager *m, gid_t gid, bool destroy_now);
 
-void manager_vacuum_uid_refs(Manager *m);
-void manager_vacuum_gid_refs(Manager *m);
-
 void manager_serialize_uid_refs(Manager *m, FILE *f);
 void manager_deserialize_uid_refs_one(Manager *m, const char *value);
 
