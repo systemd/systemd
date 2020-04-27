@@ -1671,11 +1671,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
+        '25-test1.network',
         '25-veth-peer.network',
         '25-veth.netdev',
         '25-vrf.netdev',
         '26-link-local-addressing-ipv6.network',
-        'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
 
@@ -1762,15 +1762,56 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '192.168.100.10/24')
 
     def test_configure_without_carrier(self):
-        copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:routable'])
+        self.wait_operstate('test1', 'off', '')
+        check_output('ip link set dev test1 up carrier off')
 
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
-        print(output)
-        self.assertRegex(output, '192.168.0.15')
-        self.assertRegex(output, '192.168.0.1')
-        self.assertRegex(output, 'routable')
+        copy_unit_to_networkd_unit_path('25-test1.network.d/configure-without-carrier.conf', dropins=False)
+        restart_networkd()
+        self.wait_online(['test1:no-carrier'])
+
+        carrier_map = {'on': '1', 'off': '0'}
+        routable_map = {'on': 'routable', 'off': 'no-carrier'}
+        for carrier in ['off', 'on', 'off']:
+            with self.subTest(carrier=carrier):
+                if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
+                    check_output(f'ip link set dev test1 carrier {carrier}')
+                self.wait_online([f'test1:{routable_map[carrier]}'])
+
+                output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
+                print(output)
+                self.assertRegex(output, '192.168.0.15')
+                self.assertRegex(output, '192.168.0.1')
+                self.assertRegex(output, routable_map[carrier])
+
+    def test_configure_without_carrier_yes_ignore_carrier_loss_no(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev')
+        start_networkd()
+        self.wait_operstate('test1', 'off', '')
+        check_output('ip link set dev test1 up carrier off')
+
+        copy_unit_to_networkd_unit_path('25-test1.network')
+        restart_networkd()
+        self.wait_online(['test1:no-carrier'])
+
+        carrier_map = {'on': '1', 'off': '0'}
+        routable_map = {'on': 'routable', 'off': 'no-carrier'}
+        for (carrier, have_config) in [('off', True), ('on', True), ('off', False)]:
+            with self.subTest(carrier=carrier, have_config=have_config):
+                if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
+                    check_output(f'ip link set dev test1 carrier {carrier}')
+                self.wait_online([f'test1:{routable_map[carrier]}'])
+
+                output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
+                print(output)
+                if have_config:
+                    self.assertRegex(output, '192.168.0.15')
+                    self.assertRegex(output, '192.168.0.1')
+                else:
+                    self.assertNotRegex(output, '192.168.0.15')
+                    self.assertNotRegex(output, '192.168.0.1')
+                self.assertRegex(output, routable_map[carrier])
 
     def test_routing_policy_rule(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
