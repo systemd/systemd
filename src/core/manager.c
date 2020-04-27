@@ -181,7 +181,7 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         }
 }
 
-void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
+static void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
         assert(m);
 
         if (enable) {
