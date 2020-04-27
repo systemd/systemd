@@ -3150,6 +3150,47 @@ static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
                        MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 }
 
+#define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
+
+static void manager_serialize_uid_refs_internal(
+                Manager *m,
+                FILE *f,
+                Hashmap **uid_refs,
+                const char *field_name) {
+
+        Iterator i;
+        void *p, *k;
+
+        assert(m);
+        assert(f);
+        assert(uid_refs);
+        assert(field_name);
+
+        /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as
+         * the actual counter of it is better rebuild after a reload/reexec. */
+
+        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
+                uint32_t c;
+                uid_t uid;
+
+                uid = PTR_TO_UID(k);
+                c = PTR_TO_UINT32(p);
+
+                if (!(c & DESTROY_IPC_FLAG))
+                        continue;
+
+                (void) serialize_item_format(f, field_name, UID_FMT, uid);
+        }
+}
+
+static void manager_serialize_uid_refs(Manager *m, FILE *f) {
+        manager_serialize_uid_refs_internal(m, f, &m->uid_refs, "destroy-ipc-uid");
+}
+
+static void manager_serialize_gid_refs(Manager *m, FILE *f) {
+        manager_serialize_uid_refs_internal(m, f, &m->gid_refs, "destroy-ipc-gid");
+}
+
 int manager_serialize(
                 Manager *m,
                 FILE *f,
@@ -4383,8 +4424,6 @@ ManagerState manager_state(Manager *m) {
         return MANAGER_RUNNING;
 }
 
-#define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
-
 static void manager_unref_uid_internal(
                 Manager *m,
                 Hashmap **uid_refs,
@@ -4543,45 +4582,6 @@ static void manager_vacuum(Manager *m) {
 
         /* Release any runtimes no longer referenced */
         exec_runtime_vacuum(m);
-}
-
-static void manager_serialize_uid_refs_internal(
-                Manager *m,
-                FILE *f,
-                Hashmap **uid_refs,
-                const char *field_name) {
-
-        Iterator i;
-        void *p, *k;
-
-        assert(m);
-        assert(f);
-        assert(uid_refs);
-        assert(field_name);
-
-        /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as the actual counter
-         * of it is better rebuild after a reload/reexec. */
-
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
-                uint32_t c;
-                uid_t uid;
-
-                uid = PTR_TO_UID(k);
-                c = PTR_TO_UINT32(p);
-
-                if (!(c & DESTROY_IPC_FLAG))
-                        continue;
-
-                (void) serialize_item_format(f, field_name, UID_FMT, uid);
-        }
-}
-
-void manager_serialize_uid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->uid_refs, "destroy-ipc-uid");
-}
-
-void manager_serialize_gid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->gid_refs, "destroy-ipc-gid");
 }
 
 static void manager_deserialize_uid_refs_one_internal(
