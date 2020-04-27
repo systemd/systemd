@@ -2257,29 +2257,6 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         return 0;
 }
 
-static int load_configuration(
-                int argc,
-                char **argv,
-                const struct rlimit *saved_rlimit_nofile,
-                const struct rlimit *saved_rlimit_memlock,
-                const char **ret_error_message) {
-        int r;
-
-        assert(saved_rlimit_nofile);
-        assert(saved_rlimit_memlock);
-        assert(ret_error_message);
-
-        (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
-
-        r = parse_argv(argc, argv);
-        if (r < 0) {
-                *ret_error_message = "Failed to parse commandline arguments";
-                return r;
-        }
-
-        return 0;
-}
-
 static int safety_checks(void) {
 
         if (getpid_cached() == 1 &&
@@ -2618,9 +2595,13 @@ int main(int argc, char *argv[]) {
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
 
-        r = load_configuration(argc, argv, &saved_rlimit_nofile, &saved_rlimit_memlock, &error_message);
-        if (r < 0)
+        (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
+
+        r = parse_argv(argc, argv);
+        if (r < 0) {
+                error_message = "Failed to parse commandline arguments";
                 goto finish;
+        }
 
         r = safety_checks();
         if (r < 0)
