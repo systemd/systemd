@@ -234,14 +234,12 @@ static int property_get_show_status(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        int b;
 
+        assert(m);
         assert(bus);
         assert(reply);
-        assert(m);
 
-        b = show_status_on(m->show_status);
-        return sd_bus_message_append_basic(reply, 'b', &b);
+        return sd_bus_message_append(reply, "b", manager_get_show_status_on(m));
 }
 
 static int property_get_runtime_watchdog(

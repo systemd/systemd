@@ -335,6 +335,7 @@ struct Manager {
         uint8_t return_value;
 
         ShowStatus show_status;
+        ShowStatus show_status_overridden;
         StatusUnitFormat status_unit_format;
         char *confirm_spawn;
         bool no_console_output;
@@ -512,7 +513,10 @@ void disable_printk_ratelimit(void);
 void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
+bool manager_get_show_status_on(Manager *m);
 void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
+void manager_set_show_status_overridden(Manager *m, ShowStatus mode, const char *reason);
+
 void manager_set_first_boot(Manager *m, bool b);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
