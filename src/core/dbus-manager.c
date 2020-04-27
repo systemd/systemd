@@ -240,7 +240,7 @@ static int property_get_show_status(
         assert(reply);
         assert(m);
 
-        b = IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+        b = show_status_on(m->show_status);
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 

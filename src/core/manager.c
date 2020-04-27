@@ -4265,6 +4265,8 @@ void manager_recheck_journal(Manager *m) {
 }
 
 void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
+        bool enabled;
+
         assert(m);
         assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
@@ -4274,11 +4276,12 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         if (mode == m->show_status)
                 return;
 
-        bool enabled = IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+        enabled = show_status_on(mode);
         log_debug("%s (%s) showing of status (%s).",
                   enabled ? "Enabling" : "Disabling",
                   strna(show_status_to_string(mode)),
                   reason);
+
         m->show_status = mode;
 
         if (enabled)
