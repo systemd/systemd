@@ -464,12 +464,10 @@ int detect_container(void) {
                 goto finish;
         }
 
-        /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364,
-         * ... and a working one, since the official one doesn't actually work ;(
-         */
+        /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364 */
         r = read_one_line_file("/proc/sys/kernel/osrelease", &o);
         if (r >= 0 &&
-            (strstr(o, "Microsoft") || strstr(o, "microsoft") || strstr(o, "WSL"))) {
+            (strstr(o, "Microsoft") || strstr(o, "WSL"))) {
                 r = VIRTUALIZATION_WSL;
                 goto finish;
         }
