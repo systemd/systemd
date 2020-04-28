@@ -22,6 +22,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
+  exists and responds.
+
 * homed: add homed.conf setting DefaultStorage= or so
 
 * homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
@@ -34,10 +37,6 @@ Features:
   first. That is inspired how sd-boot figures out which kernel to boot, and
   thus allows defining OS images which can be A/B updated and we default to the
   newest version automatically, both in nspawn and in sd-boot
-
-* drop sd_bus_message_set_priority() from sd-bus API and documentation as much
-  as we can, it's a kdbus left-over and unlikely to come back on AF_UNIX, since
-  it's not really implementable there.
 
 * cryptsetup/homed: also support FIDO2 HMAC password logic for unlocking
   devices. (see: https://github.com/mjec/fido2-hmac-secret)
