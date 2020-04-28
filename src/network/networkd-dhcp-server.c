@@ -2,14 +2,17 @@
 
 #include "sd-dhcp-server.h"
 
+#include "fd-util.h"
+#include "fileio.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
-#include "strv.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 static Address* link_find_dhcp_server_address(Link *link) {
         Address *address;
@@ -174,6 +177,87 @@ static int link_push_uplink_to_dhcp_server(
         return sd_dhcp_server_set_servers(s, what, addresses, n_addresses);
 }
 
+static int dhcp4_server_parse_dns_server_string_and_warn(Link *l, const char *string, struct in_addr **addresses, size_t *n_allocated, size_t *n_addresses) {
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *server_name = NULL;
+                union in_addr_union address;
+                int family, r, ifindex = 0;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = in_addr_ifindex_name_from_string_auto(word, &family, &address, &ifindex, &server_name);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring: %m", word);
+                        continue;
+                }
+
+                /* Only look for IPv4 addresses */
+                if (family != AF_INET)
+                        continue;
+
+                /* Never propagate obviously borked data */
+                if (in4_addr_is_null(&address.in) || in4_addr_is_localhost(&address.in))
+                        continue;
+
+                if (!GREEDY_REALLOC(*addresses, *n_allocated, *n_addresses + 1))
+                        return log_oom();
+
+                (*addresses)[(*n_addresses)++] = address.in;
+        }
+
+        return 0;
+}
+
+static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
+        _cleanup_free_ struct in_addr *addresses = NULL;
+        size_t n_addresses = 0, n_allocated = 0;
+        _cleanup_fclose_ FILE *f = NULL;
+        int n = 0, r;
+
+        f = fopen(PRIVATE_UPLINK_RESOLV_CONF, "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to open " PRIVATE_UPLINK_RESOLV_CONF ": %m");
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *a;
+                char *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read " PRIVATE_UPLINK_RESOLV_CONF ": %m");
+                if (r == 0)
+                        break;
+
+                n++;
+
+                l = strstrip(line);
+                if (IN_SET(*l, '#', ';', 0))
+                        continue;
+
+                a = first_word(l, "nameserver");
+                if (!a)
+                        continue;
+
+                r = dhcp4_server_parse_dns_server_string_and_warn(link, a, &addresses, &n_allocated, &n_addresses);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse DNS server address '%s', ignoring.", a);
+        }
+
+        if (n_addresses <= 0)
+                return 0;
+
+        return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
+}
+
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
@@ -267,8 +351,10 @@ int dhcp4_server_configure(Link *link) {
                                                        "Not emitting %s on link, couldn't find suitable uplink.",
                                                        dhcp_lease_info_to_string(n));
                                         r = 0;
-                                } else
+                                } else if (uplink->network)
                                         r = link_push_uplink_to_dhcp_server(uplink, n, link->dhcp_server);
+                                else if (n == SD_DHCP_LEASE_DNS_SERVERS)
+                                        r = dhcp4_server_set_dns_from_resolve_conf(link);
                         }
                         if (r < 0)
                                 log_link_warning_errno(link, r,
