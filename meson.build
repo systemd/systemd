@@ -2084,7 +2084,7 @@ if conf.get('ENABLE_USERDB') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        public_programs += executable(
                 'userdbctl',
                 userdbctl_sources,
                 include_directories : includes,
@@ -2125,7 +2125,7 @@ if conf.get('ENABLE_HOMED') == 1
                 install : true,
                 install_dir : rootlibexecdir)
 
-        executable(
+        public_programs += executable(
                 'homectl',
                 homectl_sources,
                 include_directories : includes,
