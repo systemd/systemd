@@ -385,8 +385,8 @@ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *inte
 int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces);
 int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) _sd_sentinel_;
 
-int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_bus_creds **creds);
-int sd_bus_query_sender_privilege(sd_bus_message *call, int capability);
+int sd_bus_query_sender_creds(sd_bus_message *m, uint64_t mask, sd_bus_creds **creds);
+int sd_bus_query_sender_privilege(sd_bus_message *m, int capability);
 
 int sd_bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender, const char *path, const char *interface, const char *member, sd_bus_message_handler_t match_callback, sd_bus_message_handler_t add_callback, void *userdata);
