@@ -28,6 +28,7 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-resolved.service",
                                "Provide name resolution with caching using DNS, mDNS, LLMNR.",
+                               NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

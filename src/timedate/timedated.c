@@ -1129,6 +1129,7 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-timedated.service",
                                "Manage the system clock and timezone and NTP enablement.",
+                               NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

@@ -360,6 +360,7 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-machined.service",
                                "Manage registrations of local VMs and containers.",
+                               NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

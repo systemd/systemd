@@ -9,7 +9,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static int help(const char *program_path, const char *service, const char *description) {
+static int help(const char *program_path, const char *service, const char *description, bool bus_introspect) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -23,6 +23,7 @@ static int help(const char *program_path, const char *service, const char *descr
                "%sOptions%s:\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
+               "     --bus-introspect=PATH  Write D-Bus XML introspection data\n"
                "\nSee the %s for details.\n"
                , program_path
                , ansi_highlight(), description, ansi_normal()
@@ -36,15 +37,18 @@ static int help(const char *program_path, const char *service, const char *descr
 int service_parse_argv(
                 const char *service,
                 const char *description,
+                const BusObjectImplementation* const* bus_objects,
                 int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_BUS_INTROSPECT,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,       NULL, 'h'                },
                 { "version",        no_argument,       NULL, ARG_VERSION        },
+                { "bus-introspect", required_argument, NULL, ARG_BUS_INTROSPECT },
                 {}
         };
 
@@ -57,10 +61,16 @@ int service_parse_argv(
                 switch(c) {
 
                 case 'h':
-                        return help(argv[0], service, description);
+                        return help(argv[0], service, description, bus_objects);
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_BUS_INTROSPECT:
+                        return bus_introspect_implementations(
+                                        stdout,
+                                        optarg,
+                                        bus_objects);
 
                 case '?':
                         return -EINVAL;

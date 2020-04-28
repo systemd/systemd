@@ -757,6 +757,7 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-localed.service",
                                "Manage system locale settings and key mappings.",
+                               NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

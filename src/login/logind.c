@@ -1180,6 +1180,8 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-logind.service",
                                "Manager for user logins and devices and privileged operations.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
                                argc, argv);
         if (r <= 0)
                 return r;

@@ -783,6 +783,7 @@ static int run(int argc, char *argv[]) {
 
         r = service_parse_argv("systemd-hostnamed.service",
                                "Manage the system hostname and related metadata.",
+                               NULL,
                                argc, argv);
         if (r <= 0)
                 return r;
