@@ -150,6 +150,47 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>log-level</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="opt"><replaceable>LEVEL</replaceable></arg></term>
+
+        <listitem><para>Retrieve or set the maximum log level (a.k.a maximum log priority) of the specified
+        service. This function permits log level control of D-Bus services that implement the generic
+        <literal>org.freedesktop.LogControl1</literal> interface. If no level argument is specified retrieves
+        the current log level, otherwise sets it. The log level should be a typical syslog log level, i.e. a
+        value in the range 0…7 or one of the strings <constant>emerg</constant>, <constant>alert</constant>,
+        <constant>crit</constant>, <constant>err</constant>, <constant>warning</constant>,
+        <constant>notice</constant>, <constant>info</constant>, <constant>debug</constant>; see <citerefentry
+        project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>Note that this requires explicit support in a D-Bus service to work correctly, and typically
+        controls the threshold beyond which all log messages are suppressed. Most service use a maximum log
+        level of <constant>info</constant> by default, so that only messages of <constant>info</constant> and
+        greater importance are written to its log stream, while those of debug priority are
+        suppressed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>log-target</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg></term>
+
+        <listitem><para>Retrieve or set the log target of the specified service. This function permits log
+        target control of D-Bus services that implement the generic
+        <literal>org.freedesktop.LogControl1</literal> interface. If no level argument is specified retrieves
+        the current log target, otherwise sets it. The log target should be one of the strings
+        <constant>console</constant> (for log output to the service's standard error stream),
+        <constant>kmsg</constant> (for log output to the kernel log buffer), <constant>journal</constant>
+        (for log output to
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        using the native journal protocol), <constant>syslog</constant> (for log output to the classic syslog
+        socket <filename>/dev/log</filename>), <constant>null</constant> (for no log output whatsoever) or
+        <constant>auto</constant> (for an automatically determined choice, typically equivalent to
+        <constant>console</constant> if the service is invoked interactively, and
+        <constant>journal</constant> or <constant>syslog</constant> otherwise).</para>
+
+        <para>Note that this requires explicit support in a D-Bus service to work correctly, and not all
+        services might implement all of the listed log output modes.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>help</command></term>
 
         <listitem><para>Show command syntax help.</para></listitem>
