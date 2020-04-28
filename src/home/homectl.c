@@ -192,9 +192,9 @@ static int list_homes(int argc, char *argv[], void *userdata) {
 
         if (arg_legend && !arg_json) {
                 if (table_get_rows(table) > 1)
-                        printf("\n%zu homes listed.\n", table_get_rows(table) - 1);
+                        printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
                 else
-                        printf("No homes.\n");
+                        printf("No home areas.\n");
         }
 
         return 0;
@@ -2263,20 +2263,20 @@ static int help(int argc, char *argv[], void *userdata) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sCreate, manipulate or inspect home directories.%3$s\n"
                "\n%4$sCommands:%5$s\n"
-               "  list                        List homes\n"
-               "  activate USER…              Activate home\n"
-               "  deactivate USER…            Deactivate home\n"
-               "  inspect USER…               Inspect home\n"
-               "  authenticate USER…          Authenticate home\n"
+               "  list                        List home areas\n"
+               "  activate USER…              Activate a home area\n"
+               "  deactivate USER…            Deactivate a home area\n"
+               "  inspect USER…               Inspect a home area\n"
+               "  authenticate USER…          Authenticate a home area\n"
                "  create USER                 Create a home area\n"
                "  remove USER…                Remove a home area\n"
                "  update USER                 Update a home area\n"
                "  passwd USER                 Change password of a home area\n"
                "  resize USER SIZE            Resize a home area\n"
-               "  lock USER…                  Temporarily lock an active home\n"
-               "  unlock USER…                Unlock a temporarily locked home\n"
-               "  lock-all                    Lock all suitable homes\n"
-               "  with USER [COMMAND…]        Run shell or command with access to home\n"
+               "  lock USER…                  Temporarily lock an active home area\n"
+               "  unlock USER…                Unlock a temporarily locked home area\n"
+               "  lock-all                    Lock all suitable home areas\n"
+               "  with USER [COMMAND…]        Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -2377,7 +2377,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%4$sCIFS User Record Properties:%5$s\n"
                "     --cifs-domain=DOMAIN     CIFS (Windows) domain\n"
                "     --cifs-user-name=USER    CIFS (Windows) user name\n"
-               "     --cifs-service=SERVICE   CIFS (Windows) service to mount as home\n"
+               "     --cifs-service=SERVICE   CIFS (Windows) service to mount as home area\n"
                "\n%4$sLogin Behaviour User Record Properties:%5$s\n"
                "     --stop-delay=SECS        How long to leave user services running after\n"
                "                              logout\n"
