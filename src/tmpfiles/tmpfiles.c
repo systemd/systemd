@@ -2432,9 +2432,7 @@ static int specifier_expansion_from_arg(Item *i) {
 
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:
-                assert(i->xattrs);
-
-                STRV_FOREACH (xattr, i->xattrs) {
+                STRV_FOREACH(xattr, i->xattrs) {
                         r = specifier_printf(*xattr, specifier_table, NULL, &resolved);
                         if (r < 0)
                                 return r;
