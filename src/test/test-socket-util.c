@@ -245,6 +245,24 @@ static void test_in_addr_ifindex_from_string_auto(void) {
         assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
 }
 
+static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const char *expected) {
+        int family, ifindex;
+        union in_addr_union ua;
+        _cleanup_free_ char *server_name = NULL;
+
+        assert_se(in_addr_ifindex_name_from_string_auto(a, &family, &ua, &ifindex, &server_name) >= 0);
+        assert_se(streq_ptr(server_name, expected));
+}
+
+static void test_in_addr_ifindex_name_from_string_auto(void) {
+        log_info("/* %s */", __func__);
+
+        test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1", NULL);
+        test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1#test.com", "test.com");
+        test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19", NULL);
+        test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19#another.test.com", "another.test.com");
+}
+
 static void test_sockaddr_equal(void) {
         union sockaddr_union a = {
                 .in.sin_family = AF_INET,
@@ -676,6 +694,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_to_string();
         test_in_addr_ifindex_to_string();
         test_in_addr_ifindex_from_string_auto();
+        test_in_addr_ifindex_name_from_string_auto();
 
         test_sockaddr_equal();
 
