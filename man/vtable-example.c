@@ -27,6 +27,30 @@ static const sd_bus_vtable vtable[] = {
             "s", SD_BUS_PARAM(returnstring),
             method, offsetof(object, number),
             SD_BUS_VTABLE_DEPRECATED),
+        SD_BUS_METHOD_WITH_ARGS_OFFSET(
+            "Method3",
+            SD_BUS_ARGS("s", string, "o", path),
+            SD_BUS_RESULT("s", returnstring),
+            method, offsetof(object, number),
+            SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS(
+            "Method4",
+            SD_BUS_NO_ARGS,
+            SD_BUS_NO_RESULT,
+            method,
+            SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_SIGNAL(
+            "Signal1",
+            "so",
+            0),
+        SD_BUS_SIGNAL_WITH_NAMES(
+            "Signal2",
+            "so", SD_BUS_PARAM(string) SD_BUS_PARAM(path),
+            0),
+        SD_BUS_SIGNAL_WITH_ARGS(
+            "Signal3",
+            SD_BUS_ARGS("s", string, "o", path),
+            0),
         SD_BUS_WRITABLE_PROPERTY(
             "AutomaticStringProperty", "s", NULL, NULL,
             offsetof(object, name),
