@@ -185,6 +185,11 @@ static const Specifier specifier_table[] = {
         { 'b', specifier_boot_id,         NULL },
         { 'H', specifier_host_name,       NULL },
         { 'v', specifier_kernel_release,  NULL },
+        { 'a', specifier_architecture,    NULL },
+        { 'o', specifier_os_id,           NULL },
+        { 'w', specifier_os_version_id,   NULL },
+        { 'B', specifier_os_build_id,     NULL },
+        { 'W', specifier_os_variant_id,   NULL },
 
         { 'g', specifier_group_name,      NULL },
         { 'G', specifier_group_id,        NULL },

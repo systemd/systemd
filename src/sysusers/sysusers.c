@@ -1393,6 +1393,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 { 'b', specifier_boot_id,        NULL },
                 { 'H', specifier_host_name,      NULL },
                 { 'v', specifier_kernel_release, NULL },
+                { 'a', specifier_architecture,   NULL },
+                { 'o', specifier_os_id,          NULL },
+                { 'w', specifier_os_version_id,  NULL },
+                { 'B', specifier_os_build_id,    NULL },
+                { 'W', specifier_os_variant_id,  NULL },
                 { 'T', specifier_tmp_dir,        NULL },
                 { 'V', specifier_var_tmp_dir,    NULL },
                 {}

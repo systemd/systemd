@@ -9,12 +9,17 @@
 
 static void test_specifier_printf(void) {
         static const Specifier table[] = {
-                { 'a', specifier_string, (char*) "AAAA" },
-                { 'b', specifier_string, (char*) "BBBB" },
-                { 'm', specifier_machine_id, NULL },
-                { 'B', specifier_boot_id, NULL },
-                { 'H', specifier_host_name, NULL },
+                { 'X', specifier_string,         (char*) "AAAA" },
+                { 'Y', specifier_string,         (char*) "BBBB" },
+                { 'm', specifier_machine_id,     NULL },
+                { 'b', specifier_boot_id,        NULL },
+                { 'H', specifier_host_name,      NULL },
                 { 'v', specifier_kernel_release, NULL },
+                { 'a', specifier_architecture,   NULL },
+                { 'o', specifier_os_id,          NULL },
+                { 'w', specifier_os_version_id,  NULL },
+                { 'B', specifier_os_build_id,    NULL },
+                { 'W', specifier_os_variant_id,  NULL },
                 {}
         };
 
@@ -23,7 +28,7 @@ static void test_specifier_printf(void) {
 
         log_info("/* %s */", __func__);
 
-        r = specifier_printf("xxx a=%a b=%b yyy", table, NULL, &w);
+        r = specifier_printf("xxx a=%X b=%Y yyy", table, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
 
@@ -31,10 +36,15 @@ static void test_specifier_printf(void) {
         assert_se(streq(w, "xxx a=AAAA b=BBBB yyy"));
 
         free(w);
-        r = specifier_printf("machine=%m, boot=%B, host=%H, version=%v", table, NULL, &w);
+        r = specifier_printf("machine=%m, boot=%b, host=%H, version=%v, arch=%a", table, NULL, &w);
         assert_se(r >= 0);
         assert_se(w);
         puts(w);
+
+        w = mfree(w);
+        specifier_printf("os=%o, os-version=%w, build=%B, variant=%W", table, NULL, &w);
+        if (w)
+                puts(w);
 }
 
 static void test_str_in_set(void) {

@@ -218,10 +218,15 @@ int config_parse_search_domains(
 
 int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
         static const Specifier specifier_table[] = {
+                { 'm', specifier_machine_id,      NULL },
                 { 'b', specifier_boot_id,         NULL },
                 { 'H', specifier_host_name,       NULL },
-                { 'm', specifier_machine_id,      NULL },
                 { 'v', specifier_kernel_release,  NULL },
+                { 'a', specifier_architecture,    NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'w', specifier_os_version_id,   NULL },
+                { 'B', specifier_os_build_id,     NULL },
+                { 'W', specifier_os_variant_id,   NULL },
                 {}
         };
         DnssdService *s = userdata;
