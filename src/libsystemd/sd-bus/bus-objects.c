@@ -56,7 +56,7 @@ static int node_vtable_get_userdata(
 static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
-        if (!u)
+        if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
                 return SIZE_TO_PTR(p->x.method.offset); /* don't add offset on NULL, to make ubsan happy */
 
         return (uint8_t*) u + p->x.method.offset;
@@ -65,7 +65,7 @@ static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
 static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
-        if (!u)
+        if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
                 return SIZE_TO_PTR(p->x.property.offset); /* as above */
 
         return (uint8_t*) u + p->x.property.offset;
