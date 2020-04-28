@@ -43,9 +43,6 @@ enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
-        PROP_KERNEL_NAME,
-        PROP_KERNEL_RELEASE,
-        PROP_KERNEL_VERSION,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
         PROP_HOME_URL,
@@ -77,19 +74,10 @@ static void context_clear(Context *c) {
 
 static int context_read_data(Context *c) {
         int r;
-        struct utsname u;
 
         assert(c);
 
         context_reset(c);
-
-        assert_se(uname(&u) >= 0);
-        c->data[PROP_KERNEL_NAME] = strdup(u.sysname);
-        c->data[PROP_KERNEL_RELEASE] = strdup(u.release);
-        c->data[PROP_KERNEL_VERSION] = strdup(u.version);
-        if (!c->data[PROP_KERNEL_NAME] || !c->data[PROP_KERNEL_RELEASE] ||
-            !c->data[PROP_KERNEL_VERSION])
-                return -ENOMEM;
 
         c->data[PROP_HOSTNAME] = gethostname_malloc();
         if (!c->data[PROP_HOSTNAME])
@@ -411,6 +399,22 @@ static int property_get_chassis(
         return sd_bus_message_append(reply, "s", name);
 }
 
+static int property_get_uname_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        return sd_bus_message_append(reply, "s", (char*) &u + PTR_TO_SIZE(userdata));
+}
+
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
@@ -673,9 +677,9 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Deployment", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Location", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HomeURL", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
