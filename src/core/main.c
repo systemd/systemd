@@ -1033,7 +1033,9 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Starts up and maintains the system or user services.\n\n"
+               "%sStarts and monitors system and user services.%s\n\n"
+               "This program takes no positional arguments.\n\n"
+               "%sOptions%s:\n"
                "  -h --help                      Show this help\n"
                "     --version                   Show version\n"
                "     --test                      Determine initial transaction, dump it and exit\n"
@@ -1058,6 +1060,8 @@ static int help(void) {
                "     --default-standard-error=   Set default standard error output for services\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
+               , ansi_underline(), ansi_normal()
                , link
         );
 
