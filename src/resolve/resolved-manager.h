@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <sys/stat.h>
+
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -71,7 +73,7 @@ struct Manager {
         bool need_builtin_fallbacks:1;
 
         bool read_resolv_conf:1;
-        usec_t resolv_conf_mtime;
+        struct stat resolv_conf_stat;
 
         DnsTrustAnchor trust_anchor;
 
