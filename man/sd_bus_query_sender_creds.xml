@@ -1,0 +1,133 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_query_sender_creds" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_query_sender_creds</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_query_sender_creds</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_query_sender_creds</refname>
+    <refname>sd_bus_query_sender_privilege</refname>
+
+    <refpurpose>Query bus message sender credentials/privileges</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_query_sender_creds</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>uint64_t <parameter>mask</parameter></paramdef>
+        <paramdef>sd_bus_creds **<parameter>creds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_error* <function>sd_bus_query_sender_privilege</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>int <parameter>capability</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_query_sender_creds()</function> returns the credentials of the message
+    <parameter>m</parameter>. The <parameter>mask</parameter> parameter is a combo of
+    <constant index='false'>SD_BUS_CREDS_*</constant> flags that indicate which credential info the caller is
+    interested in. See
+    <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a list of possible flags. First, this message checks if the requested credentials are attached to the
+    message itself. If not but the message contains the pid of the sender, this function tries to figure out
+    the missing credentials via other means (starting from the pid). If the pid isn't available but the
+    message has a sender, this function calls
+    <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to get the requested credentials. If the message has no sender (when a direct connection is used), this
+    function calls
+    <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to get the requested credentials. On success, the requested credentials are stored in
+    <parameter>creds</parameter>. Ownership of the credentials object in <parameter>creds</parameter> is
+    transferred to the caller and should be freed by calling
+    <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_query_sender_privilege()</function> checks if the message <parameter>m</parameter>
+    has the requested privileges. If <parameter>capability</parameter> is a non-negative integer, this
+    function checks if the message has the capability with the same value. See
+    <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for a list of capabilities. If <parameter>capability</parameter> is a negative integer, this function
+    returns whether the sender of the message runs as the same user as the receiver of the message, or if the
+    sender of the message runs as root and the receiver of the message does not run as root. On success and
+    if the message has the requested privileges, this function returns a positive integer. If the message
+    does not have the requested privileges, this function returns zero.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> or an output parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus of <parameter>m</parameter> is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus of <parameter>m</parameter> was created in a different process.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> is not sealed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
