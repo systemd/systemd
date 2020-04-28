@@ -223,10 +223,16 @@ int efi_set_variable_string(sd_id128_t vendor, const char *name, const char *v) 
 }
 
 bool is_efi_boot(void) {
-        if (detect_container() > 0)
-                return false;
+        static int cache = -1;
 
-        return access("/sys/firmware/efi/", F_OK) >= 0;
+        if (cache < 0) {
+                if (detect_container() > 0)
+                        cache = false;
+                else
+                        cache = access("/sys/firmware/efi/", F_OK) >= 0;
+        }
+
+        return cache;
 }
 
 static int read_flag(const char *varname) {
@@ -250,11 +256,21 @@ static int read_flag(const char *varname) {
 }
 
 bool is_efi_secure_boot(void) {
-        return read_flag("SecureBoot") > 0;
+        static int cache = -1;
+
+        if (cache < 0)
+                cache = read_flag("SecureBoot");
+
+        return cache > 0;
 }
 
 bool is_efi_secure_boot_setup_mode(void) {
-        return read_flag("SetupMode") > 0;
+        static int cache = -1;
+
+        if (cache < 0)
+                cache = read_flag("SetupMode");
+
+        return cache > 0;
 }
 
 int systemd_efi_options_variable(char **line) {
