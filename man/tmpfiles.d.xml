@@ -6,7 +6,8 @@
 
   Copyright © 2010 Brandon Philips
 -->
-<refentry id="tmpfiles.d">
+<refentry id="tmpfiles.d"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>tmpfiles.d</title>
@@ -631,11 +632,13 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
             </row>
           </thead>
           <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
             <row>
               <entry><literal>%b</literal></entry>
               <entry>Boot ID</entry>
               <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
             <row>
               <entry><literal>%C</literal></entry>
               <entry>System or user cache directory</entry>
@@ -661,6 +664,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>Machine ID</entry>
               <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
             <row>
               <entry><literal>%S</literal></entry>
               <entry>System or user state directory</entry>
@@ -706,6 +710,8 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>Directory for larger and persistent temporary files</entry>
               <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
             <row>
               <entry><literal>%%</literal></entry>
               <entry>Escaped <literal>%</literal></entry>
