@@ -36,7 +36,6 @@
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 
 enum {
-        PROP_HOSTNAME,
         PROP_STATIC_HOSTNAME,
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
@@ -76,10 +75,6 @@ static int context_read_data(Context *c) {
         assert(c);
 
         context_reset(c);
-
-        c->data[PROP_HOSTNAME] = gethostname_malloc();
-        if (!c->data[PROP_HOSTNAME])
-                return -ENOMEM;
 
         r = read_etc_hostname(NULL, &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
@@ -244,11 +239,21 @@ static bool hostname_is_useful(const char *hn) {
         return !isempty(hn) && !is_localhost(hn);
 }
 
-static int context_update_kernel_hostname(Context *c) {
-        const char *static_hn;
-        const char *hn;
+static int context_update_kernel_hostname(
+                Context *c,
+                const char *transient_hn) {
+
+        const char *static_hn, *hn;
+        struct utsname u;
 
         assert(c);
+
+        if (!transient_hn) {
+                /* If no transient hostname is passed in, then let's check what is currently set. */
+                assert_se(uname(&u) >= 0);
+                transient_hn =
+                        isempty(u.nodename) || streq(u.nodename, "(none)") ? NULL : u.nodename;
+        }
 
         static_hn = c->data[PROP_STATIC_HOSTNAME];
 
@@ -258,8 +263,8 @@ static int context_update_kernel_hostname(Context *c) {
                 hn = static_hn;
 
         /* ... the transient hostname, (ie: DHCP) comes next ... */
-        else if (!isempty(c->data[PROP_HOSTNAME]))
-                hn = c->data[PROP_HOSTNAME];
+        else if (!isempty(transient_hn))
+                hn = transient_hn;
 
         /* ... fallback to static "localhost.*" ignored above ... */
         else if (!isempty(static_hn))
@@ -342,6 +347,27 @@ static int context_write_data_machine_info(Context *c) {
         return write_env_file_label("/etc/machine-info", l);
 }
 
+static int property_get_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        _cleanup_free_ char *current = NULL;
+        int r;
+
+        r = gethostname_strict(&current);
+        if (r == -ENXIO)
+                return sd_bus_message_append(reply, "s", FALLBACK_HOSTNAME);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append(reply, "s", current);
+}
+
 static int property_get_icon_name(
                 sd_bus *bus,
                 const char *path,
@@ -405,8 +431,8 @@ static int property_get_uname_field(
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
-        int interactive;
-        int r;
+        int interactive, r;
+        struct utsname u;
 
         assert(m);
         assert(c);
@@ -424,7 +450,8 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (!hostname_is_valid(name, false))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname '%s'", name);
 
-        if (streq_ptr(name, c->data[PROP_HOSTNAME]))
+        assert_se(uname(&u) >= 0);
+        if (streq_ptr(name, u.nodename))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -441,17 +468,13 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = free_and_strdup(&c->data[PROP_HOSTNAME], name);
-        if (r < 0)
-                return r;
-
-        r = context_update_kernel_hostname(c);
+        r = context_update_kernel_hostname(c, name);
         if (r < 0) {
                 log_error_errno(r, "Failed to set hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
         }
 
-        log_info("Changed hostname to '%s'", strna(c->data[PROP_HOSTNAME]));
+        log_info("Changed hostname to '%s'", name);
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
 
@@ -497,7 +520,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = context_update_kernel_hostname(c);
+        r = context_update_kernel_hostname(c, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
@@ -671,7 +694,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
 
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Hostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StaticHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_STATIC_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
