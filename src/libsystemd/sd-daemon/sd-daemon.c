@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <mqueue.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -23,6 +24,7 @@
 #include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
@@ -549,6 +551,34 @@ finish:
                 unsetenv("NOTIFY_SOCKET");
 
         return r;
+}
+
+_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
+        _cleanup_close_pair_ int pipe_fd[2] = { -1, -1 };
+        struct timespec ts;
+        int r;
+
+        if (pipe2(pipe_fd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = sd_pid_notify_with_fds(0, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
+        if (r <= 0)
+                return r;
+
+        pipe_fd[1] = safe_close(pipe_fd[1]);
+
+        struct pollfd pfd = {
+                .fd = pipe_fd[0],
+                /* POLLHUP is implicit */
+                .events = 0,
+        };
+        r = ppoll(&pfd, 1, timeout == UINT64_MAX ? NULL : timespec_store(&ts, timeout), NULL);
+        if (r < 0)
+                return -errno;
+        if (r == 0)
+                return -ETIMEDOUT;
+
+        return 1;
 }
 
 _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
