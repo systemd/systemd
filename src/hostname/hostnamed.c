@@ -28,6 +28,7 @@
 #include "selinux-util.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "util.h"
@@ -36,49 +37,89 @@
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
 
 enum {
+        /* Read from /etc/hostname */
         PROP_STATIC_HOSTNAME,
+
+        /* Read from /etc/machine-info */
         PROP_PRETTY_HOSTNAME,
         PROP_ICON_NAME,
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
+
+        /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
-        PROP_HOME_URL,
-        _PROP_MAX
+        PROP_OS_HOME_URL,
+        _PROP_MAX,
+        _PROP_INVALID = -1,
 };
 
 typedef struct Context {
         char *data[_PROP_MAX];
+
+        struct stat etc_hostname_stat;
+        struct stat etc_os_release_stat;
+        struct stat etc_machine_info_stat;
+
         Hashmap *polkit_registry;
 } Context;
 
-static void context_reset(Context *c) {
+static void context_reset(Context *c, uint64_t mask) {
         int p;
 
         assert(c);
 
-        for (p = 0; p < _PROP_MAX; p++)
+        for (p = 0; p < _PROP_MAX; p++) {
+                if (!FLAGS_SET(mask, UINT64_C(1) << p))
+                        continue;
+
                 c->data[p] = mfree(c->data[p]);
+        }
 }
 
 static void context_destroy(Context *c) {
         assert(c);
 
-        context_reset(c);
+        context_reset(c, UINT64_MAX);
         bus_verify_polkit_async_registry_free(c->polkit_registry);
 }
 
-static int context_read_data(Context *c) {
+static void context_read_etc_hostname(Context *c) {
+        struct stat current_stat = {};
         int r;
 
         assert(c);
 
-        context_reset(c);
+        if (stat("/etc/hostname", &current_stat) >= 0 &&
+            stat_inode_unmodified(&c->etc_hostname_stat, &current_stat))
+                return;
+
+        context_reset(c, UINT64_C(1) << PROP_STATIC_HOSTNAME);
 
         r = read_etc_hostname(NULL, &c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0 && r != -ENOENT)
-                return r;
+                log_warning_errno(r, "Failed to read /etc/hostname, ignoring: %m");
+
+        c->etc_hostname_stat = current_stat;
+}
+
+static void context_read_machine_info(Context *c) {
+        struct stat current_stat = {};
+        int r;
+
+        assert(c);
+
+        if (stat("/etc/machine-info", &current_stat) >= 0 &&
+            stat_inode_unmodified(&c->etc_machine_info_stat, &current_stat))
+                return;
+
+        context_reset(c,
+                      (UINT64_C(1) << PROP_PRETTY_HOSTNAME) |
+                      (UINT64_C(1) << PROP_ICON_NAME) |
+                      (UINT64_C(1) << PROP_CHASSIS) |
+                      (UINT64_C(1) << PROP_DEPLOYMENT) |
+                      (UINT64_C(1) << PROP_LOCATION));
 
         r = parse_env_file(NULL, "/etc/machine-info",
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
@@ -87,17 +128,36 @@ static int context_read_data(Context *c) {
                            "DEPLOYMENT", &c->data[PROP_DEPLOYMENT],
                            "LOCATION", &c->data[PROP_LOCATION]);
         if (r < 0 && r != -ENOENT)
-                return r;
+                log_warning_errno(r, "Failed to read /etc/machine-info, ignoring: %m");
+
+        c->etc_machine_info_stat = current_stat;
+}
+
+static void context_read_os_release(Context *c) {
+        struct stat current_stat = {};
+        int r;
+
+        assert(c);
+
+        if ((stat("/etc/os-release", &current_stat) >= 0 ||
+             stat("/usr/lib/os-release", &current_stat) >= 0) &&
+            stat_inode_unmodified(&c->etc_os_release_stat, &current_stat))
+                return;
+
+        context_reset(c,
+                      (UINT64_C(1) << PROP_OS_PRETTY_NAME) |
+                      (UINT64_C(1) << PROP_OS_CPE_NAME) |
+                      (UINT64_C(1) << PROP_OS_HOME_URL));
 
         r = parse_os_release(NULL,
                              "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                              "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                             "HOME_URL", &c->data[PROP_HOME_URL],
+                             "HOME_URL", &c->data[PROP_OS_HOME_URL],
                              NULL);
         if (r < 0 && r != -ENOENT)
-                return r;
+                log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
-        return 0;
+        c->etc_os_release_stat = current_stat;
 }
 
 static bool valid_chassis(const char *chassis) {
@@ -283,7 +343,6 @@ static int context_update_kernel_hostname(
 }
 
 static int context_write_data_static_hostname(Context *c) {
-
         assert(c);
 
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
@@ -368,6 +427,73 @@ static int property_get_hostname(
         return sd_bus_message_append(reply, "s", current);
 }
 
+static int property_get_static_hostname(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Context *c = userdata;
+        assert(c);
+
+        context_read_etc_hostname(c);
+
+        return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
+}
+
+static int property_get_machine_info_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_bus_slot *slot;
+        Context *c;
+
+        /* Acquire the context object without this property's userdata offset added. Explanation: we want
+         * access to two pointers here: a) the main context object we cache all properties in, and b) the
+         * pointer to the property field inside the context object that we are supposed to update and
+         * use. The latter (b) we get in the 'userdata' function parameter, and sd-bus calculates that for us
+         * from the 'userdata' pointer we supplied when the vtable was registered, with the offset we
+         * specified in the vtable added on top. To get the former (a) we need the 'userdata' pointer from
+         * the vtable registration directly, without the offset added. Hence we ask sd-bus what the slot
+         * object is (which encapsulates the vtable registration), and then query the 'userdata' field
+         * directly off it. */
+        assert_se(slot = sd_bus_get_current_slot(bus));
+        assert_se(c = sd_bus_slot_get_userdata(slot));
+
+        context_read_machine_info(c);
+
+        return sd_bus_message_append(reply, "s", *(char**) userdata);
+}
+
+static int property_get_os_release_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_bus_slot *slot;
+        Context *c;
+
+        /* As above, acquire the current context without this property's userdata offset added. */
+        assert_se(slot = sd_bus_get_current_slot(bus));
+        assert_se(c = sd_bus_slot_get_userdata(slot));
+
+        context_read_os_release(c);
+
+        return sd_bus_message_append(reply, "s", *(char**) userdata);
+}
+
 static int property_get_icon_name(
                 sd_bus *bus,
                 const char *path,
@@ -380,6 +506,8 @@ static int property_get_icon_name(
         _cleanup_free_ char *n = NULL;
         Context *c = userdata;
         const char *name;
+
+        context_read_machine_info(c);
 
         if (isempty(c->data[PROP_ICON_NAME]))
                 name = n = context_fallback_icon_name(c);
@@ -403,6 +531,8 @@ static int property_get_chassis(
 
         Context *c = userdata;
         const char *name;
+
+        context_read_machine_info(c);
 
         if (isempty(c->data[PROP_CHASSIS]))
                 name = fallback_chassis();
@@ -440,6 +570,8 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         r = sd_bus_message_read(m, "sb", &name, &interactive);
         if (r < 0)
                 return r;
+
+        context_read_etc_hostname(c);
 
         if (isempty(name))
                 name = c->data[PROP_STATIC_HOSTNAME];
@@ -495,6 +627,8 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                 return r;
 
         name = empty_to_null(name);
+
+        context_read_etc_hostname(c);
 
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
@@ -552,6 +686,8 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                 return r;
 
         name = empty_to_null(name);
+
+        context_read_machine_info(c);
 
         if (streq_ptr(name, c->data[prop]))
                 return sd_bus_reply_method_return(m, NULL);
@@ -695,18 +831,18 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("StaticHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_STATIC_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("PrettyHostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("StaticHostname", "s", property_get_static_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Deployment", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Location", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Location", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("HomeURL", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("SetHostname",
                                  "sb",
@@ -848,10 +984,6 @@ static int run(int argc, char *argv[]) {
         r = connect_bus(&context, event, &bus);
         if (r < 0)
                 return r;
-
-        r = context_read_data(&context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read hostname and machine information: %m");
 
         r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
         if (r < 0)
