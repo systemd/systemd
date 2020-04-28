@@ -257,7 +257,7 @@
     execution compared to the target unit's state and is marked successful and
     complete when both satisfy. However, this job also pulls in other
     dependencies due to the defined relationships and thus leads to, in our
-    our example, start jobs for any of those inactive units getting queued as
+    example, start jobs for any of those inactive units getting queued as
     well.</para>
 
     <para>systemd contains native implementations of various tasks
