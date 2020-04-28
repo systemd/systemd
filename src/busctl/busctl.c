@@ -2275,6 +2275,97 @@ static int set_property(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int verb_log_level(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 2) {
+                _cleanup_free_ char *level = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                argv[1],
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                "LogLevel",
+                                &error,
+                                &level);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log level of service %s: %s",
+                                               argv[1], bus_error_message(&error, r));
+
+                puts(level);
+
+        } else {
+                assert(argc == 3);
+
+                r = sd_bus_set_property(
+                                bus,
+                                argv[1],
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                "LogLevel",
+                                &error,
+                                "s",
+                                argv[2]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log level of service %s to %s: %s",
+                                               argv[1], argv[2], bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int verb_log_target(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc == 2) {
+                _cleanup_free_ char *target = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                argv[1],
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                "LogTarget",
+                                &error,
+                                &target);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log target of service %s: %s",
+                                               argv[1], bus_error_message(&error, r));
+
+                puts(target);
+
+        } else {
+                assert(argc == 3);
+
+                r = sd_bus_set_property(
+                                bus,
+                                argv[1],
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                "LogTarget",
+                                &error,
+                                "s",
+                                argv[2]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log target: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2300,6 +2391,10 @@ static int help(void) {
                "                           Get property value\n"
                "  set-property SERVICE OBJECT INTERFACE PROPERTY SIGNATURE ARGUMENT...\n"
                "                           Set property value\n"
+               "  log-level SERVICE [LEVEL]\n"
+               "                           Query or set service log level\n"
+               "  log-target SERVICE [TARGET]\n"
+               "                           Query or set service log target\n"
                "  help                     Show this help\n"
                "\nOptions:\n"
                "  -h --help                Show this help\n"
@@ -2594,17 +2689,19 @@ static int parse_argv(int argc, char *argv[]) {
 static int busctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names },
-                { "status",       VERB_ANY, 2,        0,            status         },
-                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor   },
-                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture   },
-                { "tree",         VERB_ANY, VERB_ANY, 0,            tree           },
-                { "introspect",   3,        4,        0,            introspect     },
-                { "call",         5,        VERB_ANY, 0,            call           },
-                { "emit",         4,        VERB_ANY, 0,            emit_signal    },
-                { "get-property", 5,        VERB_ANY, 0,            get_property   },
-                { "set-property", 6,        VERB_ANY, 0,            set_property   },
-                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },
+                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names  },
+                { "status",       VERB_ANY, 2,        0,            status          },
+                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor    },
+                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture    },
+                { "tree",         VERB_ANY, VERB_ANY, 0,            tree            },
+                { "introspect",   3,        4,        0,            introspect      },
+                { "call",         5,        VERB_ANY, 0,            call            },
+                { "emit",         4,        VERB_ANY, 0,            emit_signal     },
+                { "get-property", 5,        VERB_ANY, 0,            get_property    },
+                { "set-property", 6,        VERB_ANY, 0,            set_property    },
+                { "log-level",    2,        3,        0,            verb_log_level  },
+                { "log-target",   2,        3,        0,            verb_log_target },
+                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help       },
                 {}
         };
 
