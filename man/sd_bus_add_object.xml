@@ -544,6 +544,25 @@
           This corresponds to the <constant>org.freedesktop.systemd1.Explicit</constant> annotation
           in introspection data.</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_SENSITIVE</constant></term>
+
+          <listitem><para>Mark this vtable method entry as processing sensitive data. When set,
+          incoming method call messages and their outgoing reply messages are marked as sensitive using
+          <citerefentry><refentrytitle>sd_bus_message_sensitive</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+          so that they are erased from memory when freed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>SD_BUS_VTABLE_ABSOLUTE_OFFSET</constant></term>
+
+          <listitem><para>Mark this vtable method or property entry so that the user data pointer passed to
+          its associated handler functions is determined slightly differently: instead of adding the offset
+          parameter of the entry to the user data pointer specified during vtable registration, the offset is
+          passed directly, converted to a pointer, without taking the user data pointer specified during
+          vtable registration into account.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
