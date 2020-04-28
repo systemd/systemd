@@ -2189,7 +2189,8 @@ if conf.get('ENABLE_HOMED') == 1
         endif
 endif
 
-foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
+foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
+                (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
         meson.add_install_script(meson_make_symlink,
                                  join_paths(rootbindir, 'systemctl'),
                                  join_paths(rootsbindir, alias))
@@ -2851,7 +2852,7 @@ executable(
         include_directories : includes,
         link_with : [libshared],
         install_rpath : rootlibexecdir,
-        install : true,
+        install : (conf.get('HAVE_SYSV_COMPAT') == 1),
         install_dir : rootlibexecdir)
 
 public_programs += executable(
