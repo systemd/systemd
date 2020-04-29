@@ -177,53 +177,9 @@ int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen) 
         assert(u);
 
         /* Increases the network part of an address by one. Returns
-         * positive it that succeeds, or 0 if this overflows. */
+         * positive if that succeeds, or -ERANGE if this overflows. */
 
-        if (prefixlen <= 0)
-                return 0;
-
-        if (family == AF_INET) {
-                uint32_t c, n;
-
-                if (prefixlen > 32)
-                        prefixlen = 32;
-
-                c = be32toh(u->in.s_addr);
-                n = c + (1UL << (32 - prefixlen));
-                if (n < c)
-                        return 0;
-                n &= 0xFFFFFFFFUL << (32 - prefixlen);
-
-                u->in.s_addr = htobe32(n);
-                return 1;
-        }
-
-        if (family == AF_INET6) {
-                struct in6_addr add = {}, result;
-                uint8_t overflow = 0;
-                unsigned i;
-
-                if (prefixlen > 128)
-                        prefixlen = 128;
-
-                /* First calculate what we have to add */
-                add.s6_addr[(prefixlen-1) / 8] = 1 << (7 - (prefixlen-1) % 8);
-
-                for (i = 16; i > 0; i--) {
-                        unsigned j = i - 1;
-
-                        result.s6_addr[j] = u->in6.s6_addr[j] + add.s6_addr[j] + overflow;
-                        overflow = (result.s6_addr[j] < u->in6.s6_addr[j]);
-                }
-
-                if (overflow)
-                        return 0;
-
-                u->in6 = result;
-                return 1;
-        }
-
-        return -EAFNOSUPPORT;
+        return in_addr_prefix_nth(family, u, prefixlen, 1);
 }
 
 /*
