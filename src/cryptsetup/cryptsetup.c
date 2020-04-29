@@ -46,6 +46,7 @@ static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static uint64_t arg_keyfile_offset = 0;
 static bool arg_keyfile_erase = false;
+static bool arg_try_empty_password = false;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -262,7 +263,20 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
-        } else if (!streq(option, "x-initrd.attach"))
+        } else if ((val = startswith(option, "try-empty-password="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_try_empty_password = r;
+
+        } else if (streq(option, "try-empty-password"))
+                arg_try_empty_password = true;
+
+        else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -939,12 +953,36 @@ static int run(int argc, char *argv[]) {
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
+                        /* When we were able to acquire multiple keys, let's always process them in this order:
+                         *
+                         *    1. A key acquired via PKCS#11 token
+                         *    2. The discovered key: i.e. key_data + key_data_size
+                         *    3. The configured key: i.e. key_file + arg_keyfile_offset + arg_keyfile_size
+                         *    4. The empty password, in case arg_try_empty_password is set
+                         *    5. We enquire the user for a password
+                         */
+
                         if (!key_file && !key_data && !arg_pkcs11_uri) {
-                                r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
-                                if (r == -EAGAIN)
-                                        continue;
-                                if (r < 0)
-                                        return r;
+
+                                if (arg_try_empty_password) {
+                                        /* Hmm, let's try an empty password now, but only once */
+                                        arg_try_empty_password = false;
+
+                                        key_data = strdup("");
+                                        if (!key_data)
+                                                return log_oom();
+
+                                        key_data_size = 0;
+                                } else {
+                                        /* Ask the user for a passphrase only as last resort, if we have
+                                         * nothing else to check for */
+
+                                        r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
+                                        if (r == -EAGAIN)
+                                                continue;
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
