@@ -670,7 +670,7 @@ static void test_unlinkat_deallocate(void) {
         assert_se(st.st_blocks > 0);
         assert_se(st.st_nlink == 1);
 
-        assert_se(unlinkat_deallocate(AT_FDCWD, p, 0) >= 0);
+        assert_se(unlinkat_deallocate(AT_FDCWD, p, UNLINK_ERASE) >= 0);
 
         assert_se(fstat(fd, &st) >= 0);
         assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6
