@@ -29,6 +29,7 @@
 #define BUS_ERROR_DISK_FULL "org.freedesktop.systemd1.DiskFull"
 #define BUS_ERROR_NOTHING_TO_CLEAN "org.freedesktop.systemd1.NothingToClean"
 #define BUS_ERROR_UNIT_BUSY "org.freedesktop.systemd1.UnitBusy"
+#define BUS_ERROR_UNIT_INACTIVE "org.freedesktop.systemd1.UnitInactive"
 
 #define BUS_ERROR_NO_SUCH_MACHINE "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE "org.freedesktop.machine1.NoSuchImage"

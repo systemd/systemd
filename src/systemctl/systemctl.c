@@ -3834,11 +3834,12 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int clean_unit(int argc, char *argv[], void *userdata) {
+static int clean_or_freeze_unit(int argc, char *argv[], void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         char **name;
+        const char *method;
         sd_bus *bus;
 
         r = acquire_bus(BUS_FULL, &bus);
@@ -3862,6 +3863,13 @@ static int clean_unit(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate unit waiter: %m");
         }
+
+        if (streq(argv[0], "clean"))
+                method = "CleanUnit";
+        else if (streq(argv[0], "freeze"))
+                method = "FreezeUnit";
+        else if (streq(argv[0], "thaw"))
+                method = "ThawUnit";
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -3892,7 +3900,7 @@ static int clean_unit(int argc, char *argv[], void *userdata) {
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
-                                "CleanUnit");
+                                method);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -3900,13 +3908,15 @@ static int clean_unit(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_strv(m, arg_clean_what);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                if (streq(method, "CleanUnit")) {
+                        r = sd_bus_message_append_strv(m, arg_clean_what);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
 
                 r = sd_bus_call(bus, m, 0, &error, NULL);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to clean unit %s: %s", *name, bus_error_message(&error, r));
+                        log_error_errno(r, "Failed to %s unit %s: %s", argv[0], *name, bus_error_message(&error, r));
                         if (ret == EXIT_SUCCESS) {
                                 ret = r;
                                 continue;
@@ -4046,6 +4056,7 @@ typedef struct UnitStatusInfo {
         const char *id;
         const char *load_state;
         const char *active_state;
+        const char *freezer_state;
         const char *sub_state;
         const char *unit_file_state;
         const char *unit_file_preset;
@@ -4182,7 +4193,7 @@ static void print_status_info(
                 bool *ellipsized) {
 
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
-        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss;
+        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss, *fs;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
         usec_t timestamp;
@@ -4276,11 +4287,15 @@ static void print_status_info(
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
         if (ss)
-                printf("     Active: %s%s (%s)%s",
+                printf("   Active: %s%s (%s)%s",
                        active_on, strna(i->active_state), ss, active_off);
         else
                 printf("     Active: %s%s%s",
                        active_on, strna(i->active_state), active_off);
+
+        fs = !isempty(i->freezer_state) && !streq(i->freezer_state, "running") ? i->freezer_state : NULL;
+        if (fs)
+                printf(" %s(%s)%s", ansi_highlight_yellow(), fs, active_off);
 
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
@@ -5539,12 +5554,14 @@ static int show_one(
         static const struct bus_properties_map property_map[] = {
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "Documentation",                  "as",              NULL,           offsetof(UnitStatusInfo, documentation)                     },
                 {}
         }, status_map[] = {
                 { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
                 { "SubState",                       "s",               NULL,           offsetof(UnitStatusInfo, sub_state)                         },
                 { "UnitFileState",                  "s",               NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
                 { "UnitFilePreset",                 "s",               NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
@@ -7887,6 +7904,8 @@ static int systemctl_help(void) {
                "  kill UNIT...                        Send signal to processes of a unit\n"
                "  clean UNIT...                       Clean runtime, cache, state, logs or\n"
                "                                      configuration of unit\n"
+               "  freeze PATTERN...                   Freeze execution of unit processes\n"
+               "  thaw PATTERN...                     Resume execution of a frozen unit\n"
                "  is-active PATTERN...                Check whether units are active\n"
                "  is-failed PATTERN...                Check whether units are failed\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
@@ -9160,7 +9179,9 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit              }, /* For compatibility with RH */
                 { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit              },
                 { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit               },
-                { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, clean_unit              },
+                { "clean",                 2,        VERB_ANY, VERB_ONLINE_ONLY, clean_or_freeze_unit    },
+                { "freeze",                2,        VERB_ANY, VERB_ONLINE_ONLY, clean_or_freeze_unit    },
+                { "thaw",                  2,        VERB_ANY, VERB_ONLINE_ONLY, clean_or_freeze_unit    },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active       },
                 { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active       }, /* deprecated alias of is-active */
                 { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed       },
