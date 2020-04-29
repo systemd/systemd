@@ -512,15 +512,13 @@ static int attach_tcrypt(
         r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
                 if (r == -EPERM) {
-                        if (key_data) {
+                        if (key_data)
                                 log_error_errno(r, "Failed to activate using discovered key. (Key not correct?)");
-                                return -EAGAIN; /* log the actual error, but return EAGAIN */
-                        }
 
-                        if (key_file) {
+                        if (key_file)
                                 log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
-                                return -EAGAIN; /* log the actual error, but return EAGAIN */
-                        }
+
+                        return -EAGAIN; /* log the actual error, but return EAGAIN */
                 }
 
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
