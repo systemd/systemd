@@ -1396,6 +1396,19 @@ void json_variant_sensitive(JsonVariant *v) {
         v->sensitive = true;
 }
 
+bool json_variant_is_sensitive(JsonVariant *v) {
+        v = json_variant_formalize(v);
+        if (!json_variant_is_regular(v))
+                return false;
+
+        return v->sensitive;
+}
+
+static void json_variant_propagate_sensitive(JsonVariant *from, JsonVariant *to) {
+        if (json_variant_is_sensitive(from))
+                json_variant_sensitive(to);
+}
+
 int json_variant_get_source(JsonVariant *v, const char **ret_source, unsigned *ret_line, unsigned *ret_column) {
         assert_return(v, -EINVAL);
 
@@ -1829,6 +1842,8 @@ int json_variant_filter(JsonVariant **v, char **to_remove) {
         if (r < 0)
                 return r;
 
+        json_variant_propagate_sensitive(*v, w);
+
         json_variant_unref(*v);
         *v = TAKE_PTR(w);
 
@@ -1897,6 +1912,8 @@ int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *valu
         r = json_variant_new_object(&w, array, k);
         if (r < 0)
                 return r;
+
+        json_variant_propagate_sensitive(*v, w);
 
         json_variant_unref(*v);
         *v = TAKE_PTR(w);
@@ -2005,6 +2022,9 @@ int json_variant_merge(JsonVariant **v, JsonVariant *m) {
         if (r < 0)
                 return r;
 
+        json_variant_propagate_sensitive(*v, w);
+        json_variant_propagate_sensitive(m, w);
+
         json_variant_unref(*v);
         *v = TAKE_PTR(w);
 
@@ -2044,9 +2064,10 @@ int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
 
                 r = json_variant_new_array(&nv, array, i + 1);
         }
-
         if (r < 0)
                 return r;
+
+        json_variant_propagate_sensitive(*v, nv);
 
         json_variant_unref(*v);
         *v = TAKE_PTR(nv);
@@ -2192,6 +2213,8 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
         c->type = t;
 
         memcpy_safe(&c->value, source, k);
+
+        json_variant_propagate_sensitive(v, c);
 
         *nv = c;
         return 0;
@@ -4178,6 +4201,9 @@ int json_variant_sort(JsonVariant **v) {
         r = json_variant_new_object(&n, a, m);
         if (r < 0)
                 return r;
+
+        json_variant_propagate_sensitive(*v, n);
+
         if (!n->sorted) /* Check if this worked. This will fail if there are multiple identical keys used. */
                 return -ENOTUNIQ;
 
@@ -4226,6 +4252,9 @@ int json_variant_normalize(JsonVariant **v) {
         }
         if (r < 0)
                 goto finish;
+
+        json_variant_propagate_sensitive(*v, n);
+
         if (!n->normalized) { /* Let's see if normalization worked. It will fail if there are multiple
                                * identical keys used in the same object anywhere, or if there are floating
                                * point numbers used (see below) */
