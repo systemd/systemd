@@ -133,9 +133,14 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
                 { 'u', specifier_user_name,           NULL },
 
                 { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
                 { 'b', specifier_boot_id,             NULL },
+                { 'H', specifier_host_name,           NULL },
                 { 'v', specifier_kernel_release,      NULL },
+                { 'a', specifier_architecture,        NULL },
+                { 'o', specifier_os_id,               NULL },
+                { 'w', specifier_os_version_id,       NULL },
+                { 'B', specifier_os_build_id,         NULL },
+                { 'W', specifier_os_variant_id,       NULL },
                 {}
         };
 

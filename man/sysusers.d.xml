@@ -251,11 +251,13 @@ r     -        500-900
             </row>
           </thead>
           <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
             <row>
               <entry><literal>%b</literal></entry>
               <entry>Boot ID</entry>
               <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
             <row>
               <entry><literal>%H</literal></entry>
               <entry>Host name</entry>
@@ -266,6 +268,7 @@ r     -        500-900
               <entry>Machine ID</entry>
               <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
             <row>
               <entry><literal>%T</literal></entry>
               <entry>Directory for temporary files</entry>
@@ -281,6 +284,8 @@ r     -        500-900
               <entry>Directory for larger and persistent temporary files</entry>
               <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
             </row>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
             <row>
               <entry><literal>%%</literal></entry>
               <entry>Escaped <literal>%</literal></entry>

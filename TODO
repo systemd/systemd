@@ -57,9 +57,6 @@ Features:
 * by default, in systemd --user service bump the OOMAdjust to 100, as privs
   allow so that systemd survives
 
-* honour specifiers in unit files that resolve to some very basic
-  /etc/os-release data, such as ID, VERSION_ID, BUILD_ID, VARIANT_ID.
-
 * cryptsetup: allow encoding key directly in /etc/crypttab, maybe with a
   "base64:" prefix. Useful in particular for pkcs11 mode.
 
