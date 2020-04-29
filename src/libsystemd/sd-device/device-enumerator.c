@@ -73,9 +73,9 @@ static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumer
         free(enumerator->devices);
         set_free(enumerator->match_subsystem);
         set_free(enumerator->nomatch_subsystem);
-        hashmap_free_free_free(enumerator->match_sysattr);
-        hashmap_free_free_free(enumerator->nomatch_sysattr);
-        hashmap_free_free_free(enumerator->match_property);
+        hashmap_free(enumerator->match_sysattr);
+        hashmap_free(enumerator->nomatch_sysattr);
+        hashmap_free(enumerator->match_property);
         set_free(enumerator->match_sysname);
         set_free(enumerator->match_tag);
         set_free(enumerator->match_parent);
@@ -106,72 +106,36 @@ _public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enum
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *_sysattr, const char *_value, int match) {
-        _cleanup_free_ char *sysattr = NULL, *value = NULL;
+_public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *sysattr, const char *value, int match) {
         Hashmap **hashmap;
         int r;
 
         assert_return(enumerator, -EINVAL);
-        assert_return(_sysattr, -EINVAL);
+        assert_return(sysattr, -EINVAL);
 
         if (match)
                 hashmap = &enumerator->match_sysattr;
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
-        r = hashmap_ensure_allocated(hashmap, NULL);
+        r = hashmap_put_strdup(hashmap, sysattr, value);
         if (r < 0)
                 return r;
-
-        sysattr = strdup(_sysattr);
-        if (!sysattr)
-                return -ENOMEM;
-
-        if (_value) {
-                value = strdup(_value);
-                if (!value)
-                        return -ENOMEM;
-        }
-
-        r = hashmap_put(*hashmap, sysattr, value);
-        if (r < 0)
-                return r;
-
-        sysattr = NULL;
-        value = NULL;
 
         enumerator->scan_uptodate = false;
 
         return 0;
 }
 
-_public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *_property, const char *_value) {
-        _cleanup_free_ char *property = NULL, *value = NULL;
+_public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *property, const char *value) {
         int r;
 
         assert_return(enumerator, -EINVAL);
-        assert_return(_property, -EINVAL);
+        assert_return(property, -EINVAL);
 
-        r = hashmap_ensure_allocated(&enumerator->match_property, NULL);
+        r = hashmap_put_strdup(&enumerator->match_property, property, value);
         if (r < 0)
                 return r;
-
-        property = strdup(_property);
-        if (!property)
-                return -ENOMEM;
-
-        if (_value) {
-                value = strdup(_value);
-                if (!value)
-                        return -ENOMEM;
-        }
-
-        r = hashmap_put(enumerator->match_property, property, value);
-        if (r < 0)
-                return r;
-
-        property = NULL;
-        value = NULL;
 
         enumerator->scan_uptodate = false;
 
