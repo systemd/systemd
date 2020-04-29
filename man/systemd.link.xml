@@ -696,6 +696,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>RxMiniBufferSize=</varname></term>
+        <listitem>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC mini receive buffer.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxJumboBufferSize=</varname></term>
+        <listitem>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC jumbo receive buffer.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TxBufferSize=</varname></term>
         <listitem>
           <para>Takes an integer. Specifies the maximum number of pending packets in the NIC transmit buffer.

@@ -84,9 +84,13 @@ typedef struct netdev_channels {
 
 typedef struct netdev_ring_param {
         uint32_t rx_pending;
+        uint32_t rx_mini_pending;
+        uint32_t rx_jumbo_pending;
         uint32_t tx_pending;
 
         bool rx_pending_set;
+        bool rx_mini_pending_set;
+        bool rx_jumbo_pending_set;
         bool tx_pending_set;
 } netdev_ring_param;
 
