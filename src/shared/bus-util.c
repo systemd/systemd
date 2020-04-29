@@ -1695,14 +1695,10 @@ int bus_introspect_implementations(
         if (impl != main_impl)
                 bus_introspect_implementation(&intro, impl);
 
-        _cleanup_set_free_free_ Set *nodes = NULL;
+        _cleanup_set_free_ Set *nodes = NULL;
 
         for (size_t i = 0; impl->children && impl->children[i]; i++) {
-                r = set_ensure_allocated(&nodes, &string_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                r = set_put_strdup(nodes, impl->children[i]->path);
+                r = set_put_strdup(&nodes, impl->children[i]->path);
                 if (r < 0)
                         return log_oom();
         }

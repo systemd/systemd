@@ -239,7 +239,7 @@ int bind_remount_recursive_with_mountinfo(
                         }
 
                         if (!set_contains(done, path)) {
-                                r = set_put_strdup(todo, path);
+                                r = set_put_strdup(&todo, path);
                                 if (r < 0)
                                         return r;
                         }
@@ -266,7 +266,7 @@ int bind_remount_recursive_with_mountinfo(
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        r = set_put_strdup(done, simplified);
+                        r = set_put_strdup(&done, simplified);
                         if (r < 0)
                                 return r;
                 }

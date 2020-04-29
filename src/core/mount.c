@@ -1878,7 +1878,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
                                 /* Remember that this device might just have disappeared */
                                 if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
-                                    set_put_strdup(gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                    set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
                                         log_oom(); /* we don't care too much about OOM here... */
                         }
 
@@ -1933,7 +1933,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         /* Track devices currently used */
 
                         if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
-                            set_put_strdup(around, mount->parameters_proc_self_mountinfo.what) < 0)
+                            set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
                                 log_oom();
                 }
 

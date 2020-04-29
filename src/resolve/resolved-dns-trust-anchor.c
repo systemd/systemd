@@ -184,11 +184,10 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
          * unsigned. */
 
         NULSTR_FOREACH(name, private_domains) {
-
                 if (dns_trust_anchor_knows_domain_positive(d, name))
                         continue;
 
-                r = set_put_strdup(d->negative_by_name, name);
+                r = set_put_strdup(&d->negative_by_name, name);
                 if (r < 0)
                         return r;
         }

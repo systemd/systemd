@@ -101,7 +101,7 @@ _public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enum
         if (r < 0)
                 return r;
 
-        r = set_put_strdup(*set, subsystem);
+        r = set_put_strdup(set, subsystem);
         if (r < 0)
                 return r;
 
@@ -192,7 +192,7 @@ _public_ int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumer
         if (r < 0)
                 return r;
 
-        r = set_put_strdup(enumerator->match_sysname, sysname);
+        r = set_put_strdup(&enumerator->match_sysname, sysname);
         if (r < 0)
                 return r;
 
@@ -211,7 +211,7 @@ _public_ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator
         if (r < 0)
                 return r;
 
-        r = set_put_strdup(enumerator->match_tag, tag);
+        r = set_put_strdup(&enumerator->match_tag, tag);
         if (r < 0)
                 return r;
 
@@ -242,7 +242,7 @@ int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumera
         if (r < 0)
                 return r;
 
-        r = set_put_strdup(enumerator->match_parent, path);
+        r = set_put_strdup(&enumerator->match_parent, path);
         if (r < 0)
                 return r;
 

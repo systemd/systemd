@@ -199,15 +199,11 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
  * namespace.
  */
 static int get_process_controllers(Set **ret) {
-        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(ret);
-
-        controllers = set_new(&string_hash_ops);
-        if (!controllers)
-                return -ENOMEM;
 
         f = fopen("/proc/self/cgroup", "re");
         if (!f)
@@ -237,7 +233,7 @@ static int get_process_controllers(Set **ret) {
                 if (STR_IN_SET(l, "", "name=systemd", "name=unified"))
                         continue;
 
-                r = set_put_strdup(controllers, l);
+                r = set_put_strdup(&controllers, l);
                 if (r < 0)
                         return r;
         }
@@ -303,7 +299,7 @@ static int mount_legacy_cgns_supported(
                 uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        _cleanup_set_free_free_ Set *controllers = NULL;
+        _cleanup_set_free_ Set *controllers = NULL;
         const char *cgroup_root = "/sys/fs/cgroup", *c;
         int r;
 

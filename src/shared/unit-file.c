@@ -463,7 +463,7 @@ int unit_file_find_fragment(
 
         /* The unit always has its own name if it's not a template. */
         if (IN_SET(name_type, UNIT_NAME_PLAIN, UNIT_NAME_INSTANCE)) {
-                r = set_put_strdup(names, unit_name);
+                r = set_put_strdup(&names, unit_name);
                 if (r < 0)
                         return r;
         }
@@ -493,7 +493,7 @@ int unit_file_find_fragment(
                                 if (!streq(unit_name, *t))
                                         log_debug("%s: %s has alias %s", __func__, unit_name, *t);
 
-                                r = set_put_strdup(names, *t);
+                                r = set_put_strdup(&names, *t);
                         }
                         if (r < 0)
                                 return r;

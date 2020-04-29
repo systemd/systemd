@@ -4709,7 +4709,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         /* Make sure the drop-in dir is registered in our path cache. This way we don't need to stupidly
          * recreate the cache after every drop-in we write. */
         if (u->manager->unit_path_cache) {
-                r = set_put_strdup(u->manager->unit_path_cache, p);
+                r = set_put_strdup(&u->manager->unit_path_cache, p);
                 if (r < 0)
                         return r;
         }

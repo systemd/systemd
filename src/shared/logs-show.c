@@ -1133,30 +1133,25 @@ int show_journal_entry(
                 const size_t highlight[2],
                 bool *ellipsized) {
 
-        int ret;
-        _cleanup_set_free_free_ Set *fields = NULL;
+        _cleanup_set_free_ Set *fields = NULL;
+        int r;
+
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if (output_fields) {
-                fields = set_new(&string_hash_ops);
-                if (!fields)
-                        return log_oom();
+        r = set_put_strdupv(&fields, output_fields);
+        if (r < 0)
+                return r;
 
-                ret = set_put_strdupv(fields, output_fields);
-                if (ret < 0)
-                        return ret;
-        }
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
-
-        if (ellipsized && ret > 0)
+        if (ellipsized && r > 0)
                 *ellipsized = true;
 
-        return ret;
+        return r;
 }
 
 static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {

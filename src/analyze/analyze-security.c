@@ -141,7 +141,7 @@ static void security_info_free(struct security_info *i) {
         strv_free(i->supplementary_groups);
         strv_free(i->system_call_architectures);
 
-        set_free_free(i->system_call_filter);
+        set_free(i->system_call_filter);
 }
 
 static bool security_info_runs_privileged(const struct security_info *i)  {
@@ -1728,11 +1728,7 @@ static int property_read_system_call_filter(
                 if (r == 0)
                         break;
 
-                r = set_ensure_allocated(&info->system_call_filter, &string_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put_strdup(info->system_call_filter, name);
+                r = set_put_strdup(&info->system_call_filter, name);
                 if (r < 0)
                         return r;
         }
