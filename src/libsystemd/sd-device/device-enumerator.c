@@ -172,19 +172,12 @@ _public_ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator
         return 1;
 }
 
-static void device_enumerator_clear_match_parent(sd_device_enumerator *enumerator) {
-        if (!enumerator)
-                return;
-
-        set_clear(enumerator->match_parent);
-}
-
 int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumerator, sd_device *parent) {
         const char *path;
         int r;
 
-        assert_return(enumerator, -EINVAL);
-        assert_return(parent, -EINVAL);
+        assert(enumerator);
+        assert(parent);
 
         r = sd_device_get_syspath(parent, &path);
         if (r < 0)
@@ -200,7 +193,11 @@ int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumera
 }
 
 _public_ int sd_device_enumerator_add_match_parent(sd_device_enumerator *enumerator, sd_device *parent) {
-        device_enumerator_clear_match_parent(enumerator);
+        assert_return(enumerator, -EINVAL);
+        assert_return(parent, -EINVAL);
+
+        set_clear(enumerator->match_parent);
+
         return device_enumerator_add_match_parent_incremental(enumerator, parent);
 }
 
