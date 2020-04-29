@@ -71,14 +71,14 @@ static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumer
                 sd_device_unref(enumerator->devices[i]);
 
         free(enumerator->devices);
-        set_free_free(enumerator->match_subsystem);
-        set_free_free(enumerator->nomatch_subsystem);
+        set_free(enumerator->match_subsystem);
+        set_free(enumerator->nomatch_subsystem);
         hashmap_free_free_free(enumerator->match_sysattr);
         hashmap_free_free_free(enumerator->nomatch_sysattr);
         hashmap_free_free_free(enumerator->match_property);
-        set_free_free(enumerator->match_sysname);
-        set_free_free(enumerator->match_tag);
-        set_free_free(enumerator->match_parent);
+        set_free(enumerator->match_sysname);
+        set_free(enumerator->match_tag);
+        set_free(enumerator->match_parent);
 
         return mfree(enumerator);
 }
@@ -96,10 +96,6 @@ _public_ int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enum
                 set = &enumerator->match_subsystem;
         else
                 set = &enumerator->nomatch_subsystem;
-
-        r = set_ensure_allocated(set, NULL);
-        if (r < 0)
-                return r;
 
         r = set_put_strdup(set, subsystem);
         if (r < 0)
@@ -188,10 +184,6 @@ _public_ int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumer
         assert_return(enumerator, -EINVAL);
         assert_return(sysname, -EINVAL);
 
-        r = set_ensure_allocated(&enumerator->match_sysname, NULL);
-        if (r < 0)
-                return r;
-
         r = set_put_strdup(&enumerator->match_sysname, sysname);
         if (r < 0)
                 return r;
@@ -207,10 +199,6 @@ _public_ int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator
         assert_return(enumerator, -EINVAL);
         assert_return(tag, -EINVAL);
 
-        r = set_ensure_allocated(&enumerator->match_tag, NULL);
-        if (r < 0)
-                return r;
-
         r = set_put_strdup(&enumerator->match_tag, tag);
         if (r < 0)
                 return r;
@@ -224,7 +212,7 @@ static void device_enumerator_clear_match_parent(sd_device_enumerator *enumerato
         if (!enumerator)
                 return;
 
-        set_clear_free(enumerator->match_parent);
+        set_clear(enumerator->match_parent);
 }
 
 int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumerator, sd_device *parent) {
@@ -235,10 +223,6 @@ int device_enumerator_add_match_parent_incremental(sd_device_enumerator *enumera
         assert_return(parent, -EINVAL);
 
         r = sd_device_get_syspath(parent, &path);
-        if (r < 0)
-                return r;
-
-        r = set_ensure_allocated(&enumerator->match_parent, NULL);
         if (r < 0)
                 return r;
 
