@@ -27,11 +27,14 @@ struct pkcs11_callback_data {
         size_t encrypted_key_size;
         void *decrypted_key;
         size_t decrypted_key_size;
+        bool free_encrypted_key;
 };
 
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
         free(data->decrypted_key);
-        free(data->encrypted_key);
+
+        if (data->free_encrypted_key)
+                free(data->encrypted_key);
 }
 
 static int pkcs11_callback(
@@ -94,9 +97,11 @@ static int pkcs11_callback(
 int decrypt_pkcs11_key(
                 const char *friendly_name,
                 const char *pkcs11_uri,
-                const char *key_file,
+                const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
                 size_t key_file_size,
                 uint64_t key_file_offset,
+                const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
+                size_t key_data_size,
                 usec_t until,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
@@ -109,15 +114,24 @@ int decrypt_pkcs11_key(
 
         assert(friendly_name);
         assert(pkcs11_uri);
-        assert(key_file);
+        assert(key_file || key_data);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
 
         /* The functions called here log about all errors, except for EAGAIN which means "token not found right now" */
 
-        r = load_key_file(key_file, NULL, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
-        if (r < 0)
-                return r;
+        if (key_data) {
+                data.encrypted_key = (void*) key_data;
+                data.encrypted_key_size = key_data_size;
+
+                data.free_encrypted_key = false;
+        } else {
+                r = load_key_file(key_file, NULL, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
+                if (r < 0)
+                        return r;
+
+                data.free_encrypted_key = true;
+        }
 
         r = pkcs11_find_token(pkcs11_uri, pkcs11_callback, &data);
         if (r < 0)

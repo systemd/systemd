@@ -14,6 +14,8 @@ int decrypt_pkcs11_key(
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
+                const void *key_data,
+                size_t key_data_size,
                 usec_t until,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size);
@@ -26,6 +28,8 @@ static inline int decrypt_pkcs11_key(
                 const char *key_file,
                 size_t key_file_size,
                 uint64_t key_file_offset,
+                const void *key_data,
+                size_t key_data_size,
                 usec_t until,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
