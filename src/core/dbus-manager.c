@@ -683,6 +683,54 @@ static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_err
         return bus_unit_method_unref(message, u, error);
 }
 
+static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_load_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        r = bus_unit_validate_load_state(u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_freeze(message, u, error);
+}
+
+static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_load_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        r = bus_unit_validate_load_state(u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_thaw(message, u, error);
+}
+
 static int reply_unit_info(sd_bus_message *reply, Unit *u) {
         _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
         Unit *following;
@@ -2500,6 +2548,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("ReloadOrRestartUnit", "ss", "o", method_reload_or_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("FreezeUnit", "s", NULL, method_freeze_unit, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ThawUnit", "s", NULL, method_thaw_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetUnitProperties", "sba(sv)", NULL, method_set_unit_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RefUnit", "s", NULL, method_ref_unit, SD_BUS_VTABLE_UNPRIVILEGED),

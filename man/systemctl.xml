@@ -874,6 +874,30 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><command>freeze <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Freeze one or more units specified on the
+            command line using cgroup freezer</para>
+
+            <para>Freezing the unit will cause all processes contained within the cgroup corresponding to the unit
+            to be suspended. Being suspended means that unit's processes won't be scheduled to run on CPU until thawed.
+            Note that this command is supported only on systems that use unified cgroup hierarchy. Unit is automatically
+            thawed just before we execute a job against the unit, e.g. before the unit is stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>thaw <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Thaw (unfreeze) one or more units specified on the
+            command line.</para>
+
+            <para>This is the inverse operation to the <command>freeze</command> command and resumes the execution of
+            processes in the unit's cgroup.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>

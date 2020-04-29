@@ -118,6 +118,9 @@ typedef struct Unit {
         UnitLoadState load_state;
         Unit *merged_into;
 
+        FreezerState freezer_state;
+        sd_bus_message *pending_freezer_message;
+
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
         char *instance;
 
@@ -456,6 +459,11 @@ typedef struct UnitVTable {
 
         int (*kill)(Unit *u, KillWho w, int signo, sd_bus_error *error);
 
+        /* Freeze the unit */
+        int (*freeze)(Unit *u);
+        int (*thaw)(Unit *u);
+        bool (*can_freeze)(Unit *u);
+
         bool (*can_reload)(Unit *u);
 
         /* Write all data that cannot be restored from other sources
@@ -641,6 +649,8 @@ const char *unit_description(Unit *u) _pure_;
 bool unit_has_name(Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
+FreezerState unit_freezer_state(Unit *u);
+int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 
@@ -813,6 +823,16 @@ void unit_log_failure(Unit *u, const char *result);
 /* unit_log_skip is for cases like ExecCondition= where a unit is considered "done"
  * after some execution, rather than succeeded or failed. */
 void unit_log_skip(Unit *u, const char *result);
+
+bool unit_can_freeze(Unit *u);
+int unit_freeze(Unit *u);
+void unit_frozen(Unit *u);
+
+int unit_thaw(Unit *u);
+void unit_thawed(Unit *u);
+
+int unit_freeze_vtable_common(Unit *u);
+int unit_thaw_vtable_common(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

@@ -250,6 +250,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret);
 int cg_kernel_controllers(Set **controllers);
 
 bool cg_ns_supported(void);
+bool cg_freezer_supported(void);
 
 int cg_all_unified(void);
 int cg_hybrid_unified(void);

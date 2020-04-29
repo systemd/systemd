@@ -601,6 +601,9 @@ const UnitVTable scope_vtable = {
 
         .kill = scope_kill,
 
+        .freeze = unit_freeze_vtable_common,
+        .thaw = unit_thaw_vtable_common,
+
         .get_timeout = scope_get_timeout,
 
         .serialize = scope_serialize,

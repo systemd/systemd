@@ -44,6 +44,15 @@ typedef enum UnitActiveState {
         _UNIT_ACTIVE_STATE_INVALID = -1
 } UnitActiveState;
 
+typedef enum FreezerState {
+        FREEZER_RUNNING,
+        FREEZER_FREEZING,
+        FREEZER_FROZEN,
+        FREEZER_THAWING,
+        _FREEZER_STATE_MAX,
+        _FREEZER_STATE_INVALID = -1
+} FreezerState;
+
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
         AUTOMOUNT_WAITING,
@@ -244,6 +253,9 @@ UnitLoadState unit_load_state_from_string(const char *s) _pure_;
 
 const char *unit_active_state_to_string(UnitActiveState i) _const_;
 UnitActiveState unit_active_state_from_string(const char *s) _pure_;
+
+const char *freezer_state_to_string(FreezerState i) _const_;
+FreezerState freezer_state_from_string(const char *s) _pure_;
 
 const char* automount_state_to_string(AutomountState i) _const_;
 AutomountState automount_state_from_string(const char *s) _pure_;

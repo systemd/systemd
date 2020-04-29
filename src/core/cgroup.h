@@ -33,6 +33,14 @@ typedef enum CGroupDevicePolicy {
         _CGROUP_DEVICE_POLICY_INVALID = -1
 } CGroupDevicePolicy;
 
+typedef enum FreezerAction {
+        FREEZER_FREEZE,
+        FREEZER_THAW,
+
+        _FREEZER_ACTION_MAX,
+        _FREEZER_ACTION_INVALID = -1,
+} FreezerAction;
+
 struct CGroupDeviceAllow {
         LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
@@ -235,3 +243,7 @@ CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
 
 bool unit_cgroup_delegate(Unit *u);
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
+int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
+
+const char* freezer_action_to_string(FreezerAction a) _const_;
+FreezerAction freezer_action_from_string(const char *s) _pure_;

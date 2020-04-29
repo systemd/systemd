@@ -344,6 +344,82 @@ static void slice_enumerate_perpetual(Manager *m) {
                 (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 
+static bool slice_freezer_action_supported_by_children(Unit *s) {
+        Unit *member;
+        void *v;
+        Iterator i;
+
+        assert(s);
+
+        HASHMAP_FOREACH_KEY(v, member, s->dependencies[UNIT_BEFORE], i) {
+                int r;
+
+                if (UNIT_DEREF(member->slice) != s)
+                        continue;
+
+                if (member->type == UNIT_SLICE) {
+                        r = slice_freezer_action_supported_by_children(member);
+                        if (!r)
+                                return r;
+                }
+
+                if (!UNIT_VTABLE(member)->freeze)
+                        return false;
+        }
+
+        return true;
+}
+
+static int slice_freezer_action(Unit *s, FreezerAction action) {
+        Unit *member;
+        void *v;
+        Iterator i;
+        int r;
+
+        assert(s);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        if (!slice_freezer_action_supported_by_children(s))
+                return log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
+
+        HASHMAP_FOREACH_KEY(v, member, s->dependencies[UNIT_BEFORE], i) {
+                if (UNIT_DEREF(member->slice) != s)
+                        continue;
+
+                if (action == FREEZER_FREEZE)
+                        r = UNIT_VTABLE(member)->freeze(member);
+                else
+                        r = UNIT_VTABLE(member)->thaw(member);
+
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_cgroup_freezer_action(s, action);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int slice_freeze(Unit *s) {
+        assert(s);
+
+        return slice_freezer_action(s, FREEZER_FREEZE);
+}
+
+static int slice_thaw(Unit *s) {
+        assert(s);
+
+        return slice_freezer_action(s, FREEZER_THAW);
+}
+
+static bool slice_can_freeze(Unit *s) {
+        assert(s);
+
+        return slice_freezer_action_supported_by_children(s);
+}
+
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),
@@ -367,6 +443,10 @@ const UnitVTable slice_vtable = {
         .stop = slice_stop,
 
         .kill = slice_kill,
+
+        .freeze = slice_freeze,
+        .thaw = slice_thaw,
+        .can_freeze = slice_can_freeze,
 
         .serialize = slice_serialize,
         .deserialize_item = slice_deserialize_item,

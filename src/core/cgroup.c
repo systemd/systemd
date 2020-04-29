@@ -2279,6 +2279,51 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
                 log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
 }
 
+static void unit_remove_from_cgroup_empty_queue(Unit *u) {
+        assert(u);
+
+        if (!u->in_cgroup_empty_queue)
+                return;
+
+        LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+        u->in_cgroup_empty_queue = false;
+}
+
+static int unit_check_cgroup_events(Unit *u) {
+        char *values[2] = {};
+        int r;
+
+        assert(u);
+
+        r = cg_get_keyed_attribute_graceful(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
+                                            STRV_MAKE("populated", "frozen"), values);
+        if (r < 0)
+                return r;
+
+        /* The cgroup.events notifications can be merged together so act as we saw the given state for the
+         * first time. The functions we call to handle given state are idempotent, which makes them
+         * effectively remember the previous state. */
+        if (values[0]) {
+                if (streq(values[0], "1"))
+                        unit_remove_from_cgroup_empty_queue(u);
+                else
+                        unit_add_to_cgroup_empty_queue(u);
+        }
+
+        /* Disregard freezer state changes due to operations not initiated by us */
+        if (values[1] && IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING)) {
+                if (streq(values[1], "0"))
+                        unit_thawed(u);
+                else
+                        unit_frozen(u);
+        }
+
+        free(values[0]);
+        free(values[1]);
+
+        return 0;
+}
+
 static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
 
@@ -2310,15 +2355,12 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
                                 /* The watch was just removed */
                                 continue;
 
-                        u = hashmap_get(m->cgroup_inotify_wd_unit, INT_TO_PTR(e->wd));
-                        if (!u) /* Not that inotify might deliver
-                                 * events for a watch even after it
-                                 * was removed, because it was queued
-                                 * before the removal. Let's ignore
-                                 * this here safely. */
-                                continue;
+                        /* Note that inotify might deliver events for a watch even after it was removed,
+                         * because it was queued before the removal. Let's ignore this here safely. */
 
-                        unit_add_to_cgroup_empty_queue(u);
+                        u = hashmap_get(m->cgroup_inotify_wd_unit, INT_TO_PTR(e->wd));
+                        if (u)
+                                unit_check_cgroup_events(u);
                 }
         }
 }
@@ -2884,6 +2926,46 @@ void manager_invalidate_startup_units(Manager *m) {
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
 }
 
+int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
+        _cleanup_free_ char *path = NULL;
+        FreezerState target, kernel = _FREEZER_STATE_INVALID;
+        int r;
+
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        if (!u->cgroup_realized)
+                return -EBUSY;
+
+        target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
+
+        r = unit_freezer_state_kernel(u, &kernel);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
+
+        if (target == kernel) {
+                u->freezer_state = target;
+                return 0;
+        }
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
+        if (r < 0)
+                return r;
+
+        log_unit_debug(u, "%s unit.", action == FREEZER_FREEZE ? "Freezing" : "Thawing");
+
+        if (action == FREEZER_FREEZE)
+                u->freezer_state = FREEZER_FREEZING;
+        else
+                u->freezer_state = FREEZER_THAWING;
+
+        r = write_string_file(path, one_zero(action == FREEZER_FREEZE), WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
         [CGROUP_AUTO] = "auto",
         [CGROUP_CLOSED] = "closed",
@@ -2919,3 +3001,10 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
 }
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
+
+static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
+        [FREEZER_FREEZE] = "freeze",
+        [FREEZER_THAW] = "thaw",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);

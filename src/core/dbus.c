@@ -1073,9 +1073,14 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
                         j->bus_track = sd_bus_track_unref(j->bus_track);
 
-        HASHMAP_FOREACH(u, m->units, i)
+        HASHMAP_FOREACH(u, m->units, i) {
                 if (u->bus_track && sd_bus_track_get_bus(u->bus_track) == *bus)
                         u->bus_track = sd_bus_track_unref(u->bus_track);
+
+                /* Get rid of pending freezer messages on this bus */
+                if (u->pending_freezer_message && sd_bus_message_get_bus(u->pending_freezer_message) == *bus)
+                        u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
+        }
 
         /* Get rid of queued message on this bus */
         if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)

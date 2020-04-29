@@ -4143,6 +4143,9 @@ const UnitVTable service_vtable = {
 
         .kill = service_kill,
 
+        .freeze = unit_freeze_vtable_common,
+        .thaw = unit_thaw_vtable_common,
+
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,
 

@@ -42,12 +42,14 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET(property_get_description, "s", Unit, unit_description);
 static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_active_state, unit_active_state_to_string);
+static BUS_DEFINE_PROPERTY_GET2(property_get_freezer_state, "s", Unit, unit_freezer_state, freezer_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_sub_state, "s", Unit, unit_sub_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_unit_file_state, "s", Unit, unit_get_unit_file_state, unit_file_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_reload, "b", Unit, unit_can_reload);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_start, "b", Unit, unit_can_start_refuse_manual);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_stop, "b", Unit, unit_can_stop_refuse_manual);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_isolate, "b", Unit, unit_can_isolate_refuse_manual);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_freeze, "b", Unit, unit_can_freeze);
 static BUS_DEFINE_PROPERTY_GET(property_get_need_daemon_reload, "b", Unit, unit_need_daemon_reload);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_strv, "as", 0);
 
@@ -561,6 +563,79 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
+        const char* perm;
+        int (*method)(Unit*);
+        Unit *u = userdata;
+        bool reply_no_delay = false;
+        int r;
+
+        assert(message);
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        if (action == FREEZER_FREEZE) {
+                perm = "stop";
+                method = unit_freeze;
+        } else {
+                perm = "start";
+                method = unit_thaw;
+        }
+
+        r = mac_selinux_unit_access_check(u, message, perm, error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        perm,
+                        CAP_SYS_ADMIN,
+                        N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
+                        true,
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = method(u);
+        if (r == -EOPNOTSUPP)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not support freezing.", u->id);
+        if (r == -EBUSY)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
+        if (r == -EHOSTDOWN)
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
+        if (r == -EALREADY)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit '%s' is still in progress.", u->id);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                reply_no_delay = true;
+
+        assert(!u->pending_freezer_message);
+
+        r = sd_bus_message_new_method_return(message, &u->pending_freezer_message);
+        if (r < 0)
+                return r;
+
+        if (reply_no_delay) {
+                r = bus_unit_send_pending_freezer_message(u);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
+int bus_unit_method_thaw(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_freezer_generic(message, userdata, error, FREEZER_THAW);
+}
+
+int bus_unit_method_freeze(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_unit_method_freezer_generic(message, userdata, error, FREEZER_FREEZE);
+}
+
 const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -592,6 +667,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Description", "s", property_get_description, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadState", "s", property_get_load_state, offsetof(Unit, load_state), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ActiveState", "s", property_get_active_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("FreezerState", "s", property_get_freezer_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("SubState", "s", property_get_sub_state, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("FragmentPath", "s", NULL, offsetof(Unit, fragment_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Unit, source_path), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -607,6 +683,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("CanStop", "b", property_get_can_stop, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanReload", "b", property_get_can_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanIsolate", "b", property_get_can_isolate, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanFreeze", "b", property_get_can_freeze, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Job", "(uo)", property_get_job, offsetof(Unit, job), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StopWhenUnneeded", "b", bus_property_get_bool, offsetof(Unit, stop_when_unneeded), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RefuseManualStart", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_start), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -650,6 +727,8 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_METHOD("SetProperties", "ba(sv)", NULL, bus_unit_method_set_properties, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Ref", NULL, NULL, bus_unit_method_ref, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unref", NULL, NULL, bus_unit_method_unref, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Freeze", NULL, NULL, bus_unit_method_freeze, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Thaw", NULL, NULL, bus_unit_method_thaw, SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* For dependency types we don't support anymore always return an empty array */
         SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),
@@ -1207,6 +1286,23 @@ void bus_unit_send_change_signal(Unit *u) {
                 log_unit_debug_errno(u, r, "Failed to send unit change signal for %s: %m", u->id);
 
         u->sent_dbus_new_signal = true;
+}
+
+int bus_unit_send_pending_freezer_message(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (!u->pending_freezer_message)
+                return 0;
+
+        r = sd_bus_send(NULL, u->pending_freezer_message, NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued message, ignoring: %m");
+
+        u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
+
+        return 0;
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
