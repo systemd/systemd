@@ -669,7 +669,7 @@ static int attach_luks_or_plain(
                                         return log_error_errno(r, "Failed to start device monitor: %m");
 
                                 log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                         arg_pkcs11_uri, friendly);
+                                           arg_pkcs11_uri, friendly);
 
                                 /* Let's immediately rescan in case the token appeared in the time we needed
                                  * to create and configure the monitor */
