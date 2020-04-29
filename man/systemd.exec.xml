@@ -857,10 +857,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ProtectSystem=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
-        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and <filename>/boot</filename>
-        directories read-only for processes invoked by this unit. If set to <literal>full</literal>, the
-        <filename>/etc</filename> directory is mounted read-only, too. If set to <literal>strict</literal> the entire
-        file system hierarchy is mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
+        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and the boot loader
+        directories (<filename>/boot</filename> and <filename>/efi</filename>) read-only for processes
+        invoked by this unit. If set to <literal>full</literal>, the <filename>/etc</filename> directory is
+        mounted read-only, too. If set to <literal>strict</literal> the entire file system hierarchy is
+        mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
         <filename>/proc</filename> and <filename>/sys</filename> (protect these directories using
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
