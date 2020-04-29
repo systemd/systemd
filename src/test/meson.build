@@ -470,7 +470,7 @@ tests += [
          '', 'timeout=90'],
 
         [['src/test/test-set.c'],
-         [],
+         [libbasic],
          []],
 
         [['src/test/test-ordered-set.c'],
