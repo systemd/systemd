@@ -67,12 +67,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
 
 /* Options Debian's crypttab knows we don't:
 
-    precheck=
     check=
     checkargs=
-    noearly=
-    loud=
+    noearly
+    loud
+    quiet
     keyscript=
+    tmp= (the version without argument is supported)
+    initramfs
 */
 
 static int parse_one_option(const char *option) {
@@ -126,7 +128,8 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if ((val = startswith(option, "key-slot="))) {
+        } else if ((val = startswith(option, "key-slot=")) ||
+                   (val = startswith(option, "keyslot="))) {
 
                 arg_type = ANY_LUKS;
                 r = safe_atoi(val, &arg_key_slot);
@@ -202,13 +205,13 @@ static int parse_one_option(const char *option) {
                 arg_type = ANY_LUKS;
         else if (streq(option, "tcrypt"))
                 arg_type = CRYPT_TCRYPT;
-        else if (streq(option, "tcrypt-hidden")) {
+        else if (STR_IN_SET(option, "tcrypt-hidden", "tcrypthidden")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_hidden = true;
         } else if (streq(option, "tcrypt-system")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_system = true;
-        } else if (streq(option, "tcrypt-veracrypt")) {
+        } else if (STR_IN_SET(option, "tcrypt-veracrypt", "veracrypt")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
