@@ -421,22 +421,42 @@ static void test_cg_get_keyed_attribute(void) {
         }
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == 0);
         assert_se(val == NULL);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        free(val);
+
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 1);
         log_info("cpu /init.scope cpu.stat [usage_usec] → \"%s\"", val);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == 1);
+        assert(vals3[0] && !vals3[1]);
+        free(vals3[0]);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == 1);
+        assert(vals3[0] && !vals3[1]);
+        free(vals3[0]);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        for (i = 0; i < 3; i++)
+                free(vals3[i]);
+
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 3);
         log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"",
                  vals3[0], vals3[1], vals3[2]);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        for (i = 0; i < 3; i++)
+                free(vals3a[i]);
+
+        assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 3);
         log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
                  vals3a[0], vals3a[1], vals3a[2]);
 
