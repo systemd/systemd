@@ -16,6 +16,7 @@
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
 #include "log.h"
@@ -42,6 +43,7 @@ static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static uint64_t arg_keyfile_offset = 0;
+static bool arg_keyfile_erase = false;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -163,7 +165,20 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if ((val = startswith(option, "hash="))) {
+        } else if ((val = startswith(option, "keyfile-erase="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_keyfile_erase = r;
+
+        } else if (streq(option, "keyfile-erase"))
+                arg_keyfile_erase = true;
+
+        else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
                 if (r < 0)
                         return log_oom();
@@ -751,6 +766,17 @@ static uint32_t determine_flags(void) {
         return flags;
 }
 
+static void remove_and_erasep(const char **p) {
+        int r;
+
+        if (!*p)
+                return;
+
+        r = unlinkat_deallocate(AT_FDCWD, *p, UNLINK_ERASE);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Unable to erase key file '%s', ignoring: %m", *p);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
@@ -777,6 +803,7 @@ static int run(int argc, char *argv[]) {
                 unsigned tries;
                 usec_t until;
                 crypt_status_info status;
+                _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 const char *key_file = NULL;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
@@ -799,6 +826,9 @@ static int run(int argc, char *argv[]) {
 
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);
+
+                if (key_file && arg_keyfile_erase)
+                        destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
