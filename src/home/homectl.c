@@ -1435,6 +1435,8 @@ static int create_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
+                (void) sd_bus_message_sensitive(m);
+
                 r = sd_bus_message_append(m, "s", formatted);
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1636,6 +1638,8 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 r = json_variant_format(hr->json, 0, &formatted);
                 if (r < 0)
                         return r;
+
+                (void) sd_bus_message_sensitive(m);
 
                 r = sd_bus_message_append(m, "s", formatted);
                 if (r < 0)

@@ -124,6 +124,8 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
         if (r < 0)
                 return r;
 
+        (void) sd_bus_message_sensitive(m);
+
         return sd_bus_message_append(m, "s", formatted);
 }
 
