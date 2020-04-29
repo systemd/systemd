@@ -956,11 +956,12 @@ static int run(int argc, char *argv[]) {
                         if (r != -EAGAIN)
                                 return r;
 
-                        /* Passphrase not correct? Let's try again! */
+                        /* Key not correct? Let's try again! */
+
                         key_file = NULL;
                         key_data = erase_and_free(key_data);
                         key_data_size = 0;
-                        arg_pkcs11_uri = NULL;
+                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
