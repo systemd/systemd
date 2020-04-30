@@ -55,16 +55,11 @@ typedef enum {
         PRESET_DISABLE,
 } PresetAction;
 
-typedef struct {
+struct UnitFilePresetRule {
         char *pattern;
         PresetAction action;
         char **instances;
-} PresetRule;
-
-typedef struct {
-        PresetRule *rules;
-        size_t n_rules;
-} Presets;
+};
 
 static bool unit_file_install_info_has_rules(const UnitFileInstallInfo *i) {
         assert(i);
@@ -80,7 +75,7 @@ static bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
         return !strv_isempty(i->also);
 }
 
-static void presets_freep(Presets *p) {
+void unit_file_presets_freep(UnitFilePresets *p) {
         size_t i;
 
         if (!p)
@@ -2913,8 +2908,8 @@ static int presets_find_config(UnitFileScope scope, const char *root_dir, char *
         return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
 }
 
-static int read_presets(UnitFileScope scope, const char *root_dir, Presets *presets) {
-        _cleanup_(presets_freep) Presets ps = {};
+static int read_presets(UnitFileScope scope, const char *root_dir, UnitFilePresets *presets) {
+        _cleanup_(unit_file_presets_freep) UnitFilePresets ps = {};
         size_t n_allocated = 0;
         _cleanup_strv_free_ char **files = NULL;
         char **p;
@@ -2942,7 +2937,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        PresetRule rule = {};
+                        UnitFilePresetRule rule = {};
                         const char *parameter;
                         char *l;
 
@@ -2972,7 +2967,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                                         continue;
                                 }
 
-                                rule = (PresetRule) {
+                                rule = (UnitFilePresetRule) {
                                         .pattern = unit_name,
                                         .action = PRESET_ENABLE,
                                         .instances = instances,
@@ -2987,7 +2982,7 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                                 if (!pattern)
                                         return -ENOMEM;
 
-                                rule = (PresetRule) {
+                                rule = (UnitFilePresetRule) {
                                         .pattern = pattern,
                                         .action = PRESET_DISABLE,
                                 };
@@ -3005,14 +3000,15 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                 }
         }
 
+        ps.initialized = true;
         *presets = ps;
-        ps = (Presets){};
+        ps = (UnitFilePresets){};
 
         return 0;
 }
 
 static int pattern_match_multiple_instances(
-                        const PresetRule rule,
+                        const UnitFilePresetRule rule,
                         const char *unit_name,
                         char ***ret) {
 
@@ -3066,17 +3062,17 @@ static int pattern_match_multiple_instances(
         return 0;
 }
 
-static int query_presets(const char *name, const Presets presets, char ***instance_name_list) {
+static int query_presets(const char *name, const UnitFilePresets *presets, char ***instance_name_list) {
         PresetAction action = PRESET_UNKNOWN;
         size_t i;
         char **s;
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        for (i = 0; i < presets.n_rules; i++)
-                if (pattern_match_multiple_instances(presets.rules[i], name, instance_name_list) > 0 ||
-                    fnmatch(presets.rules[i].pattern, name, FNM_NOESCAPE) == 0) {
-                        action = presets.rules[i].action;
+        for (i = 0; i < presets->n_rules; i++)
+                if (pattern_match_multiple_instances(presets->rules[i], name, instance_name_list) > 0 ||
+                    fnmatch(presets->rules[i].pattern, name, FNM_NOESCAPE) == 0) {
+                        action = presets->rules[i].action;
                         break;
                 }
 
@@ -3099,15 +3095,19 @@ static int query_presets(const char *name, const Presets presets, char ***instan
         }
 }
 
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name) {
-        _cleanup_(presets_freep) Presets presets = {};
+int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
+        _cleanup_(unit_file_presets_freep) UnitFilePresets tmp = {};
         int r;
 
-        r = read_presets(scope, root_dir, &presets);
-        if (r < 0)
-                return r;
+        if (!cached)
+                cached = &tmp;
+        if (!cached->initialized) {
+                r = read_presets(scope, root_dir, cached);
+                if (r < 0)
+                        return r;
+        }
 
-        return query_presets(name, presets, NULL);
+        return query_presets(name, cached, NULL);
 }
 
 static int execute_preset(
@@ -3162,7 +3162,7 @@ static int preset_prepare_one(
                 InstallContext *minus,
                 LookupPaths *paths,
                 const char *name,
-                Presets presets,
+                const UnitFilePresets *presets,
                 UnitFileChange **changes,
                 size_t *n_changes) {
 
@@ -3221,7 +3221,7 @@ int unit_file_preset(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        _cleanup_(presets_freep) Presets presets = {};
+        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         const char *config_path;
         char **i;
         int r;
@@ -3243,7 +3243,7 @@ int unit_file_preset(
                 return r;
 
         STRV_FOREACH(i, files) {
-                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, presets, changes, n_changes);
+                r = preset_prepare_one(scope, &plus, &minus, &paths, *i, &presets, changes, n_changes);
                 if (r < 0)
                         return r;
         }
@@ -3261,7 +3261,7 @@ int unit_file_preset_all(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        _cleanup_(presets_freep) Presets presets = {};
+        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         const char *config_path = NULL;
         char **i;
         int r;
@@ -3305,7 +3305,7 @@ int unit_file_preset_all(
                                 continue;
 
                         /* we don't pass changes[] in, because we want to handle errors on our own */
-                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, presets, NULL, 0);
+                        r = preset_prepare_one(scope, &plus, &minus, &paths, de->d_name, &presets, NULL, 0);
                         if (r == -ERFKILL)
                                 r = unit_file_changes_add(changes, n_changes,
                                                           UNIT_FILE_IS_MASKED, de->d_name, NULL);

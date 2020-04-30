@@ -1443,7 +1443,7 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
 
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const UnitFileList *u;
+        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
         int r;
 
         table = table_new("unit file", "state", "vendor preset");
@@ -1454,7 +1454,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
-        for (u = units; u < units + c; u++) {
+        for (const UnitFileList *u = units; u < units + c; u++) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;
                 const char *on_preset_color = NULL, *unit_preset_str;
                 bool underline;
@@ -1478,7 +1478,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 id = basename(u->path);
 
-                r = unit_file_query_preset(arg_scope, arg_root, id);
+                r = unit_file_query_preset(arg_scope, arg_root, id, &presets);
                 if (r < 0) {
                         unit_preset_str = "n/a";
                         on_preset_color = underline ? on_underline : ansi_normal();
