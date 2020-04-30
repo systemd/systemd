@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-49-UDEV-EVENT-TIMEOUT
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
