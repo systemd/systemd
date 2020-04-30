@@ -131,7 +131,7 @@ static int field_set_test(Set *fields, const char *name, size_t n) {
         if (!s)
                 return log_oom();
 
-        return set_get(fields, s) ? 1 : 0;
+        return set_contains(fields, s);
 }
 
 static bool shall_print(const char *p, size_t l, OutputFlags flags) {
