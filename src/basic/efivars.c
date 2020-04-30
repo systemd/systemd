@@ -313,6 +313,29 @@ int systemd_efi_options_variable(char **line) {
                 return 0;
         }
 
+        /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
+         * like when using Type #2 EFI Unified Kernel Images (https://systemd.io/BOOT_LOADER_SPECIFICATION/)
+         * The user's intention is then that the cmdline should not be modified. You want to make sure that
+         * the system starts up as exactly specified in the signed artifact.
+         *
+         * (NB: to make testing purposes we still check the $SYSTEMD_EFI_OPTIONS env var above, even when in
+         * SecureBoot mode.) */
+        if (is_efi_secure_boot()) {
+                _cleanup_free_ char *k;
+
+                k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
+                if (!k)
+                        return -ENOMEM;
+
+                /* Let's be helpful with the returned error and check if the variable exists at all. If it
+                 * does, let's return a recognizable error (EPERM), and if not ENODATA. */
+
+                if (access(k, F_OK) < 0)
+                        return errno == -ENOENT ? -ENODATA : -errno;
+
+                return -EPERM;
+        }
+
         r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", line);
         if (r == -ENOENT)
                 return -ENODATA;
