@@ -369,13 +369,12 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         }
 
         r = fflush_and_check(f);
+        fclose(f);
+
         if (r < 0) {
                 free(buf);
-                fclose(f);
                 return r;
         }
-
-        fclose(f);
 
         *p = buf;
         return 0;
