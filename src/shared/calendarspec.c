@@ -17,6 +17,7 @@
 #include "process-util.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 #define BITS_WEEKDAYS 127
@@ -961,9 +962,10 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         return r;
 
-        } else if (strcaseeq(p, "annually") ||
-                   strcaseeq(p, "yearly") ||
-                   strcaseeq(p, "anually") /* backwards compatibility */ ) {
+        } else if (STRCASE_IN_SET(p,
+                                  "annually",
+                                  "yearly",
+                                  "anually") /* backwards compatibility */ ) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
@@ -1022,10 +1024,11 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                 if (r < 0)
                         return r;
 
-        } else if (strcaseeq(p, "biannually") ||
-                   strcaseeq(p, "bi-annually") ||
-                   strcaseeq(p, "semiannually") ||
-                   strcaseeq(p, "semi-annually")) {
+        } else if (STRCASE_IN_SET(p,
+                                  "biannually",
+                                  "bi-annually",
+                                  "semiannually",
+                                  "semi-annually")) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
