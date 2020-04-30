@@ -1748,6 +1748,14 @@
             Defaults to false.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>SendOption=</varname></term>
+          <listitem>
+            <para>As in the <literal>[DHCPv4]</literal> section, however because DHCPv6 uses 16-bit fields to store
+            option numbers, the option number is an integer in the range 1..65536.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -1985,7 +1993,7 @@
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type
           and data (<literal><replaceable>option</replaceable>:<replaceable>type</replaceable>:<replaceable>value</replaceable></literal>).
           The option number is an integer in the range 1..254. The type takes one of <literal>uint8</literal>,
-          <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, or
+          <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
           <literal>string</literal>. Special characters in the data string may be escaped using
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,

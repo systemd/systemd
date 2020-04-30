@@ -30,6 +30,7 @@ sources = files('''
         dhcp6-protocol.h
         dhcp6-network.c
         dhcp6-option.c
+        dhcp6-client-internal.h
         dhcp6-lease-internal.h
         sd-dhcp6-lease.c
         dhcp-identifier.h

@@ -597,3 +597,43 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
 
         return idx;
 }
+
+static sd_dhcp6_option* dhcp6_option_free(sd_dhcp6_option *i) {
+        if (!i)
+                return NULL;
+
+        free(i->data);
+        return mfree(i);
+}
+
+int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, sd_dhcp6_option **ret) {
+        assert_return(ret, -EINVAL);
+        assert_return(length == 0 || data, -EINVAL);
+
+        _cleanup_free_ void *q = memdup(data, length);
+        if (!q)
+                return -ENOMEM;
+
+        sd_dhcp6_option *p = new(sd_dhcp6_option, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (sd_dhcp6_option) {
+                .n_ref = 1,
+                .option = option,
+                .length = length,
+                .data = TAKE_PTR(q),
+        };
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_option, sd_dhcp6_option, dhcp6_option_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                dhcp6_option_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                sd_dhcp6_option,
+                sd_dhcp6_option_unref);

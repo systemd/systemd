@@ -133,6 +133,7 @@ struct Network {
         uint8_t dhcp6_pd_length;
         char *dhcp6_mudurl;
         struct in6_addr dhcp6_pd_address;
+        OrderedHashmap *dhcp6_client_send_options;
 
         /* DHCP Server Support */
         bool dhcp_server;
