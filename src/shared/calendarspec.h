@@ -19,9 +19,9 @@ typedef struct CalendarComponent {
 
 typedef struct CalendarSpec {
         int weekdays_bits;
-        bool end_of_month;
-        bool utc;
-        int dst;
+        bool end_of_month:1;
+        bool utc:1;
+        signed int dst:2;
         char *timezone;
 
         CalendarComponent *year;
