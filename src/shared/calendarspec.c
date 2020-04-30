@@ -165,7 +165,7 @@ int calendar_spec_normalize(CalendarSpec *c) {
         return 0;
 }
 
-_pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool end_of_month) {
+static bool chain_valid(CalendarComponent *c, int from, int to, bool end_of_month) {
         assert(to >= from);
 
         if (!c)
