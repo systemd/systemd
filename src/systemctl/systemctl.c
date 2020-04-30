@@ -5860,7 +5860,8 @@ static int show(int argc, char *argv[], void *userdata) {
 
         if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This command expects one or more unit names. Did you mean --help?");
+                                       "'help' command expects one or more unit names.\n"
+                                       "(Alternatively, help for systemctl itself may be shown with --help)");
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
