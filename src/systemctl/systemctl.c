@@ -1478,7 +1478,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 id = basename(u->path);
 
-                r = unit_file_query_preset(arg_scope, NULL, id);
+                r = unit_file_query_preset(arg_scope, arg_root, id);
                 if (r < 0) {
                         unit_preset_str = "n/a";
                         on_preset_color = underline ? on_underline : ansi_normal();
