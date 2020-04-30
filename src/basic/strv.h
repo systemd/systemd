@@ -14,8 +14,12 @@
 #include "string-util.h"
 
 char *strv_find(char * const *l, const char *name) _pure_;
+char *strv_find_case(char * const *l, const char *name) _pure_;
 char *strv_find_prefix(char * const *l, const char *name) _pure_;
 char *strv_find_startswith(char * const *l, const char *name) _pure_;
+
+#define strv_contains(l, s) (!!strv_find((l), (s)))
+#define strv_contains_case(l, s) (!!strv_find_case((l), (s)))
 
 char **strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
@@ -53,8 +57,6 @@ int strv_compare(char * const *a, char * const *b);
 static inline bool strv_equal(char * const *a, char * const *b) {
         return strv_compare(a, b) == 0;
 }
-
-#define strv_contains(l, s) (!!strv_find((l), (s)))
 
 char **strv_new_internal(const char *x, ...) _sentinel_;
 char **strv_new_ap(const char *x, va_list ap);
@@ -154,6 +156,13 @@ void strv_print(char * const *l);
         ({                                                       \
                 const char* _x = (x);                            \
                 _x && strv_contains(STRV_MAKE(__VA_ARGS__), _x); \
+        })
+
+#define STRCASE_IN_SET(x, ...) strv_contains_case(STRV_MAKE(__VA_ARGS__), x)
+#define STRCASEPTR_IN_SET(x, ...)                                    \
+        ({                                                       \
+                const char* _x = (x);                            \
+                _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
 #define STARTSWITH_SET(p, ...)                                  \
