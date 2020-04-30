@@ -1715,11 +1715,7 @@
             <entry>Architecture</entry>
             <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
           </row>
-          <row>
-            <entry><literal>%b</literal></entry>
-            <entry>Boot ID</entry>
-            <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
           <xi:include href="standard-specifiers.xml" xpointer="B"/>
           <row>
             <entry><literal>%C</literal></entry>
@@ -1744,6 +1740,7 @@
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
           <row>
+            <!-- We do not use the common definition from standard-specifiers.xml here since we want a slightly more verbose explanation here, referring to the reload cycle. -->
             <entry><literal>%H</literal></entry>
             <entry>Host name</entry>
             <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
@@ -1773,11 +1770,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
             <entry>Log directory root</entry>
             <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename index="false">/log</filename> appended (for user managers).</entry>
           </row>
-          <row>
-            <entry><literal>%m</literal></entry>
-            <entry>Machine ID</entry>
-            <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
           <xi:include href="standard-specifiers.xml" xpointer="o"/>
           <row>
             <entry><literal>%n</literal></entry>
@@ -1843,11 +1836,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
 
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
-          <row>
-            <entry><literal>%v</literal></entry>
-            <entry>Kernel release</entry>
-            <entry>Identical to <command>uname -r</command> output</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
           <row>
             <entry><literal>%V</literal></entry>
             <entry>Directory for larger and persistent temporary files</entry>
@@ -1855,11 +1844,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
-          <row>
-            <entry><literal>%%</literal></entry>
-            <entry>Single percent sign</entry>
-            <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
         </tbody>
       </tgroup>
     </table>

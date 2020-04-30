@@ -90,30 +90,15 @@
                 </thead>
                 <tbody>
                   <xi:include href="standard-specifiers.xml" xpointer="a"/>
-                  <row>
-                    <entry><literal>%b</literal></entry>
-                    <entry>Boot ID</entry>
-                    <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-                  </row>
+                  <xi:include href="standard-specifiers.xml" xpointer="b"/>
                   <xi:include href="standard-specifiers.xml" xpointer="B"/>
-                  <row>
-                    <entry><literal>%H</literal></entry>
-                    <entry>Host name</entry>
-                    <entry>The hostname of the running system.</entry>
-                  </row>
-                  <row>
-                    <entry><literal>%m</literal></entry>
-                    <entry>Machine ID</entry>
-                    <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-                  </row>
+                  <xi:include href="standard-specifiers.xml" xpointer="H"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="m"/>
                   <xi:include href="standard-specifiers.xml" xpointer="o"/>
-                  <row>
-                    <entry><literal>%v</literal></entry>
-                    <entry>Kernel release</entry>
-                    <entry>Identical to <command>uname -r</command> output.</entry>
-                  </row>
+                  <xi:include href="standard-specifiers.xml" xpointer="v"/>
                   <xi:include href="standard-specifiers.xml" xpointer="w"/>
                   <xi:include href="standard-specifiers.xml" xpointer="W"/>
+                  <xi:include href="standard-specifiers.xml" xpointer="percent"/>
                 </tbody>
               </tgroup>
             </table>
