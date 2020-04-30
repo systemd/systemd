@@ -192,6 +192,14 @@ static int prompt_loop(const char *text, char **l, bool (*is_valid)(const char *
         }
 }
 
+static bool locale_is_ok(const char *name) {
+
+        if (arg_root)
+                return locale_is_valid(name);
+
+        return locale_is_installed(name) > 0;
+}
+
 static int prompt_locale(void) {
         _cleanup_strv_free_ char **locales = NULL;
         int r;
@@ -215,14 +223,14 @@ static int prompt_locale(void) {
 
         putchar('\n');
 
-        r = prompt_loop("Please enter system locale name or number", locales, locale_is_valid, &arg_locale);
+        r = prompt_loop("Please enter system locale name or number", locales, locale_is_ok, &arg_locale);
         if (r < 0)
                 return r;
 
         if (isempty(arg_locale))
                 return 0;
 
-        r = prompt_loop("Please enter system message locale name or number", locales, locale_is_valid, &arg_locale_messages);
+        r = prompt_loop("Please enter system message locale name or number", locales, locale_is_ok, &arg_locale_messages);
         if (r < 0)
                 return r;
 
@@ -780,11 +788,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
-
                         r = free_and_strdup(&arg_locale, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -792,11 +795,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE_MESSAGES:
-                        if (!locale_is_valid(optarg)) {
-                                log_error("Locale %s is not valid.", optarg);
-                                return -EINVAL;
-                        }
-
                         r = free_and_strdup(&arg_locale_messages, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -921,6 +919,14 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        /* We check if the specified locale strings are valid down here, so that we can take --root= into
+         * account when looking for the locale files. */
+
+        if (arg_locale && !locale_is_ok(arg_locale))
+                return log_error_errno(EINVAL, "Locale %s is not installed.", arg_locale);
+        if (arg_locale_messages && !locale_is_ok(arg_locale_messages))
+                return log_error_errno(EINVAL, "Locale %s is not installed.", arg_locale_messages);
 
         return 1;
 }

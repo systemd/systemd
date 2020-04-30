@@ -259,18 +259,57 @@ static void locale_free(char ***l) {
                 (*l)[p] = mfree((*l)[p]);
 }
 
+static int process_locale_list_item(
+                const char *assignment,
+                char *new_locale[static _VARIABLE_LC_MAX],
+                sd_bus_error *error) {
+
+        assert(assignment);
+        assert(new_locale);
+
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
+                const char *name, *e;
+
+                assert_se(name = locale_variable_to_string(p));
+
+                e = startswith(assignment, name);
+                if (!e)
+                        continue;
+
+                if (*e != '=')
+                        continue;
+
+                e++;
+
+                if (!locale_is_valid(e))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s is not valid, refusing.", e);
+                if (locale_is_installed(e) <= 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s not installed, refusing.", e);
+                if (new_locale[p])
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale variable %s set twice, refusing.", name);
+
+                new_locale[p] = strdup(e);
+                if (!new_locale[p])
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
+}
+
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
         char *new_locale[_VARIABLE_LC_MAX] = {}, **i;
         _cleanup_(locale_free) _unused_ char **dummy = new_locale;
         bool modified = false;
-        int interactive, p, r;
+        int interactive, r;
 
         assert(m);
         assert(c);
 
-        r = bus_message_read_strv_extend(m, &l);
+        r = sd_bus_message_read_strv(m, &l);
         if (r < 0)
                 return r;
 
@@ -279,11 +318,13 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return r;
 
         /* If single locale without variable name is provided, then we assume it is LANG=. */
-        if (strv_length(l) == 1 && !strchr(*l, '=')) {
-                if (!locale_is_valid(*l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+        if (strv_length(l) == 1 && !strchr(l[0], '=')) {
+                if (!locale_is_valid(l[0]))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid locale specification: %s", l[0]);
+                if (locale_is_installed(l[0]) <= 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified locale is not installed: %s", l[0]);
 
-                new_locale[VARIABLE_LANG] = strdup(*l);
+                new_locale[VARIABLE_LANG] = strdup(l[0]);
                 if (!new_locale[VARIABLE_LANG])
                         return -ENOMEM;
 
@@ -292,31 +333,9 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* Check whether a variable is valid */
         STRV_FOREACH(i, l) {
-                bool valid = false;
-
-                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
-                        size_t k;
-                        const char *name;
-
-                        name = locale_variable_to_string(p);
-                        assert(name);
-
-                        k = strlen(name);
-                        if (startswith(*i, name) &&
-                            (*i)[k] == '=' &&
-                            locale_is_valid((*i) + k + 1)) {
-                                valid = true;
-
-                                new_locale[p] = strdup((*i) + k + 1);
-                                if (!new_locale[p])
-                                        return -ENOMEM;
-
-                                break;
-                        }
-                }
-
-                if (!valid)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+                r = process_locale_list_item(*i, new_locale, error);
+                if (r < 0)
+                        return r;
         }
 
         /* If LANG was specified, but not LANGUAGE, check if we should
@@ -339,7 +358,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         /* Merge with the current settings */
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 if (!isempty(c->locale[p]) && isempty(new_locale[p])) {
                         new_locale[p] = strdup(c->locale[p]);
                         if (!new_locale[p])
@@ -348,7 +367,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         locale_simplify(new_locale);
 
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 if (!streq_ptr(c->locale[p], new_locale[p])) {
                         modified = true;
                         break;
@@ -373,7 +392,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 free_and_replace(c->locale[p], new_locale[p]);
 
         r = locale_write_data(c, &settings);
