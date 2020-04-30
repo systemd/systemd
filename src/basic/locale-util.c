@@ -204,6 +204,21 @@ bool locale_is_valid(const char *name) {
         return true;
 }
 
+int locale_is_installed(const char *name) {
+        if (!locale_is_valid(name))
+                return false;
+
+        if (STR_IN_SET(name, "C", "POSIX")) /* These ones are always OK */
+                return true;
+
+        _cleanup_(freelocalep) locale_t loc =
+                newlocale(LC_ALL_MASK, name, 0);
+        if (loc == (locale_t) 0)
+                return errno == ENOMEM ? -ENOMEM : false;
+
+        return true;
+}
+
 void init_gettext(void) {
         setlocale(LC_ALL, "");
         textdomain(GETTEXT_PACKAGE);

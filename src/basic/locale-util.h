@@ -31,6 +31,7 @@ typedef enum LocaleVariable {
 
 int get_locales(char ***l);
 bool locale_is_valid(const char *name);
+int locale_is_installed(const char *name);
 
 #define _(String) gettext(String)
 #define N_(String) String
