@@ -24,6 +24,7 @@
 #include <sys/types.h>
 
 #include "sd-dhcp6-lease.h"
+#include "sd-dhcp6-option.h"
 #include "sd-event.h"
 
 #include "_sd-common.h"
@@ -141,6 +142,8 @@ int sd_dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transac
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease **ret);
+
+int sd_dhcp6_client_add_option(sd_dhcp6_client *client, sd_dhcp6_option *v);
 
 int sd_dhcp6_client_stop(sd_dhcp6_client *client);
 int sd_dhcp6_client_start(sd_dhcp6_client *client);
