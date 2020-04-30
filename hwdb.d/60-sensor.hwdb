@@ -297,6 +297,10 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnGEO*:pnGeoFlex*:*
 sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
+# caroline board (Samsung Chromebook Pro) reports itself as svnGoogle
+sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
 #########################################
 # GP-electronic
 #########################################
