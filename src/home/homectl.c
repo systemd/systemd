@@ -2807,6 +2807,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!locale_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", optarg);
 
+                        if (locale_is_installed(optarg) <= 0)
+                                log_warning("Locale '%s' is not installed, accepting anyway.", optarg);
+
                         r = json_variant_set_field_string(&arg_identity_extra, "preferredLanguage", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set preferredLanguage field: %m");
