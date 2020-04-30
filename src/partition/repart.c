@@ -714,7 +714,7 @@ static int context_grow_partitions_on_free_area(Context *context, FreeArea *a) {
                         assert(p->new_size != UINT64_MAX);
                         m = p->new_size + span;
 
-                        xsz = partition_max_size(a->after);
+                        xsz = partition_max_size(p);
                         if (xsz != UINT64_MAX && m > xsz)
                                 m = xsz;
 
