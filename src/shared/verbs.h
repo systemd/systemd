@@ -6,8 +6,8 @@
 #define VERB_ANY ((unsigned) -1)
 
 typedef enum VerbFlags {
-        VERB_DEFAULT      = 1 << 0,
-        VERB_ONLINE_ONLY  = 1 << 1,
+        VERB_DEFAULT      = 1 << 0,  /* The verb to run if no verb is specified */
+        VERB_ONLINE_ONLY  = 1 << 1,  /* Just do nothing when running in chroot or offline */
 } VerbFlags;
 
 typedef struct {
