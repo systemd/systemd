@@ -9213,6 +9213,12 @@ static int systemctl_main(int argc, char *argv[]) {
                 {}
         };
 
+        const Verb *verb = verbs_find_verb(argv[optind], verbs);
+        if (verb && (verb->flags & VERB_ONLINE_ONLY) && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verb '%s' cannot be used with --root=.",
+                                       argv[optind] ?: verb->verb);
+
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
