@@ -407,7 +407,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r, "Could not set channels of %s: %m", old_name);
         }
 
-        if (config->ring.rx_pending_set || config->ring.tx_pending_set) {
+        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
                 r = ethtool_set_nic_buffer_size(&ctx->ethtool_fd, old_name, &config->ring);
                 if (r < 0)
                         log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);

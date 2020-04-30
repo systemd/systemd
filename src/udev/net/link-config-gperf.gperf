@@ -59,6 +59,8 @@ Link.OtherChannels,              config_parse_channel,                  0,      
 Link.CombinedChannels,           config_parse_channel,                  0,                             offsetof(link_config, channels)
 Link.Advertise,                  config_parse_advertise,                0,                             offsetof(link_config, advertise)
 Link.RxBufferSize,               config_parse_nic_buffer_size,          0,                             offsetof(link_config, ring)
+Link.RxMiniBufferSize,           config_parse_nic_buffer_size,          0,                             offsetof(link_config, ring)
+Link.RxJumboBufferSize,          config_parse_nic_buffer_size,          0,                             offsetof(link_config, ring)
 Link.TxBufferSize,               config_parse_nic_buffer_size,          0,                             offsetof(link_config, ring)
 Link.RxFlowControl,              config_parse_tristate,                 0,                             offsetof(link_config, rx_flow_control)
 Link.TxFlowControl,              config_parse_tristate,                 0,                             offsetof(link_config, tx_flow_control)

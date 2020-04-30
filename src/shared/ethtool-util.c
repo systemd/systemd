@@ -431,18 +431,24 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring
         if (r < 0)
                 return -errno;
 
-        if (ring->rx_pending_set) {
-                if (ecmd.rx_pending != ring->rx_pending) {
-                        ecmd.rx_pending = ring->rx_pending;
-                        need_update = true;
-                }
+        if (ring->rx_pending_set && ecmd.rx_pending != ring->rx_pending) {
+                ecmd.rx_pending = ring->rx_pending;
+                need_update = true;
         }
 
-        if (ring->tx_pending_set) {
-                   if (ecmd.tx_pending != ring->tx_pending) {
-                           ecmd.tx_pending = ring->tx_pending;
-                           need_update = true;
-                }
+        if (ring->rx_mini_pending_set && ecmd.rx_mini_pending != ring->rx_mini_pending) {
+                ecmd.rx_mini_pending = ring->rx_mini_pending;
+                need_update = true;
+        }
+
+        if (ring->rx_jumbo_pending_set && ecmd.rx_jumbo_pending != ring->rx_jumbo_pending) {
+                ecmd.rx_jumbo_pending = ring->rx_jumbo_pending;
+                need_update = true;
+        }
+
+        if (ring->tx_pending_set && ecmd.tx_pending != ring->tx_pending) {
+                ecmd.tx_pending = ring->tx_pending;
+                need_update = true;
         }
 
         if (need_update) {
@@ -1036,6 +1042,12 @@ int config_parse_nic_buffer_size(const char *unit,
         if (streq(lvalue, "RxBufferSize")) {
                 ring->rx_pending = k;
                 ring->rx_pending_set = true;
+        } else if (streq(lvalue, "RxMiniBufferSize")) {
+                ring->rx_mini_pending = k;
+                ring->rx_mini_pending_set = true;
+        } else if (streq(lvalue, "RxJumboBufferSize")) {
+                ring->rx_jumbo_pending = k;
+                ring->rx_jumbo_pending_set = true;
         } else if (streq(lvalue, "TxBufferSize")) {
                 ring->tx_pending = k;
                 ring->tx_pending_set = true;
