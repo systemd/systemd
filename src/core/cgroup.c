@@ -1469,7 +1469,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return (unit_get_cgroup_mask(u) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
+        return unit_get_cgroup_mask(u) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
