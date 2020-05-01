@@ -1,0 +1,6 @@
+[Unit]
+Description=TEST-38-FREEZER
+
+[Service]
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

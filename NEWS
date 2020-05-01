@@ -10,6 +10,10 @@ CHANGES WITH 246 in spe:
           their first output column with --no-legend. To hide the first column,
           use --plain.
 
+        * The service manager gained basic support for cgroup v2 freezer. Units
+          can now be suspended or resumed either using new systemctl verbs,
+          freeze and thaw respectively, or via D-Bus.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an

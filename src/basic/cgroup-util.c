@@ -149,6 +149,17 @@ bool cg_ns_supported(void) {
         return enabled;
 }
 
+bool cg_freezer_supported(void) {
+        static thread_local int supported = -1;
+
+        if (supported >= 0)
+                return supported;
+
+        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) == 0;
+
+        return supported;
+}
+
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -1684,12 +1695,13 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
         return 0;
 }
 
-int cg_get_keyed_attribute(
+int cg_get_keyed_attribute_full(
                 const char *controller,
                 const char *path,
                 const char *attribute,
                 char **keys,
-                char **ret_values) {
+                char **ret_values,
+                CGroupKeyMode mode) {
 
         _cleanup_free_ char *filename = NULL, *contents = NULL;
         const char *p;
@@ -1701,7 +1713,8 @@ int cg_get_keyed_attribute(
          * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
          * entries as 'keys'. On success each entry will be set to the value of the matching key.
          *
-         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
+         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. If mode
+         * is set to GG_KEY_MODE_GRACEFUL we ignore missing keys and return those that were parsed successfully. */
 
         r = cg_get_path(controller, path, attribute, &filename);
         if (r < 0)
@@ -1749,6 +1762,9 @@ int cg_get_keyed_attribute(
                 p += strspn(p, NEWLINE);
         }
 
+        if (mode & CG_KEY_MODE_GRACEFUL)
+                goto done;
+
         r = -ENXIO;
 
 fail:
@@ -1759,6 +1775,9 @@ fail:
 
 done:
         memcpy(ret_values, v, sizeof(char*) * n);
+        if (mode & CG_KEY_MODE_GRACEFUL)
+                return n_done;
+
         return 0;
 }
 

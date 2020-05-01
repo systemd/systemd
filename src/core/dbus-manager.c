@@ -620,6 +620,14 @@ static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_err
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
+static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, 0);
+}
+
+static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, 0);
+}
+
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
          * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
@@ -2583,6 +2591,18 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  SD_BUS_PARAM(mask),
                                  NULL,,
                                  method_clean_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("FreezeUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_freeze_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ThawUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_thaw_unit,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ResetFailedUnit",
                                  "s",
