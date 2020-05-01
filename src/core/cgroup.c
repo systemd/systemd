@@ -1629,7 +1629,10 @@ const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
 }
 
 static const char *migrate_callback(CGroupMask mask, void *userdata) {
-        return unit_get_realized_cgroup_path(userdata, mask);
+        /* If not realized at all, migrate to root ("").
+         * It may happen if we're upgrading from older version that didn't clean up.
+         */
+        return strempty(unit_get_realized_cgroup_path(userdata, mask));
 }
 
 char *unit_default_cgroup_path(const Unit *u) {
@@ -1820,13 +1823,14 @@ int unit_pick_cgroup_path(Unit *u) {
         return 0;
 }
 
-static int unit_create_cgroup(
+static int unit_update_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
                 CGroupMask enable_mask,
                 ManagerState state) {
 
-        bool created;
+        bool created, is_root_slice;
+        CGroupMask migrate_mask = 0;
         int r;
 
         assert(u);
@@ -1849,7 +1853,9 @@ static int unit_create_cgroup(
         (void) unit_watch_cgroup(u);
         (void) unit_watch_cgroup_memory(u);
 
-        /* Preserve enabled controllers in delegated units, adjust others. */
+
+        /* For v2 we preserve enabled controllers in delegated units, adjust others,
+         * for v1 we figure out which controller hierarchies need migration. */
         if (created || !u->cgroup_realized || !unit_cgroup_delegate(u)) {
                 CGroupMask result_mask = 0;
 
@@ -1860,20 +1866,30 @@ static int unit_create_cgroup(
 
                 /* Remember what's actually enabled now */
                 u->cgroup_enabled_mask = result_mask;
+
+                migrate_mask = u->cgroup_realized_mask ^ target_mask;
         }
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
         u->cgroup_realized_mask = target_mask;
 
-        if (u->type != UNIT_SLICE && !unit_cgroup_delegate(u)) {
-
-                /* Then, possibly move things over, but not if
-                 * subgroups may contain processes, which is the case
-                 * for slice and delegation units. */
-                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+        /* Migrate processes in controller hierarchies both downwards (enabling) and upwards (disabling).
+         *
+         * Unnecessary controller cgroups are trimmed (after emptied by upward migration).
+         * We perform migration also with whole slices for cases when users don't care about leave
+         * granularity. Since delegated_mask is subset of target mask, we won't trim slice subtree containing
+         * delegated units.
+         */
+        if (cg_all_unified() == 0) {
+                r = cg_migrate_v1_controllers(u->manager->cgroup_supported, migrate_mask, u->cgroup_path, migrate_callback, u);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to migrate cgroup from to %s, ignoring: %m", u->cgroup_path);
+                        log_unit_warning_errno(u, r, "Failed to migrate controller cgroups from %s, ignoring: %m", u->cgroup_path);
+
+                is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
+                r = cg_trim_v1_controllers(u->manager->cgroup_supported, ~target_mask, u->cgroup_path, !is_root_slice);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to delete controller cgroups %s, ignoring: %m", u->cgroup_path);
         }
 
         /* Set attributes */
@@ -2136,7 +2152,7 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
         new_target_mask = u->cgroup_realized_mask | target_mask;
         new_enable_mask = u->cgroup_enabled_mask | enable_mask;
 
-        return unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
+        return unit_update_cgroup(u, new_target_mask, new_enable_mask, state);
 }
 
 /* Controllers can only be disabled depth-first, from the leaves of the
@@ -2180,7 +2196,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 new_target_mask = m->cgroup_realized_mask & target_mask;
                 new_enable_mask = m->cgroup_enabled_mask & enable_mask;
 
-                r = unit_create_cgroup(m, new_target_mask, new_enable_mask, state);
+                r = unit_update_cgroup(m, new_target_mask, new_enable_mask, state);
                 if (r < 0)
                         return r;
         }
@@ -2259,7 +2275,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         }
 
         /* Now actually deal with the cgroup we were trying to realise and set attributes */
-        r = unit_create_cgroup(u, target_mask, enable_mask, state);
+        r = unit_update_cgroup(u, target_mask, enable_mask, state);
         if (r < 0)
                 return r;
 

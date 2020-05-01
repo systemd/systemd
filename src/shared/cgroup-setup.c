@@ -608,8 +608,6 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
                 n = cgroup_controller_to_string(c);
                 if (FLAGS_SET(mask, bit))
                         (void) cg_create(n, path);
-                else
-                        (void) cg_trim(n, path, true);
 
                 done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
@@ -674,29 +672,20 @@ int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids,
         return r;
 }
 
-int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to, cg_migrate_callback_t to_callback, void *userdata) {
+int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupController c;
         CGroupMask done;
         int r = 0, q;
 
-        if (!path_equal(from, to))  {
-                r = cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, from, SYSTEMD_CGROUP_CONTROLLER, to, CGROUP_REMOVE);
-                if (r < 0)
-                        return r;
-        }
-
-        q = cg_all_unified();
-        if (q < 0)
-                return q;
-        if (q > 0)
-                return r;
+        assert(to_callback);
 
         supported &= CGROUP_MASK_V1;
+        mask = CGROUP_MASK_EXTEND_JOINED(mask);
         done = 0;
 
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
                 CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                const char *p = NULL;
+                const char *to = NULL;
 
                 if (!FLAGS_SET(supported, bit))
                         continue;
@@ -704,21 +693,20 @@ int cg_migrate_everywhere(CGroupMask supported, const char *from, const char *to
                 if (FLAGS_SET(done, bit))
                         continue;
 
-                if (to_callback)
-                        p = to_callback(bit, userdata);
-                if (!p)
-                        p = to;
+                if (!FLAGS_SET(mask, bit))
+                        continue;
 
-                (void) cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, to, cgroup_controller_to_string(c), p, 0);
-                done |= CGROUP_MASK_EXTEND_JOINED(bit);
+                to = to_callback(bit, userdata);
+
+                /* Remember first error and try continuing */
+                q = cg_migrate_recursive_fallback(SYSTEMD_CGROUP_CONTROLLER, from, cgroup_controller_to_string(c), to, 0);
+                r = (r < 0) ? r : q;
         }
 
         return r;
 }
 
 int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root) {
-        CGroupController c;
-        CGroupMask done;
         int r, q;
 
         r = cg_trim(SYSTEMD_CGROUP_CONTROLLER, path, delete_root);
@@ -731,7 +719,16 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
         if (q > 0)
                 return r;
 
+        return cg_trim_v1_controllers(supported, _CGROUP_MASK_ALL, path, delete_root);
+}
+
+int cg_trim_v1_controllers(CGroupMask supported, CGroupMask mask, const char *path, bool delete_root) {
+        CGroupController c;
+        CGroupMask done;
+        int r = 0, q;
+
         supported &= CGROUP_MASK_V1;
+        mask = CGROUP_MASK_EXTEND_JOINED(mask);
         done = 0;
 
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
@@ -743,7 +740,11 @@ int cg_trim_everywhere(CGroupMask supported, const char *path, bool delete_root)
                 if (FLAGS_SET(done, bit))
                         continue;
 
-                (void) cg_trim(cgroup_controller_to_string(c), path, delete_root);
+                if (FLAGS_SET(mask, bit)) {
+                        /* Remember first error and try continuing */
+                        q = cg_trim(cgroup_controller_to_string(c), path, delete_root);
+                        r = (r < 0) ? r : q;
+                }
                 done |= CGROUP_MASK_EXTEND_JOINED(bit);
         }
 
