@@ -78,6 +78,7 @@ struct sd_dhcp6_client {
         size_t duid_len;
         usec_t information_request_time_usec;
         usec_t information_refresh_time_usec;
+        OrderedHashmap *extra_options;
 };
 
 static const uint16_t default_req_opts[] = {
@@ -447,6 +448,24 @@ int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         return 0;
 }
 
+int sd_dhcp6_client_add_option(sd_dhcp6_client *client, sd_dhcp6_option *v) {
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(v, -EINVAL);
+
+        r = ordered_hashmap_ensure_allocated(&client->extra_options, &dhcp6_option_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = ordered_hashmap_put(client->extra_options, UINT_TO_PTR(v->option), v);
+        if (r < 0)
+                return r;
+
+        sd_dhcp6_option_ref(v);
+        return 0;
+}
+
 static void client_notify(sd_dhcp6_client *client, int event) {
         assert(client);
 
@@ -492,7 +511,9 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr all_servers =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
+        struct sd_dhcp6_option *j;
         size_t len, optlen = 512;
+        Iterator i;
         uint8_t *opt;
         int r;
         usec_t elapsed_usec;
@@ -671,6 +692,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 sizeof(elapsed_time), &elapsed_time);
         if (r < 0)
                 return r;
+
+        ORDERED_HASHMAP_FOREACH(j, client->extra_options, i) {
+                r = dhcp6_option_append(&opt, &optlen, j->option, j->length, j->data);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp6_network_send_udp_socket(client->fd, &all_servers, message,
                                           len - optlen);
@@ -1584,6 +1611,7 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         free(client->req_opts);
         free(client->fqdn);
         free(client->mudurl);
+        ordered_hashmap_free(client->extra_options);
         return mfree(client);
 }
 

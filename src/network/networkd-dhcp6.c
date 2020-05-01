@@ -620,7 +620,9 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
 int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        sd_dhcp6_option *send_option;
         const DUID *duid;
+        Iterator i;
         int r;
 
         assert(link);
@@ -661,6 +663,14 @@ int dhcp6_configure(Link *link) {
                                              duid->raw_data_len);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set DUID: %m");
+
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options, i) {
+                r = sd_dhcp6_client_add_option(client, send_option);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set option: %m");
+        }
 
         r = dhcp6_set_hostname(client, link);
         if (r < 0)

@@ -14,6 +14,16 @@
 #include "macro.h"
 #include "sparse-endian.h"
 
+typedef struct sd_dhcp6_option {
+        unsigned n_ref;
+
+        uint16_t option;
+        void *data;
+        size_t length;
+} sd_dhcp6_option;
+
+extern const struct hash_ops dhcp6_option_hash_ops;
+
 /* Common option header */
 typedef struct DHCP6Option {
         be16_t code;

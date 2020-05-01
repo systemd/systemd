@@ -112,6 +112,7 @@ ForceDHCPv6PDOtherInformation=
 PrefixDelegationHint=
 WithoutRA=
 MUDURL=
+SendOption=
 [Route]
 Destination=
 Protocol=
