@@ -7,6 +7,7 @@
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "home-util.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
@@ -862,9 +863,68 @@ static int user_record_compile_effective_passwords(
         return 0;
 }
 
+static int determine_default_storage(UserStorage *ret) {
+        UserStorage storage = _USER_STORAGE_INVALID;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        /* homed tells us via an environment variable which default storage to use */
+        e = getenv("SYSTEMD_HOME_DEFAULT_STORAGE");
+        if (e) {
+                storage = user_storage_from_string(e);
+                if (storage < 0)
+                        log_warning("$SYSTEMD_HOME_DEFAULT_STORAGE set to invalid storage type, ignoring: %s", e);
+                else {
+                        log_info("Using configured default storage '%s'.", user_storage_to_string(storage));
+                        *ret = storage;
+                        return 0;
+                }
+        }
+
+        /* When neither user nor admin specified the storage type to use, fix it to be LUKS — unless we run
+         * in a container where loopback devices and LUKS/DM are not available. Also, if /home is encrypted
+         * anyway, let's avoid duplicate encryption. Note that we typically default to the assumption of
+         * "classic" storage for most operations. However, if we create a new home, then let's user LUKS if
+         * nothing is specified. */
+
+        r = detect_container();
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether we are in a container: %m");
+        if (r == 0) {
+                r = path_is_encrypted("/home");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine if /home is encrypted, ignoring: %m");
+                if (r <= 0) {
+                        log_info("Using automatic default storage of '%s'.", user_storage_to_string(USER_LUKS));
+                        *ret = USER_LUKS;
+                        return 0;
+                }
+
+                log_info("/home is encrypted, not using '%s' storage, in order to avoid double encryption.", user_storage_to_string(USER_LUKS));
+        } else
+                log_info("Running in container, not using '%s' storage.", user_storage_to_string(USER_LUKS));
+
+        r = path_is_fs_type("/home", BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                log_warning_errno(r, "Failed to determine file system of /home, ignoring: %m");
+        if (r > 0) {
+                log_info("/home is on btrfs, using '%s' as storage.", user_storage_to_string(USER_SUBVOLUME));
+                *ret = USER_SUBVOLUME;
+        } else {
+                log_info("/home is on simple file system, using '%s' as storage.", user_storage_to_string(USER_DIRECTORY));
+                *ret = USER_DIRECTORY;
+        }
+
+        return 0;
+}
+
 static int home_create(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(strv_free_erasep) char **effective_passwords = NULL, **pkcs11_decrypted_passwords = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        UserStorage new_storage = _USER_STORAGE_INVALID;
+        const char *new_fs = NULL;
         int r;
 
         assert(h);
@@ -884,27 +944,18 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         if (r != USER_TEST_ABSENT)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Home directory %s already exists, refusing.", user_record_home_directory(h));
 
-        /* When the user didn't specify the storage type to use, fix it to be LUKS -- unless we run in a
-         * container where loopback devices and LUKS/DM are not available. Note that we typically default to
-         * the assumption of "classic" storage for most operations. However, if we create a new home, then
-         * let's user LUKS if nothing is specified. */
         if (h->storage < 0) {
-                UserStorage new_storage;
-
-                r = detect_container();
+                r = determine_default_storage(&new_storage);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether we are in a container: %m");
-                if (r > 0) {
-                        new_storage = USER_DIRECTORY;
+                        return r;
+        }
 
-                        r = path_is_fs_type("/home", BTRFS_SUPER_MAGIC);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to determine file system of /home, ignoring: %m");
+        if ((h->storage == USER_LUKS ||
+             (h->storage < 0 && new_storage == USER_LUKS)) &&
+            !h->file_system_type)
+                new_fs = getenv("SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE");
 
-                        new_storage = r > 0 ? USER_SUBVOLUME : USER_DIRECTORY;
-                } else
-                        new_storage = USER_LUKS;
-
+        if (new_storage >= 0 || new_fs) {
                 r = user_record_add_binding(
                                 h,
                                 new_storage,
@@ -915,7 +966,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                                 NULL,
                                 NULL,
                                 UINT64_MAX,
-                                NULL,
+                                new_fs,
                                 NULL,
                                 UID_INVALID,
                                 GID_INVALID);
