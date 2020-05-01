@@ -498,6 +498,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ReadWriteOnly=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false, a mount
+        point that shall be mounted read-write but cannot be mounted
+        so is retried to be mounted read-only. If true the operation
+        will fail immediately after the read-write mount attempt did
+        not succeed. This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-w</parameter> switch. Defaults to
+        off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ForceUnmount=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, force an

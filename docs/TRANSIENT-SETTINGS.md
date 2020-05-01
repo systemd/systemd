@@ -332,6 +332,7 @@ All mount unit settings are available to transient units:
 ✓ SloppyOptions=
 ✓ LazyUnmount=
 ✓ ForceUnmount=
+✓ ReadWriteOnly=
 ```
 
 ## Automount Unit Settings
