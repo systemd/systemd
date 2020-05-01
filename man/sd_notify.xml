@@ -272,7 +272,7 @@
         <term>BARRIER=1</term>
 
         <listitem><para>Tells the service manager that the client is explicitly requesting synchronization by means of
-        closing the file descriptor sent with this command. The service manager gurantees that the processing of a <varname>
+        closing the file descriptor sent with this command. The service manager guarantees that the processing of a <varname>
         BARRIER=1</varname> command will only happen after all previous notification messages sent before this command
         have been processed. Hence, this command accompanied with a single file descriptor can be used to synchronize
         against reception of all previous status messages. Note that this command cannot be mixed with other notifications,
