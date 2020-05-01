@@ -1059,7 +1059,34 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
         return json_dispatch(m, status_dispatch_table, NULL, flags, userdata);
 }
 
+int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret) {
+        const char *suffix;
+        char *z;
+
+        assert(storage >= 0);
+        assert(user_name_and_realm);
+        assert(ret);
+
+        if (storage == USER_LUKS)
+                suffix = ".home";
+        else if (IN_SET(storage, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT))
+                suffix = ".homedir";
+        else {
+                *ret = NULL;
+                return 0;
+        }
+
+        z = strjoin("/home/", user_name_and_realm, suffix);
+        if (!z)
+                return -ENOMEM;
+
+        *ret = z;
+        return 1;
+}
+
 static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
+        int r;
+
         assert(h);
 
         if (!FLAGS_SET(h->mask, USER_RECORD_REGULAR))
@@ -1084,22 +1111,9 @@ static int user_record_augment(UserRecord *h, JsonDispatchFlags json_flags) {
         }
 
         if (!h->image_path && !h->image_path_auto) {
-                const char *suffix;
-                UserStorage storage;
-
-                storage = user_record_storage(h);
-                if (storage == USER_LUKS)
-                        suffix = ".home";
-                else if (IN_SET(storage, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT))
-                        suffix = ".homedir";
-                else
-                        suffix = NULL;
-
-                if (suffix) {
-                        h->image_path_auto = strjoin("/home/", user_record_user_name_and_realm(h), suffix);
-                        if (!h->image_path_auto)
-                                return json_log_oom(h->json, json_flags);
-                }
+                r = user_record_build_image_path(user_record_storage(h), user_record_user_name_and_realm(h), &h->image_path_auto);
+                if (r < 0)
+                        return json_log(h->json, json_flags, r, "Failed to determine default image path: %m");
         }
 
         return 0;

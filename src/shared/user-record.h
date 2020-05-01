@@ -349,6 +349,8 @@ usec_t user_record_ratelimit_interval_usec(UserRecord *h);
 uint64_t user_record_ratelimit_burst(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
 
+int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
+
 bool user_record_equal(UserRecord *a, UserRecord *b);
 bool user_record_compatible(UserRecord *a, UserRecord *b);
 int user_record_compare_last_change(UserRecord *a, UserRecord *b);
