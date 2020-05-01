@@ -655,23 +655,6 @@ int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_m
         return 0;
 }
 
-int cg_attach_many_everywhere(CGroupMask supported, const char *path, Set* pids, cg_migrate_callback_t path_callback, void *userdata) {
-        Iterator i;
-        void *pidp;
-        int r = 0;
-
-        SET_FOREACH(pidp, pids, i) {
-                pid_t pid = PTR_TO_PID(pidp);
-                int q;
-
-                q = cg_attach_everywhere(supported, path, pid, path_callback, userdata);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
-
-        return r;
-}
-
 int cg_migrate_v1_controllers(CGroupMask supported, CGroupMask mask, const char *from, cg_migrate_callback_t to_callback, void *userdata) {
         CGroupController c;
         CGroupMask done;

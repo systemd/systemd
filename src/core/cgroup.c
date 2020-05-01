@@ -1495,6 +1495,14 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
         return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
 }
 
+static CGroupMask unit_get_subtree_mask(Unit *u) {
+
+        /* Returns the mask of this subtree, meaning of the group
+         * itself and its children. */
+
+        return unit_get_own_mask(u) | unit_get_members_mask(u);
+}
+
 CGroupMask unit_get_members_mask(Unit *u) {
         assert(u);
 
@@ -1532,7 +1540,7 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         return unit_get_subtree_mask(u); /* we are the top-level slice */
 }
 
-CGroupMask unit_get_disable_mask(Unit *u) {
+static CGroupMask unit_get_disable_mask(Unit *u) {
         CGroupContext *c;
 
         c = unit_get_cgroup_context(u);
@@ -1555,14 +1563,6 @@ CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
                 mask |= unit_get_ancestor_disable_mask(UNIT_DEREF(u->slice));
 
         return mask;
-}
-
-CGroupMask unit_get_subtree_mask(Unit *u) {
-
-        /* Returns the mask of this subtree, meaning of the group
-         * itself and its children. */
-
-        return unit_get_own_mask(u) | unit_get_members_mask(u);
 }
 
 CGroupMask unit_get_target_mask(Unit *u) {
@@ -2177,7 +2177,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 /* The cgroup for this unit might not actually be fully
                  * realised yet, in which case it isn't holding any controllers
                  * open anyway. */
-                if (!m->cgroup_path)
+                if (!m->cgroup_realized)
                         continue;
 
                 /* We must disable those below us first in order to release the

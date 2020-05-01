@@ -203,8 +203,6 @@ CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
 CGroupMask unit_get_siblings_mask(Unit *u);
-CGroupMask unit_get_subtree_mask(Unit *u);
-CGroupMask unit_get_disable_mask(Unit *u);
 CGroupMask unit_get_ancestor_disable_mask(Unit *u);
 
 CGroupMask unit_get_target_mask(Unit *u);
