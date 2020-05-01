@@ -1858,23 +1858,6 @@ static int unit_create_cgroup(
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enable/disable controllers on cgroup %s, ignoring: %m", u->cgroup_path);
 
-                /* If we just turned off a controller, this might release the controller for our parent too, let's
-                 * enqueue the parent for re-realization in that case again. */
-                if (UNIT_ISSET(u->slice)) {
-                        CGroupMask turned_off;
-
-                        turned_off = (u->cgroup_realized ? u->cgroup_enabled_mask & ~result_mask : 0);
-                        if (turned_off != 0) {
-                                Unit *parent;
-
-                                /* Force the parent to propagate the enable mask to the kernel again, by invalidating
-                                 * the controller we just turned off. */
-
-                                for (parent = UNIT_DEREF(u->slice); parent; parent = UNIT_DEREF(parent->slice))
-                                        unit_invalidate_cgroup(parent, turned_off);
-                        }
-                }
-
                 /* Remember what's actually enabled now */
                 u->cgroup_enabled_mask = result_mask;
         }
@@ -2317,8 +2300,7 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
 static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
         Unit *slice;
 
-        /* This adds the siblings of the specified unit and the siblings of all parent units to the cgroup
-         * queue. (But neither the specified unit itself nor the parents.)
+        /* This adds the path from the specified unit to root slice to the queue and siblings at each level.
          *
          * Propagation of realization "side-ways" (i.e. towards siblings) is relevant on cgroup-v1 where
          * scheduling becomes very weird if two units that own processes reside in the same slice, but one is
@@ -2334,7 +2316,6 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                 void *v;
 
                 HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
-
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
                                 continue;
@@ -2360,6 +2341,9 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
 
                 u = slice;
         }
+
+        /* Root slice comes last */
+        unit_add_to_cgroup_realize_queue(u);
 }
 
 int unit_realize_cgroup(Unit *u) {
@@ -2377,9 +2361,10 @@ int unit_realize_cgroup(Unit *u) {
          * get as much resources as all our group together. This call
          * will synchronously create the parent cgroups, but will
          * defer work on the siblings to the next event loop
-         * iteration. */
+         * iteration. When removing a realized controller, it may become unnecessary in ancestors,
+         * so we also ensure deferred bottom up (de)realization of ancestors.
+         */
 
-        /* Add all sibling slices to the cgroup queue. */
         unit_add_siblings_to_cgroup_realize_queue(u);
 
         /* And realize this one now (and apply the values) */
