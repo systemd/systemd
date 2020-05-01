@@ -718,7 +718,7 @@ manpages = [
  ['sd_machine_get_class', '3', ['sd_machine_get_ifindices'], ''],
  ['sd_notify',
   '3',
-  ['sd_notifyf', 'sd_pid_notify', 'sd_pid_notify_with_fds', 'sd_pid_notifyf'],
+  ['sd_notifyf', 'sd_pid_notify', 'sd_pid_notify_with_fds', 'sd_pid_notifyf', 'sd_notify_barrier'],
   ''],
  ['sd_path_lookup', '3', ['sd_path_lookup_strv'], ''],
  ['sd_pid_get_owner_uid',

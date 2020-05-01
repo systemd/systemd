@@ -959,7 +959,14 @@
         <option>exec</option>. Conversely, if an auxiliary process of the unit sends an
         <function>sd_notify()</function> message and immediately exits, the service manager might not be able to
         properly attribute the message to the unit, and thus will ignore it, even if
-        <varname>NotifyAccess=</varname><option>all</option> is set for it.</para></listitem>
+        <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
+        <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of notifications
+        to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as a synchronization point
+        and ensures all notifications sent before this call have been picked up by the service manager when it returns
+        successfully. Use of <function>sd_notify_barrier()</function> is needed for clients which are not invoked by the
+        service manager, otherwise this synchronization mechanism is unnecessary for attribution of notifications to the
+        unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
