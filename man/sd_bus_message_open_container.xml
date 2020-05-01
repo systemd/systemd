@@ -63,7 +63,7 @@
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and similar functions. Containers behave like a stack. To nest containers inside each other, call
     <function>sd_bus_message_open_container()</function> multiple times without calling
-    <function>sd_bus_message_close_container()</function> inbetween. Each container will be nested inside the
+    <function>sd_bus_message_close_container()</function> in between. Each container will be nested inside the
     previous container. <parameter>type</parameter> represents the container type and should be one of
     <literal>r</literal>, <literal>a</literal>, <literal>v</literal> or <literal>e</literal> as described in
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
