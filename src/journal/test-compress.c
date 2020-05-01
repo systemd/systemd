@@ -29,6 +29,8 @@
 # define LZ4_OK -EPROTONOSUPPORT
 #endif
 
+#define HUGE_SIZE (4096*1024)
+
 typedef int (compress_blob_t)(const void *src, uint64_t src_size,
                               void *dst, size_t dst_alloc_size, size_t *dst_size);
 typedef int (decompress_blob_t)(const void *src, uint64_t src_size,
@@ -231,7 +233,6 @@ static void test_lz4_decompress_partial(void) {
         int r;
         _cleanup_free_ char *huge = NULL;
 
-#define HUGE_SIZE (4096*1024)
         assert_se(huge = malloc(HUGE_SIZE));
         memcpy(huge, "HUGE=", STRLEN("HUGE="));
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
