@@ -921,12 +921,6 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                                 GID_INVALID);
                 if (r < 0)
                         return log_error_errno(r, "Failed to change storage type to LUKS: %m");
-
-                if (!h->image_path_auto) {
-                        h->image_path_auto = strjoin("/home/", user_record_user_name_and_realm(h), new_storage == USER_LUKS ? ".home" : ".homedir");
-                        if (!h->image_path_auto)
-                                return log_oom();
-                }
         }
 
         r = user_record_test_image_path_and_warn(h);
