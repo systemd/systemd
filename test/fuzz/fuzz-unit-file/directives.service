@@ -856,6 +856,7 @@ RateLimitIntervalSec=
 ReadKMsg=
 ReadOnly=
 ReadOnlyPaths=
+ReadWriteOnly=
 ReadWritePaths=
 RemoveIPC=
 ReserveVT=

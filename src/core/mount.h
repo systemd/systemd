@@ -59,6 +59,8 @@ struct Mount {
         bool lazy_unmount;
         bool force_unmount;
 
+        bool read_write_only;
+
         MountResult result;
         MountResult reload_result;
         MountResult clean_result;

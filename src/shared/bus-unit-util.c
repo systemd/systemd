@@ -1436,7 +1436,8 @@ static int bus_append_mount_property(sd_bus_message *m, const char *field, const
 
         if (STR_IN_SET(field, "SloppyOptions",
                               "LazyUnmount",
-                              "ForceUnmount"))
+                              "ForceUnmount",
+                              "ReadwriteOnly"))
                 return bus_append_parse_boolean(m, field, eq);
 
         return 0;

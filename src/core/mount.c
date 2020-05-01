@@ -752,6 +752,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSloppyOptions: %s\n"
                 "%sLazyUnmount: %s\n"
                 "%sForceUnmount: %s\n"
+                "%sReadWriteOnly: %s\n"
                 "%sTimeoutSec: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
@@ -767,6 +768,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->sloppy_options),
                 prefix, yes_no(m->lazy_unmount),
                 prefix, yes_no(m->force_unmount),
+                prefix, yes_no(m->read_write_only),
                 prefix, format_timespan(buf, sizeof(buf), m->timeout_usec, USEC_PER_SEC));
 
         if (m->control_pid > 0)
@@ -998,6 +1000,8 @@ static void mount_enter_mounting(Mount *m) {
                 r = exec_command_set(m->control_command, MOUNT_PATH, p->what, m->where, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->read_write_only)
+                        r = exec_command_append(m->control_command, "-w", NULL);
                 if (r >= 0 && p->fstype)
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
                 if (r >= 0 && !isempty(opts))
@@ -1058,6 +1062,8 @@ static void mount_enter_remounting(Mount *m) {
                                      "-o", o, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
+                if (r >= 0 && m->read_write_only)
+                        r = exec_command_append(m->control_command, "-w", NULL);
                 if (r >= 0 && p->fstype)
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
         } else

@@ -51,6 +51,7 @@ const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_PROPERTY("SloppyOptions", "b", bus_property_get_bool, offsetof(Mount, sloppy_options), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LazyUnmount", "b", bus_property_get_bool, offsetof(Mount, lazy_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ForceUnmount", "b", bus_property_get_bool, offsetof(Mount, force_unmount), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ReadWriteOnly", "b", bus_property_get_bool, offsetof(Mount, read_write_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Mount, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -101,6 +102,9 @@ static int bus_mount_set_transient_property(
 
         if (streq(name, "ForceUnmount"))
                 return bus_set_transient_bool(u, name, &m->force_unmount, message, flags, error);
+
+        if (streq(name, "ReadWriteOnly"))
+                return bus_set_transient_bool(u, name, &m->read_write_only, message, flags, error);
 
         return 0;
 }

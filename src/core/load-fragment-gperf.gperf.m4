@@ -429,6 +429,7 @@ Mount.DirectoryMode,             config_parse_mode,                  0,         
 Mount.SloppyOptions,             config_parse_bool,                  0,                             offsetof(Mount, sloppy_options)
 Mount.LazyUnmount,               config_parse_bool,                  0,                             offsetof(Mount, lazy_unmount)
 Mount.ForceUnmount,              config_parse_bool,                  0,                             offsetof(Mount, force_unmount)
+Mount.ReadWriteOnly,             config_parse_bool,                  0,                             offsetof(Mount, read_write_only)
 EXEC_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 CGROUP_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
 KILL_CONTEXT_CONFIG_ITEMS(Mount)m4_dnl
