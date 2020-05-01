@@ -48,11 +48,15 @@ BuildPackages=
         python3
         python3-lxml
         qrencode-devel
+        system-user-nobody
         zlib-devel
 # to satisfy tests
         acl
         glibc-locale
         system-group-obsolete
+        system-user-bin
+        system-user-daemon
+        system-user-root
         timezone
 
 Packages=
