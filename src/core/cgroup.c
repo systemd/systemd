@@ -2112,7 +2112,7 @@ void unit_add_to_cgroup_realize_queue(Unit *u) {
         if (u->in_cgroup_realize_queue)
                 return;
 
-        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        LIST_APPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
         u->in_cgroup_realize_queue = true;
 }
 
