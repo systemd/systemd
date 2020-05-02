@@ -224,6 +224,10 @@ static void test_compress_stream(int compression,
 }
 #endif
 
+#if HAVE_XZ || HAVE_LZ4
+#define HUGE_SIZE (4096*1024)
+#endif
+
 #if HAVE_LZ4
 static void test_lz4_decompress_partial(void) {
         char buf[20000], buf2[100];
@@ -231,7 +235,6 @@ static void test_lz4_decompress_partial(void) {
         int r;
         _cleanup_free_ char *huge = NULL;
 
-#define HUGE_SIZE (4096*1024)
         assert_se(huge = malloc(HUGE_SIZE));
         memcpy(huge, "HUGE=", STRLEN("HUGE="));
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
