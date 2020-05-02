@@ -388,7 +388,7 @@ static void test_cg_get_keyed_attribute(void) {
         assert_se(val == NULL);
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
-        free(val);
+        val = mfree(val);
 
         assert_se(cg_get_keyed_attribute_graceful("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 1);
         log_info("cpu /init.scope cpu.stat [usage_usec] → \"%s\"", val);
