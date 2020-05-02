@@ -252,12 +252,14 @@ static int ipv4ll_start_internal(sd_ipv4ll *ll, bool reset_generation) {
                 return r;
         }
 
-        return 0;
+        return 1;
 }
 
 int sd_ipv4ll_start(sd_ipv4ll *ll) {
         assert_return(ll, -EINVAL);
-        assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
+
+        if (sd_ipv4ll_is_running(ll))
+                return 0;
 
         return ipv4ll_start_internal(ll, true);
 }

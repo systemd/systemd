@@ -159,10 +159,10 @@ static void test_basic_request(sd_event *e) {
         assert_se(sd_ipv4ll_start(ll) == -EINVAL);
 
         assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
-        assert_se(sd_ipv4ll_start(ll) == 0);
+        assert_se(sd_ipv4ll_start(ll) == 1);
 
         sd_event_run(e, (uint64_t) -1);
-        assert_se(sd_ipv4ll_start(ll) == -EBUSY);
+        assert_se(sd_ipv4ll_start(ll) == 0);
 
         assert_se(sd_ipv4ll_is_running(ll));
 
