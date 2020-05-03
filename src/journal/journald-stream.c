@@ -511,8 +511,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                 goto terminate;
         }
 
-        /* If the buffer is full already (discounting the extra NUL we need), add room for another 1K */
-        if (s->length + 1 >= s->allocated) {
+        /* If the buffer is almost full, add room for another 1K */
+        if (s->length + 512 >= s->allocated) {
                 if (!GREEDY_REALLOC(s->buffer, s->allocated, s->length + 1 + 1024)) {
                         log_oom();
                         goto terminate;
