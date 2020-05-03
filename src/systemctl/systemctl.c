@@ -547,13 +547,7 @@ static int get_unit_list(
         assert(unit_infos);
         assert(_reply);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnitsByPatterns");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitsByPatterns");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -574,13 +568,7 @@ static int get_unit_list(
                 m = sd_bus_message_unref(m);
                 sd_bus_error_free(&error);
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ListUnitsFiltered");
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitsFiltered");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1620,13 +1608,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ListUnitFilesByPatterns");
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitFilesByPatterns");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1658,13 +1640,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         m = sd_bus_message_unref(m);
                         sd_bus_error_free(&error);
 
-                        r = sd_bus_message_new_method_call(
-                                        bus,
-                                        &m,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "ListUnitFiles");
+                        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitFiles");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -2178,15 +2154,7 @@ static int determine_default(char **ret_name) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "GetDefaultTarget",
-                                &error,
-                                &reply,
-                                NULL);
+                r = bus_call_method(bus, bus_systemd_mgr, "GetDefaultTarget", &error, &reply, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get default target: %s", bus_error_message(&error, r));
 
@@ -2245,15 +2213,7 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "SetDefaultTarget",
-                                &error,
-                                &reply,
-                                "sb", unit, 1);
+                r = bus_call_method(bus, bus_systemd_mgr, "SetDefaultTarget", &error, &reply, "sb", unit, 1);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set default target: %s", bus_error_message(&error, r));
 
@@ -2296,15 +2256,7 @@ static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const cha
 
         assert(bus);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method,
-                        &error,
-                        &reply,
-                        "u", id);
+        r = bus_call_method(bus, bus_systemd_mgr, method, &error, &reply, "u", id);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get waiting jobs for job %" PRIu32, id);
 
@@ -2429,15 +2381,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListJobs",
-                        &error,
-                        &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "ListJobs", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list jobs: %s", bus_error_message(&error, r));
 
@@ -2493,15 +2437,7 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
                 if (q < 0)
                         return log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
 
-                q = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "CancelJob",
-                                &error,
-                                NULL,
-                                "u", id);
+                q = bus_call_method(bus, bus_systemd_mgr, "CancelJob", &error, NULL, "u", id);
                 if (q < 0) {
                         log_error_errno(q, "Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, q));
                         if (r == 0)
@@ -2523,15 +2459,7 @@ static int need_daemon_reload(sd_bus *bus, const char *unit) {
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnit",
-                        NULL,
-                        &reply,
-                        "s", unit);
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnit", NULL, &reply, "s", unit);
         if (r < 0)
                 return r;
 
@@ -2955,11 +2883,9 @@ static int start_unit_one(
                 _cleanup_(sd_bus_error_free) sd_bus_error enqueue_error = SD_BUS_ERROR_NULL;
 
                 /* Use the new, fancy EnqueueUnitJob() API if the user wants us to print the transaction */
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "EnqueueUnitJob",
                                 &enqueue_error,
                                 &reply,
@@ -3005,15 +2931,7 @@ static int start_unit_one(
         }
 
         if (!done) {
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                method,
-                                error,
-                                &reply,
-                                "ss", name, mode);
+                r = bus_call_method(bus, bus_systemd_mgr, method, error, &reply, "ss", name, mode);
                 if (r < 0)
                         goto fail;
 
@@ -3202,15 +3120,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                r = sd_bus_call_method_async(
-                                bus,
-                                NULL,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "Subscribe",
-                                NULL, NULL,
-                                NULL);
+                r = bus_call_method_async(bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enable subscription: %m");
 
@@ -3277,18 +3187,7 @@ static int logind_set_wall_message(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "SetWallMessage",
-                        &error,
-                        NULL,
-                        "sb",
-                        m,
-                        !arg_no_wall);
-
+        r = bus_call_method(bus, bus_login_mgr, "SetWallMessage", &error, NULL, "sb", m, !arg_no_wall);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set wall message, ignoring: %s", bus_error_message(&error, r));
         return 0;
@@ -3330,15 +3229,7 @@ static int logind_reboot(enum action a) {
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        actions[a].method,
-                        &error,
-                        NULL,
-                        "b", arg_ask_password);
+        r = bus_call_method(bus, bus_login_mgr, actions[a].method, &error, NULL, "b", arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to %s via logind: %s", actions[a].description, bus_error_message(&error, r));
 
@@ -3378,15 +3269,7 @@ static int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ListInhibitors",
-                        NULL,
-                        &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
         if (r < 0)
                 /* If logind is not around, then there are no inhibitors... */
                 return 0;
@@ -3481,15 +3364,7 @@ static int prepare_firmware_setup(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "SetRebootToFirmwareSetup",
-                        &error,
-                        NULL,
-                        "b", true);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToFirmwareSetup", &error, NULL, "b", true);
         if (r < 0)
                 return log_error_errno(r, "Cannot indicate to EFI to boot into setup mode: %s", bus_error_message(&error, r));
 
@@ -3514,15 +3389,7 @@ static int prepare_boot_loader_menu(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "SetRebootToBootLoaderMenu",
-                        &error,
-                        NULL,
-                        "t", arg_boot_loader_menu);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderMenu", &error, NULL, "t", arg_boot_loader_menu);
         if (r < 0)
                 return log_error_errno(r, "Cannot indicate to boot loader to enter boot loader entry menu: %s", bus_error_message(&error, r));
 
@@ -3547,15 +3414,7 @@ static int prepare_boot_loader_entry(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "SetRebootToBootLoaderEntry",
-                        &error,
-                        NULL,
-                        "s", arg_boot_loader_entry);
+        r = bus_call_method(bus, bus_login_mgr, "SetRebootToBootLoaderEntry", &error, NULL, "s", arg_boot_loader_entry);
         if (r < 0)
                 return log_error_errno(r, "Cannot set boot into loader entry '%s': %s", arg_boot_loader_entry, bus_error_message(&error, r));
 
@@ -3658,15 +3517,7 @@ static int set_exit_code(uint8_t code) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SetExitCode",
-                        &error,
-                        NULL,
-                        "y", code);
+        r = bus_call_method(bus, bus_systemd_mgr, "SetExitCode", &error, NULL, "y", code);
         if (r < 0)
                 return log_error_errno(r, "Failed to set exit code: %s", bus_error_message(&error, r));
 
@@ -3871,11 +3722,9 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_call_method(
+                q = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "KillUnit",
                                 &error,
                                 NULL,
@@ -3933,15 +3782,7 @@ static int clean_or_freeze_unit(int argc, char *argv[], void *userdata) {
 
                 if (w) {
                         /* If we shall wait for the cleaning to complete, let's add a ref on the unit first */
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "RefUnit",
-                                        &error,
-                                        NULL,
-                                        "s", *name);
+                        r = bus_call_method(bus, bus_systemd_mgr, "RefUnit", &error, NULL, "s", *name);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to add reference to unit %s: %s", *name, bus_error_message(&error, r));
                                 if (ret == EXIT_SUCCESS)
@@ -3950,13 +3791,7 @@ static int clean_or_freeze_unit(int argc, char *argv[], void *userdata) {
                         }
                 }
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                method);
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -5794,15 +5629,7 @@ static int get_unit_dbus_path_by_pid(
         char *u;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnitByPID",
-                        &error,
-                        &reply,
-                        "u", pid);
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitByPID", &error, &reply, "u", pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit for PID %"PRIu32": %s", pid, bus_error_message(&error, r));
 
@@ -6131,13 +5958,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SetUnitProperties");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "SetUnitProperties");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -6204,13 +6025,7 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
                 assert_not_reached("Unexpected action");
         }
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method);
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -6258,15 +6073,7 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
                 streq(argv[0], "exit")          ? "Exit" :
                              /* poweroff */       "PowerOff";
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method,
-                        &error,
-                        NULL,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, method, &error, NULL, NULL);
         if (r < 0 && arg_action == ACTION_SYSTEMCTL)
                 return log_error_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
 
@@ -6298,15 +6105,7 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ResetFailedUnit",
-                                &error,
-                                NULL,
-                                "s", *name);
+                q = bus_call_method(bus, bus_systemd_mgr, "ResetFailedUnit", &error, NULL, "s", *name);
                 if (q < 0) {
                         log_error_errno(q, "Failed to reset failed state of unit %s: %s", *name, bus_error_message(&error, q));
                         if (r == 0)
@@ -6347,15 +6146,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        r = sd_bus_get_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Environment",
-                        &error,
-                        &reply,
-                        "as");
+        r = bus_get_property(bus, bus_systemd_mgr, "Environment", &error, &reply, "as");
         if (r < 0)
                 return log_error_errno(r, "Failed to get environment: %s", bus_error_message(&error, r));
 
@@ -6436,15 +6227,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SwitchRoot",
-                        &error,
-                        NULL,
-                        "ss", root, init);
+        r = bus_call_method(bus, bus_systemd_mgr, "SwitchRoot", &error, NULL, "ss", root, init);
         if (r < 0) {
                 (void) default_signals(SIGTERM, -1);
 
@@ -6466,14 +6249,7 @@ static int log_level(int argc, char *argv[], void *userdata) {
         if (argc == 1) {
                 _cleanup_free_ char *level = NULL;
 
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LogLevel",
-                                &error,
-                                &level);
+                r = bus_get_property_string(bus, bus_systemd_mgr, "LogLevel", &error, &level);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
 
@@ -6482,15 +6258,7 @@ static int log_level(int argc, char *argv[], void *userdata) {
         } else {
                 assert(argc == 2);
 
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LogLevel",
-                                &error,
-                                "s",
-                                argv[1]);
+                r = bus_set_property(bus, bus_systemd_mgr, "LogLevel", &error, "s", argv[1]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
         }
@@ -6510,14 +6278,7 @@ static int log_target(int argc, char *argv[], void *userdata) {
         if (argc == 1) {
                 _cleanup_free_ char *target = NULL;
 
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LogTarget",
-                                &error,
-                                &target);
+                r = bus_get_property_string(bus, bus_systemd_mgr, "LogTarget", &error, &target);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
 
@@ -6526,15 +6287,7 @@ static int log_target(int argc, char *argv[], void *userdata) {
         } else {
                 assert(argc == 2);
 
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "LogTarget",
-                                &error,
-                                "s",
-                                argv[1]);
+                r = bus_set_property(bus, bus_systemd_mgr, "LogTarget", &error, "s", argv[1]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set log target: %s", bus_error_message(&error, r));
         }
@@ -6555,15 +6308,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 
         if (argc == 1) {
                 /* get ServiceWatchdogs */
-                r = sd_bus_get_property_trivial(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ServiceWatchdogs",
-                                &error,
-                                'b',
-                                &b);
+                r = bus_get_property_trivial(bus, bus_systemd_mgr, "ServiceWatchdogs", &error, 'b', &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get service-watchdog state: %s", bus_error_message(&error, r));
 
@@ -6577,15 +6322,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
                 if (b < 0)
                         return log_error_errno(b, "Failed to parse service-watchdogs argument: %m");
 
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ServiceWatchdogs",
-                                &error,
-                                "b",
-                                b);
+                r = bus_set_property(bus, bus_systemd_mgr, "ServiceWatchdogs", &error, "b", b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
         }
@@ -6613,13 +6350,7 @@ static int set_environment(int argc, char *argv[], void *userdata) {
                 ? "SetEnvironment"
                 : "UnsetEnvironment";
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        method);
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -6646,13 +6377,7 @@ static int import_environment(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SetEnvironment");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "SetEnvironment");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -7091,13 +6816,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                 } else
                         assert_not_reached("Unknown verb");
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                method);
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -7233,13 +6952,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
 
                 polkit_agent_open_maybe();
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "AddDependencyUnitFiles");
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "AddDependencyUnitFiles");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -7295,11 +7008,9 @@ static int preset_all(int argc, char *argv[], void *userdata) {
 
                 polkit_agent_open_maybe();
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "PresetAllUnitFiles",
                                 &error,
                                 &reply,
@@ -7356,15 +7067,7 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
         const char *link;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnitFileLinks",
-                        &error,
-                        &reply,
-                        "sb", name, arg_runtime);
+        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileLinks", &error, &reply, "sb", name, arg_runtime);
         if (r < 0)
                 return log_error_errno(r, "Failed to get unit file links for %s: %s", name, bus_error_message(&error, r));
 
@@ -7441,15 +7144,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
-                        r = sd_bus_call_method(
-                                        bus,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
-                                        "GetUnitFileState",
-                                        &error,
-                                        &reply,
-                                        "s", *name);
+                        r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", *name);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get unit file state for %s: %s", *name, bus_error_message(&error, r));
 
@@ -7480,14 +7175,7 @@ static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_erro
 
         assert(state);
 
-        r = sd_bus_get_property_string(
-                        sd_bus_message_get_bus(m),
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SystemState",
-                        NULL,
-                        state);
+        r = bus_get_property_string(sd_bus_message_get_bus(m), bus_systemd_mgr, "SystemState", NULL, state);
 
         sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), r);
         return 0;
@@ -7516,12 +7204,10 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
                 if (r >= 0)
                         r = sd_bus_attach_event(bus, event, 0);
                 if (r >= 0)
-                        r = sd_bus_match_signal_async(
+                        r = bus_match_signal_async(
                                         bus,
                                         &slot_startup_finished,
-                                        "org.freedesktop.systemd1",
-                                        "/org/freedesktop/systemd1",
-                                        "org.freedesktop.systemd1.Manager",
+                                        bus_systemd_mgr,
                                         "StartupFinished",
                                         match_startup_finished, NULL, &state);
                 if (r < 0) {
@@ -7530,14 +7216,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "SystemState",
-                        &error,
-                        &state);
+        r = bus_get_property_string(bus, bus_systemd_mgr, "SystemState", &error, &state);
         if (r < 0) {
                 log_warning_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
 
@@ -8295,14 +7974,7 @@ static int help_boot_loader_entry(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_property_strv(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "BootLoaderEntries",
-                        &error,
-                        &l);
+        r = bus_get_property_strv(bus, bus_login_mgr, "BootLoaderEntries", &error, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate boot loader entries: %s", bus_error_message(&error, r));
 
@@ -9414,17 +9086,7 @@ static int logind_schedule_shutdown(void) {
 
         (void) logind_set_wall_message();
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ScheduleShutdown",
-                        &error,
-                        NULL,
-                        "st",
-                        action,
-                        arg_when);
+        r = bus_call_method(bus, bus_login_mgr, "ScheduleShutdown", &error, NULL, "st", action, arg_when);
         if (r < 0)
                 return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
 
@@ -9526,14 +9188,7 @@ static int logind_cancel_shutdown(void) {
 
         (void) logind_set_wall_message();
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "CancelScheduledShutdown",
-                        &error,
-                        NULL, NULL);
+        r = bus_call_method(bus, bus_login_mgr, "CancelScheduledShutdown", &error, NULL, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to talk to logind, shutdown hasn't been cancelled: %s", bus_error_message(&error, r));
 
