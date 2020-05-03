@@ -1625,11 +1625,9 @@ static int execute_shutdown_or_sleep(
         if (w == INHIBIT_SHUTDOWN)
                 bus_manager_log_shutdown(m, unit_name);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "StartUnit",
                         error,
                         &reply,
@@ -3981,13 +3979,7 @@ int manager_start_scope(
         assert(pid > 1);
         assert(job);
 
-        r = sd_bus_message_new_method_call(
-                        manager->bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(manager->bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return r;
 
@@ -4074,11 +4066,9 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
         assert(unit);
         assert(job);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "StartUnit",
                         error,
                         &reply,
@@ -4097,11 +4087,9 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         assert(unit);
         assert(job);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "StopUnit",
                         error,
                         &reply,
@@ -4159,11 +4147,9 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
         assert(manager);
         assert(unit);
 
-        return sd_bus_call_method(
+        return bus_call_method(
                         manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "KillUnit",
                         error,
                         NULL,
