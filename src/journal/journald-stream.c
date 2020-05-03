@@ -425,7 +425,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         assert_not_reached("Unknown stream state");
 }
 
-static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
+static int stdout_stream_scan(StdoutStream *s) {
         char *p;
         size_t remaining;
         int r;
@@ -435,7 +435,7 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
         p = s->buffer;
         remaining = s->length;
 
-        /* XXX: This function does nothing if (s->length == 0) */
+        /* This function is always called with s->length > 0 */
 
         for (;;) {
                 LineBreak line_break;
@@ -470,20 +470,46 @@ static int stdout_stream_scan(StdoutStream *s, bool force_flush) {
                 p += skip;
         }
 
-        if (force_flush && remaining > 0) {
-                p[remaining] = 0;
-                r = stdout_stream_line(s, p, LINE_BREAK_EOF);
-                if (r < 0)
-                        return r;
-
-                p += remaining;
-                remaining = 0;
-        }
-
         if (p > s->buffer) {
                 memmove(s->buffer, p, remaining);
                 s->length = remaining;
         }
+
+        return 0;
+}
+
+static int stdout_stream_flush(StdoutStream *s, size_t new_rcv_len) {
+        char *p;
+        size_t current_len;
+        int r;
+
+        assert(s);
+
+        p = s->buffer;
+        current_len = s->length;
+
+        /* This function flush the current content of the stream buffer. This part was
+         * already scanned by stdout_stream_scan(), so no need to do it again.
+         * Then the new received length content is moved to the beginning of the buffer,
+         * and the buffer length is updated with this new length */
+
+        if (current_len > 0) {
+                char saved_char;
+
+                saved_char = p[current_len];
+                p[current_len] = '\0';
+
+                r = stdout_stream_line(s, p, LINE_BREAK_EOF);
+                if (r < 0)
+                        return r;
+
+                if (new_rcv_len > 0) {
+                        p[current_len] = saved_char;
+                        memmove(p, &p[current_len], new_rcv_len);
+                }
+        }
+
+        s->length = new_rcv_len;
 
         return 0;
 }
@@ -536,7 +562,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         cmsg_close_all(&msghdr);
 
         if (l == 0) {
-                stdout_stream_scan(s, true);
+                stdout_stream_flush(s, 0);
                 goto terminate;
         }
 
@@ -548,28 +574,17 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         if (ucred && ucred->pid != s->ucred.pid) {
                 /* force out any previously half-written lines from a different process, before we switch to
                  * the new ucred structure for everything we just added */
-                if (s->length > 0) {
-                        char saved_char;
-
-                        saved_char = s->buffer[s->length];
-                        s->buffer[s->length] = '\0';
-
-                        r = stdout_stream_line(s, s->buffer, LINE_BREAK_EOF);
-                        if (r < 0)
-                                goto terminate;
-
-                        s->buffer[s->length] = saved_char;
-                        memmove(s->buffer, &s->buffer[s->length], l);
-                        s->length = 0;
-                }
+                r = stdout_stream_flush(s, l);
+                if (r < 0)
+                        goto terminate;
 
                 s->ucred = *ucred;
                 client_context_release(s->server, s->context);
                 s->context = NULL;
-        }
+        } else
+                s->length += l;
 
-        s->length += l;
-        r = stdout_stream_scan(s, false);
+        r = stdout_stream_scan(s);
         if (r < 0)
                 goto terminate;
 
