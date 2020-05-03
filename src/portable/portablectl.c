@@ -239,13 +239,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "GetImageMetadata");
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageMetadata");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -554,13 +548,7 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not watch jobs: %m");
 
-        r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "GetImageMetadata");
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageMetadata");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -643,13 +631,7 @@ static int attach_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "AttachImage");
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "AttachImage");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -697,15 +679,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
 
         (void) maybe_stop_disable(bus, image, argv);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "DetachImage",
-                        &error,
-                        &reply,
-                        "sb", image, arg_runtime);
+        r = bus_call_method(bus, bus_portable_mgr, "DetachImage", &error, &reply, "sb", image, arg_runtime);
         if (r < 0)
                 return log_error_errno(r, "Failed to detach image: %s", bus_error_message(&error, r));
 
@@ -726,15 +700,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "ListImages",
-                        &error,
-                        &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_portable_mgr, "ListImages", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list images: %s", bus_error_message(&error, r));
 
@@ -811,13 +777,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "RemoveImage");
+                r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "RemoveImage");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -851,15 +811,7 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "MarkImageReadOnly",
-                        &error,
-                        NULL,
-                        "sb", argv[1], b);
+        r = bus_call_method(bus, bus_portable_mgr, "MarkImageReadOnly", &error, NULL, "sb", argv[1], b);
         if (r < 0)
                 return log_error_errno(r, "Could not mark image read-only: %s", bus_error_message(&error, r));
 
@@ -888,26 +840,10 @@ static int set_limit(int argc, char *argv[], void *userdata) {
 
         if (argc > 2)
                 /* With two arguments changes the quota limit of the specified image */
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "SetImageLimit",
-                                &error,
-                                NULL,
-                                "st", argv[1], limit);
+                r = bus_call_method(bus, bus_portable_mgr, "SetImageLimit", &error, NULL, "st", argv[1], limit);
         else
                 /* With one argument changes the pool quota limit */
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.portable1",
-                                "/org/freedesktop/portable1",
-                                "org.freedesktop.portable1.Manager",
-                                "SetPoolLimit",
-                                &error,
-                                NULL,
-                                "t", limit);
+                r = bus_call_method(bus, bus_portable_mgr, "SetPoolLimit", &error, NULL, "t", limit);
 
         if (r < 0)
                 return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));
@@ -931,15 +867,7 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "GetImageState",
-                        &error,
-                        &reply,
-                        "s", image);
+        r = bus_call_method(bus, bus_portable_mgr, "GetImageState", &error, &reply, "s", image);
         if (r < 0)
                 return log_error_errno(r, "Failed to get image state: %s", bus_error_message(&error, r));
 
@@ -964,14 +892,7 @@ static int dump_profiles(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_property_strv(
-                        bus,
-                        "org.freedesktop.portable1",
-                        "/org/freedesktop/portable1",
-                        "org.freedesktop.portable1.Manager",
-                        "Profiles",
-                        &error,
-                        &l);
+        r = bus_get_property_strv(bus, bus_portable_mgr, "Profiles", &error, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire list of profiles: %s", bus_error_message(&error, r));
 
