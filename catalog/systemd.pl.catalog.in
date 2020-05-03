@@ -411,3 +411,26 @@ i jądro wymusiło zakończenie jego działania.
 
 Proszę zauważyć, że brak pamięci mógł nie zostać spowodowany
 przez jednostkę @UNIT@.
+
+-- b61fdac612e94b9182285b998843061f
+Subject: Przyjmowanie nazwy użytkownika/grupy @USER_GROUP_NAME@, która nie zgadza się ze ścisłymi regułami nazw użytkowników/grup.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Podano nazwę użytkownika/grupy @USER_GROUP_NAME@, co zostało przyjęte
+zgodnie z rozluźnionymi regułami nazw użytkowników/grup, ale nie spełnia
+ścisłych reguł.
+
+Ścisłe reguły nazw użytkowników/grup zapisane jako wyrażenie regularne to:
+
+^[a-zA-Z_][a-zA-Z0-9_-]{0,30}$
+
+Rozluźnione reguły nazw użytkowników/grup przyjmują wszystkie nazwy,
+oprócz pustego ciągu, nazw zawierających bajty NUL, znaki kontrolne,
+dwukropki lub ukośniki, nazw niebędących prawidłowym tekstem UTF-8,
+nazw z początkową lub końcową spacją, ciągów „.” lub „..”, ciągów
+zawierających tylko cyfry lub ciągów zaczynających się myślnikiem
+i zawierających oprócz niego tylko cyfry.
+
+https://systemd.io/USER_NAMES zawiera więcej informacji o ścisłych
+i rozluźnionych regułach nazw użytkowników/grup.
