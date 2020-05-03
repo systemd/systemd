@@ -2302,15 +2302,7 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "RenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
+        r = bus_call_method(bus, bus_network_mgr, "RenewLink", &error, NULL, "i", index);
         if (r < 0)
                 return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
                                        name, bus_error_message(&error, r));
@@ -2344,15 +2336,7 @@ static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "ForceRenewLink",
-                        &error,
-                        NULL,
-                        "i", index);
+        r = bus_call_method(bus, bus_network_mgr, "ForceRenewLink", &error, NULL, "i", index);
         if (r < 0)
                 return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
                                        name, bus_error_message(&error, r));
@@ -2391,13 +2375,7 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "Reload",
-                        &error, NULL, NULL);
+        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload network settings: %m");
 
@@ -2433,13 +2411,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
 
         SET_FOREACH(p, indexes, j) {
                 index = PTR_TO_INT(p);
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "ReconfigureLink",
-                                &error, NULL, "i", index);
+                r = bus_call_method(bus, bus_network_mgr, "ReconfigureLink", &error, NULL, "i", index);
                 if (r < 0) {
                         char ifname[IF_NAMESIZE + 1];
 
