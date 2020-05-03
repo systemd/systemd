@@ -471,11 +471,9 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
         assert(bus);
         assert(error);
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                 bus,
-                "org.freedesktop.systemd1",
-                "/org/freedesktop/systemd1",
-                "org.freedesktop.systemd1.Manager",
+                bus_systemd_mgr,
                 start ? "StartUnit" : "StopUnit",
                 error,
                 &reply,
@@ -515,11 +513,9 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         log_unit_info(u, "%s unit.", enable ? "Enabling" : "Disabling");
 
         if (enable)
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "EnableUnitFiles",
                                 error,
                                 NULL,
@@ -527,11 +523,9 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                                 u->name,
                                 false, true);
         else
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "DisableUnitFiles",
                                 error,
                                 NULL,
@@ -541,15 +535,7 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload",
-                        error,
-                        NULL,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Reload", error, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -952,12 +938,10 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 u->path = mfree(u->path);
 
         if (!c->slot_job_removed) {
-                r = sd_bus_match_signal_async(
+                r = bus_match_signal_async(
                                 bus,
                                 &slot,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
+                                bus_systemd_mgr,
                                 "JobRemoved",
                                 match_job_removed, NULL, c);
                 if (r < 0)
