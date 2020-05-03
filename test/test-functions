@@ -725,6 +725,7 @@ mount_initdir() {
         image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
         LOOPDEV=$(losetup --show -P -f "$image")
         [ -b "$LOOPDEV" ] || return 1
+        blockdev --rereadpt "$LOOPDEV"
 
         udevadm settle
     fi
