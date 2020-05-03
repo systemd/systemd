@@ -72,6 +72,7 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
 ! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 
+sleep 1
 homectl remove test-user
 
 systemd-analyze log-level info
