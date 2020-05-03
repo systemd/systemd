@@ -548,9 +548,20 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
         if (ucred && ucred->pid != s->ucred.pid) {
                 /* force out any previously half-written lines from a different process, before we switch to
                  * the new ucred structure for everything we just added */
-                r = stdout_stream_scan(s, true);
-                if (r < 0)
-                        goto terminate;
+                if (s->length > 0) {
+                        char saved_char;
+
+                        saved_char = s->buffer[s->length];
+                        s->buffer[s->length] = '\0';
+
+                        r = stdout_stream_line(s, s->buffer, LINE_BREAK_EOF);
+                        if (r < 0)
+                                goto terminate;
+
+                        s->buffer[s->length] = saved_char;
+                        memmove(s->buffer, &s->buffer[s->length], l);
+                        s->length = 0;
+                }
 
                 s->ucred = *ucred;
                 client_context_release(s->server, s->context);
