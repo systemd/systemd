@@ -879,23 +879,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/home1", "org.freedesktop.home1.Manager", manager_vtable, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/home1/home", "org.freedesktop.home1.Home", home_vtable, bus_home_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add image object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/home1/home", bus_home_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add image enumerator: %m");
-
-        r = sd_bus_add_object_manager(m->bus, NULL, "/org/freedesktop/home1/home");
-        if (r < 0)
-                return log_error_errno(r, "Failed to add object manager: %m");
-
-        r = bus_log_control_api_register(m->bus);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
                 return r;
 

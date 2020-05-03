@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-util.h"
 #include "homed-home.h"
 
 int bus_home_client_is_trusted(Home *h, sd_bus_message *message);
@@ -25,12 +26,9 @@ int bus_home_method_acquire(sd_bus_message *message, void *userdata, sd_bus_erro
 int bus_home_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-extern const sd_bus_vtable home_vtable[];
+extern const BusObjectImplementation home_object;
 
 int bus_home_path(Home *h, char **ret);
-
-int bus_home_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error);
-int bus_home_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error);
 
 int bus_home_emit_change(Home *h);
 int bus_home_emit_remove(Home *h);

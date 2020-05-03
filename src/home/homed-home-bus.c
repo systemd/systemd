@@ -712,38 +712,13 @@ int bus_home_method_release(
 /* We map a uid_t as uint32_t bus property, let's ensure this is safe. */
 assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
-const sd_bus_vtable home_vtable[] = {
-        SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("UserName", "s", NULL, offsetof(Home, user_name), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("UID", "u", NULL, offsetof(Home, uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("UnixRecord", "(suusss)", property_get_unix_record, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("State", "s", property_get_state, 0, 0),
-        SD_BUS_PROPERTY("UserRecord", "(sb)", property_get_user_record, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Activate", "s", NULL, bus_home_method_activate, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Deactivate", NULL, NULL, bus_home_method_deactivate, 0),
-        SD_BUS_METHOD("Unregister", NULL, NULL, bus_home_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Realize", "s", NULL, bus_home_method_realize, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Remove", NULL, NULL, bus_home_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Fixate", "s", NULL, bus_home_method_fixate, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Authenticate", "s", NULL, bus_home_method_authenticate, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Update", "s", NULL, bus_home_method_update, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Resize", "ts", NULL, bus_home_method_resize, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("ChangePassword", "ss", NULL, bus_home_method_change_password, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Lock", NULL, NULL, bus_home_method_lock, 0),
-        SD_BUS_METHOD("Unlock", "s", NULL, bus_home_method_unlock, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Acquire", "sb", "h", bus_home_method_acquire, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("Ref", "b", "h", bus_home_method_ref, 0),
-        SD_BUS_METHOD("Release", NULL, NULL, bus_home_method_release, 0),
-        SD_BUS_VTABLE_END
-};
-
 int bus_home_path(Home *h, char **ret) {
         assert(ret);
 
         return sd_bus_path_encode("/org/freedesktop/home1/home", h->user_name, ret);
 }
 
-int bus_home_object_find(
+static int bus_home_object_find(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -772,7 +747,7 @@ int bus_home_object_find(
         return 1;
 }
 
-int bus_home_node_enumerator(
+static int bus_home_node_enumerator(
                 sd_bus *bus,
                 const char *path,
                 void *userdata,
@@ -801,6 +776,107 @@ int bus_home_node_enumerator(
         *nodes = TAKE_PTR(l);
         return 1;
 }
+
+const sd_bus_vtable home_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("UserName", "s",
+                        NULL, offsetof(Home, user_name),
+                        SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UID", "u",
+                        NULL, offsetof(Home, uid),
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("UnixRecord", "(suusss)",
+                        property_get_unix_record, 0,
+                        SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("State", "s",
+                        property_get_state, 0,
+                        0),
+        SD_BUS_PROPERTY("UserRecord", "(sb)",
+                        property_get_user_record, 0,
+                        SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION|SD_BUS_VTABLE_SENSITIVE),
+
+        SD_BUS_METHOD_WITH_NAMES("Activate",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_activate,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD("Deactivate", NULL, NULL, bus_home_method_deactivate, 0),
+        SD_BUS_METHOD("Unregister", NULL, NULL, bus_home_method_unregister, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Realize",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_realize,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        SD_BUS_METHOD("Remove", NULL, NULL, bus_home_method_remove, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Fixate",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_fixate,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("Authenticate",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_authenticate,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("Update",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_update,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("Resize",
+                                 "ts",
+                                 SD_BUS_PARAM(size)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_resize,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("ChangePassword",
+                                 "ss",
+                                 SD_BUS_PARAM(new_user_record)
+                                 SD_BUS_PARAM(old_user_record),
+                                 NULL,,
+                                 bus_home_method_change_password,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD("Lock", NULL, NULL, bus_home_method_lock, 0),
+        SD_BUS_METHOD_WITH_NAMES("Unlock",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 bus_home_method_unlock,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("Acquire",
+                                 "sb",
+                                 SD_BUS_PARAM(user_record)
+                                 SD_BUS_PARAM(please_suspend),
+                                 "h",
+                                 SD_BUS_PARAM(send_fd),
+                                 bus_home_method_acquire,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("Ref",
+                                 "b",
+                                 SD_BUS_PARAM(please_suspend),
+                                 "h",
+                                 SD_BUS_PARAM(send_fd),
+                                 bus_home_method_ref,
+                                 0),
+        SD_BUS_METHOD("Release", NULL, NULL, bus_home_method_release, 0),
+        SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation home_object = {
+        "/org/freedesktop/home1/home",
+        "org.freedesktop.home1.Home",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({home_vtable, bus_home_object_find}),
+        .node_enumerator = bus_home_node_enumerator,
+        .manager = true,
+};
 
 static int on_deferred_change(sd_event_source *s, void *userdata) {
         _cleanup_free_ char *path = NULL;

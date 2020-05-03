@@ -600,49 +600,222 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable manager_vtable[] = {
+static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("AutoLogin", "a(sso)", property_get_auto_login, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
-        SD_BUS_METHOD("GetHomeByName", "s", "usussso", method_get_home_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetHomeByUID", "u", "ssussso", method_get_home_by_uid, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUserRecordByName", "s", "sbo", method_get_user_record_by_name, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("GetUserRecordByUID", "u", "sbo", method_get_user_record_by_uid, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("ListHomes", NULL, "a(susussso)", method_list_homes, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetHomeByName",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 "usussso",
+                                 SD_BUS_PARAM(uid)
+                                 SD_BUS_PARAM(home_state)
+                                 SD_BUS_PARAM(gid)
+                                 SD_BUS_PARAM(real_name)
+                                 SD_BUS_PARAM(home_directory)
+                                 SD_BUS_PARAM(shell)
+                                 SD_BUS_PARAM(bus_path),
+                                 method_get_home_by_name,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetHomeByUID",
+                                 "u",
+                                 SD_BUS_PARAM(uid),
+                                 "ssussso",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(home_state)
+                                 SD_BUS_PARAM(gid)
+                                 SD_BUS_PARAM(real_name)
+                                 SD_BUS_PARAM(home_directory)
+                                 SD_BUS_PARAM(shell)
+                                 SD_BUS_PARAM(bus_path),
+                                 method_get_home_by_uid,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUserRecordByName",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 "sbo",
+                                 SD_BUS_PARAM(user_record)
+                                 SD_BUS_PARAM(incomplete)
+                                 SD_BUS_PARAM(bus_path),
+                                 method_get_user_record_by_name,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("GetUserRecordByUID",
+                                 "u",
+                                 SD_BUS_PARAM(uid),
+                                 "sbo",
+                                 SD_BUS_PARAM(user_record)
+                                 SD_BUS_PARAM(incomplete)
+                                 SD_BUS_PARAM(bus_path),
+                                 method_get_user_record_by_uid,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("ListHomes",
+                                 NULL,,
+                                 "a(susussso)",
+                                 SD_BUS_PARAM(home_areas),
+                                 method_list_homes,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* The following methods directly execute an operation on a home area, without ref-counting, queueing
          * or anything, and are accessible through homectl. */
-        SD_BUS_METHOD("ActivateHome", "ss", NULL, method_activate_home, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("DeactivateHome", "s", NULL, method_deactivate_home, 0),
-        SD_BUS_METHOD("RegisterHome", "s", NULL, method_register_home, SD_BUS_VTABLE_UNPRIVILEGED),                                  /* Add JSON record to homed, but don't create actual $HOME */
-        SD_BUS_METHOD("UnregisterHome", "s", NULL, method_unregister_home, SD_BUS_VTABLE_UNPRIVILEGED),                              /* Remove JSON record from homed, but don't remove actual $HOME  */
-        SD_BUS_METHOD("CreateHome", "s", NULL, method_create_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),              /* Add JSON record, and create $HOME for it */
-        SD_BUS_METHOD("RealizeHome", "ss", NULL, method_realize_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),           /* Create $HOME for already registered JSON entry */
-        SD_BUS_METHOD("RemoveHome", "s", NULL, method_remove_home, SD_BUS_VTABLE_UNPRIVILEGED),                                      /* Remove JSON record and remove $HOME */
-        SD_BUS_METHOD("FixateHome", "ss", NULL, method_fixate_home, SD_BUS_VTABLE_SENSITIVE),                                        /* Investigate $HOME and propagate contained JSON record into our database */
-        SD_BUS_METHOD("AuthenticateHome", "ss", NULL, method_authenticate_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE), /* Just check credentials */
-        SD_BUS_METHOD("UpdateHome", "s", NULL, method_update_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),              /* Update JSON record of existing user */
-        SD_BUS_METHOD("ResizeHome", "sts", NULL, method_resize_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("ChangePasswordHome", "sss", NULL, method_change_password_home, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("LockHome", "s", NULL, method_lock_home, 0),                                                                   /* Prepare active home for system suspend: flush out passwords, suspend access */
-        SD_BUS_METHOD("UnlockHome", "ss", NULL, method_unlock_home, SD_BUS_VTABLE_SENSITIVE),                                        /* Make $HOME usable after system resume again */
+        SD_BUS_METHOD_WITH_NAMES("ActivateHome",
+                                 "ss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_activate_home,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("DeactivateHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 NULL,,
+                                 method_deactivate_home,
+                                 0),
 
-        /* The following methods implement ref-counted activation, and are what the PAM module calls (and
-         * what "homectl with" runs). In contrast to the methods above which fail if an operation is already
-         * being executed on a home directory, these ones will queue the request, and are thus more
-         * reliable. Moreover, they are a bit smarter: AcquireHome() will fixate, activate, unlock, or
-         * authenticate depending on the state of the home, so that the end result is always the same
-         * (i.e. the home directory is accessible), and we always validate the specified passwords. RefHome()
-         * will not authenticate, and thus only works if home is already active. */
-        SD_BUS_METHOD("AcquireHome", "ssb", "h", method_acquire_home, SD_BUS_VTABLE_SENSITIVE),
-        SD_BUS_METHOD("RefHome", "sb", "h", method_ref_home, 0),
-        SD_BUS_METHOD("ReleaseHome", "s", NULL, method_release_home, 0),
+        /* Add the JSON record to homed, but don't create actual $HOME */
+        SD_BUS_METHOD_WITH_NAMES("RegisterHome",
+                                 "s",
+                                 SD_BUS_PARAM(home_record),
+                                 NULL,,
+                                 method_register_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        /* Remove the JSON record from homed, but don't remove actual $HOME  */
+        SD_BUS_METHOD_WITH_NAMES("UnregisterHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 NULL,,
+                                 method_unregister_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        /* Add JSON record, and create $HOME for it */
+        SD_BUS_METHOD_WITH_NAMES("CreateHome",
+                                 "s",
+                                 SD_BUS_PARAM(home_record),
+                                 NULL,,
+                                 method_create_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        /* Create $HOME for already registered JSON entry */
+        SD_BUS_METHOD_WITH_NAMES("RealizeHome",
+                                 "ss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_realize_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        /* Remove the JSON record and remove $HOME */
+        SD_BUS_METHOD_WITH_NAMES("RemoveHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 NULL,,
+                                 method_remove_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        /* Investigate $HOME and propagate contained JSON record into our database */
+        SD_BUS_METHOD_WITH_NAMES("FixateHome",
+                                 "ss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_fixate_home,
+                                 SD_BUS_VTABLE_SENSITIVE),
+
+        /* Just check credentials */
+        SD_BUS_METHOD_WITH_NAMES("AuthenticateHome",
+                                 "ss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_authenticate_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        /* Update the JSON record of existing user */
+        SD_BUS_METHOD_WITH_NAMES("UpdateHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_update_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        SD_BUS_METHOD_WITH_NAMES("ResizeHome",
+                                 "sts",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(size)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_resize_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        SD_BUS_METHOD_WITH_NAMES("ChangePasswordHome",
+                                 "sss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(new_user_record)
+                                 SD_BUS_PARAM(old_user_record),
+                                 NULL,,
+                                 method_change_password_home,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+
+        /* Prepare active home for system suspend: flush out passwords, suspend access */
+        SD_BUS_METHOD_WITH_NAMES("LockHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 NULL,,
+                                 method_lock_home,
+                                 0),
+
+        /* Make $HOME usable after system resume again */
+        SD_BUS_METHOD_WITH_NAMES("UnlockHome",
+                                 "ss",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record),
+                                 NULL,,
+                                 method_unlock_home,
+                                 SD_BUS_VTABLE_SENSITIVE),
+
+        /* The following methods implement ref-counted activation, and are what the PAM module and "homectl
+         * with" use. In contrast to the methods above which fail if an operation is already being executed
+         * on a home directory, these ones will queue the request, and are thus more reliable. Moreover,
+         * they are a bit smarter: AcquireHome() will fixate, activate, unlock, or authenticate depending on
+         * the state of the home area, so that the end result is always the same (i.e. the home directory is
+         * accessible), and we always validate the specified passwords. RefHome() will not authenticate, and
+         * thus only works if the home area is already active. */
+        SD_BUS_METHOD_WITH_NAMES("AcquireHome",
+                                 "ssb",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(user_record)
+                                 SD_BUS_PARAM(please_suspend),
+                                 "h",
+                                 SD_BUS_PARAM(send_fd),
+                                 method_acquire_home,
+                                 SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_NAMES("RefHome",
+                                 "sb",
+                                 SD_BUS_PARAM(user_name)
+                                 SD_BUS_PARAM(please_suspend),
+                                 "h",
+                                 SD_BUS_PARAM(send_fd),
+                                 method_ref_home,
+                                 0),
+        SD_BUS_METHOD_WITH_NAMES("ReleaseHome",
+                                 "s",
+                                 SD_BUS_PARAM(user_name),
+                                 NULL,,
+                                 method_release_home,
+                                 0),
 
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),
 
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/home1",
+        "org.freedesktop.home1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+        .children = BUS_IMPLEMENTATIONS(&home_object),
 };
 
 static int on_deferred_auto_login(sd_event_source *s, void *userdata) {
