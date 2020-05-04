@@ -3486,6 +3486,16 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = mount_custom(
+                        directory,
+                        arg_custom_mounts,
+                        arg_n_custom_mounts,
+                        arg_uid_shift,
+                        arg_selinux_apifs_context,
+                        MOUNT_NON_ROOT_ONLY);
+        if (r < 0)
+                return r;
+
         r = setup_timezone(directory);
         if (r < 0)
                 return r;
@@ -3499,16 +3509,6 @@ static int outer_child(
                 return r;
 
         r = setup_journal(directory);
-        if (r < 0)
-                return r;
-
-        r = mount_custom(
-                        directory,
-                        arg_custom_mounts,
-                        arg_n_custom_mounts,
-                        arg_uid_shift,
-                        arg_selinux_apifs_context,
-                        MOUNT_NON_ROOT_ONLY);
         if (r < 0)
                 return r;
 
