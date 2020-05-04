@@ -3416,34 +3416,34 @@ int unit_file_get_list(
 }
 
 static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
-        [UNIT_FILE_ENABLED] = "enabled",
+        [UNIT_FILE_ENABLED]         = "enabled",
         [UNIT_FILE_ENABLED_RUNTIME] = "enabled-runtime",
-        [UNIT_FILE_LINKED] = "linked",
-        [UNIT_FILE_LINKED_RUNTIME] = "linked-runtime",
-        [UNIT_FILE_MASKED] = "masked",
-        [UNIT_FILE_MASKED_RUNTIME] = "masked-runtime",
-        [UNIT_FILE_STATIC] = "static",
-        [UNIT_FILE_DISABLED] = "disabled",
-        [UNIT_FILE_INDIRECT] = "indirect",
-        [UNIT_FILE_GENERATED] = "generated",
-        [UNIT_FILE_TRANSIENT] = "transient",
-        [UNIT_FILE_BAD] = "bad",
+        [UNIT_FILE_LINKED]          = "linked",
+        [UNIT_FILE_LINKED_RUNTIME]  = "linked-runtime",
+        [UNIT_FILE_MASKED]          = "masked",
+        [UNIT_FILE_MASKED_RUNTIME]  = "masked-runtime",
+        [UNIT_FILE_STATIC]          = "static",
+        [UNIT_FILE_DISABLED]        = "disabled",
+        [UNIT_FILE_INDIRECT]        = "indirect",
+        [UNIT_FILE_GENERATED]       = "generated",
+        [UNIT_FILE_TRANSIENT]       = "transient",
+        [UNIT_FILE_BAD]             = "bad",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_state, UnitFileState);
 
 static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX] = {
-        [UNIT_FILE_SYMLINK] = "symlink",
-        [UNIT_FILE_UNLINK] = "unlink",
-        [UNIT_FILE_IS_MASKED] = "masked",
+        [UNIT_FILE_SYMLINK]     = "symlink",
+        [UNIT_FILE_UNLINK]      = "unlink",
+        [UNIT_FILE_IS_MASKED]   = "masked",
         [UNIT_FILE_IS_DANGLING] = "dangling",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
 
 static const char* const unit_file_preset_mode_table[_UNIT_FILE_PRESET_MAX] = {
-        [UNIT_FILE_PRESET_FULL] = "full",
-        [UNIT_FILE_PRESET_ENABLE_ONLY] = "enable-only",
+        [UNIT_FILE_PRESET_FULL]         = "full",
+        [UNIT_FILE_PRESET_ENABLE_ONLY]  = "enable-only",
         [UNIT_FILE_PRESET_DISABLE_ONLY] = "disable-only",
 };
 
