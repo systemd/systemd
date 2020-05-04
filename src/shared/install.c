@@ -1231,7 +1231,7 @@ static int unit_file_load(
                         return -EINVAL;
                 if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) && !unit_type_may_template(type))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unit type %s cannot be templated.", unit_type_to_string(type));
+                                               "%s: unit type %s cannot be templated, ignoring.", path, unit_type_to_string(type));
 
                 if (!(flags & SEARCH_LOAD)) {
                         r = lstat(path, &st);
