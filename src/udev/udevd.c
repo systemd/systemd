@@ -1774,6 +1774,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
 
+        r = mkdir_errno_wrapper("/run/udev/rules.d", 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_error_errno(r, "Failed to create /run/udev/rules.d: %m");
+
         dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         if (getppid() == 1 && sd_booted() > 0) {
