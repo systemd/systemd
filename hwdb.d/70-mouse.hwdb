@@ -288,6 +288,10 @@ mouse:usb:v04b3p3107:name:*
 mouse:usb:v047dp1020:*Kensington Expert Mouse*
  ID_INPUT_TRACKBALL=1
 
+# Kensington SlimBlade Trackball
+mouse:usb:v047dp2041:name:Kensington Slimblade Trackball:
+ ID_INPUT_TRACKBALL=1
+
 ##########################################
 # Lenovo
 ##########################################
