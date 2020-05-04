@@ -28,11 +28,11 @@ Currently nothing like this is supported or even planned.
 [`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/systemd.special.html)
 defines the `graphical-session.target` and `graphical-session-pre.target` to
 allow cross-desktop integration. Furthermore, systemd defines the three base
-slices `background`, `apps` and `session`.
+slices `background`, `app` and `session`.
 All units should be placed into one of these slices depending on their purposes:
 
  * `session.slice`: Contains only processes essential to run the user's graphical session
- * `apps.slice`: Contains all normal applications that the user is running
+ * `app.slice`: Contains all normal applications that the user is running
  * `background.slice`: Useful for low-priority background tasks
 
 The purpose of this grouping is to assign different priorities to the
@@ -42,7 +42,7 @@ preferentially killing background tasks in out-of-memory situations
 or assigning different memory/CPU/IO priorities to ensure that the session
 runs smoothly under load.
 
-TODO: Will there be a default to place units into e.g. `apps.slice` by default
+TODO: Will there be a default to place units into e.g. `app.slice` by default
 rather than the root slice?
 
 ## XDG standardization for applications
@@ -50,9 +50,9 @@ rather than the root slice?
 To ensure cross-desktop compatibility and encourage sharing of good practices,
 desktop environments should adhere to the following conventions:
 
- * Application units should follow the scheme `apps-<launcher>-<ApplicationID>-<RANDOM>.service`,
-   e.g. `apps-gnome-org.gnome.Evince-12345.service`,
-   `apps-flatpak-org.telegram.desktop-12345.service` or `apps-KDE-org.kde.okular-12345.service`.
+ * Application units should follow the scheme `app-<launcher>-<ApplicationID>-<RANDOM>.service`,
+   e.g. `app-gnome-org.gnome.Evince-12345.service`,
+   `app-flatpak-org.telegram.desktop-12345.service` or `app-KDE-org.kde.okular-12345.service`.
  * Using `.service` units instead of `.scope` units, i.e. allowing systemd to
    start the process on behalf of the caller,
    instead of the caller starting the process and letting systemd know about it,
@@ -62,13 +62,13 @@ desktop environments should adhere to the following conventions:
    contain a `-` character.
 
 This has the following advantages:
- * Using the `apps-<launcher>-` prefix means that the unit defaults can be
+ * Using the `app-<launcher>-` prefix means that the unit defaults can be
    adjusted using desktop environment specific drop-in files.
  * The application ID can be retrieved by stripping the prefix and postfix.
    This in turn should map to the corresponding `.desktop` file when available
 
 TODO: Define the name of slices that should be used.
-This could be `apps-<launcher>-<ApplicationID>-<RANDOM>.slice`.
+This could be `app-<launcher>-<ApplicationID>-<RANDOM>.slice`.
 
 TODO: Does it really make sense to insert the `<launcher>`? In GNOME I am
 currently using a drop-in to configure `BindTo=graphical-session.target`,
@@ -78,7 +78,7 @@ global default for all (graphical) applications.
 
  * Should application lifetime be bound to the session?
  * May the user have applications that do not belong to the graphical session (e.g. launched from SSH)?
- * Could we maybe add a default `apps-.service.d` drop-in configuration?
+ * Could we maybe add a default `app-.service.d` drop-in configuration?
 
 ## XDG autostart integration
 
