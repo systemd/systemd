@@ -35,6 +35,7 @@ typedef enum MountpointFlags {
         AUTOMOUNT = 1 << 2,
         MAKEFS    = 1 << 3,
         GROWFS    = 1 << 4,
+        RWONLY    = 1 << 5,
 } MountpointFlags;
 
 static const char *arg_dest = NULL;
@@ -481,6 +482,9 @@ static int add_mount(
         if (r < 0)
                 return r;
 
+        if (flags & RWONLY)
+                fprintf(f, "ReadWriteOnly=yes\n");
+
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
@@ -594,7 +598,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool makefs, growfs, noauto, nofail;
+                bool makefs, growfs, noauto, nofail, rwonly;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -634,6 +638,7 @@ static int parse_fstab(bool initrd) {
 
                 makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
                 growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
+                rwonly = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
 
@@ -666,7 +671,7 @@ static int parse_fstab(bool initrd) {
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
-                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT,
+                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL | automount*AUTOMOUNT | rwonly*RWONLY,
                                       post,
                                       fstab);
                 }
