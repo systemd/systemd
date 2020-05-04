@@ -1441,6 +1441,15 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
         return true;
 }
 
+static bool show_preset_for_state(UnitFileState state) {
+        /* Don't show preset state in those unit file states, it'll only confuse users. */
+        return !IN_SET(state,
+                       UNIT_FILE_ALIAS,
+                       UNIT_FILE_STATIC,
+                       UNIT_FILE_GENERATED,
+                       UNIT_FILE_TRANSIENT);
+}
+
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
@@ -1456,7 +1465,6 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
         for (const UnitFileList *u = units; u < units + c; u++) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;
-                const char *on_preset_color = NULL, *unit_preset_str;
                 bool underline;
 
                 underline = u + 1 < units + c &&
@@ -1480,25 +1488,35 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 id = basename(u->path);
 
-                r = unit_file_query_preset(arg_scope, arg_root, id, &presets);
-                if (r < 0) {
-                        unit_preset_str = "n/a";
-                        on_preset_color = underline ? on_underline : ansi_normal();
-                } else if (r == 0) {
-                        unit_preset_str = "disabled";
-                        on_preset_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                } else {
-                        unit_preset_str = "enabled";
-                        on_preset_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
-                }
-
                 r = table_add_many(table,
                                    TABLE_STRING, id,
                                    TABLE_SET_COLOR, strempty(on_underline),
                                    TABLE_STRING, unit_file_state_to_string(u->state),
-                                   TABLE_SET_COLOR, strempty(on_unit_color),
-                                   TABLE_STRING, unit_preset_str,
-                                   TABLE_SET_COLOR, strempty(on_preset_color));
+                                   TABLE_SET_COLOR, strempty(on_unit_color));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (show_preset_for_state(u->state)) {
+                        const char *unit_preset_str, *on_preset_color;
+
+                        r = unit_file_query_preset(arg_scope, arg_root, id, &presets);
+                        if (r < 0) {
+                                unit_preset_str = "n/a";
+                                on_preset_color = underline ? on_underline : ansi_normal();
+                        } else if (r == 0) {
+                                unit_preset_str = "disabled";
+                                on_preset_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+                        } else {
+                                unit_preset_str = "enabled";
+                                on_preset_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+                        }
+
+                        r = table_add_many(table,
+                                           TABLE_STRING, unit_preset_str,
+                                           TABLE_SET_COLOR, strempty(on_preset_color));
+                } else
+                        r = table_add_many(table, TABLE_EMPTY);
+
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -4222,14 +4240,18 @@ static void print_status_info(
         if (!isempty(i->load_error))
                 printf("     Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
-        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
-                 !STR_IN_SET(i->unit_file_state, "generated", "transient"))
-                printf("     Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
-                       on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
-        else if (path && !isempty(i->unit_file_state))
-                printf("     Loaded: %s%s%s (%s; %s)\n",
-                       on, strna(i->load_state), off, path, i->unit_file_state);
-        else if (path)
+        else if (path && !isempty(i->unit_file_state)) {
+                bool show_preset = !isempty(i->unit_file_preset) &&
+                        show_preset_for_state(unit_file_state_from_string(i->unit_file_state));
+
+                printf("     Loaded: %s%s%s (%s; %s%s%s)\n",
+                       on, strna(i->load_state), off,
+                       path,
+                       i->unit_file_state,
+                       show_preset ? "; vendor preset: " : "",
+                       show_preset ? i->unit_file_preset : "");
+
+        } else if (path)
                 printf("     Loaded: %s%s%s (%s)\n",
                        on, strna(i->load_state), off, path);
         else
