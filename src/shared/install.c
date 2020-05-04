@@ -3344,7 +3344,7 @@ int unit_file_get_list(
                 char **patterns) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        char **i;
+        char **dirname;
         int r;
 
         assert(scope >= 0);
@@ -3355,16 +3355,16 @@ int unit_file_get_list(
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, paths.search_path) {
+        STRV_FOREACH(dirname, paths.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
-                d = opendir(*i);
+                d = opendir(*dirname);
                 if (!d) {
                         if (errno == ENOENT)
                                 continue;
                         if (IN_SET(errno, ENOTDIR, EACCES)) {
-                                log_debug_errno(errno, "Failed to open \"%s\": %m", *i);
+                                log_debug_errno(errno, "Failed to open \"%s\": %m", *dirname);
                                 continue;
                         }
 
@@ -3392,7 +3392,7 @@ int unit_file_get_list(
                         if (!f)
                                 return -ENOMEM;
 
-                        f->path = path_make_absolute(de->d_name, *i);
+                        f->path = path_make_absolute(de->d_name, *dirname);
                         if (!f->path)
                                 return -ENOMEM;
 
