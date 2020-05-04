@@ -1471,7 +1471,9 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                            UNIT_FILE_DISABLED,
                            UNIT_FILE_BAD))
                         on_unit_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                else if (u->state == UNIT_FILE_ENABLED)
+                else if (IN_SET(u->state,
+                                UNIT_FILE_ENABLED,
+                                UNIT_FILE_ALIAS))
                         on_unit_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
                 else
                         on_unit_color = on_underline;
@@ -7336,6 +7338,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                                    UNIT_FILE_ENABLED,
                                    UNIT_FILE_ENABLED_RUNTIME,
                                    UNIT_FILE_STATIC,
+                                   UNIT_FILE_ALIAS,
                                    UNIT_FILE_INDIRECT,
                                    UNIT_FILE_GENERATED))
                                 enabled = true;

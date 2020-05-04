@@ -2767,6 +2767,12 @@ int unit_file_lookup_state(
                 break;
 
         case UNIT_FILE_TYPE_REGULAR:
+                /* Check if the name we were querying is actually an alias */
+                if (!streq(name, basename(i->path)) && !unit_name_is_valid(i->name, UNIT_NAME_INSTANCE)) {
+                        state = UNIT_FILE_ALIAS;
+                        break;
+                }
+
                 r = path_is_generator(paths, i->path);
                 if (r < 0)
                         return r;
@@ -3420,6 +3426,7 @@ static const char* const unit_file_state_table[_UNIT_FILE_STATE_MAX] = {
         [UNIT_FILE_ENABLED_RUNTIME] = "enabled-runtime",
         [UNIT_FILE_LINKED]          = "linked",
         [UNIT_FILE_LINKED_RUNTIME]  = "linked-runtime",
+        [UNIT_FILE_ALIAS]           = "alias",
         [UNIT_FILE_MASKED]          = "masked",
         [UNIT_FILE_MASKED_RUNTIME]  = "masked-runtime",
         [UNIT_FILE_STATIC]          = "static",

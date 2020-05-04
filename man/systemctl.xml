@@ -730,6 +730,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                     <entry><literal>linked-runtime</literal></entry>
                   </row>
                   <row>
+                    <entry><literal>alias</literal></entry>
+                    <entry>The name is an alias (symlink to another unit file).</entry>
+                    <entry>0</entry>
+                  </row>
+                  <row>
                     <entry><literal>masked</literal></entry>
                     <entry morerows='1'>Completely disabled, so that any start operation on it fails (permanently in <filename>/etc/systemd/system/</filename> or transiently in <filename>/run/systemd/systemd/</filename>).</entry>
                     <entry morerows='1'>&gt; 0</entry>
