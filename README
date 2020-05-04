@@ -150,6 +150,7 @@ REQUIREMENTS:
         libselinux (optional)
         liblzma (optional)
         liblz4 >= 1.3.0 / 130 (optional)
+        libzstd >= 1.4.0 (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)

@@ -47,6 +47,7 @@ BuildPackages=
         libselinux-devel
         libxkbcommon-devel
         libxslt
+        libzstd-devel
         lz4
         lz4-devel
         m4
@@ -62,6 +63,7 @@ BuildPackages=
         tree
         valgrind-devel
         xz-devel
+        zstd
 
 Packages=
         coreutils

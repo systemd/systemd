@@ -50,6 +50,7 @@ BuildPackages=
         libsmartcols-dev
         libtool
         libxkbcommon-dev
+        libzstd-dev
         m4
         meson
         pkg-config
@@ -59,6 +60,7 @@ BuildPackages=
         uuid-dev
         xsltproc
         xz-utils
+        zstd
 
 Packages=
         libqrencode4

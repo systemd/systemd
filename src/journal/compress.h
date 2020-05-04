@@ -52,11 +52,16 @@ int decompress_startswith(int compression,
 
 int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes);
 int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes);
+int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes);
 
 int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
+int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
-#if HAVE_LZ4
+#if HAVE_ZSTD
+#  define compress_stream compress_stream_zstd
+#  define COMPRESSED_EXT ".zst"
+#elif HAVE_LZ4
 #  define compress_stream compress_stream_lz4
 #  define COMPRESSED_EXT ".lz4"
 #else
