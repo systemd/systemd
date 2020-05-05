@@ -199,15 +199,14 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     continuous weekdays. <literal>,</literal> and <literal>..</literal>
     may be combined freely.</para>
 
-    <para>In the date and time specifications, any component may be
-    specified as <literal>*</literal> in which case any value will
-    match. Alternatively, each component can be specified as a list of
-    values separated by commas. Values may be suffixed with
-    <literal>/</literal> and a repetition value, which indicates that
-    the value itself and the value plus all multiples of the repetition value
-    are matched.  Two values separated by <literal>..</literal> may be used
-    to indicate a range of values; ranges may also be followed with
-    <literal>/</literal> and a repetition value.</para>
+    <para>In the date and time specifications, any component may be specified as <literal>*</literal> in
+    which case any value will match. Alternatively, each component can be specified as a list of values
+    separated by commas. Values may be suffixed with <literal>/</literal> and a repetition value, which
+    indicates that the value itself and the value plus all multiples of the repetition value are matched.
+    Two values separated by <literal>..</literal> may be used to indicate a range of values; ranges may also
+    be followed with <literal>/</literal> and a repetition value, in which case the expression matches all
+    times starting with the start value, and continuing with all multiples of the repetition value relative
+    to the start value, ending at the end value the latest.</para>
 
     <para>A date specification may use <literal>~</literal> to indicate the
     last day(s) in a month. For example, <literal>*-02~03</literal> means
