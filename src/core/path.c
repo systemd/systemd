@@ -617,7 +617,7 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item_format(f, "path-spec", "%s %i %s",
                                              type,
                                              s->previous_exists,
-                                             s->path);
+                                             escaped);
         }
 
         return 0;
