@@ -168,6 +168,10 @@ If the UID assigned to a user does not match the owner of the home directory in
 the file system, the home directory is automatically and recursively `chown()`ed
 to the correct UID.
 
-Depending on the `discard` setting of the user record either the backing
+Depending on the `luksDiscard` setting of the user record either the backing
 loopback file is `fallocate()`ed during activation, or the mounted file system
 is `FITRIM`ed after mounting, to ensure the setting is correctly enforced.
+
+When deactivating a home directory, the file system or block device is trimmed
+or extended as configured in the `luksOfflineDiscard` setting of the user
+record.
