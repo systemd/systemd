@@ -1013,6 +1013,11 @@ evdev:input:b0005v046DpB30B*
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
+# Logitech K811
+evdev:input:b0005v046DpB317*
+ KEYBOARD_KEY_70047=brightnessdown
+ KEYBOARD_KEY_70048=brightnessup
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
