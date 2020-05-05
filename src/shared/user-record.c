@@ -52,6 +52,7 @@ UserRecord* user_record_new(void) {
                 .nodev = true,
                 .nosuid = true,
                 .luks_discard = -1,
+                .luks_offline_discard = -1,
                 .luks_volume_key_size = UINT64_MAX,
                 .luks_pbkdf_time_cost_usec = UINT64_MAX,
                 .luks_pbkdf_memory_cost = UINT64_MAX,
@@ -944,6 +945,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, luks_uuid),                     0         },
                 { "fileSystemUuid",             JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, file_system_uuid),              0         },
                 { "luksDiscard",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,            offsetof(UserRecord, luks_discard),                  0,        },
+                { "luksOfflineDiscard",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,            offsetof(UserRecord, luks_offline_discard),          0,        },
                 { "luksCipher",                 JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, luks_cipher),                   JSON_SAFE },
                 { "luksCipherMode",             JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, luks_cipher_mode),              JSON_SAFE },
                 { "luksVolumeKeySize",          JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,              offsetof(UserRecord, luks_volume_key_size),          0         },
@@ -1276,6 +1278,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "luksUuid",                   JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, luks_uuid),                     0         },
                 { "fileSystemUuid",             JSON_VARIANT_STRING,        json_dispatch_id128,               offsetof(UserRecord, file_system_uuid),              0         },
                 { "luksDiscard",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,            offsetof(UserRecord, luks_discard),                  0         },
+                { "luksOfflineDiscard",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,            offsetof(UserRecord, luks_offline_discard),          0         },
                 { "luksCipher",                 JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, luks_cipher),                   JSON_SAFE },
                 { "luksCipherMode",             JSON_VARIANT_STRING,        json_dispatch_string,              offsetof(UserRecord, luks_cipher_mode),              JSON_SAFE },
                 { "luksVolumeKeySize",          JSON_VARIANT_UNSIGNED,      json_dispatch_uint64,              offsetof(UserRecord, luks_volume_key_size),          0         },
@@ -1498,6 +1501,27 @@ bool user_record_luks_discard(UserRecord *h) {
          * on should the disk space to back our file systems not be available. */
 
         return path_startswith(ip, "/dev/");
+}
+
+bool user_record_luks_offline_discard(UserRecord *h) {
+        const char *ip;
+
+        assert(h);
+
+        if (h->luks_offline_discard >= 0)
+                return h->luks_offline_discard;
+
+        /* Discard while we are logged out should generally be a good idea, except when operating directly on
+         * physical media, where we should just bind it to the online discard mode. */
+
+        ip = user_record_image_path(h);
+        if (!ip)
+                return false;
+
+        if (path_startswith(ip, "/dev/"))
+                return user_record_luks_discard(h);
+
+        return true;
 }
 
 const char *user_record_luks_cipher(UserRecord *h) {

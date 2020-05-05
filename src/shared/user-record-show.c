@@ -279,7 +279,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf(" Access Mode: 0%03oo\n", user_record_access_mode(hr));
 
         if (storage == USER_LUKS) {
-                printf("LUKS Discard: %s\n", yes_no(user_record_luks_discard(hr)));
+                printf("LUKS Discard: online=%s offline=%s\n", yes_no(user_record_luks_discard(hr)), yes_no(user_record_luks_offline_discard(hr)));
 
                 if (!sd_id128_is_null(hr->luks_uuid))
                         printf("   LUKS UUID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->luks_uuid));

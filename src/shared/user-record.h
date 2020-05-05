@@ -261,6 +261,7 @@ typedef struct UserRecord {
         sd_id128_t file_system_uuid;
 
         int luks_discard;
+        int luks_offline_discard;
         char *luks_cipher;
         char *luks_cipher_mode;
         uint64_t luks_volume_key_size;
@@ -332,6 +333,7 @@ const char *user_record_cifs_user_name(UserRecord *h);
 const char *user_record_shell(UserRecord *h);
 const char *user_record_real_name(UserRecord *h);
 bool user_record_luks_discard(UserRecord *h);
+bool user_record_luks_offline_discard(UserRecord *h);
 const char *user_record_luks_cipher(UserRecord *h);
 const char *user_record_luks_cipher_mode(UserRecord *h);
 uint64_t user_record_luks_volume_key_size(UserRecord *h);
