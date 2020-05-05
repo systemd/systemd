@@ -377,9 +377,6 @@ possible_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
-        # work-around for gcc 7.1 turning this on on its own.
-        '-Wno-error=nonnull',
-
         # Disable -Wmaybe-uninitialized, since it's noisy on gcc 8 with
         # optimizations enabled, producing essentially false positives.
         '-Wno-maybe-uninitialized',
