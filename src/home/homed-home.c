@@ -1002,6 +1002,8 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         if (r < 0)
                 return r;
         if (r == 0) {
+                const char *homework;
+
                 /* Child */
 
                 if (setenv("NOTIFY_SOCKET", "/run/systemd/home/notify", 1) < 0) {
@@ -1017,7 +1019,11 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
                 stdin_fd = stdout_fd = -1; /* have been invalidated by rearrange_stdio() */
 
-                execl(SYSTEMD_HOMEWORK_PATH, SYSTEMD_HOMEWORK_PATH, verb, NULL);
+                /* Allow overriding the homework path via an environment variable, to make debugging
+                 * easier. */
+                homework = getenv("SYSTEMD_HOMEWORK_PATH") ?: SYSTEMD_HOMEWORK_PATH;
+
+                execl(homework, homework, verb, NULL);
                 log_error_errno(errno, "Failed to invoke " SYSTEMD_HOMEWORK_PATH ": %m");
                 _exit(EXIT_FAILURE);
         }
