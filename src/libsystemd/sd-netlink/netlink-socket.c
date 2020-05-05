@@ -280,10 +280,10 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_gr
         }
 
         if (ret_mcast_group) {
-                struct cmsghdr *cmsg;
+                struct cmsghdr *cmsg = NULL;
 
                 cmsg = cmsg_find(&msg, SOL_NETLINK, NETLINK_PKTINFO, CMSG_LEN(sizeof(struct nl_pktinfo)));
-                if (ret_mcast_group)
+                if (cmsg)
                         *ret_mcast_group = ((struct nl_pktinfo*) CMSG_DATA(cmsg))->group;
                 else
                         *ret_mcast_group = 0;
