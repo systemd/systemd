@@ -2884,6 +2884,8 @@ if conf.get('ENABLE_TMPFILES') == 1
         exe = executable(
                 'systemd-tmpfiles',
                 'src/tmpfiles/tmpfiles.c',
+                'src/tmpfiles/offline-passwd.c',
+                'src/tmpfiles/offline-passwd.h',
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [libacl],
