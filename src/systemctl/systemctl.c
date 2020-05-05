@@ -390,6 +390,21 @@ static bool output_show_unit(const UnitInfo *u, char **patterns) {
         return true;
 }
 
+static int output_table(Table *table) {
+        int r;
+
+        assert(table);
+
+        if (OUTPUT_MODE_IS_JSON(arg_output))
+                r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
+        else
+                r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to show table: %m");
+
+        return 0;
+}
+
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const UnitInfo *u;
@@ -473,9 +488,9 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         return log_error_errno(r, "Failed to hide column: %m");
         }
 
-        r = table_print(table, NULL);
+        r = output_table(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (!arg_no_legend) {
                 const char *on, *off;
@@ -1039,9 +1054,9 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
                 off = ansi_normal();
         }
 
-        r = table_print(table, NULL);
+        r = output_table(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (!arg_no_legend) {
                 printf("\n%s%u sockets listed.%s\n", on, cs, off);
@@ -1285,9 +1300,9 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
                 off = ansi_normal();
         }
 
-        r = table_print(table, NULL);
+        r = output_table(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (!arg_no_legend) {
                 printf("\n%s%u timers listed.%s\n", on, n, off);
@@ -1501,9 +1516,9 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
+        r = output_table(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (!arg_no_legend)
                 printf("\n%u unit files listed.\n", c);
@@ -2033,9 +2048,9 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
+        r = output_table(table);
         if (r < 0)
-                return log_error_errno(r, "Failed to print the table: %m");
+                return r;
 
         if (!arg_no_legend) {
                 printf("\n");
@@ -8601,6 +8616,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown output '%s'.",
                                                        optarg);
+
+                        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                                arg_no_legend = true;
+                                arg_plain = true;
+                        }
                         break;
 
                 case 'i':

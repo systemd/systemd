@@ -1241,7 +1241,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         return CMP(*a, *b);
 }
 
-static const char *table_data_format(Table *t, TableData *d) {
+static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing) {
         assert(d);
 
         if (d->formatted)
@@ -1253,7 +1253,7 @@ static const char *table_data_format(Table *t, TableData *d) {
 
         case TABLE_STRING:
         case TABLE_PATH:
-                if (d->uppercase) {
+                if (d->uppercase && !avoid_uppercasing) {
                         char *p, *q;
 
                         d->formatted = new(char, strlen(d->string) + 1);
@@ -1602,7 +1602,7 @@ static int table_data_requested_width_height(
         const char *t;
         int r;
 
-        t = table_data_format(table, d);
+        t = table_data_format(table, d, false);
         if (!t)
                 return -ENOMEM;
 
@@ -1784,7 +1784,7 @@ int table_print(Table *t, FILE *f) {
                                  * ellipsis. Hence, let's figure out the last line, and account for its
                                  * length plus ellipsis. */
 
-                                field = table_data_format(t, d);
+                                field = table_data_format(t, d, false);
                                 if (!field)
                                         return -ENOMEM;
 
@@ -1969,7 +1969,7 @@ int table_print(Table *t, FILE *f) {
 
                                 assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                                field = table_data_format(t, d);
+                                field = table_data_format(t, d, false);
                                 if (!field)
                                         return -ENOMEM;
 
@@ -2256,6 +2256,24 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         }
 }
 
+static char* string_to_json_field_name(const char *f) {
+        char *c, *x;
+
+        /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
+         * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
+         * underscores and leave everything as is. */
+
+        c = strdup(f);
+        if (!c)
+                return NULL;
+
+        for (x = c; *x; x++)
+                if (isspace(*x))
+                        *x = '_';
+
+        return c;
+}
+
 int table_to_json(Table *t, JsonVariant **ret) {
         JsonVariant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
@@ -2298,11 +2316,27 @@ int table_to_json(Table *t, JsonVariant **ret) {
         }
 
         for (j = 0; j < display_columns; j++) {
+                _cleanup_free_ char *mangled = NULL;
+                const char *formatted;
                 TableData *d;
 
                 assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
 
-                r = table_data_to_json(d, elements + j*2);
+                /* Field names must be strings, hence format whatever we got here as a string first */
+                formatted = table_data_format(t, d, true);
+                if (!formatted) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                /* Arbitrary strings suck as field names, try to mangle them into something more suitable hence */
+                mangled = string_to_json_field_name(formatted);
+                if (!mangled) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                r = json_variant_new_string(elements + j*2, mangled);
                 if (r < 0)
                         goto finish;
         }
