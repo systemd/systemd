@@ -2666,7 +2666,7 @@ static int parse_line(
 
         case COPY_FILES:
                 if (!i.argument) {
-                        i.argument = path_join(arg_root, "/usr/share/factory", i.path);
+                        i.argument = path_join("/usr/share/factory", i.path);
                         if (!i.argument)
                                 return log_oom();
 
@@ -2674,7 +2674,9 @@ static int parse_line(
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
 
-                } else if (arg_root) {
+                }
+
+                if (!empty_or_root(arg_root)) {
                         char *p;
 
                         p = path_join(arg_root, i.argument);
@@ -2765,7 +2767,7 @@ static int parse_line(
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
         }
 
-        if (arg_root) {
+        if (!empty_or_root(arg_root)) {
                 char *p;
 
                 p = path_join(arg_root, i.path);
@@ -2993,7 +2995,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
