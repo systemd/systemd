@@ -163,7 +163,15 @@ int home_setup_undo(HomeSetup *setup) {
 
         assert(setup);
 
-        setup->root_fd = safe_close(setup->root_fd);
+        if (setup->root_fd >= 0) {
+                if (setup->do_offline_fitrim) {
+                        q = run_fitrim(setup->root_fd);
+                        if (q < 0)
+                                r = q;
+                }
+
+                setup->root_fd = safe_close(setup->root_fd);
+        }
 
         if (setup->undo_mount) {
                 q = umount_verbose("/run/systemd/user-home-mount");
@@ -177,8 +185,20 @@ int home_setup_undo(HomeSetup *setup) {
                         r = q;
         }
 
+        if (setup->image_fd >= 0) {
+                if (setup->do_offline_fallocate) {
+                        q = run_fallocate(setup->image_fd, NULL);
+                        if (q < 0)
+                                r = q;
+                }
+
+                setup->image_fd = safe_close(setup->image_fd);
+        }
+
         setup->undo_mount = false;
         setup->undo_dm = false;
+        setup->do_offline_fitrim = false;
+        setup->do_offline_fallocate = false;
 
         setup->dm_name = mfree(setup->dm_name);
         setup->dm_node = mfree(setup->dm_node);
@@ -666,6 +686,12 @@ static int home_deactivate(UserRecord *h, bool force) {
         if (r < 0)
                 return r;
         if (r == USER_TEST_MOUNTED) {
+                if (user_record_storage(h) == USER_LUKS) {
+                        r = home_trim_luks(h);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (umount2(user_record_home_directory(h), UMOUNT_NOFOLLOW | (force ? MNT_FORCE|MNT_DETACH : 0)) < 0)
                         return log_error_errno(errno, "Failed to unmount %s: %m", user_record_home_directory(h));
 

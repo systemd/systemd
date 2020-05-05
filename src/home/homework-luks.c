@@ -893,19 +893,19 @@ int home_store_header_identity_luks(
         return 1;
 }
 
-static int run_fitrim(int root_fd) {
+int run_fitrim(int root_fd) {
         char buf[FORMAT_BYTES_MAX];
         struct fstrim_range range = {
                 .len = UINT64_MAX,
         };
 
         /* If discarding is on, discard everything right after mounting, so that the discard setting takes
-         * effect on activation. */
+         * effect on activation. (Also, optionally, trim on logout) */
 
         assert(root_fd >= 0);
 
         if (ioctl(root_fd, FITRIM, &range) < 0) {
-                if (IN_SET(errno, ENOTTY, EOPNOTSUPP, EBADF)) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EBADF) {
                         log_debug_errno(errno, "File system does not support FITRIM, not trimming.");
                         return 0;
                 }
@@ -918,14 +918,31 @@ static int run_fitrim(int root_fd) {
         return 1;
 }
 
-static int run_fallocate(int backing_fd, const struct stat *st) {
+int run_fitrim_by_path(const char *root_path) {
+        _cleanup_close_ int root_fd = -1;
+
+        root_fd = open(root_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (root_fd < 0)
+                return log_error_errno(errno, "Failed to open file system '%s' for trimming: %m", root_path);
+
+        return run_fitrim(root_fd);
+}
+
+int run_fallocate(int backing_fd, const struct stat *st) {
         char buf[FORMAT_BYTES_MAX];
+        struct stat stbuf;
 
         assert(backing_fd >= 0);
-        assert(st);
 
         /* If discarding is off, let's allocate the whole image before mounting, so that the setting takes
          * effect on activation */
+
+        if (!st) {
+                if (fstat(backing_fd, &stbuf) < 0)
+                        return log_error_errno(errno, "Failed to fstat(): %m");
+
+                st = &stbuf;
+        }
 
         if (!S_ISREG(st->st_mode))
                 return 0;
@@ -953,6 +970,16 @@ static int run_fallocate(int backing_fd, const struct stat *st) {
         log_info("Allocated additional %s.",
                  format_bytes(buf, sizeof(buf), (DIV_ROUND_UP(st->st_size, 512) - st->st_blocks) * 512));
         return 1;
+}
+
+int run_fallocate_by_path(const char *backing_path) {
+        _cleanup_close_ int backing_fd = -1;
+
+        backing_fd = open(backing_path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        if (backing_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s' for fallocate(): %m", backing_path);
+
+        return run_fallocate(backing_fd, NULL);
 }
 
 int home_prepare_luks(
@@ -1111,7 +1138,7 @@ int home_prepare_luks(
                                h->luks_volume_key_size,
                                h->password,
                                pkcs11_decrypted_passwords ? *pkcs11_decrypted_passwords : NULL,
-                               user_record_luks_discard(h),
+                               user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                                &cd,
                                &found_luks_uuid,
                                &volume_key,
@@ -1147,6 +1174,9 @@ int home_prepare_luks(
 
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(root_fd);
+
+                setup->image_fd = TAKE_FD(fd);
+                setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
         }
 
         setup->loop = TAKE_PTR(loop);
@@ -1259,6 +1289,7 @@ int home_activate_luks(
                 return r;
 
         setup.undo_mount = false;
+        setup.do_offline_fitrim = false;
 
         loop_device_relinquish(setup.loop);
 
@@ -1267,6 +1298,7 @@ int home_activate_luks(
                 log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
         setup.undo_dm = false;
+        setup.do_offline_fallocate = false;
 
         log_info("Everything completed.");
 
@@ -1279,6 +1311,7 @@ int home_activate_luks(
 int home_deactivate_luks(UserRecord *h) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *dm_name = NULL, *dm_node = NULL;
+        bool we_detached;
         int r;
 
         /* Note that the DM device and loopback device are set to auto-detach, hence strictly speaking we
@@ -1293,23 +1326,45 @@ int home_deactivate_luks(UserRecord *h) {
 
         r = crypt_init_by_name(&cd, dm_name);
         if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
-                log_debug_errno(r, "LUKS device %s is already detached.", dm_name);
-                return false;
+                log_debug_errno(r, "LUKS device %s has already been detached.", dm_name);
+                we_detached = false;
         } else if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
+        else {
+                log_info("Discovered used LUKS device %s.", dm_node);
 
-        log_info("Discovered used LUKS device %s.", dm_node);
+                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
 
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+                r = crypt_deactivate(cd, dm_name);
+                if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
+                        log_debug_errno(r, "LUKS device %s is already detached.", dm_node);
+                        we_detached = false;
+                } else if (r < 0)
+                        return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", dm_node);
+                else {
+                        log_info("LUKS device detaching completed.");
+                        we_detached = true;
+                }
+        }
 
-        r = crypt_deactivate(cd, dm_name);
-        if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT))
-                log_debug_errno(r, "LUKS device %s is already detached.", dm_node);
-        else if (r < 0)
-                return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", dm_node);
+        if (user_record_luks_offline_discard(h))
+                log_debug("Not allocating on logout.");
+        else
+                (void) run_fallocate_by_path(user_record_image_path(h));
 
-        log_info("LUKS device detaching completed.");
-        return true;
+        return we_detached;
+}
+
+int home_trim_luks(UserRecord *h) {
+        assert(h);
+
+        if (!user_record_luks_offline_discard(h)) {
+                log_debug("Not trimming on logout.");
+                return 0;
+        }
+
+        (void) run_fitrim_by_path(user_record_home_directory(h));
+        return 0;
 }
 
 static int run_mkfs(
@@ -1918,7 +1973,9 @@ int home_create_luks(
                 if (asprintf(&disk_uuid_path, "/dev/disk/by-uuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(luks_uuid)) < 0)
                         return log_oom();
 
-                if (user_record_luks_discard(h)) {
+                if (user_record_luks_discard(h) || user_record_luks_offline_discard(h)) {
+                        /* If we want online or offline discard, discard once before we start using things. */
+
                         if (ioctl(image_fd, BLKDISCARD, (uint64_t[]) { 0, block_device_size }) < 0)
                                 log_full_errno(errno == EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, errno,
                                                "Failed to issue full-device BLKDISCARD on device, ignoring: %m");
@@ -2004,7 +2061,7 @@ int home_create_luks(
                         user_record_user_name_and_realm(h),
                         pkcs11_decrypted_passwords,
                         effective_passwords,
-                        user_record_luks_discard(h),
+                        user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                         h,
                         &cd);
         if (r < 0)
@@ -2084,6 +2141,12 @@ int home_create_luks(
                 goto fail;
         }
 
+        if (user_record_luks_offline_discard(h)) {
+                r = run_fitrim(root_fd);
+                if (r < 0)
+                        goto fail;
+        }
+
         root_fd = safe_close(root_fd);
 
         r = umount_verbose("/run/systemd/user-home-mount");
@@ -2101,6 +2164,12 @@ int home_create_luks(
         dm_activated = false;
 
         loop = loop_device_unref(loop);
+
+        if (!user_record_luks_offline_discard(h)) {
+                r = run_fallocate(image_fd, NULL /* refresh stat() data */);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (disk_uuid_path)
                 (void) ioctl(image_fd, BLKRRPART, 0);

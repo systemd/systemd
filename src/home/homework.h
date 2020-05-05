@@ -17,6 +17,7 @@ typedef struct HomeSetup {
         LoopDevice *loop;
         struct crypt_device *crypt_device;
         int root_fd;
+        int image_fd;
         sd_id128_t found_partition_uuid;
         sd_id128_t found_luks_uuid;
         sd_id128_t found_fs_uuid;
@@ -28,6 +29,8 @@ typedef struct HomeSetup {
 
         bool undo_dm;
         bool undo_mount;
+        bool do_offline_fitrim;
+        bool do_offline_fallocate;
 
         uint64_t partition_offset;
         uint64_t partition_size;
@@ -36,6 +39,7 @@ typedef struct HomeSetup {
 #define HOME_SETUP_INIT                                 \
         {                                               \
                 .root_fd = -1,                          \
+                .image_fd = -1,                         \
                 .partition_offset = UINT64_MAX,         \
                 .partition_size = UINT64_MAX,           \
         }
