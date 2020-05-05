@@ -1,0 +1,84 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="homed.conf" conditional='ENABLE_RESOLVE'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>homed.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>homed.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>homed.conf</refname>
+    <refname>homed.conf.d</refname>
+    <refpurpose>Home area/user account manager configuration files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/etc/systemd/homed.conf</filename></para>
+    <para><filename>/etc/systemd/homed.conf.d/*.conf</filename></para>
+    <para><filename>/run/systemd/homed.conf.d/*.conf</filename></para>
+    <para><filename>/usr/lib/systemd/homed.conf.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>These configuration files control default parameters for home areas/user accounts created and
+    managed by
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+  </refsect1>
+
+  <xi:include href="standard-conf.xml" xpointer="main-conf" />
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are available in the <literal>[Home]</literal> section:</para>
+
+    <variablelist class='home-directives'>
+
+      <varlistentry>
+        <term><varname>DefaultStorage=</varname></term>
+        <listitem><para>The default storage to use for home areas. Takes one of <literal>luks</literal>,
+        <literal>fscrypt</literal>, <literal>directory</literal>, <literal>subvolume</literal>,
+        <literal>cifs</literal>. For details about these options, see
+        <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If not
+        configured or assigned the empty string, the default storage is automatically determined: if not
+        running in a container enviroment and <filename>/home/</filename> is not itself encrypted, defaults
+        to <literal>luks</literal>. Otherwise defaults to <literal>subvolume</literal> if
+        <filename>/home/</filename> is on a btrfs file system, and <literal>directory</literal>
+        otherwise. Note that the storage selected on the <command>homectl</command> command line always takes
+        precedence.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultFileSystemType=</varname></term>
+        <listitem><para>When using <literal>luks</literal> as storage (see above), selects the default file
+        system to use inside the user's LUKS volume. Takes one of <literal>ext4</literal>,
+        <literal>xfs</literal> or <literal>btrfs</literal>. If not specified defaults to
+        <literal>ext4</literal>. This setting has no effect if a different storage mechanism is used. The
+        file system type selected on the <command>homectl</command> command line always takes
+        precedence.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+
+</refentry>

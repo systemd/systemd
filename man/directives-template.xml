@@ -52,6 +52,15 @@
   </refsect1>
 
   <refsect1>
+    <title>Home Area/User Account directives</title>
+
+    <para>Directives for configuring home areas and user accounts via
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <variablelist id='home-directives' />
+  </refsect1>
+
+  <refsect1>
     <title>UDEV directives</title>
 
     <para>Directives for configuring systemd units through the udev database.</para>
