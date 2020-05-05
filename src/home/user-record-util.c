@@ -840,6 +840,8 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
         if (r < 0)
                 return r;
 
+        json_variant_sensitive(w);
+
         r = json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
@@ -900,6 +902,8 @@ int user_record_set_pkcs11_pin(UserRecord *h, char **pin, bool prepend) {
         if (r < 0)
                 return r;
 
+        json_variant_sensitive(w);
+
         r = json_variant_set_field(&h->json, "secret", w);
         if (r < 0)
                 return r;
@@ -927,8 +931,11 @@ int user_record_set_pkcs11_protected_authentication_path_permitted(UserRecord *h
 
         if (json_variant_is_blank_object(w))
                 r = json_variant_filter(&h->json, STRV_MAKE("secret"));
-        else
+        else {
+                json_variant_sensitive(w);
+
                 r = json_variant_set_field(&h->json, "secret", w);
+        }
         if (r < 0)
                 return r;
 
