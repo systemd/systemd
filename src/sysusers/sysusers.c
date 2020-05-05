@@ -529,7 +529,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct spwd n = {
                         .sp_namp = i->name,
-                        .sp_pwdp = (char*) "!!", /* lock this password, and make it invalid */
+                        .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
                         .sp_lstchg = lstchg,
                         .sp_min = -1,
                         .sp_max = -1,
