@@ -131,7 +131,7 @@ static int field_set_test(Set *fields, const char *name, size_t n) {
         if (!s)
                 return log_oom();
 
-        return set_get(fields, s) ? 1 : 0;
+        return set_contains(fields, s);
 }
 
 static bool shall_print(const char *p, size_t l, OutputFlags flags) {
@@ -158,7 +158,7 @@ static bool print_multiline(
                 bool audit,
                 const char* message,
                 size_t message_len,
-                size_t highlight[2]) {
+                size_t highlight[static 2]) {
 
         const char *color_on = "", *color_off = "", *highlight_on = "";
         const char *pos, *end;
@@ -370,7 +370,7 @@ static int output_short(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[static 2]) {
 
         int r;
         const void *data;
@@ -534,7 +534,7 @@ static int output_verbose(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[static 2]) {
 
         const void *data;
         size_t length;
@@ -653,7 +653,7 @@ static int output_export(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[static 2]) {
 
         sd_id128_t boot_id;
         char sid[SD_ID128_STRING_MAX];
@@ -883,7 +883,7 @@ static int output_json(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[static 2]) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
@@ -1016,6 +1016,57 @@ finish:
         return r;
 }
 
+static int output_cat_field(
+                FILE *f,
+                sd_journal *j,
+                OutputFlags flags,
+                const char *field,
+                const size_t highlight[static 2]) {
+
+        const char *highlight_on, *highlight_off;
+        const void *data;
+        size_t l, fl;
+        int r;
+
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                highlight_on = ANSI_HIGHLIGHT_RED;
+                highlight_off = ANSI_NORMAL;
+        } else
+                highlight_on = highlight_off = "";
+
+        r = sd_journal_get_data(j, field, &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+        if (r == -ENOENT) /* An entry without the requested field */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get data: %m");
+
+        fl = strlen(field);
+        assert(l >= fl + 1);
+        assert(((char*) data)[fl] == '=');
+
+        data = (const uint8_t*) data + fl + 1;
+        l -= fl + 1;
+
+        if (highlight && FLAGS_SET(flags, OUTPUT_COLOR)) {
+                assert(highlight[0] <= highlight[1]);
+                assert(highlight[1] <= l);
+
+                fwrite((const char*) data, 1, highlight[0], f);
+                fwrite(highlight_on, 1, strlen(highlight_on), f);
+                fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
+                fwrite(highlight_off, 1, strlen(highlight_off), f);
+                fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+        } else
+                fwrite((const char*) data, 1, l, f);
+
+        fputc('\n', f);
+        return 0;
+}
+
 static int output_cat(
                 FILE *f,
                 sd_journal *j,
@@ -1023,50 +1074,25 @@ static int output_cat(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) {
+                const size_t highlight[static 2]) {
 
-        const void *data;
-        size_t l;
+        const char *field;
+        Iterator iterator;
         int r;
-        const char *highlight_on = "", *highlight_off = "";
 
         assert(j);
         assert(f);
 
-        if (flags & OUTPUT_COLOR) {
-                highlight_on = ANSI_HIGHLIGHT_RED;
-                highlight_off = ANSI_NORMAL;
+        (void) sd_journal_set_data_threshold(j, 0);
+
+        if (set_isempty(output_fields))
+                return output_cat_field(f, j, flags, "MESSAGE", highlight);
+
+        SET_FOREACH(field, output_fields, iterator) {
+                r = output_cat_field(f, j, flags, field, streq(field, "MESSAGE") ? highlight : NULL);
+                if (r < 0)
+                        return r;
         }
-
-        sd_journal_set_data_threshold(j, 0);
-
-        r = sd_journal_get_data(j, "MESSAGE", &data, &l);
-        if (r == -EBADMSG) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
-                return 0;
-        }
-        if (r < 0) {
-                /* An entry without MESSAGE=? */
-                if (r == -ENOENT)
-                        return 0;
-
-                return log_error_errno(r, "Failed to get data: %m");
-        }
-
-        assert(l >= 8);
-
-        if (highlight && (flags & OUTPUT_COLOR)) {
-                assert(highlight[0] <= highlight[1]);
-                assert(highlight[1] <= l - 8);
-
-                fwrite((const char*) data + 8, 1, highlight[0], f);
-                fwrite(highlight_on, 1, strlen(highlight_on), f);
-                fwrite((const char*) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
-                fwrite(highlight_off, 1, strlen(highlight_off), f);
-                fwrite((const char*) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
-        } else
-                fwrite((const char*) data + 8, 1, l - 8, f);
-        fputc('\n', f);
 
         return 0;
 }
@@ -1078,7 +1104,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 unsigned n_columns,
                 OutputFlags flags,
                 Set *output_fields,
-                const size_t highlight[2]) = {
+                const size_t highlight[static 2]) = {
 
         [OUTPUT_SHORT]             = output_short,
         [OUTPUT_SHORT_ISO]         = output_short,
@@ -1104,7 +1130,7 @@ int show_journal_entry(
                 unsigned n_columns,
                 OutputFlags flags,
                 char **output_fields,
-                const size_t highlight[2],
+                const size_t highlight[static 2],
                 bool *ellipsized) {
 
         int ret;

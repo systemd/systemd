@@ -374,9 +374,10 @@
                 <option>cat</option>
               </term>
               <listitem>
-                <para>generates a very terse output, only showing the
-                actual message of each journal entry with no metadata,
-                not even a timestamp.</para>
+                <para>generates a very terse output, only showing the actual message of each journal entry
+                with no metadata, not even a timestamp. If combined with the
+                <option>--output-fields=</option> option will output the listed fields for each log record,
+                instead of the message.</para>
               </listitem>
             </varlistentry>
 
@@ -398,10 +399,11 @@
       <varlistentry>
         <term><option>--output-fields=</option></term>
 
-        <listitem><para>A comma separated list of the fields which should be included in the output. This has an
-        effect only for the output modes which would normally show all fields (<option>verbose</option>,
-        <option>export</option>, <option>json</option>, <option>json-pretty</option>, <option>json-sse</option> and
-        <option>json-seq</option>). The <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
+        <listitem><para>A comma separated list of the fields which should be included in the output. This has
+        an effect only for the output modes which would normally show all fields (<option>verbose</option>,
+        <option>export</option>, <option>json</option>, <option>json-pretty</option>,
+        <option>json-sse</option> and <option>json-seq</option>), as well as on <option>cat</option>. For the
+        former, the <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
         <literal>__MONOTONIC_TIMESTAMP</literal>, and <literal>_BOOT_ID</literal> fields are always
         printed.</para></listitem>
       </varlistentry>
