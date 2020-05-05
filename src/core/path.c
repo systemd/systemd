@@ -174,15 +174,13 @@ int path_spec_fd_event(PathSpec *s, uint32_t revents) {
         return r;
 }
 
-static bool path_spec_check_good(PathSpec *s, bool initial) {
+static bool path_spec_check_good(PathSpec *s, bool initial, bool from_trigger_notify) {
         bool b, good = false;
 
         switch (s->type) {
 
         case PATH_EXISTS:
-                b = access(s->path, F_OK) >= 0;
-                good = b && !s->previous_exists;
-                s->previous_exists = b;
+                good = access(s->path, F_OK) >= 0;
                 break;
 
         case PATH_EXISTS_GLOB:
@@ -200,7 +198,7 @@ static bool path_spec_check_good(PathSpec *s, bool initial) {
         case PATH_CHANGED:
         case PATH_MODIFIED:
                 b = access(s->path, F_OK) >= 0;
-                good = !initial && b != s->previous_exists;
+                good = !initial && !from_trigger_notify && b != s->previous_exists;
                 s->previous_exists = b;
                 break;
 
@@ -426,8 +424,7 @@ static void path_set_state(Path *p, PathState state) {
         old_state = p->state;
         p->state = state;
 
-        if (state != PATH_WAITING &&
-            (state != PATH_RUNNING || p->inotify_triggered))
+        if (!IN_SET(state, PATH_WAITING, PATH_RUNNING))
                 path_unwatch(p);
 
         if (state != old_state)
@@ -436,7 +433,7 @@ static void path_set_state(Path *p, PathState state) {
         unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
-static void path_enter_waiting(Path *p, bool initial, bool recheck);
+static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify);
 
 static int path_coldplug(Unit *u) {
         Path *p = PATH(u);
@@ -447,7 +444,7 @@ static int path_coldplug(Unit *u) {
         if (p->deserialized_state != p->state) {
 
                 if (IN_SET(p->deserialized_state, PATH_WAITING, PATH_RUNNING))
-                        path_enter_waiting(p, true, true);
+                        path_enter_waiting(p, true, false);
                 else
                         path_set_state(p, p->deserialized_state);
         }
@@ -487,8 +484,6 @@ static void path_enter_running(Path *p) {
         if (r < 0)
                 goto fail;
 
-        p->inotify_triggered = false;
-
         path_set_state(p, PATH_RUNNING);
         path_unwatch(p);
 
@@ -499,27 +494,35 @@ fail:
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
-static bool path_check_good(Path *p, bool initial) {
+static bool path_check_good(Path *p, bool initial, bool from_trigger_notify) {
         PathSpec *s;
 
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs)
-                if (path_spec_check_good(s, initial))
+                if (path_spec_check_good(s, initial, from_trigger_notify))
                         return true;
 
         return false;
 }
 
-static void path_enter_waiting(Path *p, bool initial, bool recheck) {
+static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) {
+        Unit *trigger;
         int r;
 
-        if (recheck)
-                if (path_check_good(p, initial)) {
-                        log_unit_debug(UNIT(p), "Got triggered.");
-                        path_enter_running(p);
-                        return;
-                }
+        /* If the triggered unit is already running, so are we */
+        trigger = UNIT_TRIGGER(UNIT(p));
+        if (trigger && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger))) {
+                path_set_state(p, PATH_RUNNING);
+                path_unwatch(p);
+                return;
+        }
+
+        if (path_check_good(p, initial, from_trigger_notify)) {
+                log_unit_debug(UNIT(p), "Got triggered.");
+                path_enter_running(p);
+                return;
+        }
 
         r = path_watch(p);
         if (r < 0)
@@ -529,12 +532,11 @@ static void path_enter_waiting(Path *p, bool initial, bool recheck) {
          * might have appeared/been removed by now, so we must
          * recheck */
 
-        if (recheck)
-                if (path_check_good(p, false)) {
-                        log_unit_debug(UNIT(p), "Got triggered.");
-                        path_enter_running(p);
-                        return;
-                }
+        if (path_check_good(p, false, from_trigger_notify)) {
+                log_unit_debug(UNIT(p), "Got triggered.");
+                path_enter_running(p);
+                return;
+        }
 
         path_set_state(p, PATH_WAITING);
         return;
@@ -580,7 +582,7 @@ static int path_start(Unit *u) {
         path_mkdir(p);
 
         p->result = PATH_SUCCESS;
-        path_enter_waiting(p, true, true);
+        path_enter_waiting(p, true, false);
 
         return 1;
 }
@@ -727,15 +729,10 @@ static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
         if (changed < 0)
                 goto fail;
 
-        /* If we are already running, then remember that one event was
-         * dispatched so that we restart the service only if something
-         * actually changed on disk */
-        p->inotify_triggered = true;
-
         if (changed)
                 path_enter_running(p);
         else
-                path_enter_waiting(p, false, true);
+                path_enter_waiting(p, false, false);
 
         return 0;
 
@@ -759,11 +756,11 @@ static void path_trigger_notify(Unit *u, Unit *other) {
         if (p->state == PATH_RUNNING &&
             UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
                 log_unit_debug(UNIT(p), "Got notified about unit deactivation.");
-
-                /* Hmm, so inotify was triggered since the
-                 * last activation, so I guess we need to
-                 * recheck what is going on. */
-                path_enter_waiting(p, false, p->inotify_triggered);
+                path_enter_waiting(p, false, true);
+        } else if (p->state == PATH_WAITING &&
+                   !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                log_unit_debug(UNIT(p), "Got notified about unit activation.");
+                path_enter_waiting(p, false, true);
         }
 }
 
