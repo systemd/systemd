@@ -17,7 +17,7 @@ static int test_acpi_fpdt(void) {
 
         r = acpi_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -ENODATA;
+                bool ok = r == -ENOENT || r == -EACCES || r == -ENODATA;
 
                 log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read ACPI FPDT: %m");
                 return ok ? 0 : r;
@@ -37,7 +37,7 @@ static int test_efi_loader(void) {
 
         r = efi_loader_get_boot_usec(&loader_start, &loader_exit);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
+                bool ok = r == -ENOENT || r == -EACCES || r == -EOPNOTSUPP;
 
                 log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read EFI loader data: %m");
                 return ok ? 0 : r;
@@ -59,7 +59,7 @@ static int test_boot_timestamps(void) {
 
         r = boot_timestamps(NULL, &fw, &l);
         if (r < 0) {
-                bool ok = r == -ENOENT || (getuid() != 0 && r == -EACCES) || r == -EOPNOTSUPP;
+                bool ok = r == -ENOENT || r == -EACCES || r == -EOPNOTSUPP;
 
                 log_full_errno(ok ? LOG_DEBUG : LOG_ERR, r, "Failed to read variables: %m");
                 return ok ? 0 : r;
