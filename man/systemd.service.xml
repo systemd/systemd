@@ -872,7 +872,7 @@
           <constant>SIGKILL</constant> are considered clean service terminations.</para>
         </example>
 
-        <para>Note: <command>systemd-analyze exit-codes</command> may be used to list exit
+        <para>Note: <command>systemd-analyze exit-status</command> may be used to list exit
         codes and translate between numerical code values and names.</para></listitem>
       </varlistentry>
 
