@@ -1003,6 +1003,7 @@ node /org/freedesktop/login1/session/1 {
            in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
+      SetType(in  s type);
       TakeDevice(in  u major,
                  in  u minor,
                  out h fd,
@@ -1058,7 +1059,6 @@ node /org/freedesktop/login1/session/1 {
       readonly u Leader = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Audit = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Type = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
@@ -1098,6 +1098,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-method" generated="True" extra-ref="TakeControl()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseControl()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetType()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="TakeDevice()"/>
 
@@ -1183,10 +1185,17 @@ node /org/freedesktop/login1/session/1 {
       out and replaced. Otherwise, this method fails if there is already a controller. Note that this method is
       limited to D-Bus users with the effective UID set to the user of the session or root.</para>
 
-      <para><function>ReleaseControl()</function> drops control of a given session. Closing the
-      D-Bus connection implicitly releases control as well. See <function>TakeControl()</function> for more information. This
-      method also releases all devices for which the controller requested ownership via <function>TakeDevice()</function>.
-      </para>
+      <para><function>ReleaseControl()</function> drops control of a given session. Closing the D-Bus
+      connection implicitly releases control as well. See <function>TakeControl()</function> for more
+      information. This method also releases all devices for which the controller requested ownership via
+      <function>TakeDevice()</function>.</para>
+
+      <para><function>SetType()</function> allows the type of the session to be changed dynamically.  It can
+      only be called by session's current controller. If <function>TakeControl()</function> has not been
+      called, this method will fail. In addition, the session type will be reset to its original value once
+      control is released, either by calling <function>ReleaseControl()</function> or closing the D-Bus
+      connection. This should help prevent a session from entering an inconsistent state, for example if the
+      controller crashes. The only argument <varname>type</varname> is the new session type.</para>
 
       <para><function>TakeDevice()</function> allows a session controller to get a file descriptor for a
       specific device. Pass in the major and minor numbers of the character device and
