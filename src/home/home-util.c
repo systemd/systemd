@@ -64,6 +64,12 @@ int suitable_image_path(const char *path) {
                 path_is_absolute(path);
 }
 
+bool supported_fstype(const char *fstype) {
+        /* Limit the set of supported file systems a bit, as protection against little tested kernel file
+         * systems. Also, we only support the resize ioctls for these file systems. */
+        return STR_IN_SET(fstype, "ext4", "btrfs", "xfs");
+}
+
 int split_user_name_realm(const char *t, char **ret_user_name, char **ret_realm) {
         _cleanup_free_ char *user_name = NULL, *realm = NULL;
         const char *c;

@@ -12,6 +12,8 @@ bool suitable_user_name(const char *name);
 int suitable_realm(const char *realm);
 int suitable_image_path(const char *path);
 
+bool supported_fstype(const char *fstype);
+
 int split_user_name_realm(const char *t, char **ret_user_name, char **ret_realm);
 
 int bus_message_append_secret(sd_bus_message *m, UserRecord *secret);
