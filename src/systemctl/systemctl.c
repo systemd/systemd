@@ -425,6 +425,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         if (arg_full)
                 table_set_width(table, 0);
 
+        (void) table_set_empty_string(table, "-");
+
         for (u = unit_infos; unit_infos && u < unit_infos + c; u++) {
                 _cleanup_free_ char *j = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "";
@@ -1021,6 +1023,8 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         if (arg_full)
                 table_set_width(table, 0);
 
+        (void) table_set_empty_string(table, "-");
+
         if (cs) {
                 for (s = socket_infos; s < socket_infos + cs; s++) {
                         _cleanup_free_ char *j = NULL, *activates = NULL;
@@ -1265,6 +1269,8 @@ static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         if (arg_full)
                 table_set_width(table, 0);
 
+        (void) table_set_empty_string(table, "-");
+
         if (n > 0) {
                 for (t = timer_infos; t < timer_infos + n; t++) {
                         _cleanup_free_ char *j = NULL, *activates = NULL;
@@ -1477,6 +1483,8 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         table_set_header(table, !arg_no_legend);
         if (arg_full)
                 table_set_width(table, 0);
+
+        (void) table_set_empty_string(table, "-");
 
         for (const UnitFileList *u = units; u < units + c; u++) {
                 const char *on_underline = NULL, *on_unit_color = NULL, *id;
@@ -2031,6 +2039,8 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         if (arg_full)
                 table_set_width(table, 0);
 
+        (void) table_set_empty_string(table, "-");
+
         for (m = machine_infos; m < machine_infos + n; m++) {
                 _cleanup_free_ char *mname = NULL;
                 const char *on_state = "", *on_failed = "";
@@ -2350,6 +2360,8 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
         table_set_header(table, !arg_no_legend);
         if (arg_full)
                 table_set_width(table, 0);
+
+        (void) table_set_empty_string(table, "-");
 
         for (j = jobs; j < jobs + n; j++) {
                 if (streq(j->state, "running"))
