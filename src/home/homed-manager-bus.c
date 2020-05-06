@@ -789,7 +789,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                  "h",
                                  SD_BUS_PARAM(send_fd),
                                  method_acquire_home,
-                                 SD_BUS_VTABLE_SENSITIVE),
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_NAMES("RefHome",
                                  "sb",
                                  SD_BUS_PARAM(user_name)
