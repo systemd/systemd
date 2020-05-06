@@ -1546,8 +1546,9 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                                            TABLE_STRING, unit_preset_str,
                                            TABLE_SET_COLOR, strempty(on_preset_color));
                 } else
-                        r = table_add_many(table, TABLE_EMPTY);
-
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_SET_COLOR, underline ? ansi_grey_underline() : ansi_grey());
                 if (r < 0)
                         return table_log_add_error(r);
         }
