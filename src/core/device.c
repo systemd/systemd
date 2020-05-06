@@ -665,7 +665,7 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
-        Manager *m = NULL;
+        Manager *m;
 
         assert(d);
 
