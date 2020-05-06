@@ -73,6 +73,7 @@ typedef struct TableData {
         bool uppercase;             /* Uppercase string on display */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
+        const char *rgap_color;     /* The ANSI color to use for the gap right of this cell. Usually used to underline entire rows in a gapless fashion */
         char *url;                  /* A URL to use for a clickable hyperlink */
         char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
 
@@ -334,7 +335,7 @@ static bool table_data_matches(
                 return false;
 
         /* If a color/url/uppercase flag is set, refuse to merge */
-        if (d->color)
+        if (d->color || d->rgap_color)
                 return false;
         if (d->url)
                 return false;
@@ -542,6 +543,7 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
                 return -ENOMEM;
 
         nd->color = od->color;
+        nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
         nd->uppercase = od->uppercase;
 
@@ -671,6 +673,20 @@ int table_set_color(Table *t, TableCell *cell, const char *color) {
         return 0;
 }
 
+int table_set_rgap_color(Table *t, TableCell *cell, const char *color) {
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        table_get_data(t, cell)->rgap_color = empty_to_null(color);
+        return 0;
+}
+
 int table_set_url(Table *t, TableCell *cell, const char *url) {
         _cleanup_free_ char *copy = NULL;
         int r;
@@ -744,6 +760,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
                 return -ENOMEM;
 
         nd->color = od->color;
+        nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
         nd->uppercase = od->uppercase;
 
@@ -949,6 +966,25 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_SET_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_color(t, last_cell, c);
+                        break;
+                }
+
+                case TABLE_SET_RGAP_COLOR: {
+                        const char *c = va_arg(ap, const char*);
+                        r = table_set_rgap_color(t, last_cell, c);
+                        break;
+                }
+
+                case TABLE_SET_BOTH_COLORS: {
+                        const char *c = va_arg(ap, const char*);
+
+                        r = table_set_color(t, last_cell, c);
+                        if (r < 0) {
+                                va_end(ap);
+                                return r;
+                        }
+
+                        r = table_set_rgap_color(t, last_cell, c);
                         break;
                 }
 
@@ -1271,6 +1307,9 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
         case TABLE_STRV: {
                 char *p;
+
+                if (strv_isempty(d->strv))
+                        return strempty(t->empty_string);
 
                 p = strv_join(d->strv, "\n");
                 if (!p)
@@ -1694,6 +1733,20 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
+static bool table_data_isempty(TableData *d) {
+        assert(d);
+
+        if (d->type == TABLE_EMPTY)
+                return true;
+
+        /* Let's also consider an empty strv as truly empty. */
+        if (d->type == TABLE_STRV)
+                return strv_isempty(d->strv);
+
+        /* Note that an empty string we do not consider empty here! */
+        return false;
+}
+
 static const char* table_data_color(TableData *d) {
         assert(d);
 
@@ -1701,8 +1754,17 @@ static const char* table_data_color(TableData *d) {
                 return d->color;
 
         /* Let's implicitly color all "empty" cells in grey, in case an "empty_string" is set that is not empty */
-        if (d->type == TABLE_EMPTY)
+        if (table_data_isempty(d))
                 return ansi_grey();
+
+        return NULL;
+}
+
+static const char* table_data_rgap_color(TableData *d) {
+        assert(d);
+
+        if (d->rgap_color)
+                return d->rgap_color;
 
         return NULL;
 }
@@ -1958,12 +2020,13 @@ int table_print(Table *t, FILE *f) {
                         row = t->data + i * t->n_columns;
 
                 do {
+                        const char *gap_color = NULL;
                         more_sublines = false;
 
                         for (j = 0; j < display_columns; j++) {
                                 _cleanup_free_ char *buffer = NULL, *extracted = NULL;
                                 bool lines_truncated = false;
-                                const char *field;
+                                const char *field, *color = NULL;
                                 TableData *d;
                                 size_t l;
 
@@ -2042,23 +2105,35 @@ int table_print(Table *t, FILE *f) {
                                         field = buffer;
                                 }
 
-                                if (row == t->data) /* underline header line fully, including the column separator */
-                                        fputs(ansi_underline(), f);
+                                if (colors_enabled()) {
+                                        if (gap_color)
+                                                fputs(gap_color, f);
+                                        else if (row == t->data) /* underline header line fully, including the column separator */
+                                                fputs(ansi_underline(), f);
+                                }
 
                                 if (j > 0)
-                                        fputc(' ', f); /* column separator */
+                                        fputc(' ', f); /* column separator left of cell */
 
-                                if (table_data_color(d) && colors_enabled()) {
-                                        if (row == t->data) /* first undo header underliner */
+                                if (colors_enabled()) {
+                                        color = table_data_color(d);
+
+                                        /* Undo gap color */
+                                        if (gap_color || (color && row == t->data))
                                                 fputs(ANSI_NORMAL, f);
 
-                                        fputs(table_data_color(d), f);
+                                        if (color)
+                                                fputs(color, f);
+                                        else if (gap_color && row == t->data) /* underline header line cell */
+                                                fputs(ansi_underline(), f);
                                 }
 
                                 fputs(field, f);
 
-                                if (colors_enabled() && (table_data_color(d) || row == t->data))
+                                if (colors_enabled() && (color || row == t->data))
                                         fputs(ANSI_NORMAL, f);
+
+                                gap_color = table_data_rgap_color(d);
                         }
 
                         fputc('\n', f);
