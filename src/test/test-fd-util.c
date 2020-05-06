@@ -233,17 +233,17 @@ static void assert_equal_fd(int fd1, int fd2) {
                 ssize_t x, y;
 
                 x = read(fd1, a, sizeof(a));
-                assert(x >= 0);
+                assert_se(x >= 0);
 
                 y = read(fd2, b, sizeof(b));
-                assert(y >= 0);
+                assert_se(y >= 0);
 
-                assert(x == y);
+                assert_se(x == y);
 
                 if (x == 0)
                         break;
 
-                assert(memcmp(a, b, x) == 0);
+                assert_se(memcmp(a, b, x) == 0);
         }
 }
 

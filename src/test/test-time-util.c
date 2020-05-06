@@ -433,7 +433,7 @@ static void assert_similar(usec_t a, usec_t b) {
         else
                 d = b - a;
 
-        assert(d < 10*USEC_PER_SEC);
+        assert_se(d < 10*USEC_PER_SEC);
 }
 
 static void test_usec_shift_clock(void) {
