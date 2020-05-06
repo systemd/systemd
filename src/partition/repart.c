@@ -1722,7 +1722,7 @@ static int context_dump_partition_bar(Context *context, const char *node) {
         bool z = false;
         size_t c, j = 0;
 
-        assert((c = columns()) >= 2);
+        assert_se((c = columns()) >= 2);
         c -= 2; /* We do not use the leftmost and rightmost character cell */
 
         bar = new0(Partition*, c);
