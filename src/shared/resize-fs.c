@@ -15,7 +15,6 @@
 
 int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
         struct statfs sfs;
-        int r;
 
         assert(fd >= 0);
 
@@ -42,6 +41,7 @@ int resize_fs(int fd, uint64_t sz, uint64_t *ret_size) {
                         *ret_size = u * sfs.f_bsize;
 
         } else if (is_fs_type(&sfs, BTRFS_SUPER_MAGIC)) {
+                _unused_ int r;
                 struct btrfs_ioctl_vol_args args = {};
 
                 /* 256M is the minimize size enforced by the btrfs kernel code when resizing (which is

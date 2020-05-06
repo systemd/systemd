@@ -2190,7 +2190,7 @@ void manager_dirty(Manager *manager) {
 }
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = userdata;
+        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
 
         assert(m);
@@ -2236,7 +2236,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 }
 
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = userdata;
+        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
 
         assert(m);

@@ -2567,7 +2567,7 @@ static int method_can_reboot_parameter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         int r;
 
         assert(message);
@@ -2699,7 +2699,7 @@ static int method_can_reboot_to_firmware_setup(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         int r;
 
         assert(message);
@@ -2888,7 +2888,7 @@ static int method_can_reboot_to_boot_loader_menu(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         int r;
 
         assert(message);
@@ -3079,7 +3079,7 @@ static int method_can_reboot_to_boot_loader_entry(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         int r;
 
         assert(message);
