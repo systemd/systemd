@@ -1967,7 +1967,6 @@ int manager_load_unit_prepare(
         int r;
 
         assert(m);
-        assert(name || path);
         assert(_ret);
 
         /* This will prepare the unit for loading, but not actually
@@ -1976,8 +1975,13 @@ int manager_load_unit_prepare(
         if (path && !is_path(path))
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
-        if (!name)
+        if (!name) {
+                /* 'name' and 'path' must not both be null. Check here 'path' using assert_se() to
+                 * workaround a bug in gcc that generates a -Wnonnull warning when calling basename(),
+                 * but this cannot be possible in any code path (See #6119). */
+                assert_se(path);
                 name = basename(path);
+        }
 
         t = unit_name_to_type(name);
 
