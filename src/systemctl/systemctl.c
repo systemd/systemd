@@ -4334,7 +4334,7 @@ static void print_status_info(
 
         fs = !isempty(i->freezer_state) && !streq(i->freezer_state, "running") ? i->freezer_state : NULL;
         if (fs)
-                printf(" %s(%s)%s", ansi_highlight_yellow(), fs, active_off);
+                printf(" %s(%s)%s", ansi_highlight_yellow(), fs, ansi_normal());
 
         if (!isempty(i->result) && !streq(i->result, "success"))
                 printf(" (Result: %s)", i->result);
