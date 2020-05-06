@@ -113,7 +113,7 @@ Here's the step-by-step guide:
    home directory temporarily and copy the data in.
 
     ```
-    homectl with foobar -- rsync -aHAXv --delete-during /home/foobar.saved/ .
+    homectl with foobar -- rsync -aHAXv --remove-source-files /home/foobar.saved/ .
     ```
 
    This mounts the home directory of the user, and then runs the specified
@@ -121,7 +121,7 @@ Here's the step-by-step guide:
    new. The new home directory is the working directory of the invoked `rsync`
    process. We are invoking this command as root, hence the `rsync` runs as
    root too. When the `rsync` command completes the home directory is
-   automatically unmounted again. Since we used `--delete-during` all files
+   automatically unmounted again. Since we used `--remove-source-files` all files
    copied are removed from the old home directory as the copy progresses. After
    the command completes the old home directory should be empty. Let's remove
    it hence:
