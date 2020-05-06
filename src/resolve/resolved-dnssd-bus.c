@@ -6,6 +6,7 @@
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link.h"
+#include "resolved-manager.h"
 #include "strv.h"
 #include "user-util.h"
 

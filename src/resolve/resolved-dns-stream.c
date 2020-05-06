@@ -8,6 +8,7 @@
 #include "io-util.h"
 #include "missing_network.h"
 #include "resolved-dns-stream.h"
+#include "resolved-manager.h"
 
 #define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)
 #define DNS_STREAMS_MAX 128

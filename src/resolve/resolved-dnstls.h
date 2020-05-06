@@ -3,9 +3,14 @@
 
 #if ENABLE_DNS_OVER_TLS
 
+#include <stdint.h>
+
+typedef struct DnsServer DnsServer;
+typedef struct DnsStream DnsStream;
 typedef struct DnsTlsManagerData DnsTlsManagerData;
 typedef struct DnsTlsServerData DnsTlsServerData;
 typedef struct DnsTlsStreamData DnsTlsStreamData;
+typedef struct Manager Manager;
 
 #if DNS_OVER_TLS_USE_GNUTLS
 #include "resolved-dnstls-gnutls.h"
@@ -14,10 +19,6 @@ typedef struct DnsTlsStreamData DnsTlsStreamData;
 #else
 #error Unknown dependency for supporting DNS-over-TLS
 #endif
-
-#include "resolved-dns-stream.h"
-#include "resolved-dns-transaction.h"
-#include "resolved-manager.h"
 
 #define DNSTLS_STREAM_CLOSED 1
 

@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "list.h"
 #include "macro.h"
 
 typedef struct DnsSearchDomain DnsSearchDomain;
+typedef struct Link Link;
+typedef struct Manager Manager;
 
 typedef enum DnsSearchDomainType {
         DNS_SEARCH_DOMAIN_SYSTEM,
         DNS_SEARCH_DOMAIN_LINK,
 } DnsSearchDomainType;
-
-#include "resolved-link.h"
-#include "resolved-manager.h"
 
 struct DnsSearchDomain {
         Manager *manager;
