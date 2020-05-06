@@ -652,7 +652,6 @@ const UnitVTable scope_vtable = {
 
         .notify_cgroup_empty = scope_notify_cgroup_empty_event,
 
-        .bus_vtable = bus_scope_vtable,
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
 

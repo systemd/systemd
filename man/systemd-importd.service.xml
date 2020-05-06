@@ -36,10 +36,11 @@
     <command>pull-raw</command>, <command>pull-tar</command>, <command>import-raw</command>,
     <command>import-tar</command>, <command>export-raw</command>, and <command>export-tar</command> commands.</para>
 
-    <para>See the
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/importd">
-    importd D-Bus API Documentation</ulink> for information about the
-    APIs <filename>systemd-importd</filename> provides.</para>
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.import1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
   </refsect1>
 
   <refsect1>

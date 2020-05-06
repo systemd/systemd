@@ -34,11 +34,7 @@
 
     <para>The service exposes the following interfaces on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.locale1 \
-        --object-path /org/freedesktop/locale1
-
+    <programlisting executable="systemd-localed" node="/org/freedesktop/locale1" interface="org.freedesktop.locale1">
 node /org/freedesktop/locale1 {
   interface org.freedesktop.locale1 {
     methods:
@@ -167,6 +163,20 @@ node /org/freedesktop/locale1 {
       <function>SetX11Keyboard()</function> and <function>SetVConsoleKeyboard()</function> is
       <constant>org.freedesktop.locale1.set-keyboard</constant>.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.locale1</interfacename> on the bus</title>
+
+      <programlisting>
+$ gdbus introspect --system \
+  --dest org.freedesktop.locale1 \
+  --object-path /org/freedesktop/locale1
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

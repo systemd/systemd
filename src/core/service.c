@@ -4484,7 +4484,6 @@ const UnitVTable service_vtable = {
 
         .bus_name_owner_change = service_bus_name_owner_change,
 
-        .bus_vtable = bus_service_vtable,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,
 

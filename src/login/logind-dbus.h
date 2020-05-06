@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-util.h"
 #include "logind.h"
 #include "logind-session.h"
 #include "logind-user.h"
@@ -29,3 +30,5 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *err
 int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo, sd_bus_error *error);
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *error);
 int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *error);
+
+extern const BusObjectImplementation manager_object;

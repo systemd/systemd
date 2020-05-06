@@ -1440,6 +1440,14 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/machine1",
+        "org.freedesktop.machine1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
+        .children = BUS_IMPLEMENTATIONS( &machine_object,
+                                         &image_object ),
+};
+
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *path, *result, *unit;
         Manager *m = userdata;

@@ -55,6 +55,8 @@
 
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the D-Bus API.</para>
   </refsect1>
 

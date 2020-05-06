@@ -1321,7 +1321,99 @@ int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd
         return sd_bus_reply_method_return(message, "u", (uint32_t) shift);
 }
 
-const sd_bus_vtable machine_vtable[] = {
+static int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        Manager *m = userdata;
+        Machine *machine;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+        assert(m);
+
+        if (streq(path, "/org/freedesktop/machine1/machine/self")) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                sd_bus_message *message;
+                pid_t pid;
+
+                message = sd_bus_get_current_message(bus);
+                if (!message)
+                        return 0;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &pid);
+                if (r < 0)
+                        return r;
+
+                r = manager_get_machine_by_pid(m, pid, &machine);
+                if (r <= 0)
+                        return 0;
+        } else {
+                _cleanup_free_ char *e = NULL;
+                const char *p;
+
+                p = startswith(path, "/org/freedesktop/machine1/machine/");
+                if (!p)
+                        return 0;
+
+                e = bus_label_unescape(p);
+                if (!e)
+                        return -ENOMEM;
+
+                machine = hashmap_get(m->machines, e);
+                if (!machine)
+                        return 0;
+        }
+
+        *found = machine;
+        return 1;
+}
+
+char *machine_bus_path(Machine *m) {
+        _cleanup_free_ char *e = NULL;
+
+        assert(m);
+
+        e = bus_label_escape(m->name);
+        if (!e)
+                return NULL;
+
+        return strjoin("/org/freedesktop/machine1/machine/", e);
+}
+
+static int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        Machine *machine = NULL;
+        Manager *m = userdata;
+        Iterator i;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(nodes);
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                char *p;
+
+                p = machine_bus_path(machine);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_consume(&l, p);
+                if (r < 0)
+                        return r;
+        }
+
+        *nodes = TAKE_PTR(l);
+
+        return 1;
+}
+
+static const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Machine, name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Id", "ay", bus_property_get_id128, offsetof(Machine, id), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1423,97 +1515,12 @@ const sd_bus_vtable machine_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int machine_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        int r;
-
-        assert(bus);
-        assert(path);
-        assert(interface);
-        assert(found);
-        assert(m);
-
-        if (streq(path, "/org/freedesktop/machine1/machine/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                sd_bus_message *message;
-                pid_t pid;
-
-                message = sd_bus_get_current_message(bus);
-                if (!message)
-                        return 0;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                r = manager_get_machine_by_pid(m, pid, &machine);
-                if (r <= 0)
-                        return 0;
-        } else {
-                _cleanup_free_ char *e = NULL;
-                const char *p;
-
-                p = startswith(path, "/org/freedesktop/machine1/machine/");
-                if (!p)
-                        return 0;
-
-                e = bus_label_unescape(p);
-                if (!e)
-                        return -ENOMEM;
-
-                machine = hashmap_get(m->machines, e);
-                if (!machine)
-                        return 0;
-        }
-
-        *found = machine;
-        return 1;
-}
-
-char *machine_bus_path(Machine *m) {
-        _cleanup_free_ char *e = NULL;
-
-        assert(m);
-
-        e = bus_label_escape(m->name);
-        if (!e)
-                return NULL;
-
-        return strjoin("/org/freedesktop/machine1/machine/", e);
-}
-
-int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
-        Machine *machine = NULL;
-        Manager *m = userdata;
-        Iterator i;
-        int r;
-
-        assert(bus);
-        assert(path);
-        assert(nodes);
-
-        HASHMAP_FOREACH(machine, m->machines, i) {
-                char *p;
-
-                p = machine_bus_path(machine);
-                if (!p)
-                        return -ENOMEM;
-
-                r = strv_consume(&l, p);
-                if (r < 0)
-                        return r;
-        }
-
-        *nodes = TAKE_PTR(l);
-
-        return 1;
-}
+const BusObjectImplementation machine_object = {
+        "/org/freedesktop/machine1/machine",
+        "org.freedesktop.machine1.Machine",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({machine_vtable, machine_object_find}),
+        .node_enumerator = machine_node_enumerator,
+};
 
 int machine_send_signal(Machine *m, bool new_machine) {
         _cleanup_free_ char *p = NULL;

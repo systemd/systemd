@@ -1,0 +1,369 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="org.freedesktop.home1" conditional='ENABLE_HOMED'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>org.freedesktop.home1</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>org.freedesktop.home1</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>org.freedesktop.home1</refname>
+    <refpurpose>The D-Bus interface of systemd-homed</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Introduction</title>
+
+    <para>
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is a system service which may be used to to create, remove, change or inspect home areas. This page
+    describes the D-Bus interface.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>The Manager Object</title>
+
+    <para>The service exposes the following interfaces on the Manager object on the bus:</para>
+
+    <programlisting executable="systemd-homed" node="/org/freedesktop/home1" interface="org.freedesktop.home1.Manager">
+node /org/freedesktop/home1 {
+  interface org.freedesktop.home1.Manager {
+    methods:
+      GetHomeByName(in  s user_name,
+                    out u uid,
+                    out s home_state,
+                    out u gid,
+                    out s real_name,
+                    out s home_directory,
+                    out s shell,
+                    out o bus_path);
+      GetHomeByUID(in  u uid,
+                   out s user_name,
+                   out s home_state,
+                   out u gid,
+                   out s real_name,
+                   out s home_directory,
+                   out s shell,
+                   out o bus_path);
+      GetUserRecordByName(in  s user_name,
+                          out s user_record,
+                          out b incomplete,
+                          out o bus_path);
+      GetUserRecordByUID(in  u uid,
+                         out s user_record,
+                         out b incomplete,
+                         out o bus_path);
+      ListHomes(out a(susussso) home_areas);
+      ActivateHome(in  s user_name,
+                   in  s user_record);
+      DeactivateHome(in  s user_name);
+      RegisterHome(in  s home_record);
+      UnregisterHome(in  s user_name);
+      CreateHome(in  s home_record);
+      RealizeHome(in  s user_name,
+                  in  s user_record);
+      RemoveHome(in  s user_name);
+      FixateHome(in  s user_name,
+                 in  s user_record);
+      AuthenticateHome(in  s user_name,
+                       in  s user_record);
+      UpdateHome(in  s user_record);
+      ResizeHome(in  s user_name,
+                 in  t size,
+                 in  s user_record);
+      ChangePasswordHome(in  s user_name,
+                         in  s new_user_record,
+                         in  s old_user_record);
+      LockHome(in  s user_name);
+      UnlockHome(in  s user_name,
+                 in  s user_record);
+      AcquireHome(in  s user_name,
+                  in  s user_record,
+                  in  b please_suspend,
+                  out h send_fd);
+      RefHome(in  s user_name,
+              in  b please_suspend,
+              out h send_fd);
+      ReleaseHome(in  s user_name);
+      LockAllHomes();
+    properties:
+      readonly a(sso) AutoLogin = [...];
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+};
+    </programlisting>
+
+    <!--method GetHomeByName is not documented!-->
+
+    <!--method GetHomeByUID is not documented!-->
+
+    <!--method GetUserRecordByName is not documented!-->
+
+    <!--method GetUserRecordByUID is not documented!-->
+
+    <!--method ListHomes is not documented!-->
+
+    <!--method ActivateHome is not documented!-->
+
+    <!--method DeactivateHome is not documented!-->
+
+    <!--method RegisterHome is not documented!-->
+
+    <!--method UnregisterHome is not documented!-->
+
+    <!--method CreateHome is not documented!-->
+
+    <!--method RealizeHome is not documented!-->
+
+    <!--method RemoveHome is not documented!-->
+
+    <!--method FixateHome is not documented!-->
+
+    <!--method AuthenticateHome is not documented!-->
+
+    <!--method UpdateHome is not documented!-->
+
+    <!--method ResizeHome is not documented!-->
+
+    <!--method ChangePasswordHome is not documented!-->
+
+    <!--method LockHome is not documented!-->
+
+    <!--method UnlockHome is not documented!-->
+
+    <!--method AcquireHome is not documented!-->
+
+    <!--method RefHome is not documented!-->
+
+    <!--method ReleaseHome is not documented!-->
+
+    <!--method LockAllHomes is not documented!-->
+
+    <!--property AutoLogin is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Manager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Manager"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHomeByName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetHomeByUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUserRecordByName()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetUserRecordByUID()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ListHomes()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ActivateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DeactivateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnregisterHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RealizeHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RemoveHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="FixateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AuthenticateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ResizeHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ChangePasswordHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="LockHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UnlockHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="AcquireHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RefHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReleaseHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="LockAllHomes()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="AutoLogin"/>
+
+    <!--End of Autogenerated section-->
+
+    <refsect2>
+      <title>Methods</title>
+
+      <para>...</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Signals</title>
+
+      <para>...</para>
+    </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>The Home Object</title>
+
+    <programlisting executable="systemd-homed" node="/org/freedesktop/home1/home" interface="org.freedesktop.home1.Home">
+node /org/freedesktop/home1/home {
+  interface org.freedesktop.home1.Home {
+    methods:
+      Activate(in  s user_record);
+      Deactivate();
+      Unregister();
+      Realize(in  s user_record);
+      Remove();
+      Fixate(in  s user_record);
+      Authenticate(in  s user_record);
+      Update(in  s user_record);
+      Resize(in  t size,
+             in  s user_record);
+      ChangePassword(in  s new_user_record,
+                     in  s old_user_record);
+      Lock();
+      Unlock(in  s user_record);
+      Acquire(in  s user_record,
+              in  b please_suspend,
+              out h send_fd);
+      Ref(in  b please_suspend,
+          out h send_fd);
+      Release();
+    properties:
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s UserName = '...';
+      readonly u UID = ...;
+      readonly (suusss) UnixRecord = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s State = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly (sb) UserRecord = ...;
+  };
+  interface org.freedesktop.DBus.Peer { ... };
+  interface org.freedesktop.DBus.Introspectable { ... };
+  interface org.freedesktop.DBus.Properties { ... };
+  interface org.freedesktop.DBus.ObjectManager { ... };
+};
+    </programlisting>
+
+    <!--method Activate is not documented!-->
+
+    <!--method Deactivate is not documented!-->
+
+    <!--method Unregister is not documented!-->
+
+    <!--method Realize is not documented!-->
+
+    <!--method Remove is not documented!-->
+
+    <!--method Fixate is not documented!-->
+
+    <!--method Authenticate is not documented!-->
+
+    <!--method Update is not documented!-->
+
+    <!--method Resize is not documented!-->
+
+    <!--method ChangePassword is not documented!-->
+
+    <!--method Lock is not documented!-->
+
+    <!--method Unlock is not documented!-->
+
+    <!--method Acquire is not documented!-->
+
+    <!--method Ref is not documented!-->
+
+    <!--method Release is not documented!-->
+
+    <!--property UserName is not documented!-->
+
+    <!--property UID is not documented!-->
+
+    <!--property UnixRecord is not documented!-->
+
+    <!--property State is not documented!-->
+
+    <!--property UserRecord is not documented!-->
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.DBus.ObjectManager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Home"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.DBus.ObjectManager"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.home1.Home"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Activate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Deactivate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Unregister()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Realize()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Remove()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Fixate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Authenticate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Update()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Resize()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ChangePassword()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Lock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Unlock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Acquire()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Ref()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Release()"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UnixRecord"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="UserRecord"/>
+
+    <!--End of Autogenerated section-->
+
+    </refsect1>
+
+  <refsect1>
+    <title>Versioning</title>
+
+    <para>These D-Bus interfaces follow <ulink url="http://0pointer.de/blog/projects/versioning-dbus.html">
+    the usual interface versioning guidelines</ulink>.</para>
+  </refsect1>
+</refentry>

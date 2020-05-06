@@ -3,10 +3,10 @@
 
 import collections
 import sys
+import os
 import shlex
 import subprocess
 import io
-import pprint
 from lxml import etree
 
 PARSER = etree.XMLParser(no_network=True,
@@ -18,23 +18,6 @@ PRINT_ERRORS = True
 
 class NoCommand(Exception):
     pass
-
-def find_command(lines):
-    acc = []
-    for num, line in enumerate(lines):
-        # skip empty leading line
-        if num == 0 and not line:
-            continue
-        cont = line.endswith('\\')
-        if cont:
-            line = line[:-1].rstrip()
-        acc.append(line if not acc else line.lstrip())
-        if not cont:
-            break
-    joined = ' '.join(acc)
-    if not joined.startswith('$ '):
-        raise NoCommand
-    return joined[2:], lines[:num+1] + [''], lines[-1]
 
 BORING_INTERFACES = [
     'org.freedesktop.DBus.Peer',
@@ -183,31 +166,27 @@ def xml_to_text(destination, xml, *, only_interface=None):
     return file.getvalue(), declarations, interfaces
 
 def subst_output(document, programlisting):
-    try:
-        cmd, prefix_lines, footer = find_command(programlisting.text.splitlines())
-    except NoCommand:
+    executable = programlisting.get('executable', None)
+    if executable is None:
+        # Not our thing
         return
+    executable = programlisting.get('executable')
+    node = programlisting.get('node')
+    interface = programlisting.get('interface')
 
-    only_interface = programlisting.get('interface', None)
-
-    argv = shlex.split(cmd)
-    argv += ['--xml']
+    argv = [f'{build_dir}/{executable}', f'--bus-introspect={interface}']
     print(f'COMMAND: {shlex.join(argv)}')
-
-    object_idx = argv.index('--object-path')
-    object_path = argv[object_idx + 1]
 
     try:
         out = subprocess.check_output(argv, text=True)
-    except subprocess.CalledProcessError:
-        print('command failed, ignoring', file=sys.stderr)
+    except FileNotFoundError:
+        print(f'{executable} not found, ignoring', file=sys.stderr)
         return
 
     xml = etree.fromstring(out, parser=PARSER)
 
-    new_text, declarations, interfaces = xml_to_text(object_path, xml, only_interface=only_interface)
-
-    programlisting.text = '\n'.join(prefix_lines) + '\n' + new_text + footer
+    new_text, declarations, interfaces = xml_to_text(node, xml, only_interface=interface)
+    programlisting.text = '\n' + new_text + '    '
 
     if declarations:
         missing = check_documented(document, declarations)
@@ -290,6 +269,15 @@ def process(page):
 
 if __name__ == '__main__':
     pages = sys.argv[1:]
+
+    if pages[0].startswith('--build-dir='):
+        build_dir = pages[0].partition('=')[2]
+        pages = pages[1:]
+    else:
+        build_dir = 'build'
+
+    if not os.path.exists(f'{build_dir}/systemd'):
+        exit(f"{build_dir}/systemd doesn't exist. Use --build-dir=.")
 
     for page in pages:
         process(page)

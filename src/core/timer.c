@@ -925,6 +925,5 @@ const UnitVTable timer_vtable = {
         .time_change = timer_time_change,
         .timezone_change = timer_timezone_change,
 
-        .bus_vtable = bus_timer_vtable,
         .bus_set_property = bus_timer_set_property,
 };

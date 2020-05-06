@@ -14,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "def.h"
@@ -28,6 +29,7 @@
 #include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1085,6 +1087,12 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1",
+        .vtables = BUS_VTABLES(timedate_vtable),
+};
+
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
@@ -1097,9 +1105,9 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", timedate_vtable, c);
+        r = bus_add_implementation(bus, &manager_object, c);
         if (r < 0)
-                return log_error_errno(r, "Failed to register object: %m");
+                return r;
 
         r = bus_log_control_api_register(bus);
         if (r < 0)
@@ -1126,10 +1134,15 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-timedated.service",
+                               "Manage the system clock and timezone and NTP enablement.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        umask(0022);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

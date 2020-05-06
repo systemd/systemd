@@ -93,7 +93,10 @@ static enum {
         ACTION_TEST,
         ACTION_DUMP_CONFIGURATION_ITEMS,
         ACTION_DUMP_BUS_PROPERTIES,
+        ACTION_BUS_INTROSPECT,
 } arg_action = ACTION_RUN;
+
+static const char *arg_bus_introspect = NULL;
 
 /* Those variables are initialized to 0 automatically, so we avoid uninitialized memory access.
  * Real defaults are assigned in reset_arguments() below. */
@@ -729,6 +732,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
                 ARG_DUMP_BUS_PROPERTIES,
+                ARG_BUS_INTROSPECT,
                 ARG_DUMP_CORE,
                 ARG_CRASH_CHVT,
                 ARG_CRASH_SHELL,
@@ -758,6 +762,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { "dump-bus-properties",      no_argument,       NULL, ARG_DUMP_BUS_PROPERTIES      },
+                { "bus-introspect",           required_argument, NULL, ARG_BUS_INTROSPECT           },
                 { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
                 { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
@@ -883,6 +888,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DUMP_BUS_PROPERTIES:
                         arg_action = ACTION_DUMP_BUS_PROPERTIES;
+                        break;
+
+                case ARG_BUS_INTROSPECT:
+                        arg_bus_introspect = optarg;
+                        arg_action = ACTION_BUS_INTROSPECT;
                         break;
 
                 case ARG_DUMP_CORE:
@@ -1033,7 +1043,9 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Starts up and maintains the system or user services.\n\n"
+               "%sStarts and monitors system and user services.%s\n\n"
+               "This program takes no positional arguments.\n\n"
+               "%sOptions%s:\n"
                "  -h --help                      Show this help\n"
                "     --version                   Show version\n"
                "     --test                      Determine initial transaction, dump it and exit\n"
@@ -1042,6 +1054,7 @@ static int help(void) {
                "     --no-pager                  Do not pipe output into a pager\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
                "     --dump-bus-properties       Dump exposed bus properties\n"
+               "     --bus-introspect=PATH       Write XML introspection data\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --dump-core[=BOOL]          Dump core on crash\n"
                "     --crash-vt=NR               Change to specified VT on crash\n"
@@ -1058,6 +1071,8 @@ static int help(void) {
                "     --default-standard-error=   Set default standard error output for services\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
+               , ansi_underline(), ansi_normal()
                , link
         );
 
@@ -2611,7 +2626,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES))
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES, ACTION_BUS_INTROSPECT))
                 (void) pager_open(arg_pager_flags);
 
         if (arg_action != ACTION_RUN)
@@ -2630,6 +2645,10 @@ int main(int argc, char *argv[]) {
         } else if (arg_action == ACTION_DUMP_BUS_PROPERTIES) {
                 dump_bus_properties(stdout);
                 retval = EXIT_SUCCESS;
+                goto finish;
+        } else if (arg_action == ACTION_BUS_INTROSPECT) {
+                r = bus_manager_introspect_implementations(stdout, arg_bus_introspect);
+                retval = r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE;
                 goto finish;
         }
 

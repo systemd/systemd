@@ -1655,7 +1655,6 @@ const UnitVTable swap_vtable = {
 
         .control_pid = swap_control_pid,
 
-        .bus_vtable = bus_swap_vtable,
         .bus_set_property = bus_swap_set_property,
         .bus_commit_properties = bus_swap_commit_properties,
 

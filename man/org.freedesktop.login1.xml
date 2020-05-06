@@ -38,11 +38,7 @@
 
     <para>The service exposes the following interfaces on the Manager object on the bus:</para>
 
-    <programlisting>
-$ gdbus introspect --system \
-        --dest org.freedesktop.login1 \
-        --object-path /org/freedesktop/login1
-
+    <programlisting executable="systemd-logind" node="/org/freedesktop/login1" interface="org.freedesktop.login1.Manager">
 node /org/freedesktop/login1 {
   interface org.freedesktop.login1.Manager {
     methods:
@@ -741,10 +737,7 @@ node /org/freedesktop/login1 {
   <refsect1>
     <title>Seat Objects</title>
 
-    <programlisting>
-$ gdbus introspect --system --dest org.freedesktop.login1 \
-      --object-path /org/freedesktop/login1/seat/seat0
-
+    <programlisting executable="systemd-logind" node="/org/freedesktop/login1/seat/seat0" interface="org.freedesktop.login1.Seat">
 node /org/freedesktop/login1/seat/seat0 {
   interface org.freedesktop.login1.Seat {
     methods:
@@ -757,8 +750,6 @@ node /org/freedesktop/login1/seat/seat0 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Id = '...';
       readonly (so) ActiveSession = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b CanMultiSession = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b CanTTY = ...;
       readonly b CanGraphical = ...;
@@ -794,8 +785,6 @@ node /org/freedesktop/login1/seat/seat0 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ActiveSession"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="CanMultiSession"/>
-
     <variablelist class="dbus-property" generated="True" extra-ref="CanTTY"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CanGraphical"/>
@@ -827,7 +816,7 @@ node /org/freedesktop/login1/seat/seat0 {
       <title>Signals</title>
 
       <para>Whenever <function>ActiveSession</function>, <function>Sessions</function>,
-      <function>CanGraphical</function>, <function>CanMultiSession</function> and <function>CanTTY</function>
+      <function>CanGraphical</function>, <function>CanTTY</function>,
       or the idle state changes, <function>PropertyChanged</function> signals are sent out to which clients
       can subscribe.</para>
     </refsect2>
@@ -840,9 +829,8 @@ node /org/freedesktop/login1/seat/seat0 {
       <para><varname>ActiveSession</varname> encodes the currently active session if there is one. It is a
       structure consisting of the session id and the object path.</para>
 
-      <para><varname>CanMultiSession</varname> encodes whether the session is multi-session capable,
-      <varname>CanTTY</varname> whether it is suitable for text logins, <varname>CanGraphical</varname>
-      whether it is suitable for graphical sessions.</para>
+      <para><varname>CanTTY</varname> encodes whether the session is suitable for text logins, and
+      <varname>CanGraphical</varname> whether it is suitable for graphical sessions.</para>
 
       <para>The <varname>Sessions</varname> property is an array of all current sessions of this seat, each
       encoded in a structure consisting of the ID and the object path.</para>
@@ -856,10 +844,7 @@ node /org/freedesktop/login1/seat/seat0 {
   <refsect1>
     <title>User Objects</title>
 
-    <programlisting>
-$ gdbus introspect --system --dest org.freedesktop.login1 \
-        --object-path /org/freedesktop/login1/user/_1000
-
+    <programlisting executable="systemd-logind" node="/org/freedesktop/login1/user/_1000" interface="org.freedesktop.login1.User">
 node /org/freedesktop/login1/user/_1000 {
   interface org.freedesktop.login1.User {
     methods:
@@ -1004,11 +989,8 @@ node /org/freedesktop/login1/user/_1000 {
   <refsect1>
     <title>Session Objects</title>
 
-    <programlisting>
-$ gdbus introspect --system --dest org.freedesktop.login1 \
-        --object-path /org/freedesktop/login1/session/45
-
-node /org/freedesktop/login1/session/45 {
+    <programlisting executable="systemd-logind" node="/org/freedesktop/login1/session/1" interface="org.freedesktop.login1.Session">
+node /org/freedesktop/login1/session/1 {
   interface org.freedesktop.login1.Session {
     methods:
       Terminate();
@@ -1021,6 +1003,7 @@ node /org/freedesktop/login1/session/45 {
            in  i signal_number);
       TakeControl(in  b force);
       ReleaseControl();
+      SetType(in  s type);
       TakeDevice(in  u major,
                  in  u minor,
                  out h fd,
@@ -1076,7 +1059,6 @@ node /org/freedesktop/login1/session/45 {
       readonly u Leader = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Audit = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Type = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
@@ -1092,6 +1074,100 @@ node /org/freedesktop/login1/session/45 {
   interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--Autogenerated cross-references for systemd.directives, do not edit-->
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.login1.Session"/>
+
+    <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.login1.Session"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Terminate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Activate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Lock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Unlock()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetIdleHint()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLockedHint()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Kill()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="TakeControl()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReleaseControl()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetType()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="TakeDevice()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReleaseDevice()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="PauseDeviceComplete()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetBrightness()"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="PauseDevice"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="ResumeDevice"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="Lock"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="Unlock"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Id"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="User"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Name"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Timestamp"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimestampMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="VTNr"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Seat"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TTY"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Display"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Remote"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RemoteHost"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RemoteUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Service"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Desktop"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Scope"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Audit"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Type"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Class"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Active"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="State"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IdleHint"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHint"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="IdleSinceHintMonotonic"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LockedHint"/>
+
+    <!--End of Autogenerated section-->
 
     <refsect2>
       <title>Methods</title>
@@ -1109,10 +1185,17 @@ node /org/freedesktop/login1/session/45 {
       out and replaced. Otherwise, this method fails if there is already a controller. Note that this method is
       limited to D-Bus users with the effective UID set to the user of the session or root.</para>
 
-      <para><function>ReleaseControl()</function> drops control of a given session. Closing the
-      D-Bus connection implicitly releases control as well. See <function>TakeControl()</function> for more information. This
-      method also releases all devices for which the controller requested ownership via <function>TakeDevice()</function>.
-      </para>
+      <para><function>ReleaseControl()</function> drops control of a given session. Closing the D-Bus
+      connection implicitly releases control as well. See <function>TakeControl()</function> for more
+      information. This method also releases all devices for which the controller requested ownership via
+      <function>TakeDevice()</function>.</para>
+
+      <para><function>SetType()</function> allows the type of the session to be changed dynamically.  It can
+      only be called by session's current controller. If <function>TakeControl()</function> has not been
+      called, this method will fail. In addition, the session type will be reset to its original value once
+      control is released, either by calling <function>ReleaseControl()</function> or closing the D-Bus
+      connection. This should help prevent a session from entering an inconsistent state, for example if the
+      controller crashes. The only argument <varname>type</varname> is the new session type.</para>
 
       <para><function>TakeDevice()</function> allows a session controller to get a file descriptor for a
       specific device. Pass in the major and minor numbers of the character device and
@@ -1255,6 +1338,42 @@ node /org/freedesktop/login1/session/45 {
       <para><varname>LockedHint</varname> shows the locked hint state of this session, as set by the
       <function>SetLockedHint()</function> method described above.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.login1.Manager</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
+  --object-path /org/freedesktop/login1
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.login1.Seat</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
+ --object-path /org/freedesktop/login1/seat/seat0
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.login1.User</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
+  --object-path /org/freedesktop/login1/user/_1000
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Introspect <interfacename>org.freedesktop.login1.Session</interfacename> on the bus</title>
+
+      <programlisting>$ gdbus introspect --system --dest org.freedesktop.login1 \
+  --object-path /org/freedesktop/login1/session/45
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>

@@ -600,9 +600,6 @@ typedef struct UnitVTable {
          * of this type will immediately fail. */
         bool (*supported)(void);
 
-        /* The bus vtable */
-        const sd_bus_vtable *bus_vtable;
-
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 

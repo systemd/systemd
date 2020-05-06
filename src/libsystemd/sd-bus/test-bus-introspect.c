@@ -14,11 +14,11 @@ static void test_manual_introspection(const sd_bus_vtable vtable[]) {
 
         assert_se(introspect_begin(&intro, false) >= 0);
 
-        fprintf(intro.f, " <interface name=\"org.foo\">\n");
-        assert_se(introspect_write_interface(&intro, vtable) >= 0);
-        fputs(" </interface>\n", intro.f);
-
+        assert_se(introspect_write_interface(&intro, "org.foo", vtable) >= 0);
+        /* write again to check if output looks OK for a different interface */
+        assert_se(introspect_write_interface(&intro, "org.foo.bar", vtable) >= 0);
         assert_se(introspect_finish(&intro, &s) == 0);
+
         fputs(s, stdout);
         fputs("\n", stdout);
 }

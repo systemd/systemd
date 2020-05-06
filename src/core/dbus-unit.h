@@ -2,7 +2,6 @@
 #pragma once
 
 #include "sd-bus.h"
-#include "sd-bus-vtable.h"
 
 #include "unit.h"
 

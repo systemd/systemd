@@ -281,7 +281,10 @@
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
     <para>The D-Bus API of <command>systemd</command> is described in
-    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
 
     <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
     url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink

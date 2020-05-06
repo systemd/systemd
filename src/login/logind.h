@@ -157,8 +157,6 @@ int manager_read_utmp(Manager *m);
 void manager_connect_utmp(Manager *m);
 void manager_reconnect_utmp(Manager *m);
 
-extern const sd_bus_vtable manager_vtable[];
-
 /* gperf lookup function */
 const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

@@ -3,10 +3,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "bus-log-control-api.h"
 #include "daemon-util.h"
 #include "homed-manager.h"
+#include "homed-manager-bus.h"
 #include "log.h"
 #include "main-func.h"
+#include "service-util.h"
 #include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
@@ -16,10 +19,15 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-homed.service",
+                               "A service to create, remove, change or inspect home areas.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+        umask(0022);
 
         if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.Home", 1) < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set $SYSTEMD_BYPASS_USERDB: %m");

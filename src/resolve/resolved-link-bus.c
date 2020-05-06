@@ -682,7 +682,82 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable link_vtable[] = {
+static int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        _cleanup_free_ char *e = NULL;
+        Manager *m = userdata;
+        Link *link;
+        int ifindex, r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+        assert(m);
+
+        r = sd_bus_path_decode(path, "/org/freedesktop/resolve1/link", &e);
+        if (r <= 0)
+                return 0;
+
+        ifindex = parse_ifindex(e);
+        if (ifindex < 0)
+                return 0;
+
+        link = hashmap_get(m->links, INT_TO_PTR(ifindex));
+        if (!link)
+                return 0;
+
+        *found = link;
+        return 1;
+}
+
+char *link_bus_path(const Link *link) {
+        char *p, ifindex[DECIMAL_STR_MAX(link->ifindex)];
+        int r;
+
+        assert(link);
+
+        xsprintf(ifindex, "%i", link->ifindex);
+
+        r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifindex, &p);
+        if (r < 0)
+                return NULL;
+
+        return p;
+}
+
+static int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
+        Link *link;
+        Iterator i;
+        unsigned c = 0;
+
+        assert(bus);
+        assert(path);
+        assert(m);
+        assert(nodes);
+
+        l = new0(char*, hashmap_size(m->links) + 1);
+        if (!l)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH(link, m->links, i) {
+                char *p;
+
+                p = link_bus_path(link);
+                if (!p)
+                        return -ENOMEM;
+
+                l[c++] = p;
+        }
+
+        l[c] = NULL;
+        *nodes = TAKE_PTR(l);
+
+        return 1;
+}
+
+static const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
@@ -746,77 +821,9 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
-        _cleanup_free_ char *e = NULL;
-        Manager *m = userdata;
-        Link *link;
-        int ifindex, r;
-
-        assert(bus);
-        assert(path);
-        assert(interface);
-        assert(found);
-        assert(m);
-
-        r = sd_bus_path_decode(path, "/org/freedesktop/resolve1/link", &e);
-        if (r <= 0)
-                return 0;
-
-        ifindex = parse_ifindex(e);
-        if (ifindex < 0)
-                return 0;
-
-        link = hashmap_get(m->links, INT_TO_PTR(ifindex));
-        if (!link)
-                return 0;
-
-        *found = link;
-        return 1;
-}
-
-char *link_bus_path(const Link *link) {
-        char *p, ifindex[DECIMAL_STR_MAX(link->ifindex)];
-        int r;
-
-        assert(link);
-
-        xsprintf(ifindex, "%i", link->ifindex);
-
-        r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifindex, &p);
-        if (r < 0)
-                return NULL;
-
-        return p;
-}
-
-int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
-        Manager *m = userdata;
-        Link *link;
-        Iterator i;
-        unsigned c = 0;
-
-        assert(bus);
-        assert(path);
-        assert(m);
-        assert(nodes);
-
-        l = new0(char*, hashmap_size(m->links) + 1);
-        if (!l)
-                return -ENOMEM;
-
-        HASHMAP_FOREACH(link, m->links, i) {
-                char *p;
-
-                p = link_bus_path(link);
-                if (!p)
-                        return -ENOMEM;
-
-                l[c++] = p;
-        }
-
-        l[c] = NULL;
-        *nodes = TAKE_PTR(l);
-
-        return 1;
-}
+const BusObjectImplementation link_object = {
+        "/org/freedesktop/resolve1/link",
+        "org.freedesktop.resolve1.Link",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({link_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
+};
