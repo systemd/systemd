@@ -399,6 +399,16 @@ possible_link_flags = [
         '-fstack-protector',
 ]
 
+# https://github.com/systemd/systemd/issues/6119
+# note that this works as expected when --buildtype=release or --optimization=3
+# is used. Passing -O3 via CFLAGS or c_args is generally discouraged so
+# it isn't supported here.
+if cc.get_id() == 'gcc' and get_option('optimization') == '3'
+        possible_cc_flags += [
+                '-Wno-error=nonnull',
+        ]
+endif
+
 if cc.get_id() == 'clang'
         possible_cc_flags += [
                 '-Wno-typedef-redefinition',
