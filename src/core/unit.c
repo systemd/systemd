@@ -4316,7 +4316,8 @@ int unit_get_unit_file_preset(Unit *u) {
                 u->unit_file_preset = unit_file_query_preset(
                                 u->manager->unit_file_scope,
                                 NULL,
-                                basename(u->fragment_path));
+                                basename(u->fragment_path),
+                                NULL);
 
         return u->unit_file_preset;
 }

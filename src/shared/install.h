@@ -189,7 +189,16 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
 
 int unit_file_verify_alias(const UnitFileInstallInfo *i, const char *dst, char **ret_dst);
 
-int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name);
+typedef struct UnitFilePresetRule UnitFilePresetRule;
+
+typedef struct {
+        UnitFilePresetRule *rules;
+        size_t n_rules;
+        bool initialized;
+} UnitFilePresets;
+
+void unit_file_presets_freep(UnitFilePresets *p);
+int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;

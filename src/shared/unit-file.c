@@ -320,7 +320,7 @@ int unit_file_build_name_map(
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
 
-                                _cleanup_free_ char *target = NULL, *target_abs = NULL;
+                                _cleanup_free_ char *target = NULL;
 
                                 r = readlinkat_malloc(dirfd(d), de->d_name, &target);
                                 if (r < 0) {
@@ -329,8 +329,9 @@ int unit_file_build_name_map(
                                         continue;
                                 }
 
-                                if (!path_is_absolute(target)) {
-                                        target_abs = path_join(*dir, target);
+                                const bool is_abs = path_is_absolute(target);
+                                if (lp->root_dir || !is_abs) {
+                                        char *target_abs = path_join(is_abs ? lp->root_dir : *dir, target);
                                         if (!target_abs)
                                                 return log_oom();
 
