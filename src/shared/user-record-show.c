@@ -340,12 +340,30 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->disk_usage != UINT64_MAX) {
                 char buf[FORMAT_BYTES_MAX];
-                printf("  Disk Usage: %s\n", format_bytes(buf, sizeof(buf), hr->disk_usage));
+
+                if (hr->disk_size != UINT64_MAX) {
+                        unsigned permille;
+
+                        permille = (unsigned) DIV_ROUND_UP(hr->disk_usage * 1000U, hr->disk_size); /* Round up! */
+                        printf("  Disk Usage: %s (= %u.%01u%%)\n",
+                               format_bytes(buf, sizeof(buf), hr->disk_usage),
+                               permille / 10, permille % 10);
+                } else
+                        printf("  Disk Usage: %s\n", format_bytes(buf, sizeof(buf), hr->disk_usage));
         }
 
         if (hr->disk_free != UINT64_MAX) {
                 char buf[FORMAT_BYTES_MAX];
-                printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
+
+                if (hr->disk_size != UINT64_MAX) {
+                        unsigned permille;
+
+                        permille = (unsigned) ((hr->disk_free * 1000U) / hr->disk_size); /* Round down! */
+                        printf("   Disk Free: %s (= %u.%01u%%)\n",
+                               format_bytes(buf, sizeof(buf), hr->disk_free),
+                               permille / 10, permille % 10);
+                } else
+                        printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
         }
 
         if (hr->disk_floor != UINT64_MAX) {
