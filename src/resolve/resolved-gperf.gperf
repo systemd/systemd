@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include <stddef.h>
 #include "conf-parser.h"
 #include "resolved-conf.h"
+#include "resolved-manager.h"
 %}
 struct ConfigPerfItem;
 %null_strings

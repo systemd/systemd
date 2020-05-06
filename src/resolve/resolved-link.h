@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-netlink.h"
+
 #include "in-addr-util.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
@@ -12,7 +14,6 @@ typedef struct LinkAddress LinkAddress;
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
-#include "resolved-manager.h"
 
 #define LINK_SEARCH_DOMAINS_MAX 256
 #define LINK_DNS_SERVERS_MAX 256

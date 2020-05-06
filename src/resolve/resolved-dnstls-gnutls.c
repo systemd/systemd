@@ -8,6 +8,7 @@
 
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
+#include "resolved-manager.h"
 
 #define TLS_PROTOCOL_PRIORITY "NORMAL:-VERS-ALL:+VERS-TLS1.3:+VERS-TLS1.2"
 DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
