@@ -112,7 +112,7 @@ static int method_get_machine(sd_bus_message *message, void *userdata, sd_bus_er
 
 static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         const char *name;
         int r;
 
@@ -471,7 +471,7 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
         Image *image;
         Iterator i;
         int r;

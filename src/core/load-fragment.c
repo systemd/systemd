@@ -2889,7 +2889,7 @@ int config_parse_syscall_filter(
                 void *userdata) {
 
         ExecContext *c = data;
-        const Unit *u = userdata;
+        _unused_ const Unit *u = userdata;
         bool invert = false;
         const char *p;
         int r;
