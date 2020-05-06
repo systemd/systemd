@@ -106,7 +106,7 @@ node /org/freedesktop/resolve1 {
                       in  s type,
                       in  q service_port,
                       in  q service_priority,
-                      in  q serwise_weight,
+                      in  q service_weight,
                       in  aa{say} txt_datas,
                       out o service_path);
       UnregisterService(in  o service_path);

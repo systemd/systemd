@@ -1942,7 +1942,7 @@ static const sd_bus_vtable resolve_vtable[] = {
                                             "q", service_port,
                                             "q", service_priority,
                                             "q", service_weight,
-                                            "a{say}", txt_datas),
+                                            "aa{say}", txt_datas),
                                 SD_BUS_RESULT("o", service_path),
                                 bus_method_register_service,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
