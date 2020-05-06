@@ -440,14 +440,15 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                 }
 
                 if (STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked") && !arg_plain) {
-                        on_circle = ansi_highlight_yellow();
+                        on_circle = underline ? ansi_highlight_yellow_underline() : ansi_highlight_yellow();
                         circle = true;
                         on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
                 } else if (streq(u->active_state, "failed") && !arg_plain) {
-                        on_circle = ansi_highlight_red();
+                        on_circle = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
                         circle = true;
                         on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
                 } else {
+                        on_circle = on_underline;
                         on_active = on_underline;
                         on_loaded = on_underline;
                 }
@@ -463,19 +464,19 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ",
-                                   TABLE_SET_COLOR, on_circle,
+                                   TABLE_SET_BOTH_COLORS, on_circle,
                                    TABLE_STRING, id,
-                                   TABLE_SET_COLOR, on_active,
+                                   TABLE_SET_BOTH_COLORS, on_active,
                                    TABLE_STRING, u->load_state,
-                                   TABLE_SET_COLOR, on_loaded,
+                                   TABLE_SET_BOTH_COLORS, on_loaded,
                                    TABLE_STRING, u->active_state,
-                                   TABLE_SET_COLOR, on_active,
+                                   TABLE_SET_BOTH_COLORS, on_active,
                                    TABLE_STRING, u->sub_state,
-                                   TABLE_SET_COLOR, on_active,
+                                   TABLE_SET_BOTH_COLORS, on_active,
                                    TABLE_STRING, u->job_id ? u->job_type: "",
-                                   TABLE_SET_COLOR, u->job_id ? on_underline : "",
+                                   TABLE_SET_BOTH_COLORS, u->job_id ? on_underline : "",
                                    TABLE_STRING, u->description,
-                                   TABLE_SET_COLOR, on_underline);
+                                   TABLE_SET_BOTH_COLORS, on_underline);
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -1521,9 +1522,9 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                 r = table_add_many(table,
                                    TABLE_STRING, id,
-                                   TABLE_SET_COLOR, strempty(on_underline),
+                                   TABLE_SET_BOTH_COLORS, strempty(on_underline),
                                    TABLE_STRING, unit_file_state_to_string(u->state),
-                                   TABLE_SET_COLOR, strempty(on_unit_color));
+                                   TABLE_SET_BOTH_COLORS, strempty(on_unit_color));
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -1544,11 +1545,11 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
                         r = table_add_many(table,
                                            TABLE_STRING, unit_preset_str,
-                                           TABLE_SET_COLOR, strempty(on_preset_color));
+                                           TABLE_SET_BOTH_COLORS, strempty(on_preset_color));
                 } else
                         r = table_add_many(table,
                                            TABLE_EMPTY,
-                                           TABLE_SET_COLOR, underline ? ansi_grey_underline() : ansi_grey());
+                                           TABLE_SET_BOTH_COLORS, underline ? ansi_grey_underline() : ansi_grey());
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -2377,7 +2378,6 @@ static int output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned n
                         on = ansi_highlight();
                 else
                         on =  "";
-
 
                 r = table_add_many(table,
                                    TABLE_UINT, j->id,
