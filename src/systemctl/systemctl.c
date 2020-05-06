@@ -1008,7 +1008,7 @@ static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         const char *on, *off;
         int r;
 
-        table = table_new("listen", "type", "units", "activates");
+        table = table_new("listen", "type", "unit", "activates");
         if (!table)
                 return log_oom();
 
