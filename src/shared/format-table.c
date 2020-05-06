@@ -1272,6 +1272,9 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_STRV: {
                 char *p;
 
+                if (strv_isempty(d->strv))
+                        return strempty(t->empty_string);
+
                 p = strv_join(d->strv, "\n");
                 if (!p)
                         return NULL;
@@ -1694,6 +1697,20 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
+static bool table_data_isempty(TableData *d) {
+        assert(d);
+
+        if (d->type == TABLE_EMPTY)
+                return true;
+
+        /* Let's also consider an empty strv as truly empty. */
+        if (d->type == TABLE_STRV)
+                return strv_isempty(d->strv);
+
+        /* Note that an empty string we do not consider empty here! */
+        return false;
+}
+
 static const char* table_data_color(TableData *d) {
         assert(d);
 
@@ -1701,7 +1718,7 @@ static const char* table_data_color(TableData *d) {
                 return d->color;
 
         /* Let's implicitly color all "empty" cells in grey, in case an "empty_string" is set that is not empty */
-        if (d->type == TABLE_EMPTY)
+        if (table_data_isempty(d))
                 return ansi_grey();
 
         return NULL;
