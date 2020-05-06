@@ -77,21 +77,46 @@ static void connection_free(Connection *c) {
         free(c);
 }
 
+static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
+        Context *c = userdata;
+        int r;
+
+        if (!set_isempty(c->connections)) {
+                log_warning("Idle timer fired even though there are connections, ignoring");
+                return 0;
+        }
+
+        r = sd_event_exit(c->event, 0);
+        if (r < 0) {
+                log_warning_errno(r, "Error while stopping event loop, ignoring: %m");
+                return 0;
+        }
+        return 0;
+}
+
 static int connection_release(Connection *c) {
         int r;
         Context *context = c->context;
+        usec_t idle_instant;
 
         connection_free(c);
 
-        if (set_isempty(context->connections)) {
-                r = sd_event_source_set_time(context->idle_time,
-                                             usec_add(now(CLOCK_MONOTONIC), arg_exit_idle_time));
-                if (r < 0)
-                        return log_error_errno(r, "Error while setting idle time: %m");
+        if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
+                idle_instant = usec_add(now(CLOCK_MONOTONIC), arg_exit_idle_time);
+                if (context->idle_time) {
+                        r = sd_event_source_set_time(context->idle_time, idle_instant);
+                        if (r < 0)
+                                return log_error_errno(r, "Error while setting idle time: %m");
 
-                r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_error_errno(r, "Error while enabling idle time: %m");
+                        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                return log_error_errno(r, "Error while enabling idle time: %m");
+                } else {
+                        r = sd_event_add_time(context->event, &context->idle_time, CLOCK_MONOTONIC,
+                                              idle_instant, 0, idle_time_cb, context);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create idle timer: %m");
+                }
         }
 
         return 0;
@@ -449,10 +474,10 @@ static int add_connection_socket(Context *context, int fd) {
                 return 0;
         }
 
-        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
-        if (r < 0) {
-                log_error_errno(r, "Unable to disable idle timer: %m");
-                /* keep going */
+        if (context->idle_time) {
+                r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
+                if (r < 0)
+                        log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
         }
 
         r = set_ensure_allocated(&context->connections, NULL);
@@ -562,18 +587,6 @@ static int add_listen_socket(Context *context, int fd) {
         return 0;
 }
 
-static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
-        Context *c = userdata;
-        int r;
-
-        r = sd_event_exit(c->event, 0);
-        if (r < 0) {
-                log_error_errno(r, "Error while stopping event loop: %m");
-                return 0;
-        }
-        return 0;
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         _cleanup_free_ char *time_link = NULL;
@@ -649,10 +662,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXIT_IDLE:
                         r = parse_sec(optarg, &arg_exit_idle_time);
-                        if (r < 0) {
-                                log_error("Failed to parse --exit-idle-time= argument: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
                         break;
 
                 case '?':
@@ -696,11 +707,6 @@ static int run(int argc, char *argv[]) {
         r = sd_resolve_attach_event(context.resolve, context.event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach resolver: %m");
-
-        r = sd_event_add_time(context.event, &context.idle_time, CLOCK_MONOTONIC, UINT64_MAX,
-                              0, idle_time_cb, &context);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create idle timer: %m");
 
         sd_event_set_watchdog(context.event, true);
 

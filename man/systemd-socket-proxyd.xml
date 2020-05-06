@@ -72,7 +72,7 @@
 
         <listitem><para>Sets the time before exiting when there are no connections, defaults to
         <constant>infinity</constant>. Takes a unit-less value in seconds, or a time span value such
-        as "5min 20s".</para></listitem>
+        as <literal>5min 20s</literal>.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -123,7 +123,7 @@ server {
 $ curl http://localhost:80/]]></programlisting>
       </example>
       <para>If <filename>nginx.service</filename> has <varname>StopWhenUnneeded=</varname> set, then
-      passing <option>--exit-idle-time</option> to <command>systemd-socket-proxyd</command> allows
+      passing <option>--exit-idle-time=</option> to <command>systemd-socket-proxyd</command> allows
       both services to stop during idle periods.</para>
     </refsect2>
     <refsect2>
