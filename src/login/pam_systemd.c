@@ -465,8 +465,12 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
         assert(handle);
         assert(path);
 
-        /* Just some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually set
-         * up properly for us. */
+        /* Some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually
+         * set up properly for us. This is supposed to provide a careful safety net for supporting su/sudo
+         * type transitions: in that case the UID changes, but the session and thus the user owning it
+         * doesn't change. Since the $XDG_RUNTIME_DIR life-cycle is bound to the session's user being logged
+         * in at least once we should be particularly careful when setting the environment variable, since
+         * otherwise we might end up setting $XDG_RUNTIME_DIR to some directory owned by the wrong user. */
 
         if (!path_is_absolute(path)) {
                 pam_syslog(handle, LOG_ERR, "Provided runtime directory '%s' is not absolute.", path);
@@ -627,6 +631,29 @@ static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool
         return PAM_SUCCESS;
 }
 
+static int configure_runtime_directory(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *rt) {
+
+        int r;
+
+        assert(handle);
+        assert(ur);
+        assert(rt);
+
+        if (!validate_runtime_directory(handle, rt, ur->uid))
+                return PAM_SUCCESS;
+
+        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        return export_legacy_dbus_address(handle, rt);
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -682,15 +709,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
                 xsprintf(rt, "/run/user/"UID_FMT, ur->uid);
-                if (validate_runtime_directory(handle, rt, ur->uid)) {
-                        r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", rt, 0);
-                        if (r != PAM_SUCCESS) {
-                                pam_syslog(handle, LOG_ERR, "Failed to set runtime dir: %s", pam_strerror(handle, r));
-                                return r;
-                        }
-                }
-
-                r = export_legacy_dbus_address(handle, rt);
+                r = configure_runtime_directory(handle, ur, rt);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -880,19 +899,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return r;
 
         if (original_uid == ur->uid) {
-                /* Don't set $XDG_RUNTIME_DIR if the user we now
-                 * authenticated for does not match the original user
-                 * of the session. We do this in order not to result
-                 * in privileged apps clobbering the runtime directory
-                 * unnecessarily. */
+                /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
+                 * original user of the session. We do this in order not to result in privileged apps
+                 * clobbering the runtime directory unnecessarily. */
 
-                if (validate_runtime_directory(handle, runtime_path, ur->uid)) {
-                        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_path);
-                        if (r != PAM_SUCCESS)
-                                return r;
-                }
-
-                r = export_legacy_dbus_address(handle, runtime_path);
+                r = configure_runtime_directory(handle, ur, runtime_path);
                 if (r != PAM_SUCCESS)
                         return r;
         }
