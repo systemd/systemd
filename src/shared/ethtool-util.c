@@ -209,7 +209,7 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
 
                 speed = ethtool_cmd_speed(&ecmd);
                 *ret_speed = speed == (uint32_t) SPEED_UNKNOWN ?
-                        SIZE_MAX : (size_t) speed * 1000 * 1000;
+                        UINT64_MAX : (uint64_t) speed * 1000 * 1000;
         }
 
         if (ret_duplex)

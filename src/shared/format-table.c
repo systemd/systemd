@@ -2194,7 +2194,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_SIZE:
         case TABLE_BPS:
-                if (d->size == (size_t) -1)
+                if (d->size == (uint64_t) -1)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->size);
