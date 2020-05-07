@@ -95,6 +95,9 @@ def _extract_directives(directive_groups, formatting, page):
             continue
         storfile[name.text].append((pagename, section))
         formatting[name.text] = name
+    for name in t.iterfind(".//literal[@class='specifiers']"):
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
 
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
