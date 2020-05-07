@@ -963,10 +963,22 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int argc, const char **argv) {
 
         const void *existing = NULL;
+        bool debug = false;
         const char *id;
         int r;
 
         assert(handle);
+
+        if (parse_argv(handle,
+                       argc, argv,
+                       NULL,
+                       NULL,
+                       NULL,
+                       &debug) < 0)
+                return PAM_SESSION_ERR;
+
+        if (debug)
+                pam_syslog(handle, LOG_DEBUG, "pam-systemd shutting down");
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
