@@ -2963,7 +2963,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1;
 }
 
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
