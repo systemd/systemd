@@ -11,6 +11,7 @@
 #include "io-util.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
+#include "resolved-manager.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SSL*, SSL_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BIO*, BIO_free);
