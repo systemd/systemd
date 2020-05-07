@@ -419,7 +419,7 @@ static int acquire_home(
 
         /* If we already have acquired the fd, let's shortcut this */
         r = pam_get_data(handle, "systemd-home-fd", &home_fd_ptr);
-        if (r == PAM_SUCCESS && PTR_TO_INT(home_fd_ptr) >= 0)
+        if (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) >= 0)
                 return PAM_SUCCESS;
 
         r = pam_acquire_bus_connection(handle, &bus);
