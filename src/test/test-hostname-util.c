@@ -140,6 +140,13 @@ static void test_read_etc_hostname(void) {
         unlink(path);
 }
 
+static void test_fallback_hostname(void) {
+        if (!hostname_is_valid(FALLBACK_HOSTNAME, false)) {
+                log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
+                exit(EXIT_FAILURE);
+        }
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -147,6 +154,8 @@ int main(int argc, char *argv[]) {
         test_hostname_is_valid();
         test_hostname_cleanup();
         test_read_etc_hostname();
+
+        test_fallback_hostname();
 
         return 0;
 }

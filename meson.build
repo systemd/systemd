@@ -639,7 +639,14 @@ endforeach
 
 ############################################################
 
-conf.set_quoted('FALLBACK_HOSTNAME', get_option('fallback-hostname'))
+fallback_hostname = get_option('fallback-hostname')
+if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0] == '-'
+        error('Invalid fallback-hostname configuration')
+        # A more extensive test is done in test-hostname-util. Let's catch
+        # the most obvious errors here so we don't fail with an assert later.
+endif
+conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
+
 conf.set10('ENABLE_COMPAT_GATEWAY_HOSTNAME', get_option('compat-gateway-hostname'))
 gateway_hostnames = ['_gateway'] + (conf.get('ENABLE_COMPAT_GATEWAY_HOSTNAME') == 1 ? ['gateway'] : [])
 
