@@ -268,10 +268,6 @@ Features:
 * nspawn/machined: add API to invoke binary in container, then use that as
   fallback in "machinectl shell"
 
-* logind: rework pam_logind to also do a bus call in case of invocation from
-  user@.service, which returns the XDG_RUNTIME_DIR value, and make this
-  behaviour selectable via pam module option.
-
 * homed:
   - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
   - hook up machined/nspawn users with a varlink user query interface
