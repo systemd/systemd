@@ -43,6 +43,7 @@ bool unit_type_may_template(UnitType type) _const_;
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
 
+bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime);
 int unit_file_build_name_map(
                 const LookupPaths *lp,
                 usec_t *ret_time,

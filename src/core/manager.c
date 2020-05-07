@@ -50,6 +50,7 @@
 #include "io-util.h"
 #include "label.h"
 #include "locale-setup.h"
+#include "load-fragment.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
@@ -1929,6 +1930,12 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
+static bool manager_unit_cache_needs_refresh(Manager *m) {
+        assert(m);
+
+        return m->unit_cache_mtime > 0 && !lookup_paths_mtime_good(&m->lookup_paths, m->unit_cache_mtime);
+}
+
 int manager_load_unit_prepare(
                 Manager *m,
                 const char *name,
@@ -1969,18 +1976,27 @@ int manager_load_unit_prepare(
 
         ret = manager_get_unit(m, name);
         if (ret) {
-                *_ret = ret;
-                return 1;
+                /* The time-based cache allows to start new units without daemon-reload,
+                 * but if they are already referenced (because of dependencies or ordering)
+                 * then we have to force a load of the fragment. As an optimization, check
+                 * first if anything in the usual paths was modified since the last time
+                 * the cache was loaded. */
+                if (ret->load_state == UNIT_NOT_FOUND && manager_unit_cache_needs_refresh(m))
+                        ret->load_state = UNIT_STUB;
+                else {
+                        *_ret = ret;
+                        return 1;
+                }
+        } else {
+                ret = cleanup_ret = unit_new(m, unit_vtable[t]->object_size);
+                if (!ret)
+                        return -ENOMEM;
         }
 
-        ret = cleanup_ret = unit_new(m, unit_vtable[t]->object_size);
-        if (!ret)
-                return -ENOMEM;
-
         if (path) {
-                ret->fragment_path = strdup(path);
-                if (!ret->fragment_path)
-                        return -ENOMEM;
+                r = free_and_strdup(&ret->fragment_path, path);
+                if (r < 0)
+                        return r;
         }
 
         r = unit_add_name(ret, name);

@@ -199,7 +199,7 @@ static bool lookup_paths_mtime_exclude(const LookupPaths *lp, const char *path) 
                streq_ptr(path, lp->runtime_control);
 }
 
-static bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
+bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
         char **dir;
 
         STRV_FOREACH(dir, (char**) lp->search_path) {
