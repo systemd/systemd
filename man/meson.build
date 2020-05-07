@@ -110,9 +110,9 @@ endif
 
 systemd_directives_xml = custom_target(
         'systemd.directives.xml',
-        input : source_xml_files,
+        input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
-        command : [make_directive_index_py, '@OUTPUT@'] + source_xml_files)
+        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
