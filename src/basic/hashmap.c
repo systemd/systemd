@@ -1775,41 +1775,54 @@ int hashmap_put_strdup(Hashmap **h, const char *k, const char *v) {
                 return r;
 
         _cleanup_free_ char *kdup = NULL, *vdup = NULL;
+
         kdup = strdup(k);
-        vdup = strdup(v);
-        if (!kdup || !vdup)
+        if (!kdup)
                 return -ENOMEM;
+
+        if (v) {
+                vdup = strdup(v);
+                if (!vdup)
+                        return -ENOMEM;
+        }
 
         r = hashmap_put(*h, kdup, vdup);
         if (r < 0) {
-                if (r == -EEXIST && streq(v, hashmap_get(*h, kdup)))
+                if (r == -EEXIST && streq_ptr(v, hashmap_get(*h, kdup)))
                         return 0;
                 return r;
         }
 
-        assert(r > 0); /* 0 would mean vdup is already in the hashmap, which cannot be */
-        kdup = vdup = NULL;
+        /* 0 with non-null vdup would mean vdup is already in the hashmap, which cannot be */
+        assert(vdup == NULL || r > 0);
+        if (r > 0)
+                kdup = vdup = NULL;
 
-        return 0;
+        return r;
 }
 
-int set_put_strdup(Set *s, const char *p) {
+int set_put_strdup(Set **s, const char *p) {
         char *c;
+        int r;
 
         assert(s);
         assert(p);
 
-        if (set_contains(s, (char*) p))
+        r = set_ensure_allocated(s, &string_hash_ops_free);
+        if (r < 0)
+                return r;
+
+        if (set_contains(*s, (char*) p))
                 return 0;
 
         c = strdup(p);
         if (!c)
                 return -ENOMEM;
 
-        return set_consume(s, c);
+        return set_consume(*s, c);
 }
 
-int set_put_strdupv(Set *s, char **l) {
+int set_put_strdupv(Set **s, char **l) {
         int n = 0, r;
         char **i;
 

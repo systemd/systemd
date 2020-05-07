@@ -458,7 +458,7 @@ static int on_path(const char *path, void *userdata) {
 
         assert(paths);
 
-        r = set_put_strdup(paths, path);
+        r = set_put_strdup(&paths, path);
         if (r < 0)
                 return log_oom();
 

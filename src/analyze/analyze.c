@@ -1655,7 +1655,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
 #if HAVE_SECCOMP
 
 static int load_kernel_syscalls(Set **ret) {
-        _cleanup_(set_free_freep) Set *syscalls = NULL;
+        _cleanup_set_free_ Set *syscalls = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1691,11 +1691,7 @@ static int load_kernel_syscalls(Set **ret) {
                 if (STR_IN_SET(e, "newuname", "newfstat", "newstat", "newlstat", "sysctl"))
                         continue;
 
-                r = set_ensure_allocated(&syscalls, &string_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                r = set_put_strdup(syscalls, e);
+                r = set_put_strdup(&syscalls, e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add system call to list: %m");
         }
@@ -1735,7 +1731,7 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_(set_free_freep) Set *kernel = NULL;
+                _cleanup_set_free_ Set *kernel = NULL;
                 int i, k;
 
                 k = load_kernel_syscalls(&kernel);

@@ -23,7 +23,7 @@
 static bool arg_verbose = false;
 static bool arg_dry_run = false;
 
-static int exec_list(sd_device_enumerator *e, const char *action, Set *settle_set) {
+static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
         sd_device *d;
         int r, ret = 0;
 
@@ -172,7 +172,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_set_free_free_ Set *settle_set = NULL;
+        _cleanup_set_free_ Set *settle_set = NULL;
         usec_t ping_timeout_usec = 5 * USEC_PER_SEC;
         bool settle = false, ping = false;
         int c, r;
@@ -342,7 +342,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         }
 
         if (settle) {
-                settle_set = set_new(&string_hash_ops);
+                settle_set = set_new(&string_hash_ops_free);
                 if (!settle_set)
                         return log_oom();
 
@@ -377,7 +377,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         default:
                 assert_not_reached("Unknown device type");
         }
-        r = exec_list(e, action, settle_set);
+
+        r = exec_list(e, action, settle ? &settle_set : NULL);
         if (r < 0)
                 return r;
 

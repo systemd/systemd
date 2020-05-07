@@ -65,7 +65,7 @@ void bus_wait_for_jobs_free(BusWaitForJobs *d) {
         if (!d)
                 return;
 
-        set_free_free(d->jobs);
+        set_free(d->jobs);
 
         sd_bus_slot_unref(d->slot_disconnected);
         sd_bus_slot_unref(d->slot_job_removed);
@@ -315,15 +315,9 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
 }
 
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
-        int r;
-
         assert(d);
 
-        r = set_ensure_allocated(&d->jobs, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        return set_put_strdup(d->jobs, path);
+        return set_put_strdup(&d->jobs, path);
 }
 
 int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet) {

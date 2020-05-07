@@ -121,8 +121,8 @@ static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fi
         return 0;
 }
 
-static int field_set_test(Set *fields, const char *name, size_t n) {
-        char *s = NULL;
+static int field_set_test(const Set *fields, const char *name, size_t n) {
+        char *s;
 
         if (!fields)
                 return 1;
@@ -369,7 +369,7 @@ static int output_short(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         int r;
@@ -533,7 +533,7 @@ static int output_verbose(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         const void *data;
@@ -652,7 +652,7 @@ static int output_export(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         sd_id128_t boot_id;
@@ -849,7 +849,7 @@ static int update_json_data(
 static int update_json_data_split(
                 Hashmap *h,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const void *data,
                 size_t size) {
 
@@ -870,7 +870,7 @@ static int update_json_data_split(
                 return 0;
 
         name = strndupa(data, eq - (const char*) data);
-        if (output_fields && !set_get(output_fields, name))
+        if (output_fields && !set_contains(output_fields, name))
                 return 0;
 
         return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
@@ -882,7 +882,7 @@ static int output_json(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
@@ -1073,7 +1073,7 @@ static int output_cat(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         const char *field;
@@ -1103,7 +1103,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) = {
 
         [OUTPUT_SHORT]             = output_short,
@@ -1133,30 +1133,25 @@ int show_journal_entry(
                 const size_t highlight[2],
                 bool *ellipsized) {
 
-        int ret;
-        _cleanup_set_free_free_ Set *fields = NULL;
+        _cleanup_set_free_ Set *fields = NULL;
+        int r;
+
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if (output_fields) {
-                fields = set_new(&string_hash_ops);
-                if (!fields)
-                        return log_oom();
+        r = set_put_strdupv(&fields, output_fields);
+        if (r < 0)
+                return r;
 
-                ret = set_put_strdupv(fields, output_fields);
-                if (ret < 0)
-                        return ret;
-        }
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
-
-        if (ellipsized && ret > 0)
+        if (ellipsized && r > 0)
                 *ellipsized = true;
 
-        return ret;
+        return r;
 }
 
 static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {

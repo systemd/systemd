@@ -68,9 +68,9 @@ static sd_device *device_free(sd_device *device) {
         ordered_hashmap_free_free_free(device->properties);
         ordered_hashmap_free_free_free(device->properties_db);
         hashmap_free_free_free(device->sysattr_values);
-        set_free_free(device->sysattrs);
-        set_free_free(device->tags);
-        set_free_free(device->devlinks);
+        set_free(device->sysattrs);
+        set_free(device->tags);
+        set_free(device->devlinks);
 
         return mfree(device);
 }
@@ -1078,11 +1078,7 @@ int device_add_tag(sd_device *device, const char *tag) {
         if (!is_valid_tag(tag))
                 return -EINVAL;
 
-        r = set_ensure_allocated(&device->tags, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put_strdup(device->tags, tag);
+        r = set_put_strdup(&device->tags, tag);
         if (r < 0)
                 return r;
 
@@ -1098,11 +1094,7 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         assert(device);
         assert(devlink);
 
-        r = set_ensure_allocated(&device->devlinks, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put_strdup(device->devlinks, devlink);
+        r = set_put_strdup(&device->devlinks, devlink);
         if (r < 0)
                 return r;
 
@@ -1591,10 +1583,6 @@ static int device_sysattrs_read_all(sd_device *device) {
         if (!dir)
                 return -errno;
 
-        r = set_ensure_allocated(&device->sysattrs, &string_hash_ops);
-        if (r < 0)
-                return r;
-
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 _cleanup_free_ char *path = NULL;
                 struct stat statbuf;
@@ -1613,7 +1601,7 @@ static int device_sysattrs_read_all(sd_device *device) {
                 if (!(statbuf.st_mode & S_IRUSR))
                         continue;
 
-                r = set_put_strdup(device->sysattrs, dent->d_name);
+                r = set_put_strdup(&device->sysattrs, dent->d_name);
                 if (r < 0)
                         return r;
         }

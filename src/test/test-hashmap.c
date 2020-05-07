@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "hashmap.h"
+#include "string-util.h"
 #include "util.h"
 
 unsigned custom_counter = 0;
@@ -109,6 +110,58 @@ static void test_iterated_cache(void) {
         assert_se(iterated_cache_free(c) == NULL);
 }
 
+static void test_hashmap_put_strdup(void) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        char *s;
+
+        /* We don't have ordered_hashmap_put_strdup() yet. If it is added,
+         * these tests should be moved to test-hashmap-plain.c. */
+
+        log_info("/* %s */", __func__);
+
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 1);
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
+        assert_se(hashmap_put_strdup(&m, "foo", "BAR") == -EEXIST);
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
+        assert_se(hashmap_contains(m, "foo"));
+
+        s = hashmap_get(m, "foo");
+        assert_se(streq(s, "bar"));
+
+        assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 1);
+        assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 0);
+        assert_se(hashmap_put_strdup(&m, "xxx", "BAR") == -EEXIST);
+        assert_se(hashmap_put_strdup(&m, "xxx", "bar") == 0);
+        assert_se(hashmap_contains(m, "xxx"));
+
+        s = hashmap_get(m, "xxx");
+        assert_se(streq(s, "bar"));
+}
+
+static void test_hashmap_put_strdup_null(void) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        char *s;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 1);
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
+        assert_se(hashmap_put_strdup(&m, "foo", NULL) == -EEXIST);
+        assert_se(hashmap_put_strdup(&m, "foo", "bar") == 0);
+        assert_se(hashmap_contains(m, "foo"));
+
+        s = hashmap_get(m, "foo");
+        assert_se(streq(s, "bar"));
+
+        assert_se(hashmap_put_strdup(&m, "xxx", NULL) == 1);
+        assert_se(hashmap_put_strdup(&m, "xxx", "bar") == -EEXIST);
+        assert_se(hashmap_put_strdup(&m, "xxx", NULL) == 0);
+        assert_se(hashmap_contains(m, "xxx"));
+
+        s = hashmap_get(m, "xxx");
+        assert_se(s == NULL);
+}
+
 int main(int argc, const char *argv[]) {
         /* This file tests in test-hashmap-plain.c, and tests in test-hashmap-ordered.c, which is generated
          * from test-hashmap-plain.c. Hashmap tests should be added to test-hashmap-plain.c, and here only if
@@ -127,6 +180,8 @@ int main(int argc, const char *argv[]) {
         test_trivial_compare_func();
         test_string_compare_func();
         test_iterated_cache();
+        test_hashmap_put_strdup();
+        test_hashmap_put_strdup_null();
 
         return 0;
 }

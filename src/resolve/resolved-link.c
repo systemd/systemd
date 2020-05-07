@@ -493,7 +493,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
         if (!ns)
                 return -ENOMEM;
 
-        r = set_put_strdupv(ns, ntas);
+        r = set_put_strdupv(&ns, ntas);
         if (r < 0)
                 return r;
 

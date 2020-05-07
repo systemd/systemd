@@ -1724,7 +1724,7 @@ int bus_unit_queue_job(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
-        _cleanup_(set_freep) Set *affected = NULL;
+        _cleanup_set_free_ Set *affected = NULL;
         Iterator i;
         Job *j, *a;
         int r;

@@ -1156,10 +1156,6 @@ int portable_detach(
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
         }
 
-        unit_files = set_new(&string_hash_ops);
-        if (!unit_files)
-                return -ENOMEM;
-
         markers = set_new(&path_hash_ops);
         if (!markers)
                 return -ENOMEM;
@@ -1172,7 +1168,7 @@ int portable_detach(
                         continue;
 
                 /* Filter out duplicates */
-                if (set_get(unit_files, de->d_name))
+                if (set_contains(unit_files, de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -1197,7 +1193,7 @@ int portable_detach(
                 if (r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", de->d_name);
 
-                r = set_put_strdup(unit_files, de->d_name);
+                r = set_put_strdup(&unit_files, de->d_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
 
@@ -1310,7 +1306,7 @@ static int portable_get_state_internal(
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
-        _cleanup_set_free_free_ Set *unit_files = NULL;
+        _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where;
         struct dirent *de;
@@ -1336,10 +1332,6 @@ static int portable_get_state_internal(
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
         }
 
-        unit_files = set_new(&string_hash_ops);
-        if (!unit_files)
-                return -ENOMEM;
-
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 UnitFileState state;
 
@@ -1347,7 +1339,7 @@ static int portable_get_state_internal(
                         continue;
 
                 /* Filter out duplicates */
-                if (set_get(unit_files, de->d_name))
+                if (set_contains(unit_files, de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -1372,7 +1364,7 @@ static int portable_get_state_internal(
                 if (r > 0)
                         found_running = true;
 
-                r = set_put_strdup(unit_files, de->d_name);
+                r = set_put_strdup(&unit_files, de->d_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
         }
