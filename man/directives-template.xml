@@ -136,6 +136,14 @@
   </refsect1>
 
   <refsect1>
+    <title>Specifiers</title>
+
+    <para>Short strings which are substituted in configuration directives.</para>
+
+    <variablelist id='specifiers' />
+  </refsect1>
+
+  <refsect1>
     <title>Files and directories</title>
 
     <para>Paths and file names referred to in the documentation.</para>

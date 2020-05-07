@@ -75,7 +75,7 @@
             <para>An instance name of the network service as defined in the section 4.1.1 of <ulink
             url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>webserver</literal>.</para>
             <para>The option supports simple specifier expansion. The following expansions are understood:</para>
-            <table>
+            <table class='specifiers'>
               <title>Specifiers available</title>
               <tgroup cols='3' align='left' colsep='1' rowsep='1'>
                 <colspec colname="spec" />

@@ -618,7 +618,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
     <para>Specifiers can be used in the "path" and "argument" fields.
     An unknown or unresolvable specifier is treated as invalid configuration.
     The following expansions are understood:</para>
-      <table>
+      <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
           <colspec colname="spec" />

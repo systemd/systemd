@@ -237,7 +237,7 @@ r     -        500-900
     <para>Specifiers can be used in the "Name", "ID", "GECOS", "Home directory", and "Shell" fields.
     An unknown or unresolvable specifier is treated as invalid configuration.
     The following expansions are understood:</para>
-      <table>
+      <table class='specifiers'>
         <title>Specifiers available</title>
         <tgroup cols='3' align='left' colsep='1' rowsep='1'>
           <colspec colname="spec" />

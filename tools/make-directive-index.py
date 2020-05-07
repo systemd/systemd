@@ -87,6 +87,15 @@ def _extract_directives(directive_groups, formatting, page):
         storfile[name.text].append((pagename, section))
         formatting[name.text] = name
 
+    storfile = directive_groups['specifiers']
+    for name in t.iterfind(".//table[@class='specifiers']//entry/literal"):
+        if name.text[0] != '%' or name.getparent().text is not None:
+            continue
+        if name.attrib.get('index') == 'false':
+            continue
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
+
 def _make_section(template, name, directives, formatting):
     varlist = template.find(".//*[@id='{}']".format(name))
     for varname, manpages in sorted(directives.items()):
