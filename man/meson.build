@@ -110,9 +110,9 @@ endif
 
 systemd_directives_xml = custom_target(
         'systemd.directives.xml',
-        input : source_xml_files,
+        input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
-        command : [make_directive_index_py, '@OUTPUT@'] + source_xml_files)
+        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
@@ -217,7 +217,7 @@ if git.found()
                 output : 'update-man-rules',
                 command : ['sh', '-c',
                            'cd @0@ && '.format(meson.build_root()) +
-                           'python3 @0@/tools/make-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
+                           'python3 @0@/tools/update-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
                            'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
                 depend_files : custom_entities_ent)
 endif

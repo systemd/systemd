@@ -1695,7 +1695,7 @@
     and resolvable for the setting to be valid. The following
     specifiers are understood:</para>
 
-    <table>
+    <table class='specifiers'>
       <title>Specifiers available in unit files</title>
       <tgroup cols='3' align='left' colsep='1' rowsep='1'>
         <colspec colname="spec" />
@@ -1710,7 +1710,8 @@
         </thead>
         <tbody>
           <row>
-            <!-- We do not use the common definition from standard-specifiers.xml here since it includes a reference onto our own man page, which would make the rendered version self-referential. -->
+            <!-- We do not use the common definition from standard-specifiers.xml here since it includes a
+                 reference onto our own man page, which would make the rendered version self-referential. -->
             <entry><literal>%a</literal></entry>
             <entry>Architecture</entry>
             <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
@@ -1740,10 +1741,16 @@
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
           <row>
-            <!-- We do not use the common definition from standard-specifiers.xml here since we want a slightly more verbose explanation here, referring to the reload cycle. -->
+            <!-- We do not use the common definition from standard-specifiers.xml here since we want a
+                 slightly more verbose explanation here, referring to the reload cycle. -->
             <entry><literal>%H</literal></entry>
             <entry>Host name</entry>
             <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
+          </row>
+          <row>
+            <entry><literal>%l</literal></entry>
+            <entry>Short host name</entry>
+            <entry>The hostname of the running system at the point in time the unit configuration is loaded, truncated at the first dot to remove any domain component.</entry>
           </row>
           <row>
             <entry><literal>%i</literal></entry>

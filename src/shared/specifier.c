@@ -160,6 +160,17 @@ int specifier_host_name(char specifier, const void *data, const void *userdata, 
         return 0;
 }
 
+int specifier_short_host_name(char specifier, const void *data, const void *userdata, char **ret) {
+        char *n;
+
+        n = gethostname_short_malloc();
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
+}
+
 int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;

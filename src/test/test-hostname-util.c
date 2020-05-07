@@ -140,6 +140,23 @@ static void test_read_etc_hostname(void) {
         unlink(path);
 }
 
+static void test_hostname_malloc(void) {
+        _cleanup_free_ char *h = NULL, *l = NULL;
+
+        assert_se(h = gethostname_malloc());
+        log_info("hostname_malloc: \"%s\"", h);
+
+        assert_se(l = gethostname_short_malloc());
+        log_info("hostname_short_malloc: \"%s\"", l);
+}
+
+static void test_fallback_hostname(void) {
+        if (!hostname_is_valid(FALLBACK_HOSTNAME, false)) {
+                log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
+                exit(EXIT_FAILURE);
+        }
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -147,6 +164,9 @@ int main(int argc, char *argv[]) {
         test_hostname_is_valid();
         test_hostname_cleanup();
         test_read_etc_hostname();
+        test_hostname_malloc();
+
+        test_fallback_hostname();
 
         return 0;
 }
