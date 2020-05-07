@@ -22,6 +22,29 @@ Janitorial Clean-ups:
 
 Features:
 
+* All tools that support --root= should also learn --image= so that they can
+  operate on disk images directly. Specifically: bootctl, firstboot, tmpfiles,
+  sysusers, systemctl, repart, journalctl, coredumpctl.
+
+* per-service credential system. Specifically: add LoadCredential= (for loading
+  cred from file), AcquireCredential= (for asking user for cred, via
+  ask-password), PassCredential= (for passing on credential systemd itself
+  got). Then, place credentials in a per-service, immutable ramfs instance (so
+  that it cannot be swapped out), destroy after use. Also pass via keyring
+  (with graceful fallback to cover for containers). Define CredentialPath= for
+  defining subdir of /run/credentials/ where to place it. Set $CREDENTIAL_PATH
+  env var for services to the result. Also pass via fd passing (optionally).
+
+* homed: add native recovery key support. use 48 lowercase modhex characters
+  (192bit), show qr code of it, include pattern expression in user record.
+
+* homed: introduce "degraded" state for home directories that weren't cleanly
+  unmounted (use xattr we add and remove on the loop back file)
+
+* homed: during login resize fs automatically towards size goal. Specifically,
+  resize to diskSize if possible, but leave a certain amount (configured by a
+  new value diskLeaveFreeSize) of space free on the backing fs.
+
 * homed: permit multiple private keys to be used locally, and pick the right
   one for signing records automatically depending on a pre-existing signature
 
@@ -35,8 +58,6 @@ Features:
 
 * homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
   easily?
-
-* journalctl --image= which is like --root= but operates on disk images
 
 * when systemd-nspawn and suchlike dissect an OS image, and there are multiple
   root partitions, do an strverscmp() on the partition label and boot
@@ -134,6 +155,9 @@ Features:
   partition table, so that it is safe to run in the initrd on any system
 
 * systemd-repart: allow config of partition uuid
+
+* systemd-repart: add --make= switch for fallocating a new file of the
+  specified size first.
 
 * userdb: allow username prefix searches in varlink API, allow realname and
   realname substr searches in varlink API
