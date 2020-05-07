@@ -99,6 +99,7 @@ static int acquire_user_record(
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         const char *username = NULL, *json = NULL;
+        _cleanup_free_ char *field = NULL;
         int r;
 
         assert(handle);
@@ -114,39 +115,18 @@ static int acquire_user_record(
                 return PAM_SERVICE_ERR;
         }
 
-        /* If pam_systemd_homed (or some other module) already acqired the user record we can reuse it
+        /* If pam_systemd_homed (or some other module) already acquired the user record we can reuse it
          * here. */
-        r = pam_get_data(handle, "systemd-user-record", (const void**) &json);
-        if (r != PAM_SUCCESS || !json) {
-                _cleanup_free_ char *formatted = NULL;
+        field = strjoin("systemd-user-record-", username);
+        if (!field)
+                return pam_log_oom(handle);
 
-                if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
-                        return r;
-                }
-
-                /* Request the record ourselves */
-                r = userdb_by_name(username, 0, &ur);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get user record: %s", strerror_safe(r));
-                        return PAM_USER_UNKNOWN;
-                }
-
-                r = json_variant_format(ur->json, 0, &formatted);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to format user JSON: %s", strerror_safe(r));
-                        return PAM_SERVICE_ERR;
-                }
-
-                /* And cache it for everyone else */
-                r = pam_set_data(handle, "systemd-user-record", formatted, pam_cleanup_free);
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data: %s", pam_strerror(handle, r));
-                        return r;
-                }
-
-                TAKE_PTR(formatted);
-        } else {
+        r = pam_get_data(handle, field, (const void**) &json);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        if (r == PAM_SUCCESS && json) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                 /* Parse cached record */
@@ -171,6 +151,31 @@ static int acquire_user_record(
                         pam_syslog(handle, LOG_ERR, "Acquired user record does not match user name.");
                         return PAM_SERVICE_ERR;
                 }
+        } else {
+                _cleanup_free_ char *formatted = NULL;
+
+                /* Request the record ourselves */
+                r = userdb_by_name(username, 0, &ur);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to get user record: %s", strerror_safe(r));
+                        return PAM_USER_UNKNOWN;
+                }
+
+                r = json_variant_format(ur->json, 0, &formatted);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to format user JSON: %s", strerror_safe(r));
+                        return PAM_SERVICE_ERR;
+                }
+
+                /* And cache it for everyone else */
+                r = pam_set_data(handle, field, formatted, pam_cleanup_free);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s': %s",
+                                   field, pam_strerror(handle, r));
+                        return r;
+                }
+
+                TAKE_PTR(formatted);
         }
 
         if (!uid_is_valid(ur->uid)) {

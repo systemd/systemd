@@ -18,11 +18,6 @@
 #include "user-record.h"
 #include "user-util.h"
 
-/* Used for the "systemd-user-record-is-homed" PAM data field, to indicate whether we know whether this user
- * record is managed by homed or by something else. */
-#define USER_RECORD_IS_HOMED INT_TO_PTR(1)
-#define USER_RECORD_IS_OTHER INT_TO_PTR(2)
-
 static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
@@ -74,7 +69,7 @@ static int acquire_user_record(
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         const char *username = NULL, *json = NULL;
-        const void *b = NULL;
+        _cleanup_free_ char *homed_field = NULL;
         int r;
 
         assert(handle);
@@ -95,31 +90,30 @@ static int acquire_user_record(
         if (STR_IN_SET(username, "root", NOBODY_USER_NAME) || !valid_user_group_name(username, 0))
                 return PAM_USER_UNKNOWN;
 
-        /* Let's check if a previous run determined that this user is not managed by homed. If so, let's exit early */
-        r = pam_get_data(handle, "systemd-user-record-is-homed", &b);
-        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                /* Failure */
-                pam_syslog(handle, LOG_ERR, "Failed to get PAM user-record-is-homed flag: %s", pam_strerror(handle, r));
-                return r;
-        } else if (b == NULL)
-                /* Nothing cached yet, need to acquire fresh */
-                json = NULL;
-        else if (b != USER_RECORD_IS_HOMED)
-                /* Definitely not a homed record */
-                return PAM_USER_UNKNOWN;
-        else {
-                /* It's a homed record, let's use the cache, so that we can share it between the session and
-                 * the authentication hooks */
-                r = pam_get_data(handle, "systemd-user-record", (const void**) &json);
-                if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
-                        pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
-                        return r;
-                }
-        }
+        /* We cache the user record in the PAM context. We use a field name that includes the username, since
+         * clients might change the user name associated with a PAM context underneath us. Notably, 'sudo'
+         * creates a single PAM context and first authenticates it with the user set to the originating user,
+         * then updates the user for the destination user and issues the session stack with the same PAM
+         * context. We thus must be prepared that the user record changes between calls and we keep any
+         * caching separate. */
+        homed_field = strjoin("systemd-home-user-record-", username);
+        if (!homed_field)
+                return pam_log_oom(handle);
 
-        if (!json) {
+        /* Let's use the cache, so that we can share it between the session and the authentication hooks */
+        r = pam_get_data(handle, homed_field, (const void**) &json);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to get PAM user record data: %s", pam_strerror(handle, r));
+                return r;
+        }
+        if (r == PAM_SUCCESS && json) {
+                /* We determined earlier that this is not a homed user? Then exit early. (We use -1 as
+                 * negative cache indicator) */
+                if (json == (void*) -1)
+                        return PAM_USER_UNKNOWN;
+        } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *json_copy = NULL;
+                _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
 
                 r = pam_acquire_bus_connection(handle, &bus);
                 if (r != PAM_SUCCESS)
@@ -146,23 +140,38 @@ static int acquire_user_record(
                 if (r < 0)
                         return pam_bus_log_parse_error(handle, r);
 
+                /* First copy: for the homed-specific data field, i.e. where we know the user record is from
+                 * homed */
                 json_copy = strdup(json);
                 if (!json_copy)
                         return pam_log_oom(handle);
 
-                r = pam_set_data(handle, "systemd-user-record", json_copy, pam_cleanup_free);
+                r = pam_set_data(handle, homed_field, json_copy, pam_cleanup_free);
                 if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data: %s", pam_strerror(handle, r));
+                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s': %s",
+                                   homed_field, pam_strerror(handle, r));
+                        return r;
+                }
+
+                /* Take a second copy: for the generic data field, the one which we share with
+                 * pam_systemd. While we insist on only reusing homed records, pam_systemd is fine with homed
+                 * and non-homed user records. */
+                json_copy = strdup(json);
+                if (!json_copy)
+                        return pam_log_oom(handle);
+
+                generic_field = strjoin("systemd-user-record-", username);
+                if (!generic_field)
+                        return pam_log_oom(handle);
+
+                r = pam_set_data(handle, generic_field, json_copy, pam_cleanup_free);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s': %s",
+                                   homed_field, pam_strerror(handle, r));
                         return r;
                 }
 
                 TAKE_PTR(json_copy);
-
-                r = pam_set_data(handle, "systemd-user-record-is-homed", USER_RECORD_IS_HOMED, NULL);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set PAM user record is homed flag: %s", pam_strerror(handle, r));
-                        return r;
-                }
         }
 
         r = json_parse(json, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
@@ -181,6 +190,7 @@ static int acquire_user_record(
                 return PAM_SERVICE_ERR;
         }
 
+        /* Safety check if cached record actually matches what we are looking for */
         if (!streq_ptr(username, ur->user_name)) {
                 pam_syslog(handle, LOG_ERR, "Acquired user record does not match user name.");
                 return PAM_SERVICE_ERR;
@@ -193,23 +203,36 @@ static int acquire_user_record(
 
 user_unknown:
         /* Cache this, so that we don't check again */
-        r = pam_set_data(handle, "systemd-user-record-is-homed", USER_RECORD_IS_OTHER, NULL);
+        r = pam_set_data(handle, homed_field, (void*) -1, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to set PAM user-record-is-homed flag, ignoring: %s", pam_strerror(handle, r));
+                pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s' to invalid, ignoring: %s",
+                           homed_field, pam_strerror(handle, r));
 
         return PAM_USER_UNKNOWN;
 }
 
-static int release_user_record(pam_handle_t *handle) {
+static int release_user_record(pam_handle_t *handle, const char *username) {
+        _cleanup_free_ char *homed_field = NULL, *generic_field = NULL;
         int r, k;
 
-        r = pam_set_data(handle, "systemd-user-record", NULL, NULL);
-        if (r != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data: %s", pam_strerror(handle, r));
+        assert(handle);
+        assert(username);
 
-        k = pam_set_data(handle, "systemd-user-record-is-homed", NULL, NULL);
+        homed_field = strjoin("systemd-home-user-record-", username);
+        if (!homed_field)
+                return pam_log_oom(handle);
+
+        r = pam_set_data(handle, homed_field, NULL, NULL);
+        if (r != PAM_SUCCESS)
+                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s", homed_field, pam_strerror(handle, r));
+
+        generic_field = strjoin("systemd-user-record-", username);
+        if (!generic_field)
+                return pam_log_oom(handle);
+
+        k = pam_set_data(handle, generic_field, NULL, NULL);
         if (k != PAM_SUCCESS)
-                pam_syslog(handle, LOG_ERR, "Failed to release PAM user-record-is-homed flag: %s", pam_strerror(handle, k));
+                pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data '%s': %s", generic_field, pam_strerror(handle, k));
 
         return IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA) ? k : r;
 }
@@ -545,7 +568,7 @@ static int acquire_home(
                 /* We likely just activated the home directory, let's flush out the user record, since a
                  * newer embedded user record might have been acquired from the activation. */
 
-                r = release_user_record(handle);
+                r = release_user_record(handle, ur->user_name);
                 if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                         return r;
         }
