@@ -257,6 +257,7 @@ r     -        500-900
           <xi:include href="standard-specifiers.xml" xpointer="b"/>
           <xi:include href="standard-specifiers.xml" xpointer="B"/>
           <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
           <xi:include href="standard-specifiers.xml" xpointer="m"/>
           <xi:include href="standard-specifiers.xml" xpointer="o"/>
           <row>

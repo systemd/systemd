@@ -646,6 +646,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>This is the home directory of the user running the command. In case of the system instance this resolves to <literal>/root</literal>.</entry>
             </row>
             <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
             <row>
               <entry><literal>%L</literal></entry>
               <entry>System or user log directory</entry>

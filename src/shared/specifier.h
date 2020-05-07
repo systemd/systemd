@@ -18,6 +18,7 @@ int specifier_string(char specifier, const void *data, const void *userdata, cha
 int specifier_machine_id(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_boot_id(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_host_name(char specifier, const void *data, const void *userdata, char **ret);
+int specifier_short_host_name(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_architecture(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_os_id(char specifier, const void *data, const void *userdata, char **ret);

@@ -24,6 +24,11 @@
     <entry>Host name</entry>
     <entry>The hostname of the running system.</entry>
   </row>
+  <row id='l'>
+    <entry><literal>%l</literal></entry>
+    <entry>Short host name</entry>
+    <entry>The hostname of the running system, truncated at the first dot to remove any domain component.</entry>
+  </row>
   <row id='m'>
     <entry><literal>%m</literal></entry>
     <entry>Machine ID</entry>

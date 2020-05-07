@@ -1748,6 +1748,11 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
             <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
           </row>
           <row>
+            <entry><literal>%l</literal></entry>
+            <entry>Short host name</entry>
+            <entry>The hostname of the running system at the point in time the unit configuration is loaded, truncated at the first dot to remove any domain component.</entry>
+          </row>
+          <row>
             <entry><literal>%i</literal></entry>
             <entry>Instance name</entry>
             <entry>For instantiated units this is the string between the first <literal>@</literal> character and the type suffix. Empty for non-instantiated units.</entry>

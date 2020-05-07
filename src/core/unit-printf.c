@@ -291,6 +291,7 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
 
                 { 'm', specifier_machine_id,               NULL },
                 { 'H', specifier_host_name,                NULL },
+                { 'l', specifier_short_host_name,          NULL },
                 { 'b', specifier_boot_id,                  NULL },
                 { 'v', specifier_kernel_release,           NULL },
                 {}
