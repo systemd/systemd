@@ -299,7 +299,7 @@ substs.set('BUILD_ROOT',                                      project_build_root
 
 cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
-check_compilation_sh = find_program('tools/meson-check-compilation.sh')
+check_compilation_sh = find_program('tools/check-compilation.sh')
 meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
@@ -3244,8 +3244,8 @@ run_target(
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 xml_helper_py = find_program('tools/xml_helper.py')
-hwdb_update_sh = find_program('tools/meson-hwdb-update.sh')
-autosuspend_update_sh = find_program('tools/meson-autosuspend-update.sh')
+hwdb_update_sh = find_program('tools/hwdb-update.sh')
+autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
 
 subdir('sysctl.d')
 subdir('sysusers.d')
@@ -3286,13 +3286,13 @@ meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
 
 ############################################################
 
-meson_check_help = find_program('tools/meson-check-help.sh')
+check_help = find_program('tools/check-help.sh')
 
 foreach exec : public_programs
         name = exec.full_path().split('/')[-1]
         if want_tests != 'false'
                 test('check-help-' + name,
-                     meson_check_help,
+                     check_help,
                      args : exec.full_path())
         endif
 endforeach
@@ -3371,10 +3371,10 @@ if git.found()
 endif
 
 if git.found()
-        meson_git_contrib_sh = find_program('tools/meson-git-contrib.sh')
+        git_contrib_sh = find_program('tools/git-contrib.sh')
         run_target(
                 'git-contrib',
-                command : [meson_git_contrib_sh])
+                command : [git_contrib_sh])
 endif
 
 if git.found()
@@ -3398,11 +3398,11 @@ endif
 
 ############################################################
 
-meson_check_api_docs_sh = find_program('tools/meson-check-api-docs.sh')
+check_api_docs_sh = find_program('tools/check-api-docs.sh')
 run_target(
         'check-api-docs',
         depends : [man, libsystemd, libudev],
-        command : [meson_check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
+        command : [check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
 
 ############################################################
 watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog
