@@ -60,6 +60,35 @@ static int parse_argv(
         return 0;
 }
 
+static int parse_env(
+                pam_handle_t *handle,
+                bool *please_suspend) {
+
+        const char *v;
+        int r;
+
+        /* Let's read the suspend setting from an env var in addition to the PAM command line. That makes it
+         * easy to declare the features of a display manager in code rather than configuration, and this is
+         * really a feature of code */
+
+        v = pam_getenv(handle, "SYSTEMD_HOME_SUSPEND");
+        if (!v) {
+                /* Also check the process env block, so that people can control this via an env var from the
+                 * outside of our process. */
+                v = secure_getenv("SYSTEMD_HOME_SUSPEND");
+                if (!v)
+                        return 0;
+        }
+
+        r = parse_boolean(v);
+        if (r < 0)
+                pam_syslog(handle, LOG_WARNING, "Failed to parse $SYSTEMD_HOME_SUSPEND argument, ignoring: %s", v);
+        else if (please_suspend)
+                *please_suspend = r;
+
+        return 0;
+}
+
 static int acquire_user_record(
                 pam_handle_t *handle,
                 const char *username,
@@ -636,6 +665,9 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         bool debug = false, suspend_please = false;
 
+        if (parse_env(handle, &suspend_please) < 0)
+                return PAM_AUTH_ERR;
+
         if (parse_argv(handle,
                        argc, argv,
                        &suspend_please,
@@ -660,6 +692,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         bool debug = false, suspend_please = false;
         int r;
 
+        if (parse_env(handle, &suspend_please) < 0)
+                return PAM_SESSION_ERR;
+
         if (parse_argv(handle,
                        argc, argv,
                        &suspend_please,
@@ -678,6 +713,12 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = pam_putenv(handle, "SYSTEMD_HOME=1");
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable $SYSTEMD_HOME: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        r = pam_putenv(handle, suspend_please ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: %s", pam_strerror(handle, r));
                 return r;
         }
 
@@ -763,6 +804,9 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         bool debug = false, please_suspend = false;
         usec_t t;
         int r;
+
+        if (parse_env(handle, &please_suspend) < 0)
+                return PAM_AUTH_ERR;
 
         if (parse_argv(handle,
                        argc, argv,
