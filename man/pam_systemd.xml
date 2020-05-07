@@ -123,6 +123,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>session</varname>=</term>
+
+        <listitem><para>Takes a boolean argument. If true a session is registered as described above. If
+        specified as false then no session is registered, however various process settings appropriate for
+        the user are configured. This setting is primarily useful for the user instance of the service
+        manager, i.e. the user's instance of the <filename>user@.service</filename> system service. Defaults
+        to on, except if the provided PAM service name is <literal>system-user</literal>, in which case it
+        defaults to off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>debug</varname><optional>=</optional></term>
 
         <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log

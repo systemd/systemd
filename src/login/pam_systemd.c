@@ -51,6 +51,7 @@ static int parse_argv(
                 const char **class,
                 const char **type,
                 const char **desktop,
+                bool *make_session,
                 bool *debug) {
 
         unsigned i;
@@ -72,6 +73,15 @@ static int parse_argv(
                 } else if ((p = startswith(argv[i], "desktop="))) {
                         if (desktop)
                                 *desktop = p;
+
+                } else if ((p = startswith(argv[i], "session="))) {
+                        int k;
+
+                        k = parse_boolean(p);
+                        if (k < 0)
+                                pam_syslog(handle, LOG_WARNING, "Failed to parse session= argument, ignoring: %s", p);
+                        else if (make_session)
+                                *make_session = k;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -672,18 +682,25 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL, *runtime_max_sec = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        bool make_session = true, debug = false, remote;
         int session_fd = -1, existing, r;
-        bool debug = false, remote;
         uint32_t vtnr = 0;
         uid_t original_uid;
 
         assert(handle);
+
+        /* Before we parse our arguments, let's determine the service name, and default to turning off the
+         * session registration logic for the "systemd-user" service, but enable it for everything else. */
+
+        (void) pam_get_item(handle, PAM_SERVICE, (const void**) &service);
+        make_session = !streq_ptr(service, "systemd-user");
 
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
                        &type_pam,
                        &desktop_pam,
+                       &make_session,
                        &debug) < 0)
                 return PAM_SESSION_ERR;
 
@@ -698,17 +715,36 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!logind_running())
                 goto success;
 
-        /* Make sure we don't enter a loop by talking to
-         * systemd-logind when it is actually waiting for the
-         * background to finish start-up. If the service is
-         * "systemd-user" we simply set XDG_RUNTIME_DIR and
-         * leave. */
+        /* Talk to logind over the message bus */
+        r = pam_acquire_bus_connection(handle, &bus);
+        if (r != PAM_SUCCESS)
+                return r;
 
-        (void) pam_get_item(handle, PAM_SERVICE, (const void**) &service);
-        if (streq_ptr(service, "systemd-user")) {
-                char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
+        /* Make sure we don't enter a loop by talking to systemd-logind when it is actually waiting for the
+         * background to finish start-up. If the service is "systemd-user" (or session=0 set as PAM module
+         * parameter, see above) we simply set XDG_RUNTIME_DIR and leave.
+         *
+         * This basically means we have two modes of operation: one where we register a full session
+         * (session=1) of the user and one where we set user process settings but do not register a
+         * session. The latter is primarily useful for user@.service, but could also be useful for other
+         * services associated with the user. */
+        if (!make_session) {
+                char op[STRLEN("/org/freedesktop/login1/user/_") + DECIMAL_STR_MAX(uid_t) + 1];
+                _cleanup_free_ char *rt = NULL;
 
-                xsprintf(rt, "/run/user/"UID_FMT, ur->uid);
+                xsprintf(op, "/org/freedesktop/login1/user/_" UID_FMT, ur->uid);
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.login1",
+                                op,
+                                "org.freedesktop.login1.User",
+                                "RuntimePath", &error, &rt);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to query user's runtime directory: %s", bus_error_message(&error, r));
+                        return PAM_SESSION_ERR;
+                }
+
                 r = configure_runtime_directory(handle, ur, rt);
                 if (r != PAM_SUCCESS)
                         return r;
@@ -793,12 +829,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         (void) pam_get_data(handle, "systemd.cpu_weight", (const void **)&cpu_weight);
         (void) pam_get_data(handle, "systemd.io_weight",  (const void **)&io_weight);
         (void) pam_get_data(handle, "systemd.runtime_max_sec", (const void **)&runtime_max_sec);
-
-        /* Talk to logind over the message bus */
-
-        r = pam_acquire_bus_connection(handle, &bus);
-        if (r != PAM_SUCCESS)
-                return r;
 
         if (debug) {
                 pam_syslog(handle, LOG_DEBUG, "Asking logind to create session: "
@@ -984,6 +1014,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         if (parse_argv(handle,
                        argc, argv,
+                       NULL,
                        NULL,
                        NULL,
                        NULL,
