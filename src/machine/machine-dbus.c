@@ -552,14 +552,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 
         getty = strjoina("container-getty@", p, ".service");
 
-        r = sd_bus_call_method(
-                        container_bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartUnit",
-                        error, NULL,
-                        "ss", getty, "replace");
+        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, NULL, "ss", getty, "replace");
         if (r < 0)
                 return r;
 
@@ -668,13 +661,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         container_bus = allocated_bus ?: m->manager->bus;
 
-        r = sd_bus_message_new_method_call(
-                        container_bus,
-                        &tm,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(container_bus, &tm, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return r;
 

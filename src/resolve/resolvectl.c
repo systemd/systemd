@@ -169,13 +169,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -286,13 +280,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
         log_debug("Resolving %s.", pretty);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveAddress");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveAddress");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -421,13 +409,7 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         log_debug("Resolving %s %s %s (interface %s).", name, dns_class_to_string(class), dns_type_to_string(type), isempty(arg_ifname) ? "*" : arg_ifname);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveRecord");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveRecord");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -689,13 +671,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         else
                 log_debug("Resolving service type %s (family %s, interface %s).", domain, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveService");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveService");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -994,14 +970,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
         assert(bus);
 
-        r = sd_bus_get_property_trivial(bus,
-                                        "org.freedesktop.resolve1",
-                                        "/org/freedesktop/resolve1",
-                                        "org.freedesktop.resolve1.Manager",
-                                        "DNSSECSupported",
-                                        &error,
-                                        'b',
-                                        &dnssec_supported);
+        r = bus_get_property_trivial(bus, bus_resolve_mgr, "DNSSECSupported", &error, 'b', &dnssec_supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to get DNSSEC supported state: %s", bus_error_message(&error, r));
 
@@ -1010,14 +979,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                yes_no(dnssec_supported),
                ansi_normal());
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/resolve1",
-                                "org.freedesktop.resolve1.Manager",
-                                "TransactionStatistics",
-                                &error,
-                                &reply,
-                                "(tt)");
+        r = bus_get_property(bus, bus_resolve_mgr, "TransactionStatistics", &error, &reply, "(tt)");
         if (r < 0)
                 return log_error_errno(r, "Failed to get transaction statistics: %s", bus_error_message(&error, r));
 
@@ -1029,14 +991,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
         reply = sd_bus_message_unref(reply);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/resolve1",
-                                "org.freedesktop.resolve1.Manager",
-                                "CacheStatistics",
-                                &error,
-                                &reply,
-                                "(ttt)");
+        r = bus_get_property(bus, bus_resolve_mgr, "CacheStatistics", &error, &reply, "(ttt)");
         if (r < 0)
                 return log_error_errno(r, "Failed to get cache statistics: %s", bus_error_message(&error, r));
 
@@ -1049,14 +1004,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
         reply = sd_bus_message_unref(reply);
 
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.resolve1",
-                                "/org/freedesktop/resolve1",
-                                "org.freedesktop.resolve1.Manager",
-                                "DNSSECStatistics",
-                                &error,
-                                &reply,
-                                "(tttt)");
+        r = bus_get_property(bus, bus_resolve_mgr, "DNSSECStatistics", &error, &reply, "(tttt)");
         if (r < 0)
                 return log_error_errno(r, "Failed to get DNSSEC statistics: %s", bus_error_message(&error, r));
 
@@ -1124,14 +1072,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.resolve1",
-                               "/org/freedesktop/resolve1",
-                               "org.freedesktop.resolve1.Manager",
-                               "ResetStatistics",
-                               &error,
-                               NULL,
-                               NULL);
+        r = bus_call_method(bus, bus_resolve_mgr, "ResetStatistics", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset statistics: %s", bus_error_message(&error, r));
 
@@ -1143,14 +1084,7 @@ static int flush_caches(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.resolve1",
-                               "/org/freedesktop/resolve1",
-                               "org.freedesktop.resolve1.Manager",
-                               "FlushCaches",
-                               &error,
-                               NULL,
-                               NULL);
+        r = bus_call_method(bus, bus_resolve_mgr, "FlushCaches", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to flush caches: %s", bus_error_message(&error, r));
 
@@ -1162,14 +1096,7 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.resolve1",
-                               "/org/freedesktop/resolve1",
-                               "org.freedesktop.resolve1.Manager",
-                               "ResetServerFeatures",
-                               &error,
-                               NULL,
-                               NULL);
+        r = bus_call_method(bus, bus_resolve_mgr, "ResetServerFeatures", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset server features: %s", bus_error_message(&error, r));
 
@@ -1921,18 +1848,12 @@ static int verb_status(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int call_dns(sd_bus *bus, char **dns, const char *destination, const char *path, const char *interface, sd_bus_error *error) {
+static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         char **p;
         int r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        destination,
-                        path,
-                        interface,
-                        "SetLinkDNS");
+        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNS");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1997,19 +1918,11 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
-        r = call_dns(bus, argv + 2,
-                     "org.freedesktop.resolve1",
-                     "/org/freedesktop/resolve1",
-                     "org.freedesktop.resolve1.Manager",
-                     &error);
+        r = call_dns(bus, argv + 2, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_dns(bus, argv + 2,
-                             "org.freedesktop.network1",
-                             "/org/freedesktop/network1",
-                             "org.freedesktop.network1.Manager",
-                             &error);
+                r = call_dns(bus, argv + 2, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2022,18 +1935,12 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int call_domain(sd_bus *bus, char **domain, const char *destination, const char *path, const char *interface, sd_bus_error *error) {
+static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         char **p;
         int r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        destination,
-                        path,
-                        interface,
-                        "SetLinkDomains");
+        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDomains");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2092,19 +1999,11 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
 
-        r = call_domain(bus, argv + 2,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        &error);
+        r = call_domain(bus, argv + 2, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_domain(bus, argv + 2,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                &error);
+                r = call_domain(bus, argv + 2, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2140,27 +2039,11 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse boolean argument: %s", argv[2]);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDefaultRoute",
-                        &error,
-                        NULL,
-                        "ib", arg_ifindex, b);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "SetLinkDefaultRoute",
-                                &error,
-                                NULL,
-                                "ib", arg_ifindex, b);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkDefaultRoute", &error, NULL, "ib", arg_ifindex, b);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2192,27 +2075,11 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR, NULL);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkLLMNR",
-                        &error,
-                        NULL,
-                        "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "SetLinkLLMNR",
-                                &error,
-                                NULL,
-                                "is", arg_ifindex, argv[2]);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkLLMNR", &error, NULL, "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2244,23 +2111,13 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS, NULL);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkMulticastDNS",
-                        &error,
-                        NULL,
-                        "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkMulticastDNS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
+                                bus_network_mgr,
                                 "SetLinkMulticastDNS",
                                 &error,
                                 NULL,
@@ -2296,23 +2153,13 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDNSOverTLS",
-                        &error,
-                        NULL,
-                        "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSOverTLS", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
+                r = bus_call_method(
                                 bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
+                                bus_network_mgr,
                                 "SetLinkDNSOverTLS",
                                 &error,
                                 NULL,
@@ -2348,27 +2195,11 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "SetLinkDNSSEC",
-                        &error,
-                        NULL,
-                        "is", arg_ifindex, argv[2]);
+        r = bus_call_method(bus, bus_resolve_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "SetLinkDNSSEC",
-                                &error,
-                                NULL,
-                                "is", arg_ifindex, argv[2]);
+                r = bus_call_method(bus, bus_network_mgr, "SetLinkDNSSEC", &error, NULL, "is", arg_ifindex, argv[2]);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2381,17 +2212,11 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int call_nta(sd_bus *bus, char **nta, const char *destination, const char *path, const char *interface, sd_bus_error *error) {
+static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         int r;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        destination,
-                        path,
-                        interface,
-                        "SetLinkDNSSECNegativeTrustAnchors");
+        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNSSECNegativeTrustAnchors");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2442,19 +2267,11 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                         }
                 }
 
-        r = call_nta(bus, clear ? NULL : argv + 2,
-                     "org.freedesktop.resolve1",
-                     "/org/freedesktop/resolve1",
-                     "org.freedesktop.resolve1.Manager",
-                     &error);
+        r = call_nta(bus, clear ? NULL : argv + 2, bus_resolve_mgr, &error);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_nta(bus, clear ? NULL : argv + 2,
-                             "org.freedesktop.network1",
-                             "/org/freedesktop/network1",
-                             "org.freedesktop.network1.Manager",
-                             &error);
+                r = call_nta(bus, clear ? NULL : argv + 2, bus_network_mgr, &error);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
@@ -2483,27 +2300,11 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
         if (arg_ifindex <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Interface argument required.");
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "RevertLink",
-                        &error,
-                        NULL,
-                "i", arg_ifindex);
+        r = bus_call_method(bus, bus_resolve_mgr, "RevertLink", &error, NULL, "i", arg_ifindex);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.network1",
-                                "/org/freedesktop/network1",
-                                "org.freedesktop.network1.Manager",
-                                "RevertLinkDNS",
-                                &error,
-                                NULL,
-                                "i", arg_ifindex);
+                r = bus_call_method(bus, bus_network_mgr, "RevertLinkDNS", &error, NULL, "i", arg_ifindex);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&

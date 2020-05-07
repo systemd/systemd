@@ -23,12 +23,6 @@
 #define USER_RECORD_IS_HOMED INT_TO_PTR(1)
 #define USER_RECORD_IS_OTHER INT_TO_PTR(2)
 
-static const BusLocator home_mgr = {
-        .destination = "org.freedesktop.home1",
-        .path = "/org/freedesktop/home1",
-        .interface = "org.freedesktop.home1.Manager",
-};
-
 static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
@@ -131,7 +125,7 @@ static int acquire_user_record(
                 if (r != PAM_SUCCESS)
                         return r;
 
-                r = bus_call_method(bus, &home_mgr, "GetUserRecordByName", &error, &reply, "s", username);
+                r = bus_call_method(bus, bus_home_mgr, "GetUserRecordByName", &error, &reply, "s", username);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
                             sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
@@ -457,7 +451,7 @@ static int acquire_home(
                         }
                 }
 
-                r = bus_message_new_method_call(bus, &m, &home_mgr, do_auth ? "AcquireHome" : "RefHome");
+                r = bus_message_new_method_call(bus, &m, bus_home_mgr, do_auth ? "AcquireHome" : "RefHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -666,7 +660,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, &home_mgr, "ReleaseHome");
+        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ReleaseHome");
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
@@ -892,7 +886,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, &home_mgr, "ChangePasswordHome");
+                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ChangePasswordHome");
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 

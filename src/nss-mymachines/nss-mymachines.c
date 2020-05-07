@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "format-util.h"
@@ -128,14 +129,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "GetMachineAddresses",
-                               NULL,
-                               &reply,
-                               "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
         if (r < 0)
                 goto fail;
 
@@ -287,14 +281,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "GetMachineAddresses",
-                               NULL,
-                               &reply,
-                               "s", name);
+        r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
         if (r < 0)
                 goto fail;
 
@@ -464,15 +451,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "MapFromMachineUser",
-                               &error,
-                               &reply,
-                               "su",
-                               machine, (uint32_t) uid);
+        r = bus_call_method(bus, bus_machine_mgr, "MapFromMachineUser", &error, &reply, "su", machine, (uint32_t) uid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
                         return NSS_STATUS_NOTFOUND;
@@ -548,15 +527,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "MapToMachineUser",
-                               &error,
-                               &reply,
-                               "u",
-                               (uint32_t) uid);
+        r = bus_call_method(bus, bus_machine_mgr, "MapToMachineUser", &error, &reply, "u", (uint32_t) uid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
                         return NSS_STATUS_NOTFOUND;
@@ -647,15 +618,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "MapFromMachineGroup",
-                               &error,
-                               &reply,
-                               "su",
-                               machine, (uint32_t) gid);
+        r = bus_call_method(bus, bus_machine_mgr, "MapFromMachineGroup", &error, &reply, "su", machine, (uint32_t) gid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
                         return NSS_STATUS_NOTFOUND;
@@ -728,15 +691,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.machine1",
-                               "/org/freedesktop/machine1",
-                               "org.freedesktop.machine1.Manager",
-                               "MapToMachineGroup",
-                               &error,
-                               &reply,
-                               "u",
-                               (uint32_t) gid);
+        r = bus_call_method(bus, bus_machine_mgr, "MapToMachineGroup", &error, &reply, "u", (uint32_t) gid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
                         return NSS_STATUS_NOTFOUND;

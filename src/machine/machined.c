@@ -12,6 +12,7 @@
 #include "bus-error.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -193,25 +194,11 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        match_job_removed, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "JobRemoved", match_job_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match for JobRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnitRemoved",
-                        match_unit_removed, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "UnitRemoved", match_unit_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
@@ -226,26 +213,11 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reloading",
-                        match_reloading, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "Reloading", match_reloading, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Subscribe",
-                        NULL, NULL,
-                        NULL);
+        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 

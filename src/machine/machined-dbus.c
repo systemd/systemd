@@ -1577,16 +1577,7 @@ int manager_unref_unit(
         assert(m);
         assert(unit);
 
-        return sd_bus_call_method(
-                        m->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnrefUnit",
-                        error,
-                        NULL,
-                        "s",
-                        unit);
+        return bus_call_method(m->bus, bus_systemd_mgr, "UnrefUnit", error, NULL, "s", unit);
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
@@ -1596,15 +1587,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         assert(manager);
         assert(unit);
 
-        r = sd_bus_call_method(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit",
-                        error,
-                        &reply,
-                        "ss", unit, "fail");
+        r = bus_call_method(manager->bus, bus_systemd_mgr, "StopUnit", error, &reply, "ss", unit, "fail");
         if (r < 0) {
                 if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
                     sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED)) {
@@ -1641,15 +1624,7 @@ int manager_kill_unit(Manager *manager, const char *unit, int signo, sd_bus_erro
         assert(manager);
         assert(unit);
 
-        return sd_bus_call_method(
-                        manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        error,
-                        NULL,
-                        "ssi", unit, "all", signo);
+        return bus_call_method(manager->bus, bus_systemd_mgr, "KillUnit", error, NULL, "ssi", unit, "all", signo);
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit) {

@@ -239,14 +239,13 @@ static int set_time(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse time specification '%s': %m", argv[1]);
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "SetTime",
-                               &error,
-                               NULL,
-                               "xbb", (int64_t) t, relative, interactive);
+        r = bus_call_method(
+                        bus,
+                        bus_timedate,
+                        "SetTime",
+                        &error,
+                        NULL,
+                        "xbb", (int64_t) t, relative, interactive);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time: %s", bus_error_message(&error, r));
 
@@ -260,14 +259,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "SetTimezone",
-                               &error,
-                               NULL,
-                               "sb", argv[1], arg_ask_password);
+        r = bus_call_method(bus, bus_timedate, "SetTimezone", &error, NULL, "sb", argv[1], arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set time zone: %s", bus_error_message(&error, r));
 
@@ -285,14 +277,13 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse local RTC setting '%s': %m", argv[1]);
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "SetLocalRTC",
-                               &error,
-                               NULL,
-                               "bbb", b, arg_adjust_system_clock, arg_ask_password);
+        r = bus_call_method(
+                        bus,
+                        bus_timedate,
+                        "SetLocalRTC",
+                        &error,
+                        NULL,
+                        "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set local RTC: %s", bus_error_message(&error, r));
 
@@ -310,14 +301,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse NTP setting '%s': %m", argv[1]);
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "SetNTP",
-                               &error,
-                               NULL,
-                               "bb", b, arg_ask_password);
+        r = bus_call_method(bus, bus_timedate, "SetNTP", &error, NULL, "bb", b, arg_ask_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
@@ -331,14 +315,7 @@ static int list_timezones(int argc, char **argv, void *userdata) {
         int r;
         char** zones;
 
-        r = sd_bus_call_method(bus,
-                               "org.freedesktop.timedate1",
-                               "/org/freedesktop/timedate1",
-                               "org.freedesktop.timedate1",
-                               "ListTimezones",
-                               &error,
-                               &reply,
-                               NULL);
+        r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request list of time zones: %s",
                                        bus_error_message(&error, r));
@@ -843,15 +820,7 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
                 return r;
         assert(r < 0);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "GetLinkByName",
-                        &error,
-                        &reply,
-                        "s", str);
+        r = bus_call_method(bus, bus_network_mgr, "GetLinkByName", &error, &reply, "s", str);
         if (r < 0)
                 return log_error_errno(r, "Failed to get ifindex of interfaces %s: %s", str, bus_error_message(&error, r));
 
@@ -876,13 +845,7 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "SetLinkNTP");
+        r = bus_message_new_method_call(bus, &req, bus_network_mgr, "SetLinkNTP");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -914,15 +877,7 @@ static int verb_revert(int argc, char **argv, void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "RevertLinkNTP",
-                        &error,
-                        NULL,
-                        "i", ifindex);
+        r = bus_call_method(bus, bus_network_mgr, "RevertLinkNTP", &error, NULL, "i", ifindex);
         if (r < 0)
                 return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
 

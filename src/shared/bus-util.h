@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "bus-locator.h"
 #include "macro.h"
 #include "set.h"
 #include "string-util.h"
@@ -21,12 +22,6 @@ typedef enum BusTransport {
         _BUS_TRANSPORT_MAX,
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
-
-typedef struct BusLocator {
-        const char *destination;
-        const char *path;
-        const char *interface;
-} BusLocator;
 
 typedef struct BusObjectImplementation BusObjectImplementation;
 

@@ -551,13 +551,7 @@ static int start_transient_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -638,13 +632,7 @@ static int start_transient_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -854,13 +842,7 @@ static int stop_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StopUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
