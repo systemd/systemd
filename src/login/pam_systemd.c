@@ -647,10 +647,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         assert(handle);
 
-        /* Make this a NOP on non-logind systems */
-        if (!logind_running())
-                return PAM_SUCCESS;
-
         if (parse_argv(handle,
                        argc, argv,
                        &class_pam,
@@ -665,6 +661,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = acquire_user_record(handle, &ur);
         if (r != PAM_SUCCESS)
                 return r;
+
+        /* Make most of this a NOP on non-logind systems */
+        if (!logind_running())
+                goto success;
 
         /* Make sure we don't enter a loop by talking to
          * systemd-logind when it is actually waiting for the
@@ -689,11 +689,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (r != PAM_SUCCESS)
                         return r;
 
-                r = apply_user_record_settings(handle, ur, debug);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                return PAM_SUCCESS;
+                goto success;
         }
 
         /* Otherwise, we ask logind to create a session for us */
@@ -847,7 +843,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
                         if (debug)
                                 pam_syslog(handle, LOG_DEBUG, "Not creating session: %s", bus_error_message(&error, r));
-                        return PAM_SUCCESS;
+
+                        /* We are already in a session, don't do anything */
+                        goto success;
                 } else {
                         pam_syslog(handle, LOG_ERR, "Failed to create session: %s", bus_error_message(&error, r));
                         return PAM_SESSION_ERR;
@@ -944,6 +942,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 }
         }
 
+success:
         r = apply_user_record_settings(handle, ur, debug);
         if (r != PAM_SUCCESS)
                 return r;
