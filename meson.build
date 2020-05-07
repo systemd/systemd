@@ -335,15 +335,6 @@ basic_disabled_warnings = [
         '-Wno-unused-result',
         '-Wno-format-signedness',
 ]
-if get_option('b_ndebug') == 'true'
-        # With asserts disabled with get a bunch of warnings about variables which
-        # are used only in the asserts. This is not useful at all, so let's just silence
-        # those warnings.
-        basic_disabled_warnings += [
-                '-Wno-unused-variable',
-                '-Wno-unused-but-set-variable',
-        ]
-endif
 
 possible_cc_flags = [
         '-Werror=undef',

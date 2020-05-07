@@ -99,13 +99,13 @@ static void test_bool_assign(void) {
         g = cp;    /* cast from pointer */
         h = NULL;  /* cast from pointer */
 
-        assert(b);
-        assert(c);
-        assert(d);
-        assert(e);
-        assert(!f);
-        assert(g);
-        assert(!h);
+        assert_se(b);
+        assert_se(c);
+        assert_se(d);
+        assert_se(e);
+        assert_se(!f);
+        assert_se(g);
+        assert_se(!h);
 }
 
 static int cleanup_counter = 0;

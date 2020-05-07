@@ -60,7 +60,7 @@ static void mpi_export(void *buf, size_t buflen, const gcry_mpi_t x) {
 
 static gcry_mpi_t mpi_import(const void *buf, size_t buflen) {
         gcry_mpi_t h;
-        unsigned len;
+        _unused_ unsigned len;
 
         assert_se(gcry_mpi_scan(&h, GCRYMPI_FMT_USG, buf, buflen, NULL) == 0);
         len = (gcry_mpi_get_nbits(h) + 7) / 8;
