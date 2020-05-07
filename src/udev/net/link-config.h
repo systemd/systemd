@@ -56,10 +56,8 @@ struct link_config {
         uint64_t speed;
         Duplex duplex;
         int autonegotiation;
-        uint32_t advertise[N_ADVERTISE];
         WakeOnLan wol;
         NetDevPort port;
-        int features[_NET_DEV_FEAT_MAX];
         netdev_channels channels;
         netdev_ring_param ring;
         int rx_flow_control;
@@ -67,6 +65,9 @@ struct link_config {
         int autoneg_flow_control;
 
         LIST_FIELDS(link_config, links);
+
+        uint32_t advertise[N_ADVERTISE];
+        int features[_NET_DEV_FEAT_MAX];
 };
 
 int link_config_ctx_new(link_config_ctx **ret);

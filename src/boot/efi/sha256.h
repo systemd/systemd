@@ -5,8 +5,7 @@
 #include <efilib.h>
 
 struct sha256_ctx {
-        UINT32 H[8];
-
+        UINT32 buflen;
         union {
                 UINT64 total64;
 #define TOTAL64_low (1 - (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__))
@@ -14,13 +13,12 @@ struct sha256_ctx {
                 UINT32 total[2];
         };
 
-        UINT32 buflen;
-
         union {
                 UINT8 buffer[128]; /* NB: always correctly aligned for UINT32.  */
                 UINT32 buffer32[32];
                 UINT64 buffer64[16];
         };
+        UINT32 H[8];
 };
 
 void sha256_init_ctx(struct sha256_ctx *ctx);

@@ -12,13 +12,13 @@
 #include "memory-util.h"
 
 struct context {
-        int fds[2];
-
         bool client_negotiate_unix_fds;
         bool server_negotiate_unix_fds;
 
         bool client_anonymous_auth;
         bool server_anonymous_auth;
+
+        int fds[2];
 };
 
 static void *server(void *p) {

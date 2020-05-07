@@ -54,8 +54,8 @@ enum {
 struct ObjectHeader {
         uint8_t type;
         uint8_t flags;
-        uint8_t reserved[6];
         le64_t size;
+        uint8_t reserved[6];
         uint8_t payload[];
 } _packed_;
 
@@ -215,7 +215,6 @@ assert_cc(sizeof(struct Header) == 240);
 #define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
 struct FSSHeader {
-        uint8_t signature[8]; /* "KSHHRHLP" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
         sd_id128_t machine_id;
@@ -224,6 +223,7 @@ struct FSSHeader {
         le64_t start_usec;
         le64_t interval_usec;
         le16_t fsprg_secpar;
-        le16_t reserved[3];
         le64_t fsprg_state_size;
+        uint8_t signature[8]; /* "KSHHRHLP" */
+        le16_t reserved[3];
 } _packed_;

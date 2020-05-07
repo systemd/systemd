@@ -66,15 +66,6 @@ struct Manager {
         usec_t poll_interval_max_usec;
         bool poll_resync;
 
-        /* history data */
-        struct {
-                double offset;
-                double delay;
-        } samples[8];
-        unsigned samples_idx;
-        double samples_jitter;
-        usec_t max_root_distance_usec;
-
         /* last change */
         bool jumped;
         bool sync;
@@ -94,6 +85,15 @@ struct Manager {
         struct ntp_msg ntpmsg;
         struct timespec origin_time, dest_time;
         bool spike;
+
+        /* history data */
+        unsigned samples_idx;
+        double samples_jitter;
+        usec_t max_root_distance_usec;
+        struct {
+                double offset;
+                double delay;
+        } samples[8];
 };
 
 int manager_new(Manager **ret);

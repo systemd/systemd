@@ -68,9 +68,6 @@ struct Transfer {
 
         int log_fd;
 
-        char log_message[LINE_MAX];
-        size_t log_message_size;
-
         sd_event_source *pid_event_source;
         sd_event_source *log_event_source;
 
@@ -79,6 +76,9 @@ struct Transfer {
 
         int stdin_fd;
         int stdout_fd;
+
+        size_t log_message_size;
+        char log_message[LINE_MAX];
 };
 
 struct Manager {

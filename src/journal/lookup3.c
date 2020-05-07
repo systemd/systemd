@@ -867,7 +867,7 @@ void driver2()
 /* Check for reading beyond the end of the buffer and alignment problems */
 void driver3()
 {
-  uint8_t buf[MAXLEN+20], *b;
+  uint8_t buf[MAXLEN+20], *b; // TODO move?
   uint32_t len;
   uint8_t q[] = "This is the time for all good men to come to the aid of their country...";
   uint32_t h;

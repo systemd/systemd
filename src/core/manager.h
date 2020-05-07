@@ -225,9 +225,6 @@ struct Manager {
 
         sd_event_source *jobs_in_progress_event_source;
 
-        int user_lookup_fds[2];
-        sd_event_source *user_lookup_event_source;
-
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
         Hashmap *unit_id_map;
@@ -237,11 +234,6 @@ struct Manager {
 
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */
-
-        usec_t watchdog[_WATCHDOG_TYPE_MAX];
-        usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
-
-        dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
         /* Data specific to the device subsystem */
         sd_device_monitor *device_monitor;
@@ -366,8 +358,6 @@ struct Manager {
         bool log_level_overridden:1;
         bool log_target_overridden:1;
 
-        struct rlimit *rlimit[_RLIMIT_MAX];
-
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
 
@@ -385,7 +375,6 @@ struct Manager {
         sd_event_source *ask_password_event_source;
 
         /* Type=idle pipes */
-        int idle_pipe[4];
         sd_event_source *idle_pipe_event_source;
 
         char *switch_root;
@@ -421,9 +410,6 @@ struct Manager {
 
         int first_boot; /* tri-state */
 
-        /* Prefixes of e.g. RuntimeDirectory= */
-        char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
-
         /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
          * multiple times on the same unit. */
         unsigned sigchldgen;
@@ -432,6 +418,22 @@ struct Manager {
         bool honor_device_enumeration;
 
         VarlinkServer *varlink_server;
+
+        sd_event_source *user_lookup_event_source;
+        int user_lookup_fds[2];
+
+        usec_t watchdog[_WATCHDOG_TYPE_MAX];
+        usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
+
+        /* Type=idle pipes */
+        int idle_pipe[4];
+
+        dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
+
+        struct rlimit *rlimit[_RLIMIT_MAX];
+
+        /* Prefixes of e.g. RuntimeDirectory= */
+        char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {

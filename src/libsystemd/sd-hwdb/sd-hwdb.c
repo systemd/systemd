@@ -38,9 +38,9 @@ struct sd_hwdb {
 };
 
 struct linebuf {
-        char bytes[LINE_MAX];
         size_t size;
         size_t len;
+        char bytes[LINE_MAX];
 };
 
 static void linebuf_init(struct linebuf *buf) {

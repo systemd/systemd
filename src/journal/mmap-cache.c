@@ -59,11 +59,11 @@ struct MMapCache {
 
         unsigned n_hit, n_missed;
 
-        Hashmap *fds;
-        Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
-
         LIST_HEAD(Window, unused);
         Window *last_unused;
+
+        Hashmap *fds;
+        Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
 };
 
 #define WINDOWS_MIN 64

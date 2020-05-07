@@ -24,10 +24,10 @@ struct DHCPMessage {
         be32_t yiaddr;
         be32_t siaddr;
         be32_t giaddr;
+        be32_t magic;
         uint8_t chaddr[16];
         uint8_t sname[64];
         uint8_t file[128];
-        be32_t magic;
         uint8_t options[0];
 } _packed_;
 

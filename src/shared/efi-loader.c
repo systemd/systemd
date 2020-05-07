@@ -47,9 +47,9 @@ struct drive_path {
         uint32_t part_nr;
         uint64_t part_start;
         uint64_t part_size;
-        char signature[16];
         uint8_t mbr_type;
         uint8_t signature_type;
+        char signature[16];
 } _packed_;
 
 #define device_path__contents                           \

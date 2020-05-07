@@ -8,10 +8,6 @@
 #include "time-util.h"
 
 typedef struct Context {
-        sd_bus_message *locale_cache;
-        usec_t locale_mtime;
-        char *locale[_VARIABLE_LC_MAX];
-
         sd_bus_message *x11_cache;
         usec_t x11_mtime;
         char *x11_layout;
@@ -25,6 +21,10 @@ typedef struct Context {
         char *vc_keymap_toggle;
 
         Hashmap *polkit_registry;
+
+        sd_bus_message *locale_cache;
+        usec_t locale_mtime;
+        char *locale[_VARIABLE_LC_MAX];
 } Context;
 
 int find_converted_keymap(const char *x11_layout, const char *x11_variant, char **new_keymap);

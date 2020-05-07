@@ -115,7 +115,6 @@ struct dm_ioctl {
 	 * return -ENOTTY) fill out this field, even if the
 	 * command failed.
 	 */
-	__u32 version[3];	/* in/out */
 	__u32 data_size;	/* total size of data passed in
 				 * including this struct */
 
@@ -144,6 +143,8 @@ struct dm_ioctl {
 	char uuid[DM_UUID_LEN];	/* unique identifier for
 				 * the block device */
 	char data[7];		/* padding or data */
+
+    __u32 version[3];	/* in/out */
 };
 
 /*

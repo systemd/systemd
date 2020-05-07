@@ -112,10 +112,10 @@ static const char * const meta_field_names[_META_MAX] = {
 };
 
 typedef struct Context {
-        const char *meta[_META_MAX];
         pid_t pid;
         bool is_pid1;
         bool is_journald;
+        const char *meta[_META_MAX];
 } Context;
 
 typedef enum CoredumpStorage {

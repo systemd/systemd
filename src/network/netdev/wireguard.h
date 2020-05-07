@@ -21,8 +21,6 @@ typedef struct WireguardPeer {
         Wireguard *wireguard;
         NetworkConfigSection *section;
 
-        uint8_t public_key[WG_KEY_LEN];
-        uint8_t preshared_key[WG_KEY_LEN];
         char *preshared_key_file;
         uint32_t flags;
         uint16_t persistent_keepalive_interval;
@@ -33,6 +31,9 @@ typedef struct WireguardPeer {
 
         LIST_HEAD(WireguardIPmask, ipmasks);
         LIST_FIELDS(struct WireguardPeer, peers);
+
+        uint8_t public_key[WG_KEY_LEN];
+        uint8_t preshared_key[WG_KEY_LEN];
 } WireguardPeer;
 
 struct Wireguard {
@@ -40,7 +41,6 @@ struct Wireguard {
         unsigned last_peer_section;
 
         uint32_t flags;
-        uint8_t private_key[WG_KEY_LEN];
         char *private_key_file;
         uint16_t port;
         uint32_t fwmark;
@@ -53,6 +53,8 @@ struct Wireguard {
 
         unsigned n_retries;
         sd_event_source *resolve_retry_event_source;
+
+        uint8_t private_key[WG_KEY_LEN];
 };
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);

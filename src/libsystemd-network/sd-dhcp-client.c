@@ -80,7 +80,6 @@ struct sd_dhcp_client {
         size_t req_opts_size;
         bool anonymize;
         be32_t last_addr;
-        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
         uint16_t arp_type;
         sd_dhcp_client_id client_id;
@@ -106,6 +105,7 @@ struct sd_dhcp_client {
         sd_dhcp_lease *lease;
         usec_t start_delay;
         int ip_service_type;
+        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
 };
 
 static const uint8_t default_req_opts[] = {

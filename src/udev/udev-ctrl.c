@@ -32,10 +32,10 @@
 #define UDEV_CTRL_MAGIC                                0xdead1dea
 
 struct udev_ctrl_msg_wire {
-        char version[16];
         unsigned magic;
         enum udev_ctrl_msg_type type;
         union udev_ctrl_msg_value value;
+        char version[16];
 };
 
 struct udev_ctrl {

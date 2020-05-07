@@ -78,12 +78,10 @@ typedef struct TableData {
         char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
 
         union {
-                uint8_t data[0];    /* data is generic array */
                 bool boolean;
                 usec_t timestamp;
                 usec_t timespan;
                 uint64_t size;
-                char string[0];
                 char **strv;
                 int int_val;
                 int8_t int8;
@@ -99,6 +97,9 @@ typedef struct TableData {
                 int ifindex;
                 union in_addr_union address;
                 sd_id128_t id128;
+
+                uint8_t data[0];    /* data is generic array */
+                char string[0];
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;

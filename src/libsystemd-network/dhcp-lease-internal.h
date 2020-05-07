@@ -50,8 +50,6 @@ struct sd_dhcp_lease {
         struct in_addr *router;
         size_t router_size;
 
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
-
         struct sd_dhcp_route *static_route;
         size_t static_route_size, static_route_allocated;
 
@@ -69,6 +67,8 @@ struct sd_dhcp_lease {
         size_t vendor_specific_len;
 
         char *timezone;
+
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX]; // TODO check below
 
         LIST_HEAD(struct sd_dhcp_raw_option, private_options);
 };

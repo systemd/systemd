@@ -32,20 +32,20 @@ struct trie_header_f {
 struct trie_node_f {
         /* prefix of lookup string, shared by all children  */
         le64_t prefix_off;
+        /* size of value entry array appended to the node */
+        le64_t values_count;
         /* size of children entry array appended to the node */
         uint8_t children_count;
         uint8_t padding[7];
-        /* size of value entry array appended to the node */
-        le64_t values_count;
 } _packed_;
 
 /* array of child entries, follows directly the node record */
 struct trie_child_entry_f {
+        /* offset of the child node */
+        le64_t child_off;
         /* index of the child node */
         uint8_t c;
         uint8_t padding[7];
-        /* offset of the child node */
-        le64_t child_off;
 } _packed_;
 
 /* array of value entries, follows directly the node record/child array */

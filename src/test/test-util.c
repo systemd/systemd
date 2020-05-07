@@ -147,10 +147,11 @@ static void test_max(void) {
 
 static void test_container_of(void) {
         struct mytype {
-                uint8_t pad1[3];
                 uint64_t v1;
-                uint8_t pad2[2];
                 uint32_t v2;
+
+                uint8_t pad1[3];
+                uint8_t pad2[2];
         } myval = { };
 
         log_info("/* %s */", __func__);

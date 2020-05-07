@@ -58,7 +58,6 @@ struct PTYForward {
         bool last_char_set:1;
         char last_char;
 
-        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
         size_t in_buffer_full, out_buffer_full;
 
         usec_t escape_timestamp;
@@ -66,6 +65,8 @@ struct PTYForward {
 
         PTYForwardHandler handler;
         void *userdata;
+
+        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)

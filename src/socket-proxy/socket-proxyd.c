@@ -46,8 +46,6 @@ typedef struct Connection {
         Context *context;
 
         int server_fd, client_fd;
-        int server_to_client_buffer[2]; /* a pipe */
-        int client_to_server_buffer[2]; /* a pipe */
 
         size_t server_to_client_buffer_full, client_to_server_buffer_full;
         size_t server_to_client_buffer_size, client_to_server_buffer_size;
@@ -55,6 +53,9 @@ typedef struct Connection {
         sd_event_source *server_event_source, *client_event_source;
 
         sd_resolve_query *resolve_query;
+
+        int server_to_client_buffer[2]; /* a pipe */
+        int client_to_server_buffer[2]; /* a pipe */
 } Connection;
 
 static void connection_free(Connection *c) {

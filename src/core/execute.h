@@ -154,7 +154,6 @@ struct ExecContext {
         char **pass_environment;
         char **unset_environment;
 
-        struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
@@ -189,8 +188,6 @@ struct ExecContext {
         ExecOutput std_output;
         ExecOutput std_error;
         bool stdio_as_fds;
-        char *stdio_fdname[3];
-        char *stdio_file[3];
 
         void *stdin_data;
         size_t stdin_data_size;
@@ -292,9 +289,15 @@ struct ExecContext {
 
         char *network_namespace_path;
 
-        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
         usec_t timeout_clean_usec;
+
+        struct rlimit *rlimit[_RLIMIT_MAX];
+
+        char *stdio_fdname[3];
+        char *stdio_file[3];
+
+        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {

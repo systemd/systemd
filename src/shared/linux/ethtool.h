@@ -180,17 +180,18 @@ static inline __u32 ethtool_cmd_speed(const struct ethtool_cmd *ep)
  */
 struct ethtool_drvinfo {
 	__u32	cmd;
+    __u32	n_priv_flags;
+    __u32	n_stats;
+    __u32	testinfo_len;
+    __u32	eedump_len;
+    __u32	regdump_len;
+
 	char	driver[32];
 	char	version[32];
 	char	fw_version[ETHTOOL_FWVERS_LEN];
 	char	bus_info[ETHTOOL_BUSINFO_LEN];
 	char	erom_version[ETHTOOL_EROMVERS_LEN];
 	char	reserved2[12];
-	__u32	n_priv_flags;
-	__u32	n_stats;
-	__u32	testinfo_len;
-	__u32	eedump_len;
-	__u32	regdump_len;
 };
 
 #define SOPASS_MAX	6
@@ -792,11 +793,11 @@ struct ethtool_usrip4_spec {
  * This can be used to specify a TCP/IPv6, UDP/IPv6 or SCTP/IPv6 flow.
  */
 struct ethtool_tcpip6_spec {
-	__be32	ip6src[4];
-	__be32	ip6dst[4];
 	__be16	psrc;
 	__be16	pdst;
 	__u8    tclass;
+    __be32	ip6src[4];
+    __be32	ip6dst[4];
 };
 
 /**
@@ -809,10 +810,10 @@ struct ethtool_tcpip6_spec {
  * This can be used to specify an IPsec transport or tunnel over IPv6.
  */
 struct ethtool_ah_espip6_spec {
-	__be32	ip6src[4];
-	__be32	ip6dst[4];
 	__be32	spi;
 	__u8    tclass;
+    __be32	ip6src[4];
+    __be32	ip6dst[4];
 };
 
 /**
@@ -824,11 +825,11 @@ struct ethtool_ah_espip6_spec {
  * @l4_proto: Transport protocol number (nexthdr after any Extension Headers)
  */
 struct ethtool_usrip6_spec {
-	__be32	ip6src[4];
-	__be32	ip6dst[4];
 	__be32	l4_4_bytes;
 	__u8    tclass;
 	__u8    l4_proto;
+    __be32	ip6src[4];
+    __be32	ip6dst[4];
 };
 
 union ethtool_flow_union {
@@ -860,11 +861,11 @@ union ethtool_flow_union {
  * @h_dest is valid if %FLOW_MAC_EXT is set.
  */
 struct ethtool_flow_ext {
-	__u8		padding[2];
-	unsigned char	h_dest[ETH_ALEN];
 	__be16		vlan_etype;
 	__be16		vlan_tci;
 	__be32		data[2];
+    __u8		padding[2];
+    unsigned char	h_dest[ETH_ALEN];
 };
 
 /**
@@ -1047,9 +1048,9 @@ struct ethtool_rxfh {
 	__u32   indir_size;
 	__u32   key_size;
 	__u8	hfunc;
-	__u8	rsvd8[3];
 	__u32	rsvd32;
 	__u32   rss_config[0];
+    __u8	rsvd8[3];
 };
 #define ETH_RXFH_CONTEXT_ALLOC		0xffffffff
 #define ETH_RXFH_INDIR_NO_CHANGE	0xffffffff
@@ -1214,8 +1215,8 @@ struct ethtool_ts_info {
 	__u32	so_timestamping;
 	__s32	phc_index;
 	__u32	tx_types;
-	__u32	tx_reserved[3];
 	__u32	rx_filters;
+    __u32	tx_reserved[3];
 	__u32	rx_reserved[3];
 };
 

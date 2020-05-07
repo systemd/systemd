@@ -13,11 +13,11 @@
 
 struct DHCP6Message {
         union {
+                be32_t transaction_id;
                 struct {
                         uint8_t type;
                         uint8_t _pad[3];
                 } _packed_;
-                be32_t transaction_id;
         };
         uint8_t options[];
 } _packed_;

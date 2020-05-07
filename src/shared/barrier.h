@@ -30,11 +30,11 @@ enum {
 struct Barrier {
         int me;
         int them;
-        int pipe[2];
         int64_t barriers;
+        int pipe[2];
 };
 
-#define BARRIER_NULL {-1, -1, {-1, -1}, 0}
+#define BARRIER_NULL {-1, -1, 0, {-1, -1}}
 
 int barrier_create(Barrier *obj);
 void barrier_destroy(Barrier *b);

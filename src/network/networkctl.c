@@ -129,8 +129,6 @@ typedef struct VxLanInfo {
 } VxLanInfo;
 
 typedef struct LinkInfo {
-        char name[IFNAMSIZ+1];
-        char netdev_kind[NETDEV_KIND_MAX];
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
@@ -222,6 +220,9 @@ typedef struct LinkInfo {
         bool has_ipv6_address_generation_mode:1;
 
         bool needs_freeing:1;
+
+        char name[IFNAMSIZ+1];
+        char netdev_kind[NETDEV_KIND_MAX];
 } LinkInfo;
 
 static int link_info_compare(const LinkInfo *a, const LinkInfo *b) {

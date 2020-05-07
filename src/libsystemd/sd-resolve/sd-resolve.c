@@ -54,13 +54,7 @@ struct sd_resolve {
         bool dead:1;
         pid_t original_pid;
 
-        int fds[_FD_MAX];
-
-        pthread_t workers[WORKERS_MAX];
-        unsigned n_valid_workers;
-
         unsigned current_id;
-        sd_resolve_query* query_array[QUERIES_MAX];
         unsigned n_queries, n_done, n_outstanding;
 
         sd_event_source *event_source;
@@ -72,6 +66,13 @@ struct sd_resolve {
         pid_t tid;
 
         LIST_HEAD(sd_resolve_query, queries);
+
+        unsigned n_valid_workers;
+        pthread_t workers[WORKERS_MAX];
+
+        sd_resolve_query* query_array[QUERIES_MAX];
+
+        int fds[_FD_MAX];
 };
 
 struct sd_resolve_query {

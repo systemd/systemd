@@ -53,14 +53,6 @@ struct Manager {
         sd_network_monitor *network_monitor;
         sd_event_source *network_event_source;
 
-        /* DNS query management */
-        Hashmap *dns_transactions;
-        LIST_HEAD(DnsQuery, dns_queries);
-        unsigned n_dns_queries;
-
-        LIST_HEAD(DnsStream, dns_streams);
-        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
-
         /* Unicast dns */
         LIST_HEAD(DnsServer, dns_servers);
         LIST_HEAD(DnsServer, fallback_dns_servers);
@@ -113,17 +105,6 @@ struct Manager {
         DnsResourceKey *mdns_host_ipv4_key;
         DnsResourceKey *mdns_host_ipv6_key;
 
-        /* Watch the system hostname */
-        int hostname_fd;
-        sd_event_source *hostname_event_source;
-
-        sd_event_source *sigusr1_event_source;
-        sd_event_source *sigusr2_event_source;
-        sd_event_source *sigrtmin1_event_source;
-
-        unsigned n_transactions_total;
-        unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
-
         /* Data from /etc/hosts */
         EtcHosts etc_hosts;
         usec_t etc_hosts_last, etc_hosts_mtime;
@@ -139,6 +120,27 @@ struct Manager {
         sd_event_source *dns_stub_tcp_event_source;
 
         Hashmap *polkit_registry;
+
+        /* Watch the system hostname */
+        int hostname_fd;
+        sd_event_source *hostname_event_source;
+
+        sd_event_source *sigusr1_event_source;
+        sd_event_source *sigusr2_event_source;
+        sd_event_source *sigrtmin1_event_source;
+
+        unsigned n_transactions_total;
+
+        /* DNS query management */
+        Hashmap *dns_transactions;
+        LIST_HEAD(DnsQuery, dns_queries);
+        unsigned n_dns_queries;
+
+        LIST_HEAD(DnsStream, dns_streams);
+        unsigned n_dns_streams[_DNS_STREAM_TYPE_MAX];
+
+
+        unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 };
 
 /* Manager */

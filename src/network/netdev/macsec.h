@@ -28,12 +28,12 @@ assert_cc(sizeof(MACsecSCI) == sizeof(uint64_t));
 typedef struct SecurityAssociation {
         uint8_t association_number;
         uint32_t packet_number;
-        uint8_t key_id[MACSEC_KEYID_LEN];
         uint8_t *key;
         uint32_t key_len;
         char *key_file;
         int activate;
         int use_for_encoding;
+        uint8_t key_id[MACSEC_KEYID_LEN];
 } SecurityAssociation;
 
 typedef struct TransmitAssociation {
@@ -56,8 +56,8 @@ typedef struct ReceiveChannel {
         NetworkConfigSection *section;
 
         MACsecSCI sci;
-        ReceiveAssociation *rxsa[MACSEC_MAX_ASSOCIATION_NUMBER];
         unsigned n_rxsa;
+        ReceiveAssociation *rxsa[MACSEC_MAX_ASSOCIATION_NUMBER];
 } ReceiveChannel;
 
 struct MACsec {

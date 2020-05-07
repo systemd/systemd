@@ -53,14 +53,17 @@ enum netname_type{
 struct netnames {
         enum netname_type type;
 
-        uint8_t mac[6];
         bool mac_valid;
 
         sd_device *pcidev;
+        const char *pci_onboard_label;
+
+
+        uint8_t mac[6];
+
         char pci_slot[ALTIFNAMSIZ];
         char pci_path[ALTIFNAMSIZ];
         char pci_onboard[ALTIFNAMSIZ];
-        const char *pci_onboard_label;
 
         char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];

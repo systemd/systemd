@@ -306,11 +306,11 @@ enum bpf_stack_build_id_status {
 #define BPF_BUILD_ID_SIZE 20
 struct bpf_stack_build_id {
 	__s32		status;
-	unsigned char	build_id[BPF_BUILD_ID_SIZE];
 	union {
 		__u64	offset;
 		__u64	ip;
 	};
+    unsigned char	build_id[BPF_BUILD_ID_SIZE];
 };
 
 union bpf_attr {
@@ -2519,39 +2519,40 @@ struct __sk_buff {
 	__u32 ingress_ifindex;
 	__u32 ifindex;
 	__u32 tc_index;
-	__u32 cb[5];
 	__u32 hash;
 	__u32 tc_classid;
 	__u32 data;
 	__u32 data_end;
 	__u32 napi_id;
 
+    __u32 data_meta;
+    __bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
+    __u64 tstamp;
+    __u32 wire_len;
+
 	/* Accessed by BPF_PROG_TYPE_sk_skb types from here to ... */
 	__u32 family;
+    __u32 remote_port;	/* Stored in network byte order */
+    __u32 local_port;	/* stored in host byte order */
 	__u32 remote_ip4;	/* Stored in network byte order */
 	__u32 local_ip4;	/* Stored in network byte order */
 	__u32 remote_ip6[4];	/* Stored in network byte order */
 	__u32 local_ip6[4];	/* Stored in network byte order */
-	__u32 remote_port;	/* Stored in network byte order */
-	__u32 local_port;	/* stored in host byte order */
 	/* ... here. */
 
-	__u32 data_meta;
-	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
-	__u64 tstamp;
-	__u32 wire_len;
+    __u32 cb[5];
 };
 
 struct bpf_tunnel_key {
 	__u32 tunnel_id;
-	union {
-		__u32 remote_ipv4;
-		__u32 remote_ipv6[4];
-	};
 	__u8 tunnel_tos;
 	__u8 tunnel_ttl;
 	__u16 tunnel_ext;	/* Padding, future use. */
 	__u32 tunnel_label;
+    union {
+        __u32 remote_ipv4;
+        __u32 remote_ipv6[4];
+    };
 };
 
 /* user accessible mirror of in-kernel xfrm_state.
@@ -2591,30 +2592,30 @@ struct bpf_sock {
 	__u32 protocol;
 	__u32 mark;
 	__u32 priority;
+    __u32 src_port;		/* Allows 4-byte read.
+                 * Stored in host byte order
+                 */
 	__u32 src_ip4;		/* Allows 1,2,4-byte read.
 				 * Stored in network byte order.
 				 */
 	__u32 src_ip6[4];	/* Allows 1,2,4-byte read.
 				 * Stored in network byte order.
 				 */
-	__u32 src_port;		/* Allows 4-byte read.
-				 * Stored in host byte order
-				 */
 };
 
 struct bpf_sock_tuple {
 	union {
 		struct {
-			__be32 saddr;
-			__be32 daddr;
 			__be16 sport;
 			__be16 dport;
+            __be32 saddr;
+            __be32 daddr;
 		} ipv4;
 		struct {
-			__be32 saddr[4];
-			__be32 daddr[4];
 			__be16 sport;
 			__be16 dport;
+            __be32 saddr[4];
+            __be32 daddr[4];
 		} ipv6;
 	};
 };
@@ -2661,11 +2662,12 @@ struct sk_msg_md {
 	__u32 family;
 	__u32 remote_ip4;	/* Stored in network byte order */
 	__u32 local_ip4;	/* Stored in network byte order */
-	__u32 remote_ip6[4];	/* Stored in network byte order */
-	__u32 local_ip6[4];	/* Stored in network byte order */
 	__u32 remote_port;	/* Stored in network byte order */
 	__u32 local_port;	/* stored in host byte order */
 	__u32 size;		/* Total size of sk_msg */
+
+    __u32 remote_ip6[4];	/* Stored in network byte order */
+    __u32 local_ip6[4];	/* Stored in network byte order */
 };
 
 struct sk_reuseport_md {
@@ -2698,7 +2700,6 @@ struct sk_reuseport_md {
 struct bpf_prog_info {
 	__u32 type;
 	__u32 id;
-	__u8  tag[BPF_TAG_SIZE];
 	__u32 jited_prog_len;
 	__u32 xlated_prog_len;
 	__aligned_u64 jited_prog_insns;
@@ -2707,7 +2708,6 @@ struct bpf_prog_info {
 	__u32 created_by_uid;
 	__u32 nr_map_ids;
 	__aligned_u64 map_ids;
-	char name[BPF_OBJ_NAME_LEN];
 	__u32 ifindex;
 	__u32 gpl_compatible:1;
 	__u64 netns_dev;
@@ -2728,6 +2728,9 @@ struct bpf_prog_info {
 	__u32 jited_line_info_rec_size;
 	__u32 nr_prog_tags;
 	__aligned_u64 prog_tags;
+
+    __u8  tag[BPF_TAG_SIZE];
+    char name[BPF_OBJ_NAME_LEN];
 } __attribute__((aligned(8)));
 
 struct bpf_map_info {
@@ -2737,7 +2740,6 @@ struct bpf_map_info {
 	__u32 value_size;
 	__u32 max_entries;
 	__u32 map_flags;
-	char  name[BPF_OBJ_NAME_LEN];
 	__u32 ifindex;
 	__u32 :32;
 	__u64 netns_dev;
@@ -2745,6 +2747,8 @@ struct bpf_map_info {
 	__u32 btf_id;
 	__u32 btf_key_type_id;
 	__u32 btf_value_type_id;
+
+    char  name[BPF_OBJ_NAME_LEN];
 } __attribute__((aligned(8)));
 
 struct bpf_btf_info {
@@ -2762,9 +2766,6 @@ struct bpf_sock_addr {
 	__u32 user_ip4;		/* Allows 1,2,4-byte read and 4-byte write.
 				 * Stored in network byte order.
 				 */
-	__u32 user_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
-				 * Stored in network byte order.
-				 */
 	__u32 user_port;	/* Allows 4-byte read and write.
 				 * Stored in network byte order
 				 */
@@ -2774,6 +2775,9 @@ struct bpf_sock_addr {
 	__u32 msg_src_ip4;	/* Allows 1,2,4-byte read an 4-byte write.
 				 * Stored in network byte order.
 				 */
+    __u32 user_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
+                 * Stored in network byte order.
+                 */
 	__u32 msg_src_ip6[4];	/* Allows 1,2,4-byte read an 4-byte write.
 				 * Stored in network byte order.
 				 */
@@ -2795,8 +2799,6 @@ struct bpf_sock_ops {
 	__u32 family;
 	__u32 remote_ip4;	/* Stored in network byte order */
 	__u32 local_ip4;	/* Stored in network byte order */
-	__u32 remote_ip6[4];	/* Stored in network byte order */
-	__u32 local_ip6[4];	/* Stored in network byte order */
 	__u32 remote_port;	/* Stored in network byte order */
 	__u32 local_port;	/* stored in host byte order */
 	__u32 is_fullsock;	/* Some TCP fields are only valid if
@@ -2828,6 +2830,9 @@ struct bpf_sock_ops {
 	__u32 sk_txhash;
 	__u64 bytes_received;
 	__u64 bytes_acked;
+
+    __u32 remote_ip6[4];	/* Stored in network byte order */
+    __u32 local_ip6[4];	/* Stored in network byte order */
 };
 
 /* Definitions for bpf_sock_ops_cb_flags */

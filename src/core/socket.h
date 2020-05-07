@@ -78,11 +78,6 @@ struct Socket {
         usec_t keep_alive_interval;
         usec_t defer_accept;
 
-        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
-        ExecContext exec_context;
-        KillContext kill_context;
-        CGroupContext cgroup_context;
-
         ExecRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
@@ -150,6 +145,11 @@ struct Socket {
         char *fdname;
 
         RateLimit trigger_limit;
+
+        ExecContext exec_context;
+        KillContext kill_context;
+        CGroupContext cgroup_context;
+        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);

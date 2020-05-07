@@ -42,19 +42,18 @@ struct JournalRateLimitGroup {
         /* Interval is stored to keep track of when the group expires */
         usec_t interval;
 
-        JournalRateLimitPool pools[POOLS_MAX];
-        uint64_t hash;
-
         LIST_FIELDS(JournalRateLimitGroup, bucket);
         LIST_FIELDS(JournalRateLimitGroup, lru);
+
+        uint64_t hash;
+        JournalRateLimitPool pools[POOLS_MAX];
 };
 
 struct JournalRateLimit {
-
-        JournalRateLimitGroup* buckets[BUCKETS_MAX];
-        JournalRateLimitGroup *lru, *lru_tail;
-
         unsigned n_groups;
+
+        JournalRateLimitGroup *lru, *lru_tail;
+        JournalRateLimitGroup* buckets[BUCKETS_MAX];
 
         uint8_t hash_key[16];
 };

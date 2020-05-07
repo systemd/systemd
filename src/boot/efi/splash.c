@@ -8,10 +8,10 @@
 #include "util.h"
 
 struct bmp_file {
-        CHAR8 signature[2];
         UINT32 size;
-        UINT16 reserved[2];
         UINT32 offset;
+        CHAR8 signature[2];
+        UINT16 reserved[2];
 } __attribute__((packed));
 
 /* we require at least BITMAPINFOHEADER, later versions are

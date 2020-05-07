@@ -25,13 +25,6 @@ typedef struct Uploader {
         sd_event *events;
         sd_event_source *sigint_event, *sigterm_event;
 
-        char *url;
-        CURL *easy;
-        bool uploading;
-        char error[CURL_ERROR_SIZE];
-        struct curl_slist *header;
-        char *answer;
-
         sd_event_source *input_event;
         uint64_t timeout;
 
@@ -52,6 +45,13 @@ typedef struct Uploader {
         char *last_cursor, *current_cursor;
         usec_t watchdog_timestamp;
         usec_t watchdog_usec;
+
+        char *url;
+        CURL *easy;
+        bool uploading;
+        struct curl_slist *header;
+        char *answer;
+        char error[CURL_ERROR_SIZE];
 } Uploader;
 
 #define JOURNAL_UPLOAD_POLL_TIMEOUT (10 * USEC_PER_SEC)

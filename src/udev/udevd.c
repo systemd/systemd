@@ -93,7 +93,6 @@ typedef struct Manager {
         sd_device_monitor *monitor;
         struct udev_ctrl *ctrl;
         int fd_inotify;
-        int worker_watch[2];
 
         sd_event_source *inotify_event;
         sd_event_source *kill_workers_event;
@@ -102,6 +101,8 @@ typedef struct Manager {
 
         bool stop_exec_queue:1;
         bool exit:1;
+
+        int worker_watch[2];
 } Manager;
 
 enum event_state {

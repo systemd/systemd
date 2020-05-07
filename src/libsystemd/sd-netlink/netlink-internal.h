@@ -121,12 +121,13 @@ struct sd_netlink_message {
         int protocol;
 
         struct nlmsghdr *hdr;
-        struct netlink_container containers[RTNL_CONTAINER_DEPTH];
         unsigned n_containers; /* number of containers */
         bool sealed:1;
         bool broadcast:1;
 
         sd_netlink_message *next; /* next in a chain of multi-part messages */
+
+        struct netlink_container containers[RTNL_CONTAINER_DEPTH];
 };
 
 int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type);

@@ -339,10 +339,6 @@ typedef struct NTPStatusInfo {
         uint32_t leap, version, mode, stratum;
         int32_t precision;
         usec_t root_delay, root_dispersion;
-        union {
-                char str[5];
-                uint32_t val;
-        } reference;
         usec_t origin, recv, trans, dest;
 
         bool spike;
@@ -350,6 +346,11 @@ typedef struct NTPStatusInfo {
         usec_t jitter;
 
         int64_t freq;
+
+        union {
+                uint32_t val;
+                char str[5];
+        } reference;
 } NTPStatusInfo;
 
 static void ntp_status_info_clear(NTPStatusInfo *p) {

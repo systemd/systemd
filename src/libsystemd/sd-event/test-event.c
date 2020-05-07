@@ -388,9 +388,9 @@ static void test_rtqueue(void) {
 
 struct inotify_context {
         bool delete_self_handler_called;
-        unsigned create_called[CREATE_EVENTS_MAX];
         unsigned create_overflow;
         unsigned n_create_events;
+        unsigned create_called[CREATE_EVENTS_MAX];
 };
 
 static void maybe_exit(sd_event_source *s, struct inotify_context *c) {

@@ -114,7 +114,6 @@ struct sd_bus_message {
         size_t containers_allocated;
 
         struct iovec *iovec;
-        struct iovec iovec_fixed[2];
         unsigned n_iovec;
 
         char *peeked_signature;
@@ -126,10 +125,12 @@ struct sd_bus_message {
 
         usec_t timeout;
 
-        size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
-        unsigned n_header_offsets;
-
         uint64_t read_counter;
+
+        unsigned n_header_offsets;
+        size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
+
+        struct iovec iovec_fixed[2];
 };
 
 static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {

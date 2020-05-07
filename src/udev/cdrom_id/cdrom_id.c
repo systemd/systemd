@@ -94,11 +94,11 @@ static void info_scsi_cmd_err(const char *cmd, int err) {
 
 struct scsi_cmd {
         struct cdrom_generic_command cgc;
+        struct sg_io_hdr sg_io;
         union {
                 struct request_sense s;
                 unsigned char u[18];
         } _sense;
-        struct sg_io_hdr sg_io;
 };
 
 static void scsi_cmd_init(struct scsi_cmd *cmd) {

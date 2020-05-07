@@ -22,8 +22,6 @@ typedef struct HomeSetup {
         sd_id128_t found_luks_uuid;
         sd_id128_t found_fs_uuid;
 
-        uint8_t fscrypt_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
-
         void *volume_key;
         size_t volume_key_size;
 
@@ -34,6 +32,8 @@ typedef struct HomeSetup {
 
         uint64_t partition_offset;
         uint64_t partition_size;
+
+        uint8_t fscrypt_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 } HomeSetup;
 
 #define HOME_SETUP_INIT                                 \

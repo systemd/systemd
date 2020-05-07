@@ -48,7 +48,6 @@ struct sd_dhcp6_client {
         int ifindex;
         DHCP6Address hint_pd_prefix;
         struct in6_addr local_address;
-        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
         uint16_t arp_type;
         DHCP6IA ia_na;
@@ -82,6 +81,7 @@ struct sd_dhcp6_client {
         usec_t information_refresh_time_usec;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
+        uint8_t mac_addr[MAX_MAC_ADDR_LEN];
 };
 
 static const uint16_t default_req_opts[] = {

@@ -122,10 +122,6 @@ typedef struct Unit {
 
         Set *names;
 
-        /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
-         * dependency exists, using the UnitDependencyInfo type */
-        Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
-
         /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the UnitDependencyInfo type */
         Hashmap *requires_mounts_for;
 
@@ -258,9 +254,6 @@ typedef struct Unit {
         /* The  current counter of the oom_kill field in the memory.events cgroup attribute */
         uint64_t oom_kill_last;
 
-        /* Where the io.stat data was at the time the unit was started */
-        uint64_t io_accounting_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
-        uint64_t io_accounting_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX]; /* the most recently read value */
 
         /* Counterparts in the cgroup filesystem */
         char *cgroup_path;
@@ -292,8 +285,6 @@ typedef struct Unit {
         Set *ip_bpf_custom_egress;
         Set *ip_bpf_custom_egress_installed;
 
-        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
-
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
@@ -303,10 +294,6 @@ typedef struct Unit {
 
         /* Tweaking the GC logic */
         CollectMode collect_mode;
-
-        /* The current invocation ID */
-        sd_id128_t invocation_id;
-        char invocation_id_string[SD_ID128_STRING_MAX]; /* useful when logging */
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
@@ -379,15 +366,30 @@ typedef struct Unit {
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
         signed int last_section_private:2;
+
+        /* The current invocation ID */
+        sd_id128_t invocation_id;
+        char invocation_id_string[SD_ID128_STRING_MAX]; /* useful when logging */
+
+         /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
+         * dependency exists, using the UnitDependencyInfo type */
+        Hashmap *dependencies[_UNIT_DEPENDENCY_MAX];
+
+        /* Where the io.stat data was at the time the unit was started */
+        uint64_t io_accounting_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
+        uint64_t io_accounting_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX]; /* the most recently read value */
+
+        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 } Unit;
 
 typedef struct UnitStatusMessageFormats {
-        const char *starting_stopping[2];
-        const char *finished_start_job[_JOB_RESULT_MAX];
-        const char *finished_stop_job[_JOB_RESULT_MAX];
         /* If this entry is present, it'll be called to provide a context-dependent format string,
          * or NULL to fall back to finished_{start,stop}_job; if those are NULL too, fall back to generic. */
         const char *(*finished_job)(Unit *u, JobType t, JobResult result);
+
+        const char *starting_stopping[2];
+        const char *finished_start_job[_JOB_RESULT_MAX];
+        const char *finished_stop_job[_JOB_RESULT_MAX];
 } UnitStatusMessageFormats;
 
 /* Flags used when writing drop-in files or transient unit files */

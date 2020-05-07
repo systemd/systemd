@@ -38,19 +38,19 @@ const char * const catalog_file_dirs[] = {
 #define CATALOG_SIGNATURE { 'R', 'H', 'H', 'H', 'K', 'S', 'L', 'P' }
 
 typedef struct CatalogHeader {
-        uint8_t signature[8];  /* "RHHHKSLP" */
         le32_t compatible_flags;
         le32_t incompatible_flags;
         le64_t header_size;
         le64_t n_items;
         le64_t catalog_item_size;
+        uint8_t signature[8];  /* "RHHHKSLP" */
 } CatalogHeader;
 
 typedef struct CatalogItem {
         sd_id128_t id;
+        le64_t offset;
         char language[32]; /* One byte is used for termination, so the maximum allowed
                             * length of the string is actually 31 bytes. */
-        le64_t offset;
 } CatalogItem;
 
 static void catalog_hash_func(const CatalogItem *i, struct siphash *state) {

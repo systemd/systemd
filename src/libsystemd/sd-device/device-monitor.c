@@ -48,8 +48,6 @@ struct sd_device_monitor {
 #define UDEV_MONITOR_MAGIC                0xfeedcafe
 
 typedef struct monitor_netlink_header {
-        /* "libudev" prefix to distinguish libudev and kernel messages */
-        char prefix[8];
         /* Magic to protect against daemon <-> Library message format mismatch
          * Used in the kernel from socket filter rules; needs to be stored in network order */
         unsigned magic;
@@ -64,6 +62,8 @@ typedef struct monitor_netlink_header {
         unsigned filter_devtype_hash;
         unsigned filter_tag_bloom_hi;
         unsigned filter_tag_bloom_lo;
+        /* "libudev" prefix to distinguish libudev and kernel messages */
+        char prefix[8];
 } monitor_netlink_header;
 
 static int monitor_set_nl_address(sd_device_monitor *m) {

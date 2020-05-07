@@ -121,8 +121,6 @@ struct Service {
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
-        ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
-
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -203,6 +201,8 @@ struct Service {
         bool flush_n_restarts;
 
         OOMPolicy oom_policy;
+
+        ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

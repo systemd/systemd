@@ -214,7 +214,6 @@ typedef struct UserRecord {
         char *time_zone;
         char *preferred_language;
         int nice_level;
-        struct rlimit *rlimits[_RLIMIT_MAX];
 
         int locked;               /* prohibit activation in general */
         uint64_t not_before_usec; /* prohibit activation before this unix time */
@@ -310,6 +309,8 @@ typedef struct UserRecord {
         int pkcs11_protected_authentication_path_permitted;
 
         JsonVariant *json;
+
+        struct rlimit *rlimits[_RLIMIT_MAX];
 } UserRecord;
 
 UserRecord* user_record_new(void);

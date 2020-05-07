@@ -62,11 +62,6 @@ struct Swap {
 
         usec_t timeout_usec;
 
-        ExecCommand exec_command[_SWAP_EXEC_COMMAND_MAX];
-        ExecContext exec_context;
-        KillContext kill_context;
-        CGroupContext cgroup_context;
-
         ExecRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
@@ -83,6 +78,11 @@ struct Swap {
         devices for the same swap. We chain them up here. */
 
         LIST_FIELDS(struct Swap, same_devnode);
+
+        ExecContext exec_context;
+        KillContext kill_context;
+        CGroupContext cgroup_context;
+        ExecCommand exec_command[_SWAP_EXEC_COMMAND_MAX];
 };
 
 extern const UnitVTable swap_vtable;

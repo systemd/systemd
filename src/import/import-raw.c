@@ -47,9 +47,6 @@ struct RawImport {
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
-        size_t buffer_size;
-
         uint64_t written_compressed;
         uint64_t written_uncompressed;
 
@@ -57,6 +54,9 @@ struct RawImport {
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
+
+        size_t buffer_size;
+        uint8_t buffer[16384];
 };
 
 RawImport* raw_import_unref(RawImport *i) {

@@ -34,8 +34,8 @@ typedef struct DHCPLease {
 
         be32_t address;
         be32_t gateway;
-        uint8_t chaddr[16];
         usec_t expiration;
+        uint8_t chaddr[16];
 } DHCPLease;
 
 struct sd_dhcp_server {
@@ -56,8 +56,6 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
-
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
 
@@ -71,6 +69,8 @@ struct sd_dhcp_server {
 
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
+
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 };
 
 typedef struct DHCPRequest {

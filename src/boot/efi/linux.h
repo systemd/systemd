@@ -46,22 +46,10 @@ struct setup_header {
 
 /* adapted from linux' bootparam.h */
 struct boot_params {
-        UINT8  screen_info[64];         // was: struct screen_info
-        UINT8  apm_bios_info[20];       // was: struct apm_bios_info
-        UINT8  _pad2[4];
         UINT64 tboot_addr;
-        UINT8  ist_info[16];            // was: struct ist_info
-        UINT8  _pad3[16];
-        UINT8  hd0_info[16];
-        UINT8  hd1_info[16];
-        UINT8  sys_desc_table[16];      // was: struct sys_desc_table
-        UINT8  olpc_ofw_header[16];     // was: struct olpc_ofw_header
         UINT32 ext_ramdisk_image;
         UINT32 ext_ramdisk_size;
         UINT32 ext_cmd_line_ptr;
-        UINT8  _pad4[116];
-        UINT8  edid_info[128];          // was: struct edid_info
-        UINT8  efi_info[32];            // was: struct efi_info
         UINT32 alt_mem_k;
         UINT32 scratch;
         UINT8  e820_entries;
@@ -69,10 +57,22 @@ struct boot_params {
         UINT8  edd_mbr_sig_buf_entries;
         UINT8  kbd_status;
         UINT8  secure_boot;
-        UINT8  _pad5[2];
         UINT8  sentinel;
-        UINT8  _pad6[1];
         struct setup_header hdr;
+        UINT8  screen_info[64];         // was: struct screen_info
+        UINT8  apm_bios_info[20];       // was: struct apm_bios_info
+        UINT8  _pad2[4];
+        UINT8  ist_info[16];            // was: struct ist_info
+        UINT8  _pad3[16];
+        UINT8  hd0_info[16];
+        UINT8  hd1_info[16];
+        UINT8  sys_desc_table[16];      // was: struct sys_desc_table
+        UINT8  olpc_ofw_header[16];     // was: struct olpc_ofw_header
+        UINT8  _pad4[116];
+        UINT8  edid_info[128];          // was: struct edid_info
+        UINT8  efi_info[32];            // was: struct efi_info
+        UINT8  _pad5[2];
+        UINT8  _pad6[1];
         UINT8  _pad7[0x290-0x1f1-sizeof(struct setup_header)];
         UINT32 edd_mbr_sig_buffer[16];  // was: edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]
         UINT8  e820_table[20*128];      // was: struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]

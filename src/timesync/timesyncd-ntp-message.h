@@ -37,9 +37,9 @@ struct ntp_msg {
         int8_t precision;
         struct ntp_ts_short root_delay;
         struct ntp_ts_short root_dispersion;
-        char refid[4];
         struct ntp_ts reference_time;
         struct ntp_ts origin_time;
         struct ntp_ts recv_time;
         struct ntp_ts trans_time;
+        char refid[4];
 } _packed_;

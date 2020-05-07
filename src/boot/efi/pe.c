@@ -7,7 +7,6 @@
 #include "util.h"
 
 struct DosFileHeader {
-        UINT8   Magic[2];
         UINT16  LastSize;
         UINT16  nBlocks;
         UINT16  nReloc;
@@ -21,11 +20,12 @@ struct DosFileHeader {
         UINT16  cs;
         UINT16  RelocPos;
         UINT16  nOverlay;
-        UINT16  reserved[4];
         UINT16  OEMId;
         UINT16  OEMInfo;
-        UINT16  reserved2[10];
         UINT32  ExeHeader;
+        UINT8   Magic[2];
+        UINT16  reserved[4];
+        UINT16  reserved2[10];
 } __attribute__((packed));
 
 #define PE_HEADER_MACHINE_I386          0x014c
@@ -42,12 +42,11 @@ struct PeFileHeader {
 } __attribute__((packed));
 
 struct PeHeader {
-        UINT8   Magic[4];
         struct PeFileHeader FileHeader;
+        UINT8   Magic[4];
 } __attribute__((packed));
 
 struct PeSectionHeader {
-        UINT8   Name[8];
         UINT32  VirtualSize;
         UINT32  VirtualAddress;
         UINT32  SizeOfRawData;
@@ -57,6 +56,7 @@ struct PeSectionHeader {
         UINT16  NumberOfRelocations;
         UINT16  NumberOfLinenumbers;
         UINT32  Characteristics;
+        UINT8   Name[8];
 } __attribute__((packed));
 
 EFI_STATUS pe_memory_locate_sections(CHAR8 *base, CHAR8 **sections, UINTN *addrs, UINTN *offsets, UINTN *sizes) {

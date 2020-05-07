@@ -148,36 +148,6 @@ typedef struct OciHook {
 } OciHook;
 
 typedef struct Settings {
-        /* [Run] */
-        StartMode start_mode;
-        bool ephemeral;
-        char **parameters;
-        char **environment;
-        char *user;
-        uint64_t capability;
-        uint64_t drop_capability;
-        int kill_signal;
-        unsigned long personality;
-        sd_id128_t machine_id;
-        char *working_directory;
-        char *pivot_root_new;
-        char *pivot_root_old;
-        UserNamespaceMode userns_mode;
-        uid_t uid_shift, uid_range;
-        bool notify_ready;
-        char **syscall_whitelist;
-        char **syscall_blacklist;
-        struct rlimit *rlimit[_RLIMIT_MAX];
-        char *hostname;
-        int no_new_privileges;
-        int oom_score_adjust;
-        bool oom_score_adjust_set;
-        CPUSet cpu_set;
-        ResolvConfMode resolv_conf;
-        LinkJournal link_journal;
-        bool link_journal_try;
-        TimezoneMode timezone;
-
         /* [Image] */
         int read_only;
         VolatileMode volatile_mode;
@@ -219,6 +189,36 @@ typedef struct Settings {
 #if HAVE_SECCOMP
         scmp_filter_ctx seccomp;
 #endif
+
+        /* [Run] */
+        StartMode start_mode;
+        bool ephemeral;
+        char **parameters;
+        char **environment;
+        char *user;
+        uint64_t capability;
+        uint64_t drop_capability;
+        int kill_signal;
+        unsigned long personality;
+        sd_id128_t machine_id;
+        char *working_directory;
+        char *pivot_root_new;
+        char *pivot_root_old;
+        UserNamespaceMode userns_mode;
+        uid_t uid_shift, uid_range;
+        bool notify_ready;
+        char **syscall_whitelist;
+        char **syscall_blacklist;
+        char *hostname;
+        int no_new_privileges;
+        int oom_score_adjust;
+        bool oom_score_adjust_set;
+        CPUSet cpu_set;
+        ResolvConfMode resolv_conf;
+        LinkJournal link_journal;
+        bool link_journal_try;
+        TimezoneMode timezone;
+        struct rlimit *rlimit[_RLIMIT_MAX];
 } Settings;
 
 Settings *settings_new(void);

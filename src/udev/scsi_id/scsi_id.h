@@ -26,13 +26,6 @@
 #define MAX_BUFFER_LEN 256
 
 struct scsi_id_device {
-        char vendor[9];
-        char model[17];
-        char revision[5];
-        char type[33];
-        char kernel[64];
-        char serial[MAX_SERIAL_LEN];
-        char serial_short[MAX_SERIAL_LEN];
         int use_sg;
 
         /* Always from page 0x80 e.g. 'B3G1P8500RWT' - may not be unique */
@@ -46,6 +39,14 @@ struct scsi_id_device {
 
         /* NULs if not set - otherwise decimal number */
         char tgpt_group[8];
+
+        char vendor[9];
+        char model[17];
+        char revision[5];
+        char type[33];
+        char kernel[64];
+        char serial[MAX_SERIAL_LEN];
+        char serial_short[MAX_SERIAL_LEN];
 };
 
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);

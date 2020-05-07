@@ -69,8 +69,6 @@ struct Mount {
 
         usec_t timeout_usec;
 
-        ExecCommand exec_command[_MOUNT_EXEC_COMMAND_MAX];
-
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -87,6 +85,8 @@ struct Mount {
         sd_event_source *timer_event_source;
 
         unsigned n_retry_umount;
+
+        ExecCommand exec_command[_MOUNT_EXEC_COMMAND_MAX];
 };
 
 extern const UnitVTable mount_vtable;

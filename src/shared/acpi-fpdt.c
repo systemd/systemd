@@ -14,15 +14,15 @@
 #include "time-util.h"
 
 struct acpi_table_header {
-        char signature[4];
         uint32_t length;
         uint8_t revision;
         uint8_t checksum;
+        uint32_t oem_revision;
+        uint32_t asl_compiler_revision;
+        char signature[4];
         char oem_id[6];
         char oem_table_id[8];
-        uint32_t oem_revision;
         char asl_compiler_id[4];
-        uint32_t asl_compiler_revision;
 } _packed_;
 
 enum {
@@ -34,13 +34,13 @@ struct acpi_fpdt_header {
         uint16_t type;
         uint8_t length;
         uint8_t revision;
-        uint8_t reserved[4];
         uint64_t ptr;
+        uint8_t reserved[4];
 } _packed_;
 
 struct acpi_fpdt_boot_header {
-        char signature[4];
         uint32_t length;
+        char signature[4];
 } _packed_;
 
 enum {
@@ -53,12 +53,12 @@ struct acpi_fpdt_boot {
         uint16_t type;
         uint8_t length;
         uint8_t revision;
-        uint8_t reserved[4];
         uint64_t reset_end;
         uint64_t load_start;
         uint64_t startup_start;
         uint64_t exit_services_entry;
         uint64_t exit_services_exit;
+        uint8_t reserved[4];
 } _packed;
 
 int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {

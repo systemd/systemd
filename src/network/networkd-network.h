@@ -202,27 +202,6 @@ struct Network {
                                                   WPD-4 */
         bool dhcp6_pd_assign_prefix;
 
-        /* Bridge Support */
-        int use_bpdu;
-        int hairpin;
-        int fast_leave;
-        int allow_port_to_be_root;
-        int unicast_flood;
-        int multicast_flood;
-        int multicast_to_unicast;
-        int neighbor_suppression;
-        int learning;
-        int bridge_proxy_arp;
-        int bridge_proxy_arp_wifi;
-        uint32_t cost;
-        uint16_t priority;
-        MulticastRouter multicast_router;
-
-        bool use_br_vlan;
-        uint16_t pvid;
-        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-
         /* CAN support */
         uint32_t can_bitrate;
         unsigned can_sample_point;
@@ -335,6 +314,27 @@ struct Network {
         char **smtp;
         char **lpr;
         char **bind_carrier;
+
+        /* Bridge Support */
+        int use_bpdu;
+        int hairpin;
+        int fast_leave;
+        int allow_port_to_be_root;
+        int unicast_flood;
+        int multicast_flood;
+        int multicast_to_unicast;
+        int neighbor_suppression;
+        int learning;
+        int bridge_proxy_arp;
+        int bridge_proxy_arp_wifi;
+        uint32_t cost;
+        uint16_t priority;
+        MulticastRouter multicast_router;
+
+        bool use_br_vlan;
+        uint16_t pvid;
+        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 };
 
 Network *network_ref(Network *network);

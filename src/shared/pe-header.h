@@ -6,7 +6,6 @@
 #include "sparse-endian.h"
 
 struct DosFileHeader {
-        uint8_t Magic[2];
         le16_t LastSize;
         le16_t nBlocks;
         le16_t nReloc;
@@ -20,11 +19,12 @@ struct DosFileHeader {
         le16_t cs;
         le16_t RelocPos;
         le16_t nOverlay;
-        le16_t reserved[4];
         le16_t OEMId;
         le16_t OEMInfo;
-        le16_t reserved2[10];
         le32_t ExeHeader;
+        uint8_t Magic[2];
+        le16_t reserved[4];
+        le16_t reserved2[10];
 } _packed_;
 
 #define PE_HEADER_MACHINE_I386 0x014cU
@@ -41,12 +41,11 @@ struct PeFileHeader {
 } _packed_;
 
 struct PeHeader {
-        uint8_t Magic[4];
         struct PeFileHeader FileHeader;
+        uint8_t Magic[4];
 } _packed_;
 
 struct PeSectionHeader {
-        uint8_t Name[8];
         le32_t VirtualSize;
         le32_t VirtualAddress;
         le32_t SizeOfRawData;
@@ -56,4 +55,5 @@ struct PeSectionHeader {
         le16_t NumberOfRelocations;
         le16_t NumberOfLinenumbers;
         le32_t Characteristics;
+        uint8_t Name[8];
  } _packed_;

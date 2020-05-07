@@ -72,12 +72,12 @@ struct DissectedImage {
         bool can_verity:1; /* verity available, but not necessarily used */
         bool single_file_system:1; /* MBR/GPT or single file system */
 
-        DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
-
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
         char **os_release;
+
+        DissectedPartition partitions[_PARTITION_DESIGNATOR_MAX];
 };
 
 int probe_filesystem(const char *node, char **ret_fstype);

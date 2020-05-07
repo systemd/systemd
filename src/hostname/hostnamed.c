@@ -50,8 +50,8 @@ enum {
 };
 
 typedef struct Context {
-        char *data[_PROP_MAX];
         Hashmap *polkit_registry;
+        char *data[_PROP_MAX];
 } Context;
 
 static void context_reset(Context *c) {

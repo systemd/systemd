@@ -257,13 +257,6 @@ struct sd_bus {
 
         int last_connect_error;
 
-        enum bus_auth auth;
-        unsigned auth_index;
-        struct iovec auth_iovec[3];
-        size_t auth_rbegin;
-        char *auth_buffer;
-        usec_t auth_timeout;
-
         struct ucred ucred;
         char *label;
         gid_t *groups;
@@ -276,16 +269,6 @@ struct sd_bus {
 
         char *exec_path;
         char **exec_argv;
-
-        /* We do locking around the memfd cache, since we want to
-         * allow people to process a sd_bus_message in a different
-         * thread then it was generated on and free it there. Since
-         * adding something to the memfd cache might happen when a
-         * message is released, we hence need to protect this bit with
-         * a mutex. */
-        pthread_mutex_t memfd_cache_mutex;
-        struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
-        unsigned n_memfd_cache;
 
         pid_t original_pid;
         pid_t busexec_pid;
@@ -322,6 +305,24 @@ struct sd_bus {
 
         /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
         usec_t method_call_timeout;
+
+        enum bus_auth auth;
+        unsigned auth_index;
+        size_t auth_rbegin;
+        char *auth_buffer;
+        usec_t auth_timeout;
+
+        /* We do locking around the memfd cache, since we want to
+         * allow people to process a sd_bus_message in a different
+         * thread then it was generated on and free it there. Since
+         * adding something to the memfd cache might happen when a
+         * message is released, we hence need to protect this bit with
+         * a mutex. */
+        pthread_mutex_t memfd_cache_mutex;
+        unsigned n_memfd_cache;
+        struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
+
+        struct iovec auth_iovec[3];
 };
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
