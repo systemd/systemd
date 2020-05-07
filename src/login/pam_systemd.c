@@ -468,6 +468,11 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
         /* Just some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually set
          * up properly for us. */
 
+        if (!path_is_absolute(path)) {
+                pam_syslog(handle, LOG_ERR, "Provided runtime directory '%s' is not absolute.", path);
+                goto fail;
+        }
+
         if (lstat(path, &st) < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to stat() runtime directory '%s': %s", path, strerror_safe(errno));
                 goto fail;
