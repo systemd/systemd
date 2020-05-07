@@ -62,27 +62,30 @@ static int parse_argv(
 
 static int acquire_user_record(
                 pam_handle_t *handle,
+                const char *username,
                 UserRecord **ret_record) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
-        const char *username = NULL, *json = NULL;
         _cleanup_free_ char *homed_field = NULL;
+        const char *json = NULL;
         int r;
 
         assert(handle);
 
-        r = pam_get_user(handle, &username, NULL);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
-                return r;
-        }
+        if (!username) {
+                r = pam_get_user(handle, &username, NULL);
+                if (r != PAM_SUCCESS) {
+                        pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
+                        return r;
+                }
 
-        if (isempty(username)) {
-                pam_syslog(handle, LOG_ERR, "User name not set.");
-                return PAM_SERVICE_ERR;
+                if (isempty(username)) {
+                        pam_syslog(handle, LOG_ERR, "User name not set.");
+                        return PAM_SERVICE_ERR;
+                }
         }
 
         /* Let's bypass all IPC complexity for the two user names we know for sure we don't manage, and for
@@ -418,7 +421,9 @@ static int acquire_home(
         bool do_auth = please_authenticate, home_not_active = false, home_locked = false;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int acquired_fd = -1;
+        _cleanup_free_ char *fd_field = NULL;
         const void *home_fd_ptr = NULL;
+        const char *username = NULL;
         unsigned n_attempts = 0;
         int r;
 
@@ -432,8 +437,27 @@ static int acquire_home(
          * authenticates, while the other PAM hooks unset it so that they can a ref of their own without
          * authentication if possible, but with authentication if necessary. */
 
+        r = pam_get_user(handle, &username, NULL);
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        if (isempty(username)) {
+                pam_syslog(handle, LOG_ERR, "User name not set.");
+                return PAM_SERVICE_ERR;
+        }
+
         /* If we already have acquired the fd, let's shortcut this */
-        r = pam_get_data(handle, "systemd-home-fd", &home_fd_ptr);
+        fd_field = strjoin("systemd-home-fd-", username);
+        if (!fd_field)
+                return pam_log_oom(handle);
+
+        r = pam_get_data(handle, fd_field, &home_fd_ptr);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA)) {
+                pam_syslog(handle, LOG_ERR, "Failed to retrieve PAM home reference fd: %s", pam_strerror(handle, r));
+                return r;
+        }
         if (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) >= 0)
                 return PAM_SUCCESS;
 
@@ -441,7 +465,7 @@ static int acquire_home(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, &ur);
+        r = acquire_user_record(handle, username, &ur);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -557,7 +581,7 @@ static int acquire_home(
                 do_auth = true;
         }
 
-        r = pam_set_data(handle, "systemd-home-fd", FD_TO_PTR(acquired_fd), cleanup_home_fd);
+        r = pam_set_data(handle, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
                 return r;
@@ -578,15 +602,27 @@ static int acquire_home(
         return PAM_SUCCESS;
 }
 
-static int release_home_fd(pam_handle_t *handle) {
+static int release_home_fd(pam_handle_t *handle, const char *username) {
+        _cleanup_free_ char *fd_field = NULL;
         const void *home_fd_ptr = NULL;
         int r;
 
-        r = pam_get_data(handle, "systemd-home-fd", &home_fd_ptr);
-        if (r == PAM_NO_MODULE_DATA || PTR_TO_FD(home_fd_ptr) < 0)
-                return PAM_NO_MODULE_DATA;
+        assert(handle);
+        assert(username);
 
-        r = pam_set_data(handle, "systemd-home-fd", NULL, NULL);
+        fd_field = strjoin("systemd-home-fd-", username);
+        if (!fd_field)
+                return pam_log_oom(handle);
+
+        r = pam_get_data(handle, fd_field, &home_fd_ptr);
+        if (r == PAM_NO_MODULE_DATA || (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) < 0))
+                return PAM_NO_MODULE_DATA;
+        if (r != PAM_SUCCESS) {
+                pam_syslog(handle, LOG_ERR, "Failed to retrieve PAM home reference fd: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        r = pam_set_data(handle, fd_field, NULL, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog(handle, LOG_ERR, "Failed to release PAM home reference fd: %s", pam_strerror(handle, r));
 
@@ -673,19 +709,24 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed session end");
 
-        /* Let's explicitly drop the reference to the homed session, so that the subsequent ReleaseHome()
-         * call will be able to do its thing. */
-        r = release_home_fd(handle);
-        if (r == PAM_NO_MODULE_DATA) /* Nothing to do, we never acquired an fd */
-                return PAM_SUCCESS;
-        if (r != PAM_SUCCESS)
-                return r;
-
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to get user name: %s", pam_strerror(handle, r));
                 return r;
         }
+
+        if (isempty(username)) {
+                pam_syslog(handle, LOG_ERR, "User name not set.");
+                return PAM_SERVICE_ERR;
+        }
+
+        /* Let's explicitly drop the reference to the homed session, so that the subsequent ReleaseHome()
+         * call will be able to do its thing. */
+        r = release_home_fd(handle, username);
+        if (r == PAM_NO_MODULE_DATA) /* Nothing to do, we never acquired an fd */
+                return PAM_SUCCESS;
+        if (r != PAM_SUCCESS)
+                return r;
 
         r = pam_acquire_bus_connection(handle, &bus);
         if (r != PAM_SUCCESS)
@@ -738,7 +779,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, &ur);
+        r = acquire_user_record(handle, NULL, &ur);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -846,7 +887,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, &ur);
+        r = acquire_user_record(handle, NULL, &ur);
         if (r != PAM_SUCCESS)
                 return r;
 
