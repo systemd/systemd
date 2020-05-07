@@ -1491,9 +1491,77 @@ int open_parent(const char *path, int flags, mode_t mode) {
         return fd;
 }
 
+static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
+        _cleanup_free_ char *p = NULL, *uuids = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, found_encrypted = false;
+
+        assert(sysfs_path);
+
+        if (depth_left == 0)
+                return -EINVAL;
+
+        p = path_join(sysfs_path, "dm/uuid");
+        if (!p)
+                return -ENOMEM;
+
+        r = read_one_line_file(p, &uuids);
+        if (r != -ENOENT) {
+                if (r < 0)
+                        return r;
+
+                /* The DM device's uuid attribute is prefixed with "CRYPT-" if this is a dm-crypt device. */
+                if (startswith(uuids, "CRYPT-"))
+                        return true;
+        }
+
+        /* Not a dm-crypt device itself. But maybe it is on top of one? Follow the links in the "slaves/"
+         * subdir. */
+
+        p = mfree(p);
+        p = path_join(sysfs_path, "slaves");
+        if (!p)
+                return -ENOMEM;
+
+        d = opendir(p);
+        if (!d) {
+                if (errno == ENOENT) /* Doesn't have slaves */
+                        return false;
+
+                return -errno;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *q = NULL;
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                return -errno;
+
+                        break; /* No more slaves */
+                }
+
+                q = path_join(p, de->d_name);
+                if (!q)
+                        return -ENOMEM;
+
+                r = blockdev_is_encrypted(q, depth_left - 1);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* we found one that is not encrypted? then propagate that immediately */
+                        return false;
+
+                found_encrypted = true;
+        }
+
+        return found_encrypted;
+}
+
 int path_is_encrypted(const char *path) {
-        _cleanup_free_ char *uuids = NULL;
-        char p[SYS_BLOCK_PATH_MAX("/dm/uuid")];
+        char p[SYS_BLOCK_PATH_MAX(NULL)];
         dev_t devt;
         int r;
 
@@ -1503,13 +1571,7 @@ int path_is_encrypted(const char *path) {
         if (r == 0) /* doesn't have a block device */
                 return false;
 
-        xsprintf_sys_block_path(p, "/dm/uuid", devt);
-        r = read_one_line_file(p, &uuids);
-        if (r == -ENOENT)
-                return false;
-        if (r < 0)
-                return r;
+        xsprintf_sys_block_path(p, NULL, devt);
 
-        /* The DM device's uuid attribute is prefixed with "CRYPT-" if this is a dm-crypt device. */
-        return !!startswith(uuids, "CRYPT-");
+        return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
 }
