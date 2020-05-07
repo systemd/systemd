@@ -2226,6 +2226,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --fs-type=TYPE           File system type to use in case of luks\n"
                "                              storage (ext4, xfs, btrfs)\n"
                "     --luks-discard=BOOL      Whether to use 'discard' feature of file system\n"
+               "                              when activated (mounted)\n"
+               "     --luks-offline-discard=BOOL\n"
+               "                              Whether to trim file on logout\n"
                "     --luks-cipher=CIPHER     Cipher to use for LUKS encryption\n"
                "     --luks-cipher-mode=MODE  Cipher mode to use for LUKS encryption\n"
                "     --luks-volume-key-size=BITS\n"
@@ -2279,6 +2282,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_PATH,
                 ARG_UMASK,
                 ARG_LUKS_DISCARD,
+                ARG_LUKS_OFFLINE_DISCARD,
                 ARG_JSON,
                 ARG_SETENV,
                 ARG_TIMEZONE,
@@ -2372,6 +2376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-path",                  required_argument, NULL, ARG_IMAGE_PATH                  },
                 { "fs-type",                     required_argument, NULL, ARG_FS_TYPE                     },
                 { "luks-discard",                required_argument, NULL, ARG_LUKS_DISCARD                },
+                { "luks-offline-discard",        required_argument, NULL, ARG_LUKS_OFFLINE_DISCARD        },
                 { "luks-cipher",                 required_argument, NULL, ARG_LUKS_CIPHER                 },
                 { "luks-cipher-mode",            required_argument, NULL, ARG_LUKS_CIPHER_MODE            },
                 { "luks-volume-key-size",        required_argument, NULL, ARG_LUKS_VOLUME_KEY_SIZE        },
@@ -2938,6 +2943,25 @@ static int parse_argv(int argc, char *argv[]) {
                         r = json_variant_set_field_boolean(&arg_identity_extra, "luksDiscard", r);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set discard field: %m");
+
+                        break;
+
+                case ARG_LUKS_OFFLINE_DISCARD:
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("luksOfflineDiscard");
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --luks-offline-discard= parameter: %s", optarg);
+
+                        r = json_variant_set_field_boolean(&arg_identity_extra, "luksOfflineDiscard", r);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set offline discard field: %m");
 
                         break;
 

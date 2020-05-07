@@ -545,6 +545,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--luks-offline-discard=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Similar to <option>--luks-discard=</option>, controls the trimming of the file
+        system. However, while <option>--luks-discard=</option> controls what happens when the home directory
+        is active, <option>--luks-offline-discard=</option> controls what happens when it becomes inactive,
+        i.e. whether to trim/allocate the storage when deactivating the home directory. This option defaults
+        to on, to ensure disk space is minimized while a user is not logged in.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--luks-cipher=</option><replaceable>CIPHER</replaceable></term>
         <term><option>--luks-cipher-mode=</option><replaceable>MODE</replaceable></term>
         <term><option>--luks-volume-key-size=</option><replaceable>BITS</replaceable></term>

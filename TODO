@@ -226,7 +226,6 @@ Features:
   - rollback when resize fails mid-operation
   - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
   - resize on login?
-  - fstrim on logout?
   - shrink fs on logout?
   - update LUKS password on login if we find there's a password that unlocks the JSON record but not the LUKS device.
   - create on activate?

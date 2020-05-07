@@ -9,6 +9,7 @@ int home_prepare_luks(UserRecord *h, bool already_activated, const char *force_i
 
 int home_activate_luks(UserRecord *h, char ***pkcs11_decrypted_passwords, UserRecord **ret_home);
 int home_deactivate_luks(UserRecord *h);
+int home_trim_luks(UserRecord *h);
 
 int home_store_header_identity_luks(UserRecord *h, HomeSetup *setup, UserRecord *old_home);
 
@@ -36,3 +37,8 @@ static inline uint64_t luks_volume_key_size_convert(struct crypt_device *cd) {
 
         return (uint64_t) k;
 }
+
+int run_fitrim(int root_fd);
+int run_fitrim_by_path(const char *root_path);
+int run_fallocate(int backing_fd, const struct stat *st);
+int run_fallocate_by_path(const char *backing_path);

@@ -455,6 +455,10 @@ storage. If false and `luks` storage is used turns this behavior off. In
 addition, depending on this setting an `FITRIM` or `fallocate()` operation is
 executed to make sure the image matches the selected option.
 
+`luksOfflineDiscard` → A boolean. Similar to `luksDiscard`, it controls whether
+to trim/allocate the file system/backing file when deactivating the home
+directory.
+
 `luksCipher` → A string, indicating the cipher to use for the LUKS storage mechanism.
 
 `luksCipherMode` → A string, selecting the cipher mode to use for the LUKS storage mechanism.
@@ -648,11 +652,12 @@ that may be used in this section are identical to the equally named ones in the
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
 `cifsUserName`, `cifsService`, `imagePath`, `uid`, `gid`, `memberOf`,
 `fileSystemType`, `partitionUuid`, `luksUuid`, `fileSystemUuid`, `luksDiscard`,
-`luksCipher`, `luksCipherMode`, `luksVolumeKeySize`, `luksPbkdfHashAlgorithm`,
-`luksPbkdfType`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
-`luksPbkdfParallelThreads`, `rateLimitIntervalUSec`, `rateLimitBurst`,
-`enforcePasswordPolicy`, `autoLogin`, `stopDelayUSec`, `killProcesses`,
-`passwordChangeMinUSec`, `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
+`luksOfflineDiscard`, `luksOfflineDiscard`, `luksCipher`, `luksCipherMode`,
+`luksVolumeKeySize`, `luksPbkdfHashAlgorithm`, `luksPbkdfType`,
+`luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`, `luksPbkdfParallelThreads`,
+`rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
+`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
+`passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`.
 
 ## Fields in the `binding` section
