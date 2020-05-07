@@ -356,12 +356,30 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 char buf[FORMAT_BYTES_MAX];
 
                 if (hr->disk_size != UINT64_MAX) {
+                        const char *color_on, *color_off;
                         unsigned permille;
 
                         permille = (unsigned) ((hr->disk_free * 1000U) / hr->disk_size); /* Round down! */
-                        printf("   Disk Free: %s (= %u.%01u%%)\n",
+
+                        /* Color the output red or yellow if we are below 10% resp. 25% free. Because 10% and
+                         * 25% can be a lot of space still, let's additionally make some absolute
+                         * restrictions: 1G and 2G */
+                        if (permille <= 100U &&
+                            hr->disk_free < 1024U*1024U*1024U /* 1G */) {
+                                color_on = ansi_highlight_red();
+                                color_off = ansi_normal();
+                        } else if (permille <= 250U &&
+                                   hr->disk_free < 2U*1024U*1024U*1024U /* 2G */) {
+                                color_on = ansi_highlight_yellow();
+                                color_off = ansi_normal();
+                        } else
+                                color_on = color_off = "";
+
+                        printf("   Disk Free: %s%s (= %u.%01u%%)%s\n",
+                               color_on,
                                format_bytes(buf, sizeof(buf), hr->disk_free),
-                               permille / 10, permille % 10);
+                               permille / 10, permille % 10,
+                               color_off);
                 } else
                         printf("   Disk Free: %s\n", format_bytes(buf, sizeof(buf), hr->disk_free));
         }
