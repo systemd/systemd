@@ -818,10 +818,7 @@ ssize_t send_one_fd_iov_sa(
                 const struct sockaddr *sa, socklen_t len,
                 int flags) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct msghdr mh = {
                 .msg_name = (struct sockaddr*) sa,
                 .msg_namelen = len,
@@ -850,8 +847,6 @@ ssize_t send_one_fd_iov_sa(
                 cmsg->cmsg_type = SCM_RIGHTS;
                 cmsg->cmsg_len = CMSG_LEN(sizeof(int));
                 memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
-
-                mh.msg_controllen = CMSG_SPACE(sizeof(int));
         }
         k = sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags);
         if (k < 0)
@@ -877,10 +872,7 @@ ssize_t receive_one_fd_iov(
                 int flags,
                 int *ret_fd) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
         struct msghdr mh = {
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),

@@ -166,6 +166,17 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                 (ctype*) (_found ? CMSG_DATA(_found) : NULL);         \
         })
 
+/* Resolves to a type that can carry cmsghdr structures. Make sure things are properly aligned, i.e. the type
+ * itself is placed properly in memory and the size is also aligned to what's appropriate for "cmsghdr"
+ * structures. */
+#define CMSG_BUFFER_TYPE(size)                                          \
+        union {                                                         \
+                struct cmsghdr cmsghdr;                                 \
+                uint8_t buf[size];                                      \
+                uint8_t align_check[(size) >= CMSG_SPACE(0) &&          \
+                                    (size) == CMSG_ALIGN(size) ? 1 : -1]; \
+        }
+
 /*
  * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
  * (8 bytes) and run over the structure. This macro returns the correct size that

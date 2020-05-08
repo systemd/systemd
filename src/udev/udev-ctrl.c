@@ -189,12 +189,12 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) struct udev_ctrl *uctrl = NULL;
         struct udev_ctrl_msg_wire msg_wire;
         struct iovec iov = IOVEC_MAKE(&msg_wire, sizeof(struct udev_ctrl_msg_wire));
-        char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         struct msghdr smsg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = cred_msg,
-                .msg_controllen = sizeof(cred_msg),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         struct ucred *cred;

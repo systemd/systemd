@@ -518,10 +518,7 @@ static int bus_socket_read_auth(sd_bus *b) {
         ssize_t k;
         int r;
         void *p;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
         bool handle_cmsg = false;
 
         assert(b);
@@ -1037,8 +1034,10 @@ int bus_socket_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
                 if (m->n_fds > 0 && *idx == 0) {
                         struct cmsghdr *control;
 
-                        mh.msg_control = control = alloca(CMSG_SPACE(sizeof(int) * m->n_fds));
-                        mh.msg_controllen = control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
+                        mh.msg_controllen = CMSG_SPACE(sizeof(int) * m->n_fds);
+                        mh.msg_control = alloca0(mh.msg_controllen);
+                        control = CMSG_FIRSTHDR(&mh);
+                        control->cmsg_len = CMSG_LEN(sizeof(int) * m->n_fds);
                         control->cmsg_level = SOL_SOCKET;
                         control->cmsg_type = SCM_RIGHTS;
                         memcpy(CMSG_DATA(control), m->fds, sizeof(int) * m->n_fds);
@@ -1167,10 +1166,7 @@ int bus_socket_read_message(sd_bus *bus) {
         size_t need;
         int r;
         void *b;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
         bool handle_cmsg = false;
 
         assert(bus);

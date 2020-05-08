@@ -407,10 +407,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .iov_base = &ntpmsg,
                 .iov_len = sizeof(ntpmsg),
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct timeval))];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct timeval))) control;
         union sockaddr_union server_addr;
         struct msghdr msghdr = {
                 .msg_iov = &iov,

@@ -859,13 +859,10 @@ int ask_password_agent(
         pollfd[FD_INOTIFY].events = POLLIN;
 
         for (;;) {
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 char passphrase[LINE_MAX+1];
                 struct iovec iovec;
                 struct ucred *ucred;
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
                 ssize_t n;
                 int k;
                 usec_t t;
@@ -917,7 +914,6 @@ int ask_password_agent(
 
                 iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
 
-                zero(control);
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,

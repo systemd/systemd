@@ -267,14 +267,14 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                 .iov_base = message,
                 .iov_len = len,
         };
-        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))] = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         struct msghdr msg = {
                 .msg_name = &dest,
                 .msg_namelen = sizeof(dest.in),
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = cmsgbuf,
-                .msg_controllen = sizeof(cmsgbuf),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
@@ -970,14 +970,14 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 static int server_receive_message(sd_event_source *s, int fd,
                                   uint32_t revents, void *userdata) {
         _cleanup_free_ DHCPMessage *message = NULL;
-        uint8_t cmsgbuf[CMSG_LEN(sizeof(struct in_pktinfo))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control;
         sd_dhcp_server *server = userdata;
         struct iovec iov = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = cmsgbuf,
-                .msg_controllen = sizeof(cmsgbuf),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         ssize_t buflen, len;

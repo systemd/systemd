@@ -946,10 +946,7 @@ static ssize_t read_datagram(int fd, struct ucred *ret_sender, void **ret) {
                 return -ENOMEM;
 
         if (ret_sender) {
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 bool found_ucred = false;
                 struct cmsghdr *cmsg;
                 struct msghdr mh;

@@ -39,10 +39,7 @@ static void forward_syslog_iovec(
                 .msg_iovlen = n_iovec,
         };
         struct cmsghdr *cmsg;
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         const char *j;
         int r;
 
