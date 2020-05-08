@@ -39,6 +39,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
+#include "offline-passwd.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -2488,7 +2489,63 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         return 0;
 }
 
-static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
+static int find_uid(const char *user, uid_t *ret_uid, Hashmap **cache) {
+        int r;
+
+        assert(user);
+        assert(ret_uid);
+
+        /* First: parse as numeric UID string */
+        r = parse_uid(user, ret_uid);
+        if (r >= 0)
+                return r;
+
+        /* Second: pass to NSS if we are running "online" */
+        if (!arg_root)
+                return get_user_creds(&user, ret_uid, NULL, NULL, NULL, 0);
+
+        /* Third, synthesize "root" unconditionally */
+        if (streq(user, "root")) {
+                *ret_uid = 0;
+                return 0;
+        }
+
+        /* Fourth: use fgetpwent() to read /etc/passwd directly, if we are "offline" */
+        return name_to_uid_offline(arg_root, user, ret_uid, cache);
+}
+
+static int find_gid(const char *group, gid_t *ret_gid, Hashmap **cache) {
+        int r;
+
+        assert(group);
+        assert(ret_gid);
+
+        /* First: parse as numeric GID string */
+        r = parse_gid(group, ret_gid);
+        if (r >= 0)
+                return r;
+
+        /* Second: pass to NSS if we are running "online" */
+        if (!arg_root)
+                return get_group_creds(&group, ret_gid, 0);
+
+        /* Third, synthesize "root" unconditionally */
+        if (streq(group, "root")) {
+                *ret_gid = 0;
+                return 0;
+        }
+
+        /* Fourth: use fgetgrent() to read /etc/group directly, if we are "offline" */
+        return name_to_gid_offline(arg_root, group, ret_gid, cache);
+}
+
+static int parse_line(
+                const char *fname,
+                unsigned line,
+                const char *buffer,
+                bool *invalid_config,
+                Hashmap **uid_cache,
+                Hashmap **gid_cache) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {};
@@ -2610,7 +2667,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
         case COPY_FILES:
                 if (!i.argument) {
-                        i.argument = path_join(arg_root, "/usr/share/factory", i.path);
+                        i.argument = path_join("/usr/share/factory", i.path);
                         if (!i.argument)
                                 return log_oom();
 
@@ -2618,7 +2675,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
 
-                } else if (arg_root) {
+                }
+
+                if (!empty_or_root(arg_root)) {
                         char *p;
 
                         p = path_join(arg_root, i.argument);
@@ -2709,7 +2768,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
         }
 
-        if (arg_root) {
+        if (!empty_or_root(arg_root)) {
                 char *p;
 
                 p = path_join(arg_root, i.path);
@@ -2719,9 +2778,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         }
 
         if (!empty_or_dash(user)) {
-                const char *u = user;
-
-                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+                r = find_uid(user, &i.uid, uid_cache);
                 if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", user);
@@ -2731,9 +2788,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         }
 
         if (!empty_or_dash(group)) {
-                const char *g = group;
-
-                r = get_group_creds(&g, &i.gid, USER_CREDS_ALLOW_MISSING);
+                r = find_gid(group, &i.gid, gid_cache);
                 if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", group);
@@ -2941,7 +2996,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -2982,6 +3037,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
+        _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
         Iterator iterator;
         unsigned v = 0;
@@ -3027,7 +3083,7 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
                 if (IN_SET(*l, 0, '#'))
                         continue;
 
-                k = parse_line(fn, v, l, &invalid_line);
+                k = parse_line(fn, v, l, &invalid_line, &uid_cache, &gid_cache);
                 if (k < 0) {
                         if (invalid_line)
                                 /* Allow reporting with a special code if the caller requested this */
