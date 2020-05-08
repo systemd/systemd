@@ -12,6 +12,9 @@ on:
       - 'src/**'
       - 'test/fuzz/**'
       - 'tools/oss-fuzz.sh'
+  push:
+    branches:
+      - master
 jobs:
  Fuzzing:
    runs-on: ubuntu-latest
