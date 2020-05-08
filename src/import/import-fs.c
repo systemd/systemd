@@ -220,8 +220,8 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
 finish:
         /* Put old signal handlers into place */
-        assert(sigaction(SIGINT, &old_sigint_sa, NULL) >= 0);
-        assert(sigaction(SIGTERM, &old_sigterm_sa, NULL) >= 0);
+        assert_se(sigaction(SIGINT, &old_sigint_sa, NULL) >= 0);
+        assert_se(sigaction(SIGTERM, &old_sigterm_sa, NULL) >= 0);
 
         return 0;
 }
