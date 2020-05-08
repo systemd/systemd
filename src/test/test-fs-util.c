@@ -846,6 +846,28 @@ static void test_chmod_and_chown_unsafe(void) {
         assert_se(S_ISLNK(st.st_mode));
 }
 
+static void test_path_is_encrypted_one(const char *p, int expect) {
+        int r;
+
+        r = path_is_encrypted(p);
+        assert_se(r >= 0);
+
+        printf("%s encrypted: %s\n", p, yes_no(r));
+
+        assert_se(expect < 0 || ((r > 0) == (expect > 0)));
+}
+
+static void test_path_is_encrypted(void) {
+        log_info("/* %s */", __func__);
+
+        test_path_is_encrypted_one("/home", -1);
+        test_path_is_encrypted_one("/var", -1);
+        test_path_is_encrypted_one("/", -1);
+        test_path_is_encrypted_one("/proc", false);
+        test_path_is_encrypted_one("/sys", false);
+        test_path_is_encrypted_one("/dev", false);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -864,6 +886,7 @@ int main(int argc, char *argv[]) {
         test_rename_noreplace();
         test_chmod_and_chown();
         test_chmod_and_chown_unsafe();
+        test_path_is_encrypted();
 
         return 0;
 }

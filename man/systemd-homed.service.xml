@@ -100,6 +100,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>pam_systemd_home</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>

@@ -1011,6 +1011,18 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                         _exit(EXIT_FAILURE);
                 }
 
+                if (h->manager->default_storage >= 0)
+                        if (setenv("SYSTEMD_HOME_DEFAULT_STORAGE", user_storage_to_string(h->manager->default_storage), 1) < 0) {
+                                log_error_errno(errno, "Failed to set $SYSTEMD_HOME_DEFAULT_STORAGE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                if (h->manager->default_file_system_type)
+                        if (setenv("SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE", h->manager->default_file_system_type, 1) < 0) {
+                                log_error_errno(errno, "Failed to set $SYSTEMD_HOME_DEFAULT_FILE_SYSTEM_TYPE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
                 r = rearrange_stdio(stdin_fd, stdout_fd, STDERR_FILENO);
                 if (r < 0) {
                         log_error_errno(r, "Failed to rearrange stdin/stdout/stderr: %m");

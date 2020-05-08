@@ -8,8 +8,10 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "locale-util.h"
 #include "log.h"
@@ -1487,4 +1489,27 @@ int open_parent(const char *path, int flags, mode_t mode) {
                 return -errno;
 
         return fd;
+}
+
+int path_is_encrypted(const char *path) {
+        _cleanup_free_ char *uuids = NULL;
+        char p[SYS_BLOCK_PATH_MAX("/dm/uuid")];
+        dev_t devt;
+        int r;
+
+        r = get_block_device(path, &devt);
+        if (r < 0)
+                return r;
+        if (r == 0) /* doesn't have a block device */
+                return false;
+
+        xsprintf_sys_block_path(p, "/dm/uuid", devt);
+        r = read_one_line_file(p, &uuids);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        /* The DM device's uuid attribute is prefixed with "CRYPT-" if this is a dm-crypt device. */
+        return !!startswith(uuids, "CRYPT-");
 }

@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "fsck-util.h"
+#include "home-util.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "id128-util.h"
@@ -38,12 +39,6 @@
  * but actually doesn't accept uneven numbers in many cases. To avoid any confusion around this we'll
  * strictly round disk sizes down to the next 1K boundary.*/
 #define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(1023))
-
-static bool supported_fstype(const char *fstype) {
-        /* Limit the set of supported file systems a bit, as protection against little tested kernel file
-         * systems. Also, we only support the resize ioctls for these file systems. */
-        return STR_IN_SET(fstype, "ext4", "btrfs", "xfs");
-}
 
 static int probe_file_system_by_fd(
                 int fd,

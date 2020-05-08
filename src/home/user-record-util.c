@@ -276,7 +276,7 @@ int user_record_add_binding(
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
         char smid[SD_ID128_STRING_MAX], partition_uuids[37], luks_uuids[37], fs_uuids[37];
-        _cleanup_free_ char *ip = NULL, *hd = NULL;
+        _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
 
@@ -294,11 +294,33 @@ int user_record_add_binding(
                 ip = strdup(image_path);
                 if (!ip)
                         return -ENOMEM;
+        } else if (!h->image_path && storage >= 0) {
+                r = user_record_build_image_path(storage, user_record_user_name_and_realm(h), &ip_auto);
+                if (r < 0)
+                        return r;
         }
 
         if (home_directory) {
                 hd = strdup(home_directory);
                 if (!hd)
+                        return -ENOMEM;
+        }
+
+        if (file_system_type) {
+                fst = strdup(file_system_type);
+                if (!fst)
+                        return -ENOMEM;
+        }
+
+        if (luks_cipher) {
+                lc = strdup(luks_cipher);
+                if (!lc)
+                        return -ENOMEM;
+        }
+
+        if (luks_cipher_mode) {
+                lcm = strdup(luks_cipher_mode);
+                if (!lcm)
                         return -ENOMEM;
         }
 
@@ -348,6 +370,8 @@ int user_record_add_binding(
 
         if (ip)
                 free_and_replace(h->image_path, ip);
+        if (ip_auto)
+                free_and_replace(h->image_path_auto, ip_auto);
 
         if (!sd_id128_is_null(partition_uuid))
                 h->partition_uuid = partition_uuid;
@@ -358,11 +382,22 @@ int user_record_add_binding(
         if (!sd_id128_is_null(fs_uuid))
                 h->file_system_uuid = fs_uuid;
 
+        if (lc)
+                free_and_replace(h->luks_cipher, lc);
+        if (lcm)
+                free_and_replace(h->luks_cipher_mode, lcm);
+        if (luks_volume_key_size != UINT64_MAX)
+                h->luks_volume_key_size = luks_volume_key_size;
+
+        if (fst)
+                free_and_replace(h->file_system_type, fst);
         if (hd)
                 free_and_replace(h->home_directory, hd);
 
         if (uid_is_valid(uid))
                 h->uid = uid;
+        if (gid_is_valid(gid))
+                h->gid = gid;
 
         h->mask |= USER_RECORD_BINDING;
         return 1;

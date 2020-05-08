@@ -24,6 +24,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "home-util.h"
+#include "homed-conf.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
 #include "homed-manager-bus.h"
@@ -184,9 +185,17 @@ int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (Manager) {
+                .default_storage = _USER_STORAGE_INVALID,
+        };
+
+        r = manager_parse_config_file(m);
+        if (r < 0)
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -250,6 +259,8 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->public_keys);
 
         varlink_server_unref(m->varlink_server);
+
+        free(m->default_file_system_type);
 
         return mfree(m);
 }

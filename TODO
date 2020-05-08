@@ -51,10 +51,10 @@ Features:
 * homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
   and insert a local signature instead.
 
+* Maybe expose path_is_encrypted() as a new ConditionPathIsEncrypted=?
+
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
-
-* homed: add homed.conf setting DefaultStorage= or so
 
 * homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
   easily?

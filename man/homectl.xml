@@ -504,9 +504,9 @@
         <listitem><para>Selects the storage mechanism to use for this home directory. Takes one of
         <literal>luks</literal>, <literal>fscrypt</literal>, <literal>directory</literal>,
         <literal>subvolume</literal>, <literal>cifs</literal>. For details about these mechanisms, see
-        above. If a new home directory is created and the storage type is not specifically specified defaults
-        to <literal>luks</literal> if supported, <literal>subvolume</literal> as first fallback if supported,
-        and <literal>directory</literal> if not.</para></listitem>
+        above. If a new home directory is created and the storage type is not specifically specified,
+        <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        defines which default storage to use.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -525,9 +525,10 @@
 
         <listitem><para>When LUKS2 storage is used configures the file system type to use inside the home
         directory LUKS2 container. One of <literal>ext4</literal>, <literal>xfs</literal>,
-        <literal>btrfs</literal>. If not specified defaults to <literal>ext4</literal>. Note that
-        <literal>xfs</literal> is not recommended as its support for file system resizing is too
-        limited.</para></listitem>
+        <literal>btrfs</literal>. If not specified
+        <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        defines which default file system type to use. Note that <literal>xfs</literal> is not recommended as
+        its support for file system resizing is too limited.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -837,6 +838,7 @@ homectl update lafcadio --pkcs11-token-uri=…</programlisting>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>useradd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
