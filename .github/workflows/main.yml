@@ -3,7 +3,15 @@
 # See: https://google.github.io/oss-fuzz/getting-started/continuous-integration/
 
 name: CIFuzz
-on: [pull_request]
+on:
+  pull_request:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/**'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+      - 'tools/oss-fuzz.sh'
 jobs:
  Fuzzing:
    runs-on: ubuntu-latest
