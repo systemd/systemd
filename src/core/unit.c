@@ -2777,7 +2777,7 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
 
                 if (m == 0) {
                         /* The array is now empty, remove the entire entry */
-                        assert(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        assert_se(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
                         free(array);
                 }
         }
