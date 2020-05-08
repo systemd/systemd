@@ -580,9 +580,9 @@ static int apply_user_record_settings(pam_handle_t *handle, UserRecord *ur, bool
                 if (pam_getenv(handle, "LANG")) {
                         if (debug)
                                 pam_syslog(handle, LOG_DEBUG, "PAM environment variable $LANG already set, not changing based on user record.");
-                } else if (!locale_is_valid(ur->preferred_language)) {
+                } else if (locale_is_installed(ur->preferred_language) <= 0) {
                         if (debug)
-                                pam_syslog(handle, LOG_DEBUG, "Preferred language specified in user record is not valid locally, not setting $LANG.");
+                                pam_syslog(handle, LOG_DEBUG, "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
                 } else {
                         _cleanup_free_ char *joined = NULL;
 
