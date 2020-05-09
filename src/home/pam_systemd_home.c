@@ -250,8 +250,10 @@ static int handle_generic_user_record_error(
 
                 if (strv_isempty(secret->password))
                         r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Password: ");
-                else
-                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Password incorrect or not sufficient for authentication of user %s, please try again: ", user_name);
+                else {
+                        (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password incorrect or not sufficient for authentication of user %s.", user_name);
+                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, try again: ");
+                }
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
@@ -269,10 +271,13 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
-                if (strv_isempty(secret->password))
-                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token of user %s not inserted, please enter password: ", user_name);
-                else
-                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Password incorrect or not sufficient, and configured security token of user %s not inserted, please enter password: ", user_name);
+                if (strv_isempty(secret->password)) {
+                        (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token of user %s not inserted.", user_name);
+                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Try again with password: ");
+                } else {
+                        (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password incorrect or not sufficient, and configured security token of user %s not inserted.", user_name);
+                        r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Try again with password: ");
+                }
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
@@ -290,7 +295,7 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_NEEDED)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
-                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Please enter security token PIN: ");
+                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token PIN: ");
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
@@ -318,7 +323,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
-                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token PIN incorrect, please enter PIN for security token of user %s again: ", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN incorrect for user %s.", user_name);
+                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
@@ -336,7 +342,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_FEW_TRIES_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
-                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token PIN incorrect (only a few tries left!), please enter PIN for security token of user %s again: ", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN of user %s incorrect (only a few tries left!)", user_name);
+                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
@@ -354,7 +361,8 @@ static int handle_generic_user_record_error(
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN_ONE_TRY_LEFT)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
-                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Security token PIN incorrect (only one try left!), please enter PIN for security token of user %s again: ", user_name);
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN of user %s incorrect (only one try left!)", user_name);
+                r = pam_prompt(handle, PAM_PROMPT_ECHO_OFF, &newp, "Sorry, retry security token PIN: ");
                 if (r != PAM_SUCCESS)
                         return PAM_CONV_ERR; /* no logging here */
 
