@@ -317,7 +317,7 @@ static void* client1(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -485,7 +485,7 @@ static void* client2(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,

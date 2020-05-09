@@ -1743,7 +1743,7 @@ int seccomp_restrict_archs(Set *archs) {
 }
 
 int parse_syscall_archs(char **l, Set **archs) {
-        _cleanup_set_free_ Set *_archs;
+        _cleanup_set_free_ Set *_archs = NULL;
         char **s;
         int r;
 

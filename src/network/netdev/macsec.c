@@ -828,7 +828,7 @@ int config_parse_macsec_key_id(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_free_ void *p;
+        _cleanup_free_ void *p = NULL;
         MACsec *s = userdata;
         uint8_t *dest;
         size_t l;
