@@ -256,8 +256,13 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
         if (epaddr.addr.size != 6)
                 return -EOPNOTSUPP;
 
+#pragma GCC diagnostic push
+#if HAVE_ZERO_LENGTH_BOUNDS
+#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#endif
         for (size_t i = 0; i < epaddr.addr.size; i++)
                 ret->ether_addr_octet[i] = epaddr.addr.data[i];
+#pragma GCC diagnostic pop
 
         return 0;
 }
@@ -475,7 +480,12 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         if (!buffer.info.sset_mask)
                 return -EINVAL;
 
+#pragma GCC diagnostic push
+#if HAVE_ZERO_LENGTH_BOUNDS
+#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#endif
         len = buffer.info.data[0];
+#pragma GCC diagnostic pop
 
         strings = malloc0(sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
         if (!strings)
