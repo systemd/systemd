@@ -157,9 +157,6 @@ Features:
 * systemd-repart: make it a static checker during early boot for existence and
   absence of other partitions for trusted boot environments
 
-* systemd-repart: when no configuration is found, exit early do not check
-  partition table, so that it is safe to run in the initrd on any system
-
 * systemd-repart: allow config of partition uuid
 
 * systemd-repart: add --make= switch for fallocating a new file of the
