@@ -203,7 +203,7 @@ static int link_unsigned_attribute(sd_device *device, const char *attr, unsigned
 }
 
 int link_config_load(link_config_ctx *ctx) {
-        _cleanup_strv_free_ char **files;
+        _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
 

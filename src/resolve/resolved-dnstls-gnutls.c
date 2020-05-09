@@ -27,7 +27,7 @@ static ssize_t dnstls_stream_writev(gnutls_transport_ptr_t p, const giovec_t *io
 }
 
 int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
-        _cleanup_(gnutls_deinitp) gnutls_session_t gs;
+        _cleanup_(gnutls_deinitp) gnutls_session_t gs = NULL;
         int r;
 
         assert(stream);

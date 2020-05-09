@@ -128,7 +128,7 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 }
 
 static void test_route(sd_netlink *rtnl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
