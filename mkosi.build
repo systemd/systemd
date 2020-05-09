@@ -87,6 +87,15 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
         meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D "rootprefix=$rootprefix" -D default-hierarchy=unified -D man=false -D "nobody-user=$nobody_user" -D "nobody-group=$nobody_group"
 fi
 
+# Some tests start their own manager which creates userdb varlink sockets in /run/systemd/userdb including
+# /run/systemd/userdb/io.systemd.DynamicUser. When using NSS functions from within the tests, the nss-systemd
+# module tries to connect to /run/systemd/userdb/io.systemd.DynamicUser to resolve dynamic users. This
+# creates a deadlock as the test is blocking on a NSS function which prevents it from accepting the
+# socket connection initiated by nss-systemd. This leads to NSS functions such as `getpwnam` blocking until
+# the nss-systemd connection attempt times out. To resolve the deadlock, we tell nss-systemd to skip the
+# /run/systemd/userdb/io.systemd.DynamicUser varlink service.
+export SYSTEMD_BYPASS_USERDB=io.systemd.DynamicUser
+
 ninja -C "$BUILDDIR" all
 if [ "$WITH_TESTS" = 1 ] ; then
         for id in 1 2 3; do
