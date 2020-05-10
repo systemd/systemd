@@ -19,6 +19,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
@@ -237,7 +238,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 have_syscall = true;
                                 return -EIO;
 
-                        } else if (errno == ENOSYS) {
+                        } else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
                                 /* We lack the syscall, continue with reading from /dev/urandom. */
                                 have_syscall = false;
                                 break;
