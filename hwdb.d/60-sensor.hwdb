@@ -193,6 +193,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/07/201
 sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/28/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+ # Chuwi HiBook Pro (CWI526)
+ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnP1D6_C109K:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1 
+
 # Chuwi CoreBook
 # Chuwi CoreBook does not have its product name filled, so we
 # match the entire dmi-alias
