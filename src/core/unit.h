@@ -539,7 +539,7 @@ typedef struct UnitVTable {
         void (*notify_cgroup_oom)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
+        void (*notify_message)(Unit *u, const struct ucred *ucred, char * const *tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *new_owner);

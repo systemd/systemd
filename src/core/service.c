@@ -3847,7 +3847,7 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags, FDSet *fds) {
+static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
         assert(s);
 
         if (s->notify_access == NOTIFY_NONE) {
@@ -3894,19 +3894,19 @@ static void service_force_watchdog(Service *s) {
 static void service_notify_message(
                 Unit *u,
                 const struct ucred *ucred,
-                char **tags,
+                char * const *tags,
                 FDSet *fds) {
 
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
-        char **i;
+        char * const *i;
         int r;
 
         assert(u);
         assert(ucred);
 
-        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, tags, fds))
+        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, fds))
                 return;
 
         if (DEBUG_LOGGING) {
