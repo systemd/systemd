@@ -325,9 +325,11 @@ void initialize_srand(void) {
 
 /* INT_MAX gives us only 31 bits, so use 24 out of that. */
 #if RAND_MAX >= INT_MAX
+assert_cc(RAND_MAX >= 16777215);
 #  define RAND_STEP 3
 #else
-/* SHORT_INT_MAX or lower gives at most 15 bits, we just just 8 out of that. */
+/* SHORT_INT_MAX or lower gives at most 15 bits, we just use 8 out of that. */
+assert_cc(RAND_MAX >= 255);
 #  define RAND_STEP 1
 #endif
 
