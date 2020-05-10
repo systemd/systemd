@@ -14,3 +14,7 @@
 #ifndef GRND_RANDOM
 #define GRND_RANDOM 0x0002
 #endif
+
+#ifndef GRND_INSECURE
+#define GRND_INSECURE 0x0004
+#endif
