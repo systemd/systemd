@@ -22,6 +22,14 @@ Janitorial Clean-ups:
 
 Features:
 
+* random-util: make user of new GRND_INSECURE flag wherever possible
+
+* nspawn: support time namespaces
+
+* pid1: Move to tracking of main pid/control pid of units per pidfd
+
+* pid1: support new clone3() fork-into-cgroup feature
+
 * All tools that support --root= should also learn --image= so that they can
   operate on disk images directly. Specifically: bootctl, firstboot, tmpfiles,
   sysusers, systemctl, repart, journalctl, coredumpctl.
@@ -45,8 +53,9 @@ Features:
   resize to diskSize if possible, but leave a certain amount (configured by a
   new value diskLeaveFreeSize) of space free on the backing fs.
 
-* homed: permit multiple private keys to be used locally, and pick the right
-  one for signing records automatically depending on a pre-existing signature
+* homed: permit multiple user record signing keys to be used locally, and pick
+  the right one for signing records automatically depending on a pre-existing
+  signature
 
 * homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
   and insert a local signature instead.
@@ -58,6 +67,8 @@ Features:
   and always verify passwords against it too. Bootstrapping is a problem
   though: if noone is logged in (or no other user even exists yet), how do you
   unlock the volume in order to create the first user and add the first pw.
+
+* homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
 
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
@@ -169,7 +180,7 @@ Features:
 
 * userdb: allow existence checks
 
-* pid: activation by journal search expression
+* pid1: activation by journal search expression
 
 * when switching root from initrd to host, set the machine_id env var so that
   if the host has no machine ID set yet we continue to use the random one the
