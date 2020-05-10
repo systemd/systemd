@@ -121,16 +121,19 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <filename>/usr/lib/tmpfiles.d</filename> and <filename>/run/tmpfiles.d</filename>. Files in
     <filename>/run/tmpfiles.d</filename> override files with the same name in
     <filename>/usr/lib/tmpfiles.d</filename>. Packages should install their configuration files in
-    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for the local
-    administrator, who may use this logic to override the configuration files installed by vendor packages. All
-    configuration files are sorted by their filename in lexicographic order, regardless of which of the directories
-    they reside in. If multiple files specify the same path, the entry in the file with the lexicographically earliest
-    name will be applied.  All other conflicting entries will be logged as errors. When two lines are prefix path and
-    suffix path of each other, then the prefix line is always created first, the suffix later (and if removal applies
-    to the line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
-    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as ACL,
-    xattr, file attribute adjustments), these are always done in the same fixed order. Except for those cases, the
-    files/directories are processed in the order they are listed.</para>
+    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for
+    the local administrator, who may use this logic to override the configuration files installed by vendor
+    packages. All configuration files are sorted by their filename in lexicographic order, regardless of
+    which of the directories they reside in. If multiple files specify the same path, the entry in the file
+    with the lexicographically earliest name will be applied (note that lines suppressed due to the
+    <literal>!</literal> are filtered before application, meaning that if an early line carries the
+    exclamation mark and is suppressed because of that, a later line matching in path will be applied).  All
+    other conflicting entries will be logged as errors. When two lines are prefix path and suffix path of
+    each other, then the prefix line is always created first, the suffix later (and if removal applies to the
+    line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
+    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as
+    ACL, xattr, file attribute adjustments), these are always done in the same fixed order. Except for those
+    cases, the files/directories are processed in the order they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
