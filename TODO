@@ -22,8 +22,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* random-util: make user of new GRND_INSECURE flag wherever possible
-
 * nspawn: support time namespaces
 
 * pid1: Move to tracking of main pid/control pid of units per pidfd

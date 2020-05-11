@@ -58,6 +58,7 @@ int main(int argc, char **argv) {
         test_genuine_random_bytes(0);
         test_genuine_random_bytes(RANDOM_BLOCK);
         test_genuine_random_bytes(RANDOM_ALLOW_RDRAND);
+        test_genuine_random_bytes(RANDOM_ALLOW_INSECURE);
 
         test_pseudo_random_bytes();
 

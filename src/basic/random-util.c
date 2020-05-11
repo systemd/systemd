@@ -19,6 +19,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
@@ -207,7 +208,9 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
         if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
 
                 for (;;) {
-                        r = getrandom(p, n, FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_NONBLOCK);
+                        r = getrandom(p, n,
+                                      (FLAGS_SET(flags, RANDOM_BLOCK) ? 0 : GRND_NONBLOCK) |
+                                      (FLAGS_SET(flags, RANDOM_ALLOW_INSECURE) ? GRND_INSECURE : 0));
                         if (r > 0) {
                                 have_syscall = true;
 
@@ -237,7 +240,7 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
                                 have_syscall = true;
                                 return -EIO;
 
-                        } else if (errno == ENOSYS) {
+                        } else if (ERRNO_IS_NOT_SUPPORTED(errno)) {
                                 /* We lack the syscall, continue with reading from /dev/urandom. */
                                 have_syscall = false;
                                 break;
@@ -263,6 +266,18 @@ int genuine_random_bytes(void *p, size_t n, RandomFlags flags) {
 
                                 /* Use /dev/urandom instead */
                                 break;
+
+                        } else if (errno == EINVAL) {
+
+                                /* Most likely: unknown flag. We know that GRND_INSECURE might cause this,
+                                 * hence try without. */
+
+                                if (FLAGS_SET(flags, RANDOM_ALLOW_INSECURE)) {
+                                        flags = flags &~ RANDOM_ALLOW_INSECURE;
+                                        continue;
+                                }
+
+                                return -errno;
                         } else
                                 return -errno;
                 }
@@ -325,9 +340,11 @@ void initialize_srand(void) {
 
 /* INT_MAX gives us only 31 bits, so use 24 out of that. */
 #if RAND_MAX >= INT_MAX
+assert_cc(RAND_MAX >= 16777215);
 #  define RAND_STEP 3
 #else
-/* SHORT_INT_MAX or lower gives at most 15 bits, we just just 8 out of that. */
+/* SHORT_INT_MAX or lower gives at most 15 bits, we just use 8 out of that. */
+assert_cc(RAND_MAX >= 255);
 #  define RAND_STEP 1
 #endif
 
@@ -392,7 +409,7 @@ void random_bytes(void *p, size_t n) {
          * This function is hence not useful for generating UUIDs or cryptographic key material.
          */
 
-        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_MAY_FAIL|RANDOM_ALLOW_RDRAND) >= 0)
+        if (genuine_random_bytes(p, n, RANDOM_EXTEND_WITH_PSEUDO|RANDOM_MAY_FAIL|RANDOM_ALLOW_RDRAND|RANDOM_ALLOW_INSECURE) >= 0)
                 return;
 
         /* If for some reason some user made /dev/urandom unavailable to us, or the kernel has no entropy, use a PRNG instead. */
