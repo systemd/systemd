@@ -772,8 +772,13 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
 
 #ifdef SELF_TEST
 
+#define hashlittle jenkins_hashlittle
+#define hashlittle2 jenkins_hashlittle2
+#define hashword jenkins_hashword
+#define hashword2 jenkins_hashword2
+
 /* used for timings */
-void driver1()
+static void driver1(void)
 {
   uint8_t buf[256];
   uint32_t i;
@@ -795,7 +800,7 @@ void driver1()
 #define HASHLEN   1
 #define MAXPAIR 60
 #define MAXLEN  70
-void driver2()
+static void driver2(void)
 {
   uint8_t qa[MAXLEN+1], qb[MAXLEN+2], *a = &qa[0], *b = &qb[1];
   uint32_t c[HASHSTATE], d[HASHSTATE], i=0, j=0, k, l, m=0, z;
@@ -865,7 +870,7 @@ void driver2()
 }
 
 /* Check for reading beyond the end of the buffer and alignment problems */
-void driver3()
+static void driver3(void)
 {
   uint8_t buf[MAXLEN+20], *b;
   uint32_t len;
@@ -956,13 +961,12 @@ void driver3()
 }
 
 /* check for problems with nulls */
- void driver4()
+static void driver4(void)
 {
   uint8_t buf[1];
-  uint32_t h,i,state[HASHSTATE];
+  uint32_t h, i;
 
   buf[0] = ~0;
-  for (i=0; i<HASHSTATE; ++i) state[i] = 1;
   printf("These should all be different\n");
   for (i=0, h=0; i<8; ++i)
   {
@@ -971,7 +975,7 @@ void driver3()
   }
 }
 
-void driver5()
+static void driver5(void)
 {
   uint32_t b,c;
   b=0, c=0, hashlittle2("", 0, &c, &b);
@@ -992,14 +996,14 @@ void driver5()
   printf("hash is %.8" PRIx32 "\n", c);   /* cd628161 */
 }
 
-int main()
+int main(int argc, char **argv)
 {
   driver1();   /* test that the key is hashed: used for timings */
   driver2();   /* test that whole key is hashed thoroughly */
   driver3();   /* test that nothing but the key is hashed */
   driver4();   /* test hashing multiple buffers (all buffers are null) */
   driver5();   /* test the hash against known vectors */
-  return 1;
+  return 0;
 }
 
 #endif  /* SELF_TEST */
