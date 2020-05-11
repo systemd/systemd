@@ -64,8 +64,6 @@ systemd_resolved_sources = files('''
         resolved-etc-hosts.h
         resolved-etc-hosts.c
         resolved-dnstls.h
-        resolved-util.c
-        resolved-util.h
 '''.split())
 
 resolvectl_sources = files('''
@@ -230,10 +228,4 @@ tests += [
          [],
          [],
          'ENABLE_RESOLVE', 'manual'],
-
-        [['src/resolve/test-resolved-util.c',
-          'src/resolve/resolved-util.c',
-          'src/resolve/resolved-util.h'],
-         [],
-         []],
 ]
