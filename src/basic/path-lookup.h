@@ -52,6 +52,9 @@ struct LookupPaths {
 
         /* A temporary directory when running in test mode, to be nuked */
         char *temporary_dir;
+
+        /* search path -> hashmap of symlinks */
+        Hashmap *search_path_link_cache;
 };
 
 int lookup_paths_init(LookupPaths *p, UnitFileScope scope, LookupPathsFlags flags, const char *root_dir);

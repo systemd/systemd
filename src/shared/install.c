@@ -713,7 +713,8 @@ static int find_symlinks_fd(
                 int fd,
                 const char *path,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *same_name_link,
+                Hashmap *link_cache) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -757,14 +758,15 @@ static int find_symlinks_fd(
 
                         /* This will close nfd, regardless whether it succeeds or not */
                         q = find_symlinks_fd(root_dir, i, match_aliases, ignore_same_name, nfd,
-                                             p, config_path, same_name_link);
+                                             p, config_path, same_name_link, link_cache);
                         if (q > 0)
                                 return 1;
                         if (r == 0)
                                 r = q;
 
                 } else if (de->d_type == DT_LNK) {
-                        _cleanup_free_ char *p = NULL, *dest = NULL;
+                        _cleanup_free_ char *p = NULL;
+                        char *dest = NULL;
                         bool found_path = false, found_dest, b = false;
                         int q;
 
@@ -773,25 +775,41 @@ static int find_symlinks_fd(
                         if (!p)
                                 return -ENOMEM;
 
-                        /* Acquire symlink destination */
-                        q = readlink_malloc(p, &dest);
-                        if (q == -ENOENT)
-                                continue;
-                        if (q < 0) {
-                                if (r == 0)
-                                        r = q;
-                                continue;
-                        }
+                        /* Check if we already have a destination for this symlink */
+                        dest = hashmap_get(link_cache, p);
+                        if (!dest) {
+                                _cleanup_free_ char *ld = NULL, *k = NULL;
 
-                        /* Make absolute */
-                        if (!path_is_absolute(dest)) {
-                                char *x;
+                                /* Acquire symlink destination */
+                                q = readlink_malloc(p, &ld);
+                                if (q == -ENOENT)
+                                        continue;
+                                if (q < 0) {
+                                        if (r == 0)
+                                                r = q;
+                                        continue;
+                                }
 
-                                x = path_join(root_dir, dest);
-                                if (!x)
+                                /* Make absolute */
+                                if (!path_is_absolute(ld)) {
+                                        char *x;
+
+                                        x = path_join(root_dir, ld);
+                                        if (!x)
+                                                return -ENOMEM;
+
+                                        free_and_replace(ld, x);
+                                }
+
+                                k = strdup(p);
+                                if (!k)
                                         return -ENOMEM;
 
-                                free_and_replace(dest, x);
+                                dest = TAKE_PTR(ld);
+
+                                q = hashmap_put(link_cache, TAKE_PTR(k), dest);
+                                if (q < 0)
+                                        return -ENOMEM;
                         }
 
                         assert(unit_name_is_valid(i->name, UNIT_NAME_ANY));
@@ -843,7 +861,8 @@ static int find_symlinks(
                 bool match_name,
                 bool ignore_same_name,
                 const char *config_path,
-                bool *same_name_link) {
+                bool *same_name_link,
+                Hashmap *link_cache) {
 
         int fd;
 
@@ -860,7 +879,7 @@ static int find_symlinks(
 
         /* This takes possession of fd and closes it */
         return find_symlinks_fd(root_dir, i, match_name, ignore_same_name, fd,
-                                config_path, config_path, same_name_link);
+                                config_path, config_path, same_name_link, link_cache);
 }
 
 static int find_symlinks_in_scope(
@@ -886,7 +905,8 @@ static int find_symlinks_in_scope(
         STRV_FOREACH(p, paths->search_path)  {
                 bool same_name_link = false;
 
-                r = find_symlinks(paths->root_dir, i, match_name, ignore_same_name, *p, &same_name_link);
+
+                r = find_symlinks(paths->root_dir, i, match_name, ignore_same_name, *p, &same_name_link, paths->search_path_link_cache);
                 if (r < 0)
                         return r;
                 if (r > 0) {
