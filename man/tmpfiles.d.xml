@@ -121,16 +121,19 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <filename>/usr/lib/tmpfiles.d</filename> and <filename>/run/tmpfiles.d</filename>. Files in
     <filename>/run/tmpfiles.d</filename> override files with the same name in
     <filename>/usr/lib/tmpfiles.d</filename>. Packages should install their configuration files in
-    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for the local
-    administrator, who may use this logic to override the configuration files installed by vendor packages. All
-    configuration files are sorted by their filename in lexicographic order, regardless of which of the directories
-    they reside in. If multiple files specify the same path, the entry in the file with the lexicographically earliest
-    name will be applied.  All other conflicting entries will be logged as errors. When two lines are prefix path and
-    suffix path of each other, then the prefix line is always created first, the suffix later (and if removal applies
-    to the line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
-    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as ACL,
-    xattr, file attribute adjustments), these are always done in the same fixed order. Except for those cases, the
-    files/directories are processed in the order they are listed.</para>
+    <filename>/usr/lib/tmpfiles.d</filename>. Files in <filename>/etc/tmpfiles.d</filename> are reserved for
+    the local administrator, who may use this logic to override the configuration files installed by vendor
+    packages. All configuration files are sorted by their filename in lexicographic order, regardless of
+    which of the directories they reside in. If multiple files specify the same path, the entry in the file
+    with the lexicographically earliest name will be applied (note that lines suppressed due to the
+    <literal>!</literal> are filtered before application, meaning that if an early line carries the
+    exclamation mark and is suppressed because of that, a later line matching in path will be applied).  All
+    other conflicting entries will be logged as errors. When two lines are prefix path and suffix path of
+    each other, then the prefix line is always created first, the suffix later (and if removal applies to the
+    line, the order is reversed: the suffix is removed first, the prefix later). Lines that take globs are
+    applied after those accepting no globs. If multiple operations shall be applied on the same file (such as
+    ACL, xattr, file attribute adjustments), these are always done in the same fixed order. Except for those
+    cases, the files/directories are processed in the order they are listed.</para>
 
     <para>If the administrator wants to disable a configuration file
     supplied by the vendor, the recommended way is to place a symlink
@@ -154,8 +157,8 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
     <refsect2>
       <title>Type</title>
 
-      <para>The type consists of a single letter and optionally an
-      exclamation mark and/or minus sign.</para>
+      <para>The type consists of a single letter and optionally an exclamation mark (<literal>!</literal>)
+      and/or minus sign (<literal>-</literal>).</para>
 
       <para>The following line types are understood:</para>
 
@@ -453,13 +456,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         </varlistentry>
       </variablelist>
 
-      <para>If the exclamation mark is used, this line is only safe to
-      execute during boot, and can break a running system. Lines
-      without the exclamation mark are presumed to be safe to execute
-      at any time, e.g. on package upgrades.
-      <command>systemd-tmpfiles</command> will execute line with an
-      exclamation mark only if option <option>--boot</option> is
-      given.</para>
+      <para>If the exclamation mark (<literal>!</literal>) is used, this line is only safe to execute during
+      boot, and can break a running system. Lines without the exclamation mark are presumed to be safe to
+      execute at any time, e.g. on package upgrades. <command>systemd-tmpfiles</command> will take lines with
+      an exclamation mark only into consideration, if the <option>--boot</option> option is given.</para>
 
       <para>For example:
       <programlisting># Make sure these are created by default so that nobody else can
@@ -471,9 +471,8 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       running system, and will only be executed with
       <option>--boot</option>.</para>
 
-      <para>If the minus sign is used, this line failing to run
-      successfully during create (and only create) will not cause
-      the execution of <command>systemd-tmpfiles</command> to return
+      <para>If the minus sign (<literal>-</literal>) is used, this line failing to run successfully during
+      create (and only create) will not cause the execution of <command>systemd-tmpfiles</command> to return
       an error.</para>
 
       <para>For example:
