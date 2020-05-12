@@ -679,7 +679,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg);
+                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to add paths: %m");
                         break;

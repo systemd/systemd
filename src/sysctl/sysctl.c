@@ -138,7 +138,7 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                         if (!pattern)
                                 return log_oom();
 
-                        k = glob_extend(&paths, pattern);
+                        k = glob_extend(&paths, pattern, GLOB_NOCHECK);
                         if (k < 0) {
                                 if (option->ignore_failure || ERRNO_IS_PRIVILEGE(r))
                                         log_debug_errno(k, "Failed to resolve glob '%s', ignoring: %m",
