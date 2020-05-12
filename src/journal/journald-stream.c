@@ -322,8 +322,8 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
 }
 
 static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
-        int r;
         char *orig;
+        int r;
 
         assert(s);
         assert(p);
@@ -332,10 +332,9 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
         p = strstrip(p);
 
         /* line breaks by NUL, line max length or EOF are not permissible during the negotiation part of the protocol */
-        if (line_break != LINE_BREAK_NEWLINE && s->state != STDOUT_STREAM_RUNNING) {
-                log_warning("Control protocol line not properly terminated.");
-                return -EINVAL;
-        }
+        if (line_break != LINE_BREAK_NEWLINE && s->state != STDOUT_STREAM_RUNNING)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "Control protocol line not properly terminated.");
 
         switch (s->state) {
 
