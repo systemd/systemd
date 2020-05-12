@@ -110,6 +110,8 @@ node /org/freedesktop/systemd1 {
                in  i signal);
       CleanUnit(in  s name,
                 in  as mask);
+      FreezeUnit(in  s name);
+      ThawUnit(in  s name);
       ResetFailedUnit(in  s name);
       SetUnitProperties(in  s name,
                         in  b runtime,
@@ -485,6 +487,10 @@ node /org/freedesktop/systemd1 {
 
     <!--method CleanUnit is not documented!-->
 
+    <!--method FreezeUnit is not documented!-->
+
+    <!--method ThawUnit is not documented!-->
+
     <!--method RefUnit is not documented!-->
 
     <!--method UnrefUnit is not documented!-->
@@ -742,6 +748,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="KillUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CleanUnit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="FreezeUnit()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ThawUnit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailedUnit()"/>
 
@@ -1514,6 +1524,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       Ref();
       Unref();
       Clean(in  as mask);
+      Freeze();
+      Thaw();
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Id = '...';
@@ -1570,6 +1582,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s LoadState = '...';
       readonly s ActiveState = '...';
+      readonly s FreezerState = '...';
       readonly s SubState = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FragmentPath = '...';
@@ -1601,6 +1614,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b CanIsolate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as CanClean = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b CanFreeze = ...;
       readonly (uo) Job = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b StopWhenUnneeded = ...;
@@ -1678,6 +1693,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--method Clean is not documented!-->
 
+    <!--method Freeze is not documented!-->
+
+    <!--method Thaw is not documented!-->
+
     <!--property PartOf is not documented!-->
 
     <!--property RequisiteOf is not documented!-->
@@ -1688,6 +1707,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property JoinsNamespaceOf is not documented!-->
 
+    <!--property FreezerState is not documented!-->
+
     <!--property DropInPaths is not documented!-->
 
     <!--property UnitFilePreset is not documented!-->
@@ -1697,6 +1718,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property StateChangeTimestampMonotonic is not documented!-->
 
     <!--property CanClean is not documented!-->
+
+    <!--property CanFreeze is not documented!-->
 
     <!--property OnFailureJobMode is not documented!-->
 
@@ -1770,6 +1793,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Clean()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="Freeze()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Thaw()"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Id"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Names"/>
@@ -1826,6 +1853,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ActiveState"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="FreezerState"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="SubState"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FragmentPath"/>
@@ -1867,6 +1896,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="CanIsolate"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CanClean"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CanFreeze"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Job"/>
 
