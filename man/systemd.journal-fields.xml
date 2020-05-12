@@ -347,15 +347,16 @@
       <varlistentry>
         <term><varname>_LINE_BREAK=</varname></term>
         <listitem>
-          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message in the
-          standard output/error stream was not terminated with a normal newline character (<literal>\n</literal>,
-          i.e. ASCII 10). Specifically, when set this field is one of <option>nul</option> (in case the line was
-          terminated by a NUL byte), <option>line-max</option> (in case the maximum log line length was reached, as
-          configured with <varname>LineMax=</varname> in
-          <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or
-          <option>eof</option> (if this was the last log record of a stream and the stream ended without a final
-          newline character). Note that this record is not generated when a normal newline character was used for
-          marking the log line end.</para>
+          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message
+          in the standard output/error stream was not terminated with a normal newline character
+          (<literal>\n</literal>, i.e. ASCII 10). Specifically, when set this field is one of
+          <option>nul</option> (in case the line was terminated by a NUL byte), <option>line-max</option> (in
+          case the maximum log line length was reached, as configured with <varname>LineMax=</varname> in
+          <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+          <option>eof</option> (if this was the last log record of a stream and the stream ended without a
+          final newline character), or <option>pid-change</option> (if the process which generated the log
+          output changed in the middle of a line). Note that this record is not generated when a normal
+          newline character was used for marking the log line end.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
