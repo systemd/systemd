@@ -289,11 +289,13 @@ int manager_varlink_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
-        (void) mkdir_p("/run/systemd/userdb", 0755);
+        if (!MANAGER_IS_TEST_RUN(m)) {
+                (void) mkdir_p("/run/systemd/userdb", 0755);
 
-        r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+        }
 
         r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
