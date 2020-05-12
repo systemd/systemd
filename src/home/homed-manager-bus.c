@@ -661,7 +661,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("ActivateHome",
                                  "ss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_activate_home,
                                  SD_BUS_VTABLE_SENSITIVE),
@@ -675,7 +675,7 @@ static const sd_bus_vtable manager_vtable[] = {
         /* Add the JSON record to homed, but don't create actual $HOME */
         SD_BUS_METHOD_WITH_NAMES("RegisterHome",
                                  "s",
-                                 SD_BUS_PARAM(home_record),
+                                 SD_BUS_PARAM(user_record),
                                  NULL,,
                                  method_register_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
@@ -691,7 +691,7 @@ static const sd_bus_vtable manager_vtable[] = {
         /* Add JSON record, and create $HOME for it */
         SD_BUS_METHOD_WITH_NAMES("CreateHome",
                                  "s",
-                                 SD_BUS_PARAM(home_record),
+                                 SD_BUS_PARAM(user_record),
                                  NULL,,
                                  method_create_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -700,7 +700,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("RealizeHome",
                                  "ss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_realize_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -717,7 +717,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("FixateHome",
                                  "ss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_fixate_home,
                                  SD_BUS_VTABLE_SENSITIVE),
@@ -726,7 +726,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("AuthenticateHome",
                                  "ss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_authenticate_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -743,7 +743,7 @@ static const sd_bus_vtable manager_vtable[] = {
                                  "sts",
                                  SD_BUS_PARAM(user_name)
                                  SD_BUS_PARAM(size)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_resize_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -751,8 +751,8 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("ChangePasswordHome",
                                  "sss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(new_user_record)
-                                 SD_BUS_PARAM(old_user_record),
+                                 SD_BUS_PARAM(new_secret)
+                                 SD_BUS_PARAM(old_secret),
                                  NULL,,
                                  method_change_password_home,
                                  SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
@@ -769,7 +769,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("UnlockHome",
                                  "ss",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record),
+                                 SD_BUS_PARAM(secret),
                                  NULL,,
                                  method_unlock_home,
                                  SD_BUS_VTABLE_SENSITIVE),
@@ -784,7 +784,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD_WITH_NAMES("AcquireHome",
                                  "ssb",
                                  SD_BUS_PARAM(user_name)
-                                 SD_BUS_PARAM(user_record)
+                                 SD_BUS_PARAM(secret)
                                  SD_BUS_PARAM(please_suspend),
                                  "h",
                                  SD_BUS_PARAM(send_fd),
