@@ -563,8 +563,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
                         goto terminate;
 
                 s->ucred = *ucred;
-                client_context_release(s->server, s->context);
-                s->context = NULL;
+                s->context = client_context_release(s->server, s->context);
         }
 
         s->length += l;
