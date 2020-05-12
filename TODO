@@ -22,6 +22,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* move our systemd-user PAM snippet to /usr/, which PAM appears to support
+  these days
+
 * nspawn: support time namespaces
 
 * pid1: Move to tracking of main pid/control pid of units per pidfd

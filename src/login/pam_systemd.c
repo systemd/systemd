@@ -280,7 +280,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
 
 static int export_legacy_dbus_address(
                 pam_handle_t *handle,
-                uid_t uid,
                 const char *runtime) {
 
         const char *s;
@@ -681,7 +680,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         }
                 }
 
-                r = export_legacy_dbus_address(handle, ur->uid, rt);
+                r = export_legacy_dbus_address(handle, rt);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -885,7 +884,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                 return r;
                 }
 
-                r = export_legacy_dbus_address(handle, ur->uid, runtime_path);
+                r = export_legacy_dbus_address(handle, runtime_path);
                 if (r != PAM_SUCCESS)
                         return r;
         }
@@ -957,10 +956,22 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int argc, const char **argv) {
 
         const void *existing = NULL;
+        bool debug = false;
         const char *id;
         int r;
 
         assert(handle);
+
+        if (parse_argv(handle,
+                       argc, argv,
+                       NULL,
+                       NULL,
+                       NULL,
+                       &debug) < 0)
+                return PAM_SESSION_ERR;
+
+        if (debug)
+                pam_syslog(handle, LOG_DEBUG, "pam-systemd shutting down");
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
