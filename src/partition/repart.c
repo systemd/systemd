@@ -2946,8 +2946,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (context->n_partitions <= 0 && arg_empty != EMPTY_FORCE)
+        if (context->n_partitions <= 0 && arg_empty != EMPTY_FORCE) {
+                log_info("Didn't find any partition definition files, nothing to do.");
                 return 0;
+        }
 
         r = find_root(&node);
         if (r < 0)
