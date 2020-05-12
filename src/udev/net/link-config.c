@@ -413,9 +413,11 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
         }
 
-        r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
-        if (r < 0)
-                log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
+        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
+                r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
+        }
 
         r = sd_device_get_ifindex(device, &ifindex);
         if (r < 0)
