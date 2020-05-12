@@ -66,14 +66,10 @@ BuildPackages=
         zstd
 
 Packages=
-        coreutils
-        cryptsetup-libs
-        kmod-libs
-        e2fsprogs
-        libidn2
-        libseccomp
+        # libzstd can be dropped once the Fedora RPM gets a dependency on it
+        libzstd
+        # procps-ng provides a set of useful utilies (ps, free, etc)
         procps-ng
-        util-linux
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache
