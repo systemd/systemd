@@ -1051,7 +1051,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 if (!path)
                         return -ENOMEM;
 
-                r = glob_extend(&names, path);
+                r = glob_extend(&names, path, 0);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
