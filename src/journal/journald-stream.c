@@ -58,6 +58,8 @@ typedef enum LineBreak {
         LINE_BREAK_NUL,
         LINE_BREAK_LINE_MAX,
         LINE_BREAK_EOF,
+        _LINE_BREAK_MAX,
+        _LINE_BREAK_INVALID = -1,
 } LineBreak;
 
 struct StdoutStream {
@@ -238,7 +240,11 @@ fail:
         return log_error_errno(r, "Failed to save stream data %s: %m", s->state_file);
 }
 
-static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_break) {
+static int stdout_stream_log(
+                StdoutStream *s,
+                const char *p,
+                LineBreak line_break) {
+
         struct iovec *iovec;
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
@@ -249,6 +255,9 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
 
         assert(s);
         assert(p);
+
+        assert(line_break >= 0);
+        assert(line_break < _LINE_BREAK_MAX);
 
         if (s->context)
                 (void) client_context_maybe_refresh(s->server, s->context, NULL, NULL, 0, NULL, USEC_INFINITY);
@@ -301,17 +310,19 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
                         iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
         }
 
-        if (line_break != LINE_BREAK_NEWLINE) {
-                const char *c;
+        static const char * const line_break_field_table[_LINE_BREAK_MAX] = {
+                [LINE_BREAK_NEWLINE]    = NULL, /* Do not add field if traditional newline */
+                [LINE_BREAK_NUL]        = "_LINE_BREAK=nul",
+                [LINE_BREAK_LINE_MAX]   = "_LINE_BREAK=line-max",
+                [LINE_BREAK_EOF]        = "_LINE_BREAK=eof",
+        };
 
-                /* If this log message was generated due to an uncommon line break then mention this in the log
-                 * entry */
+        const char *c = line_break_field_table[line_break];
 
-                c =     line_break == LINE_BREAK_NUL ?      "_LINE_BREAK=nul" :
-                        line_break == LINE_BREAK_LINE_MAX ? "_LINE_BREAK=line-max" :
-                                                            "_LINE_BREAK=eof";
+        /* If this log message was generated due to an uncommon line break then mention this in the log
+         * entry */
+        if (c)
                 iovec[n++] = IOVEC_MAKE_STRING(c);
-        }
 
         message = strjoin("MESSAGE=", p);
         if (message)
