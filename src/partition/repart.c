@@ -2256,7 +2256,7 @@ static int device_kernel_partitions_supported(int fd) {
         if (fstat(fd, &st) < 0)
                 return log_error_errno(fd, "Failed to fstat() image file: %m");
         if (!S_ISBLK(st.st_mode))
-                return false;
+                return -ENOTBLK; /* we do not log in this one special case about errors */
 
         if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
 
@@ -2461,9 +2461,11 @@ static int context_write_partition_table(
                 return log_error_errno(r, "Failed to write partition table: %m");
 
         capable = device_kernel_partitions_supported(fdisk_get_devfd(context->fdisk_context));
-        if (capable < 0)
+        if (capable == -ENOTBLK)
+                log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
+        else if (capable < 0)
                 return capable;
-        if (capable > 0) {
+        else if (capable > 0) {
                 log_info("Telling kernel to reread partition table.");
 
                 if (from_scratch)
