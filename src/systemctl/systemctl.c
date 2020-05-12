@@ -4182,7 +4182,7 @@ static void print_status_info(
 
         ss = streq_ptr(i->active_state, i->sub_state) ? NULL : i->sub_state;
         if (ss)
-                printf("   Active: %s%s (%s)%s",
+                printf("     Active: %s%s (%s)%s",
                        active_on, strna(i->active_state), ss, active_off);
         else
                 printf("     Active: %s%s%s",
