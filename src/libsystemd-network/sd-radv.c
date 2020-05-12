@@ -591,7 +591,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         cur->preferred_until = preferred_until;
 
         log_radv("%s prefix %s/%u preferred %s valid %s",
-                 cur? "Updated": "Added",
+                 "Updated",
                  addr_p, p->opt.prefixlen,
                  format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
                                  preferred, USEC_PER_SEC),
