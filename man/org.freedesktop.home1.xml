@@ -65,30 +65,30 @@ node /org/freedesktop/home1 {
                          out o bus_path);
       ListHomes(out a(susussso) home_areas);
       ActivateHome(in  s user_name,
-                   in  s user_record);
+                   in  s secret);
       DeactivateHome(in  s user_name);
-      RegisterHome(in  s home_record);
+      RegisterHome(in  s user_record);
       UnregisterHome(in  s user_name);
-      CreateHome(in  s home_record);
+      CreateHome(in  s user_record);
       RealizeHome(in  s user_name,
-                  in  s user_record);
+                  in  s secret);
       RemoveHome(in  s user_name);
       FixateHome(in  s user_name,
-                 in  s user_record);
+                 in  s secret);
       AuthenticateHome(in  s user_name,
-                       in  s user_record);
+                       in  s secret);
       UpdateHome(in  s user_record);
       ResizeHome(in  s user_name,
                  in  t size,
-                 in  s user_record);
+                 in  s secret);
       ChangePasswordHome(in  s user_name,
-                         in  s new_user_record,
-                         in  s old_user_record);
+                         in  s new_secret,
+                         in  s old_secret);
       LockHome(in  s user_name);
       UnlockHome(in  s user_name,
-                 in  s user_record);
+                 in  s secret);
       AcquireHome(in  s user_name,
-                  in  s user_record,
+                  in  s secret,
                   in  b please_suspend,
                   out h send_fd);
       RefHome(in  s user_name,
@@ -229,21 +229,21 @@ node /org/freedesktop/home1 {
 node /org/freedesktop/home1/home {
   interface org.freedesktop.home1.Home {
     methods:
-      Activate(in  s user_record);
+      Activate(in  s secret);
       Deactivate();
       Unregister();
-      Realize(in  s user_record);
+      Realize(in  s secret);
       Remove();
-      Fixate(in  s user_record);
-      Authenticate(in  s user_record);
+      Fixate(in  s secret);
+      Authenticate(in  s secret);
       Update(in  s user_record);
       Resize(in  t size,
-             in  s user_record);
-      ChangePassword(in  s new_user_record,
-                     in  s old_user_record);
+             in  s secret);
+      ChangePassword(in  s new_secret,
+                     in  s old_secret);
       Lock();
-      Unlock(in  s user_record);
-      Acquire(in  s user_record,
+      Unlock(in  s secret);
+      Acquire(in  s secret,
               in  b please_suspend,
               out h send_fd);
       Ref(in  b please_suspend,
