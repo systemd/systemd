@@ -58,7 +58,7 @@
 
     <itemizedlist>
       <listitem><para>The root partition may be grown to cover the whole available disk space</para></listitem>
-      <listitem><para>A <filename>/home/</filename>, swap or <filename>/srv</filename> partition can be added in</para></listitem>
+      <listitem><para>A <filename>/home/</filename>, swap or <filename>/srv/</filename> partition can be added in</para></listitem>
       <listitem><para>A second (or third, …) root partition may be added in, to cover A/B style setups
       where a second version of the root file system is alternatingly used for implementing update
       schemes. The deployed image would carry only a single partition ("A") but on first boot a second
@@ -145,6 +145,12 @@
     also be set explicitly, formatted as UUID via the <option>--seed=</option> option. By hashing these UUIDs
     from a common seed images prepared with this tool become reproducible and the result of the algorithm
     above deterministic.</para>
+
+    <para>The positional argument should specify the block device to operate on. Instead of a block device
+    node path a regular file may be specified too, in which case the command operates on it like it would if
+    a loopback block device node was specified with the file attached. If <option>--empty=create</option> is
+    specified the specified path is created as regular file, which is useful for generating disk images from
+    scratch.</para>
   </refsect1>
 
   <refsect1>
@@ -165,9 +171,9 @@
       <varlistentry>
         <term><option>--empty=</option></term>
         <listitem><para>Takes one of <literal>refuse</literal>, <literal>allow</literal>,
-        <literal>require</literal> or <literal>force</literal>. Controls how to operate on block devices that
-        are entirely empty, i.e. carry no partition table/disk label yet. If this switch is not specified the
-        implied default is <literal>refuse</literal>.</para>
+        <literal>require</literal>, <literal>force</literal> or <literal>create</literal>. Controls how to
+        operate on block devices that are entirely empty, i.e. carry no partition table/disk label yet. If
+        this switch is not specified the implied default is <literal>refuse</literal>.</para>
 
         <para>If <literal>refuse</literal> <command>systemd-repart</command> requires that the block device
         it shall operate on already carries a partition table and refuses operation if none is found. If
@@ -176,7 +182,9 @@
         exists so far, and refuse operation if one already exists. If <literal>force</literal> it will create
         a fresh partition table unconditionally, erasing the disk fully in effect. If
         <literal>force</literal> no existing partitions will be taken into account or survive the
-        operation. Hence: use with care, this is a great way to lose all your data.</para></listitem>
+        operation. Hence: use with care, this is a great way to lose all your data. If
+        <literal>create</literal> a new loopback file is create under the path passed via the device node
+        parameter, of the size indicated with <option>--size=</option>, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -186,7 +194,20 @@
         the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
         command on the space taken up by any added partitions or on the space in between them. Usually, it's
         a good idea to issue this request since it tells the underlying hardware that the covered blocks
-        shall be considered empty, improving performance.</para></listitem>
+        shall be considered empty, improving performance. If operating on a regular file instead of a block
+        device node, a sparse file is generated.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--size=</option></term>
+
+        <listitem><para>Takes a size in bytes, using the usual K, M, G, T suffixes. If used the specified
+        device node path must refer to a regular file, which is then grown to the specified size if smaller,
+        before any change is made to the partition table. This is not supported if the specified node is a
+        block device. This switch has no effect if the file is already as large as the specified size or
+        larger. The specified size is implicitly rounded up to multiples of 4096. When used with
+        <option>--empty=create</option> this specifies the initial size of the loopback file to
+        create.</para></listitem>
       </varlistentry>
 
       <varlistentry>
