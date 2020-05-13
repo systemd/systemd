@@ -458,7 +458,7 @@ static int maybe_start_stop(sd_bus *bus, const char *path, bool start, BusWaitFo
                         start ? "StartUnit" : "StopUnit",
                         &error,
                         &reply,
-                        "ss", name, "replace");
+                        "ss", name, !start && !arg_reload ? "replace-unload" : "replace");
         if (r < 0)
                 return log_error_errno(r, "Failed to %s the portable service %s: %s",
                                        start ? "start" : "stop",
