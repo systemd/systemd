@@ -25,6 +25,7 @@ jobs:
      with:
        oss-fuzz-project-name: 'systemd'
        dry-run: false
+       allowed-broken-targets-percentage: 0
    - name: Run Fuzzers
      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
      with:
