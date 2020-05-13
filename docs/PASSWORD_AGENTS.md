@@ -1,6 +1,6 @@
 ---
 title: Password Agents
-category: Concepts
+category: Interfaces
 layout: default
 ---
 
@@ -26,12 +26,12 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
 * You'll find the PID of the client asking the question in the PID= field in the [Ask] section (Before asking your question use kill(PID, 0) and ignore the file if this returns ESRCH; there's no need to show the data of this field but if you want to you may)
 * Echo= specifies whether the input should be obscured. If this field is missing or is Echo=0, the input should not be shown.
 * The socket to send the response to is configured via Socket= in the [Ask] section. It is a AF_UNIX/SOCK_DGRAM socket in the file system.
-* Ignore files where the time specified in the [[NotAfter|NotAfter]]= field in the [Ask] section is in the past. The time is specified in usecs, and refers to the CLOCK_MONOTONIC clock. If [[NotAfter|NotAfter]]= is 0, no such check should take place.
-* Make sure to hide a password query dialog as soon as a) the ask.xxxx file is deleted, watch this with inotify. b) the [[NotAfter|NotAfter]]= time elapses, if it is set != 0.
-* Access to the socket is restricted to privileged users. To acquire the necessary privileges to send the answer back, consider using [[PolicyKit|PolicyKit]]. In fact, the GNOME agent we ship does that, and you may simply piggyback on that, by executing "/usr/bin/pkexec /lib/systemd/systemd-reply-password 1 /path/to/socket" or "/usr/bin/pkexec /lib/systemd/systemd-reply-password 0 /path/to/socket" and writing the password to its standard input. Use '1' as argument if a password was entered by the user, or '0' if the user canceled the request.
+* Ignore files where the time specified in the NotAfter= field in the [Ask] section is in the past. The time is specified in usecs, and refers to the CLOCK_MONOTONIC clock. If NotAfter= is 0, no such check should take place.
+* Make sure to hide a password query dialog as soon as a) the ask.xxxx file is deleted, watch this with inotify. b) the NotAfter= time elapses, if it is set != 0.
+* Access to the socket is restricted to privileged users. To acquire the necessary privileges to send the answer back, consider using PolicyKit. In fact, the GNOME agent we ship does that, and you may simply piggyback on that, by executing "/usr/bin/pkexec /lib/systemd/systemd-reply-password 1 /path/to/socket" or "/usr/bin/pkexec /lib/systemd/systemd-reply-password 0 /path/to/socket" and writing the password to its standard input. Use '1' as argument if a password was entered by the user, or '0' if the user canceled the request.
 * If you do not want to use PK ensure to acquire the necessary privileges in some other way and send a single datagram to the socket consisting of the password string either prefixed with "+" or with "-" depending on whether the password entry was successful or not. You may but don't have to include a final NUL byte in your message.
 
-Again, it is essential that you stop showing the password box/notification/status icon if the ask.xxx file is removed or when [[NotAfter|NotAfter]]= elapses (if it is set != 0)!
+Again, it is essential that you stop showing the password box/notification/status icon if the ask.xxx file is removed or when NotAfter= elapses (if it is set != 0)!
 
 It may happen that multiple password entries are pending at the same time. Your agent needs to be able to deal with that. Depending on your environment you may either choose to show all outstanding passwords at the same time or instead only one and as soon as the user replied to that one go on to the next one.
 
