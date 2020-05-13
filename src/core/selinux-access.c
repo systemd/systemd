@@ -227,7 +227,7 @@ int mac_selinux_generic_access_check(
                 if (getfilecon_raw(path, &fcon) < 0) {
                         r = -errno;
 
-                        log_warning_errno(r, "SELinux getfilecon_raw on '%s' failed%s (perm=%s): %m",
+                        log_warning_errno(r, "SELinux getfilecon_raw() on '%s' failed%s (perm=%s): %m",
                                           path,
                                           enforce ? "" : ", ignoring",
                                           permission);
@@ -243,7 +243,7 @@ int mac_selinux_generic_access_check(
                 if (getcon_raw(&fcon) < 0) {
                         r = -errno;
 
-                        log_warning_errno(r, "SELinux getcon_raw failed%s (perm=%s): %m",
+                        log_warning_errno(r, "SELinux getcon_raw() failed%s (perm=%s): %m",
                                           enforce ? "" : ", ignoring",
                                           permission);
                         if (!enforce)
