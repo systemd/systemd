@@ -179,6 +179,7 @@ NTP=
 DHCP=
 Domains=
 IPv6PrefixDelegation=
+IPv6PDSubnetId=
 VLAN=
 DHCPServer=
 BindCarrier=
