@@ -19,8 +19,8 @@ It is easy to write additional agents. The basic algorithm to follow looks like 
 
 * Create an inotify watch on /run/systemd/ask-password, watch for `IN_CLOSE_WRITE|IN_MOVED_TO`
 * Ignore all events on files in that directory that do not start with "`ask.`"
-* As soon as a file named "ask.xxxx" shows up, read it. It's a simple .ini file that may be parsed with the usual parsers. The xxxx suffix is randomized.
-* Make sure to ignore unknown .ini file keys in those files, so that we can easily extend the format later on.
+* As soon as a file named "`ask.xxxx`" shows up, read it. It's a simple `.ini` file that may be parsed with the usual parsers. The `xxxx` suffix is randomized.
+* Make sure to ignore unknown `.ini` file keys in those files, so that we can easily extend the format later on.
 * You'll find the question to ask the user in the `Message=` field in the `[Ask]` section. It is a single-line string in UTF-8, which might be internationalized (by the party that originally asks the question, not by the agent).
 * You'll find an icon name (following the XDG icon naming spec) to show next to the message in the `Icon=` field in the `[Ask]` section
 * You'll find the PID of the client asking the question in the `PID=` field in the `[Ask]` section (Before asking your question use `kill(PID, 0)` and ignore the file if this returns `ESRCH`; there's no need to show the data of this field but if you want to you may)
