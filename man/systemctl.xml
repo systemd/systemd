@@ -1685,6 +1685,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <para>When queuing a new job, this option controls how to deal with
         already queued jobs. It takes one of <literal>fail</literal>,
         <literal>replace</literal>,
+        <literal>replace-unload</literal>,
         <literal>replace-irreversibly</literal>,
         <literal>isolate</literal>,
         <literal>ignore-dependencies</literal>,
@@ -1703,6 +1704,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <para>If <literal>replace</literal> (the default) is
         specified, any conflicting pending job will be replaced, as
         necessary.</para>
+
+        <para><literal>replace-unload</literal> is only valid when stopping
+        and is similar to <literal>replace</literal>, except the unit will
+        immediately be unloaded.</para>
 
         <para>If <literal>replace-irreversibly</literal> is specified,
         operate like <literal>replace</literal>, but also mark the new

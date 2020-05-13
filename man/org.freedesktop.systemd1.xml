@@ -1130,7 +1130,7 @@ node /org/freedesktop/systemd1 {
 
       <para><function>StopUnit()</function> is similar to <function>StartUnit()</function> but stops the
       specified unit rather than starting it. Note that the <literal>isolate</literal> mode is invalid for this
-      method.</para>
+      method. Mode <literal>replace-unload</literal> will cause the unit to be immediately unloaded after stopping.</para>
 
       <para><function>ReloadUnit()</function>, <function>RestartUnit()</function>,
       <function>TryRestartUnit()</function>, <function>ReloadOrRestartUnit()</function>, or

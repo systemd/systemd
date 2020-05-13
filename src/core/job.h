@@ -76,6 +76,7 @@ enum JobMode {
         JOB_IGNORE_DEPENDENCIES, /* Ignore both requirement and ordering dependencies */
         JOB_IGNORE_REQUIREMENTS, /* Ignore requirement dependencies */
         JOB_TRIGGERING,          /* Adds TRIGGERED_BY dependencies to the same transaction */
+        JOB_REPLACE_UNLOAD,      /* Valid only with JOB_STOP, will unload the unit on completion */
         _JOB_MODE_MAX,
         _JOB_MODE_INVALID = -1
 };

@@ -33,6 +33,12 @@ systemctl start testservice-48.service
 
 systemctl is-active testservice-48.service
 
+systemctl stop --job-mode replace-unload testservice-48.service
+
+rm -f /run/systemd/system/testservice-48.service
+
+systemctl status testservice-48.service |& grep -q "Unit testservice-48.service could not be found"
+
 echo OK > /testok
 
 exit 0

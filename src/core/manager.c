@@ -1722,6 +1722,7 @@ int manager_add_job(
 
         Transaction *tr;
         int r;
+        bool unload = false;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
@@ -1736,6 +1737,9 @@ int manager_add_job(
 
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
+
+        if (mode == JOB_REPLACE_UNLOAD && type != JOB_STOP)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "ReplaceUnload is only valid for stop.");
 
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
@@ -1763,9 +1767,17 @@ int manager_add_job(
                         goto tr_abort;
         }
 
+        if (mode == JOB_REPLACE_UNLOAD) {
+                unload = true;
+                mode = JOB_REPLACE;
+        }
+
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
                 goto tr_abort;
+
+        if (unload)
+                unit_add_to_cleanup_queue(unit);
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,

@@ -151,7 +151,7 @@ _systemctl () {
                 comps=$(__systemctl $mode --state=help)
                 ;;
             --job-mode)
-                comps='fail replace replace-irreversibly isolate
+                comps='fail replace replace-unload replace-irreversibly isolate
                                        ignore-dependencies ignore-requirements flush'
                 ;;
             --kill-who)
