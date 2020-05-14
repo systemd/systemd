@@ -73,11 +73,11 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
         return c;
 }
 
-void condition_free(Condition *c) {
+Condition* condition_free(Condition *c) {
         assert(c);
 
         free(c->parameter);
-        free(c);
+        return mfree(c);
 }
 
 Condition* condition_free_list_type(Condition *head, ConditionType type) {

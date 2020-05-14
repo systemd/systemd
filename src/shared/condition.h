@@ -67,7 +67,7 @@ typedef struct Condition {
 } Condition;
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
-void condition_free(Condition *c);
+Condition* condition_free(Condition *c);
 Condition* condition_free_list_type(Condition *first, ConditionType type);
 static inline Condition* condition_free_list(Condition *first) {
         return condition_free_list_type(first, _CONDITION_TYPE_INVALID);
