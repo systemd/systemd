@@ -626,7 +626,7 @@ static int condition_test_needs_update(Condition *c, char **env) {
 }
 
 static int condition_test_first_boot(Condition *c, char **env) {
-        int r;
+        int r, q;
 
         assert(c);
         assert(c->parameter);
@@ -636,7 +636,11 @@ static int condition_test_first_boot(Condition *c, char **env) {
         if (r < 0)
                 return r;
 
-        return (access("/run/systemd/first-boot", F_OK) >= 0) == !!r;
+        q = access("/run/systemd/first-boot", F_OK);
+        if (q < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to check if /run/systemd/first-boot exists, ignoring: %m");
+
+        return (q >= 0) == !!r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
