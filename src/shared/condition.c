@@ -546,29 +546,40 @@ static int condition_test_capability(Condition *c, char **env) {
 }
 
 static int condition_test_needs_update(Condition *c, char **env) {
-        const char *p;
         struct stat usr, other;
+        const char *p;
+        int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
 
-        if (!path_is_absolute(c->parameter))
+        if (!path_is_absolute(c->parameter)) {
+                log_debug("Specified condition parameter '%s' is not absolute, assuming an update is needed.", c->parameter);
                 return true;
+        }
 
         /* If the file system is read-only we shouldn't suggest an update */
-        if (path_is_read_only_fs(c->parameter) > 0)
+        r = path_is_read_only_fs(c->parameter);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if '%s' is read-only, ignoring: %m", c->parameter);
+        if (r > 0)
                 return false;
 
         /* Any other failure means we should allow the condition to be true, so that we rather invoke too
          * many update tools than too few. */
 
         p = strjoina(c->parameter, "/.updated");
-        if (lstat(p, &other) < 0)
+        if (lstat(p, &other) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to stat() '%s', assuming an update is needed: %m", p);
                 return true;
+        }
 
-        if (lstat("/usr/", &usr) < 0)
+        if (lstat("/usr/", &usr) < 0) {
+                log_debug_errno(errno, "Failed to stat() /usr/, assuming an update is needed: %m");
                 return true;
+        }
 
         /*
          * First, compare seconds as they are always accurate...
@@ -587,7 +598,6 @@ static int condition_test_needs_update(Condition *c, char **env) {
         if (usr.st_mtim.tv_nsec > 0 && other.st_mtim.tv_nsec == 0) {
                 _cleanup_free_ char *timestamp_str = NULL;
                 uint64_t timestamp;
-                int r;
 
                 r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
                 if (r < 0) {
