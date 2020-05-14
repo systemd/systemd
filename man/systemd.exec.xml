@@ -2629,6 +2629,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$LOG_NAMESPACE</varname></term>
+
+        <listitem><para>If the <varname>LogNamespace=</varname> service setting is used, contains name of the
+        selected logging namespace.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$JOURNAL_STREAM</varname></term>
 
         <listitem><para>If the standard output or standard error output of the executed processes are connected to the
