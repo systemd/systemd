@@ -33,7 +33,13 @@ static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
  * the whole pool must fit into the subnet, and may not contain the first (any) nor last (broadcast) address
  * moreover, the server's own address may be in the pool, and is in that case reserved in order not to
  * accidentally hand it out */
-int sd_dhcp_server_configure_pool(sd_dhcp_server *server, struct in_addr *address, unsigned char prefixlen, uint32_t offset, uint32_t size) {
+int sd_dhcp_server_configure_pool(
+                sd_dhcp_server *server,
+                const struct in_addr *address,
+                unsigned char prefixlen,
+                uint32_t offset,
+                uint32_t size) {
+
         struct in_addr netmask_addr;
         be32_t netmask;
         uint32_t server_off, broadcast_off, size_max;
@@ -1135,13 +1141,13 @@ int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
                 sd_dhcp_lease_info what,
                 const struct in_addr addresses[],
-                unsigned n_addresses) {
+                size_t n_addresses) {
 
         assert_return(server, -EINVAL);
         assert_return(addresses || n_addresses == 0, -EINVAL);
 
         struct in_addr **a;
-        unsigned *n_a;
+        size_t *n_a;
 
         switch (what) {
         case SD_DHCP_LEASE_DNS_SERVERS:
@@ -1197,22 +1203,22 @@ int sd_dhcp_server_set_servers(
         return 1;
 }
 
-int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], unsigned n) {
+int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_DNS_SERVERS, dns, n);
 }
-int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], unsigned n) {
+int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_NTP_SERVERS, ntp, n);
 }
-int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], unsigned n) {
+int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SIP_SERVERS, sip, n);
 }
-int sd_dhcp_server_set_pop3_server(sd_dhcp_server *server, const struct in_addr pop3[], unsigned n) {
+int sd_dhcp_server_set_pop3(sd_dhcp_server *server, const struct in_addr pop3[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_POP3_SERVERS, pop3, n);
 }
-int sd_dhcp_server_set_smtp_server(sd_dhcp_server *server, const struct in_addr smtp[], unsigned n) {
+int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP_SERVERS, smtp, n);
 }
-int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], unsigned n) {
+int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], size_t n) {
         return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR_SERVERS, lpr, n);
 }
 
