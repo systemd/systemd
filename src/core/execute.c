@@ -219,15 +219,8 @@ static bool is_terminal_input(ExecInput i) {
 static bool is_terminal_output(ExecOutput o) {
         return IN_SET(o,
                       EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
                       EXEC_OUTPUT_KMSG_AND_CONSOLE,
                       EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static bool is_syslog_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_SYSLOG,
-                      EXEC_OUTPUT_SYSLOG_AND_CONSOLE);
 }
 
 static bool is_kmsg_output(ExecOutput o) {
@@ -361,7 +354,7 @@ static int connect_logger_as(
                 params->flags & EXEC_PASS_LOG_UNIT ? unit->id : "",
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
-                is_syslog_output(output),
+                false,
                 is_kmsg_output(output),
                 is_terminal_output(output)) < 0)
                 return -errno;
@@ -664,8 +657,6 @@ static int setup_output(
                 /* We don't reset the terminal if this is just about output */
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
-        case EXEC_OUTPUT_SYSLOG:
-        case EXEC_OUTPUT_SYSLOG_AND_CONSOLE:
         case EXEC_OUTPUT_KMSG:
         case EXEC_OUTPUT_KMSG_AND_CONSOLE:
         case EXEC_OUTPUT_JOURNAL:
@@ -4736,17 +4727,13 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         prefix, yes_no(c->tty_vt_disallocate));
 
         if (IN_SET(c->std_output,
-                   EXEC_OUTPUT_SYSLOG,
                    EXEC_OUTPUT_KMSG,
                    EXEC_OUTPUT_JOURNAL,
-                   EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
                    EXEC_OUTPUT_KMSG_AND_CONSOLE,
                    EXEC_OUTPUT_JOURNAL_AND_CONSOLE) ||
             IN_SET(c->std_error,
-                   EXEC_OUTPUT_SYSLOG,
                    EXEC_OUTPUT_KMSG,
                    EXEC_OUTPUT_JOURNAL,
-                   EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
                    EXEC_OUTPUT_KMSG_AND_CONSOLE,
                    EXEC_OUTPUT_JOURNAL_AND_CONSOLE)) {
 
@@ -5764,8 +5751,6 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_INHERIT] = "inherit",
         [EXEC_OUTPUT_NULL] = "null",
         [EXEC_OUTPUT_TTY] = "tty",
-        [EXEC_OUTPUT_SYSLOG] = "syslog",
-        [EXEC_OUTPUT_SYSLOG_AND_CONSOLE] = "syslog+console",
         [EXEC_OUTPUT_KMSG] = "kmsg",
         [EXEC_OUTPUT_KMSG_AND_CONSOLE] = "kmsg+console",
         [EXEC_OUTPUT_JOURNAL] = "journal",
