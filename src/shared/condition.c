@@ -553,16 +553,15 @@ static int condition_test_needs_update(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
 
+        if (!path_is_absolute(c->parameter))
+                return true;
+
         /* If the file system is read-only we shouldn't suggest an update */
         if (path_is_read_only_fs(c->parameter) > 0)
                 return false;
 
-        /* Any other failure means we should allow the condition to be true,
-         * so that we rather invoke too many update tools than too
-         * few. */
-
-        if (!path_is_absolute(c->parameter))
-                return true;
+        /* Any other failure means we should allow the condition to be true, so that we rather invoke too
+         * many update tools than too few. */
 
         p = strjoina(c->parameter, "/.updated");
         if (lstat(p, &other) < 0)
