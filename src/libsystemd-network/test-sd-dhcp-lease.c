@@ -87,4 +87,5 @@ int main(int argc, char *argv[]) {
         test_dhcp_lease_parse_search_domains_no_data();
         test_dhcp_lease_parse_search_domains_loops();
         test_dhcp_lease_parse_search_domains_wrong_len();
+        return 0;
 }

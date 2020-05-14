@@ -21,7 +21,7 @@ static void do_fstab_filter_options(const char *opts,
 
         int r;
         const char *name;
-        _cleanup_free_ char *value, *filtered;
+        _cleanup_free_ char *value = NULL, *filtered = NULL;
 
         r = fstab_filter_options(opts, remove, &name, &value, &filtered);
         log_info("\"%s\" → %d, \"%s\", \"%s\", \"%s\", expected %d, \"%s\", \"%s\", \"%s\"",

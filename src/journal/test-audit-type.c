@@ -22,4 +22,5 @@ static void test_audit_type(void) {
 
 int main(int argc, char **argv) {
         test_audit_type();
+        return 0;
 }

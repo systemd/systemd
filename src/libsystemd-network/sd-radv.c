@@ -590,8 +590,7 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
         cur->valid_until = valid_until;
         cur->preferred_until = preferred_until;
 
-        log_radv("%s prefix %s/%u preferred %s valid %s",
-                 cur? "Updated": "Added",
+        log_radv("Updated prefix %s/%u preferred %s valid %s",
                  addr_p, p->opt.prefixlen,
                  format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
                                  preferred, USEC_PER_SEC),
@@ -691,8 +690,7 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (valid_until == USEC_INFINITY)
                 return -EOVERFLOW;
 
-        log_radv("%s route prefix %s/%u valid %s",
-                 cur? "Updated": "Added",
+        log_radv("Updated route prefix %s/%u valid %s",
                  strempty(pretty), p->opt.prefixlen,
                  format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX, valid, USEC_PER_SEC));
 

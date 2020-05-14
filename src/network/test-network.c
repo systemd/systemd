@@ -253,4 +253,5 @@ int main(void) {
         test_network_get(manager, loopback);
 
         assert_se(manager_rtnl_enumerate_links(manager) >= 0);
+        return 0;
 }

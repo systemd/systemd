@@ -3775,6 +3775,8 @@ static int clean_or_freeze_unit(int argc, char *argv[], void *userdata) {
                 method = "FreezeUnit";
         else if (streq(argv[0], "thaw"))
                 method = "ThawUnit";
+        else
+                assert_not_reached("Unhandled method");
 
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
