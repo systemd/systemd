@@ -614,7 +614,7 @@ static int condition_test_needs_update(Condition *c, char **env) {
                         return true;
                 }
 
-                timespec_store(&other.st_mtim, timestamp);
+                return timespec_load_nsec(&usr.st_mtim) > timestamp;
         }
 
         return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
