@@ -467,6 +467,14 @@
         system clock to. The system time is set to the specified timestamp early during
         boot. It is not propagated to the hardware clock (RTC).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.hostname=</varname></term>
+
+        <listitem><para>Accepts a hostname to set during early boot. If specified takes precedence over what
+        is set in <filename>/etc/hostname</filename>. Note that this does not bar later runtime changes to
+        the hostname, it simply controls the initial hostname set during early boot.</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

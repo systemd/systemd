@@ -10,29 +10,41 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "util.h"
 
 int hostname_setup(void) {
         _cleanup_free_ char *b = NULL;
+        const char *hn = NULL;
         bool enoent = false;
-        const char *hn;
         int r;
 
-        r = read_etc_hostname(NULL, &b);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        enoent = true;
-                else
-                        log_warning_errno(r, "Failed to read configured hostname: %m");
+        r = proc_cmdline_get_key("systemd.hostname", 0, &b);
+        if (r < 0)
+                log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
+        else if (r > 0) {
+                if (hostname_is_valid(b, true))
+                        hn = b;
+                else  {
+                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", b);
+                        b = mfree(b);
+                }
+        }
 
-                hn = NULL;
-        } else
-                hn = b;
+        if (!hn) {
+                r = read_etc_hostname(NULL, &b);
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                enoent = true;
+                        else
+                                log_warning_errno(r, "Failed to read configured hostname: %m");
+                } else
+                        hn = b;
+        }
 
         if (isempty(hn)) {
-                /* Don't override the hostname if it is already set
-                 * and not explicitly configured */
+                /* Don't override the hostname if it is already set and not explicitly configured */
                 if (hostname_is_set())
                         return 0;
 
