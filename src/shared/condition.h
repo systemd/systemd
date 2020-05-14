@@ -74,11 +74,13 @@ static inline Condition* condition_free_list(Condition *first) {
 }
 
 int condition_test(Condition *c);
-typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
-bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata);
 
-void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
-void condition_dump_list(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
+typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
+typedef const char* (*condition_to_string_t)(ConditionType t);
+bool condition_test_list(Condition *first, condition_to_string_t, condition_test_logger_t logger, void *userdata);
+
+void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
+void condition_dump_list(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
 
 const char* condition_type_to_string(ConditionType t) _const_;
 ConditionType condition_type_from_string(const char *s) _pure_;

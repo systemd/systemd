@@ -779,7 +779,12 @@ int condition_test(Condition *c) {
         return b;
 }
 
-bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata) {
+bool condition_test_list(
+                Condition *first,
+                condition_to_string_t to_string,
+                condition_test_logger_t logger,
+                void *userdata) {
+
         Condition *c;
         int triggered = -1;
 
@@ -828,9 +833,10 @@ bool condition_test_list(Condition *first, const char *(*to_string)(ConditionTyp
         return triggered != 0;
 }
 
-void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t)) {
+void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string) {
         assert(c);
         assert(f);
+        assert(to_string);
 
         prefix = strempty(prefix);
 
@@ -844,7 +850,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_
                 condition_result_to_string(c->result));
 }
 
-void condition_dump_list(Condition *first, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t)) {
+void condition_dump_list(Condition *first, FILE *f, const char *prefix, condition_to_string_t to_string) {
         Condition *c;
 
         LIST_FOREACH(conditions, c, first)
