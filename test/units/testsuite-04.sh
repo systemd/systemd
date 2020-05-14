@@ -87,6 +87,18 @@ journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
 grep -q "^_PID=$PID" /output
 grep -vq "^_PID=$PID" /output
 
+# https://github.com/systemd/systemd/issues/15654
+ID=$(journalctl --new-id128 | sed -n 2p)
+printf "This will\nusually fail\nand be truncated\n">/expected
+systemd-cat -t "$ID" /bin/sh -c 'env echo -n "This will";echo;env echo -n "usually fail";echo;env echo -n "and be truncated";echo;'
+journalctl --sync
+journalctl -b -o cat -t "$ID" >/output
+cmp /expected /output
+[[ $(journalctl -b -o cat -t "$ID" --output-fields=_TRANSPORT | grep -Pc "^stdout$") -eq 3 ]]
+[[ $(journalctl -b -o cat -t "$ID" --output-fields=_LINE_BREAK | grep -Pc "^pid-change$") -eq 3 ]]
+[[ $(journalctl -b -o cat -t "$ID" --output-fields=_PID | sort -u | grep -c "^.*$") -eq 3 ]]
+[[ $(journalctl -b -o cat -t "$ID" --output-fields=MESSAGE | grep -Pc "^(This will|usually fail|and be truncated)$") -eq 3 ]]
+
 # Add new tests before here, the journald restarts below
 # may make tests flappy.
 
