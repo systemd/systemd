@@ -601,16 +601,16 @@ static int condition_test_needs_update(Condition *c, char **env) {
 
                 r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
+                        log_debug_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
                         return true;
                 } else if (r == 0) {
-                        log_debug("No data in timestamp file '%s', using mtime", p);
+                        log_debug("No data in timestamp file '%s', using mtime.", p);
                         return true;
                 }
 
                 r = safe_atou64(timestamp_str, &timestamp);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
+                        log_debug_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
                         return true;
                 }
 
