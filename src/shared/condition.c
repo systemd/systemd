@@ -548,11 +548,18 @@ static int condition_test_capability(Condition *c, char **env) {
 static int condition_test_needs_update(Condition *c, char **env) {
         struct stat usr, other;
         const char *p;
+        bool b;
         int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
+
+        r = proc_cmdline_get_bool("systemd.condition-needs-update", &b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse systemd.condition-needs-update= kernel command line argument, ignoring: %m");
+        if (r > 0)
+                return b;
 
         if (!path_is_absolute(c->parameter)) {
                 log_debug("Specified condition parameter '%s' is not absolute, assuming an update is needed.", c->parameter);
