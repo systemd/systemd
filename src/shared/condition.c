@@ -25,6 +25,7 @@
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "glob-util.h"
 #include "hostname-util.h"
 #include "ima-util.h"
@@ -672,6 +673,20 @@ static int condition_test_path_is_read_write(Condition *c) {
         return path_is_read_only_fs(c->parameter) <= 0;
 }
 
+static int condition_test_path_is_encrypted(Condition *c) {
+        int r;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_ENCRYPTED);
+
+        r = path_is_encrypted(c->parameter);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to determine if '%s' is encrypted: %m", c->parameter);
+
+        return r > 0;
+}
+
 static int condition_test_directory_not_empty(Condition *c) {
         int r;
 
@@ -725,6 +740,7 @@ int condition_test(Condition *c) {
                 [CONDITION_PATH_IS_SYMBOLIC_LINK]    = condition_test_path_is_symbolic_link,
                 [CONDITION_PATH_IS_MOUNT_POINT]      = condition_test_path_is_mount_point,
                 [CONDITION_PATH_IS_READ_WRITE]       = condition_test_path_is_read_write,
+                [CONDITION_PATH_IS_ENCRYPTED]        = condition_test_path_is_encrypted,
                 [CONDITION_DIRECTORY_NOT_EMPTY]      = condition_test_directory_not_empty,
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
@@ -852,6 +868,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_SYMBOLIC_LINK] = "ConditionPathIsSymbolicLink",
         [CONDITION_PATH_IS_MOUNT_POINT] = "ConditionPathIsMountPoint",
         [CONDITION_PATH_IS_READ_WRITE] = "ConditionPathIsReadWrite",
+        [CONDITION_PATH_IS_ENCRYPTED] = "ConditionPathIsEncrypted",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "ConditionDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY] = "ConditionFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE] = "ConditionFileIsExecutable",
@@ -882,6 +899,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_PATH_IS_SYMBOLIC_LINK] = "AssertPathIsSymbolicLink",
         [CONDITION_PATH_IS_MOUNT_POINT] = "AssertPathIsMountPoint",
         [CONDITION_PATH_IS_READ_WRITE] = "AssertPathIsReadWrite",
+        [CONDITION_PATH_IS_ENCRYPTED] = "AssertPathIsEncrypted",
         [CONDITION_DIRECTORY_NOT_EMPTY] = "AssertDirectoryNotEmpty",
         [CONDITION_FILE_NOT_EMPTY] = "AssertFileNotEmpty",
         [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",

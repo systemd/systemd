@@ -112,6 +112,11 @@ static void test_condition_test_path(void) {
         assert_se(condition_test(condition) > 0);
         condition_free(condition);
 
+        condition = condition_new(CONDITION_PATH_IS_ENCRYPTED, "/sys", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == 0);
+        condition_free(condition);
+
         condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false);
         assert_se(condition);
         assert_se(condition_test(condition) > 0);
