@@ -20,6 +20,7 @@ ADDITIONAL_DEPS=(python3-libevdev
                  clang
                  perl
                  libpwquality-dev
+                 fdisk
                  libfdisk-dev
                  libp11-kit-dev
                  libssl-dev
