@@ -252,8 +252,7 @@ Features:
   that are linked to these places instead of copied. After all they are
   constant vendor data.
 
-* maybe add kernel cmdline params: 1) to force first-boot mode + 2) to force
-  random seed crediting
+* maybe add kernel cmdline params: to force random seed crediting
 
 * nspawn: on cgroupsv1 issue cgroup empty handler process based on host events,
   so that we make cgroup agent logic safe
