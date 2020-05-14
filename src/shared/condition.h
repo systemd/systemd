@@ -18,6 +18,7 @@ typedef enum ConditionType {
         CONDITION_AC_POWER,
         CONDITION_MEMORY,
         CONDITION_CPUS,
+        CONDITION_ENVIRONMENT,
 
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
@@ -73,11 +74,11 @@ static inline Condition* condition_free_list(Condition *first) {
         return condition_free_list_type(first, _CONDITION_TYPE_INVALID);
 }
 
-int condition_test(Condition *c);
+int condition_test(Condition *c, char **env);
 
 typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
-typedef const char* (*condition_to_string_t)(ConditionType t);
-bool condition_test_list(Condition *first, condition_to_string_t, condition_test_logger_t logger, void *userdata);
+typedef const char* (*condition_to_string_t)(ConditionType t) _const_;
+bool condition_test_list(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
 
 void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
 void condition_dump_list(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);

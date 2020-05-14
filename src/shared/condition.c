@@ -93,7 +93,7 @@ Condition* condition_free_list_type(Condition *head, ConditionType type) {
         return head;
 }
 
-static int condition_test_kernel_command_line(Condition *c) {
+static int condition_test_kernel_command_line(Condition *c, char **env) {
         _cleanup_free_ char *line = NULL;
         const char *p;
         bool equal;
@@ -202,7 +202,7 @@ static bool test_order(int k, OrderOperator p) {
         }
 }
 
-static int condition_test_kernel_version(Condition *c) {
+static int condition_test_kernel_version(Condition *c, char **env) {
         OrderOperator order;
         struct utsname u;
         const char *p;
@@ -260,7 +260,7 @@ static int condition_test_kernel_version(Condition *c) {
         return true;
 }
 
-static int condition_test_memory(Condition *c) {
+static int condition_test_memory(Condition *c, char **env) {
         OrderOperator order;
         uint64_t m, k;
         const char *p;
@@ -284,7 +284,7 @@ static int condition_test_memory(Condition *c) {
         return test_order(CMP(m, k), order);
 }
 
-static int condition_test_cpus(Condition *c) {
+static int condition_test_cpus(Condition *c, char **env) {
         OrderOperator order;
         const char *p;
         unsigned k;
@@ -310,7 +310,7 @@ static int condition_test_cpus(Condition *c) {
         return test_order(CMP((unsigned) n, k), order);
 }
 
-static int condition_test_user(Condition *c) {
+static int condition_test_user(Condition *c, char **env) {
         uid_t id;
         int r;
         _cleanup_free_ char *username = NULL;
@@ -345,7 +345,7 @@ static int condition_test_user(Condition *c) {
         return id == getuid() || id == geteuid();
 }
 
-static int condition_test_control_group_controller(Condition *c) {
+static int condition_test_control_group_controller(Condition *c, char **env) {
         int r;
         CGroupMask system_mask, wanted_mask = 0;
 
@@ -369,7 +369,7 @@ static int condition_test_control_group_controller(Condition *c) {
         return FLAGS_SET(system_mask, wanted_mask);
 }
 
-static int condition_test_group(Condition *c) {
+static int condition_test_group(Condition *c, char **env) {
         gid_t id;
         int r;
 
@@ -388,7 +388,7 @@ static int condition_test_group(Condition *c) {
         return in_group(c->parameter) > 0;
 }
 
-static int condition_test_virtualization(Condition *c) {
+static int condition_test_virtualization(Condition *c, char **env) {
         int b, v;
 
         assert(c);
@@ -418,7 +418,7 @@ static int condition_test_virtualization(Condition *c) {
         return v != VIRTUALIZATION_NONE && streq(c->parameter, virtualization_to_string(v));
 }
 
-static int condition_test_architecture(Condition *c) {
+static int condition_test_architecture(Condition *c, char **env) {
         int a, b;
 
         assert(c);
@@ -440,7 +440,7 @@ static int condition_test_architecture(Condition *c) {
         return a == b;
 }
 
-static int condition_test_host(Condition *c) {
+static int condition_test_host(Condition *c, char **env) {
         _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
         int r;
@@ -465,7 +465,7 @@ static int condition_test_host(Condition *c) {
         return fnmatch(c->parameter, h, FNM_CASEFOLD) == 0;
 }
 
-static int condition_test_ac_power(Condition *c) {
+static int condition_test_ac_power(Condition *c, char **env) {
         int r;
 
         assert(c);
@@ -479,7 +479,7 @@ static int condition_test_ac_power(Condition *c) {
         return (on_ac_power() != 0) == !!r;
 }
 
-static int condition_test_security(Condition *c) {
+static int condition_test_security(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_SECURITY);
@@ -502,7 +502,7 @@ static int condition_test_security(Condition *c) {
         return false;
 }
 
-static int condition_test_capability(Condition *c) {
+static int condition_test_capability(Condition *c, char **env) {
         unsigned long long capabilities = (unsigned long long) -1;
         _cleanup_fclose_ FILE *f = NULL;
         int value, r;
@@ -545,7 +545,7 @@ static int condition_test_capability(Condition *c) {
         return !!(capabilities & (1ULL << value));
 }
 
-static int condition_test_needs_update(Condition *c) {
+static int condition_test_needs_update(Condition *c, char **env) {
         const char *p;
         struct stat usr, other;
 
@@ -611,7 +611,7 @@ static int condition_test_needs_update(Condition *c) {
         return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
 }
 
-static int condition_test_first_boot(Condition *c) {
+static int condition_test_first_boot(Condition *c, char **env) {
         int r;
 
         assert(c);
@@ -625,7 +625,36 @@ static int condition_test_first_boot(Condition *c) {
         return (access("/run/systemd/first-boot", F_OK) >= 0) == !!r;
 }
 
-static int condition_test_path_exists(Condition *c) {
+static int condition_test_environment(Condition *c, char **env) {
+        bool equal;
+        char **i;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_ENVIRONMENT);
+
+        equal = strchr(c->parameter, '=');
+
+        STRV_FOREACH(i, env) {
+                bool found;
+
+                if (equal)
+                        found = streq(c->parameter, *i);
+                else {
+                        const char *f;
+
+                        f = startswith(*i, c->parameter);
+                        found = f && IN_SET(*f, 0, '=');
+                }
+
+                if (found)
+                        return true;
+        }
+
+        return false;
+}
+
+static int condition_test_path_exists(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_EXISTS);
@@ -633,7 +662,7 @@ static int condition_test_path_exists(Condition *c) {
         return access(c->parameter, F_OK) >= 0;
 }
 
-static int condition_test_path_exists_glob(Condition *c) {
+static int condition_test_path_exists_glob(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_EXISTS_GLOB);
@@ -641,7 +670,7 @@ static int condition_test_path_exists_glob(Condition *c) {
         return glob_exists(c->parameter) > 0;
 }
 
-static int condition_test_path_is_directory(Condition *c) {
+static int condition_test_path_is_directory(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_DIRECTORY);
@@ -649,7 +678,7 @@ static int condition_test_path_is_directory(Condition *c) {
         return is_dir(c->parameter, true) > 0;
 }
 
-static int condition_test_path_is_symbolic_link(Condition *c) {
+static int condition_test_path_is_symbolic_link(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_SYMBOLIC_LINK);
@@ -657,7 +686,7 @@ static int condition_test_path_is_symbolic_link(Condition *c) {
         return is_symlink(c->parameter) > 0;
 }
 
-static int condition_test_path_is_mount_point(Condition *c) {
+static int condition_test_path_is_mount_point(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
@@ -665,7 +694,7 @@ static int condition_test_path_is_mount_point(Condition *c) {
         return path_is_mount_point(c->parameter, NULL, AT_SYMLINK_FOLLOW) > 0;
 }
 
-static int condition_test_path_is_read_write(Condition *c) {
+static int condition_test_path_is_read_write(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_READ_WRITE);
@@ -673,7 +702,7 @@ static int condition_test_path_is_read_write(Condition *c) {
         return path_is_read_only_fs(c->parameter) <= 0;
 }
 
-static int condition_test_path_is_encrypted(Condition *c) {
+static int condition_test_path_is_encrypted(Condition *c, char **env) {
         int r;
 
         assert(c);
@@ -687,7 +716,7 @@ static int condition_test_path_is_encrypted(Condition *c) {
         return r > 0;
 }
 
-static int condition_test_directory_not_empty(Condition *c) {
+static int condition_test_directory_not_empty(Condition *c, char **env) {
         int r;
 
         assert(c);
@@ -698,7 +727,7 @@ static int condition_test_directory_not_empty(Condition *c) {
         return r <= 0 && r != -ENOENT;
 }
 
-static int condition_test_file_not_empty(Condition *c) {
+static int condition_test_file_not_empty(Condition *c, char **env) {
         struct stat st;
 
         assert(c);
@@ -710,7 +739,7 @@ static int condition_test_file_not_empty(Condition *c) {
                 st.st_size > 0);
 }
 
-static int condition_test_file_is_executable(Condition *c) {
+static int condition_test_file_is_executable(Condition *c, char **env) {
         struct stat st;
 
         assert(c);
@@ -722,7 +751,7 @@ static int condition_test_file_is_executable(Condition *c) {
                 (st.st_mode & 0111));
 }
 
-static int condition_test_null(Condition *c) {
+static int condition_test_null(Condition *c, char **env) {
         assert(c);
         assert(c->type == CONDITION_NULL);
 
@@ -731,9 +760,9 @@ static int condition_test_null(Condition *c) {
         return true;
 }
 
-int condition_test(Condition *c) {
+int condition_test(Condition *c, char **env) {
 
-        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c) = {
+        static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
                 [CONDITION_PATH_EXISTS]              = condition_test_path_exists,
                 [CONDITION_PATH_EXISTS_GLOB]         = condition_test_path_exists_glob,
                 [CONDITION_PATH_IS_DIRECTORY]        = condition_test_path_is_directory,
@@ -760,6 +789,7 @@ int condition_test(Condition *c) {
                 [CONDITION_NULL]                     = condition_test_null,
                 [CONDITION_CPUS]                     = condition_test_cpus,
                 [CONDITION_MEMORY]                   = condition_test_memory,
+                [CONDITION_ENVIRONMENT]              = condition_test_environment,
         };
 
         int r, b;
@@ -768,7 +798,7 @@ int condition_test(Condition *c) {
         assert(c->type >= 0);
         assert(c->type < _CONDITION_TYPE_MAX);
 
-        r = condition_tests[c->type](c);
+        r = condition_tests[c->type](c, env);
         if (r < 0) {
                 c->result = CONDITION_ERROR;
                 return r;
@@ -781,6 +811,7 @@ int condition_test(Condition *c) {
 
 bool condition_test_list(
                 Condition *first,
+                char **env,
                 condition_to_string_t to_string,
                 condition_test_logger_t logger,
                 void *userdata) {
@@ -800,7 +831,7 @@ bool condition_test_list(
         LIST_FOREACH(conditions, c, first) {
                 int r;
 
-                r = condition_test(c);
+                r = condition_test(c, env);
 
                 if (logger) {
                         const char *p = c->type == CONDITION_NULL ? "true" : c->parameter;
@@ -884,6 +915,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_NULL] = "ConditionNull",
         [CONDITION_CPUS] = "ConditionCPUs",
         [CONDITION_MEMORY] = "ConditionMemory",
+        [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -915,6 +947,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_NULL] = "AssertNull",
         [CONDITION_CPUS] = "AssertCPUs",
         [CONDITION_MEMORY] = "AssertMemory",
+        [CONDITION_ENVIRONMENT] = "AssertEnvironment",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
