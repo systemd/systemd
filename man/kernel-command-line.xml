@@ -459,6 +459,14 @@
         of the <filename>systemd-firstboot.service</filename> system service but has no effect on the
         condition check (see above).</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.clock-usec=</varname></term>
+
+        <listitem><para>Takes a decimal, numeric timestamp in µs since January 1st 1970, 00:00am, to set the
+        system clock to. The system time is set to the specified timestamp early during
+        boot. It is not propagated to the hardware clock (RTC).</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

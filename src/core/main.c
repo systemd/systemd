@@ -146,6 +146,7 @@ static EmergencyAction arg_cad_burst_action;
 static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
+static usec_t arg_clock_usec;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -490,6 +491,15 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 (void) parse_path_argument_and_warn(value, false, &arg_watchdog_device);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.clock_usec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = safe_atou64(value, &arg_clock_usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse systemd.clock_usec= argument, ignoring: %s", value);
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -1504,6 +1514,9 @@ static int become_shutdown(
 static void initialize_clock(void) {
         int r;
 
+        /* This is called very early on, before we parse the kernel command line or otherwise figure out why
+         * we are running, but only once. */
+
         if (clock_is_localtime(NULL) > 0) {
                 int min;
 
@@ -1540,6 +1553,25 @@ static void initialize_clock(void) {
                 log_error_errno(r, "Current system time is before build time, but cannot correct: %m");
         else if (r > 0)
                 log_info("System time before build time, advancing clock.");
+}
+
+static void apply_clock_update(void) {
+        struct timespec ts;
+
+        /* This is called later than initialize_clock(), i.e. after we parsed configuration files/kernel
+         * command line and such. */
+
+        if (arg_clock_usec == 0)
+                return;
+
+        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, arg_clock_usec)) < 0)
+                log_error_errno(errno, "Failed to set system clock to time specified on kernel command line: %m");
+        else {
+                char buf[FORMAT_TIMESTAMP_MAX];
+
+                log_info("Set system clock to %s, as specified on the kernel command line.",
+                         format_timestamp(buf, sizeof(buf), arg_clock_usec));
+        }
 }
 
 static void initialize_coredump(bool skip_setup) {
@@ -2658,6 +2690,8 @@ int main(int argc, char *argv[]) {
         assert_se(chdir("/") == 0);
 
         if (arg_action == ACTION_RUN) {
+                /* Apply the systemd.clock_usec= kernel command line switch */
+                apply_clock_update();
 
                 /* A core pattern might have been specified via the cmdline.  */
                 initialize_core_pattern(skip_setup);
