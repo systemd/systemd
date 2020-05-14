@@ -106,7 +106,7 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
 
 #define STRV_FOREACH_BACKWARDS(s, l)                                \
         for (s = ({                                                 \
-                        char **_l = l;                              \
+                        typeof(l) _l = l;                           \
                         _l ? _l + strv_length(_l) - 1U : NULL;      \
                         });                                         \
              (l) && ((s) >= (l));                                   \

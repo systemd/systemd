@@ -2288,16 +2288,19 @@ static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, ui
         return 0;
 }
 
-static bool manager_process_barrier_fd(const char *buf, FDSet *fds) {
-        assert(buf);
+static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
 
         /* nothing else must be sent when using BARRIER=1 */
-        if (STR_IN_SET(buf, "BARRIER=1", "BARRIER=1\n")) {
-                if (fdset_size(fds) != 1)
-                        log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
+        if (strv_contains(tags, "BARRIER=1")) {
+                if (strv_length(tags) == 1) {
+                        if (fdset_size(fds) != 1)
+                                log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
+                } else
+                        log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+
+                /* Drop the message if BARRIER=1 was found */
                 return true;
-        } else if (startswith(buf, "BARRIER=1\n") || strstr(buf, "\nBARRIER=1\n") || endswith(buf, "\nBARRIER=1"))
-                log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+        }
 
         return false;
 }
@@ -2306,33 +2309,27 @@ static void manager_invoke_notify_message(
                 Manager *m,
                 Unit *u,
                 const struct ucred *ucred,
-                const char *buf,
+                char * const *tags,
                 FDSet *fds) {
 
         assert(m);
         assert(u);
         assert(ucred);
-        assert(buf);
+        assert(tags);
 
         if (u->notifygen == m->notifygen) /* Already invoked on this same unit in this same iteration? */
                 return;
         u->notifygen = m->notifygen;
 
-        if (UNIT_VTABLE(u)->notify_message) {
-                _cleanup_strv_free_ char **tags = NULL;
-
-                tags = strv_split(buf, NEWLINE);
-                if (!tags) {
-                        log_oom();
-                        return;
-                }
-
+        if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
 
-        } else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = NULL, *y = NULL;
+        else if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf = NULL, *x = NULL, *y = NULL;
 
-                x = ellipsize(buf, 20, 90);
+                buf = strv_join(tags, ", ");
+                if (buf)
+                        x = ellipsize(buf, 20, 90);
                 if (x)
                         y = cescape(x);
 
@@ -2361,6 +2358,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         struct cmsghdr *cmsg;
         struct ucred *ucred = NULL;
         _cleanup_free_ Unit **array_copy = NULL;
+        _cleanup_strv_free_ char **tags = NULL;
         Unit *u1, *u2, **array;
         int r, *fd_array = NULL;
         size_t n_fds = 0;
@@ -2429,11 +2427,16 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        /* Make sure it's NUL-terminated. */
+        /* Make sure it's NUL-terminated, then parse it to obtain the tags list */
         buf[n] = 0;
+        tags = strv_split_newlines(buf);
+        if (!tags) {
+                log_oom();
+                return 0;
+        }
 
         /* possibly a barrier fd, let's see */
-        if (manager_process_barrier_fd(buf, fds))
+        if (manager_process_barrier_fd(tags, fds))
                 return 0;
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
@@ -2456,16 +2459,16 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle duplicate units
          * make sure we only invoke each unit's handler once. */
         if (u1) {
-                manager_invoke_notify_message(m, u1, ucred, buf, fds);
+                manager_invoke_notify_message(m, u1, ucred, tags, fds);
                 found = true;
         }
         if (u2) {
-                manager_invoke_notify_message(m, u2, ucred, buf, fds);
+                manager_invoke_notify_message(m, u2, ucred, tags, fds);
                 found = true;
         }
         if (array_copy)
                 for (size_t i = 0; array_copy[i]; i++) {
-                        manager_invoke_notify_message(m, array_copy[i], ucred, buf, fds);
+                        manager_invoke_notify_message(m, array_copy[i], ucred, tags, fds);
                         found = true;
                 }
 
