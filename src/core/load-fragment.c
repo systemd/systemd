@@ -1099,6 +1099,7 @@ int config_parse_exec_output(
         const char *n;
         ExecContext *c = data;
         const Unit *u = userdata;
+        bool obsolete = false;
         ExecOutput eo;
         int r;
 
@@ -1122,6 +1123,14 @@ int config_parse_exec_output(
                 }
 
                 eo = EXEC_OUTPUT_NAMED_FD;
+
+        } else if (streq(rvalue, "syslog")) {
+                eo = EXEC_OUTPUT_JOURNAL;
+                obsolete = true;
+
+        } else if (streq(rvalue, "syslog+console")) {
+                eo = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+                obsolete = true;
 
         } else if ((n = startswith(rvalue, "file:"))) {
 
@@ -1153,6 +1162,11 @@ int config_parse_exec_output(
                         return 0;
                 }
         }
+
+        if (obsolete)
+                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                           "Standard output type %s is obsolete, automatically updating to %s. Please update your unit file, and consider removing the setting altogether.",
+                           rvalue, exec_output_to_string(eo));
 
         if (streq(lvalue, "StandardOutput")) {
                 if (eo == EXEC_OUTPUT_NAMED_FD)
@@ -5051,22 +5065,36 @@ int config_parse_output_restricted(
                 void *userdata) {
 
         ExecOutput t, *eo = data;
+        bool obsolete = false;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        t = exec_output_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
-                return 0;
+        if (streq(rvalue, "syslog")) {
+                t = EXEC_OUTPUT_JOURNAL;
+                obsolete = true;
+        } else if (streq(rvalue, "syslog+console")) {
+                t = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+                obsolete = true;
+        } else {
+                t = exec_output_from_string(rvalue);
+                if (t < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
+                        return 0;
+                }
         }
 
-        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (obsolete)
+                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                           "Standard output type %s is obsolete, automatically updating to %s. Please update your configuration.",
+                           rvalue, exec_output_to_string(t));
 
         *eo = t;
         return 0;
