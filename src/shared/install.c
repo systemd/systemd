@@ -227,7 +227,7 @@ static int path_is_runtime(const LookupPaths *p, const char *path, bool check_pa
                path_equal_ptr(path, p->runtime_control);
 }
 
-static int path_is_vendor(const LookupPaths *p, const char *path) {
+static int path_is_vendor_or_generator(const LookupPaths *p, const char *path) {
         const char *rpath;
 
         assert(p);
@@ -244,6 +244,9 @@ static int path_is_vendor(const LookupPaths *p, const char *path) {
         if (path_startswith(rpath, "/lib"))
                 return true;
 #endif
+
+        if (path_is_generator(p, rpath))
+                return true;
 
         return path_equal(rpath, SYSTEM_DATA_UNIT_PATH);
 }
@@ -2374,7 +2377,7 @@ int unit_file_revert(
                                         return -errno;
                         } else if (S_ISREG(st.st_mode)) {
                                 /* Check if there's a vendor version */
-                                r = path_is_vendor(&paths, path);
+                                r = path_is_vendor_or_generator(&paths, path);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
