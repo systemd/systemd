@@ -1,0 +1,8 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+ClientIdentifier=mac
