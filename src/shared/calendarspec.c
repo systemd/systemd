@@ -659,6 +659,10 @@ static int prepend_component(const char **p, bool usec, unsigned nesting, Calend
                 /* If no repeat value is specified for the µs component, then let's explicitly refuse ranges
                  * below 1s because our default repeat granularity is beyond that. */
 
+                /* Overflow check */
+                if (start > INT_MAX - repeat)
+                        return -ERANGE;
+
                 if (usec && stop >= 0 && start + repeat > stop)
                         return -EINVAL;
         }
