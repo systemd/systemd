@@ -107,7 +107,7 @@ int kernel_route_expiration_supported(void) {
                         .type = CONDITION_KERNEL_VERSION,
                         .parameter = (char *) ">= 4.5"
                 };
-                r = condition_test(&c);
+                r = condition_test(&c, NULL);
                 if (r < 0)
                         return r;
 

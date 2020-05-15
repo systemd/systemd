@@ -1705,24 +1705,50 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
 }
 
 static bool unit_test_condition(Unit *u) {
+        _cleanup_strv_free_ char **env = NULL;
+        int r;
+
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = condition_test_list(u->conditions, condition_type_to_string, log_unit_internal, u);
+
+        r = manager_get_effective_environment(u->manager, &env);
+        if (r < 0) {
+                log_unit_error_errno(u, r, "Failed to determine effective environment: %m");
+                u->condition_result = CONDITION_ERROR;
+        } else
+                u->condition_result = condition_test_list(
+                                u->conditions,
+                                env,
+                                condition_type_to_string,
+                                log_unit_internal,
+                                u);
 
         unit_add_to_dbus_queue(u);
-
         return u->condition_result;
 }
 
 static bool unit_test_assert(Unit *u) {
+        _cleanup_strv_free_ char **env = NULL;
+        int r;
+
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
-        u->assert_result = condition_test_list(u->asserts, assert_type_to_string, log_unit_internal, u);
+
+        r = manager_get_effective_environment(u->manager, &env);
+        if (r < 0) {
+                log_unit_error_errno(u, r, "Failed to determine effective environment: %m");
+                u->assert_result = CONDITION_ERROR;
+        } else
+                u->assert_result = condition_test_list(
+                                u->asserts,
+                                env,
+                                assert_type_to_string,
+                                log_unit_internal,
+                                u);
 
         unit_add_to_dbus_queue(u);
-
         return u->assert_result;
 }
 

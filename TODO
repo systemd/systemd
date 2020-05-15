@@ -68,8 +68,6 @@ Features:
 * homed: add a way to "adopt" a home directory, i.e. strip foreign signatures
   and insert a local signature instead.
 
-* Maybe expose path_is_encrypted() as a new ConditionPathIsEncrypted=?
-
 * homed: as an extension to the directory+subvolume backend: if located on
   especially marked fs, then sync down password into LUKS header of that fs,
   and always verify passwords against it too. Bootstrapping is a problem

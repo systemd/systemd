@@ -2,6 +2,7 @@
 
 #include <linux/netdevice.h>
 #include <netinet/ether.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-netlink.h"
@@ -173,7 +174,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 return 0;
         }
 
-        if (!condition_test_list(link->conditions, NULL, NULL, NULL)) {
+        if (!condition_test_list(link->conditions, environ, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }

@@ -1227,6 +1227,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionEnvironment=</varname></term>
+
+          <listitem><para><varname>ConditionEnvironment=</varname> may be used to check whether a specific
+          environment variable is set (or if prefixed with the exclamation mark — unset) in the service
+          manager's environment block.
+
+          The argument may be a single word, to check if the variable with this name is defined in the
+          environment block, or an assignment
+          (<literal><replaceable>name</replaceable>=<replaceable>value</replaceable></literal>), to check if
+          the variable with this exact value is defined. Note that the environment block of the service
+          manager itself is checked, i.e. not any variables defined with <varname>Environment=</varname> or
+          <varname>EnvironmentFile=</varname>, as described above. This is particularly useful when the
+          service manager runs inside a containerized environment or as per-user service manager, in order to
+          check for variables passed in by the enclosing container manager or PAM.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionSecurity=</varname></term>
 
           <listitem><para><varname>ConditionSecurity=</varname> may be used to check whether the given
@@ -1343,6 +1361,18 @@
           <listitem><para><varname>ConditionPathIsReadWrite=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that the underlying file system is readable
           and writable (i.e. not mounted read-only).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ConditionPathIsEncrypted=</varname></term>
+
+          <listitem><para><varname>ConditionPathIsEncrypted=</varname> is similar to
+          <varname>ConditionPathExists=</varname> but verifies that the underlying file system's backing
+          block device is encrypted using dm-crypt/LUKS. Note that this check does not cover ext4
+          per-directory encryption, and only detects block level encryption. Moreover, if the specified path
+          resides on a file system on top of a loopback block device, only encryption above the loopback device is
+          detected. It is not detected whether the file system backing the loopback block device is encrypted.</para>
           </listitem>
         </varlistentry>
 
