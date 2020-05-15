@@ -350,6 +350,9 @@ EmitTimezone=
 DNS=
 SendOption=
 SendVendorOption=
+[DHCPServerStaticLease]
+MACAddress=
+Address=
 [NextHop]
 Id=
 Gateway=
