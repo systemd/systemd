@@ -5,11 +5,19 @@
 #include <unistd.h>
 
 #include "sd-journal.h"
-
+#include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
 
-int main(int argc, char *argv[]) {
+static void test_journal_print(void) {
+        assert_se(sd_journal_print(LOG_INFO, "XXX") == 0);
+        assert_se(sd_journal_print(LOG_INFO, "%s", "YYY") == 0);
+        assert_se(sd_journal_print(LOG_INFO, "X%4094sY", "ZZZ") == 0);
+        assert_se(sd_journal_print(LOG_INFO, "X%*sY", LONG_LINE_MAX - 8 - 3, "ZZZ") == 0);
+        assert_se(sd_journal_print(LOG_INFO, "X%*sY", LONG_LINE_MAX - 8 - 2, "ZZZ") == -ENOBUFS);
+}
+
+static void test_journal_send(void) {
         _cleanup_free_ char *huge = NULL;
 
 #define HUGE_SIZE (4096*1024)
@@ -82,7 +90,13 @@ int main(int argc, char *argv[]) {
         assert_se(sd_journal_sendv(graph2, 1) == 0);
         assert_se(sd_journal_sendv(message1, 1) == 0);
         assert_se(sd_journal_sendv(message2, 1) == 0);
+}
 
+int main(int argc, char *argv[]) {
+        test_journal_print();
+        test_journal_send();
+
+        /* Sleep a bit to make it easy for journald to collect metadata. */
         sleep(1);
 
         return 0;
