@@ -8,11 +8,9 @@ D=$(mktemp --directory)
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p $D/definitions
 
-truncate -s 1G $D/zzz
-
 SEED=e2a40bf9-73f1-4278-9160-49c031e7aef8
 
-$repart $D/zzz --empty=force --dry-run=no --seed=$SEED
+$repart $D/zzz --empty=create --size=1G --seed=$SEED
 
 sfdisk -d $D/zzz | grep -v -e 'sector-size' -e '^$' > $D/empty
 
@@ -90,9 +88,7 @@ $D/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-09
 $D/zzz5 : start=     1908696, size=      188416, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=03477476-06AD-44E8-9EF4-BC2BD7771289, name="linux-generic"
 EOF
 
-truncate -s 2G $D/zzz
-
-$repart $D/zzz --dry-run=no --seed=$SEED --definitions=$D/definitions
+$repart $D/zzz --size=2G --dry-run=no --seed=$SEED --definitions=$D/definitions
 
 sfdisk -d $D/zzz | grep -v -e 'sector-size' -e '^$' >$D/populated3
 

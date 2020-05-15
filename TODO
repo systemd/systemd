@@ -178,9 +178,6 @@ Features:
 
 * systemd-repart: allow config of partition uuid
 
-* systemd-repart: add --make= switch for fallocating a new file of the
-  specified size first.
-
 * userdb: allow username prefix searches in varlink API, allow realname and
   realname substr searches in varlink API
 
