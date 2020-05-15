@@ -391,12 +391,6 @@ static int add_mount(
                 "SourcePath=%s\n",
                 source);
 
-        /* All mounts under /sysroot need to happen later, at initrd-fs.target time. IOW, it's not
-         * technically part of the basic initrd filesystem itself, and so shouldn't inherit the default
-         * Before=local-fs.target dependency. */
-        if (in_initrd() && path_startswith(where, "/sysroot"))
-                fprintf(f, "DefaultDependencies=no\n");
-
         if (STRPTR_IN_SET(fstype, "nfs", "nfs4") && !(flags & AUTOMOUNT) &&
             fstab_test_yes_no_option(opts, "bg\0" "fg\0")) {
                 /* The default retry timeout that mount.nfs uses for 'bg' mounts
@@ -410,9 +404,6 @@ static int add_mount(
                 opts = strjoina("x-systemd.mount-timeout=infinity,retry=10000,", opts, ",fg");
                 SET_FLAG(flags, NOFAIL, true);
         }
-
-        if (!(flags & NOFAIL) && !(flags & AUTOMOUNT))
-                fprintf(f, "Before=%s\n", post);
 
         if (!(flags & AUTOMOUNT) && opts) {
                  r = write_after(f, opts);
@@ -534,8 +525,6 @@ static int add_mount(
                         "SourcePath=%s\n"
                         "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                         source);
-
-                fprintf(f, "Before=%s\n", post);
 
                 if (opts) {
                         r = write_after(f, opts);
