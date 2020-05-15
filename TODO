@@ -446,9 +446,6 @@ Features:
 
 * support projid-based quota in machinectl for containers
 
-* maybe use SOURCE_DATE_EPOCH (i.e. the env var the reproducible builds folks
-  introduced) as the RTC epoch, instead of the mtime of NEWS.
-
 * add a way to lock down cgroup migration: a boolean, which when set for a unit
   makes sure the processes in it can never migrate out of it
 
