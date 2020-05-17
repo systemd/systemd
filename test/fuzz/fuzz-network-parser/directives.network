@@ -116,6 +116,7 @@ MUDURL=
 SendOption=
 RequestOptions=
 UserClass=
+VendorClass=
 [Route]
 Destination=
 Protocol=

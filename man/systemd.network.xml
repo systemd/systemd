@@ -1788,6 +1788,17 @@
             currently NUL bytes are not allowed.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>VendorClass=</varname></term>
+          <listitem>
+            <para>A DHCPv6 client can use VendorClass option to identify the vendor that
+            manufactured the hardware on which the client is running. The information
+            contained in the data area of this option is contained in one or more opaque
+            fields that identify details of the hardware configuration. Takes a
+            whitespace-separated list of strings.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

@@ -381,7 +381,7 @@ int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, const char *mud
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
         assert_return(mudurl, -EINVAL);
-        assert_return(strlen(mudurl) <= UINT8_MAX, -EINVAL);
+        assert_return(strlen(mudurl) <= 255, -EINVAL);
         assert_return(http_url_is_valid(mudurl), -EINVAL);
 
         return free_and_strdup(&client->mudurl, mudurl);

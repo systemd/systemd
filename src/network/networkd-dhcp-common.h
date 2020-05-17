@@ -51,5 +51,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_vendor_class);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_send_option);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_request_options);
