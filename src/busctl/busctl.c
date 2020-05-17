@@ -742,6 +742,9 @@ static void member_hash_func(const Member *m, struct siphash *state) {
         if (m->name)
                 string_hash_func(m->name, state);
 
+        if (m->signature)
+                string_hash_func(m->signature, state);
+
         if (m->interface)
                 string_hash_func(m->interface, state);
 }
@@ -762,7 +765,11 @@ static int member_compare_func(const Member *x, const Member *y) {
         if (d != 0)
                 return d;
 
-        return strcmp_ptr(x->name, y->name);
+        d = strcmp_ptr(x->name, y->name);
+        if (d != 0)
+                return d;
+
+        return strcmp_ptr(x->signature, y->signature);
 }
 
 static int member_compare_funcp(Member * const *a, Member * const *b) {
