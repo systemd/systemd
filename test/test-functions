@@ -18,6 +18,7 @@ EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
 IMAGE_NAME=${IMAGE_NAME:-default}
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
@@ -2006,7 +2007,11 @@ test_setup() {
         mount_initdir
     elif [ -e "$IMAGE_PUBLIC" ]; then
         echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath $IMAGE_PUBLIC)"
-        ln -s "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        if [ ${TEST_PARALLELIZE} -ne 0 ]; then
+            cp -v "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        else
+            ln -sv "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        fi
         mount_initdir
     else
         test_create_image
