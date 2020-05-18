@@ -49,6 +49,7 @@ BuildPackages=
         python3-lxml
         qrencode-devel
         system-user-nobody
+        systemd-sysvinit
         zlib-devel
 # to satisfy tests
         acl
@@ -63,3 +64,15 @@ BuildPackages=
 Packages=
         # brought in via meson->python3
         libp11-kit0
+        # --bootable=no
+        dbus-1
+        libapparmor1
+        libcrypt1
+        libcryptsetup12
+        libkmod2
+        liblz4-1
+        libmount1
+        libqrencode4
+        libseccomp2
+        pam
+        util-linux
