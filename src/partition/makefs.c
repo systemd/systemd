@@ -54,11 +54,11 @@ static int run(int argc, char *argv[]) {
         /* type and device must be copied because makefs calls safe_fork, which clears argv[] */
         type = strdup(argv[1]);
         if (!type)
-                return -ENOMEM;
+                return log_oom();
 
         device = strdup(argv[2]);
         if (!device)
-                return -ENOMEM;
+                return log_oom();
 
         if (stat(device, &st) < 0)
                 return log_error_errno(errno, "Failed to stat \"%s\": %m", device);
