@@ -125,6 +125,10 @@ int sd_dhcp6_client_set_request_option(
 int sd_dhcp6_client_set_request_mud_url(
                 sd_dhcp6_client *client,
                 const char *mudurl);
+
+int sd_dhcp6_client_set_request_user_class(
+                sd_dhcp6_client *client,
+                char** user_class);
 int sd_dhcp6_client_set_prefix_delegation_hint(
                 sd_dhcp6_client *client,
                 uint8_t prefixlen,
