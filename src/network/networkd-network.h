@@ -132,6 +132,7 @@ struct Network {
         bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
         char *dhcp6_mudurl;
+        char **dhcp6_user_class;
         struct in6_addr dhcp6_pd_address;
         OrderedHashmap *dhcp6_client_send_options;
         Set *dhcp6_request_options;
