@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/file.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -186,4 +187,30 @@ int get_block_device_harder(const char *path, dev_t *ret) {
                 log_debug_errno(r, "Failed to chase block device '%s', ignoring: %m", path);
 
         return 1;
+}
+
+int lock_whole_block_device(dev_t devt, int operation) {
+        _cleanup_free_ char *whole_node = NULL;
+        _cleanup_close_ int lock_fd = -1;
+        dev_t whole_devt;
+        int r;
+
+        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING */
+
+        r = block_get_whole_disk(devt, &whole_devt);
+        if (r < 0)
+                return r;
+
+        r = device_path_make_major_minor(S_IFBLK, whole_devt, &whole_node);
+        if (r < 0)
+                return r;
+
+        lock_fd = open(whole_node, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (lock_fd < 0)
+                return -errno;
+
+        if (flock(lock_fd, operation) < 0)
+                return -errno;
+
+        return TAKE_FD(lock_fd);
 }
