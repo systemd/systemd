@@ -253,7 +253,8 @@ static int dhcp6_client_set_duid_internal(
                         r = dhcp_validate_duid_len(duid_type, duid_len, false);
                         if (r < 0)
                                 return log_dhcp6_client_errno(client, r, "Failed to validate length of DUID: %m");
-                        log_dhcp6_client(client, "Setting DUID of type %u with unexpected content", duid_type);
+
+                        log_dhcp6_client(client, "Using DUID of type %u of incorrect length, proceeding.", duid_type);
                 }
 
                 client->duid.type = htobe16(duid_type);
