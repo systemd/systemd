@@ -22,6 +22,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add "throttling" to sd-event event sources: optionally, when we wake up too
+  often for one, let's turn it off entirely for a while. Use that for the
+  /proc/self/mountinfo logic.
+
 * move our systemd-user PAM snippet to /usr/, which PAM appears to support
   these days
 
