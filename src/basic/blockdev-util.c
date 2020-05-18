@@ -29,6 +29,8 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
                 *ret = d;
                 return 0;
         }
+        if (errno != ENOENT)
+                return -errno;
 
         /* If it is a partition find the originating device */
         xsprintf_sys_block_path(p, "/partition", d);
