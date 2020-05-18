@@ -159,7 +159,7 @@ net.bridge.bridge-nf-call-arptables = 0
 
     <example>
       <title>Set network routing properties for all interfaces</title>
-      <para><filename>/etc/systemd/20-rp_filter.conf</filename>:</para>
+      <para><filename>/etc/sysctl.d/20-rp_filter.conf</filename>:</para>
 
       <programlisting>net.ipv4.conf.default.rp_filter = 2
 net.ipv4.conf.*.rp_filter = 2
