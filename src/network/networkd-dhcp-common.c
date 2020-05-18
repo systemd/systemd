@@ -519,6 +519,82 @@ int config_parse_dhcp_send_option(
         return 0;
 }
 
+int config_parse_dhcp_request_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                if (ltype == AF_INET)
+                        network->dhcp_request_options = set_free(network->dhcp_request_options);
+                else
+                        network->dhcp6_request_options = set_free(network->dhcp6_request_options);
+
+                return 0;
+        }
+
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                uint32_t i;
+
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP request option, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = safe_atou32(n, &i);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (i < 1 || i >= 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (ltype == AF_INET)
+                        r = set_ensure_allocated(&network->dhcp_request_options, NULL);
+                else
+                        r = set_ensure_allocated(&network->dhcp6_request_options, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                if (ltype == AF_INET)
+                        r = set_put(network->dhcp_request_options, UINT32_TO_PTR(i));
+                else
+                        r = set_put(network->dhcp6_request_options, UINT32_TO_PTR(i));
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
+        }
+
+        return 0;
+}
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains,
                          "Failed to parse DHCP use domains setting");
 
