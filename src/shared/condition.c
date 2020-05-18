@@ -602,29 +602,27 @@ static int condition_test_needs_update(Condition *c, char **env) {
          * AND the target file's nanoseconds == 0
          * (otherwise the filesystem supports nsec timestamps, see stat(2)).
          */
-        if (usr.st_mtim.tv_nsec > 0 && other.st_mtim.tv_nsec == 0) {
-                _cleanup_free_ char *timestamp_str = NULL;
-                uint64_t timestamp;
+        if (usr.st_mtim.tv_nsec == 0 || other.st_mtim.tv_nsec > 0)
+                return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
 
-                r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
-                        return true;
-                } else if (r == 0) {
-                        log_debug("No data in timestamp file '%s', using mtime.", p);
-                        return true;
-                }
-
-                r = safe_atou64(timestamp_str, &timestamp);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
-                        return true;
-                }
-
-                return timespec_load_nsec(&usr.st_mtim) > timestamp;
+        _cleanup_free_ char *timestamp_str = NULL;
+        r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
+                return true;
+        } else if (r == 0) {
+                log_debug("No data in timestamp file '%s', using mtime.", p);
+                return true;
         }
 
-        return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
+        uint64_t timestamp;
+        r = safe_atou64(timestamp_str, &timestamp);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
+                return true;
+        }
+
+        return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
 static int condition_test_first_boot(Condition *c, char **env) {
