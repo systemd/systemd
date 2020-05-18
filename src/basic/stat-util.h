@@ -89,3 +89,5 @@ int device_path_make_canonical(mode_t mode, dev_t devno, char **ret);
 int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devno);
 
 int proc_mounted(void);
+
+bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
