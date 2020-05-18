@@ -76,15 +76,12 @@ static int run(int argc, char *argv[]) {
                 log_info("%s is not a block device.", device);
 
         r = probe_filesystem(device, &detected);
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "Ambiguous results of probing for file system on \"%s\", refusing to proceed.", device);
         if (r < 0)
-                return log_warning_errno(r,
-                                         r == -EUCLEAN ?
-                                         "Cannot reliably determine probe \"%s\", refusing to proceed." :
-                                         "Failed to probe \"%s\": %m",
-                                         device);
-
+                return log_error_errno(r, "Failed to probe \"%s\": %m", device);
         if (detected) {
-                log_info("%s is not empty (type %s), exiting", device, detected);
+                log_info("'%s' is not empty (contains file system of type %s), exiting.", device, detected);
                 return 0;
         }
 
