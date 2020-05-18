@@ -2,13 +2,13 @@
 
 #include "alloc-util.h"
 #include "bond.h"
+#include "bond-util.h"
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "string-table.h"
-#include "string-util.h"
 
 /*
  * Number of seconds between instances where the bonding
@@ -41,84 +41,16 @@
 #define GRATUITOUS_ARP_MAX        255
 #define GRATUITOUS_ARP_DEFAULT    1
 
-static const char* const bond_mode_table[_NETDEV_BOND_MODE_MAX] = {
-        [NETDEV_BOND_MODE_BALANCE_RR] = "balance-rr",
-        [NETDEV_BOND_MODE_ACTIVE_BACKUP] = "active-backup",
-        [NETDEV_BOND_MODE_BALANCE_XOR] = "balance-xor",
-        [NETDEV_BOND_MODE_BROADCAST] = "broadcast",
-        [NETDEV_BOND_MODE_802_3AD] = "802.3ad",
-        [NETDEV_BOND_MODE_BALANCE_TLB] = "balance-tlb",
-        [NETDEV_BOND_MODE_BALANCE_ALB] = "balance-alb",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_mode, BondMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_mode, bond_mode, BondMode, "Failed to parse bond mode");
-
-static const char* const bond_xmit_hash_policy_table[_NETDEV_BOND_XMIT_HASH_POLICY_MAX] = {
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER2] = "layer2",
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER34] = "layer3+4",
-        [NETDEV_BOND_XMIT_HASH_POLICY_LAYER23] = "layer2+3",
-        [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP23] = "encap2+3",
-        [NETDEV_BOND_XMIT_HASH_POLICY_ENCAP34] = "encap3+4",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_xmit_hash_policy, BondXmitHashPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_xmit_hash_policy,
                          bond_xmit_hash_policy,
                          BondXmitHashPolicy,
-                         "Failed to parse bond transmit hash policy")
-
-static const char* const bond_lacp_rate_table[_NETDEV_BOND_LACP_RATE_MAX] = {
-        [NETDEV_BOND_LACP_RATE_SLOW] = "slow",
-        [NETDEV_BOND_LACP_RATE_FAST] = "fast",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_lacp_rate, BondLacpRate);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_lacp_rate, bond_lacp_rate, BondLacpRate, "Failed to parse bond lacp rate")
-
-static const char* const bond_ad_select_table[_NETDEV_BOND_AD_SELECT_MAX] = {
-        [NETDEV_BOND_AD_SELECT_STABLE] = "stable",
-        [NETDEV_BOND_AD_SELECT_BANDWIDTH] = "bandwidth",
-        [NETDEV_BOND_AD_SELECT_COUNT] = "count",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_ad_select, BondAdSelect);
+                         "Failed to parse bond transmit hash policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_lacp_rate, bond_lacp_rate, BondLacpRate, "Failed to parse bond lacp rate");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_ad_select, bond_ad_select, BondAdSelect, "Failed to parse bond AD select");
-
-static const char* const bond_fail_over_mac_table[_NETDEV_BOND_FAIL_OVER_MAC_MAX] = {
-        [NETDEV_BOND_FAIL_OVER_MAC_NONE] = "none",
-        [NETDEV_BOND_FAIL_OVER_MAC_ACTIVE] = "active",
-        [NETDEV_BOND_FAIL_OVER_MAC_FOLLOW] = "follow",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_fail_over_mac, BondFailOverMac);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_fail_over_mac, bond_fail_over_mac, BondFailOverMac, "Failed to parse bond fail over MAC");
-
-static const char *const bond_arp_validate_table[_NETDEV_BOND_ARP_VALIDATE_MAX] = {
-        [NETDEV_BOND_ARP_VALIDATE_NONE] = "none",
-        [NETDEV_BOND_ARP_VALIDATE_ACTIVE]= "active",
-        [NETDEV_BOND_ARP_VALIDATE_BACKUP]= "backup",
-        [NETDEV_BOND_ARP_VALIDATE_ALL]= "all",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_arp_validate, BondArpValidate);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_validate, bond_arp_validate, BondArpValidate, "Failed to parse bond arp validate");
-
-static const char *const bond_arp_all_targets_table[_NETDEV_BOND_ARP_ALL_TARGETS_MAX] = {
-        [NETDEV_BOND_ARP_ALL_TARGETS_ANY] = "any",
-        [NETDEV_BOND_ARP_ALL_TARGETS_ALL] = "all",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_arp_all_targets, BondArpAllTargets);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets, BondArpAllTargets, "Failed to parse bond Arp all targets");
-
-static const char *const bond_primary_reselect_table[_NETDEV_BOND_PRIMARY_RESELECT_MAX] = {
-        [NETDEV_BOND_PRIMARY_RESELECT_ALWAYS] = "always",
-        [NETDEV_BOND_PRIMARY_RESELECT_BETTER]= "better",
-        [NETDEV_BOND_PRIMARY_RESELECT_FAILURE]= "failure",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(bond_primary_reselect, BondPrimaryReselect);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_reselect, BondPrimaryReselect, "Failed to parse bond primary reselect");
 
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {

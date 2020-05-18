@@ -17,6 +17,8 @@ shared_sources = files('''
         bitmap.c
         bitmap.h
         blkid-util.h
+        bond-util.c
+        bond-util.h
         boot-timestamps.c
         boot-timestamps.h
         bootspec.c

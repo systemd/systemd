@@ -18,6 +18,7 @@
 #include "sd-network.h"
 
 #include "alloc-util.h"
+#include "bond-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -1531,22 +1532,10 @@ static int link_status_one(
                                            TABLE_STRING, bridge_state_to_string(info->port_state));
                 }
         } else if (streq_ptr(info->netdev_kind, "bond")) {
-                static const struct {
-                        const char *mode;
-                } mode_table[] = {
-                        { "balance-rr" },
-                        { "active-backup" },
-                        { "balance-xor" },
-                        { "broadcast" },
-                        { "802.3ad" },
-                        { "balance-tlb" },
-                        { "balance-alb" },
-                };
-
                 r = table_add_many(table,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Mode:",
-                                   TABLE_STRING, mode_table[info->mode],
+                                   TABLE_STRING,  bond_mode_to_string(info->mode),
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Miimon:",
                                    TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->miimon),
