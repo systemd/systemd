@@ -1204,17 +1204,14 @@ Features:
 * networkd:
    - add more keys to [Route] and [Address] sections
    - add support for more DHCPv4 options (and, longer term, other kinds of dynamic config)
-   - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
    - add reduced [Link] support to .network files
-   - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
    - work with non-Ethernet devices
-   - add support for more bond options
    - dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
    - the DHCP lease data (such as NTP/DNS) is still made available when
      a carrier is lost on a link. It should be removed instantly.
    - expose in the API the following bits:
-         - option 15, domain name and/or option 119, search list
+         - option 15, domain name
          - option 12, hostname and/or option 81, fqdn
          - option 123, 144, geolocation
          - option 252, configure http proxy (PAC/wpad)
@@ -1223,11 +1220,7 @@ Features:
    - allow Name= to be specified repeatedly in the [Match] section. Maybe also
      support Name=foo*|bar*|baz ?
    - duplicate address check for static IPs (like ARPCHECK in network-scripts)
-   - allow DUID/IAID to be customized, see issue #394.
    - whenever uplink info changes, make DHCP server send out FORCERENEW
-
-* networkd-wait-online:
-   - make operstates to wait for configurable?
 
 * dhcp:
    - figure out how much we can increase Maximum Message Size
