@@ -67,6 +67,7 @@ struct sd_dhcp6_client {
         size_t req_opts_len;
         char *fqdn;
         char *mudurl;
+        char **user_class;
         sd_event_source *receive_message;
         usec_t retransmit_time;
         uint8_t retransmit_count;
@@ -385,6 +386,27 @@ int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, const char *mud
         return free_and_strdup(&client->mudurl, mudurl);
 }
 
+int sd_dhcp6_client_set_request_user_class(sd_dhcp6_client *client, char **user_class) {
+        _cleanup_strv_free_ char **s = NULL;
+        char **p;
+
+        assert_return(client, -EINVAL);
+        assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
+        assert_return(user_class, -EINVAL);
+
+        STRV_FOREACH(p, user_class)
+                if (strlen(*p) > UINT16_MAX)
+                        return -ENAMETOOLONG;
+
+        s = strv_copy((char **) user_class);
+        if (!s)
+                return -ENOMEM;
+
+        client->user_class = TAKE_PTR(s);
+
+        return 0;
+}
+
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegation) {
         assert_return(client, -EINVAL);
         assert_return(delegation, -EINVAL);
@@ -565,6 +587,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (client->user_class) {
+                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd, &client->hint_pd_prefix);
                         if (r < 0)
@@ -611,6 +639,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (client->user_class) {
+                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
@@ -641,6 +675,12 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                         r = dhcp6_option_append(&opt, &optlen,
                                                 SD_DHCP6_OPTION_MUD_URL, strlen(client->mudurl),
                                                 client->mudurl);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (client->user_class) {
+                        r = dhcp6_option_append_user_class(&opt, &optlen, client->user_class);
                         if (r < 0)
                                 return r;
                 }
@@ -1602,7 +1642,10 @@ static sd_dhcp6_client *dhcp6_client_free(sd_dhcp6_client *client) {
         free(client->req_opts);
         free(client->fqdn);
         free(client->mudurl);
+
         ordered_hashmap_free(client->extra_options);
+        strv_free(client->user_class);
+
         return mfree(client);
 }
 
