@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<tbody>
+  <row id='b'>
+    <entry><literal>%b</literal></entry>
+    <entry>Boot ID</entry>
+    <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='a'>
+    <entry><literal>%a</literal></entry>
+    <entry>Architecture</entry>
+    <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a full list.</entry>
+  </row>
+  <row id='B'>
+    <entry><literal>%B</literal></entry>
+    <entry>Operating system build ID</entry>
+    <entry>The operating system build identifier of the running system, as read from the <varname>BUILD_ID=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='H'>
+    <entry><literal>%H</literal></entry>
+    <entry>Host name</entry>
+    <entry>The hostname of the running system.</entry>
+  </row>
+  <row id='l'>
+    <entry><literal>%l</literal></entry>
+    <entry>Short host name</entry>
+    <entry>The hostname of the running system, truncated at the first dot to remove any domain component.</entry>
+  </row>
+  <row id='m'>
+    <entry><literal>%m</literal></entry>
+    <entry>Machine ID</entry>
+    <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='o'>
+    <entry><literal>%o</literal></entry>
+    <entry>Operating system ID</entry>
+    <entry>The operating system identifier of the running system, as read from the <varname>ID=</varname> field of <filename>/etc/os-release</filename>. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='v'>
+    <entry><literal>%v</literal></entry>
+    <entry>Kernel release</entry>
+    <entry>Identical to <command>uname -r</command> output.</entry>
+  </row>
+  <row id='w'>
+    <entry><literal>%w</literal></entry>
+    <entry>Operating system version ID</entry>
+    <entry>The operating system version identifier of the running system, as read from the <varname>VERSION_ID=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='W'>
+    <entry><literal>%W</literal></entry>
+    <entry>Operating system variant ID</entry>
+    <entry>The operating system variant identifier of the running system, as read from the <varname>VARIANT_ID=</varname> field of <filename>/etc/os-release</filename>. If not set, resolves to an empty string. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+  </row>
+  <row id='percent'>
+    <entry><literal>%%</literal></entry>
+    <entry>Single percent sign</entry>
+    <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
+  </row>
+</tbody>

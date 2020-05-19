@@ -6,7 +6,7 @@
 #include "qdisc.h"
 #include "time-util.h"
 
-typedef struct FairQueuingControlledDelay {
+typedef struct FairQueueingControlledDelay {
         QDisc meta;
 
         uint32_t packet_limit;
@@ -17,12 +17,12 @@ typedef struct FairQueuingControlledDelay {
         usec_t interval_usec;
         usec_t ce_threshold_usec;
         int ecn;
-} FairQueuingControlledDelay;
+} FairQueueingControlledDelay;
 
-DEFINE_QDISC_CAST(FQ_CODEL, FairQueuingControlledDelay);
+DEFINE_QDISC_CAST(FQ_CODEL, FairQueueingControlledDelay);
 extern const QDiscVTable fq_codel_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queuing_controlled_delay_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queuing_controlled_delay_usec);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queuing_controlled_delay_bool);
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queuing_controlled_delay_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_size);

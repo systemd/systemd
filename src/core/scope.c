@@ -619,6 +619,7 @@ const UnitVTable scope_vtable = {
 
         .can_transient = true,
         .can_delegate = true,
+        .can_fail = true,
         .once_only = true,
 
         .init = scope_init,
@@ -634,6 +635,9 @@ const UnitVTable scope_vtable = {
 
         .kill = scope_kill,
 
+        .freeze = unit_freeze_vtable_common,
+        .thaw = unit_thaw_vtable_common,
+
         .get_timeout = scope_get_timeout,
 
         .serialize = scope_serialize,
@@ -648,7 +652,6 @@ const UnitVTable scope_vtable = {
 
         .notify_cgroup_empty = scope_notify_cgroup_empty_event,
 
-        .bus_vtable = bus_scope_vtable,
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
 

@@ -160,6 +160,31 @@ int btrfs_subvol_make(const char *path) {
         return btrfs_subvol_make_fd(fd, subvolume);
 }
 
+int btrfs_subvol_make_fallback(const char *path, mode_t mode) {
+        mode_t old, combined;
+        int r;
+
+        assert(path);
+
+        /* Let's work like mkdir(), i.e. take the specified mode, and mask it with the current umask. */
+        old = umask(~mode);
+        combined = old | ~mode;
+        if (combined != ~mode)
+                umask(combined);
+        r = btrfs_subvol_make(path);
+        umask(old);
+
+        if (r >= 0)
+                return 1; /* subvol worked */
+        if (r != -ENOTTY)
+                return r;
+
+        if (mkdir(path, mode) < 0)
+                return -errno;
+
+        return 0; /* plain directory */
+}
+
 int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         uint64_t flags, nflags;
         struct stat st;
@@ -175,11 +200,7 @@ int btrfs_subvol_set_read_only_fd(int fd, bool b) {
         if (ioctl(fd, BTRFS_IOC_SUBVOL_GETFLAGS, &flags) < 0)
                 return -errno;
 
-        if (b)
-                nflags = flags | BTRFS_SUBVOL_RDONLY;
-        else
-                nflags = flags & ~BTRFS_SUBVOL_RDONLY;
-
+        nflags = UPDATE_FLAG(flags, BTRFS_SUBVOL_RDONLY, b);
         if (flags == nflags)
                 return 0;
 
@@ -1128,7 +1149,6 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                 FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
                         _cleanup_free_ char *p = NULL;
                         const struct btrfs_root_ref *ref;
-                        struct btrfs_ioctl_ino_lookup_args ino_args;
 
                         btrfs_ioctl_search_args_set(&args, sh);
 
@@ -1143,9 +1163,10 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
                         if (!p)
                                 return -ENOMEM;
 
-                        zero(ino_args);
-                        ino_args.treeid = subvol_id;
-                        ino_args.objectid = htole64(ref->dirid);
+                        struct btrfs_ioctl_ino_lookup_args ino_args = {
+                                .treeid = subvol_id,
+                                .objectid = htole64(ref->dirid),
+                        };
 
                         if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;
@@ -1483,7 +1504,6 @@ static int subvol_snapshot_children(
 
                 FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, args) {
                         _cleanup_free_ char *p = NULL, *c = NULL, *np = NULL;
-                        struct btrfs_ioctl_ino_lookup_args ino_args;
                         const struct btrfs_root_ref *ref;
                         _cleanup_close_ int old_child_fd = -1, new_child_fd = -1;
 
@@ -1507,9 +1527,10 @@ static int subvol_snapshot_children(
                         if (!p)
                                 return -ENOMEM;
 
-                        zero(ino_args);
-                        ino_args.treeid = old_subvol_id;
-                        ino_args.objectid = htole64(ref->dirid);
+                        struct btrfs_ioctl_ino_lookup_args ino_args = {
+                                .treeid = old_subvol_id,
+                                .objectid = htole64(ref->dirid),
+                        };
 
                         if (ioctl(old_fd, BTRFS_IOC_INO_LOOKUP, &ino_args) < 0)
                                 return -errno;

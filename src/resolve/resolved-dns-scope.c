@@ -496,9 +496,8 @@ DnsScopeMatch dns_scope_good_domain(
         assert(s);
         assert(domain);
 
-        /* Checks if the specified domain is something to look up on
-         * this scope. Note that this accepts non-qualified hostnames,
-         * i.e. those without any search path prefixed yet. */
+        /* Checks if the specified domain is something to look up on this scope. Note that this accepts
+         * non-qualified hostnames, i.e. those without any search path suffixed. */
 
         if (ifindex != 0 && (!s->link || s->link->ifindex != ifindex))
                 return DNS_SCOPE_NO;
@@ -863,7 +862,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
 
         r = dns_zone_lookup(&s->zone, key, 0, &answer, &soa, &tentative);
         if (r < 0) {
-                log_debug_errno(r, "Failed to lookup key: %m");
+                log_debug_errno(r, "Failed to look up key: %m");
                 return;
         }
         if (r == 0)

@@ -54,6 +54,44 @@ int fdopen_unlocked(int fd, const char *options, FILE **ret) {
         return 0;
 }
 
+int take_fdopen_unlocked(int *fd, const char *options, FILE **ret) {
+        int     r;
+
+        assert(fd);
+
+        r = fdopen_unlocked(*fd, options, ret);
+        if (r < 0)
+                return r;
+
+        *fd = -1;
+
+        return 0;
+}
+
+FILE* take_fdopen(int *fd, const char *options) {
+        assert(fd);
+
+        FILE *f = fdopen(*fd, options);
+        if (!f)
+                return NULL;
+
+        *fd = -1;
+
+        return f;
+}
+
+DIR* take_fdopendir(int *dfd) {
+        assert(dfd);
+
+        DIR *d = fdopendir(*dfd);
+        if (!d)
+                return NULL;
+
+        *dfd = -1;
+
+        return d;
+}
+
 FILE* open_memstream_unlocked(char **ptr, size_t *sizeloc) {
         FILE *f = open_memstream(ptr, sizeloc);
         if (!f)
@@ -81,13 +119,21 @@ int write_string_stream_ts(
                 struct timespec *ts) {
 
         bool needs_nl;
-        int r;
+        int r, fd;
 
         assert(f);
         assert(line);
 
         if (ferror(f))
                 return -EIO;
+
+        if (ts) {
+                /* If we shall set the timestamp we need the fd. But fmemopen() streams generally don't have
+                 * an fd. Let's fail early in that case. */
+                fd = fileno(f);
+                if (fd < 0)
+                        return -EBADF;
+        }
 
         needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
 
@@ -116,7 +162,7 @@ int write_string_stream_ts(
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
 
-                if (futimens(fileno(f), twice) < 0)
+                if (futimens(fd, twice) < 0)
                         return -errno;
         }
 
@@ -136,13 +182,18 @@ static int write_string_file_atomic(
         assert(fn);
         assert(line);
 
+        /* Note that we'd really like to use O_TMPFILE here, but can't really, since we want replacement
+         * semantics here, and O_TMPFILE can't offer that. i.e. rename() replaces but linkat() doesn't. */
+
         r = fopen_temporary(fn, &f, &p);
         if (r < 0)
                 return r;
 
-        (void) fchmod_umask(fileno(f), 0644);
-
         r = write_string_stream_ts(f, line, flags, ts);
+        if (r < 0)
+                goto fail;
+
+        r = fchmod_umask(fileno(f), FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0644);
         if (r < 0)
                 goto fail;
 
@@ -165,7 +216,7 @@ int write_string_file_ts(
                 struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
-        int q, r;
+        int q, r, fd;
 
         assert(fn);
         assert(line);
@@ -190,26 +241,20 @@ int write_string_file_ts(
         } else
                 assert(!ts);
 
-        if (flags & WRITE_STRING_FILE_CREATE) {
-                r = fopen_unlocked(fn, "we", &f);
-                if (r < 0)
-                        goto fail;
-        } else {
-                int fd;
+        /* We manually build our own version of fopen(..., "we") that works without O_CREAT and with O_NOFOLLOW if needed. */
+        fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY |
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0) |
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0),
+                  (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
+        if (fd < 0) {
+                r = -errno;
+                goto fail;
+        }
 
-                /* We manually build our own version of fopen(..., "we") that
-                 * works without O_CREAT */
-                fd = open(fn, O_WRONLY|O_CLOEXEC|O_NOCTTY | ((flags & WRITE_STRING_FILE_NOFOLLOW) ? O_NOFOLLOW : 0));
-                if (fd < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = fdopen_unlocked(fd, "w", &f);
-                if (r < 0) {
-                        safe_close(fd);
-                        goto fail;
-                }
+        r = fdopen_unlocked(fd, "w", &f);
+        if (r < 0) {
+                safe_close(fd);
+                goto fail;
         }
 
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
@@ -543,16 +588,18 @@ finalize:
         return r;
 }
 
-int read_full_file_full(const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
+int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(filename);
         assert(contents);
 
-        r = fopen_unlocked(filename, "re", &f);
+        r = xfopenat(dir_fd, filename, "re", 0, &f);
         if (r < 0)
                 return r;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream_full(f, filename, flags, contents, size);
 }
@@ -680,6 +727,81 @@ DIR *xopendirat(int fd, const char *name, int flags) {
         return d;
 }
 
+static int mode_to_flags(const char *mode) {
+        const char *p;
+        int flags;
+
+        if ((p = startswith(mode, "r+")))
+                flags = O_RDWR;
+        else if ((p = startswith(mode, "r")))
+                flags = O_RDONLY;
+        else if ((p = startswith(mode, "w+")))
+                flags = O_RDWR|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "w")))
+                flags = O_WRONLY|O_CREAT|O_TRUNC;
+        else if ((p = startswith(mode, "a+")))
+                flags = O_RDWR|O_CREAT|O_APPEND;
+        else if ((p = startswith(mode, "a")))
+                flags = O_WRONLY|O_CREAT|O_APPEND;
+        else
+                return -EINVAL;
+
+        for (; *p != 0; p++) {
+
+                switch (*p) {
+
+                case 'e':
+                        flags |= O_CLOEXEC;
+                        break;
+
+                case 'x':
+                        flags |= O_EXCL;
+                        break;
+
+                case 'm':
+                        /* ignore this here, fdopen() might care later though */
+                        break;
+
+                case 'c': /* not sure what to do about this one */
+                default:
+                        return -EINVAL;
+                }
+        }
+
+        return flags;
+}
+
+int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret) {
+        FILE *f;
+
+        /* A combination of fopen() with openat() */
+
+        if (dir_fd == AT_FDCWD && flags == 0) {
+                f = fopen(path, mode);
+                if (!f)
+                        return -errno;
+        } else {
+                int fd, mode_flags;
+
+                mode_flags = mode_to_flags(mode);
+                if (mode_flags < 0)
+                        return mode_flags;
+
+                fd = openat(dir_fd, path, mode_flags | flags);
+                if (fd < 0)
+                        return -errno;
+
+                f = fdopen(fd, mode);
+                if (!f) {
+                        safe_close(fd);
+                        return -errno;
+                }
+        }
+
+        *ret = f;
+        return 0;
+}
+
 static int search_and_fopen_internal(const char *path, const char *mode, const char *root, char **search, FILE **_f) {
         char **i;
 
@@ -772,7 +894,7 @@ int fflush_and_check(FILE *f) {
 }
 
 int fflush_sync_and_check(FILE *f) {
-        int r;
+        int r, fd;
 
         assert(f);
 
@@ -780,10 +902,16 @@ int fflush_sync_and_check(FILE *f) {
         if (r < 0)
                 return r;
 
-        if (fsync(fileno(f)) < 0)
+        /* Not all file streams have an fd associated (think: fmemopen()), let's handle this gracefully and
+         * assume that in that case we need no explicit syncing */
+        fd = fileno(f);
+        if (fd < 0)
+                return 0;
+
+        if (fsync(fd) < 0)
                 return -errno;
 
-        r = fsync_directory_of_file(fileno(f));
+        r = fsync_directory_of_file(fd);
         if (r < 0)
                 return r;
 
@@ -881,7 +1009,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
 int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
         size_t n = 0, allocated = 0, count = 0;
         _cleanup_free_ char *buffer = NULL;
-        int r, tty = -1;
+        int r;
 
         assert(f);
 
@@ -956,13 +1084,23 @@ int read_line_full(FILE *f, size_t limit, ReadLineFlags flags, char **ret) {
                         count++;
 
                         if (eol != EOL_NONE) {
-                                /* If we are on a tty, we can't wait for more input. But we expect only
-                                 * \n as the single EOL marker, so there is no need to wait. We check
-                                 * this condition last to avoid isatty() check if not necessary. */
+                                /* If we are on a tty, we can't shouldn't wait for more input, because that
+                                 * generally means waiting for the user, interactively. In the case of a TTY
+                                 * we expect only \n as the single EOL marker, so we are in the lucky
+                                 * position that there is no need to wait. We check this condition last, to
+                                 * avoid isatty() check if not necessary. */
 
-                                if (tty < 0)
-                                        tty = isatty(fileno(f));
-                                if (tty > 0)
+                                if ((flags & (READ_LINE_IS_A_TTY|READ_LINE_NOT_A_TTY)) == 0) {
+                                        int fd;
+
+                                        fd = fileno(f);
+                                        if (fd < 0) /* Maybe an fmemopen() stream? Handle this gracefully,
+                                                     * and don't call isatty() on an invalid fd */
+                                                flags |= READ_LINE_NOT_A_TTY;
+                                        else
+                                                flags |= isatty(fd) ? READ_LINE_IS_A_TTY : READ_LINE_NOT_A_TTY;
+                                }
+                                if (FLAGS_SET(flags, READ_LINE_IS_A_TTY))
                                         break;
                         }
 

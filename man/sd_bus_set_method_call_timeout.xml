@@ -1,0 +1,103 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_set_method_call_timeout" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_set_method_call_timeout</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_set_method_call_timeout</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_set_method_call_timeout</refname>
+    <refname>sd_bus_get_method_call_timeout</refname>
+
+    <refpurpose>Set or query the default D-Bus method call timeout of a bus object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_method_call_timeout</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_method_call_timeout</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_set_method_call_timeout()</function> sets the default D-Bus method call
+    timeout of <parameter>bus</parameter> to <parameter>usec</parameter> microseconds.</para>
+
+    <para><function>sd_bus_get_method_call_timeout()</function> queries the default D-Bus method
+    call timeout of <parameter>bus</parameter>. If no method call timeout was set using
+    <function>sd_bus_set_method_call_timeout()</function>, the timeout is read from the
+    <varname>$SYSTEMD_BUS_TIMEOUT</varname> environment variable. If this environment variable is
+    unset or does not contain a valid timeout, the implementation falls back to a predefined method
+    call timeout of 25 seconds. Note that <varname>$SYSTEMD_BUS_TIMEOUT</varname> is read once and
+    cached so callers should not rely on being able to change the default method call timeout at
+    runtime by changing the value of <varname>$SYSTEMD_BUS_TIMEOUT</varname>. Instead, call
+    <function>sd_bus_set_method_call_timeout()</function> to change the default method call timeout.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The parameters <parameter>bus</parameter> or <parameter>ret</parameter>
+          are <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>Bus object <parameter>bus</parameter> could not be resolved.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

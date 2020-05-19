@@ -1,30 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
+IMAGE_NAME="cryptsetup"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
 
 check_result_qemu() {
     ret=1
-    mkdir -p $initdir
-    mount ${LOOPDEV}p1 $initdir
+    mount_initdir
     [[ -e $initdir/testok ]] && ret=0
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     cryptsetup luksOpen ${LOOPDEV}p2 varcrypt <$TESTDIR/keyfile
     mount /dev/mapper/varcrypt $initdir/var
-    cp -a $initdir/var/log/journal $TESTDIR
-    umount $initdir/var
-    umount $initdir
+    save_journal $initdir/var/log/journal
+    _umount_dir $initdir/var
+    _umount_dir $initdir
     cryptsetup luksClose /dev/mapper/varcrypt
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
-    ls -l $TESTDIR/journal/*/*.journal
+    echo $JOURNAL_LIST
     test -s $TESTDIR/failed && ret=$(($ret+1))
     return $ret
 }
 
-
-test_setup() {
+test_create_image() {
     create_empty_image_rootdir
     echo -n test >$TESTDIR/keyfile
     cryptsetup -q luksFormat --pbkdf pbkdf2 --pbkdf-force-iterations 1000 ${LOOPDEV}p2 $TESTDIR/keyfile
@@ -42,25 +41,12 @@ test_setup() {
         setup_basic_environment
         mask_supporting_services
 
-        # setup the testsuite service
-        cat >$initdir/etc/systemd/system/testsuite.service <<EOF
-[Unit]
-Description=Testsuite service
-After=multi-user.target
-
-[Service]
-ExecStart=/bin/sh -x -c 'systemctl --state=failed --no-legend --no-pager > /failed ; echo OK > /testok'
-Type=oneshot
-EOF
-
-        setup_testsuite
-
         install_dmevent
         generate_module_dependencies
         cat >$initdir/etc/crypttab <<EOF
 $DM_NAME UUID=$ID_FS_UUID /etc/varkey
 EOF
-        echo -n test > $initdir/etc/varkey
+        echo -n test >$initdir/etc/varkey
         cat $initdir/etc/crypttab | ddebug
 
         cat >>$initdir/etc/fstab <<EOF
@@ -82,8 +68,8 @@ test_cleanup() {
 }
 
 test_setup_cleanup() {
-    cleanup_root_var
-    _test_setup_cleanup
+    cleanup_root_var || :
+    cleanup_initdir
 }
 
-do_test "$@"
+do_test "$@" 02

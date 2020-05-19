@@ -26,8 +26,11 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("cgroupfs not available");
 
         /* prepare the test */
-        assert_se(set_unit_path(get_testdata_dir()) >= 0);
+        _cleanup_free_ char *unit_dir = NULL;
+        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
+        assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
+
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");

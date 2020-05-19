@@ -194,7 +194,7 @@
 
         <listitem><para>When set to <literal>1</literal>, this device automatically
         generates a new and independent seat, which is named after the path of the
-        device. This is set for specialized USB hubs like the Plugable devices, which when
+        device. This is set for specialized USB hubs like the Pluggable devices, which when
         plugged in should create a hotplug seat without further configuration.</para>
         </listitem>
       </varlistentry>

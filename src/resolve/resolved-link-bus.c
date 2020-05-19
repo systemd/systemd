@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "parse-util.h"
 #include "resolve-util.h"
@@ -628,7 +629,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Invalid negative trust anchor domain: %s", *i);
 
-                r = set_put_strdup(ns, *i);
+                r = set_put_strdup(&ns, *i);
                 if (r < 0)
                         return r;
         }
@@ -681,40 +682,11 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable link_vtable[] = {
-        SD_BUS_VTABLE_START(0),
-
-        SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
-        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
-        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
-        SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
-        SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
-        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
-        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
-        SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
-        SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
-        SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
-        SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
-
-        SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDNSOverTLS", "s", NULL, bus_link_method_set_dns_over_tls, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, SD_BUS_VTABLE_UNPRIVILEGED),
-
-        SD_BUS_VTABLE_END
-};
-
-int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int link_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         Manager *m = userdata;
-        int ifindex;
         Link *link;
-        int r;
+        int ifindex, r;
 
         assert(bus);
         assert(path);
@@ -726,8 +698,8 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
         if (r <= 0)
                 return 0;
 
-        r = parse_ifindex(e, &ifindex);
-        if (r < 0)
+        ifindex = parse_ifindex(e);
+        if (ifindex < 0)
                 return 0;
 
         link = hashmap_get(m->links, INT_TO_PTR(ifindex));
@@ -753,7 +725,7 @@ char *link_bus_path(const Link *link) {
         return p;
 }
 
-int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Link *link;
@@ -784,3 +756,74 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
 
         return 1;
 }
+
+static const sd_bus_vtable link_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
+        SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iay)", property_get_current_dns_server, offsetof(Link, current_dns_server), 0),
+        SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
+        SD_BUS_PROPERTY("DefaultRoute", "b", property_get_default_route, 0, 0),
+        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
+        SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
+
+        SD_BUS_METHOD_WITH_ARGS("SetDNS",
+                                SD_BUS_ARGS("a(iay)", addresses),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_servers,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDomains",
+                                SD_BUS_ARGS("a(sb)", domains),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_domains,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDefaultRoute",
+                                SD_BUS_ARGS("b", enable),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_default_route,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetLLMNR",
+                                SD_BUS_ARGS("s", mode),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_llmnr,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetMulticastDNS",
+                                SD_BUS_ARGS("s", mode),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_mdns,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSOverTLS",
+                                SD_BUS_ARGS("s", mode),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_over_tls,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSSEC",
+                                SD_BUS_ARGS("s", mode),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dnssec,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSSECNegativeTrustAnchors",
+                                SD_BUS_ARGS("as", names),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dnssec_negative_trust_anchors,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Revert",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_revert,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation link_object = {
+        "/org/freedesktop/resolve1/link",
+        "org.freedesktop.resolve1.Link",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({link_vtable, link_object_find}),
+        .node_enumerator = link_node_enumerator,
+};

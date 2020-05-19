@@ -28,6 +28,7 @@ $1.Group,                        config_parse_user_group_compat,     0,         
 $1.SupplementaryGroups,          config_parse_user_group_strv_compat, 0,                            offsetof($1, exec_context.supplementary_groups)
 $1.Nice,                         config_parse_exec_nice,             0,                             offsetof($1, exec_context)
 $1.OOMScoreAdjust,               config_parse_exec_oom_score_adjust, 0,                             offsetof($1, exec_context)
+$1.CoredumpFilter,               config_parse_exec_coredump_filter,  0,                             offsetof($1, exec_context)
 $1.IOSchedulingClass,            config_parse_exec_io_class,         0,                             offsetof($1, exec_context)
 $1.IOSchedulingPriority,         config_parse_exec_io_priority,      0,                             offsetof($1, exec_context)
 $1.CPUSchedulingPolicy,          config_parse_exec_cpu_sched_policy, 0,                             offsetof($1, exec_context)
@@ -116,8 +117,10 @@ $1.PrivateDevices,               config_parse_bool,                  0,         
 $1.ProtectKernelTunables,        config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_tunables)
 $1.ProtectKernelModules,         config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_modules)
 $1.ProtectKernelLogs,            config_parse_bool,                  0,                             offsetof($1, exec_context.protect_kernel_logs)
+$1.ProtectClock,                 config_parse_bool,                  0,                             offsetof($1, exec_context.protect_clock)
 $1.ProtectControlGroups,         config_parse_bool,                  0,                             offsetof($1, exec_context.protect_control_groups)
 $1.NetworkNamespacePath,         config_parse_unit_path_printf,      0,                             offsetof($1, exec_context.network_namespace_path)
+$1.LogNamespace,                 config_parse_log_namespace,         0,                             offsetof($1, exec_context)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateUsers,                 config_parse_bool,                  0,                             offsetof($1, exec_context.private_users)
 $1.PrivateMounts,                config_parse_bool,                  0,                             offsetof($1, exec_context.private_mounts)
@@ -435,7 +438,7 @@ Automount.DirectoryMode,         config_parse_mode,                  0,         
 Automount.TimeoutIdleSec,        config_parse_sec_fix_0,             0,                             offsetof(Automount, timeout_idle_usec)
 m4_dnl
 Swap.What,                       config_parse_unit_path_printf,      0,                             offsetof(Swap, parameters_fragment.what)
-Swap.Priority,                   config_parse_int,                   0,                             offsetof(Swap, parameters_fragment.priority)
+Swap.Priority,                   config_parse_swap_priority,         0,                             0
 Swap.Options,                    config_parse_unit_string_printf,    0,                             offsetof(Swap, parameters_fragment.options)
 Swap.TimeoutSec,                 config_parse_sec_fix_0,             0,                             offsetof(Swap, timeout_usec)
 EXEC_CONTEXT_CONFIG_ITEMS(Swap)m4_dnl

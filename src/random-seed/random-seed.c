@@ -19,6 +19,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "missing_random.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
 #include "parse-util.h"

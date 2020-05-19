@@ -423,7 +423,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd, const char *name) {
+static int service_add_fd_store(Service *s, int fd, const char *name, bool do_poll) {
         ServiceFDStore *fs;
         int r;
 
@@ -453,19 +453,22 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
 
         fs->fd = fd;
         fs->service = s;
+        fs->do_poll = do_poll;
         fs->fdname = strdup(name ?: "stored");
         if (!fs->fdname) {
                 free(fs);
                 return -ENOMEM;
         }
 
-        r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-        if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
-                free(fs->fdname);
-                free(fs);
-                return r;
-        } else if (r >= 0)
-                (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        if (do_poll) {
+                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
+                if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
+                        free(fs->fdname);
+                        free(fs);
+                        return r;
+                } else if (r >= 0)
+                        (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
+        }
 
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
@@ -473,7 +476,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name) {
         return 1; /* fd newly stored */
 }
 
-static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
+static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bool do_poll) {
         int r;
 
         assert(s);
@@ -485,7 +488,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name) {
                 if (fd < 0)
                         break;
 
-                r = service_add_fd_store(s, fd, name);
+                r = service_add_fd_store(s, fd, name, do_poll);
                 if (r == -EXFULL)
                         return log_unit_warning_errno(UNIT(s), r,
                                                       "Cannot store more fds than FileDescriptorStoreMax=%u, closing remaining.",
@@ -650,24 +653,37 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
-static void service_fix_output(Service *s) {
+static void service_fix_stdio(Service *s) {
         assert(s);
 
-        /* If nothing has been explicitly configured, patch default output in. If input is socket/tty we avoid this
-         * however, since in that case we want output to default to the same place as we read input from. */
-
-        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
-
-        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT &&
-            s->exec_context.std_input == EXEC_INPUT_NULL)
-                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+        /* Note that EXEC_INPUT_NULL and EXEC_OUTPUT_INHERIT play a special role here: they are both the
+         * default value that is subject to automatic overriding triggered by other settings and an explicit
+         * choice the user can make. We don't distinguish between these cases currently. */
 
         if (s->exec_context.std_input == EXEC_INPUT_NULL &&
             s->exec_context.stdin_data_size > 0)
                 s->exec_context.std_input = EXEC_INPUT_DATA;
+
+        if (IN_SET(s->exec_context.std_input,
+                    EXEC_INPUT_TTY,
+                    EXEC_INPUT_TTY_FORCE,
+                    EXEC_INPUT_TTY_FAIL,
+                    EXEC_INPUT_SOCKET,
+                    EXEC_INPUT_NAMED_FD))
+                return;
+
+        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
+         * stdin to stdout/stderr makes sense and hence leaving EXEC_OUTPUT_INHERIT in place makes sense,
+         * too. Outputs such as regular files or sealed data memfds otoh don't really make sense to be
+         * duplicated for both input and output at the same time (since they then would cause a feedback
+         * loop), hence override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting.  */
+
+        if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
+            s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
+                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
+
+        if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
+                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
 }
 
 static int service_setup_bus_name(Service *s) {
@@ -715,7 +731,7 @@ static int service_add_extras(Service *s) {
         if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
                 s->timeout_start_usec = USEC_INFINITY;
 
-        service_fix_output(s);
+        service_fix_stdio(s);
 
         r = unit_patch_contexts(UNIT(s));
         if (r < 0)
@@ -2556,6 +2572,8 @@ static unsigned service_exec_command_index(Unit *u, ServiceExecCommand id, ExecC
         ExecCommand *first, *c;
 
         assert(s);
+        assert(id >= 0);
+        assert(id < _SERVICE_EXEC_COMMAND_MAX);
 
         first = s->exec_command[id];
 
@@ -2619,10 +2637,12 @@ static int service_serialize_exec_command(Unit *u, FILE *f, ExecCommand *command
 
         p = cescape(command->path);
         if (!p)
-                return -ENOMEM;
+                return log_oom();
 
         key = strjoina(type, "-command");
-        return serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
+        (void) serialize_item_format(f, key, "%s %u %s %s", service_exec_command_to_string(id), idx, p, args);
+
+        return 0;
 }
 
 static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
@@ -2698,7 +2718,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (!c)
                         return log_oom();
 
-                (void) serialize_item_format(f, "fd-store-fd", "%i %s", copy, c);
+                (void) serialize_item_format(f, "fd-store-fd", "%i \"%s\" %i", copy, c, fs->do_poll);
         }
 
         if (s->main_exec_status.pid > 0) {
@@ -2724,7 +2744,11 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int service_deserialize_exec_command(Unit *u, const char *key, const char *value) {
+static int service_deserialize_exec_command(
+                Unit *u,
+                const char *key,
+                const char *value) {
+
         Service *s = SERVICE(u);
         int r;
         unsigned idx = 0, i;
@@ -2813,9 +2837,10 @@ static int service_deserialize_exec_command(Unit *u, const char *key, const char
                                 break;
         }
 
-        if (command && control)
+        if (command && control) {
                 s->control_command = command;
-        else if (command)
+                s->control_command_id = id;
+        } else if (command)
                 s->main_command = command;
         else
                 log_unit_warning(u, "Current command vanished from the unit file, execution of the command list won't be resumed.");
@@ -2922,30 +2947,36 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->socket_fd = fdset_remove(fds, fd);
                 }
         } else if (streq(key, "fd-store-fd")) {
-                const char *fdv;
-                size_t pf;
+                _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
                 int fd;
+                int do_poll;
 
-                pf = strcspn(value, WHITESPACE);
-                fdv = strndupa(value, pf);
-
-                if (safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0 || safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
-                else {
-                        _cleanup_free_ char *t = NULL;
-                        const char *fdn;
-
-                        fdn = value + pf;
-                        fdn += strspn(fdn, WHITESPACE);
-                        (void) cunescape(fdn, 0, &t);
-
-                        r = service_add_fd_store(s, fd, t);
-                        if (r < 0)
-                                log_unit_error_errno(u, r, "Failed to add fd to store: %m");
-                        else
-                                fdset_remove(fds, fd);
+                        return 0;
                 }
 
+                r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
+                if (r <= 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        return 0;
+                }
+
+                r = extract_first_word(&value, &fdp, NULL, 0);
+                if (r == 0) {
+                        /* If the value is not present, we assume the default */
+                        do_poll = 1;
+                } else if (r < 0 || safe_atoi(fdp, &do_poll) < 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                        return 0;
+                }
+
+                r = service_add_fd_store(s, fd, fdn, do_poll);
+                if (r < 0)
+                        log_unit_error_errno(u, r, "Failed to add fd to store: %m");
+                else
+                        fdset_remove(fds, fd);
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
@@ -3488,6 +3519,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_STOP_POST:
+
+                                if (control_pid_good(s) <= 0)
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+
+                                break;
+
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
 
@@ -3637,6 +3674,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_STOP_POST:
+                                if (main_pid_good(s) <= 0)
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                                break;
+
                         case SERVICE_FINAL_SIGTERM:
                         case SERVICE_FINAL_SIGKILL:
                                 if (main_pid_good(s) <= 0)
@@ -3806,7 +3847,7 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
         return 0;
 }
 
-static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags, FDSet *fds) {
+static bool service_notify_message_authorized(Service *s, pid_t pid, FDSet *fds) {
         assert(s);
 
         if (s->notify_access == NOTIFY_NONE) {
@@ -3853,19 +3894,19 @@ static void service_force_watchdog(Service *s) {
 static void service_notify_message(
                 Unit *u,
                 const struct ucred *ucred,
-                char **tags,
+                char * const *tags,
                 FDSet *fds) {
 
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
-        char **i;
+        char * const *i;
         int r;
 
         assert(u);
         assert(ucred);
 
-        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, tags, fds))
+        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, fds))
                 return;
 
         if (DEBUG_LOGGING) {
@@ -4036,7 +4077,7 @@ static void service_notify_message(
                         name = NULL;
                 }
 
-                (void) service_add_fd_store_set(s, fds, name);
+                (void) service_add_fd_store_set(s, fds, name, !strv_contains(tags, "FDPOLL=0"));
         }
 
         /* Notify clients about changed status or main pid */
@@ -4062,24 +4103,17 @@ static int service_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-static void service_bus_name_owner_change(
-                Unit *u,
-                const char *old_owner,
-                const char *new_owner) {
+static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
 
         Service *s = SERVICE(u);
         int r;
 
         assert(s);
 
-        assert(old_owner || new_owner);
-
-        if (old_owner && new_owner)
-                log_unit_debug(u, "D-Bus name %s changed owner from %s to %s", s->bus_name, old_owner, new_owner);
-        else if (old_owner)
-                log_unit_debug(u, "D-Bus name %s no longer registered by %s", s->bus_name, old_owner);
+        if (new_owner)
+                log_unit_debug(u, "D-Bus name %s now owned by %s", s->bus_name, new_owner);
         else
-                log_unit_debug(u, "D-Bus name %s now registered by %s", s->bus_name, new_owner);
+                log_unit_debug(u, "D-Bus name %s now not owned by anyone.", s->bus_name);
 
         s->bus_name_good = !!new_owner;
 
@@ -4302,6 +4336,18 @@ static int service_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
+static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
+        if (t == JOB_START && result == JOB_DONE) {
+                Service *s = SERVICE(u);
+
+                if (s->type == SERVICE_ONESHOT)
+                        return "Finished %s.";
+        }
+
+        /* Fall back to generic */
+        return NULL;
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -4391,6 +4437,7 @@ const UnitVTable service_vtable = {
 
         .can_transient = true,
         .can_delegate = true,
+        .can_fail = true,
 
         .init = service_init,
         .done = service_done,
@@ -4410,6 +4457,9 @@ const UnitVTable service_vtable = {
         .kill = service_kill,
         .clean = service_clean,
         .can_clean = service_can_clean,
+
+        .freeze = unit_freeze_vtable_common,
+        .thaw = unit_thaw_vtable_common,
 
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,
@@ -4434,7 +4484,6 @@ const UnitVTable service_vtable = {
 
         .bus_name_owner_change = service_bus_name_owner_change,
 
-        .bus_vtable = bus_service_vtable,
         .bus_set_property = bus_service_set_property,
         .bus_commit_properties = bus_service_commit_properties,
 
@@ -4448,7 +4497,6 @@ const UnitVTable service_vtable = {
                         [1] = "Stopping %s...",
                 },
                 .finished_start_job = {
-                        [JOB_DONE]       = "Started %s.",
                         [JOB_FAILED]     = "Failed to start %s.",
                         [JOB_SKIPPED]    = "Skipped %s.",
                 },
@@ -4456,5 +4504,6 @@ const UnitVTable service_vtable = {
                         [JOB_DONE]       = "Stopped %s.",
                         [JOB_FAILED]     = "Stopped (with error) %s.",
                 },
+                .finished_job = service_finished_job,
         },
 };

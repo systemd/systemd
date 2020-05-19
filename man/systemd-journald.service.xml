@@ -20,6 +20,9 @@
     <refname>systemd-journald.socket</refname>
     <refname>systemd-journald-dev-log.socket</refname>
     <refname>systemd-journald-audit.socket</refname>
+    <refname>systemd-journald@.service</refname>
+    <refname>systemd-journald@.socket</refname>
+    <refname>systemd-journald-varlink@.socket</refname>
     <refname>systemd-journald</refname>
     <refpurpose>Journal service</refpurpose>
   </refnamediv>
@@ -29,6 +32,9 @@
     <para><filename>systemd-journald.socket</filename></para>
     <para><filename>systemd-journald-dev-log.socket</filename></para>
     <para><filename>systemd-journald-audit.socket</filename></para>
+    <para><filename>systemd-journald@.service</filename></para>
+    <para><filename>systemd-journald@.socket</filename></para>
+    <para><filename>systemd-journald-varlink@.socket</filename></para>
     <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
   </refsynopsisdiv>
 
@@ -130,6 +136,40 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Journal Namespaces</title>
+
+    <para>Journal 'namespaces' are both a mechanism for logically isolating the log stream of projects
+    consisting of one or more services from the rest of the system and a mechanism for improving
+    performance. Multiple journal namespaces may exist simultaneously, each defining its own, independent log
+    stream managed by its own instance of <command>systemd-journald</command>. Namespaces are independent of
+    each other, both in the data store and in the IPC interface. By default only a single 'default' namespace
+    exists, managed by <filename>systemd-journald.service</filename> (and its associated socket
+    units). Additional namespaces are created by starting an instance of the
+    <filename>systemd-journald@.service</filename> service template. The instance name is the namespace
+    identifier, which is a short string used for referencing the journal namespace. Service units may be
+    assigned to a specific journal namespace through the <varname>LogNamespace=</varname> unit file setting,
+    see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. The <option>--namespace=</option> switch of
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> may be
+    used to view the log stream of a specific namespace. If the switch is not used the log stream of the
+    default namespace is shown, i.e. log data from other namespaces is not visible.</para>
+
+    <para>Services associated with a specific log namespace may log via syslog, the native logging protocol
+    of the journal and via stdout/stderr; the logging from all three transports is associated with the
+    namespace.</para>
+
+    <para>By default only the default namespace will collect kernel and audit log messages.</para>
+
+    <para>The <command>systemd-journald</command> instance of the default namespace is configured through
+    <filename>/etc/systemd/journald.conf</filename> (see below), while the other instances are configured
+    through <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename>. The journal
+    log data for the default namespace is placed in
+    <filename>/var/log/journal/<replaceable>MACHINE_ID</replaceable></filename> (see below) while the data
+    for the other namespaces is located in
+    <filename>/var/log/journal/<replaceable>MACHINE_ID</replaceable>.<replaceable>NAMESPACE</replaceable></filename>.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Signals</title>
 
     <variablelist>
@@ -190,6 +230,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
       </varlistentry>
     </variablelist>
+
+    <para>Note that these kernel command line options are only honoured by the default namespace, see
+    above.</para>
   </refsect1>
 
   <refsect1>
@@ -200,8 +243,11 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     writable. Adding a user to this group thus enables them to read
     the journal files.</para>
 
-    <para>By default, each logged in user will get their own set of
-    journal files in <filename>/var/log/journal/</filename>. These
+    <para>By default, each user, with a UID outside the range of system users,
+    dynamic service users, and the nobody user, will get their own set of
+    journal files in <filename>/var/log/journal/</filename>. See
+    <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
+    for more details about UID ranges. These journal
     files will not be owned by the user, however, in order to avoid
     that the user can write to them directly. Instead, file system
     ACLs are used to ensure the user gets read access only.</para>
@@ -276,12 +322,14 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <term><filename>/run/systemd/journal/socket</filename></term>
         <term><filename>/run/systemd/journal/stdout</filename></term>
 
-        <listitem><para>Sockets and other paths that
-        <command>systemd-journald</command> will listen on that are
-        visible in the file system. In addition to these, journald can
-        listen for audit events using netlink.</para></listitem>
+        <listitem><para>Sockets and other file node paths that <command>systemd-journald</command> will
+        listen on and are visible in the file system. In addition to these,
+        <command>systemd-journald</command> can listen for audit events using <citerefentry
+        project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
     </variablelist>
+
+    <para>If journal namespacing is used these paths are slightly altered to include a namespace identifier, see above.</para>
   </refsect1>
 
   <refsect1>
@@ -293,7 +341,7 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
       <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <command>pydoc systemd.journal</command>
     </para>

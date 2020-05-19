@@ -145,7 +145,7 @@ static int server(sd_bus *bus) {
                          strna(sd_bus_message_get_member(m)),
                          pid,
                          strna(label));
-                /* bus_message_dump(m); */
+                /* sd_bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "LowerCase")) {
@@ -317,7 +317,7 @@ static void* client1(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -485,7 +485,7 @@ static void* client2(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,

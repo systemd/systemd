@@ -1,0 +1,85 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_sensitive" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_sensitive</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_sensitive</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_sensitive</refname>
+
+    <refpurpose>Mark a message object as containing sensitive data</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_message_sensitive</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_sensitive()</function> marks an allocated bus message as containing
+    sensitive data. This ensures that the message data is carefully removed from memory (specifically,
+    overwritten with zero bytes) when released. It is recommended to mark all incoming and outgoing messages
+    like this that contain security credentials and similar data that should be dealt with carefully. Note
+    that it is not possible to unmark messages like this, it's a one way operation. If a message is already
+    marked sensitive and then marked sensitive a second time the message remains marked so and no further
+    operation is executed.</para>
+
+    <para>As a safety precaution all messages that are created as reply to messages that are marked sensitive
+    are also implicitly marked so.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this functions return 0 or a positive integer. On failure, it returns a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>message</parameter> parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -23,7 +23,7 @@ struct acpi_table_header {
         uint32_t oem_revision;
         char asl_compiler_id[4];
         uint32_t asl_compiler_revision;
-};
+} _packed_;
 
 enum {
         ACPI_FPDT_TYPE_BOOT =   0,
@@ -36,12 +36,12 @@ struct acpi_fpdt_header {
         uint8_t revision;
         uint8_t reserved[4];
         uint64_t ptr;
-};
+} _packed_;
 
 struct acpi_fpdt_boot_header {
         char signature[4];
         uint32_t length;
-};
+} _packed_;
 
 enum {
         ACPI_FPDT_S3PERF_RESUME_REC =   0,
@@ -59,7 +59,7 @@ struct acpi_fpdt_boot {
         uint64_t startup_start;
         uint64_t exit_services_entry;
         uint64_t exit_services_exit;
-};
+} _packed;
 
 int acpi_get_boot_usec(usec_t *loader_start, usec_t *loader_exit) {
         _cleanup_free_ char *buf = NULL;

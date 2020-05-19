@@ -72,13 +72,14 @@ int main(int argc, char *argv[]) {
                             &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
                             tmp_dir,
                             var_tmp_dir,
+                            NULL,
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
                             0,
                             0,
                             NULL);
         if (r < 0) {
-                log_error_errno(r, "Failed to setup namespace: %m");
+                log_error_errno(r, "Failed to set up namespace: %m");
 
                 log_info("Usage:\n"
                          "  sudo TEST_NS_PROJECTS=/home/lennart/projects ./test-ns\n"

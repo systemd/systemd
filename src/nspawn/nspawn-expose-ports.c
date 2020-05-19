@@ -52,7 +52,7 @@ int expose_port_parse(ExposePort **l, const char *s) {
         }
 
         if (r < 0)
-                return -EINVAL;
+                return r;
 
         LIST_FOREACH(ports, p, *l)
                 if (p->protocol == protocol && p->host_port == host_port)
@@ -62,9 +62,11 @@ int expose_port_parse(ExposePort **l, const char *s) {
         if (!p)
                 return -ENOMEM;
 
-        p->protocol = protocol;
-        p->host_port = host_port;
-        p->container_port = container_port;
+        *p = (ExposePort) {
+                .protocol = protocol,
+                .host_port = host_port,
+                .container_port = container_port,
+        };
 
         LIST_PREPEND(ports, *l, p);
 
@@ -115,7 +117,6 @@ int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
 
 int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *exposed) {
         _cleanup_free_ struct local_address *addresses = NULL;
-        _cleanup_free_ char *pretty = NULL;
         union in_addr_union new_exposed;
         ExposePort *p;
         bool add;
@@ -144,8 +145,11 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
         if (in_addr_equal(af, exposed, &new_exposed))
                 return 0;
 
-        in_addr_to_string(af, &new_exposed, &pretty);
-        log_debug("New container IP is %s.", strna(pretty));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pretty = NULL;
+                in_addr_to_string(af, &new_exposed, &pretty);
+                log_debug("New container IP is %s.", strna(pretty));
+        }
 
         LIST_FOREACH(ports, p, l) {
 

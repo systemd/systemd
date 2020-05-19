@@ -23,7 +23,7 @@ static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         if (v->ifname_peer) {
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, v->ifname_peer);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add vxcan netlink interface peer name: %m");
+                        return log_netdev_error_errno(netdev, r, "Failed to add vxcan netlink interface peer name: %m");
         }
 
         r = sd_netlink_message_close_container(m);
@@ -44,7 +44,7 @@ static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
         assert(v);
 
         if (!v->ifname_peer) {
-                log_warning("VxCan NetDev without peer name configured in %s. Ignoring", filename);
+                log_netdev_warning(netdev, "VxCan NetDev without peer name configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 

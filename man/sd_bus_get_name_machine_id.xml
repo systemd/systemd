@@ -1,0 +1,98 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_get_name_machine_id" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_get_name_machine_id</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_get_name_machine_id</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_get_name_machine_id</refname>
+
+    <refpurpose>Retrieve a bus client's machine identity</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_name_machine_id</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_id128_t *<parameter>machine</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_get_name_machine_id()</function> retrieves the D-Bus machine identity of the
+    machine that the bus client identified by <parameter>name</parameter> is running on. Internally, it calls
+    the <function>GetMachineId</function> method of the <constant>org.freedesktop.DBus.Peer</constant>
+    interface. The D-Bus machine identity is a 128-bit UUID. On Linux systems running systemd, this
+    corresponds to the contents of <filename>/etc/machine-id</filename>. On success, the machine identity is
+    stored in <parameter>machine</parameter>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this function returns a non-negative integer. On failure, it returns a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

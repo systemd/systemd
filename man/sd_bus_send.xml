@@ -1,0 +1,149 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_send"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_send</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_send</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_send</refname>
+    <refname>sd_bus_send_to</refname>
+
+    <refpurpose>Queue a D-Bus message for transfer</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_send</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>cookie</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_send_to</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>const char *<parameter>destination</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>cookie</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_send()</function> queues the bus message object <parameter>m</parameter> for
+    transfer. If <parameter>bus</parameter> is <constant>NULL</constant>, the bus that
+    <parameter>m</parameter> is attached to is used. <parameter>bus</parameter> only needs to be set when the
+    message is sent to a different bus than the one it's attached to, for example when forwarding messages.
+    If the output parameter <parameter>cookie</parameter> is not <constant>NULL</constant>, it is set to the
+    message identifier. This value can later be used to match incoming replies to their corresponding
+    messages. If <parameter>cookie</parameter> is set to <constant>NULL</constant> and the message is not
+    sealed, <function>sd_bus_send()</function> assumes the message <parameter>m</parameter> doesn't expect a
+    reply and adds the necessary headers to indicate this.</para>
+
+    <para>Note that in most scenarios, <function>sd_bus_send()</function> should not be called
+    directly. Instead, use higher level functions such as
+    <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    which call <function>sd_bus_send()</function> internally.</para>
+
+    <para><function>sd_bus_send_to()</function> is a shorthand for sending a message to a specific
+    destination. It's main use case is to simplify sending unicast signal messages (signals that only have a
+    single receiver). It's behavior is similar to calling
+    <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    followed by calling <function>sd_bus_send()</function>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2 id='errors'>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EOPNOTSUPP</constant></term>
+
+          <listitem><para>The bus connection does not support sending file descriptors.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection was allocated in a parent process and is being reused in a child
+          process after <function>fork()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOBUFS</constant></term>
+
+          <listitem><para>The bus connection's write queue is full.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The input parameter <parameter>bus</parameter> is
+          <constant>NULL</constant> or the bus is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECONNRESET</constant></term>
+
+          <listitem><para>The bus connection was closed while waiting for the response.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

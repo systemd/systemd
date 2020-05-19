@@ -6,6 +6,7 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
+#include "resolved-manager.h"
 #include "string-util.h"
 
 /* Never allow more than 1K entries */

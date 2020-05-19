@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
@@ -30,7 +31,7 @@ static void test_proc_cmdline_override(void) {
         log_info("/* %s */", __func__);
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
-        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=differnt") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
 
         /* First test if the overrides for /proc/cmdline still work */
         _cleanup_free_ char *line = NULL, *value = NULL;
@@ -249,6 +250,9 @@ static void test_proc_cmdline_key_startswith(void) {
 
 int main(void) {
         test_setup_logging(LOG_INFO);
+
+        if (access("/proc/cmdline", R_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
+                return log_tests_skipped("can't read /proc/cmdline");
 
         test_proc_cmdline_parse();
         test_proc_cmdline_override();

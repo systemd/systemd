@@ -16,6 +16,7 @@
 static int watchdog_fd = -1;
 static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
+static usec_t watchdog_last_ping = USEC_INFINITY;
 
 static int update_timeout(void) {
         int r;
@@ -57,6 +58,8 @@ static int update_timeout(void) {
                 r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
                 if (r < 0)
                         return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+
+                watchdog_last_ping = now(clock_boottime_or_monotonic());
         }
 
         return 0;
@@ -114,8 +117,37 @@ int watchdog_set_timeout(usec_t *usec) {
         return r;
 }
 
+usec_t watchdog_runtime_wait(void) {
+        usec_t rtwait;
+        usec_t ntime;
+
+        if (!timestamp_is_set(watchdog_timeout))
+                return USEC_INFINITY;
+
+        /* Sleep half the watchdog timeout since the last successful ping at most */
+        if (timestamp_is_set(watchdog_last_ping)) {
+                ntime = now(clock_boottime_or_monotonic());
+                assert(ntime >= watchdog_last_ping);
+                rtwait = usec_sub_unsigned(watchdog_last_ping + (watchdog_timeout / 2), ntime);
+        } else
+                rtwait = watchdog_timeout / 2;
+
+        return rtwait;
+}
+
 int watchdog_ping(void) {
+        usec_t ntime;
         int r;
+
+        ntime = now(clock_boottime_or_monotonic());
+
+        /* Never ping earlier than watchdog_timeout/4 and try to ping
+         * by watchdog_timeout/2 plus scheduling latencies the latest */
+        if (timestamp_is_set(watchdog_last_ping)) {
+                assert(ntime >= watchdog_last_ping);
+                if ((ntime - watchdog_last_ping) < (watchdog_timeout / 4))
+                        return 0;
+        }
 
         if (watchdog_fd < 0) {
                 r = open_watchdog();
@@ -126,6 +158,8 @@ int watchdog_ping(void) {
         r = ioctl(watchdog_fd, WDIOC_KEEPALIVE, 0);
         if (r < 0)
                 return log_warning_errno(errno, "Failed to ping hardware watchdog: %m");
+
+        watchdog_last_ping = ntime;
 
         return 0;
 }

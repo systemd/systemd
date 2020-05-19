@@ -1,0 +1,12 @@
+[Unit]
+Description=TEST-46-HOMED
+Wants=getty-pre.target
+Before=getty-pre.target
+Wants=systemd-homed.service
+After=systemd-homed.service
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot
+NotifyAccess=all

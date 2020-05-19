@@ -15,6 +15,7 @@
 #include "condition.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
+#include "errno-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -38,82 +39,87 @@ static void test_condition_test_path(void) {
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/sh", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition));
+        assert_se(condition_test(condition, environ));
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/bin/s?", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS_GLOB, "/bin/s?", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_EXISTS, "/thiscertainlywontexist", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_DIRECTORY, "/bin", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_DIRECTORY_NOT_EMPTY, "/bin", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_FILE_NOT_EMPTY, "/bin/sh", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/bin/sh", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_FILE_IS_EXECUTABLE, "/etc/passwd", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/proc", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_MOUNT_POINT, "/bin", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_READ_WRITE, "/tmp", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_PATH_IS_ENCRYPTED, "/sys", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 }
 
@@ -133,12 +139,12 @@ static void test_condition_test_control_group_controller(void) {
         /* Invalid controllers are ignored */
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         assert_se(cg_mask_supported(&system_mask) >= 0);
@@ -151,23 +157,23 @@ static void test_condition_test_control_group_controller(void) {
                         log_info("this controller is available");
                         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
-                        assert_se(condition_test(condition) > 0);
+                        assert_se(condition_test(condition, environ) > 0);
                         condition_free(condition);
 
                         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
-                        assert_se(condition_test(condition) == 0);
+                        assert_se(condition_test(condition, environ) == 0);
                         condition_free(condition);
                 } else {
                         log_info("this controller is unavailable");
                         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
                         assert_se(condition);
-                        assert_se(condition_test(condition) == 0);
+                        assert_se(condition_test(condition, environ) == 0);
                         condition_free(condition);
 
                         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
                         assert_se(condition);
-                        assert_se(condition_test(condition) > 0);
+                        assert_se(condition_test(condition, environ) > 0);
                         condition_free(condition);
                 }
         }
@@ -177,12 +183,12 @@ static void test_condition_test_control_group_controller(void) {
 
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
 
@@ -191,17 +197,17 @@ static void test_condition_test_ac_power(void) {
 
         condition = condition_new(CONDITION_AC_POWER, "true", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == on_ac_power());
+        assert_se(condition_test(condition, environ) == on_ac_power());
         condition_free(condition);
 
         condition = condition_new(CONDITION_AC_POWER, "false", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) != on_ac_power());
+        assert_se(condition_test(condition, environ) != on_ac_power());
         condition_free(condition);
 
         condition = condition_new(CONDITION_AC_POWER, "false", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == on_ac_power());
+        assert_se(condition_test(condition, environ) == on_ac_power());
         condition_free(condition);
 }
 
@@ -218,17 +224,17 @@ static void test_condition_test_host(void) {
 
         condition = condition_new(CONDITION_HOST, sid, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_HOST, "garbage value jjjjjjjjjjjjjj", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_HOST, sid, false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         hostname = gethostname_malloc();
@@ -240,7 +246,7 @@ static void test_condition_test_host(void) {
         else {
                 condition = condition_new(CONDITION_HOST, hostname, false, false);
                 assert_se(condition);
-                assert_se(condition_test(condition) > 0);
+                assert_se(condition_test(condition, environ) > 0);
                 condition_free(condition);
         }
 }
@@ -258,31 +264,35 @@ static void test_condition_test_architecture(void) {
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, "garbage value", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_ARCHITECTURE, sa, false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
 
 static void test_condition_test_kernel_command_line(void) {
         Condition *condition;
+        int r;
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "thisreallyshouldntbeonthekernelcommandline", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        r = condition_test(condition, environ);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
+        assert_se(r == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
 
@@ -293,26 +303,26 @@ static void test_condition_test_kernel_version(void) {
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "*", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         /* An artificially empty condition. It evaluates to true, but normally
          * such condition cannot be created, because the condition list is reset instead. */
         condition = condition_new(CONDITION_KERNEL_VERSION, "", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         assert_se(uname(&u) >= 0);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         strshorten(u.release, 4);
@@ -320,79 +330,79 @@ static void test_condition_test_kernel_version(void) {
 
         condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         /* 0.1.2 would be a very very very old kernel */
         condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, ">0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "'>0.1.2' '<9.0.0'", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2 < 9.0.0", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == -EINVAL);
+        assert_se(condition_test(condition, environ) == -EINVAL);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, ">", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == -EINVAL);
+        assert_se(condition_test(condition, environ) == -EINVAL);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, ">= 0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "< 0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "<= 0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "= 0.1.2", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         /* 4711.8.15 is a very very very future kernel */
         condition = condition_new(CONDITION_KERNEL_VERSION, "< 4711.8.15", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "<= 4711.8.15", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "= 4711.8.15", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "> 4711.8.15", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         assert_se(uname(&u) >= 0);
@@ -400,31 +410,31 @@ static void test_condition_test_kernel_version(void) {
         v = strjoina(">=", u.release);
         condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         v = strjoina("=  ", u.release);
         condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         v = strjoina("<=", u.release);
         condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         v = strjoina("> ", u.release);
         condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         v = strjoina("<   ", u.release);
         condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
 
@@ -433,12 +443,12 @@ static void test_condition_test_null(void) {
 
         condition = condition_new(CONDITION_NULL, NULL, false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) > 0);
+        assert_se(condition_test(condition, environ) > 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_NULL, NULL, false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 }
 
@@ -447,42 +457,42 @@ static void test_condition_test_security(void) {
 
         condition = condition_new(CONDITION_SECURITY, "garbage oifdsjfoidsjoj", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == 0);
+        assert_se(condition_test(condition, environ) == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "selinux", false, true);
         assert_se(condition);
-        assert_se(condition_test(condition) != mac_selinux_use());
+        assert_se(condition_test(condition, environ) != mac_selinux_use());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "apparmor", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == mac_apparmor_use());
+        assert_se(condition_test(condition, environ) == mac_apparmor_use());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "tomoyo", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == mac_tomoyo_use());
+        assert_se(condition_test(condition, environ) == mac_tomoyo_use());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "ima", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == use_ima());
+        assert_se(condition_test(condition, environ) == use_ima());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "smack", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == mac_smack_use());
+        assert_se(condition_test(condition, environ) == mac_smack_use());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "audit", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == use_audit());
+        assert_se(condition_test(condition, environ) == use_audit());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "uefi-secureboot", false, false);
         assert_se(condition);
-        assert_se(condition_test(condition) == is_efi_secure_boot());
+        assert_se(condition_test(condition, environ) == is_efi_secure_boot());
         condition_free(condition);
 }
 
@@ -505,28 +515,30 @@ static void test_condition_test_virtualization(void) {
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "garbage oifdsjfoidsjoj", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
         log_info("ConditionVirtualization=garbage → %i", r);
         assert_se(r == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "container", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionVirtualization=container → %i", r);
         assert_se(r == !!detect_container());
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "vm", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionVirtualization=vm → %i", r);
         assert_se(r == (detect_vm() && !detect_container()));
         condition_free(condition);
 
         condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionVirtualization=private-users → %i", r);
         assert_se(r == !!running_in_userns());
         condition_free(condition);
@@ -547,7 +559,7 @@ static void test_condition_test_virtualization(void) {
 
                 condition = condition_new(CONDITION_VIRTUALIZATION, virt, false, false);
                 assert_se(condition);
-                r = condition_test(condition);
+                r = condition_test(condition, environ);
                 log_info("ConditionVirtualization=%s → %i", virt, r);
                 assert_se(r >= 0);
                 condition_free(condition);
@@ -562,7 +574,7 @@ static void test_condition_test_user(void) {
 
         condition = condition_new(CONDITION_USER, "garbage oifdsjfoidsjoj", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=garbage → %i", r);
         assert_se(r == 0);
         condition_free(condition);
@@ -570,7 +582,7 @@ static void test_condition_test_user(void) {
         assert_se(asprintf(&uid, "%"PRIu32, UINT32_C(0xFFFF)) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
         assert_se(r == 0);
         condition_free(condition);
@@ -579,7 +591,7 @@ static void test_condition_test_user(void) {
         assert_se(asprintf(&uid, "%u", (unsigned)getuid()) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
         assert_se(r > 0);
         condition_free(condition);
@@ -588,7 +600,7 @@ static void test_condition_test_user(void) {
         assert_se(asprintf(&uid, "%u", (unsigned)getuid()+1) > 0);
         condition = condition_new(CONDITION_USER, uid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", uid, r);
         assert_se(r == 0);
         condition_free(condition);
@@ -598,7 +610,7 @@ static void test_condition_test_user(void) {
         assert_se(username);
         condition = condition_new(CONDITION_USER, username, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", username, r);
         assert_se(r > 0);
         condition_free(condition);
@@ -607,14 +619,14 @@ static void test_condition_test_user(void) {
         username = (char*)(geteuid() == 0 ? NOBODY_USER_NAME : "root");
         condition = condition_new(CONDITION_USER, username, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=%s → %i", username, r);
         assert_se(r == 0);
         condition_free(condition);
 
         condition = condition_new(CONDITION_USER, "@system", false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionUser=@system → %i", r);
         if (uid_is_system(getuid()) || uid_is_system(geteuid()))
                 assert_se(r > 0);
@@ -633,7 +645,7 @@ static void test_condition_test_group(void) {
         assert_se(0 < asprintf(&gid, "%u", UINT32_C(0xFFFF)));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         assert_se(r == 0);
         condition_free(condition);
@@ -642,7 +654,7 @@ static void test_condition_test_group(void) {
         assert_se(0 < asprintf(&gid, "%u", getgid()));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         assert_se(r > 0);
         condition_free(condition);
@@ -661,7 +673,7 @@ static void test_condition_test_group(void) {
                 assert_se(0 < asprintf(&gid, "%u", gids[i]));
                 condition = condition_new(CONDITION_GROUP, gid, false, false);
                 assert_se(condition);
-                r = condition_test(condition);
+                r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", gid, r);
                 assert_se(r > 0);
                 condition_free(condition);
@@ -672,7 +684,7 @@ static void test_condition_test_group(void) {
                 assert_se(groupname);
                 condition = condition_new(CONDITION_GROUP, groupname, false, false);
                 assert_se(condition);
-                r = condition_test(condition);
+                r = condition_test(condition, environ);
                 log_info("ConditionGroup=%s → %i", groupname, r);
                 assert_se(r > 0);
                 condition_free(condition);
@@ -683,16 +695,16 @@ static void test_condition_test_group(void) {
         assert_se(0 < asprintf(&gid, "%u", max_gid+1));
         condition = condition_new(CONDITION_GROUP, gid, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", gid, r);
         assert_se(r == 0);
         condition_free(condition);
         free(gid);
 
-        groupname = (char*)(geteuid() == 0 ? NOBODY_GROUP_NAME : "root");
+        groupname = (char*)(getegid() == 0 ? NOBODY_GROUP_NAME : "root");
         condition = condition_new(CONDITION_GROUP, groupname, false, false);
         assert_se(condition);
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         log_info("ConditionGroup=%s → %i", groupname, r);
         assert_se(r == 0);
         condition_free(condition);
@@ -707,7 +719,7 @@ static void test_condition_test_cpus_one(const char *s, bool result) {
         condition = condition_new(CONDITION_CPUS, s, false, false);
         assert_se(condition);
 
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         assert_se(r >= 0);
         assert_se(r == result);
         condition_free(condition);
@@ -768,7 +780,7 @@ static void test_condition_test_memory_one(const char *s, bool result) {
         condition = condition_new(CONDITION_MEMORY, s, false, false);
         assert_se(condition);
 
-        r = condition_test(condition);
+        r = condition_test(condition, environ);
         assert_se(r >= 0);
         assert_se(r == result);
         condition_free(condition);
@@ -819,6 +831,34 @@ static void test_condition_test_memory(void) {
         t = mfree(t);
 }
 
+static void test_condition_test_environment_one(const char *s, bool result) {
+        Condition *condition;
+        int r;
+
+        log_debug("%s=%s", condition_type_to_string(CONDITION_ENVIRONMENT), s);
+
+        condition = condition_new(CONDITION_ENVIRONMENT, s, false, false);
+        assert_se(condition);
+
+        r = condition_test(condition, environ);
+        assert_se(r >= 0);
+        assert_se(r == result);
+        condition_free(condition);
+}
+
+static void test_condition_test_environment(void) {
+        assert_se(setenv("EXISTINGENVVAR", "foo", false) >= 0);
+
+        test_condition_test_environment_one("MISSINGENVVAR", false);
+        test_condition_test_environment_one("MISSINGENVVAR=foo", false);
+        test_condition_test_environment_one("MISSINGENVVAR=", false);
+
+        test_condition_test_environment_one("EXISTINGENVVAR", true);
+        test_condition_test_environment_one("EXISTINGENVVAR=foo", true);
+        test_condition_test_environment_one("EXISTINGENVVAR=bar", false);
+        test_condition_test_environment_one("EXISTINGENVVAR=", false);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -837,6 +877,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_control_group_controller();
         test_condition_test_cpus();
         test_condition_test_memory();
+        test_condition_test_environment();
 
         return 0;
 }

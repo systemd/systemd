@@ -1,8 +1,8 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
-<!ENTITY fedora_latest_version "30">
-<!ENTITY fedora_cloud_release "1.2">
+<!ENTITY fedora_latest_version "31">
+<!ENTITY fedora_cloud_release "1.9">
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
@@ -111,8 +111,7 @@
     container.</para>
 
     <para><command>systemd-nspawn</command> implements the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink>
-    specification.</para>
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> specification.</para>
 
     <para>While running, containers invoked with <command>systemd-nspawn</command> are registered with the
     <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry> service that
@@ -239,7 +238,7 @@
         all subdirectories and subvolumes below it, but excluding any sub-mounts. May not be specified
         together with <option>--image=</option> or <option>--ephemeral</option>.</para>
 
-        <para>Note that this switch leaves host name, machine ID and
+        <para>Note that this switch leaves hostname, machine ID and
         all other settings that could identify the instance
         unmodified.</para></listitem>
       </varlistentry>
@@ -251,7 +250,7 @@
         <listitem><para>If specified, the container is run with a temporary snapshot of its file system that is removed
         immediately when the container terminates. May not be specified together with
         <option>--template=</option>.</para>
-        <para>Note that this switch leaves host name, machine ID and all other settings that could identify
+        <para>Note that this switch leaves hostname, machine ID and all other settings that could identify
         the instance unmodified. Please note that — as with <option>--template=</option> — taking the
         temporary snapshot is more efficient on file systems that support subvolume snapshots or 'reflinks'
         natively (<literal>btrfs</literal> or new <literal>xfs</literal>) than on more traditional file
@@ -289,7 +288,7 @@
           a server data partition which are mounted to the appropriate
           places in the container. All these partitions must be
           identified by the partition types defined by the <ulink
-          url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable
+          url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
           Partitions Specification</ulink>.</para></listitem>
 
           <listitem><para>No partition table, and a single file system spanning the whole image.</para></listitem>
@@ -835,7 +834,11 @@
         container names may have a length up to 64 characters. As this option derives the host-side interface
         name from the container name the name is possibly truncated. Thus, care needs to be taken to ensure
         that interface names remain unique in this case, or even better container names are generally not
-        chosen longer than 12 characters, to avoid the truncation. Alternatively, the
+        chosen longer than 12 characters, to avoid the truncation. If the name is truncated,
+        <command>systemd-nspawn</command> will automatically append a 4-digit hash value to the name to
+        reduce the chance of collisions. However, the hash algorithm is not collision-free. (See
+        <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on older naming algorithms for this interface). Alternatively, the
         <option>--network-veth-extra=</option> option may be used, which allows free configuration of the
         host-side interface name independently of the container name — but might require a bit more
         additional configuration in case bridging in a fashion similar to <option>--network-bridge=</option>
@@ -1096,29 +1099,60 @@
       <varlistentry>
         <term><option>--resolv-conf=</option></term>
 
-        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container (i.e. DNS
-        configuration synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
-        <literal>copy-host</literal>, <literal>copy-static</literal>, <literal>bind-host</literal>,
-        <literal>bind-static</literal>, <literal>delete</literal> or <literal>auto</literal>. If set to
-        <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the container is left as it is
-        included in the image, and neither modified nor bind mounted over. If set to <literal>copy-host</literal>, the
-        <filename>/etc/resolv.conf</filename> file from the host is copied into the container. Similar, if
-        <literal>bind-host</literal> is used, the file is bind mounted from the host into the container. If set to
-        <literal>copy-static</literal> the static <filename>resolv.conf</filename> file supplied with
-        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-        copied into the container, and correspondingly <literal>bind-static</literal> bind mounts it there. If set to
-        <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the container is deleted if it
-        exists. Finally, if set to <literal>auto</literal> the file is left as it is if private networking is turned on
-        (see <option>--private-network</option>). Otherwise, if <filename>systemd-resolved.service</filename> is
-        connectible its static <filename>resolv.conf</filename> file is used, and if not the host's
-        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the image is
-        writable, and bind mounted otherwise. It's recommended to use <literal>copy</literal> if the container shall be
-        able to make changes to the DNS configuration on its own, deviating from the host's settings. Otherwise
-        <literal>bind</literal> is preferable, as it means direct changes to <filename>/etc/resolv.conf</filename> in
-        the container are not allowed, as it is a read-only bind mount (but note that if the container has enough
-        privileges, it might simply go ahead and unmount the bind mount anyway). Note that both if the file is bind
-        mounted and if it is copied no further propagation of configuration is generally done after the one-time early
-        initialization (this is because the file is usually updated through copying and renaming). Defaults to
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container shall be
+        handled (i.e. DNS configuration synchronization from host to container). Takes one of
+        <literal>off</literal>, <literal>copy-host</literal>, <literal>copy-static</literal>,
+        <literal>copy-uplink</literal>, <literal>copy-stub</literal>, <literal>replace-host</literal>,
+        <literal>replace-static</literal>, <literal>replace-uplink</literal>,
+        <literal>replace-stub</literal>, <literal>bind-host</literal>, <literal>bind-static</literal>,
+        <literal>bind-uplink</literal>, <literal>bind-stub</literal>, <literal>delete</literal> or
+        <literal>auto</literal>.</para>
+
+        <para>If set to <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over.</para>
+
+        <para>If set to <literal>copy-host</literal>, the <filename>/etc/resolv.conf</filename> file from the
+        host is copied into the container, unless the file exists already and is not a regular file (e.g. a
+        symlink). Similar, if <literal>replace-host</literal> is used the file is copied, replacing any
+        existing inode, including symlinks. Similar, if <literal>bind-host</literal> is used, the file is
+        bind mounted from the host into the container.</para>
+
+        <para>If set to <literal>copy-static</literal>, <literal>replace-static</literal> or
+        <literal>bind-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        (specifically: <filename>/usr/lib/systemd/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-uplink</literal>, <literal>replace-uplink</literal> or
+        <literal>bind-uplink</literal> the uplink <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>copy-stub</literal>, <literal>replace-stub</literal> or
+        <literal>bind-stub</literal> the stub <filename>resolv.conf</filename> file managed by
+        <filename>systemd-resolved.service</filename> (specifically:
+        <filename>/run/systemd/resolve/stub-resolv.conf</filename>) is copied or bind mounted into the
+        container.</para>
+
+        <para>If set to <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the
+        container is deleted if it exists.</para>
+
+        <para>Finally, if set to <literal>auto</literal> the file is left as it is if private networking is
+        turned on (see <option>--private-network</option>). Otherwise, if
+        <filename>systemd-resolved.service</filename> is connectible its stub
+        <filename>resolv.conf</filename> file is used, and if not the host's
+        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the
+        image is writable, and bind mounted otherwise.</para>
+
+        <para>It's recommended to use <literal>copy-…</literal> or <literal>replace-…</literal> if the
+        container shall be able to make changes to the DNS configuration on its own, deviating from the
+        host's settings. Otherwise <literal>bind</literal> is preferable, as it means direct changes to
+        <filename>/etc/resolv.conf</filename> in the container are not allowed, as it is a read-only bind
+        mount (but note that if the container has enough privileges, it might simply go ahead and unmount the
+        bind mount anyway). Note that both if the file is bind mounted and if it is copied no further
+        propagation of configuration is generally done after the one-time early initialization (this is
+        because the file is usually updated through copying and renaming). Defaults to
         <literal>auto</literal>.</para></listitem>
       </varlistentry>
 
@@ -1375,7 +1409,7 @@
 
       <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
       --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
-      systemd passwd dnf fedora-release vim-minimal
+      systemd passwd dnf fedora-release vim-minimal glibc-minimal-langpack
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the

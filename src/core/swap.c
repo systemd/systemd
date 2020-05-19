@@ -63,7 +63,6 @@ static void swap_unset_proc_swaps(Swap *s) {
                 return;
 
         s->parameters_proc_swaps.what = mfree(s->parameters_proc_swaps.what);
-
         s->from_proc_swaps = false;
 }
 
@@ -116,9 +115,6 @@ static void swap_init(Unit *u) {
 
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
-
-        s->parameters_proc_swaps.priority = s->parameters_fragment.priority = 0;
-        s->parameters_fragment.priority_set = false;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
@@ -188,21 +184,45 @@ static int swap_arm_timer(Swap *s, usec_t usec) {
         return 0;
 }
 
+static SwapParameters* swap_get_parameters(Swap *s) {
+        assert(s);
+
+        if (s->from_proc_swaps)
+                return &s->parameters_proc_swaps;
+
+        if (s->from_fragment)
+                return &s->parameters_fragment;
+
+        return NULL;
+}
+
 static int swap_add_device_dependencies(Swap *s) {
+        UnitDependencyMask mask;
+        SwapParameters *p;
+        int r;
+
         assert(s);
 
         if (!s->what)
                 return 0;
 
-        if (!s->from_fragment)
+        p = swap_get_parameters(s);
+        if (!p || !p->what)
                 return 0;
 
-        if (is_device_path(s->what))
-                return unit_add_node_dependency(UNIT(s), s->what, UNIT_BINDS_TO, UNIT_DEPENDENCY_FILE);
+        mask = s->from_proc_swaps ? UNIT_DEPENDENCY_PROC_SWAP : UNIT_DEPENDENCY_FILE;
 
-        /* File based swap devices need to be ordered after systemd-remount-fs.service,
-         * since they might need a writable file system. */
-        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
+        if (is_device_path(p->what)) {
+                r = unit_add_node_dependency(UNIT(s), p->what, UNIT_REQUIRES, mask);
+                if (r < 0)
+                        return r;
+
+                return unit_add_blockdev_dependency(UNIT(s), p->what, mask);
+        }
+
+        /* File based swap devices need to be ordered after systemd-remount-fs.service, since they might need
+         * a writable file system. */
+        return unit_add_dependency_by_name(UNIT(s), UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, mask);
 }
 
 static int swap_add_default_dependencies(Swap *s) {
@@ -704,9 +724,15 @@ static void swap_enter_active(Swap *s, SwapResult f) {
 static void swap_enter_dead_or_active(Swap *s, SwapResult f) {
         assert(s);
 
-        if (s->from_proc_swaps)
+        if (s->from_proc_swaps) {
+                Swap *other;
+
                 swap_enter_active(s, f);
-        else
+
+                LIST_FOREACH_OTHERS(same_devnode, other, s)
+                        if (UNIT(other)->job)
+                                swap_enter_dead_or_active(other, f);
+        } else
                 swap_enter_dead(s, f);
 }
 
@@ -772,17 +798,19 @@ static void swap_enter_activating(Swap *s) {
 
                 r = fstab_find_pri(s->parameters_fragment.options, &priority);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
-                else if (r == 1 && s->parameters_fragment.priority_set)
-                        log_warning("Duplicate swap priority configuration by Priority and Options fields.");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to parse swap priority \"%s\", ignoring: %m", s->parameters_fragment.options);
+                else if (r > 0 && s->parameters_fragment.priority_set)
+                        log_unit_warning(UNIT(s), "Duplicate swap priority configuration by Priority= and Options= fields.");
 
                 if (r <= 0 && s->parameters_fragment.priority_set) {
                         if (s->parameters_fragment.options)
                                 r = asprintf(&opts, "%s,pri=%i", s->parameters_fragment.options, s->parameters_fragment.priority);
                         else
                                 r = asprintf(&opts, "pri=%i", s->parameters_fragment.priority);
-                        if (r < 0)
+                        if (r < 0) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
                 }
         }
 
@@ -792,7 +820,7 @@ static void swap_enter_activating(Swap *s) {
 
         if (s->parameters_fragment.options || opts) {
                 r = exec_command_append(s->control_command, "-o",
-                                opts ? : s->parameters_fragment.options, NULL);
+                                opts ?: s->parameters_fragment.options, NULL);
                 if (r < 0)
                         goto fail;
         }
@@ -808,7 +836,6 @@ static void swap_enter_activating(Swap *s) {
                 goto fail;
 
         swap_set_state(s, SWAP_ACTIVATING);
-
         return;
 
 fail:
@@ -1593,6 +1620,8 @@ const UnitVTable swap_vtable = {
                 "Install\0",
         .private_section = "Swap",
 
+        .can_fail = true,
+
         .init = swap_init,
         .load = swap_load,
         .done = swap_done,
@@ -1626,7 +1655,6 @@ const UnitVTable swap_vtable = {
 
         .control_pid = swap_control_pid,
 
-        .bus_vtable = bus_swap_vtable,
         .bus_set_property = bus_swap_set_property,
         .bus_commit_properties = bus_swap_commit_properties,
 

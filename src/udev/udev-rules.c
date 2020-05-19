@@ -78,7 +78,7 @@ typedef enum {
         TK_M_ATTR,                          /* string, takes filename through attribute, sd_device_get_sysattr_value(), util_resolve_subsys_kernel(), etc. */
         TK_M_SYSCTL,                        /* string, takes kernel parameter through attribute */
 
-        /* matches parent paramters */
+        /* matches parent parameters */
         TK_M_PARENTS_KERNEL,                /* string */
         TK_M_PARENTS_SUBSYSTEM,             /* string */
         TK_M_PARENTS_DRIVER,                /* string */
@@ -921,7 +921,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         op = OP_ASSIGN;
                 }
 
-                r = rule_line_add_token(rule_line, TK_A_SECLABEL, op, value, NULL);
+                r = rule_line_add_token(rule_line, TK_A_SECLABEL, op, value, attr);
         } else if (streq(key, "RUN")) {
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
@@ -1092,7 +1092,9 @@ static int rule_add_line(UdevRules *rules, const char *line_str, unsigned line_n
         if (isempty(line_str))
                 return 0;
 
-        line = strdup(line_str);
+        /* We use memdup_suffix0() here, since we want to add a second NUL byte to the end, since possibly
+         * some parsers might turn this into a "nulstr", which requires an extra NUL at the end. */
+        line = memdup_suffix0(line_str, strlen(line_str) + 1);
         if (!line)
                 return log_oom();
 
@@ -1328,11 +1330,7 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
                 match = isempty(str);
                 break;
         case MATCH_TYPE_SUBSYSTEM:
-                NULSTR_FOREACH(i, "subsystem\0class\0bus\0")
-                        if (streq(i, str)) {
-                                match = true;
-                                break;
-                        }
+                match = STR_IN_SET(str, "subsystem", "class", "bus");
                 break;
         case MATCH_TYPE_PLAIN_WITH_EMPTY:
                 if (isempty(str)) {
@@ -1654,7 +1652,7 @@ static int udev_rule_apply_token_to_event(
                 if (mode == MODE_INVALID)
                         return token->op == OP_MATCH;
 
-                match = (((statbuf.st_mode ^ mode) & 07777) == 0);
+                match = (statbuf.st_mode & mode) > 0;
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {

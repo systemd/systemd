@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
 #include "dbus.h"
@@ -117,14 +118,78 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
 
 const sd_bus_vtable bus_job_vtable[] = {
         SD_BUS_VTABLE_START(0),
+
         SD_BUS_METHOD("Cancel", NULL, NULL, bus_job_method_cancel, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetAfter", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetBefore", NULL, "a(usssoo)", bus_job_method_get_waiting_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetAfter",
+                                 NULL,,
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 bus_job_method_get_waiting_jobs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetBefore",
+                                 NULL,,
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 bus_job_method_get_waiting_jobs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_PROPERTY("Id", "u", NULL, offsetof(Job, id), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Unit", "(so)", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("JobType", "s", property_get_type, offsetof(Job, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("State", "s", property_get_state, offsetof(Job, state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_VTABLE_END
+};
+
+static int bus_job_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        Manager *m = userdata;
+        Job *j;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+        assert(m);
+
+        r = manager_get_job_from_dbus_path(m, path, &j);
+        if (r < 0)
+                return 0;
+
+        *found = j;
+        return 1;
+}
+
+static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+        _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
+        unsigned k = 0;
+        Iterator i;
+        Job *j;
+
+        l = new0(char*, hashmap_size(m->jobs)+1);
+        if (!l)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH(j, m->jobs, i) {
+                l[k] = job_dbus_path(j);
+                if (!l[k])
+                        return -ENOMEM;
+
+                k++;
+        }
+
+        assert(hashmap_size(m->jobs) == k);
+
+        *nodes = TAKE_PTR(l);
+
+        return k;
+}
+
+const BusObjectImplementation job_object = {
+        "/org/freedesktop/systemd1/job",
+        "org.freedesktop.systemd1.Job",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({bus_job_vtable, bus_job_find}),
+        .node_enumerator = bus_job_enumerate,
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {

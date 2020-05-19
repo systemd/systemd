@@ -1,0 +1,107 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_dump"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_dump</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_dump</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_dump</refname>
+
+    <refpurpose>Produce a string representation of a message for debugging purposes</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_dump</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>FILE *<parameter>f</parameter></paramdef>
+        <paramdef>uint64_t <parameter>flags</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+
+    <para>
+      <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>,
+      <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant>
+    </para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <function>sd_bus_message_dump()</function> function writes a textual representation of the
+    message <parameter>m</parameter> to the stream <parameter>f</parameter>. This function is intended to be
+    used for debugging purposes, and the output is neither stable nor designed to be machine readable.
+    </para>
+
+    <para>The <parameter>flags</parameter> parameter may be used to modify the output. With
+    <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>, a header that specifies the message type and flags
+    and some additional metadata is printed. When <constant>SD_BUS_MESSAGE_DUMP_SUBTREE_ONLY</constant> is
+    not passed, the contents of the whole message are printed. When it <emphasis>is</emphasis> passed,
+    only the current container in printed.</para>
+
+    <para>Note that this function moves the read pointer of the message. It may be necessary to reset the
+    position afterwards, for example with
+    <citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Output for a signal message (with <constant>SD_BUS_MESSAGE_DUMP_WITH_HEADER</constant>):
+    <programlisting>
+‣ Type=signal  Endian=l  Flags=1  Version=1  Cookie=22
+  Path=/value/a  Interface=org.freedesktop.DBus.Properties  Member=PropertiesChanged
+  MESSAGE "sa{sv}as" {
+          STRING "org.freedesktop.systemd.ValueTest";
+          ARRAY "{sv}" {
+                  DICT_ENTRY "sv" {
+                          STRING "Value";
+                          VARIANT "s" {
+                                  STRING "object 0x1e, path /value/a";
+                          };
+                  };
+          };
+          ARRAY "s" {
+                  STRING "Value2";
+                  STRING "AnExplicitProperty";
+          };
+  };
+    </programlisting>
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this function returns 0 or a positive integer. On failure, it returns a negative
+    errno-style error code. No error codes are currently defined.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

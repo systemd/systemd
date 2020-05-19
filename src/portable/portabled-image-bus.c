@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -78,11 +79,9 @@ static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         assert(d);
         assert(d->fd >= 0);
 
-        f = fdopen(d->fd, "r");
+        f = take_fdopen(&d->fd, "r");
         if (!f)
                 return -errno;
-
-        d->fd = -1;
 
         r = read_full_stream(f, &buf, &n);
         if (r < 0)

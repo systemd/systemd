@@ -20,8 +20,7 @@
     <refname>sd_bus_message_append</refname>
     <refname>sd_bus_message_appendv</refname>
 
-    <refpurpose>Attach fields to a D-Bus message based on a type
-    string</refpurpose>
+    <refpurpose>Attach fields to a D-Bus message based on a type string</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -36,10 +35,10 @@
       </funcprototype>
 
       <funcprototype>
-          <funcdef>int sd_bus_message_appendv</funcdef>
-          <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-          <paramdef>const char *<parameter>types</parameter></paramdef>
-          <paramdef>va_list <parameter>ap</parameter></paramdef>
+        <funcdef>int sd_bus_message_appendv</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
 
     </funcsynopsis>
@@ -48,60 +47,49 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <function>sd_bus_message_append()</function> function
-    appends a sequence of fields to the D-Bus message object
-    <parameter>m</parameter>. The type string
-    <parameter>types</parameter> describes the types of the field
-    arguments that follow. For each type specified in the type string,
-    one or more arguments need to be specified, in the same order as
-    declared in the type string.</para>
+    <para>The <function>sd_bus_message_append()</function> function appends a sequence of fields to
+    the D-Bus message object <parameter>m</parameter>. The type string <parameter>types</parameter>
+    describes the types of the field arguments that follow. For each type specified in the type
+    string, one or more arguments need to be specified, in the same order as declared in the type
+    string.</para>
 
-    <para>The type string is composed of the elements shown in the
-    table below. It contains zero or more single "complete types".
-    Each complete type may be one of the basic types or a fully
-    described container type. A container type may be a structure with
-    the contained types, a variant, an array with its element type, or
-    a dictionary entry with the contained types. The type string is
-    <constant>NUL</constant>-terminated.</para>
+    <para>The type string is composed of the elements shown in the table below. It contains zero or
+    more single "complete types". Each complete type may be one of the basic types or a fully
+    described container type. A container type may be a structure with the contained types, a
+    variant, an array with its element type, or a dictionary entry with the contained types. The
+    type string is <constant>NUL</constant>-terminated.</para>
 
-    <para>In case of a basic type, one argument of the corresponding
-    type is expected.</para>
+    <para>In case of a basic type, one argument of the corresponding type is expected.</para>
 
-    <para>A structure is denoted by a sequence of complete types
-    between <literal>(</literal> and <literal>)</literal>. This
-    sequence cannot be empty — it must contain at least one type.
-    Arguments corresponding to this nested sequence follow the same
-    rules as if they were not nested.</para>
+    <para>A structure is denoted by a sequence of complete types between <literal>(</literal> and
+    <literal>)</literal>. This sequence cannot be empty — it must contain at least one type.
+    Arguments corresponding to this nested sequence follow the same rules as if they were not
+    nested.</para>
 
-    <para>A variant is denoted by <literal>v</literal>. Corresponding
-    arguments must begin with a type string denoting a complete type,
-    and following that, arguments corresponding to the specified type.
+    <para>A variant is denoted by <literal>v</literal>. Corresponding arguments must begin with a
+    type string denoting a complete type, and following that, arguments corresponding to the
+    specified type.</para>
+
+    <para>An array is denoted by <literal>a</literal> followed by a complete type. Corresponding
+    arguments must begin with the number of entries in the array, followed by the entries
+    themselves, matching the element type of the array.</para>
+
+    <para>A dictionary is an array of dictionary entries, denoted by <literal>a</literal> followed
+    by a pair of complete types between <literal>{</literal> and <literal>}</literal>. The first of
+    those types must be a basic type. Corresponding arguments must begin with the number of
+    dictionary entries, followed by a pair of values for each entry matching the element type of the
+    dictionary entries.</para>
+
+    <para><function>sd_bus_message_appendv()</function> is equivalent to
+    <function>sd_bus_message_append()</function>, except that it is called with a
+    <literal>va_list</literal> instead of a variable number of arguments. This function does not
+    call the <function>va_end()</function> macro. Because it invokes the
+    <function>va_arg()</function> macro, the value of <parameter>ap</parameter> is undefined after
+    the call.</para>
+
+    <para>For further details on the D-Bus type system, please consult the
+    <ulink url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus Specification</ulink>.
     </para>
-
-    <para>An array is denoted by <literal>a</literal> followed by a
-    complete type. Corresponding arguments must begin with the number of
-    entries in the array, followed by the entries themselves,
-    matching the element type of the array.</para>
-
-    <para>A dictionary is an array of dictionary entries, denoted by
-    <literal>a</literal> followed by a pair of complete types between
-    <literal>{</literal> and <literal>}</literal>. The first of those
-    types must be a basic type. Corresponding arguments must begin
-    with the number of dictionary entries, followed by a pair of
-    values for each entry matching the element type of
-    the dictionary entries.</para>
-
-    <para>The <function>sd_bus_message_appendv()</function> is equivalent to the
-    <function>sd_bus_message_append()</function>, except that it is called with
-    a <literal>va_list</literal> instead of a variable number of arguments. This
-    function does not call the <function>va_end()</function> macro. Because it
-    invokes the <function>va_arg()</function> macro, the value of
-    <parameter>ap</parameter> is undefined after the call.</para>
-
-    <para>For further details on the D-Bus type system, please consult
-    the <ulink
-    url="http://dbus.freedesktop.org/doc/dbus-specification.html#type-system">D-Bus
-    Specification</ulink>.</para>
 
     <table>
       <title>Item type specifiers</title>
@@ -162,7 +150,6 @@
     <constant>NULL</constant>, which is equivalent to an empty string. See
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for the precise interpretation of those and other types.</para>
-
   </refsect1>
 
   <refsect1>
@@ -205,12 +192,12 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
      <para>Append a structure composed of a string and a D-Bus path:</para>
 
      <programlisting>sd_bus_message_append(m, "(so)", "a string", "/a/path");
-</programlisting>
+    </programlisting>
 
      <para>Append an array of UNIX file descriptors:</para>
 
      <programlisting>sd_bus_message_append(m, "ah", 3, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
-</programlisting>
+    </programlisting>
 
      <para>Append a variant, with the real type "g" (signature),
      and value "sdbusisgood":</para>
@@ -227,8 +214,8 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative
-    errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
 
     <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
   </refsect1>
@@ -242,7 +229,8 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_open_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -26,7 +26,9 @@ static inline bool rtnl_message_type_is_nexthop(uint16_t type) {
 }
 
 static inline bool rtnl_message_type_is_link(uint16_t type) {
-        return IN_SET(type, RTM_NEWLINK, RTM_SETLINK, RTM_GETLINK, RTM_DELLINK);
+        return IN_SET(type,
+                      RTM_NEWLINK, RTM_SETLINK, RTM_GETLINK, RTM_DELLINK,
+                      RTM_NEWLINKPROP, RTM_DELLINKPROP, RTM_GETLINKPROP);
 }
 
 static inline bool rtnl_message_type_is_addr(uint16_t type) {
@@ -45,8 +47,16 @@ static inline bool rtnl_message_type_is_qdisc(uint16_t type) {
         return IN_SET(type, RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC);
 }
 
+static inline bool rtnl_message_type_is_tclass(uint16_t type) {
+        return IN_SET(type, RTM_NEWTCLASS, RTM_DELTCLASS, RTM_GETTCLASS);
+}
+
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
+int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char * const *alternative_names);
+int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char * const *alternative_names);
+int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name);
+int rtnl_get_link_iftype(sd_netlink **rtnl, int ifindex, unsigned short *ret);
 
 int rtnl_log_parse_error(int r);
 int rtnl_log_create_error(int r);
@@ -73,3 +83,6 @@ int rtnl_log_create_error(int r);
 
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
+
+void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
+int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);

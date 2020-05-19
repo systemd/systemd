@@ -22,5 +22,5 @@ ConditionDirectoryNotEmpty=|/etc/udev/hwdb.d/
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=@rootbindir@/systemd-hwdb update
+ExecStart=systemd-hwdb update
 TimeoutSec=90s

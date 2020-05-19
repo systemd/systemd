@@ -25,15 +25,15 @@ __contains_word () {
 }
 
 __get_links() {
-    networkctl list --no-legend --no-pager --all | { while read -r a b c; do echo " $b"; done; };
+    networkctl list --no-legend --no-pager --all --full | { while read -r a b c; do echo " $b"; done; };
 }
 
 _networkctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats'
-        [ARG]=''
+        [STANDALONE]='-a --all -h --help --version --no-pager --no-legend -s --stats -l --full'
+        [ARG]='-n --lines'
     )
 
     local -A VERBS=(

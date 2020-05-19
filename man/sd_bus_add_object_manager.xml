@@ -1,0 +1,118 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_add_object_manager"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_add_object_manager</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_add_object_manager</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_add_object_manager</refname>
+
+    <refpurpose>Add a D-Bus object manager for a D-Bus object sub-tree</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_add_object_manager</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot **<parameter>slot</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_add_object_manager()</function> installs a handler for the given path
+    that implements the <function>GetManagedObjects()</function> method of the
+    <constant>org.freedesktop.DBus.ObjectManager</constant> interface. See
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#standard-interfaces-objectmanager">
+    org.freedesktop.DBus.ObjectManager</ulink> for more information.</para>
+
+    <para>To implement the <function>InterfacesAdded</function> and
+    <function>InterfacesRemoved</function> signals of the
+    <constant>org.freedesktop.DBus.ObjectManager</constant> interface, call
+    <citerefentry><refentrytitle>sd_bus_emit_interfaces_added</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>sd_bus_emit_interfaces_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    whenever interfaces are added or removed from the sub-tree, respectively.</para>
+
+    <para>When <function>sd_bus_add_object_manager()</function> succeeds, a slot is created
+    internally. If the output parameter <replaceable>slot</replaceable> is <constant>NULL</constant>,
+    a "floating" slot object is created, see
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Otherwise, a pointer to the slot object is returned. In that case, the reference to the slot
+    object should be dropped when the object manager is not needed anymore, see
+    <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_add_object_manager()</function> returns a non-negative
+    integer. On failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>One of the required parameters is <constant>NULL</constant> or
+          <parameter>path</parameter> is not a valid object path.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_add_object_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_emit_interfaces_added</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

@@ -2,10 +2,15 @@
 
 #include <syslog.h>
 
+#include "sd-id128.h"
+
+#include "glob-util.h"
 #include "hexdecoct.h"
 #include "macro.h"
+#include "path-util.h"
 #include "string-table.h"
 #include "syslog-util.h"
+#include "unit-name.h"
 
 int syslog_parse_priority(const char **p, int *priority, bool with_facility) {
         int a = 0, b = 0, c = 0;
@@ -95,4 +100,32 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(log_level, int, LOG_DEBUG);
 
 bool log_level_is_valid(int level) {
         return level >= 0 && level <= LOG_DEBUG;
+}
+
+/* The maximum size for a log namespace length. This is the file name size limit 255 minus the size of a
+ * formatted machine ID minus a separator char */
+#define LOG_NAMESPACE_MAX (NAME_MAX - (SD_ID128_STRING_MAX - 1) - 1)
+
+bool log_namespace_name_valid(const char *s) {
+        /* Let's make sure the namespace fits in a filename that is prefixed with the machine ID and a dot
+         * (so that /var/log/journal/<machine-id>.<namespace> can be created based on it). Also make sure it
+         * is suitable as unit instance name, and does not contain fishy characters. */
+
+        if (!filename_is_valid(s))
+                return false;
+
+        if (strlen(s) > LOG_NAMESPACE_MAX)
+                return false;
+
+        if (!unit_instance_is_valid(s))
+                return false;
+
+        if (!string_is_safe(s))
+                return false;
+
+        /* Let's avoid globbing for now */
+        if (string_is_glob(s))
+                return false;
+
+        return true;
 }

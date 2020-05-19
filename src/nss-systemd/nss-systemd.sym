@@ -19,5 +19,6 @@ global:
         _nss_systemd_endgrent;
         _nss_systemd_setgrent;
         _nss_systemd_getgrent_r;
+        _nss_systemd_initgroups_dyn;
 local: *;
 };

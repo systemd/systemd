@@ -48,13 +48,15 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "user-util.h"
-#include "time-util.h"
 #include "web-util.h"
 
 static int parse_socket_protocol(const char *s) {
@@ -590,6 +592,45 @@ int config_parse_exec_oom_score_adjust(
         return 0;
 }
 
+int config_parse_exec_coredump_filter(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                c->coredump_filter = 0;
+                c->coredump_filter_set = false;
+                return 0;
+        }
+
+        uint64_t f;
+        r = coredump_filter_mask_from_string(rvalue, &f);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse the CoredumpFilter=%s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        c->coredump_filter |= f;
+        c->oom_score_adjust_set = true;
+        return 0;
+}
+
 int config_parse_exec(
                 const char *unit,
                 const char *filename,
@@ -1058,6 +1099,7 @@ int config_parse_exec_output(
         const char *n;
         ExecContext *c = data;
         const Unit *u = userdata;
+        bool obsolete = false;
         ExecOutput eo;
         int r;
 
@@ -1081,6 +1123,14 @@ int config_parse_exec_output(
                 }
 
                 eo = EXEC_OUTPUT_NAMED_FD;
+
+        } else if (streq(rvalue, "syslog")) {
+                eo = EXEC_OUTPUT_JOURNAL;
+                obsolete = true;
+
+        } else if (streq(rvalue, "syslog+console")) {
+                eo = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+                obsolete = true;
 
         } else if ((n = startswith(rvalue, "file:"))) {
 
@@ -1112,6 +1162,11 @@ int config_parse_exec_output(
                         return 0;
                 }
         }
+
+        if (obsolete)
+                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                           "Standard output type %s is obsolete, automatically updating to %s. Please update your unit file, and consider removing the setting altogether.",
+                           rvalue, exec_output_to_string(eo));
 
         if (streq(lvalue, "StandardOutput")) {
                 if (eo == EXEC_OUTPUT_NAMED_FD)
@@ -1328,13 +1383,25 @@ int config_parse_exec_cpu_affinity(const char *unit,
                                    void *userdata) {
 
         ExecContext *c = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        return parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (streq(rvalue, "numa")) {
+                c->cpu_affinity_from_numa = true;
+                cpu_set_reset(&c->cpu_set);
+
+                return 0;
+        }
+
+        r = parse_cpu_set_extend(rvalue, &c->cpu_set, true, unit, filename, line, lvalue);
+        if (r >= 0)
+                c->cpu_affinity_from_numa = false;
+
+        return r;
 }
 
 int config_parse_capability_set(
@@ -2054,7 +2121,7 @@ int config_parse_user_group_compat(
                 return -ENOEXEC;
         }
 
-        if (!valid_user_group_name_or_id_compat(k)) {
+        if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                 return -ENOEXEC;
         }
@@ -2108,7 +2175,7 @@ int config_parse_user_group_strv_compat(
                         return -ENOEXEC;
                 }
 
-                if (!valid_user_group_name_or_id_compat(k)) {
+                if (!valid_user_group_name(k, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                         return -ENOEXEC;
                 }
@@ -2518,6 +2585,48 @@ int config_parse_log_extra_fields(
         }
 }
 
+int config_parse_log_namespace(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *k = NULL;
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(c);
+
+        if (isempty(rvalue)) {
+                c->log_namespace = mfree(c->log_namespace);
+                return 0;
+        }
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (!log_namespace_name_valid(k)) {
+                log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Specified log namespace name is not valid: %s", k);
+                return 0;
+        }
+
+        free_and_replace(c->log_namespace, k);
+        return 0;
+}
+
 int config_parse_unit_condition_path(
                 const char *unit,
                 const char *filename,
@@ -2794,7 +2903,7 @@ int config_parse_syscall_filter(
                 void *userdata) {
 
         ExecContext *c = data;
-        const Unit *u = userdata;
+        _unused_ const Unit *u = userdata;
         bool invert = false;
         const char *p;
         int r;
@@ -4702,7 +4811,9 @@ int unit_load_fragment(Unit *u) {
                         return r;
 
                 if (null_or_empty(&st)) {
-                        u->load_state = UNIT_MASKED;
+                        /* Unit file is masked */
+
+                        u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
                 } else {
                         u->load_state = UNIT_LOADED;
@@ -4768,7 +4879,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_unsigned,              "UNSIGNED" },
                 { config_parse_iec_size,              "SIZE" },
                 { config_parse_iec_uint64,            "SIZE" },
-                { config_parse_si_size,               "SIZE" },
+                { config_parse_si_uint64,             "SIZE" },
                 { config_parse_bool,                  "BOOLEAN" },
                 { config_parse_string,                "STRING" },
                 { config_parse_path,                  "PATH" },
@@ -4954,22 +5065,36 @@ int config_parse_output_restricted(
                 void *userdata) {
 
         ExecOutput t, *eo = data;
+        bool obsolete = false;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        t = exec_output_from_string(rvalue);
-        if (t < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
-                return 0;
+        if (streq(rvalue, "syslog")) {
+                t = EXEC_OUTPUT_JOURNAL;
+                obsolete = true;
+        } else if (streq(rvalue, "syslog+console")) {
+                t = EXEC_OUTPUT_JOURNAL_AND_CONSOLE;
+                obsolete = true;
+        } else {
+                t = exec_output_from_string(rvalue);
+                if (t < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse output type, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
+                        return 0;
+                }
         }
 
-        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (obsolete)
+                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                           "Standard output type %s is obsolete, automatically updating to %s. Please update your configuration.",
+                           rvalue, exec_output_to_string(t));
 
         *eo = t;
         return 0;
@@ -5000,5 +5125,53 @@ int config_parse_crash_chvt(
                 return 0;
         }
 
+        return 0;
+}
+
+int config_parse_swap_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Swap *s = userdata;
+        int r, priority;
+
+        assert(s);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                s->parameters_fragment.priority = -1;
+                s->parameters_fragment.priority_set = false;
+                return 0;
+        }
+
+        r = safe_atoi(rvalue, &priority);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid swap pririty '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        if (priority < -1) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Sorry, swap priorities smaller than -1 may only be assigned by the kernel itself, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (priority > 32767) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Swap priority out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        s->parameters_fragment.priority = priority;
+        s->parameters_fragment.priority_set = true;
         return 0;
 }

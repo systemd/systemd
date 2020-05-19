@@ -6,6 +6,7 @@
 #include "resolved-bus.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
+#include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "siphash24.h"
 #include "string-table.h"

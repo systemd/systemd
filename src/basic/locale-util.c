@@ -254,6 +254,21 @@ bool locale_is_valid(const char *name) {
         return true;
 }
 
+int locale_is_installed(const char *name) {
+        if (!locale_is_valid(name))
+                return false;
+
+        if (STR_IN_SET(name, "C", "POSIX")) /* These ones are always OK */
+                return true;
+
+        _cleanup_(freelocalep) locale_t loc =
+                newlocale(LC_ALL_MASK, name, 0);
+        if (loc == (locale_t) 0)
+                return errno == ENOMEM ? -ENOMEM : false;
+
+        return true;
+}
+
 void init_gettext(void) {
         setlocale(LC_ALL, "");
         textdomain(GETTEXT_PACKAGE);
@@ -305,7 +320,7 @@ out:
         return (bool) cached_answer;
 }
 
-static bool emoji_enabled(void) {
+bool emoji_enabled(void) {
         static int cached_emoji_enabled = -1;
 
         if (cached_emoji_enabled < 0) {
@@ -342,12 +357,14 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
                         [SPECIAL_GLYPH_BULLET]                  = "*",
-                        [SPECIAL_GLYPH_ARROW]                   = "->",
-                        [SPECIAL_GLYPH_MDASH]                   = "-",
-                        [SPECIAL_GLYPH_ELLIPSIS]                = "...",
                         [SPECIAL_GLYPH_MU]                      = "u",
                         [SPECIAL_GLYPH_CHECK_MARK]              = "+",
                         [SPECIAL_GLYPH_CROSS_MARK]              = "-",
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "X",
+                        [SPECIAL_GLYPH_SIGMA]                   = "S",
+                        [SPECIAL_GLYPH_ARROW]                   = "->",
+                        [SPECIAL_GLYPH_ELLIPSIS]                = "...",
                         [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = ":-]",
                         [SPECIAL_GLYPH_HAPPY_SMILEY]            = ":-}",
                         [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = ":-)",
@@ -355,36 +372,51 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
                         [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{",
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
+                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = "o-,"
                 },
 
                 /* UTF-8 */
                 [true] = {
+                        /* The following are multiple glyphs in both ASCII and in UNICODE */
                         [SPECIAL_GLYPH_TREE_VERTICAL]           = "\342\224\202 ",            /* │  */
                         [SPECIAL_GLYPH_TREE_BRANCH]             = "\342\224\234\342\224\200", /* ├─ */
                         [SPECIAL_GLYPH_TREE_RIGHT]              = "\342\224\224\342\224\200", /* └─ */
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",                       /*    */
+
+                        /* Single glyphs in both cases */
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "\342\227\217",             /* ● */
                         [SPECIAL_GLYPH_BULLET]                  = "\342\200\242",             /* • */
-                        [SPECIAL_GLYPH_ARROW]                   = "\342\206\222",             /* → */
-                        [SPECIAL_GLYPH_MDASH]                   = "\342\200\223",             /* – */
-                        [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … */
-                        [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ */
+                        [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ (actually called: GREEK SMALL LETTER MU) */
                         [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
-                        [SPECIAL_GLYPH_CROSS_MARK]              = "\342\234\227",             /* ✗ */
-                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 */
-                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = "\360\237\230\200",         /* 😀 */
-                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = "\360\237\231\202",         /* 🙂 */
-                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = "\360\237\230\220",         /* 😐 */
-                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 */
-                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨 */
-                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 */
+                        [SPECIAL_GLYPH_CROSS_MARK]              = "\342\234\227",             /* ✗ (actually called: BALLOT X) */
+                        [SPECIAL_GLYPH_LIGHT_SHADE]             = "\342\226\221",             /* ░ */
+                        [SPECIAL_GLYPH_DARK_SHADE]              = "\342\226\223",             /* ▒ */
+                        [SPECIAL_GLYPH_SIGMA]                   = "\316\243",                 /* Σ */
+
+                        /* Single glyph in Unicode, two in ASCII */
+                        [SPECIAL_GLYPH_ARROW]                   = "\342\206\222",             /* → (actually called: RIGHTWARDS ARROW) */
+
+                        /* Single glyph in Unicode, three in ASCII */
+                        [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … (actually called: HORIZONTAL ELLIPSIS) */
+
+                        /* These smileys are a single glyph in Unicode, and three in ASCII */
+                        [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 (actually called: SMILING FACE WITH HALO) */
+                        [SPECIAL_GLYPH_HAPPY_SMILEY]            = "\360\237\230\200",         /* 😀 (actually called: GRINNING FACE) */
+                        [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = "\360\237\231\202",         /* 🙂 (actually called: SLIGHTLY SMILING FACE) */
+                        [SPECIAL_GLYPH_NEUTRAL_SMILEY]          = "\360\237\230\220",         /* 😐 (actually called: NEUTRAL FACE) */
+                        [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = "\360\237\231\201",         /* 🙁 (actually called: SLIGHTLY FROWNING FACE) */
+                        [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = "\360\237\230\250",         /* 😨 (actually called: FEARFUL FACE) */
+                        [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = "\360\237\244\242",         /* 🤢 (actually called: NAUSEATED FACE) */
+
+                        /* This emoji is a single character cell glyph in Unicode, and three in ASCII */
+                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = "\360\237\224\220",         /* 🔐 (actually called: CLOSED LOCK WITH KEY) */
                 },
         };
 
         assert(code < _SPECIAL_GLYPH_MAX);
 
-        return draw_table[code >= _SPECIAL_GLYPH_FIRST_SMILEY ? emoji_enabled() : is_locale_utf8()][code];
+        return draw_table[code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : is_locale_utf8()][code];
 }
 
 void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {

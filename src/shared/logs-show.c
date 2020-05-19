@@ -20,6 +20,7 @@
 #include "id128-util.h"
 #include "io-util.h"
 #include "journal-internal.h"
+#include "journal-util.h"
 #include "json.h"
 #include "log.h"
 #include "logs-show.h"
@@ -120,8 +121,8 @@ static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fi
         return 0;
 }
 
-static int field_set_test(Set *fields, const char *name, size_t n) {
-        char *s = NULL;
+static int field_set_test(const Set *fields, const char *name, size_t n) {
+        char *s;
 
         if (!fields)
                 return 1;
@@ -130,7 +131,7 @@ static int field_set_test(Set *fields, const char *name, size_t n) {
         if (!s)
                 return log_oom();
 
-        return set_get(fields, s) ? 1 : 0;
+        return set_contains(fields, s);
 }
 
 static bool shall_print(const char *p, size_t l, OutputFlags flags) {
@@ -368,7 +369,7 @@ static int output_short(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         int r;
@@ -532,7 +533,7 @@ static int output_verbose(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         const void *data;
@@ -651,7 +652,7 @@ static int output_export(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         sd_id128_t boot_id;
@@ -848,7 +849,7 @@ static int update_json_data(
 static int update_json_data_split(
                 Hashmap *h,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const void *data,
                 size_t size) {
 
@@ -869,7 +870,7 @@ static int update_json_data_split(
                 return 0;
 
         name = strndupa(data, eq - (const char*) data);
-        if (output_fields && !set_get(output_fields, name))
+        if (output_fields && !set_contains(output_fields, name))
                 return 0;
 
         return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
@@ -881,7 +882,7 @@ static int output_json(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
         char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
@@ -1015,57 +1016,83 @@ finish:
         return r;
 }
 
+static int output_cat_field(
+                FILE *f,
+                sd_journal *j,
+                OutputFlags flags,
+                const char *field,
+                const size_t highlight[2]) {
+
+        const char *highlight_on, *highlight_off;
+        const void *data;
+        size_t l, fl;
+        int r;
+
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                highlight_on = ANSI_HIGHLIGHT_RED;
+                highlight_off = ANSI_NORMAL;
+        } else
+                highlight_on = highlight_off = "";
+
+        r = sd_journal_get_data(j, field, &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+        if (r == -ENOENT) /* An entry without the requested field */
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get data: %m");
+
+        fl = strlen(field);
+        assert(l >= fl + 1);
+        assert(((char*) data)[fl] == '=');
+
+        data = (const uint8_t*) data + fl + 1;
+        l -= fl + 1;
+
+        if (highlight && FLAGS_SET(flags, OUTPUT_COLOR)) {
+                assert(highlight[0] <= highlight[1]);
+                assert(highlight[1] <= l);
+
+                fwrite((const char*) data, 1, highlight[0], f);
+                fwrite(highlight_on, 1, strlen(highlight_on), f);
+                fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
+                fwrite(highlight_off, 1, strlen(highlight_off), f);
+                fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+        } else
+                fwrite((const char*) data, 1, l, f);
+
+        fputc('\n', f);
+        return 0;
+}
+
 static int output_cat(
                 FILE *f,
                 sd_journal *j,
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) {
 
-        const void *data;
-        size_t l;
+        const char *field;
+        Iterator iterator;
         int r;
-        const char *highlight_on = "", *highlight_off = "";
 
         assert(j);
         assert(f);
 
-        if (flags & OUTPUT_COLOR) {
-                highlight_on = ANSI_HIGHLIGHT_RED;
-                highlight_off = ANSI_NORMAL;
+        (void) sd_journal_set_data_threshold(j, 0);
+
+        if (set_isempty(output_fields))
+                return output_cat_field(f, j, flags, "MESSAGE", highlight);
+
+        SET_FOREACH(field, output_fields, iterator) {
+                r = output_cat_field(f, j, flags, field, streq(field, "MESSAGE") ? highlight : NULL);
+                if (r < 0)
+                        return r;
         }
-
-        sd_journal_set_data_threshold(j, 0);
-
-        r = sd_journal_get_data(j, "MESSAGE", &data, &l);
-        if (r == -EBADMSG) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
-                return 0;
-        }
-        if (r < 0) {
-                /* An entry without MESSAGE=? */
-                if (r == -ENOENT)
-                        return 0;
-
-                return log_error_errno(r, "Failed to get data: %m");
-        }
-
-        assert(l >= 8);
-
-        if (highlight && (flags & OUTPUT_COLOR)) {
-                assert(highlight[0] <= highlight[1]);
-                assert(highlight[1] <= l - 8);
-
-                fwrite((const char*) data + 8, 1, highlight[0], f);
-                fwrite(highlight_on, 1, strlen(highlight_on), f);
-                fwrite((const char*) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
-                fwrite(highlight_off, 1, strlen(highlight_off), f);
-                fwrite((const char*) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
-        } else
-                fwrite((const char*) data + 8, 1, l - 8, f);
-        fputc('\n', f);
 
         return 0;
 }
@@ -1076,7 +1103,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields,
+                const Set *output_fields,
                 const size_t highlight[2]) = {
 
         [OUTPUT_SHORT]             = output_short,
@@ -1106,30 +1133,25 @@ int show_journal_entry(
                 const size_t highlight[2],
                 bool *ellipsized) {
 
-        int ret;
-        _cleanup_set_free_free_ Set *fields = NULL;
+        _cleanup_set_free_ Set *fields = NULL;
+        int r;
+
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if (output_fields) {
-                fields = set_new(&string_hash_ops);
-                if (!fields)
-                        return log_oom();
+        r = set_put_strdupv(&fields, output_fields);
+        if (r < 0)
+                return r;
 
-                ret = set_put_strdupv(fields, output_fields);
-                if (ret < 0)
-                        return ret;
-        }
+        r = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
-
-        if (ellipsized && ret > 0)
+        if (ellipsized && r > 0)
                 *ellipsized = true;
 
-        return ret;
+        return r;
 }
 
 static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
@@ -1180,71 +1202,74 @@ int show_journal(
         }
 
         for (;;) {
-                for (;;) {
-                        usec_t usec;
+                usec_t usec;
 
-                        if (need_seek) {
-                                r = sd_journal_next(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to iterate through journal: %m");
-                        }
-
-                        if (r == 0)
-                                break;
-
-                        need_seek = true;
-
-                        if (not_before > 0) {
-                                r = sd_journal_get_monotonic_usec(j, &usec, NULL);
-
-                                /* -ESTALE is returned if the
-                                   timestamp is not from this boot */
-                                if (r == -ESTALE)
-                                        continue;
-                                else if (r < 0)
-                                        return log_error_errno(r, "Failed to get journal time: %m");
-
-                                if (usec < not_before)
-                                        continue;
-                        }
-
-                        line++;
-                        maybe_print_begin_newline(f, &flags);
-
-                        r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                if (need_seek) {
+                        r = sd_journal_next(j);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
                 }
 
-                if (warn_cutoff && line < how_many && not_before > 0) {
-                        sd_id128_t boot_id;
-                        usec_t cutoff = 0;
-
-                        /* Check whether the cutoff line is too early */
-
-                        r = sd_id128_get_boot(&boot_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get boot id: %m");
-
-                        r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get journal cutoff time: %m");
-
-                        if (r > 0 && not_before < cutoff) {
-                                maybe_print_begin_newline(f, &flags);
-                                fprintf(f, "Warning: Journal has been rotated since unit was started. Log output is incomplete or unavailable.\n");
-                        }
-
-                        warn_cutoff = false;
-                }
-
-                if (!(flags & OUTPUT_FOLLOW))
+                if (r == 0)
                         break;
 
-                r = sd_journal_wait(j, USEC_INFINITY);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to wait for journal: %m");
+                need_seek = true;
 
+                if (not_before > 0) {
+                        r = sd_journal_get_monotonic_usec(j, &usec, NULL);
+
+                        /* -ESTALE is returned if the timestamp is not from this boot */
+                        if (r == -ESTALE)
+                                continue;
+                        else if (r < 0)
+                                return log_error_errno(r, "Failed to get journal time: %m");
+
+                        if (usec < not_before)
+                                continue;
+                }
+
+                line++;
+                maybe_print_begin_newline(f, &flags);
+
+                r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                if (r < 0)
+                        return r;
+        }
+
+        if (warn_cutoff && line < how_many && not_before > 0) {
+                sd_id128_t boot_id;
+                usec_t cutoff = 0;
+
+                /* Check whether the cutoff line is too early */
+
+                r = sd_id128_get_boot(&boot_id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get boot id: %m");
+
+                r = sd_journal_get_cutoff_monotonic_usec(j, boot_id, &cutoff, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get journal cutoff time: %m");
+
+                if (r > 0 && not_before < cutoff) {
+                        maybe_print_begin_newline(f, &flags);
+
+                        /* If we logged *something* and no permission error happened, than we can reliably
+                         * emit the warning about rotation. If we didn't log anything and access errors
+                         * happened, emit hint about permissions. Otherwise, give a generic message, since we
+                         * can't diagnose the issue. */
+
+                        bool noaccess = journal_access_blocked(j);
+
+                        if (line == 0 && noaccess)
+                                fprintf(f, "Warning: some journal files were not opened due to insufficient permissions.");
+                        else if (!noaccess)
+                                fprintf(f, "Warning: journal has been rotated since unit was started, output may be incomplete.\n");
+                        else
+                                fprintf(f, "Warning: journal has been rotated since unit was started and some journal "
+                                        "files were not opened due to insufficient permissions, output may be incomplete.\n");
+                }
+
+                warn_cutoff = false;
         }
 
         return 0;
@@ -1453,6 +1478,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
+                const char *log_namespace,
                 OutputMode mode,
                 unsigned n_columns,
                 usec_t not_before,
@@ -1473,7 +1499,7 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open(&j, journal_open_flags);
+        r = sd_journal_open_namespace(&j, log_namespace, journal_open_flags | SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 

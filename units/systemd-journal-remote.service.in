@@ -21,6 +21,7 @@ NoNewPrivileges=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 PrivateTmp=yes
+ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectHostname=yes

@@ -10,6 +10,7 @@
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
+#include "bus-util.h"
 #include "errno-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
@@ -142,13 +143,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -322,13 +317,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveHostname");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname");
         if (r < 0)
                 goto fail;
 
@@ -514,13 +503,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &req,
-                        "org.freedesktop.resolve1",
-                        "/org/freedesktop/resolve1",
-                        "org.freedesktop.resolve1.Manager",
-                        "ResolveAddress");
+        r = bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveAddress");
         if (r < 0)
                 goto fail;
 

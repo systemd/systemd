@@ -57,7 +57,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 
         /* Processes with argv[0][0] = '@' we ignore from the killing spree.
          *
-         * http://www.freedesktop.org/wiki/Software/systemd/RootStorageDaemons */
+         * https://systemd.io/ROOT_STORAGE_DAEMONS */
         if (c != '@')
                 return false;
 

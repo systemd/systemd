@@ -50,6 +50,7 @@ static void lldp_neighbor_free(sd_lldp_neighbor *n) {
         free(n->port_description);
         free(n->system_name);
         free(n->system_description);
+        free(n->mud_url);
         free(n->chassis_id_as_string);
         free(n->port_id_as_string);
         free(n);
@@ -292,9 +293,20 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
 
                         break;
 
-                case SD_LLDP_TYPE_PRIVATE:
+                case SD_LLDP_TYPE_PRIVATE: {
                         if (length < 4)
                                 log_lldp("Found private TLV that is too short, ignoring.");
+                        else {
+                                /* RFC 8520: MUD URL */
+                                if (memcmp(p, SD_LLDP_OUI_MUD, sizeof(SD_LLDP_OUI_MUD)) == 0 &&
+                                    p[sizeof(SD_LLDP_OUI_MUD)] == SD_LLDP_OUI_SUBTYPE_MUD_USAGE_DESCRIPTION) {
+                                        r = parse_string(&n->mud_url, p + sizeof(SD_LLDP_OUI_MUD) + 1,
+                                                         length - 1 - sizeof(SD_LLDP_OUI_MUD));
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+                }
 
                         break;
                 }
@@ -590,6 +602,17 @@ _public_ int sd_lldp_neighbor_get_port_description(sd_lldp_neighbor *n, const ch
                 return -ENODATA;
 
         *ret = n->port_description;
+        return 0;
+}
+
+_public_ int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret) {
+        assert_return(n, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!n->mud_url)
+                return -ENODATA;
+
+        *ret = n->mud_url;
         return 0;
 }
 

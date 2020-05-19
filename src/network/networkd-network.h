@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-ipv4acd.h"
 
 #include "bridge.h"
 #include "condition.h"
@@ -21,6 +22,7 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
@@ -28,7 +30,6 @@
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
-#include "qdisc.h"
 #include "resolve-util.h"
 
 typedef enum IPv6PrivacyExtensions {
@@ -63,6 +64,7 @@ struct Network {
         unsigned n_ref;
 
         Set *match_mac;
+        Set *match_permanent_mac;
         char **match_path;
         char **match_driver;
         char **match_type;
@@ -89,11 +91,13 @@ struct Network {
         AddressFamily dhcp;
         DHCPClientIdentifier dhcp_client_identifier;
         char *dhcp_vendor_class_identifier;
+        char *dhcp_mudurl;
         char **dhcp_user_class;
         char *dhcp_hostname;
         uint64_t dhcp_max_attempts;
         unsigned dhcp_route_metric;
         uint32_t dhcp_route_table;
+        uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
         int dhcp_critical;
         int ip_service_type;
@@ -106,22 +110,31 @@ struct Network {
         bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
+        int dhcp_use_gateway;
         bool dhcp_use_timezone;
         bool rapid_commit;
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         bool dhcp_send_release;
+        bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
+        sd_ipv4acd *dhcp_acd;
         Set *dhcp_black_listed_ip;
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_client_send_options;
+        OrderedHashmap *dhcp_client_send_vendor_options;
         OrderedHashmap *dhcp_server_send_options;
+        OrderedHashmap *dhcp_server_send_vendor_options;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;
         bool dhcp6_use_ntp;
+        bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
+        char *dhcp6_mudurl;
         struct in6_addr dhcp6_pd_address;
+        OrderedHashmap *dhcp6_client_send_options;
+        Set *dhcp6_request_options;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -137,6 +150,15 @@ struct Network {
         bool dhcp_server_emit_sip;
         struct in_addr *dhcp_server_sip;
         unsigned n_dhcp_server_sip;
+
+        struct in_addr *dhcp_server_pop3;
+        unsigned n_dhcp_server_pop3;
+
+        struct in_addr *dhcp_server_smtp;
+        unsigned n_dhcp_server_smtp;
+
+        struct in_addr *dhcp_server_lpr;
+        unsigned n_dhcp_server_lpr;
 
         bool dhcp_server_emit_router;
         bool dhcp_server_emit_timezone;
@@ -189,10 +211,16 @@ struct Network {
         uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
-        size_t can_bitrate;
+        uint32_t can_bitrate;
         unsigned can_sample_point;
+        uint32_t can_data_bitrate;
+        unsigned can_data_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;
+        int can_termination;
+        int can_listen_only;
+        int can_fd_mode;
+        int can_non_iso;
 
         AddressFamily ip_forward;
         bool ip_masquerade;
@@ -209,16 +237,18 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool active_slave;
         bool primary_slave;
-        DHCPUseDomains ipv6_accept_ra_use_domains;
-        uint32_t ipv6_accept_ra_route_table;
         bool ipv6_accept_ra_route_table_set;
+        DHCPUseDomains ipv6_accept_ra_use_domains;
+        IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
+        uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_black_listed_prefix;
+        OrderedHashmap *ipv6_tokens;
 
-        union in_addr_union ipv6_token;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         struct ether_addr *mac;
         uint32_t mtu;
+        uint32_t group;
         int arp;
         int multicast;
         int allmulticast;
@@ -232,10 +262,12 @@ struct Network {
         bool iaid_set;
 
         bool required_for_online; /* Is this network required to be considered online? */
-        LinkOperationalState required_operstate_for_online;
+        LinkOperationalStateRange required_operstate_for_online;
 
+        /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
         LLDPEmit lldp_emit; /* LLDP transmission */
+        char *lldp_mud;    /* LLDP MUD URL */
 
         LIST_HEAD(Address, static_addresses);
         LIST_HEAD(Route, static_routes);
@@ -268,7 +300,7 @@ struct Network {
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
-        OrderedHashmap *qdiscs_by_section;
+        OrderedHashmap *tc_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;
@@ -284,6 +316,9 @@ struct Network {
 
         char **ntp;
         char **sip;
+        char **pop3;
+        char **smtp;
+        char **lpr;
         char **bind_carrier;
 };
 
@@ -297,8 +332,10 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 int network_verify(Network *network);
 
 int network_get_by_name(Manager *manager, const char *name, Network **ret);
-int network_get(Manager *manager, sd_device *device, const char *ifname, const struct ether_addr *mac,
-                enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid, Network **ret);
+int network_get(Manager *manager, unsigned short iftype, sd_device *device, const char *ifname, char * const *alternative_names,
+                const struct ether_addr *mac, const struct ether_addr *permanent_mac,
+                enum nl80211_iftype wlan_iftype, const char *ssid,
+                const struct ether_addr *bssid, Network **ret);
 int network_apply(Network *network, Link *link);
 void network_apply_anonymize_if_set(Network *network);
 

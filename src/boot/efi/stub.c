@@ -22,10 +22,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         UINTN size;
         BOOLEAN secure = FALSE;
         CHAR8 *sections[] = {
-                (UINT8 *)".cmdline",
-                (UINT8 *)".linux",
-                (UINT8 *)".initrd",
-                (UINT8 *)".splash",
+                (CHAR8 *)".cmdline",
+                (CHAR8 *)".linux",
+                (CHAR8 *)".initrd",
+                (CHAR8 *)".splash",
                 NULL
         };
         UINTN addrs[ELEMENTSOF(sections)-1] = {};

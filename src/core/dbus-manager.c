@@ -9,6 +9,8 @@
 #include "architecture.h"
 #include "build.h"
 #include "bus-common-errors.h"
+#include "bus-log-control-api.h"
+#include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
@@ -49,7 +51,6 @@ BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_oom_policy, oom_policy, OOMPolicy)
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", GIT_VERSION);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", SYSTEMD_FEATURES);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_architecture, "s", architecture_to_string(uname_architecture()));
-static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_log_target, "s", log_target_to_string(log_get_target()));
 static BUS_DEFINE_PROPERTY_GET2(property_get_system_state, "s", Manager, manager_state, manager_state_to_string);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_hashmap_size, "u", Hashmap *, hashmap_size);
@@ -138,28 +139,6 @@ static int property_set_log_target(
         }
 
         return 0;
-}
-
-static int property_get_log_level(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        _cleanup_free_ char *t = NULL;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = log_level_to_string_alloc(log_get_max_level(), &t);
-        if (r < 0)
-                return r;
-
-        return sd_bus_message_append(reply, "s", t);
 }
 
 static int property_set_log_level(
@@ -639,6 +618,14 @@ static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_err
         /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
          * cleaned */
         return method_generic_unit_operation(message, userdata, error, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+}
+
+static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, 0);
+}
+
+static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, 0);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1642,7 +1629,7 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
 
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Dynamic users are only supported in the system instance.");
-        if (!valid_user_group_name(name))
+        if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name invalid: %s", name);
 
         r = dynamic_user_lookup_name(m, name, &uid);
@@ -1663,7 +1650,7 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         assert(message);
         assert(m);
 
-        assert_cc(sizeof(uid) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         r = sd_bus_message_read_basic(message, 'u', &uid);
         if (r < 0)
                 return r;
@@ -1712,7 +1699,7 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
                 if (r == -EAGAIN) /* not realized yet? */
                         continue;
                 if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to lookup a dynamic user.");
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to look up a dynamic user.");
 
                 r = sd_bus_message_append(reply, "(us)", uid, d->name);
                 if (r < 0)
@@ -1900,6 +1887,12 @@ static int install_error(
                 case -EADDRNOTAVAIL:
                         r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
                                               "Unit %s is transient or generated.", changes[i].path);
+                        goto found;
+
+                case -EUCLEAN:
+                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                              "\"%s\" is not a valid unit name.",
+                                              changes[i].path);
                         goto found;
 
                 case -ELOOP:
@@ -2397,8 +2390,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDGeneratorsFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDUnitsLoadStartTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("InitRDUnitsLoadFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
-        SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", bus_property_get_log_level, property_set_log_level, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", bus_property_get_log_target, property_set_log_target, 0, 0),
         SD_BUS_PROPERTY("NNames", "u", property_get_hashmap_size, offsetof(Manager, units), 0),
         SD_BUS_PROPERTY("NFailedUnits", "u", property_get_set_size, offsetof(Manager, failed_units), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NJobs", "u", property_get_hashmap_size, offsetof(Manager, jobs), 0),
@@ -2470,89 +2463,598 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
 
-        SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitByInvocationID", "ay", "o", method_get_unit_by_invocation_id, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitByControlGroup", "s", "o", method_get_unit_by_control_group, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("LoadUnit", "s", "o", method_load_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("StartUnit", "ss", "o", method_start_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("StartUnitReplace", "sss", "o", method_start_unit_replace, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("StopUnit", "ss", "o", method_stop_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ReloadUnit", "ss", "o", method_reload_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RestartUnit", "ss", "o", method_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("TryRestartUnit", "ss", "o", method_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ReloadOrRestartUnit", "ss", "o", method_reload_or_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ReloadOrTryRestartUnit", "ss", "o", method_reload_or_try_restart_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("EnqueueUnitJob", "sss", "uososa(uosos)", method_enqueue_unit_job, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("KillUnit", "ssi", NULL, method_kill_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CleanUnit", "sas", NULL, method_clean_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResetFailedUnit", "s", NULL, method_reset_failed_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetUnitProperties", "sba(sv)", NULL, method_set_unit_properties, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RefUnit", "s", NULL, method_ref_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("UnrefUnit", "s", NULL, method_unref_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("AttachProcessesToUnit", "ssau", NULL, method_attach_processes_to_unit, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("AbandonScope", "s", NULL, method_abandon_scope, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetJobAfter", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetJobBefore", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CancelJob", "u", NULL, method_cancel_job, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ClearJobs", NULL, NULL, method_clear_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ResetFailed", NULL, NULL, method_reset_failed, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnits", NULL, "a(ssssssouso)", method_list_units, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnitsFiltered", "as", "a(ssssssouso)", method_list_units_filtered, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnitsByPatterns", "asas", "a(ssssssouso)", method_list_units_by_patterns, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnitsByNames", "as", "a(ssssssouso)", method_list_units_by_names, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListJobs", NULL, "a(usssoo)", method_list_jobs, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Dump", NULL, "s", method_dump, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("DumpByFileDescriptor", NULL, "h", method_dump_by_fd, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_METHOD("Reload", NULL, NULL, method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Reexecute", NULL, NULL, method_reexecute, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("Exit", NULL, NULL, method_exit, 0),
-        SD_BUS_METHOD("Reboot", NULL, NULL, method_reboot, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
-        SD_BUS_METHOD("PowerOff", NULL, NULL, method_poweroff, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
-        SD_BUS_METHOD("Halt", NULL, NULL, method_halt, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
-        SD_BUS_METHOD("KExec", NULL, NULL, method_kexec, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
-        SD_BUS_METHOD("SwitchRoot", "ss", NULL, method_switch_root, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
-        SD_BUS_METHOD("SetEnvironment", "as", NULL, method_set_environment, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("UnsetEnvironment", "as", NULL, method_unset_environment, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("UnsetAndSetEnvironment", "asas", NULL, method_unset_and_set_environment, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnitFiles", NULL, "a(ss)", method_list_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ListUnitFilesByPatterns", "asas", "a(ss)", method_list_unit_files_by_patterns, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitFileState", "s", "s", method_get_unit_file_state, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("EnableUnitFiles", "asbb", "ba(sss)", method_enable_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("DisableUnitFiles", "asb", "a(sss)", method_disable_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ReenableUnitFiles", "asbb", "ba(sss)", method_reenable_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("LinkUnitFiles", "asbb", "a(sss)", method_link_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PresetUnitFiles", "asbb", "ba(sss)", method_preset_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PresetUnitFilesWithMode", "assbb", "ba(sss)", method_preset_unit_files_with_mode, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("MaskUnitFiles", "asbb", "a(sss)", method_mask_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("UnmaskUnitFiles", "asb", "a(sss)", method_unmask_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RevertUnitFiles", "as", "a(sss)", method_revert_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetDefaultTarget", "sb", "a(sss)", method_set_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetDefaultTarget", NULL, "s", method_get_default_target, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("PresetAllUnitFiles", "sbb", "a(sss)", method_preset_all_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("AddDependencyUnitFiles", "asssbb", "a(sss)", method_add_dependency_unit_files, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetUnitFileLinks", "sb", "as", method_get_unit_file_links, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetExitCode", "y", NULL, method_set_exit_code, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("LookupDynamicUserByName", "s", "u", method_lookup_dynamic_user_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("LookupDynamicUserByUID", "u", "s", method_lookup_dynamic_user_by_uid, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("GetDynamicUsers", NULL, "a(us)", method_get_dynamic_users, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_get_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitByPID",
+                                 "u",
+                                 SD_BUS_PARAM(pid),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_get_unit_by_pid,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitByInvocationID",
+                                 "ay",
+                                 SD_BUS_PARAM(invocation_id),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_get_unit_by_invocation_id,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitByControlGroup",
+                                 "s",
+                                 SD_BUS_PARAM(cgroup),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_get_unit_by_control_group,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("LoadUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_load_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StartUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_start_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StartUnitReplace",
+                                 "sss",
+                                 SD_BUS_PARAM(old_unit)
+                                 SD_BUS_PARAM(new_unit)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_start_unit_replace,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StopUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_stop_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReloadUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_reload_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("RestartUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_restart_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("TryRestartUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_try_restart_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReloadOrRestartUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_reload_or_restart_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReloadOrTryRestartUnit",
+                                 "ss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_reload_or_try_restart_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("EnqueueUnitJob",
+                                 "sss",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(job_type)
+                                 SD_BUS_PARAM(job_mode),
+                                 "uososa(uosos)",
+                                 SD_BUS_PARAM(job_id)
+                                 SD_BUS_PARAM(job_path)
+                                 SD_BUS_PARAM(unit_id)
+                                 SD_BUS_PARAM(unit_path)
+                                 SD_BUS_PARAM(job_type)
+                                 SD_BUS_PARAM(affected_jobs),
+                                 method_enqueue_unit_job,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("KillUnit",
+                                 "ssi",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(whom)
+                                 SD_BUS_PARAM(signal),
+                                 NULL,,
+                                 method_kill_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("CleanUnit",
+                                 "sas",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mask),
+                                 NULL,,
+                                 method_clean_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("FreezeUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_freeze_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ThawUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_thaw_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ResetFailedUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_reset_failed_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetUnitProperties",
+                                 "sba(sv)",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(properties),
+                                 NULL,,
+                                 method_set_unit_properties,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("RefUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_ref_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("UnrefUnit",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_unref_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("StartTransientUnit",
+                                 "ssa(sv)a(sa(sv))",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(mode)
+                                 SD_BUS_PARAM(properties)
+                                 SD_BUS_PARAM(aux),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_start_transient_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitProcesses",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 "a(sus)",
+                                 SD_BUS_PARAM(processes),
+                                 method_get_unit_processes,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("AttachProcessesToUnit",
+                                 "ssau",
+                                 SD_BUS_PARAM(unit_name)
+                                 SD_BUS_PARAM(subcgroup)
+                                 SD_BUS_PARAM(pids),
+                                 NULL,,
+                                 method_attach_processes_to_unit,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("AbandonScope",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_abandon_scope,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetJob",
+                                 "u",
+                                 SD_BUS_PARAM(id),
+                                 "o",
+                                 SD_BUS_PARAM(job),
+                                 method_get_job,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetJobAfter",
+                                 "u",
+                                 SD_BUS_PARAM(id),
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 method_get_job_waiting,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetJobBefore",
+                                 "u",
+                                 SD_BUS_PARAM(id),
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 method_get_job_waiting,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("CancelJob",
+                                 "u",
+                                 SD_BUS_PARAM(id),
+                                 NULL,,
+                                 method_cancel_job,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ClearJobs",
+                      NULL,
+                      NULL,
+                      method_clear_jobs,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ResetFailed",
+                      NULL,
+                      NULL,
+                      method_reset_failed,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnits",
+                                 NULL,,
+                                 "a(ssssssouso)",
+                                 SD_BUS_PARAM(units),
+                                 method_list_units,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnitsFiltered",
+                                 "as",
+                                 SD_BUS_PARAM(states),
+                                 "a(ssssssouso)",
+                                 SD_BUS_PARAM(units),
+                                 method_list_units_filtered,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnitsByPatterns",
+                                 "asas",
+                                 SD_BUS_PARAM(states)
+                                 SD_BUS_PARAM(patterns),
+                                 "a(ssssssouso)",
+                                 SD_BUS_PARAM(units),
+                                 method_list_units_by_patterns,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnitsByNames",
+                                 "as",
+                                 SD_BUS_PARAM(names),
+                                 "a(ssssssouso)",
+                                 SD_BUS_PARAM(units),
+                                 method_list_units_by_names,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListJobs",
+                                 NULL,,
+                                 "a(usssoo)",
+                                 SD_BUS_PARAM(jobs),
+                                 method_list_jobs,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Subscribe",
+                      NULL,
+                      NULL,
+                      method_subscribe,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Unsubscribe",
+                      NULL,
+                      NULL,
+                      method_unsubscribe,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("Dump",
+                                 NULL,,
+                                 "s",
+                                 SD_BUS_PARAM(output),
+                                 method_dump,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("DumpByFileDescriptor",
+                                 NULL,,
+                                 "h",
+                                 SD_BUS_PARAM(fd),
+                                 method_dump_by_fd,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("CreateSnapshot",
+                                 "sb",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(cleanup),
+                                 "o",
+                                 SD_BUS_PARAM(unit),
+                                 method_refuse_snapshot,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_METHOD_WITH_NAMES("RemoveSnapshot",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 NULL,,
+                                 method_refuse_snapshot,
+                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_METHOD("Reload",
+                      NULL,
+                      NULL,
+                      method_reload,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Reexecute",
+                      NULL,
+                      NULL,
+                      method_reexecute,
+                      SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("Exit",
+                      NULL,
+                      NULL,
+                      method_exit,
+                      0),
+        SD_BUS_METHOD("Reboot",
+                      NULL,
+                      NULL,
+                      method_reboot,
+                      SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD("PowerOff",
+                      NULL,
+                      NULL,
+                      method_poweroff,
+                      SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD("Halt",
+                      NULL,
+                      NULL,
+                      method_halt,
+                      SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD("KExec",
+                      NULL,
+                      NULL,
+                      method_kexec,
+                      SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_NAMES("SwitchRoot",
+                                 "ss",
+                                 SD_BUS_PARAM(new_root)
+                                 SD_BUS_PARAM(init),
+                                 NULL,,
+                                 method_switch_root,
+                                 SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_NAMES("SetEnvironment",
+                                 "as",
+                                 SD_BUS_PARAM(assignments),
+                                 NULL,,
+                                 method_set_environment,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("UnsetEnvironment",
+                                 "as",
+                                 SD_BUS_PARAM(names),
+                                 NULL,,
+                                 method_unset_environment,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("UnsetAndSetEnvironment",
+                                 "asas",
+                                 SD_BUS_PARAM(names)
+                                 SD_BUS_PARAM(assignments),
+                                 NULL,,
+                                 method_unset_and_set_environment,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnitFiles",
+                                 NULL,,
+                                 "a(ss)",
+                                 SD_BUS_PARAM(unit_files),
+                                 method_list_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ListUnitFilesByPatterns",
+                                 "asas",
+                                 SD_BUS_PARAM(states)
+                                 SD_BUS_PARAM(patterns),
+                                 "a(ss)",
+                                 SD_BUS_PARAM(unit_files),
+                                 method_list_unit_files_by_patterns,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitFileState",
+                                 "s",
+                                 SD_BUS_PARAM(file),
+                                 "s",
+                                 SD_BUS_PARAM(state),
+                                 method_get_unit_file_state,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("EnableUnitFiles",
+                                 "asbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "ba(sss)",
+                                 SD_BUS_PARAM(carries_install_info)
+                                 SD_BUS_PARAM(changes),
+                                 method_enable_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("DisableUnitFiles",
+                                 "asb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_disable_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("ReenableUnitFiles",
+                                 "asbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "ba(sss)",
+                                 SD_BUS_PARAM(carries_install_info)
+                                 SD_BUS_PARAM(changes),
+                                 method_reenable_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("LinkUnitFiles",
+                                 "asbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_link_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PresetUnitFiles",
+                                 "asbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "ba(sss)",
+                                 SD_BUS_PARAM(carries_install_info)
+                                 SD_BUS_PARAM(changes),
+                                 method_preset_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PresetUnitFilesWithMode",
+                                 "assbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(mode)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "ba(sss)",
+                                 SD_BUS_PARAM(carries_install_info)
+                                 SD_BUS_PARAM(changes),
+                                 method_preset_unit_files_with_mode,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("MaskUnitFiles",
+                                 "asbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_mask_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("UnmaskUnitFiles",
+                                 "asb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(runtime),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_unmask_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("RevertUnitFiles",
+                                 "as",
+                                 SD_BUS_PARAM(files),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_revert_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetDefaultTarget",
+                                 "sb",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(force),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_set_default_target,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetDefaultTarget",
+                                 NULL,,
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 method_get_default_target,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("PresetAllUnitFiles",
+                                 "sbb",
+                                 SD_BUS_PARAM(mode)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_preset_all_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("AddDependencyUnitFiles",
+                                 "asssbb",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(target)
+                                 SD_BUS_PARAM(type)
+                                 SD_BUS_PARAM(runtime)
+                                 SD_BUS_PARAM(force),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_add_dependency_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetUnitFileLinks",
+                                 "sb",
+                                 SD_BUS_PARAM(name)
+                                 SD_BUS_PARAM(runtime),
+                                 "as",
+                                 SD_BUS_PARAM(links),
+                                 method_get_unit_file_links,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetExitCode",
+                                 "y",
+                                 SD_BUS_PARAM(number),
+                                 NULL,,
+                                 method_set_exit_code,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("LookupDynamicUserByName",
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 "u",
+                                 SD_BUS_PARAM(uid),
+                                 method_lookup_dynamic_user_by_name,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("LookupDynamicUserByUID",
+                                 "u",
+                                 SD_BUS_PARAM(uid),
+                                 "s",
+                                 SD_BUS_PARAM(name),
+                                 method_lookup_dynamic_user_by_uid,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("GetDynamicUsers",
+                                 NULL,,
+                                 "a(us)",
+                                 SD_BUS_PARAM(users),
+                                 method_get_dynamic_users,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
-        SD_BUS_SIGNAL("UnitNew", "so", 0),
-        SD_BUS_SIGNAL("UnitRemoved", "so", 0),
-        SD_BUS_SIGNAL("JobNew", "uos", 0),
-        SD_BUS_SIGNAL("JobRemoved", "uoss", 0),
-        SD_BUS_SIGNAL("StartupFinished", "tttttt", 0),
+        SD_BUS_SIGNAL_WITH_NAMES("UnitNew",
+                                 "so",
+                                 SD_BUS_PARAM(id)
+                                 SD_BUS_PARAM(unit),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("UnitRemoved",
+                                 "so",
+                                 SD_BUS_PARAM(id)
+                                 SD_BUS_PARAM(unit),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("JobNew",
+                                 "uos",
+                                 SD_BUS_PARAM(id)
+                                 SD_BUS_PARAM(job)
+                                 SD_BUS_PARAM(unit),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("JobRemoved",
+                                 "uoss",
+                                 SD_BUS_PARAM(id)
+                                 SD_BUS_PARAM(job)
+                                 SD_BUS_PARAM(unit)
+                                 SD_BUS_PARAM(result),
+                                 0),
+        SD_BUS_SIGNAL_WITH_NAMES("StartupFinished",
+                                 "tttttt",
+                                 SD_BUS_PARAM(firmware)
+                                 SD_BUS_PARAM(loader)
+                                 SD_BUS_PARAM(kernel)
+                                 SD_BUS_PARAM(initrd)
+                                 SD_BUS_PARAM(userspace)
+                                 SD_BUS_PARAM(total),
+                                 0),
         SD_BUS_SIGNAL("UnitFilesChanged", NULL, 0),
-        SD_BUS_SIGNAL("Reloading", "b", 0),
+        SD_BUS_SIGNAL_WITH_NAMES("Reloading",
+                                 "b",
+                                 SD_BUS_PARAM(active),
+                                 0),
 
         SD_BUS_VTABLE_END
+};
+
+const sd_bus_vtable bus_manager_log_control_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        /* We define a private version of this interface here, since we want slightly different
+         * implementations for the setters. We'll still use the generic getters however, and we share the
+         * setters with the implementations for the Manager interface above (which pre-dates the generic
+         * service API interface). */
+
+        SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", bus_property_get_log_level, property_set_log_level, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", bus_property_get_log_target, property_set_log_target, 0, 0),
+        SD_BUS_PROPERTY("SyslogIdentifier", "s", bus_property_get_syslog_identifier, 0, 0),
+
+        SD_BUS_VTABLE_END,
 };
 
 static int send_finished(sd_bus *bus, void *userdata) {

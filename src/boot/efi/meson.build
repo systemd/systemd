@@ -64,12 +64,19 @@ if conf.get('ENABLE_EFI') == 1 and get_option('gnu-efi') != 'false'
 
         efi_libdir = get_option('efi-libdir')
         if efi_libdir == ''
-                ret = run_command(efi_cc + ['-print-multi-os-directory'])
-                if ret.returncode() == 0
-                        path = join_paths('/usr/lib', ret.stdout().strip())
-                        ret = run_command('realpath', '-e', path)
-                        if ret.returncode() == 0
-                                efi_libdir = ret.stdout().strip()
+                # New location first introduced with gnu-efi 3.0.11
+                efi_libdir = join_paths('/usr/lib/gnuefi', EFI_MACHINE_TYPE_NAME)
+                cmd = run_command('test', '-e', efi_libdir)
+
+                if cmd.returncode() != 0
+                        # Fall back to the old approach
+                        cmd = run_command(efi_cc + ['-print-multi-os-directory'])
+                        if cmd.returncode() == 0
+                                path = join_paths('/usr/lib', cmd.stdout().strip())
+                                cmd = run_command('realpath', '-e', path)
+                                if cmd.returncode() == 0
+                                        efi_libdir = cmd.stdout().strip()
+                                endif
                         endif
                 endif
         endif
@@ -95,20 +102,35 @@ if have_gnu_efi
 
         objcopy = find_program('objcopy')
 
-        efi_ldsdir = get_option('efi-ldsdir')
-        arch_lds = 'elf_@0@_efi.lds'.format(gnu_efi_path_arch)
-        if efi_ldsdir == ''
-                efi_ldsdir = join_paths(efi_libdir, 'gnuefi')
-                cmd = run_command('test', '-f', join_paths(efi_ldsdir, arch_lds))
-                if cmd.returncode() != 0
-                        efi_ldsdir = efi_libdir
-                        cmd = run_command('test', '-f', join_paths(efi_ldsdir, arch_lds))
-                        if cmd.returncode() != 0
-                               error('Cannot find @0@'.format(arch_lds))
+        efi_location_map = [
+                # New locations first introduced with gnu-efi 3.0.11
+                [join_paths(efi_libdir, 'efi.lds'),
+                 join_paths(efi_libdir, 'crt0.o')],
+                # Older locations...
+                [join_paths(efi_libdir, 'gnuefi', 'elf_@0@_efi.lds'.format(gnu_efi_path_arch)),
+                 join_paths(efi_libdir, 'gnuefi', 'crt0-efi-@0@.o'.format(gnu_efi_path_arch))],
+                [join_paths(efi_libdir, 'elf_@0@_efi.lds'.format(gnu_efi_path_arch)),
+                 join_paths(efi_libdir, 'crt0-efi-@0@.o'.format(gnu_efi_path_arch))]]
+        efi_lds = ''
+        foreach location : efi_location_map
+                if efi_lds == ''
+                        cmd = run_command('test', '-f', location[0])
+                        if cmd.returncode() == 0
+                                efi_lds = location[0]
+                                efi_crt0 = location[1]
                         endif
                 endif
+        endforeach
+        if efi_lds == ''
+                if get_option('gnu-efi') == 'true'
+                        error('gnu-efi support requested, but cannot find efi.lds')
+                else
+                        have_gnu_efi = false
+                endif
         endif
+endif
 
+if have_gnu_efi
         compile_args = ['-Wall',
                         '-Wextra',
                         '-std=gnu90',
@@ -133,6 +155,8 @@ if have_gnu_efi
         elif efi_arch == 'ia32'
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
+        elif efi_arch == 'arm'
+                compile_args += ['-mgeneral-regs-only']
         endif
         if get_option('werror') == true
                 compile_args += ['-Werror']
@@ -145,14 +169,13 @@ if have_gnu_efi
                 compile_args += ['-O2']
         endif
 
-        efi_ldflags = ['-T',
-                       join_paths(efi_ldsdir, arch_lds),
+        efi_ldflags = ['-T', efi_lds,
                        '-shared',
                        '-Bsymbolic',
                        '-nostdlib',
                        '-znocombreloc',
                        '-L', efi_libdir,
-                       join_paths(efi_ldsdir, 'crt0-efi-@0@.o'.format(gnu_efi_path_arch))]
+                       efi_crt0]
         if efi_arch == 'aarch64' or efi_arch == 'arm'
                 # Aarch64 and ARM32 don't have an EFI capable objcopy. Use 'binary'
                 # instead, and add required symbols manually.
@@ -219,11 +242,9 @@ if have_gnu_efi
                 set_variable(tuple[0].underscorify(), so)
                 set_variable(tuple[0].underscorify() + '_stub', stub)
         endforeach
-endif
 
-############################################################
+        ############################################################
 
-if have_gnu_efi
         test_efi_disk_img = custom_target(
                 'test-efi-disk.img',
                 input : [systemd_boot_so, stub_so_stub],

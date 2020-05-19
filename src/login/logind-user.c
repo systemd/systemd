@@ -37,10 +37,7 @@
 
 int user_new(User **ret,
              Manager *m,
-             uid_t uid,
-             gid_t gid,
-             const char *name,
-             const char *home) {
+             UserRecord *ur) {
 
         _cleanup_(user_freep) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
@@ -48,7 +45,13 @@ int user_new(User **ret,
 
         assert(ret);
         assert(m);
-        assert(name);
+        assert(ur);
+
+        if (!ur->user_name)
+                return -EINVAL;
+
+        if (!uid_is_valid(ur->uid))
+                return -EINVAL;
 
         u = new(User, 1);
         if (!u)
@@ -56,28 +59,17 @@ int user_new(User **ret,
 
         *u = (User) {
                 .manager = m,
-                .uid = uid,
-                .gid = gid,
+                .user_record = user_record_ref(ur),
                 .last_session_timestamp = USEC_INFINITY,
         };
 
-        u->name = strdup(name);
-        if (!u->name)
+        if (asprintf(&u->state_file, "/run/systemd/users/" UID_FMT, ur->uid) < 0)
                 return -ENOMEM;
 
-        u->home = strdup(home);
-        if (!u->home)
+        if (asprintf(&u->runtime_path, "/run/user/" UID_FMT, ur->uid) < 0)
                 return -ENOMEM;
 
-        path_simplify(u->home, true);
-
-        if (asprintf(&u->state_file, "/run/systemd/users/"UID_FMT, uid) < 0)
-                return -ENOMEM;
-
-        if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
-                return -ENOMEM;
-
-        xsprintf(lu, UID_FMT, uid);
+        xsprintf(lu, UID_FMT, ur->uid);
         r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
         if (r < 0)
                 return r;
@@ -90,7 +82,7 @@ int user_new(User **ret,
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->users, UID_TO_PTR(uid), u);
+        r = hashmap_put(m->users, UID_TO_PTR(ur->uid), u);
         if (r < 0)
                 return r;
 
@@ -129,9 +121,9 @@ User *user_free(User *u) {
         if (u->slice)
                 hashmap_remove_value(u->manager->user_units, u->slice, u);
 
-        hashmap_remove_value(u->manager->users, UID_TO_PTR(u->uid), u);
+        hashmap_remove_value(u->manager->users, UID_TO_PTR(u->user_record->uid), u);
 
-        (void) sd_event_source_unref(u->timer_event_source);
+        sd_event_source_unref(u->timer_event_source);
 
         u->service_job = mfree(u->service_job);
 
@@ -140,8 +132,8 @@ User *user_free(User *u) {
         u->slice = mfree(u->slice);
         u->runtime_path = mfree(u->runtime_path);
         u->state_file = mfree(u->state_file);
-        u->name = mfree(u->name);
-        u->home = mfree(u->home);
+
+        user_record_unref(u->user_record);
 
         return mfree(u);
 }
@@ -169,7 +161,7 @@ static int user_save_internal(User *u) {
                 "NAME=%s\n"
                 "STATE=%s\n"         /* friendly user-facing state */
                 "STOPPING=%s\n",     /* low-level state */
-                u->name,
+                u->user_record->user_name,
                 user_state_to_string(user_get_state(u)),
                 yes_no(u->stopping));
 
@@ -363,6 +355,88 @@ static void user_start_service(User *u) {
                                "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
+static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(user_record_unrefp) UserRecord *ur = userdata;
+
+        assert(m);
+        assert(ur);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_warning_errno(sd_bus_message_get_errno(m),
+                                  "Failed to update slice of %s, ignoring: %s",
+                                  ur->user_name,
+                                  sd_bus_message_get_error(m)->message);
+
+                return 0;
+        }
+
+        log_debug("Successfully set slice parameters of %s.", ur->user_name);
+        return 0;
+}
+
+static int user_update_slice(User *u) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(u);
+
+        if (u->user_record->tasks_max == UINT64_MAX &&
+            u->user_record->memory_high == UINT64_MAX &&
+            u->user_record->memory_max == UINT64_MAX &&
+            u->user_record->cpu_weight == UINT64_MAX &&
+            u->user_record->io_weight == UINT64_MAX)
+                return 0;
+
+        r = sd_bus_message_new_method_call(
+                        u->manager->bus,
+                        &m,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SetUnitProperties");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "sb", u->slice, true);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        const struct {
+                const char *name;
+                uint64_t value;
+        } settings[] = {
+                { "TasksMax",   u->user_record->tasks_max   },
+                { "MemoryMax",  u->user_record->memory_max  },
+                { "MemoryHigh", u->user_record->memory_high },
+                { "CPUWeight",  u->user_record->cpu_weight  },
+                { "IOWeight",   u->user_record->io_weight   },
+        };
+
+        for (size_t i = 0; i < ELEMENTSOF(settings); i++)
+                if (settings[i].value != UINT64_MAX) {
+                        r = sd_bus_message_append(m, "(sv)", settings[i].name, "t", settings[i].value);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call_async(u->manager->bus, NULL, m, update_slice_callback, u->user_record, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to change user slice properties: %m");
+
+        /* Ref the user record pointer, so that the slot keeps it pinned */
+        user_record_ref(u->user_record);
+
+        return 0;
+}
+
 int user_start(User *u) {
         assert(u);
 
@@ -376,11 +450,14 @@ int user_start(User *u) {
         u->stopping = false;
 
         if (!u->started)
-                log_debug("Starting services for new user %s.", u->name);
+                log_debug("Starting services for new user %s.", u->user_record->user_name);
 
         /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
          * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
         user_save_internal(u);
+
+        /* Set slice parameters */
+        (void) user_update_slice(u);
 
         /* Start user@UID.service */
         user_start_service(u);
@@ -460,7 +537,7 @@ int user_finalize(User *u) {
          * done. This is called as a result of an earlier user_done() when all jobs are completed. */
 
         if (u->started)
-                log_debug("User %s logged out.", u->name);
+                log_debug("User %s logged out.", u->user_record->user_name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 k = session_finalize(s);
@@ -474,8 +551,8 @@ int user_finalize(User *u) {
          * cases, as we shouldn't accidentally remove a system service's IPC objects while it is running, just because
          * a cronjob running as the same user just finished. Hence: exclude system users generally from IPC clean-up,
          * and do it only for normal users. */
-        if (u->manager->remove_ipc && !uid_is_system(u->uid)) {
-                k = clean_ipc_by_uid(u->uid);
+        if (u->manager->remove_ipc && !uid_is_system(u->user_record->uid)) {
+                k = clean_ipc_by_uid(u->user_record->uid);
                 if (k < 0)
                         r = k;
         }
@@ -531,7 +608,7 @@ int user_check_linger_file(User *u) {
         _cleanup_free_ char *cc = NULL;
         char *p = NULL;
 
-        cc = cescape(u->name);
+        cc = cescape(u->user_record->user_name);
         if (!cc)
                 return -ENOMEM;
 
@@ -567,6 +644,18 @@ static bool user_unit_active(User *u) {
         return false;
 }
 
+static usec_t user_get_stop_delay(User *u) {
+        assert(u);
+
+        if (u->user_record->stop_delay_usec != UINT64_MAX)
+                return u->user_record->stop_delay_usec;
+
+        if (user_record_removable(u->user_record) > 0)
+                return 0; /* For removable users lower the stop delay to zero */
+
+        return u->manager->user_stop_delay;
+}
+
 bool user_may_gc(User *u, bool drop_not_started) {
         int r;
 
@@ -579,12 +668,16 @@ bool user_may_gc(User *u, bool drop_not_started) {
                 return false;
 
         if (u->last_session_timestamp != USEC_INFINITY) {
+                usec_t user_stop_delay;
+
                 /* All sessions have been closed. Let's see if we shall leave the user record around for a bit */
 
-                if (u->manager->user_stop_delay == USEC_INFINITY)
+                user_stop_delay = user_get_stop_delay(u);
+
+                if (user_stop_delay == USEC_INFINITY)
                         return false; /* Leave it around forever! */
-                if (u->manager->user_stop_delay > 0 &&
-                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, u->manager->user_stop_delay))
+                if (user_stop_delay > 0 &&
+                    now(CLOCK_MONOTONIC) < usec_add(u->last_session_timestamp, user_stop_delay))
                         return false; /* Leave it around for a bit longer. */
         }
 
@@ -712,7 +805,7 @@ void user_elect_display(User *u) {
 
         /* This elects a primary session for each user, which we call the "display". We try to keep the assignment
          * stable, but we "upgrade" to better choices. */
-        log_debug("Electing new display for user %s", u->name);
+        log_debug("Electing new display for user %s", u->user_record->user_name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
                 if (!elect_display_filter(s)) {
@@ -737,6 +830,7 @@ static int user_stop_timeout_callback(sd_event_source *es, uint64_t usec, void *
 }
 
 void user_update_last_session_timer(User *u) {
+        usec_t user_stop_delay;
         int r;
 
         assert(u);
@@ -755,7 +849,8 @@ void user_update_last_session_timer(User *u) {
 
         assert(!u->timer_event_source);
 
-        if (IN_SET(u->manager->user_stop_delay, 0, USEC_INFINITY))
+        user_stop_delay = user_get_stop_delay(u);
+        if (IN_SET(user_stop_delay, 0, USEC_INFINITY))
                 return;
 
         if (sd_event_get_state(u->manager->event) == SD_EVENT_FINISHED) {
@@ -766,7 +861,7 @@ void user_update_last_session_timer(User *u) {
         r = sd_event_add_time(u->manager->event,
                               &u->timer_event_source,
                               CLOCK_MONOTONIC,
-                              usec_add(u->last_session_timestamp, u->manager->user_stop_delay), 0,
+                              usec_add(u->last_session_timestamp, user_stop_delay), 0,
                               user_stop_timeout_callback, u);
         if (r < 0)
                 log_warning_errno(r, "Failed to enqueue user stop event source, ignoring: %m");
@@ -775,8 +870,8 @@ void user_update_last_session_timer(User *u) {
                 char s[FORMAT_TIMESPAN_MAX];
 
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
-                          u->name,
-                          format_timespan(s, sizeof(s), u->manager->user_stop_delay, USEC_PER_MSEC));
+                          u->user_record->user_name,
+                          format_timespan(s, sizeof(s), user_stop_delay, USEC_PER_MSEC));
         }
 }
 

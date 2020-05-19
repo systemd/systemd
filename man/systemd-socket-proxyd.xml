@@ -67,6 +67,13 @@
         <listitem><para>Sets the maximum number of simultaneous connections, defaults to 256.
         If the limit of concurrent connections is reached further connections will be refused.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>--exit-idle-time=</option></term>
+
+        <listitem><para>Sets the time before exiting when there are no connections, defaults to
+        <constant>infinity</constant>. Takes a unit-less value in seconds, or a time span value such
+        as <literal>5min 20s</literal>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
@@ -115,6 +122,9 @@ server {
         <programlisting><![CDATA[# systemctl enable --now proxy-to-nginx.socket
 $ curl http://localhost:80/]]></programlisting>
       </example>
+      <para>If <filename>nginx.service</filename> has <varname>StopWhenUnneeded=</varname> set, then
+      passing <option>--exit-idle-time=</option> to <command>systemd-socket-proxyd</command> allows
+      both services to stop during idle periods.</para>
     </refsect2>
     <refsect2>
       <title>Namespace Example</title>

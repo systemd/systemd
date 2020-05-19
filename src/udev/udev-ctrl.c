@@ -189,12 +189,12 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         _cleanup_(udev_ctrl_disconnect_and_listen_againp) struct udev_ctrl *uctrl = NULL;
         struct udev_ctrl_msg_wire msg_wire;
         struct iovec iov = IOVEC_MAKE(&msg_wire, sizeof(struct udev_ctrl_msg_wire));
-        char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         struct msghdr smsg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = cred_msg,
-                .msg_controllen = sizeof(cred_msg),
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
         };
         struct cmsghdr *cmsg;
         struct ucred *cred;
@@ -212,13 +212,11 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
         if (size == 0)
                 return 0; /* Client disconnects? */
 
-        size = recvmsg(fd, &smsg, 0);
-        if (size < 0) {
-                if (errno != EINTR)
-                        return log_error_errno(errno, "Failed to receive ctrl message: %m");
-
+        size = recvmsg_safe(fd, &smsg, 0);
+        if (size == -EINTR)
                 return 0;
-        }
+        if (size < 0)
+                return log_error_errno(size, "Failed to receive ctrl message: %m");
 
         cmsg_close_all(&smsg);
 

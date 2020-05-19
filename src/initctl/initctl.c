@@ -221,7 +221,7 @@ static void fifo_free(Fifo *f) {
 
         if (f->fd >= 0) {
                 if (f->server)
-                        epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
+                        (void) epoll_ctl(f->server->epoll_fd, EPOLL_CTL_DEL, f->fd, NULL);
 
                 safe_close(f->fd);
         }
@@ -246,9 +246,10 @@ static int server_init(Server *s, unsigned n_sockets) {
         assert(s);
         assert(n_sockets > 0);
 
-        zero(*s);
+        *s = (struct Server) {
+                .epoll_fd = epoll_create1(EPOLL_CLOEXEC),
+        };
 
-        s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
         if (s->epoll_fd < 0) {
                 r = log_error_errno(errno,
                                     "Failed to create epoll object: %m");
@@ -256,7 +257,6 @@ static int server_init(Server *s, unsigned n_sockets) {
         }
 
         for (i = 0; i < n_sockets; i++) {
-                struct epoll_event ev;
                 Fifo *f;
                 int fd;
 
@@ -283,9 +283,11 @@ static int server_init(Server *s, unsigned n_sockets) {
 
                 f->fd = -1;
 
-                zero(ev);
-                ev.events = EPOLLIN;
-                ev.data.ptr = f;
+                struct epoll_event ev = {
+                        .events = EPOLLIN,
+                        .data.ptr = f,
+                };
+
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                         r = -errno;
                         fifo_free(f);

@@ -18,6 +18,7 @@ typedef enum ConditionType {
         CONDITION_AC_POWER,
         CONDITION_MEMORY,
         CONDITION_CPUS,
+        CONDITION_ENVIRONMENT,
 
         CONDITION_NEEDS_UPDATE,
         CONDITION_FIRST_BOOT,
@@ -28,6 +29,7 @@ typedef enum ConditionType {
         CONDITION_PATH_IS_SYMBOLIC_LINK,
         CONDITION_PATH_IS_MOUNT_POINT,
         CONDITION_PATH_IS_READ_WRITE,
+        CONDITION_PATH_IS_ENCRYPTED,
         CONDITION_DIRECTORY_NOT_EMPTY,
         CONDITION_FILE_NOT_EMPTY,
         CONDITION_FILE_IS_EXECUTABLE,
@@ -66,18 +68,20 @@ typedef struct Condition {
 } Condition;
 
 Condition* condition_new(ConditionType type, const char *parameter, bool trigger, bool negate);
-void condition_free(Condition *c);
+Condition* condition_free(Condition *c);
 Condition* condition_free_list_type(Condition *first, ConditionType type);
 static inline Condition* condition_free_list(Condition *first) {
         return condition_free_list_type(first, _CONDITION_TYPE_INVALID);
 }
 
-int condition_test(Condition *c);
-typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
-bool condition_test_list(Condition *first, const char *(*to_string)(ConditionType t), condition_test_logger_t logger, void *userdata);
+int condition_test(Condition *c, char **env);
 
-void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
-void condition_dump_list(Condition *c, FILE *f, const char *prefix, const char *(*to_string)(ConditionType t));
+typedef int (*condition_test_logger_t)(void *userdata, int level, int error, const char *file, int line, const char *func, const char *format, ...) _printf_(7, 8);
+typedef const char* (*condition_to_string_t)(ConditionType t) _const_;
+bool condition_test_list(Condition *first, char **env, condition_to_string_t to_string, condition_test_logger_t logger, void *userdata);
+
+void condition_dump(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
+void condition_dump_list(Condition *c, FILE *f, const char *prefix, condition_to_string_t to_string);
 
 const char* condition_type_to_string(ConditionType t) _const_;
 ConditionType condition_type_from_string(const char *s) _pure_;
@@ -96,6 +100,7 @@ static inline bool condition_takes_path(ConditionType t) {
                       CONDITION_PATH_IS_SYMBOLIC_LINK,
                       CONDITION_PATH_IS_MOUNT_POINT,
                       CONDITION_PATH_IS_READ_WRITE,
+                      CONDITION_PATH_IS_ENCRYPTED,
                       CONDITION_DIRECTORY_NOT_EMPTY,
                       CONDITION_FILE_NOT_EMPTY,
                       CONDITION_FILE_IS_EXECUTABLE,

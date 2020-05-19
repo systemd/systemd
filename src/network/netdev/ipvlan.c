@@ -4,25 +4,11 @@
 
 #include "conf-parser.h"
 #include "ipvlan.h"
+#include "ipvlan-util.h"
 #include "networkd-link.h"
-#include "string-table.h"
+#include "string-util.h"
 
-static const char* const ipvlan_mode_table[_NETDEV_IPVLAN_MODE_MAX] = {
-        [NETDEV_IPVLAN_MODE_L2] = "L2",
-        [NETDEV_IPVLAN_MODE_L3] = "L3",
-        [NETDEV_IPVLAN_MODE_L3S] = "L3S",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ipvlan_mode, IPVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_mode, ipvlan_mode, IPVlanMode, "Failed to parse ipvlan mode");
-
-static const char* const ipvlan_flags_table[_NETDEV_IPVLAN_FLAGS_MAX] = {
-        [NETDEV_IPVLAN_FLAGS_BRIGDE] = "bridge",
-        [NETDEV_IPVLAN_FLAGS_PRIVATE] = "private",
-        [NETDEV_IPVLAN_FLAGS_VEPA] = "vepa",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(ipvlan_flags, IPVlanFlags);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipvlan_flags, ipvlan_flags, IPVlanFlags, "Failed to parse ipvlan flags");
 
 static int netdev_ipvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {

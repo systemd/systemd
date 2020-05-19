@@ -66,10 +66,14 @@
       will also gain an automatic <varname>After=</varname> dependency on
       <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
 
-      <listitem><para>Units whose standard output or error output is connected to <option>journal</option>,
-      <option>syslog</option> or <option>kmsg</option> (or their combinations with console output, see below)
-      automatically acquire dependencies of type <varname>After=</varname> on
+      <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
+      <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
+      dependencies of type <varname>After=</varname> on
       <filename>systemd-journald.socket</filename>.</para></listitem>
+
+      <listitem><para>Units using <varname>LogNamespace=</varname> will automatically gain ordering and
+      requirement dependencies on the two socket units associated with
+      <filename>systemd-journald@.service</filename> instances.</para></listitem>
     </itemizedlist>
   </refsect1>
 
@@ -117,12 +121,12 @@
       <varlistentry>
         <term><varname>RootImage=</varname></term>
 
-        <listitem><para>Takes a path to a block device node or regular file as argument. This call is similar to
-        <varname>RootDirectory=</varname> however mounts a file system hierarchy from a block device node or loopback
-        file instead of a directory. The device node or file system image file needs to contain a file system without a
-        partition table, or a file system within an MBR/MS-DOS or GPT partition table with only a single
-        Linux-compatible partition, or a set of file systems within a GPT partition table that follows the <ulink
-        url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
+        <listitem><para>Takes a path to a block device node or regular file as argument. This call is similar
+        to <varname>RootDirectory=</varname> however mounts a file system hierarchy from a block device node
+        or loopback file instead of a directory. The device node or file system image file needs to contain a
+        file system without a partition table, or a file system within an MBR/MS-DOS or GPT partition table
+        with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
+        that follows the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
         Specification</ulink>.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
@@ -134,6 +138,9 @@
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
+
+        <para>Units making use of <varname>RootImage=</varname> automatically gain an
+        <varname>After=</varname> dependency on <filename>systemd-udevd.service</filename>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -213,20 +220,24 @@
         is set, the default group of the user is used. This setting does not affect commands whose command line is
         prefixed with <literal>+</literal>.</para>
 
-        <para>Note that restrictions on the user/group name syntax are enforced: the specified name must consist only
-        of the characters a-z, A-Z, 0-9, <literal>_</literal> and <literal>-</literal>, except for the first character
-        which must be one of a-z, A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted
-        as first character). The user/group name must have at least one character, and at most 31. These restrictions
-        are enforced in order to avoid ambiguities and to ensure user/group names and unit files remain portable among
-        Linux systems.</para>
+        <para>Note that this enforces only weak restrictions on the user/group name syntax, but will generate
+        warnings in many cases where user/group names do not adhere to the following rules: the specified
+        name should consist only of the characters a-z, A-Z, 0-9, <literal>_</literal> and
+        <literal>-</literal>, except for the first character which must be one of a-z, A-Z and
+        <literal>_</literal> (i.e. digits and <literal>-</literal> are not permitted as first character). The
+        user/group name must have at least one character, and at most 31. These restrictions are made in
+        order to avoid ambiguities and to ensure user/group names and unit files remain portable among Linux
+        systems. For further details on the names accepted and the names warned about see <ulink
+        url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
 
         <para>When used in conjunction with <varname>DynamicUser=</varname> the user/group name specified is
-        dynamically allocated at the time the service is started, and released at the time the service is stopped —
-        unless it is already allocated statically (see below). If <varname>DynamicUser=</varname> is not used the
-        specified user and group must have been created statically in the user database no later than the moment the
-        service is started, for example using the
-        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> facility, which
-        is applied at boot or package install time.</para>
+        dynamically allocated at the time the service is started, and released at the time the service is
+        stopped — unless it is already allocated statically (see below). If <varname>DynamicUser=</varname>
+        is not used the specified user and group must have been created statically in the user database no
+        later than the moment the service is started, for example using the
+        <citerefentry><refentrytitle>sysusers.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        facility, which is applied at boot or package install time. If the user does not exist by then
+        program invocation will fail.</para>
 
         <para>If the <varname>User=</varname> setting is used the supplementary group list is initialized
         from the specified user's default group list, as defined in the system's user and group
@@ -404,11 +415,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RestrictAddressFamilies=</varname>, <varname>RestrictNamespaces=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectKernelModules=</varname>, <varname>ProtectKernelLogs=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>, <varname>RestrictRealtime=</varname>,
-        <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname> or <varname>LockPersonality=</varname>
-        are specified. Note that even if this setting is overridden by them, <command>systemctl show</command> shows the
-        original value of this setting. Also see <ulink
-        url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
+        <varname>ProtectClock=</varname>, <varname>MemoryDenyWriteExecute=</varname>,
+        <varname>RestrictRealtime=</varname>, <varname>RestrictSUIDSGID=</varname>, <varname>DynamicUser=</varname>
+        or <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
+        <command>systemctl show</command> shows the original value of this setting.
+        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.</para></listitem>
       </varlistentry>
 
@@ -497,42 +508,51 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>LimitRTTIME=</varname></term>
 
         <listitem><para>Set soft and hard limits on various resources for executed processes. See
-        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details on
-        the resource limit concept. Resource limits may be specified in two formats: either as single value to set a
-        specific soft and hard limit to the same value, or as colon-separated pair <option>soft:hard</option> to set
-        both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).  Use the string <option>infinity</option> to
-        configure no limit on a specific resource. The multiplicative suffixes K, M, G, T, P and E (to the base 1024)
-        may be used for resource limits measured in bytes (e.g. LimitAS=16G). For the limits referring to time values,
-        the usual time units ms, s, min, h and so on may be used (see
+        <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details on the resource limit concept. Resource limits may be specified in two formats: either as
+        single value to set a specific soft and hard limit to the same value, or as colon-separated pair
+        <option>soft:hard</option> to set both limits individually (e.g. <literal>LimitAS=4G:16G</literal>).
+        Use the string <option>infinity</option> to configure no limit on a specific resource. The
+        multiplicative suffixes K, M, G, T, P and E (to the base 1024) may be used for resource limits
+        measured in bytes (e.g. <literal>LimitAS=16G</literal>). For the limits referring to time values, the
+        usual time units ms, s, min, h and so on may be used (see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of seconds
-        is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is implied. Also, note
-        that the effective granularity of the limits might influence their enforcement. For example, time limits
-        specified for <varname>LimitCPU=</varname> will be rounded up implicitly to multiples of 1s. For
-        <varname>LimitNICE=</varname> the value may be specified in two syntaxes: if prefixed with <literal>+</literal>
-        or <literal>-</literal>, the value is understood as regular Linux nice value in the range -20..19. If not
-        prefixed like this the value is understood as raw resource limit parameter in the range 0..40 (with 0 being
-        equivalent to 1).</para>
+        details). Note that if no time unit is specified for <varname>LimitCPU=</varname> the default unit of
+        seconds is implied, while for <varname>LimitRTTIME=</varname> the default unit of microseconds is
+        implied. Also, note that the effective granularity of the limits might influence their
+        enforcement. For example, time limits specified for <varname>LimitCPU=</varname> will be rounded up
+        implicitly to multiples of 1s. For <varname>LimitNICE=</varname> the value may be specified in two
+        syntaxes: if prefixed with <literal>+</literal> or <literal>-</literal>, the value is understood as
+        regular Linux nice value in the range -20..19. If not prefixed like this the value is understood as
+        raw resource limit parameter in the range 0..40 (with 0 being equivalent to 1).</para>
 
-        <para>Note that most process resource limits configured with these options are per-process, and processes may
-        fork in order to acquire a new set of resources that are accounted independently of the original process, and
-        may thus escape limits set. Also note that <varname>LimitRSS=</varname> is not implemented on Linux, and
-        setting it has no effect. Often it is advisable to prefer the resource controls listed in
+        <para>Note that most process resource limits configured with these options are per-process, and
+        processes may fork in order to acquire a new set of resources that are accounted independently of the
+        original process, and may thus escape limits set. Also note that <varname>LimitRSS=</varname> is not
+        implemented on Linux, and setting it has no effect. Often it is advisable to prefer the resource
+        controls listed in
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        over these per-process limits, as they apply to services as a whole, may be altered dynamically at runtime, and
-        are generally more expressive. For example, <varname>MemoryLimit=</varname> is a more powerful (and working)
-        replacement for <varname>LimitRSS=</varname>.</para>
-
-        <para>For system units these resource limits may be chosen freely. For user units however (i.e. units run by a
-        per-user instance of
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>), these limits are
-        bound by (possibly more restrictive) per-user limits enforced by the OS.</para>
+        over these per-process limits, as they apply to services as a whole, may be altered dynamically at
+        runtime, and are generally more expressive. For example, <varname>MemoryMax=</varname> is a more
+        powerful (and working) replacement for <varname>LimitRSS=</varname>.</para>
 
         <para>Resource limits not configured explicitly for a unit default to the value configured in the various
         <varname>DefaultLimitCPU=</varname>, <varname>DefaultLimitFSIZE=</varname>, … options available in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and –
         if not configured there – the kernel or per-user defaults, as defined by the OS (the latter only for user
-        services, see above).</para>
+        services, see below).</para>
+
+        <para>For system units these resource limits may be chosen freely. When these settings are configured
+        in a user service (i.e. a service run by the per-user instance of the service manager) they cannot be
+        used to raise the limits above those set for the user manager itself when it was first invoked, as
+        the user's service manager generally lacks the privileges to do so. In user context these
+        configuration options are hence only useful to lower the limits passed in or to raise the soft limit
+        to the maximum of the hard limit as configured for the user. To raise the user's limits further, the
+        available configuration mechanisms differ between operating systems, but typically require
+        privileges. In most cases it is possible to configure higher per-user resource limits via PAM or by
+        setting limits on the system service encapsulating the user's service manager, i.e. the user's
+        instance of <filename>user@.service</filename>. After making such changes, make sure to restart the
+        user's service manager.</para>
 
         <table>
           <title>Resource limit directives, their equivalent <command>ulimit</command> shell commands and the unit used</title>
@@ -638,8 +658,39 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>UMask=</varname></term>
 
         <listitem><para>Controls the file mode creation mask. Takes an access mode in octal notation. See
-        <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details. Defaults
-        to 0022.</para></listitem>
+        <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details. Defaults to 0022 for system units. For units of the user service manager the default value
+        is inherited from the user instance (whose default is inherited from the system service manager, and
+        thus also is 0022). Hence changing the default value of a user instance, either via
+        <varname>UMask=</varname> or via a PAM module, will affect the user instance itself and all user
+        units started by the user instance unless a user unit has specified its own
+        <varname>UMask=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CoredumpFilter=</varname></term>
+
+        <listitem><para>Controls which types of memory mappings will be saved if the process dumps core
+        (using the <filename>/proc/<replaceable>pid</replaceable>/coredump_filter</filename> file). Takes a
+        whitespace-separated combination of mapping type names or numbers (with the default base 16). Mapping
+        type names are <constant>private-anonymous</constant>, <constant>shared-anonymous</constant>,
+        <constant>private-file-backed</constant>, <constant>shared-file-backed</constant>,
+        <constant>elf-headers</constant>, <constant>private-huge</constant>,
+        <constant>shared-huge</constant>, <constant>private-dax</constant>, <constant>shared-dax</constant>,
+        and the special values <constant>all</constant> (all types) and <constant>default</constant> (the
+        kernel default of <literal><constant>private-anonymous</constant>
+        <constant>shared-anonymous</constant> <constant>elf-headers</constant>
+        <constant>private-huge</constant></literal>). See
+        <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+        meaning of the mapping types. When specified multiple times, all specified masks are ORed. When not
+        set, or if the empty value is assigned, the inherited value is not changed.</para>
+
+        <example>
+          <title>Add DAX pages to the dump filter</title>
+
+          <programlisting>CoredumpFilter=default private-dax shared-dax</programlisting>
+        </example>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -760,10 +811,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>CPUAffinity=</varname></term>
 
         <listitem><para>Controls the CPU affinity of the executed processes. Takes a list of CPU indices or ranges
-        separated by either whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated
-        by a dash. This option may be specified more than once, in which case the specified CPU affinity masks are
-        merged. If the empty string is assigned, the mask is reset, all assignments prior to this will have no
-        effect. See
+        separated by either whitespace or commas. Alternatively, takes a special "numa" value in which case systemd
+        automatically derives allowed CPU range based on the value of <varname>NUMAMask=</varname> option. CPU ranges
+        are specified by the lower and upper CPU indices separated by a dash. This option may be specified more than
+        once, in which case the specified CPU affinity masks are merged. If the empty string is assigned, the mask
+        is reset, all assignments prior to this will have no effect. See
         <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -830,7 +882,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     <para>Also note that some sandboxing functionality is generally not available in user services (i.e. services run
     by the per-user service manager). Specifically, the various settings requiring file system namespacing support
     (such as <varname>ProtectSystem=</varname>) are not available, as the underlying kernel functionality is only
-    accessible to privileged processes.</para>
+    accessible to privileged processes. However, most namespacing settings, that will not work on their own in user
+    services, will work when used in conjunction with <varname>PrivateUsers=</varname><option>true</option>.</para>
 
     <variablelist class='unit-directives'>
 
@@ -838,10 +891,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ProtectSystem=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
-        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and <filename>/boot</filename>
-        directories read-only for processes invoked by this unit. If set to <literal>full</literal>, the
-        <filename>/etc</filename> directory is mounted read-only, too. If set to <literal>strict</literal> the entire
-        file system hierarchy is mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
+        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and the boot loader
+        directories (<filename>/boot</filename> and <filename>/efi</filename>) read-only for processes
+        invoked by this unit. If set to <literal>full</literal>, the <filename>/etc</filename> directory is
+        mounted read-only, too. If set to <literal>strict</literal> the entire file system hierarchy is
+        mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
         <filename>/proc</filename> and <filename>/sys</filename> (protect these directories using
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
@@ -1251,6 +1305,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         such as <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
         additional capabilities in the host's user namespace. Defaults to off.</para>
 
+        <para>When this setting is set up by a per-user instance of the service manager, the mapping of the
+        <literal>root</literal> user and group to itself is omitted (unless the user manager is root).
+        Additionally, in the per-user instance manager case, the
+        user namespace will be set up before most other namespaces. This means that combining
+        <varname>PrivateUsers=</varname><option>true</option> with other namespaces will enable use of features not
+        normally supported by the per-user instances of the service manager.</para>
+
         <para>This setting is particularly useful in conjunction with
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname>, as the need to synchronize the user and group
         databases in the root directory and on the host is reduced, as the only users and groups who need to be matched
@@ -1258,9 +1319,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para>
-
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        security.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1276,6 +1335,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that when this option is enabled for a service hostname changes no longer propagate from
         the system into the service, it is hence not suitable for services that need to take notice of system
         hostname changes dynamically.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProtectClock=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If set, writes to the hardware clock or system clock will be denied.
+        It is recommended to turn this on for most services that do not need modify the clock. Defaults to off. Enabling
+        this option removes <constant>CAP_SYS_TIME</constant> and <constant>CAP_WAKE_ALARM</constant> from the
+        capability bounding set for this unit, installs a system call filter to block calls that can set the
+        clock, and <varname>DeviceAllow=char-rtc r</varname> is implied. This ensures <filename>/dev/rtc0</filename>,
+        <filename>/dev/rtc1</filename>, etc are made read only to the service. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DeviceAllow=</varname>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -1561,7 +1635,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         points of the file system namespace created for each process of this unit. Other file system namespacing unit
         settings (see the discussion in <varname>PrivateMounts=</varname> above) will implicitly disable mount and
         unmount propagation from the unit's processes towards the host by changing the propagation setting of all mount
-        points in the unit's file system namepace to <option>slave</option> first. Setting this option to
+        points in the unit's file system namespace to <option>slave</option> first. Setting this option to
         <option>shared</option> does not reestablish propagation in that case.</para>
 
         <para>If not set – but file system namespaces are enabled through another file system namespace unit setting –
@@ -1791,7 +1865,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         mappings. Specifically these are the options <varname>PrivateTmp=</varname>,
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>,
-        <varname>ProtectKernelLogs=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>ProtectKernelLogs=</varname>, <varname>ProtectClock=</varname>, <varname>ReadOnlyPaths=</varname>,
         <varname>InaccessiblePaths=</varname> and <varname>ReadWritePaths=</varname>.</para></listitem>
       </varlistentry>
 
@@ -1902,7 +1976,8 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para>The files listed with this directive will be read shortly before the process is executed (more
         specifically, after all processes from a previous unit state terminated.  This means you can generate these
-        files in one unit state, and read it with this option in the next).</para>
+        files in one unit state, and read it with this option in the next.  The files are read from the file
+        system of the service manager, before any file system changes like bind mounts take place).</para>
 
         <para>Settings from these files override settings made with <varname>Environment=</varname>. If the same
         variable is set twice from these files, the files will be read in the order they are specified and the later
@@ -2223,6 +2298,36 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LogNamespace=</varname></term>
+
+        <listitem><para>Run the unit's processes in the specified journal namespace. Expects a short
+        user-defined string identifying the namespace. If not used the processes of the service are run in
+        the default journal namespace, i.e. their log stream is collected and processed by
+        <filename>systemd-journald.service</filename>. If this option is used any log data generated by
+        processes of this unit (regardless if via the <function>syslog()</function>, journal native logging
+        or stdout/stderr logging) is collected and processed by an instance of the
+        <filename>systemd-journald@.service</filename> template unit, which manages the specified
+        namespace. The log data is stored in a data store independent from the default log namespace's data
+        store. See
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details about journal namespaces.</para>
+
+        <para>Internally, journal namespaces are implemented through Linux mount namespacing and
+        over-mounting the directory that contains the relevant <constant>AF_UNIX</constant> sockets used for
+        logging in the unit's mount namespace. Since mount namespaces are used this setting disconnects
+        propagation of mounts from the unit's processes to the host, similar to how
+        <varname>ReadOnlyPaths=</varname> and similar settings (see above) work. Journal namespaces may hence
+        not be used for services that need to establish mount points on the host.</para>
+
+        <para>When this option is used the unit will automatically gain ordering and requirement dependencies
+        on the two socket units associated with the <filename>systemd-journald@.service</filename> instance
+        so that they are automatically established prior to the unit starting up. Note that when this option
+        is used log output of this service does not appear in the regular
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        output, unless the <option>--namespace=</option> option is used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SyslogIdentifier=</varname></term>
 
         <listitem><para>Sets the process name ("<command>syslog</command> tag") to prefix log lines sent to
@@ -2521,6 +2626,13 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varname>StandardError=tty</varname>). See
         <citerefentry project='man-pages'><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$LOG_NAMESPACE</varname></term>
+
+        <listitem><para>If the <varname>LogNamespace=</varname> service setting is used, contains name of the
+        selected logging namespace.</para></listitem>
       </varlistentry>
 
       <varlistentry>

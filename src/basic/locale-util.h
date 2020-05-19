@@ -31,6 +31,7 @@ typedef enum LocaleVariable {
 
 int get_locales(char ***l);
 bool locale_is_valid(const char *name);
+int locale_is_installed(const char *name);
 
 #define _(String) gettext(String)
 #define N_(String) String
@@ -46,24 +47,29 @@ typedef enum {
         SPECIAL_GLYPH_TRIANGULAR_BULLET,
         SPECIAL_GLYPH_BLACK_CIRCLE,
         SPECIAL_GLYPH_BULLET,
-        SPECIAL_GLYPH_ARROW,
-        SPECIAL_GLYPH_MDASH,
-        SPECIAL_GLYPH_ELLIPSIS,
         SPECIAL_GLYPH_MU,
         SPECIAL_GLYPH_CHECK_MARK,
         SPECIAL_GLYPH_CROSS_MARK,
-        _SPECIAL_GLYPH_FIRST_SMILEY,
-        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_SMILEY,
+        SPECIAL_GLYPH_ARROW,
+        SPECIAL_GLYPH_ELLIPSIS,
+        SPECIAL_GLYPH_LIGHT_SHADE,
+        SPECIAL_GLYPH_DARK_SHADE,
+        SPECIAL_GLYPH_SIGMA,
+        _SPECIAL_GLYPH_FIRST_EMOJI,
+        SPECIAL_GLYPH_ECSTATIC_SMILEY = _SPECIAL_GLYPH_FIRST_EMOJI,
         SPECIAL_GLYPH_HAPPY_SMILEY,
         SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY,
         SPECIAL_GLYPH_NEUTRAL_SMILEY,
         SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY,
         SPECIAL_GLYPH_UNHAPPY_SMILEY,
         SPECIAL_GLYPH_DEPRESSED_SMILEY,
+        SPECIAL_GLYPH_LOCK_AND_KEY,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 
 const char *special_glyph(SpecialGlyph code) _const_;
+
+bool emoji_enabled(void);
 
 const char* locale_variable_to_string(LocaleVariable i) _const_;
 LocaleVariable locale_variable_from_string(const char *s) _pure_;

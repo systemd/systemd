@@ -559,6 +559,14 @@ static void event_run(Manager *manager, struct event *event) {
         assert(manager);
         assert(event);
 
+        if (DEBUG_LOGGING) {
+                DeviceAction action;
+
+                r = device_get_action(event->dev, &action);
+                log_device_debug(event->dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) ready for processing",
+                                 event->seqnum, r >= 0 ? device_action_to_string(action) : "<unknown>");
+        }
+
         HASHMAP_FOREACH(worker, manager->workers, i) {
                 if (worker->state != WORKER_IDLE)
                         continue;
@@ -770,6 +778,9 @@ static int is_device_busy(Manager *manager, struct event *event) {
         return false;
 
 set_delaying_seqnum:
+        log_device_debug(event->dev, "SEQNUM=%" PRIu64 " blocked by SEQNUM=%" PRIu64,
+                         event->seqnum, loop_event->seqnum);
+
         event->delaying_seqnum = loop_event->seqnum;
         return true;
 }
@@ -895,41 +906,34 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
                         .iov_base = &msg,
                         .iov_len = sizeof(msg),
                 };
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control = {};
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 struct msghdr msghdr = {
                         .msg_iov = &iovec,
                         .msg_iovlen = 1,
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
                 };
-                struct cmsghdr *cmsg;
                 ssize_t size;
-                struct ucred *ucred = NULL;
+                struct ucred *ucred;
                 struct worker *worker;
 
-                size = recvmsg(fd, &msghdr, MSG_DONTWAIT);
-                if (size < 0) {
-                        if (errno == EINTR)
-                                continue;
-                        else if (errno == EAGAIN)
-                                /* nothing more to read */
-                                break;
+                size = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
+                if (size == -EINTR)
+                        continue;
+                if (size == -EAGAIN)
+                        /* nothing more to read */
+                        break;
+                if (size < 0)
+                        return log_error_errno(size, "Failed to receive message: %m");
 
-                        return log_error_errno(errno, "Failed to receive message: %m");
-                } else if (size != sizeof(struct worker_message)) {
+                cmsg_close_all(&msghdr);
+
+                if (size != sizeof(struct worker_message)) {
                         log_warning("Ignoring worker message with invalid size %zi bytes", size);
                         continue;
                 }
 
-                CMSG_FOREACH(cmsg, &msghdr)
-                        if (cmsg->cmsg_level == SOL_SOCKET &&
-                            cmsg->cmsg_type == SCM_CREDENTIALS &&
-                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)))
-                                ucred = (struct ucred*) CMSG_DATA(cmsg);
-
+                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
                 if (!ucred || ucred->pid <= 0) {
                         log_warning("Ignoring worker message without valid PID");
                         continue;
@@ -1577,7 +1581,11 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
+        /* Bump receiver buffer, but only if we are not called via socket activation, as in that
+         * case systemd sets the receive buffer size for us, and the value in the .socket unit
+         * should take full effect. */
+        if (fd_uevent < 0)
+                (void) sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
 
         r = device_monitor_enable_receiving(manager->monitor);
         if (r < 0)

@@ -4,19 +4,6 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#if HAVE_CRYPT_H
-/* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be
- * removed from glibc at some point. As part of the removal, defines for
- * crypt(3) are dropped from unistd.h, and we must include crypt.h instead.
- *
- * Newer versions of glibc (v2.0+) already ship crypt.h with a definition
- * of crypt(3) as well, so we simply include it if it is present.  MariaDB,
- * MySQL, PostgreSQL, Perl and some other wide-spread packages do it the
- * same way since ages without any problems.
- */
-#  include <crypt.h>
-#endif
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -28,6 +15,7 @@
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "kbd-util.h"
+#include "libcrypt-util.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -217,6 +205,14 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
         }
 }
 
+static bool locale_is_ok(const char *name) {
+
+        if (arg_root)
+                return locale_is_valid(name);
+
+        return locale_is_installed(name) > 0;
+}
+
 static int prompt_locale(void) {
         _cleanup_strv_free_ char **locales = NULL;
         int r;
@@ -250,7 +246,7 @@ static int prompt_locale(void) {
                 print_welcome();
 
                 r = prompt_loop("Please enter system locale name or number",
-                                locales, 60, locale_is_valid, &arg_locale);
+                                locales, 60, locale_is_ok, &arg_locale);
                 if (r < 0)
                         return r;
 
@@ -258,7 +254,7 @@ static int prompt_locale(void) {
                         return 0;
 
                 r = prompt_loop("Please enter system message locale name or number",
-                                locales, 60, locale_is_valid, &arg_locale_messages);
+                                locales, 60, locale_is_ok, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -562,10 +558,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
-                if (strv_length(a) != 1) {
-                        log_warning("Received multiple passwords, where we expected one.");
-                        return -EINVAL;
-                }
+                if (strv_length(a) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (isempty(*a)) {
                         log_warning("No password entered, skipping.");
@@ -575,6 +570,9 @@ static int prompt_root_password(void) {
                 r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root password: %m");
+                if (strv_length(b) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Received multiple passwords, where we expected one.");
 
                 if (!streq(*a, *b)) {
                         log_error("Entered passwords did not match, please try again.");
@@ -701,7 +699,7 @@ static int help(void) {
                "     --locale-messages=LOCALE  Set message locale (LC_MESSAGES=)\n"
                "     --keymap=KEYMAP           Set keymap\n"
                "     --timezone=TIMEZONE       Set timezone\n"
-               "     --hostname=NAME           Set host name\n"
+               "     --hostname=NAME           Set hostname\n"
                "     --machine-ID=ID           Set machine ID\n"
                "     --root-password=PASSWORD  Set root password\n"
                "     --root-password-file=FILE Set root password from file\n"
@@ -801,10 +799,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE:
-                        if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Locale %s is not valid.", optarg);
-
                         r = free_and_strdup(&arg_locale, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -812,10 +806,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOCALE_MESSAGES:
-                        if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Locale %s is not valid.", optarg);
-
                         r = free_and_strdup(&arg_locale_messages, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -936,6 +926,14 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        /* We check if the specified locale strings are valid down here, so that we can take --root= into
+         * account when looking for the locale files. */
+
+        if (arg_locale && !locale_is_ok(arg_locale))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
+        if (arg_locale_messages && !locale_is_ok(arg_locale_messages))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
 
         return 1;
 }

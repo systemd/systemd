@@ -122,7 +122,7 @@ static int print_inhibitors(sd_bus *bus) {
                                    TABLE_STRING, why,
                                    TABLE_STRING, mode);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);

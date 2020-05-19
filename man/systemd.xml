@@ -38,7 +38,7 @@
     <title>Description</title>
 
     <para>systemd is a system and service manager for Linux operating systems. When run as first process on
-    boot (as PID 1), it acts as init system that brings up and maintains userspace services. Seperate
+    boot (as PID 1), it acts as init system that brings up and maintains userspace services. Separate
     instances are started for logged-in users to start their services.</para>
 
     <para><command>systemd</command> is usually not invoked directly by the user, but is installed as the
@@ -194,7 +194,7 @@
     <orderedlist>
       <listitem><para>It is in an active, activating, deactivating or failed state (i.e. in any unit state except for <literal>inactive</literal>)</para></listitem>
       <listitem><para>It has a job queued for it</para></listitem>
-      <listitem><para>It is a dependency of some sort of at least one other unit that is loaded into memory</para></listitem>
+      <listitem><para>It is a dependency of at least one other unit that is loaded into memory</para></listitem>
       <listitem><para>It has some form of resource still allocated (e.g. a service unit that is inactive but for which
       a process is still lingering that ignored the request to be terminated)</para></listitem>
       <listitem><para>It has been pinned into memory programmatically by a D-Bus call</para></listitem>
@@ -257,7 +257,7 @@
     execution compared to the target unit's state and is marked successful and
     complete when both satisfy. However, this job also pulls in other
     dependencies due to the defined relationships and thus leads to, in our
-    our example, start jobs for any of those inactive units getting queued as
+    example, start jobs for any of those inactive units getting queued as
     well.</para>
 
     <para>systemd contains native implementations of various tasks
@@ -280,10 +280,15 @@
     files or parameters passed on the kernel command line. For details, see
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-    <para>Systems which invoke systemd in a container or initrd
-    environment should implement the
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ContainerInterface">Container Interface</ulink> or
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    <para>The D-Bus API of <command>systemd</command> is described in
+    <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
+
+    <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink
+    url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 
@@ -608,10 +613,24 @@
 
     <variablelist class='environment-variables'>
       <varlistentry>
+        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
+        <listitem><para>Controls whether systemd highlights important
+        log messages. This can be overridden with
+        <option>--log-color</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$SYSTEMD_LOG_LEVEL</varname></term>
         <listitem><para>systemd reads the log level from this
         environment variable. This can be overridden with
         <option>--log-level=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
+        <listitem><para>Controls whether systemd prints the code
+        location along with log messages. This can be overridden with
+        <option>--log-location</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -622,17 +641,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>$SYSTEMD_LOG_COLOR</varname></term>
-        <listitem><para>Controls whether systemd highlights important
-        log messages. This can be overridden with
-        <option>--log-color=</option>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
-        <listitem><para>Controls whether systemd prints the code
-        location along with log messages. This can be overridden with
-        <option>--log-location=</option>.</para></listitem>
+        <term><varname>$SYSTEMD_LOG_TIME</varname></term>
+        <listitem><para>Controls whether systemd prefixes log
+        messages with the current time. This can be overridden with
+        <option>--log-time=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -650,9 +662,17 @@
 
       <varlistentry>
         <term><varname>$SYSTEMD_UNIT_PATH</varname></term>
+        <term><varname>$SYSTEMD_GENERATOR_PATH</varname></term>
+        <term><varname>$SYSTEMD_ENVIRONMENT_GENERATOR_PATH</varname></term>
 
-        <listitem><para>Controls where systemd looks for unit
-        files.</para></listitem>
+        <listitem><para>Controls where systemd looks for unit files and
+        generators.</para>
+        <para>These variables may contain a list of paths, separated by colons
+        (<literal>:</literal>). When set, if the list ends with an empty
+        component (<literal>...:</literal>), this list is prepended to the
+        usual set of of paths. Otherwise, the specified list replaces the usual
+        set of paths.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -799,15 +819,14 @@
       <varlistentry>
         <term><varname>systemd.show_status</varname></term>
 
-        <listitem><para>Takes a boolean argument or the constant
-        <constant>auto</constant>. Can be also specified without an argument, with
-        the same effect as a positive boolean.  If enabled, the systemd manager (PID
-        1) shows terse service status updates on the console during bootup.
-        <constant>auto</constant> behaves like <option>false</option> until a unit
-        fails or there is a significant delay in boot. Defaults to enabled, unless
-        <option>quiet</option> is passed as kernel command line option, in which case
-        it defaults to <constant>auto</constant>. If specified overrides the system
-        manager configuration file option <option>ShowStatus=</option>, see
+        <listitem><para>Takes a boolean argument or the constants <constant>error</constant> and
+        <constant>auto</constant>. Can be also specified without an argument, with the same effect as a
+        positive boolean. If enabled, the systemd manager (PID 1) shows terse service status updates on the
+        console during bootup. With <constant>error</constant>, only messages about failures are shown, but
+        boot is otherwise quiet. <constant>auto</constant> behaves like <option>false</option> until there is
+        a significant delay in boot. Defaults to enabled, unless <option>quiet</option> is passed as kernel
+        command line option, in which case it defaults to <constant>error</constant>. If specified overrides
+        the system manager configuration file option <option>ShowStatus=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -823,18 +842,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.log_target=</varname></term>
-        <term><varname>systemd.log_level=</varname></term>
-        <term><varname>systemd.log_location=</varname></term>
         <term><varname>systemd.log_color</varname></term>
+        <term><varname>systemd.log_level=</varname></term>
+        <term><varname>systemd.log_location</varname></term>
+        <term><varname>systemd.log_target=</varname></term>
+        <term><varname>systemd.log_time</varname></term>
 
         <listitem><para>Controls log output, with the same effect as the
-        <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <varname>$SYSTEMD_LOG_COLOR</varname>,
         <varname>$SYSTEMD_LOG_LEVEL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>,
-        <varname>$SYSTEMD_LOG_COLOR</varname> environment variables described above.
-        <varname>systemd.log_color</varname> can be specified without an argument,
-        with the same effect as a positive boolean.</para></listitem>
+        <varname>$SYSTEMD_LOG_TARGET</varname>,
+        <varname>$SYSTEMD_LOG_TIME</varname>, environment variables described above.
+        <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>, and
+        <varname>systemd.log_time</varname> can be specified without an argument, with the
+        same effect as a positive boolean.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -874,7 +896,7 @@
 
         <listitem><para>When specified without an argument or with a true argument,
         enables the usage of
-        <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">unified cgroup hierarchy</ulink>
+        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">unified cgroup hierarchy</ulink>
         (a.k.a. cgroups-v2). When specified with a false argument, fall back to
         hybrid or full legacy cgroup hierarchy.</para>
 
@@ -1129,9 +1151,10 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--log-target=</option></term>
+          <term><option>--log-color</option></term>
 
-          <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
+          <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1141,17 +1164,23 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--log-color</option></term>
-
-          <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
-          </para></listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><option>--log-location</option></term>
 
           <listitem><para>Include code location in log messages. See <varname>systemd.log_location</varname>
           above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-target=</option></term>
+
+          <listitem><para>Set log target. See <varname>systemd.log_target</varname> above.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--log-time=</option></term>
+
+          <listitem><para>Prefix messages with timestamp. See <varname>systemd.log_time</varname> above.
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1229,6 +1258,7 @@
       <citerefentry><refentrytitle>systemd-notify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

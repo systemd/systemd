@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "dhcp-internal.h"
+#include "dhcp6-internal.h"
 #include "escape.h"
 #include "in-addr-util.h"
 #include "networkd-dhcp-common.h"
@@ -8,6 +9,7 @@
 #include "parse-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "web-util.h"
 
 int config_parse_dhcp(
                 const char* unit,
@@ -265,6 +267,48 @@ int config_parse_dhcp6_pd_hint(
         return 0;
 }
 
+int config_parse_dhcp6_mud_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *unescaped = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp6_mudurl = mfree(network->dhcp6_mudurl);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
+
+                return 0;
+        }
+
+        return free_and_replace(network->dhcp6_mudurl, unescaped);
+}
+
 int config_parse_dhcp_send_option(
                 const char *unit,
                 const char *filename,
@@ -277,13 +321,14 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt = NULL, *old = NULL;
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL, *old4 = NULL;
+        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL, *old6 = NULL;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **options = data;
         union in_addr_union addr;
         DHCPOptionDataType type;
-        uint8_t u, uint8_data;
-        uint16_t uint16_data;
+        uint8_t u8, uint8_data;
+        uint16_t u16, uint16_data;
         uint32_t uint32_data;
         const void *udata;
         const char *p;
@@ -310,16 +355,30 @@ int config_parse_dhcp_send_option(
                 return 0;
         }
 
-        r = safe_atou8(word, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Invalid DHCP option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-        if (u < 1 || u >= 255) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid DHCP option, valid range is 1-254, ignoring assignment: %s", rvalue);
-                return 0;
+        if (ltype == AF_INET6) {
+                r = safe_atou16(word, &u16);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid DHCP option, ignoring assignment: %s", rvalue);
+                         return 0;
+                }
+                if (u16 < 1 || u16 >= 65535) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid DHCP option, valid range is 1-65535, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+        } else {
+                r = safe_atou8(word, &u8);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid DHCP option, ignoring assignment: %s", rvalue);
+                         return 0;
+                }
+                if (u8 < 1 || u8 >= 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid DHCP option, valid range is 1-254, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
         }
 
         word = mfree(word);
@@ -344,7 +403,7 @@ int config_parse_dhcp_send_option(
                 r = safe_atou8(p, &uint8_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 uint8 data, ignoring assignment: %s", p);
+                                   "Failed to parse DHCP uint8 data, ignoring assignment: %s", p);
                         return 0;
                 }
 
@@ -356,7 +415,7 @@ int config_parse_dhcp_send_option(
                 r = safe_atou16(p, &uint16_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 uint16 data, ignoring assignment: %s", p);
+                                   "Failed to parse DHCP uint16 data, ignoring assignment: %s", p);
                         return 0;
                 }
 
@@ -368,7 +427,7 @@ int config_parse_dhcp_send_option(
                 r = safe_atou32(p, &uint32_data);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 uint32 data, ignoring assignment: %s", p);
+                                   "Failed to parse DHCP uint32 data, ignoring assignment: %s", p);
                         return 0;
                 }
 
@@ -381,7 +440,7 @@ int config_parse_dhcp_send_option(
                 r = in_addr_from_string(AF_INET, p, &addr);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCPv4 ipv4address data, ignoring assignment: %s", p);
+                                   "Failed to parse DHCP ipv4address data, ignoring assignment: %s", p);
                         return 0;
                 }
 
@@ -389,11 +448,23 @@ int config_parse_dhcp_send_option(
                 sz = sizeof(addr.in.s_addr);
                 break;
         }
+        case DHCP_OPTION_DATA_IPV6ADDRESS: {
+                r = in_addr_from_string(AF_INET6, p, &addr);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP ipv6address data, ignoring assignment: %s", p);
+                        return 0;
+                }
+
+                udata = &addr.in6;
+                sz = sizeof(addr.in6.s6_addr);
+                break;
+        }
         case DHCP_OPTION_DATA_STRING:
-                sz = cunescape(p, 0, &q);
+                sz = cunescape(p, UNESCAPE_ACCEPT_NUL, &q);
                 if (sz < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, sz,
-                                   "Failed to decode DHCPv4 option data, ignoring assignment: %s", p);
+                                   "Failed to decode DHCP option data, ignoring assignment: %s", p);
                 }
 
                 udata = q;
@@ -402,27 +473,125 @@ int config_parse_dhcp_send_option(
                 return -EINVAL;
         }
 
-        r = sd_dhcp_option_new(u, udata, sz, &opt);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to store DHCPv4 option '%s', ignoring assignment: %m", rvalue);
+        if (ltype == AF_INET6) {
+                r = sd_dhcp6_option_new(u16, udata, sz, &opt6);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                r = ordered_hashmap_ensure_allocated(options, &dhcp6_option_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                /* Overwrite existing option */
+                old6 = ordered_hashmap_get(*options, UINT_TO_PTR(u16));
+                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u16), opt6);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+                TAKE_PTR(opt6);
+        } else {
+                r = sd_dhcp_option_new(u8, udata, sz, &opt4);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+
+                r = ordered_hashmap_ensure_allocated(options, &dhcp_option_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                /* Overwrite existing option */
+                old4 = ordered_hashmap_get(*options, UINT_TO_PTR(u8));
+                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u8), opt4);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
+                TAKE_PTR(opt4);
+        }
+        return 0;
+}
+
+int config_parse_dhcp_request_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                if (ltype == AF_INET)
+                        network->dhcp_request_options = set_free(network->dhcp_request_options);
+                else
+                        network->dhcp6_request_options = set_free(network->dhcp6_request_options);
+
                 return 0;
         }
 
-        r = ordered_hashmap_ensure_allocated(options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return log_oom();
+        for (p = rvalue;;) {
+                _cleanup_free_ char *n = NULL;
+                uint32_t i;
 
-        /* Overwrite existing option */
-        old = ordered_hashmap_remove(*options, UINT_TO_PTR(u));
-        r = ordered_hashmap_put(*options, UINT_TO_PTR(u), opt);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to store DHCPv4 option '%s', ignoring assignment: %m", rvalue);
-                return 0;
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCP request option, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = safe_atou32(n, &i);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (i < 1 || i >= 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
+                        continue;
+                }
+
+                if (ltype == AF_INET)
+                        r = set_ensure_allocated(&network->dhcp_request_options, NULL);
+                else
+                        r = set_ensure_allocated(&network->dhcp6_request_options, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                if (ltype == AF_INET)
+                        r = set_put(network->dhcp_request_options, UINT32_TO_PTR(i));
+                else
+                        r = set_put(network->dhcp6_request_options, UINT32_TO_PTR(i));
+                if (r < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
         }
 
-        TAKE_PTR(opt);
         return 0;
 }
 
@@ -443,6 +612,7 @@ static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
         [DHCP_OPTION_DATA_UINT32]      = "uint32",
         [DHCP_OPTION_DATA_STRING]      = "string",
         [DHCP_OPTION_DATA_IPV4ADDRESS] = "ipv4address",
+        [DHCP_OPTION_DATA_IPV6ADDRESS] = "ipv6address",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);

@@ -1,5 +1,5 @@
 ---
-title: The Boot Loader Interface
+title: Boot Loader Interface
 category: Booting
 layout: default
 ---
@@ -142,3 +142,11 @@ names for them in UIs.
 6. If a boot menu entry encapsulates a reboot into EFI firmware setup feature,
    it should use the identifier `reboot-to-firmware-setup` (or
    `auto-reboot-to-firmware-setup` in case it is automatically discovered).
+
+## Links
+
+[Boot Loader Specification](https://systemd.io/BOOT_LOADER_INTERFACE)<br>
+[Discoverable Partitions Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)<br>
+[systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
+[systemd-gpt-auto-generator(8)](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)

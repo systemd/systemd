@@ -88,7 +88,7 @@ static void test_colors(void) {
         test_one_color("green", ansi_green());
         test_one_color("yellow", ansi_yellow());
         test_one_color("blue", ansi_blue());
-        test_one_color("megenta", ansi_magenta());
+        test_one_color("magenta", ansi_magenta());
         test_one_color("grey", ansi_grey());
         test_one_color("highlight-red", ansi_highlight_red());
         test_one_color("highlight-green", ansi_highlight_green());

@@ -1,0 +1,6 @@
+[Service]
+Type=oneshot
+ExecStart=/bin/echo Start Hola
+ExecReload=/bin/echo Reload Hola
+ExecStop=/bin/echo Stop Hola
+RemainAfterExit=yes

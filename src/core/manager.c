@@ -29,6 +29,7 @@
 #include "bus-util.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
+#include "core-varlink.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -43,9 +44,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "generator-setup.h"
 #include "hashmap.h"
-#include "io-util.h"
 #include "install.h"
+#include "io-util.h"
 #include "label.h"
 #include "locale-setup.h"
 #include "log.h"
@@ -84,7 +86,8 @@
 #define CGROUPS_AGENT_RCVBUF_SIZE (8*1024*1024)
 
 /* Initial delay and the interval for printing status messages about running jobs */
-#define JOBS_IN_PROGRESS_WAIT_USEC (5*USEC_PER_SEC)
+#define JOBS_IN_PROGRESS_WAIT_USEC (2*USEC_PER_SEC)
+#define JOBS_IN_PROGRESS_QUIET_WAIT_USEC (25*USEC_PER_SEC)
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
@@ -108,6 +111,12 @@ static int manager_dispatch_timezone_change(sd_event_source *source, const struc
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
+static usec_t manager_watch_jobs_next_time(Manager *m) {
+        return usec_add(now(CLOCK_MONOTONIC),
+                        show_status_on(m->show_status) ? JOBS_IN_PROGRESS_WAIT_USEC :
+                                                         JOBS_IN_PROGRESS_QUIET_WAIT_USEC);
+}
+
 static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
         int r;
@@ -123,7 +132,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
         if (m->jobs_in_progress_event_source)
                 return;
 
-        next = now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC;
+        next = manager_watch_jobs_next_time(m);
         r = sd_event_add_time(
                         m->event,
                         &m->jobs_in_progress_event_source,
@@ -172,15 +181,15 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         }
 }
 
-void manager_flip_auto_status(Manager *m, bool enable) {
+void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
         assert(m);
 
         if (enable) {
                 if (m->show_status == SHOW_STATUS_AUTO)
-                        manager_set_show_status(m, SHOW_STATUS_TEMPORARY);
+                        manager_set_show_status(m, SHOW_STATUS_TEMPORARY, reason);
         } else {
                 if (m->show_status == SHOW_STATUS_TEMPORARY)
-                        manager_set_show_status(m, SHOW_STATUS_AUTO);
+                        manager_set_show_status(m, SHOW_STATUS_AUTO, reason);
         }
 }
 
@@ -197,7 +206,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
         assert(m);
         assert(m->n_running_jobs > 0);
 
-        manager_flip_auto_status(m, true);
+        manager_flip_auto_status(m, true, "delay");
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
@@ -304,9 +313,9 @@ static int manager_check_ask_password(Manager *m) {
                                     m->ask_password_inotify_fd, EPOLLIN,
                                     manager_dispatch_ask_password_fd, m);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to add event source for /run/systemd/ask-password: %m");
+                        log_error_errno(r, "Failed to add event source for /run/systemd/ask-password: %m");
                         manager_close_ask_password(m);
-                        return -errno;
+                        return r;
                 }
 
                 (void) sd_event_source_set_description(m->ask_password_event_source, "manager-ask-password");
@@ -681,7 +690,7 @@ static int manager_setup_prefix(Manager *m) {
                 p = paths_user;
 
         for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
-                r = sd_path_home(p[i].type, p[i].suffix, &m->prefix[i]);
+                r = sd_path_lookup(p[i].type, p[i].suffix, &m->prefix[i]);
                 if (r < 0)
                         return r;
         }
@@ -881,8 +890,17 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                         return r;
         }
 
-        if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
-                r = mkdir_label("/run/systemd/units", 0755);
+        if (test_run_flags == 0) {
+                if (MANAGER_IS_SYSTEM(m))
+                        r = mkdir_label("/run/systemd/units", 0755);
+                else {
+                        _cleanup_free_ char *units_path = NULL;
+                        r = xdg_user_runtime_dir(&units_path, "/systemd/units");
+                        if (r < 0)
+                                return r;
+                        r = mkdir_p_label(units_path, 0755);
+                }
+
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -907,8 +925,8 @@ static int manager_setup_notify(Manager *m) {
 
         if (m->notify_fd < 0) {
                 _cleanup_close_ int fd = -1;
-                union sockaddr_union sa = {};
-                int salen;
+                union sockaddr_union sa;
+                socklen_t sa_len;
 
                 /* First free all secondary fields */
                 m->notify_socket = mfree(m->notify_socket);
@@ -924,14 +942,16 @@ static int manager_setup_notify(Manager *m) {
                 if (!m->notify_socket)
                         return log_oom();
 
-                salen = sockaddr_un_set_path(&sa.un, m->notify_socket);
-                if (salen < 0)
-                        return log_error_errno(salen, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.", m->notify_socket);
+                r = sockaddr_un_set_path(&sa.un, m->notify_socket);
+                if (r < 0)
+                        return log_error_errno(r, "Notify socket '%s' not valid for AF_UNIX socket address, refusing.",
+                                               m->notify_socket);
+                sa_len = r;
 
                 (void) mkdir_parents_label(m->notify_socket, 0755);
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(fd, &sa.sa, salen);
+                r = bind(fd, &sa.sa, sa_len);
                 if (r < 0)
                         return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
 
@@ -1337,6 +1357,7 @@ Manager* manager_free(Manager *m) {
         lookup_paths_flush_generator(&m->lookup_paths);
 
         bus_done(m);
+        manager_varlink_done(m);
 
         exec_runtime_vacuum(m);
         hashmap_free(m->exec_runtime_by_id);
@@ -1364,7 +1385,6 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
-        sd_event_source_unref(m->sync_bus_names_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -1601,9 +1621,6 @@ static void manager_ready(Manager *m) {
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
 
-        /* Sync current state of bus names with our set of listening units */
-        (void) manager_enqueue_sync_bus_names(m);
-
         /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
         manager_catchup(m);
 
@@ -1697,6 +1714,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
                 m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
+
+                r = manager_varlink_init(m);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set up Varlink server, ignoring: %m");
 
                 /* Third, fire things up! */
                 manager_coldplug(m);
@@ -1947,7 +1968,6 @@ int manager_load_unit_prepare(
         int r;
 
         assert(m);
-        assert(name || path);
         assert(_ret);
 
         /* This will prepare the unit for loading, but not actually
@@ -1956,8 +1976,13 @@ int manager_load_unit_prepare(
         if (path && !is_path(path))
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
-        if (!name)
+        if (!name) {
+                /* 'name' and 'path' must not both be null. Check here 'path' using assert_se() to
+                 * workaround a bug in gcc that generates a -Wnonnull warning when calling basename(),
+                 * but this cannot be possible in any code path (See #6119). */
+                assert_se(path);
                 name = basename(path);
+        }
 
         t = unit_name_to_type(name);
 
@@ -2263,37 +2288,48 @@ static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, ui
         return 0;
 }
 
+static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
+
+        /* nothing else must be sent when using BARRIER=1 */
+        if (strv_contains(tags, "BARRIER=1")) {
+                if (strv_length(tags) == 1) {
+                        if (fdset_size(fds) != 1)
+                                log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
+                } else
+                        log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+
+                /* Drop the message if BARRIER=1 was found */
+                return true;
+        }
+
+        return false;
+}
+
 static void manager_invoke_notify_message(
                 Manager *m,
                 Unit *u,
                 const struct ucred *ucred,
-                const char *buf,
+                char * const *tags,
                 FDSet *fds) {
 
         assert(m);
         assert(u);
         assert(ucred);
-        assert(buf);
+        assert(tags);
 
         if (u->notifygen == m->notifygen) /* Already invoked on this same unit in this same iteration? */
                 return;
         u->notifygen = m->notifygen;
 
-        if (UNIT_VTABLE(u)->notify_message) {
-                _cleanup_strv_free_ char **tags = NULL;
-
-                tags = strv_split(buf, NEWLINE);
-                if (!tags) {
-                        log_oom();
-                        return;
-                }
-
+        if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
 
-        } else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *x = NULL, *y = NULL;
+        else if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf = NULL, *x = NULL, *y = NULL;
 
-                x = ellipsize(buf, 20, 90);
+                buf = strv_join(tags, ", ");
+                if (buf)
+                        x = ellipsize(buf, 20, 90);
                 if (x)
                         y = cescape(x);
 
@@ -2310,11 +2346,8 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 .iov_base = buf,
                 .iov_len = sizeof(buf)-1,
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
                 .msg_iovlen = 1,
@@ -2325,6 +2358,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         struct cmsghdr *cmsg;
         struct ucred *ucred = NULL;
         _cleanup_free_ Unit **array_copy = NULL;
+        _cleanup_strv_free_ char **tags = NULL;
         Unit *u1, *u2, **array;
         int r, *fd_array = NULL;
         size_t n_fds = 0;
@@ -2339,20 +2373,20 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        n = recvmsg(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
-        if (n < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0; /* Spurious wakeup, try again */
-
-                /* If this is any other, real error, then let's stop processing this socket. This of course means we
-                 * won't take notification messages anymore, but that's still better than busy looping around this:
-                 * being woken up over and over again but being unable to actually read the message off the socket. */
-                return log_error_errno(errno, "Failed to receive notification message: %m");
-        }
+        n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
+        if (IN_SET(n, -EAGAIN, -EINTR))
+                return 0; /* Spurious wakeup, try again */
+        if (n < 0)
+                /* If this is any other, real error, then let's stop processing this socket. This of course
+                 * means we won't take notification messages anymore, but that's still better than busy
+                 * looping around this: being woken up over and over again but being unable to actually read
+                 * the message off the socket. */
+                return log_error_errno(n, "Failed to receive notification message: %m");
 
         CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
+                        assert(!fd_array);
                         fd_array = (int*) CMSG_DATA(cmsg);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
@@ -2360,6 +2394,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                            cmsg->cmsg_type == SCM_CREDENTIALS &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
+                        assert(!ucred);
                         ucred = (struct ucred*) CMSG_DATA(cmsg);
                 }
         }
@@ -2392,8 +2427,17 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        /* Make sure it's NUL-terminated. */
+        /* Make sure it's NUL-terminated, then parse it to obtain the tags list */
         buf[n] = 0;
+        tags = strv_split_newlines(buf);
+        if (!tags) {
+                log_oom();
+                return 0;
+        }
+
+        /* possibly a barrier fd, let's see */
+        if (manager_process_barrier_fd(tags, fds))
+                return 0;
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
@@ -2415,16 +2459,16 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle duplicate units
          * make sure we only invoke each unit's handler once. */
         if (u1) {
-                manager_invoke_notify_message(m, u1, ucred, buf, fds);
+                manager_invoke_notify_message(m, u1, ucred, tags, fds);
                 found = true;
         }
         if (u2) {
-                manager_invoke_notify_message(m, u2, ucred, buf, fds);
+                manager_invoke_notify_message(m, u2, ucred, tags, fds);
                 found = true;
         }
         if (array_copy)
                 for (size_t i = 0; array_copy[i]; i++) {
-                        manager_invoke_notify_message(m, array_copy[i], ucred, buf, fds);
+                        manager_invoke_notify_message(m, array_copy[i], ucred, tags, fds);
                         found = true;
                 }
 
@@ -2725,11 +2769,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
 
                 case 20:
-                        manager_set_show_status(m, SHOW_STATUS_YES);
+                        manager_set_show_status(m, SHOW_STATUS_YES, "signal");
                         break;
 
                 case 21:
-                        manager_set_show_status(m, SHOW_STATUS_NO);
+                        manager_set_show_status(m, SHOW_STATUS_NO, "signal");
                         break;
 
                 case 22:
@@ -2910,12 +2954,10 @@ int manager_loop(Manager *m) {
                 if (manager_dispatch_dbus_queue(m) > 0)
                         continue;
 
-                /* Sleep for half the watchdog time */
-                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m)) {
-                        wait_usec = m->runtime_watchdog / 2;
-                        if (wait_usec <= 0)
-                                wait_usec = 1;
-                } else
+                /* Sleep for watchdog runtime wait time */
+                if (MANAGER_IS_SYSTEM(m))
+                        wait_usec = watchdog_runtime_wait();
+                else
                         wait_usec = USEC_INFINITY;
 
                 r = sd_event_run(m->event, wait_usec);
@@ -3086,7 +3128,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
 }
 
 int manager_open_serialization(Manager *m, FILE **_f) {
-        int fd;
+        _cleanup_close_ int fd = -1;
         FILE *f;
 
         assert(_f);
@@ -3095,11 +3137,9 @@ int manager_open_serialization(Manager *m, FILE **_f) {
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, "w+");
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, "w+");
+        if (!f)
                 return -errno;
-        }
 
         *_f = f;
         return 0;
@@ -3391,7 +3431,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (s < 0)
                                 log_notice("Failed to parse show-status flag '%s', ignoring.", val);
                         else
-                                manager_set_show_status(m, s);
+                                manager_set_show_status(m, s, "deserialization");
 
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
@@ -3762,12 +3802,12 @@ void manager_check_finished(Manager *m) {
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
-                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source, now(CLOCK_MONOTONIC) + JOBS_IN_PROGRESS_WAIT_USEC);
-
+                        (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
+                                                        manager_watch_jobs_next_time(m));
                 return;
         }
 
-        manager_flip_auto_status(m, false);
+        manager_flip_auto_status(m, false, "boot finished");
 
         /* Notify Type=idle units that we are done now */
         manager_close_idle_pipe(m);
@@ -3806,25 +3846,9 @@ static bool generator_path_any(const char* const* paths) {
         return found;
 }
 
-static const char *const system_env_generator_binary_paths[] = {
-        "/run/systemd/system-environment-generators",
-        "/etc/systemd/system-environment-generators",
-        "/usr/local/lib/systemd/system-environment-generators",
-        SYSTEM_ENV_GENERATOR_PATH,
-        NULL
-};
-
-static const char *const user_env_generator_binary_paths[] = {
-        "/run/systemd/user-environment-generators",
-        "/etc/systemd/user-environment-generators",
-        "/usr/local/lib/systemd/user-environment-generators",
-        USER_ENV_GENERATOR_PATH,
-        NULL
-};
-
 static int manager_run_environment_generators(Manager *m) {
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
-        const char *const *paths;
+        _cleanup_strv_free_ char **paths = NULL;
         void* args[] = {
                 [STDOUT_GENERATE] = &tmp,
                 [STDOUT_COLLECT] = &tmp,
@@ -3835,13 +3859,15 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = MANAGER_IS_SYSTEM(m) ? system_env_generator_binary_paths : user_env_generator_binary_paths;
+        paths = env_generator_binary_paths(MANAGER_IS_SYSTEM(m));
+        if (!paths)
+                return log_oom();
 
-        if (!generator_path_any(paths))
+        if (!generator_path_any((const char* const*) paths))
                 return 0;
 
         RUN_WITH_UMASK(0022)
-                r = execute_directories(paths, DEFAULT_TIMEOUT_USEC, gather_environment,
+                r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
                                         args, NULL, m->transient_environment, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         return r;
 }
@@ -4065,19 +4091,24 @@ void manager_recheck_journal(Manager *m) {
         log_open();
 }
 
-void manager_set_show_status(Manager *m, ShowStatus mode) {
+void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
-        assert(IN_SET(mode, SHOW_STATUS_AUTO, SHOW_STATUS_NO, SHOW_STATUS_YES, SHOW_STATUS_TEMPORARY));
+        assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
         if (!MANAGER_IS_SYSTEM(m))
                 return;
 
-        if (m->show_status != mode)
-                log_debug("%s showing of status.",
-                          mode == SHOW_STATUS_NO ? "Disabling" : "Enabling");
+        if (mode == m->show_status)
+                return;
+
+        bool enabled = IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+        log_debug("%s (%s) showing of status (%s).",
+                  enabled ? "Enabling" : "Disabling",
+                  strna(show_status_to_string(mode)),
+                  reason);
         m->show_status = mode;
 
-        if (IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES))
+        if (enabled)
                 (void) touch("/run/systemd/show-status");
         else
                 (void) unlink("/run/systemd/show-status");
@@ -4099,7 +4130,10 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
-        return IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
+                return true;
+
+        return show_status_on(m->show_status);
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {
@@ -4234,6 +4268,11 @@ ManagerState manager_state(Manager *m) {
 
         assert(m);
 
+        /* Is the special shutdown target active or queued? If so, we are in shutdown state */
+        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
+        if (u && unit_active_or_pending(u))
+                return MANAGER_STOPPING;
+
         /* Did we ever finish booting? If not then we are still starting up */
         if (!MANAGER_IS_FINISHED(m)) {
 
@@ -4243,11 +4282,6 @@ ManagerState manager_state(Manager *m) {
 
                 return MANAGER_STARTING;
         }
-
-        /* Is the special shutdown target active or queued? If so, we are in shutdown state */
-        u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
-        if (u && unit_active_or_pending(u))
-                return MANAGER_STOPPING;
 
         if (MANAGER_IS_SYSTEM(m)) {
                 /* Are the rescue or emergency targets active or queued? If so we are in maintenance state */
@@ -4469,7 +4503,7 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = parse_uid(value, &uid);
         if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID reference serialization");
+                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
                 return;
         }
 

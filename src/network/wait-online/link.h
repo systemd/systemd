@@ -17,7 +17,7 @@ struct Link {
         unsigned flags;
 
         bool required_for_online;
-        LinkOperationalState required_operstate;
+        LinkOperationalStateRange required_operstate;
         LinkOperationalState operational_state;
         char *state;
 };

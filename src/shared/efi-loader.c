@@ -63,40 +63,6 @@ struct device_path device_path__contents;
 struct device_path__packed device_path__contents _packed_;
 assert_cc(sizeof(struct device_path) == sizeof(struct device_path__packed));
 
-bool is_efi_boot(void) {
-        if (detect_container() > 0)
-                return false;
-
-        return access("/sys/firmware/efi/", F_OK) >= 0;
-}
-
-static int read_flag(const char *varname) {
-        _cleanup_free_ void *v = NULL;
-        uint8_t b;
-        size_t s;
-        int r;
-
-        if (!is_efi_boot()) /* If this is not an EFI boot, assume the queried flags are zero */
-                return 0;
-
-        r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
-        if (r < 0)
-                return r;
-
-        if (s != 1)
-                return -EINVAL;
-
-        b = *(uint8_t *)v;
-        return !!b;
-}
-
-bool is_efi_secure_boot(void) {
-        return read_flag("SecureBoot") > 0;
-}
-
-bool is_efi_secure_boot_setup_mode(void) {
-        return read_flag("SetupMode") > 0;
-}
 
 int efi_reboot_to_firmware_supported(void) {
         _cleanup_free_ void *v = NULL;
@@ -169,10 +135,7 @@ int efi_set_reboot_to_firmware(bool value) {
         if (r < 0)
                 return r;
 
-        if (value)
-                b_new = b | EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
-        else
-                b_new = b & ~EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
+        b_new = UPDATE_FLAG(b, EFI_OS_INDICATIONS_BOOT_TO_FW_UI, value);
 
         /* Avoid writing to efi vars store if we can due to firmware bugs. */
         if (b != b_new)
@@ -562,17 +525,20 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
 
         r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUSec", &x);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to read LoaderTimeInitUSec: %m");
 
         r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeExecUSec", &y);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to read LoaderTimeExecUSec: %m");
 
         if (y == 0 || y < x)
-                return -EIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Bad LoaderTimeInitUSec=%"PRIu64", LoaderTimeExecUSec=%" PRIu64"; refusing.",
+                                       x, y);
 
         if (y > USEC_PER_HOUR)
-                return -EIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "LoaderTimeExecUSec=%"PRIu64" too large, refusing.", x);
 
         *firmware = x;
         *loader = y;

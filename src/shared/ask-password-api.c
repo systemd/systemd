@@ -27,6 +27,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "locale-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -134,12 +135,12 @@ static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **pa
         if (keyctl(KEYCTL_SET_TIMEOUT,
                    (unsigned long) serial,
                    (unsigned long) DIV_ROUND_UP(KEYRING_TIMEOUT_USEC, USEC_PER_SEC), 0, 0) < 0)
-                log_debug_errno(errno, "Failed to adjust timeout: %m");
+                log_debug_errno(errno, "Failed to adjust kernel keyring key timeout: %m");
 
         /* Tell everyone to check the keyring */
         (void) touch("/run/systemd/ask-password");
 
-        log_debug("Added key to keyring as %" PRIi32 ".", serial);
+        log_debug("Added key to kernel keyring as %" PRIi32 ".", serial);
 
         return 1;
 }
@@ -151,7 +152,7 @@ static int add_to_keyring_and_log(const char *keyname, AskPasswordFlags flags, c
 
         r = add_to_keyring(keyname, flags, passwords);
         if (r < 0)
-                return log_debug_errno(r, "Failed to add password to keyring: %m");
+                return log_debug_errno(r, "Failed to add password to kernel keyring: %m");
 
         return 0;
 }
@@ -394,6 +395,10 @@ finish:
         return r;
 }
 
+#define NO_ECHO "(no echo) "
+#define PRESS_TAB "(press TAB for no echo) "
+#define SKIPPED "(skipped)"
+
 int ask_password_tty(
                 int ttyfd,
                 const char *message,
@@ -409,7 +414,7 @@ int ask_password_tty(
                 _POLL_MAX,
         };
 
-        bool reset_tty = false, dirty = false, use_color = false;
+        bool reset_tty = false, dirty = false, use_color = false, press_tab_visible = false;
         _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
@@ -425,6 +430,9 @@ int ask_password_tty(
 
         if (!message)
                 message = "Password:";
+
+        if (emoji_enabled())
+                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
 
         if (flag_file || ((flags & ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
@@ -464,6 +472,13 @@ int ask_password_tty(
 
                 (void) loop_write(ttyfd, message, strlen(message), false);
                 (void) loop_write(ttyfd, " ", 1, false);
+
+                if (!(flags & ASK_PASSWORD_SILENT) && !(flags & ASK_PASSWORD_ECHO)) {
+                        if (use_color)
+                                (void) loop_write(ttyfd, ANSI_GREY, STRLEN(ANSI_GREY), false);
+                        (void) loop_write(ttyfd, PRESS_TAB, strlen(PRESS_TAB), false);
+                        press_tab_visible = true;
+                }
 
                 if (use_color)
                         (void) loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL), false);
@@ -550,13 +565,19 @@ int ask_password_tty(
 
                 }
 
+                if (press_tab_visible) {
+                        assert(ttyfd >= 0);
+                        backspace_chars(ttyfd, strlen(PRESS_TAB));
+                        press_tab_visible = false;
+                }
+
                 /* We treat EOF, newline and NUL byte all as valid end markers */
                 if (n == 0 || c == '\n' || c == 0)
                         break;
 
                 if (c == 4) { /* C-d also known as EOT */
                         if (ttyfd >= 0)
-                                (void) loop_write(ttyfd, "(skipped)", 9, false);
+                                (void) loop_write(ttyfd, SKIPPED, strlen(SKIPPED), false);
 
                         goto skipped;
                 }
@@ -606,7 +627,7 @@ int ask_password_tty(
                                  * first key (and only as first key), or ... */
 
                                 if (ttyfd >= 0)
-                                        (void) loop_write(ttyfd, "(no echo) ", 10, false);
+                                        (void) loop_write(ttyfd, NO_ECHO, strlen(NO_ECHO), false);
 
                         } else if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "\a", 1, false);
@@ -619,7 +640,7 @@ int ask_password_tty(
                         /* ... or by pressing TAB at any time. */
 
                         if (ttyfd >= 0)
-                                (void) loop_write(ttyfd, "(no echo) ", 10, false);
+                                (void) loop_write(ttyfd, NO_ECHO, strlen(NO_ECHO), false);
 
                 } else if (p >= sizeof(passphrase)-1) {
 
@@ -658,11 +679,15 @@ int ask_password_tty(
                 goto finish;
 
 skipped:
-        if (keyname)
-                (void) add_to_keyring_and_log(keyname, flags, l);
+        if (strv_isempty(l))
+                r = log_debug_errno(SYNTHETIC_ERRNO(ECANCELED), "Password query was cancelled.");
+        else {
+                if (keyname)
+                        (void) add_to_keyring_and_log(keyname, flags, l);
 
-        *ret = TAKE_PTR(l);
-        r = 0;
+                *ret = TAKE_PTR(l);
+                r = 0;
+        }
 
 finish:
         if (ttyfd >= 0 && reset_tty) {
@@ -675,9 +700,10 @@ finish:
 
 static int create_socket(char **ret) {
         _cleanup_free_ char *path = NULL;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
+        socklen_t sa_len;
         _cleanup_close_ int fd = -1;
-        int salen, r;
+        int r;
 
         assert(ret);
 
@@ -688,14 +714,14 @@ static int create_socket(char **ret) {
         if (asprintf(&path, "/run/systemd/ask-password/sck.%" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        salen = sockaddr_un_set_path(&sa.un, path);
-        if (salen < 0)
-                return salen;
+        r = sockaddr_un_set_path(&sa.un, path);
+        if (r < 0)
+                return r;
+        sa_len = r;
 
-        RUN_WITH_UMASK(0177) {
-                if (bind(fd, &sa.sa, salen) < 0)
+        RUN_WITH_UMASK(0177)
+                if (bind(fd, &sa.sa, sa_len) < 0)
                         return -errno;
-        }
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
@@ -769,13 +795,11 @@ int ask_password_agent(
 
         (void) fchmod(fd, 0644);
 
-        f = fdopen(fd, "w");
+        f = take_fdopen(&fd, "w");
         if (!f) {
                 r = -errno;
                 goto finish;
         }
-
-        fd = -1;
 
         signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC);
         if (signal_fd < 0) {
@@ -835,14 +859,10 @@ int ask_password_agent(
         pollfd[FD_INOTIFY].events = POLLIN;
 
         for (;;) {
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
                 char passphrase[LINE_MAX+1];
-                struct msghdr msghdr;
                 struct iovec iovec;
                 struct ucred *ucred;
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(struct ucred))];
-                } control;
                 ssize_t n;
                 int k;
                 usec_t t;
@@ -894,19 +914,18 @@ int ask_password_agent(
 
                 iovec = IOVEC_MAKE(passphrase, sizeof(passphrase));
 
-                zero(control);
-                zero(msghdr);
-                msghdr.msg_iov = &iovec;
-                msghdr.msg_iovlen = 1;
-                msghdr.msg_control = &control;
-                msghdr.msg_controllen = sizeof(control);
+                struct msghdr msghdr = {
+                        .msg_iov = &iovec,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
 
-                n = recvmsg(socket_fd, &msghdr, 0);
+                n = recvmsg_safe(socket_fd, &msghdr, 0);
+                if (IN_SET(n, -EAGAIN, -EINTR))
+                        continue;
                 if (n < 0) {
-                        if (IN_SET(errno, EAGAIN, EINTR))
-                                continue;
-
-                        r = -errno;
+                        r = (int) n;
                         goto finish;
                 }
 
@@ -917,15 +936,12 @@ int ask_password_agent(
                         continue;
                 }
 
-                if (msghdr.msg_controllen < CMSG_LEN(sizeof(struct ucred)) ||
-                    control.cmsghdr.cmsg_level != SOL_SOCKET ||
-                    control.cmsghdr.cmsg_type != SCM_CREDENTIALS ||
-                    control.cmsghdr.cmsg_len != CMSG_LEN(sizeof(struct ucred))) {
+                ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+                if (!ucred) {
                         log_debug("Received message without credentials. Ignoring.");
                         continue;
                 }
 
-                ucred = (struct ucred*) CMSG_DATA(&control.cmsghdr);
                 if (ucred->uid != 0) {
                         log_debug("Got request from unprivileged user. Ignoring.");
                         continue;

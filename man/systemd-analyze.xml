@@ -203,7 +203,7 @@ multi-user.target reached after 47.820s in userspace
       jobs (and in particular not jobs that timed out).</para>
 
       <example>
-        <title><command>systemd-analyze time</command></title>
+        <title><command>systemd-analyze critical-chain</command></title>
 
       <programlisting>$ systemd-analyze critical-chain
 multi-user.target @47.820s

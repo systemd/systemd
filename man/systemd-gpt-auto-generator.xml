@@ -17,11 +17,9 @@
 
   <refnamediv>
     <refname>systemd-gpt-auto-generator</refname>
-    <refpurpose>Generator for automatically discovering
-    and mounting root, <filename>/home</filename> and
-    <filename>/srv</filename> partitions, as well as
-    discovering and enabling swap partitions, based on GPT
-    partition type GUIDs.</refpurpose>
+    <refpurpose>Generator for automatically discovering and mounting root, <filename>/home/</filename>,
+    <filename>/srv/</filename>, <filename>/var/</filename> and <filename>/var/tmp/</filename> partitions, as
+    well as discovering and enabling swap partitions, based on GPT partition type GUIDs.</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,11 +30,11 @@
     <title>Description</title>
 
     <para><filename>systemd-gpt-auto-generator</filename> is a unit generator that automatically discovers
-    root, <filename>/home/</filename>, <filename>/srv/</filename>, the EFI System Partition, the Extended
-    Boot Loader Partition and swap partitions and creates mount and swap units for them, based on the
-    partition type GUIDs of GUID partition tables (GPT), see <ulink
-    url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5.  It implements the <ulink
-    url="https://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/">Discoverable Partitions
+    root, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>,
+    <filename>/var/tmp/</filename>, the EFI System Partition, the Extended Boot Loader Partition and swap
+    partitions and creates mount and swap units for them, based on the partition type GUIDs of GUID partition
+    tables (GPT), see <ulink url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5. It
+    implements the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
     Specification</ulink>. Note that this generator has no effect on non-GPT systems, and on specific mount
     points that are directories already containing files. Also, on systems where the units are explicitly
     configured (for example, listed in <citerefentry
@@ -44,17 +42,22 @@
     units this generator creates are overridden, but additional implicit dependencies might be
     created.</para>
 
-    <para>This generator will only look for root partitions on the
-    same physical disk the EFI System Partition (ESP) is located on.
-    It will only look for the other partitions on the same physical
-    disk the root file system is located on. These partitions will not
-    be searched for on systems where the root file system is distributed
-    on multiple disks, for example via btrfs RAID.</para>
+    <para>This generator will only look for the root partition on the same physical disk the EFI System
+    Partition (ESP) is located on. Note that support from the boot loader is required: the EFI variable
+    <varname>LoaderDevicePartUUID</varname> of the <constant>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</constant>
+    vendor UUID is used to determine from which partition, and hence the disk from which the system was
+    booted. If the boot loader does not set this variable, this generator will not be able to autodetect the
+    root partition. See the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader
+    Interface</ulink> for details.</para>
 
-    <para><filename>systemd-gpt-auto-generator</filename> is useful
-    for centralizing file system configuration in the partition table
-    and making configuration in <filename>/etc/fstab</filename> unnecessary.
+    <para>Similarly, this generator will only look for the other partitions on the same physical disk as the
+    root partition. In this case, boot loader support is not required. These partitions will not be searched
+    for on systems where the root file system is distributed on multiple disks, for example via btrfs RAID.
     </para>
+
+    <para><filename>systemd-gpt-auto-generator</filename> is useful for centralizing file system
+    configuration in the partition table and making configuration in <filename>/etc/fstab</filename> or on
+    the kernel command line unnecessary.</para>
 
     <para>This generator looks for the partitions based on their
     partition type GUID. The following partition type GUIDs are
@@ -110,13 +113,25 @@
             <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
             <entry>Home Partition</entry>
             <entry><filename>/home/</filename></entry>
-            <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home</filename>.</entry>
+            <entry>The first home partition on the disk the root partition is located on is mounted to <filename>/home/</filename>.</entry>
           </row>
           <row>
             <entry>3b8f8425-20e0-4f3b-907f-1a25a76f98e8</entry>
             <entry>Server Data Partition</entry>
             <entry><filename>/srv/</filename></entry>
-            <entry>The first server data partition on the disk the root partition is located on is mounted to <filename>/srv</filename>.</entry>
+            <entry>The first server data partition on the disk the root partition is located on is mounted to <filename>/srv/</filename>.</entry>
+          </row>
+          <row>
+            <entry>4d21b016-b534-45c2-a9fb-5c16e091fd2d</entry>
+            <entry>Variable Data Partition</entry>
+            <entry><filename>/var/</filename></entry>
+            <entry>The first variable data partition on the disk the root partition is located on is mounted to <filename>/var/</filename> — under the condition its partition UUID matches the first 128 bit of the HMAC-SHA256 of the GPT type uuid of this partition keyed by the machine ID of the installation stored in <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</entry>
+          </row>
+          <row>
+            <entry>7ec6f557-3bc5-4aca-b293-16ef5df639d1</entry>
+            <entry>Temporary Data Partition</entry>
+            <entry><filename>/var/tmp/</filename></entry>
+            <entry>The first temporary data partition on the disk the root partition is located on is mounted to <filename>/var/tmp/</filename>.</entry>
           </row>
           <row>
             <entry>0657fd6d-a4ab-43c4-84e5-0933c84b4f4f</entry>
@@ -128,13 +143,13 @@
             <entry>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</entry>
             <entry>EFI System Partition (ESP)</entry>
             <entry><filename>/efi/</filename> or <filename>/boot/</filename></entry>
-            <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot</filename> or <filename>/efi</filename>, see below.</entry>
+            <entry>The first ESP located on the disk the root partition is located on is mounted to <filename>/boot/</filename> or <filename>/efi/</filename>, see below.</entry>
           </row>
           <row>
             <entry>bc13c2ff-59e6-4262-a352-b275fd6f7172</entry>
             <entry>Extended Boot Loader Partition</entry>
             <entry><filename>/boot/</filename></entry>
-            <entry>The first Extended Boot Loader Partition is mounted to <filename>/boot</filename>, see below.</entry>
+            <entry>The first Extended Boot Loader Partition is mounted to <filename>/boot/</filename>, see below.</entry>
           </row>
         </tbody>
       </tgroup>
@@ -161,14 +176,14 @@
           <row>
             <entry><constant>GPT_FLAG_READ_ONLY</constant></entry>
             <entry>0x1000000000000000</entry>
-            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, Extended Boot Loader Partition</entry>
+            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is mounted read-only</entry>
           </row>
 
           <row>
             <entry><constant>GPT_FLAG_NO_AUTO</constant></entry>
             <entry>0x8000000000000000</entry>
-            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, Extended Boot Loader Partition</entry>
+            <entry><filename>/</filename>, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>, <filename>/var/tmp/</filename>, Extended Boot Loader Partition</entry>
             <entry>Partition is not mounted automatically</entry>
           </row>
 
@@ -182,12 +197,13 @@
       </tgroup>
     </table>
 
-    <para>The <filename>/home/</filename> and <filename>/srv/</filename> partitions may be encrypted in LUKS
-    format. In this case, a device mapper device is set up under the names
-    <filename>/dev/mapper/home</filename> and <filename>/dev/mapper/srv</filename>. Note that this might
-    create conflicts if the same partition is listed in <filename>/etc/crypttab</filename> with a different
-    device mapper device name.</para>
-    
+    <para>The <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename> and
+    <filename>/var/tmp/</filename> partitions may be encrypted in LUKS format. In this case, a device mapper
+    device is set up under the names <filename>/dev/mapper/home</filename>,
+    <filename>/dev/mapper/srv</filename>, <filename>/dev/mapper/var</filename> and
+    <filename>/dev/mapper/tmp</filename>. Note that this might create conflicts if the same partition is
+    listed in <filename>/etc/crypttab</filename> with a different device mapper device name.</para>
+
     <para>When systemd is running in the initrd the <filename>/</filename> partition may be encrypted in LUKS
       format as well. In this case, a device mapper device is set up under the name <filename>/dev/mapper/root</filename>,
       and a <filename>sysroot.mount</filename> is set up that mounts the device under <filename>/sysroot</filename>.
@@ -206,7 +222,7 @@
 
     <para>If the disk contains an Extended Boot Loader partition, as defined in the <ulink
     url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, it is made
-    available at <filename>/boot</filename> (by means of an automount point, similar to the ESP, see
+    available at <filename>/boot/</filename> (by means of an automount point, similar to the ESP, see
     above). If both an EFI System Partition and an Extended Boot Loader partition exist the latter is
     preferably mounted to <filename>/boot/</filename>. Make sure to create both <filename>/efi/</filename>
     and <filename>/boot/</filename> to ensure both partitions are mounted.</para>
@@ -266,6 +282,7 @@
       <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>

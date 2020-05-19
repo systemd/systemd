@@ -15,7 +15,7 @@ DefaultDependencies=no
 Before=sockets.target
 
 [Socket]
-ReceiveBuffer=8M
+ReceiveBuffer=128M
 ListenNetlink=route 1361
 PassCredentials=yes
 

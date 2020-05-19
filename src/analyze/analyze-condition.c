@@ -21,6 +21,7 @@ static const condition_definition condition_definitions[] = {
         { "ConditionPathIsSymbolicLink",     config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
         { "ConditionPathIsMountPoint",       config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
         { "ConditionPathIsReadWrite",        config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
+        { "ConditionPathIsEncrypted",        config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
         { "ConditionDirectoryNotEmpty",      config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
         { "ConditionFileNotEmpty",           config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
         { "ConditionFileIsExecutable",       config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
@@ -44,6 +45,7 @@ static const condition_definition condition_definitions[] = {
         { "AssertPathIsSymbolicLink",        config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
         { "AssertPathIsMountPoint",          config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
         { "AssertPathIsReadWrite",           config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
+        { "AssertPathIsEncrypted",           config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
         { "AssertDirectoryNotEmpty",         config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
         { "AssertFileNotEmpty",              config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
         { "AssertFileIsExecutable",          config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
@@ -143,11 +145,11 @@ int verify_conditions(char **lines, UnitFileScope scope) {
                         return r;
         }
 
-        r = condition_test_list(u->asserts, assert_type_to_string, log_helper, u);
+        r = condition_test_list(u->asserts, environ, assert_type_to_string, log_helper, u);
         if (u->asserts)
                 log_notice("Asserts %s.", r > 0 ? "succeeded" : "failed");
 
-        q = condition_test_list(u->conditions, condition_type_to_string, log_helper, u);
+        q = condition_test_list(u->conditions, environ, condition_type_to_string, log_helper, u);
         if (u->conditions)
                 log_notice("Conditions %s.", q > 0 ? "succeeded" : "failed");
 

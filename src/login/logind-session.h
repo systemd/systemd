@@ -61,6 +61,7 @@ struct Session {
         const char *id;
         unsigned position;
         SessionType type;
+        SessionType original_type;
         SessionClass class;
 
         char *state_file;
@@ -132,9 +133,10 @@ void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
 bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
-void session_set_idle_hint(Session *s, bool b);
+int session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 void session_set_locked_hint(Session *s, bool b);
+void session_set_type(Session *s, SessionType t);
 int session_create_fifo(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);

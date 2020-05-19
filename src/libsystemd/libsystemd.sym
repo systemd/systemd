@@ -685,6 +685,8 @@ global:
 
 LIBSYSTEMD_245 {
 global:
+        sd_bus_enqueue_for_read;
+        sd_bus_message_dump;
         sd_bus_message_sensitive;
         sd_event_add_child_pidfd;
         sd_event_source_get_child_pidfd;
@@ -693,4 +695,18 @@ global:
         sd_event_source_get_child_process_own;
         sd_event_source_set_child_process_own;
         sd_event_source_send_child_signal;
+        sd_journal_open_namespace;
 } LIBSYSTEMD_243;
+
+LIBSYSTEMD_246 {
+global:
+        sd_bus_call_methodv;
+        sd_bus_call_method_asyncv;
+        sd_bus_emit_signalv;
+        sd_bus_reply_method_errnofv;
+        sd_bus_reply_method_errorfv;
+        sd_bus_reply_method_returnv;
+        sd_bus_set_propertyv;
+        sd_path_lookup;
+        sd_path_lookup_strv;
+} LIBSYSTEMD_245;

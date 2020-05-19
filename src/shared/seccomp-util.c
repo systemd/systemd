@@ -384,6 +384,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "lookup_dcookie\0"
                 "perf_event_open\0"
+                "pidfd_getfd\0"
                 "ptrace\0"
                 "rtas\0"
 #ifdef __NR_s390_runtime_instr
@@ -449,6 +450,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "oldstat\0"
                 "open\0"
                 "openat\0"
+                "openat2\0"
                 "readlink\0"
                 "readlinkat\0"
                 "removexattr\0"
@@ -1741,7 +1743,7 @@ int seccomp_restrict_archs(Set *archs) {
 }
 
 int parse_syscall_archs(char **l, Set **archs) {
-        _cleanup_set_free_ Set *_archs;
+        _cleanup_set_free_ Set *_archs = NULL;
         char **s;
         int r;
 

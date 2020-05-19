@@ -1,0 +1,10 @@
+[Unit]
+Description=Wants with percent-j specifier
+Wants=specifier-j-depends-%j.service
+After=specifier-j-depends-%j.service
+After=testsuite-28-pre.service
+
+[Service]
+Type=oneshot
+ExecStart=test -f /tmp/test-specifier-j-%j
+ExecStart=sh -c 'echo OK > /testok'

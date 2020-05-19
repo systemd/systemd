@@ -48,10 +48,12 @@ typedef struct Link {
         int ifindex;
         int master_ifindex;
         char *ifname;
+        char **alternative_names;
         char *kind;
         unsigned short iftype;
         char *state_file;
         struct ether_addr mac;
+        struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         sd_device *sd_device;
@@ -78,7 +80,7 @@ typedef struct Link {
         unsigned nexthop_messages;
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
-        unsigned qdisc_messages;
+        unsigned tc_messages;
         unsigned enslaving;
 
         Set *addresses;
@@ -114,8 +116,10 @@ typedef struct Link {
         bool static_routes_ready:1;
         bool static_nexthops_configured:1;
         bool routing_policy_rules_configured:1;
-        bool qdiscs_configured:1;
+        bool tc_configured:1;
         bool setting_mtu:1;
+        bool setting_genmode:1;
+        bool ipv6_mtu_set:1;
 
         LIST_HEAD(Address, pool_addresses);
 

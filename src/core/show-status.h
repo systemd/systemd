@@ -8,10 +8,11 @@
 /* Manager status */
 
 typedef enum ShowStatus {
-        SHOW_STATUS_NO,
-        SHOW_STATUS_AUTO,
-        SHOW_STATUS_TEMPORARY,
-        SHOW_STATUS_YES,
+        SHOW_STATUS_NO,         /* printing of status is disabled */
+        SHOW_STATUS_ERROR,      /* only print errors */
+        SHOW_STATUS_AUTO,       /* disabled but may flip to _TEMPORARY */
+        SHOW_STATUS_TEMPORARY,  /* enabled temporarily, may flip back to _AUTO */
+        SHOW_STATUS_YES,        /* printing of status is enabled */
         _SHOW_STATUS_MAX,
         _SHOW_STATUS_INVALID = -1,
 } ShowStatus;
@@ -28,6 +29,9 @@ typedef enum StatusUnitFormat {
         _STATUS_UNIT_FORMAT_INVALID = -1,
 } StatusUnitFormat;
 
+static inline bool show_status_on(ShowStatus s) {
+        return IN_SET(s, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
+}
 ShowStatus show_status_from_string(const char *v) _const_;
 const char* show_status_to_string(ShowStatus s) _pure_;
 int parse_show_status(const char *v, ShowStatus *ret);

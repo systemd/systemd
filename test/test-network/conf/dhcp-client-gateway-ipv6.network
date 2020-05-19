@@ -1,0 +1,9 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv6
+
+[Route]
+Gateway=_dhcp
+Destination=2001:1234:5:9fff:ff:ff:ff:ff/128

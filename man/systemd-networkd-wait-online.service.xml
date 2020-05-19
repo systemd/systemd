@@ -47,16 +47,16 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
-        <term><option>--interface=</option><replaceable>INTERFACE</replaceable><optional>:<replaceable>OPERSTATE</replaceable></optional></term>
+        <term><option>-i</option> <replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></term>
+        <term><option>--interface=</option><replaceable>INTERFACE</replaceable><optional>:<replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></optional></term>
 
         <listitem><para>Network interface to wait for before deciding if the system is online. This
         is useful when a system has several interfaces which will be configured, but a particular
         one is necessary to access some network resources. When used, all other interfaces are ignored.
         This option may be used more than once to wait for multiple network interfaces. When this
         option is specified multiple times, then <command>systemd-networkd-wait-online</command> waits
-        for all specified interfaces to be online. Optionally, required minimum operational state can be
-        specified after a colon <literal>:</literal>. Please see
+        for all specified interfaces to be online. Optionally, required minimum and maximum operational
+        states can be specified after a colon <literal>:</literal>. Please see
         <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for possible operational states. If the operational state is not specified here, then
         the value from <varname>RequiredForOnline=</varname> in the corresponding
@@ -74,11 +74,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-o</option> <replaceable>OPERSTATE</replaceable></term>
-        <term><option>--operational-state=</option><replaceable>OPERSTATE</replaceable></term>
+        <term><option>-o</option> <replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></term>
+        <term><option>--operational-state=</option><replaceable>MIN_OPERSTATE</replaceable><optional>:<replaceable>MAX_OPERSTATE</replaceable></optional></term>
 
-        <listitem><para>Takes an operational state. Please see
-        <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <listitem><para>Takes a minimum operational state and an optional maximum operational state.
+        Please see <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for possible operational states. If set, the specified value overrides
         <varname>RequiredForOnline=</varname> settings in <filename>.network</filename> files.
         But this does not override operational states specified in <option>--interface=</option> option.
@@ -97,7 +97,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--timeout=</option> <replaceable>SECS</replaceable></term>
+        <term><option>--timeout=</option><replaceable>SECS</replaceable></term>
 
         <listitem><para>Fail the service if the network is not online
         by the time the timeout elapses. A timeout of 0 disables the

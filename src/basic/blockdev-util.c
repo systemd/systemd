@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/file.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -29,6 +30,8 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
                 *ret = d;
                 return 0;
         }
+        if (errno != ENOENT)
+                return -errno;
 
         /* If it is a partition find the originating device */
         xsprintf_sys_block_path(p, "/partition", d);
@@ -54,32 +57,36 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         return 1;
 }
 
-int get_block_device(const char *path, dev_t *dev) {
+int get_block_device(const char *path, dev_t *ret) {
+        _cleanup_close_ int fd = -1;
         struct stat st;
-        struct statfs sfs;
+        int r;
 
         assert(path);
-        assert(dev);
+        assert(ret);
 
-        /* Gets the block device directly backing a file system. If
-         * the block device is encrypted, returns the device mapper
-         * block device. */
+        /* Gets the block device directly backing a file system. If the block device is encrypted, returns
+         * the device mapper block device. */
 
-        if (lstat(path, &st))
+        fd = open(path, O_NOFOLLOW|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st))
                 return -errno;
 
         if (major(st.st_dev) != 0) {
-                *dev = st.st_dev;
+                *ret = st.st_dev;
                 return 1;
         }
 
-        if (statfs(path, &sfs) < 0)
-                return -errno;
+        r = btrfs_get_block_device_fd(fd, ret);
+        if (r > 0)
+                return 1;
+        if (r != -ENOTTY) /* not btrfs */
+                return r;
 
-        if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
-                return btrfs_get_block_device(path, dev);
-
-        *dev = 0;
+        *ret = 0;
         return 0;
 }
 
@@ -180,4 +187,30 @@ int get_block_device_harder(const char *path, dev_t *ret) {
                 log_debug_errno(r, "Failed to chase block device '%s', ignoring: %m", path);
 
         return 1;
+}
+
+int lock_whole_block_device(dev_t devt, int operation) {
+        _cleanup_free_ char *whole_node = NULL;
+        _cleanup_close_ int lock_fd = -1;
+        dev_t whole_devt;
+        int r;
+
+        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING */
+
+        r = block_get_whole_disk(devt, &whole_devt);
+        if (r < 0)
+                return r;
+
+        r = device_path_make_major_minor(S_IFBLK, whole_devt, &whole_node);
+        if (r < 0)
+                return r;
+
+        lock_fd = open(whole_node, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        if (lock_fd < 0)
+                return -errno;
+
+        if (flock(lock_fd, operation) < 0)
+                return -errno;
+
+        return TAKE_FD(lock_fd);
 }

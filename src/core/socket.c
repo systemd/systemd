@@ -36,6 +36,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
+#include "socket-netlink.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -3257,7 +3258,12 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
         assert(other);
 
         /* Filter out invocations with bogus state */
-        if (other->load_state != UNIT_LOADED || other->type != UNIT_SERVICE)
+        if (!IN_SET(other->load_state,
+                    UNIT_LOADED,
+                    UNIT_NOT_FOUND,
+                    UNIT_BAD_SETTING,
+                    UNIT_ERROR,
+                    UNIT_MASKED) || other->type != UNIT_SERVICE)
                 return;
 
         /* Don't propagate state changes from the service if we are already down */
@@ -3417,6 +3423,8 @@ const UnitVTable socket_vtable = {
         .private_section = "Socket",
 
         .can_transient = true,
+        .can_trigger = true,
+        .can_fail = true,
 
         .init = socket_init,
         .done = socket_done,
@@ -3454,7 +3462,6 @@ const UnitVTable socket_vtable = {
 
         .control_pid = socket_control_pid,
 
-        .bus_vtable = bus_socket_vtable,
         .bus_set_property = bus_socket_set_property,
         .bus_commit_properties = bus_socket_commit_properties,
 

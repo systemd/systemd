@@ -4,16 +4,21 @@
 #include <net/if.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "gunicode.h"
+#include "id128-util.h"
 #include "in-addr-util.h"
+#include "locale-util.h"
 #include "memory-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
@@ -68,6 +73,7 @@ typedef struct TableData {
         bool uppercase;             /* Uppercase string on display */
 
         const char *color;          /* ANSI color string to use for this cell. When written to terminal should not move cursor. Will automatically be reset after the cell */
+        const char *rgap_color;     /* The ANSI color to use for the gap right of this cell. Usually used to underline entire rows in a gapless fashion */
         char *url;                  /* A URL to use for a clickable hyperlink */
         char *formatted;            /* A cached textual representation of the cell data, before ellipsation/alignment */
 
@@ -78,6 +84,7 @@ typedef struct TableData {
                 usec_t timespan;
                 uint64_t size;
                 char string[0];
+                char **strv;
                 int int_val;
                 int8_t int8;
                 int16_t int16;
@@ -91,6 +98,7 @@ typedef struct TableData {
                 int percent;        /* we use 'int' as datatype for percent values in order to match the result of parse_percent() */
                 int ifindex;
                 union in_addr_union address;
+                sd_id128_t id128;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -116,7 +124,9 @@ struct Table {
         size_t n_cells;
 
         bool header;   /* Whether to show the header row? */
-        size_t width;  /* If != (size_t) -1 the width to format this table in */
+        size_t width;  /* If == 0 format this as wide as necessary. If (size_t) -1 format this to console
+                        * width or less wide, but not wider. Otherwise the width to format this table in. */
+        size_t cell_height_max; /* Maximum number of lines per cell. (If there are more, ellipsis is shown. If (size_t) -1 then no limit is set, the default. == 0 is not allowed.) */
 
         TableData **data;
         size_t n_allocated;
@@ -145,6 +155,7 @@ Table *table_new_raw(size_t n_columns) {
                 .n_columns = n_columns,
                 .header = true,
                 .width = (size_t) -1,
+                .cell_height_max = (size_t) -1,
         };
 
         return TAKE_PTR(t);
@@ -202,6 +213,9 @@ static TableData *table_data_free(TableData *d) {
         free(d->formatted);
         free(d->url);
 
+        if (d->type == TABLE_STRV)
+                strv_free(d->strv);
+
         return mfree(d);
 }
 
@@ -234,7 +248,11 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return 0;
 
         case TABLE_STRING:
+        case TABLE_PATH:
                 return strlen(data) + 1;
+
+        case TABLE_STRV:
+                return sizeof(char **);
 
         case TABLE_BOOLEAN:
                 return sizeof(bool);
@@ -276,6 +294,10 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_IN6_ADDR:
                 return sizeof(struct in6_addr);
 
+        case TABLE_UUID:
+        case TABLE_ID128:
+                return sizeof(sd_id128_t);
+
         default:
                 assert_not_reached("Uh? Unexpected cell type");
         }
@@ -313,7 +335,7 @@ static bool table_data_matches(
                 return false;
 
         /* If a color/url/uppercase flag is set, refuse to merge */
-        if (d->color)
+        if (d->color || d->rgap_color)
                 return false;
         if (d->url)
                 return false;
@@ -322,7 +344,6 @@ static bool table_data_matches(
 
         k = table_data_size(type, data);
         l = table_data_size(d->type, d->data);
-
         if (k != l)
                 return false;
 
@@ -338,8 +359,8 @@ static TableData *table_data_new(
                 unsigned align_percent,
                 unsigned ellipsize_percent) {
 
+        _cleanup_free_ TableData *d = NULL;
         size_t data_size;
-        TableData *d;
 
         data_size = table_data_size(type, data);
 
@@ -354,9 +375,15 @@ static TableData *table_data_new(
         d->weight = weight;
         d->align_percent = align_percent;
         d->ellipsize_percent = ellipsize_percent;
-        memcpy_safe(d->data, data, data_size);
 
-        return d;
+        if (type == TABLE_STRV) {
+                d->strv = strv_copy(data);
+                if (!d->strv)
+                        return NULL;
+        } else
+                memcpy_safe(d->data, data, data_size);
+
+        return TAKE_PTR(d);
 }
 
 int table_add_cell_full(
@@ -516,6 +543,7 @@ static int table_dedup_cell(Table *t, TableCell *cell) {
                 return -ENOMEM;
 
         nd->color = od->color;
+        nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
         nd->uppercase = od->uppercase;
 
@@ -645,6 +673,20 @@ int table_set_color(Table *t, TableCell *cell, const char *color) {
         return 0;
 }
 
+int table_set_rgap_color(Table *t, TableCell *cell, const char *color) {
+        int r;
+
+        assert(t);
+        assert(cell);
+
+        r = table_dedup_cell(t, cell);
+        if (r < 0)
+                return r;
+
+        table_get_data(t, cell)->rgap_color = empty_to_null(color);
+        return 0;
+}
+
 int table_set_url(Table *t, TableCell *cell, const char *url) {
         _cleanup_free_ char *copy = NULL;
         int r;
@@ -718,6 +760,7 @@ int table_update(Table *t, TableCell *cell, TableDataType type, const void *data
                 return -ENOMEM;
 
         nd->color = od->color;
+        nd->rgap_color = od->rgap_color;
         nd->url = TAKE_PTR(curl);
         nd->uppercase = od->uppercase;
 
@@ -759,6 +802,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         int ifindex;
                         bool b;
                         union in_addr_union address;
+                        sd_id128_t id128;
                 } buffer;
 
                 switch (type) {
@@ -768,7 +812,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_STRING:
+                case TABLE_PATH:
                         data = va_arg(ap, const char *);
+                        break;
+
+                case TABLE_STRV:
+                        data = va_arg(ap, char * const *);
                         break;
 
                 case TABLE_BOOLEAN:
@@ -877,6 +926,12 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.address.in6;
                         break;
 
+                case TABLE_UUID:
+                case TABLE_ID128:
+                        buffer.id128 = va_arg(ap, sd_id128_t);
+                        data = &buffer.id128;
+                        break;
+
                 case TABLE_SET_MINIMUM_WIDTH: {
                         size_t w = va_arg(ap, size_t);
 
@@ -911,6 +966,25 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_SET_COLOR: {
                         const char *c = va_arg(ap, const char*);
                         r = table_set_color(t, last_cell, c);
+                        break;
+                }
+
+                case TABLE_SET_RGAP_COLOR: {
+                        const char *c = va_arg(ap, const char*);
+                        r = table_set_rgap_color(t, last_cell, c);
+                        break;
+                }
+
+                case TABLE_SET_BOTH_COLORS: {
+                        const char *c = va_arg(ap, const char*);
+
+                        r = table_set_color(t, last_cell, c);
+                        if (r < 0) {
+                                va_end(ap);
+                                return r;
+                        }
+
+                        r = table_set_rgap_color(t, last_cell, c);
                         break;
                 }
 
@@ -959,10 +1033,35 @@ void table_set_width(Table *t, size_t width) {
         t->width = width;
 }
 
+void table_set_cell_height_max(Table *t, size_t height) {
+        assert(t);
+        assert(height >= 1 || height == (size_t) -1);
+
+        t->cell_height_max = height;
+}
+
 int table_set_empty_string(Table *t, const char *empty) {
         assert(t);
 
         return free_and_strdup(&t->empty_string, empty);
+}
+
+int table_set_display_all(Table *t) {
+        size_t allocated;
+
+        assert(t);
+
+        allocated = t->n_display_map;
+
+        if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, allocated)))
+                return -ENOMEM;
+
+        for (size_t i = 0; i < t->n_columns; i++)
+                t->display_map[i] = i;
+
+        t->n_display_map = t->n_columns;
+
+        return 0;
 }
 
 int table_set_display(Table *t, size_t first_column, ...) {
@@ -1024,6 +1123,34 @@ int table_set_sort(Table *t, size_t first_column, ...) {
         return 0;
 }
 
+int table_hide_column_from_display(Table *t, size_t column) {
+        size_t allocated, cur = 0;
+        int r;
+
+        assert(t);
+        assert(column < t->n_columns);
+
+        /* If the display map is empty, initialize it with all available columns */
+        if (!t->display_map) {
+                r = table_set_display_all(t);
+                if (r < 0)
+                        return r;
+        }
+
+        allocated = t->n_display_map;
+
+        for (size_t i = 0; i < allocated; i++) {
+                if (t->display_map[i] == column)
+                        continue;
+
+                t->display_map[cur++] = t->display_map[i];
+        }
+
+        t->n_display_map = cur;
+
+        return 0;
+}
+
 static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t index_b) {
         assert(a);
         assert(b);
@@ -1037,6 +1164,12 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                 case TABLE_STRING:
                         return strcmp(a->string, b->string);
+
+                case TABLE_PATH:
+                        return path_compare(a->string, b->string);
+
+                case TABLE_STRV:
+                        return strv_compare(a->strv, b->strv);
 
                 case TABLE_BOOLEAN:
                         if (!a->boolean && b->boolean)
@@ -1100,6 +1233,10 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_IN6_ADDR:
                         return memcmp(&a->address.in6, &b->address.in6, FAMILY_ADDRESS_SIZE(AF_INET6));
 
+                case TABLE_UUID:
+                case TABLE_ID128:
+                        return memcmp(&a->id128, &b->id128, sizeof(sd_id128_t));
+
                 default:
                         ;
                 }
@@ -1140,7 +1277,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         return CMP(*a, *b);
 }
 
-static const char *table_data_format(Table *t, TableData *d) {
+static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing) {
         assert(d);
 
         if (d->formatted)
@@ -1151,7 +1288,8 @@ static const char *table_data_format(Table *t, TableData *d) {
                 return strempty(t->empty_string);
 
         case TABLE_STRING:
-                if (d->uppercase) {
+        case TABLE_PATH:
+                if (d->uppercase && !avoid_uppercasing) {
                         char *p, *q;
 
                         d->formatted = new(char, strlen(d->string) + 1);
@@ -1166,6 +1304,20 @@ static const char *table_data_format(Table *t, TableData *d) {
                 }
 
                 return d->string;
+
+        case TABLE_STRV: {
+                char *p;
+
+                if (strv_isempty(d->strv))
+                        return strempty(t->empty_string);
+
+                p = strv_join(d->strv, "\n");
+                if (!p)
+                        return NULL;
+
+                d->formatted = p;
+                break;
+        }
 
         case TABLE_BOOLEAN:
                 return yes_no(d->boolean);
@@ -1402,6 +1554,28 @@ static const char *table_data_format(Table *t, TableData *d) {
                 break;
         }
 
+        case TABLE_ID128: {
+                char *p;
+
+                p = new(char, SD_ID128_STRING_MAX);
+                if (!p)
+                        return NULL;
+
+                d->formatted = sd_id128_to_string(d->id128, p);
+                break;
+        }
+
+        case TABLE_UUID: {
+                char *p;
+
+                p = new(char, ID128_UUID_STRING_MAX);
+                if (!p)
+                        return NULL;
+
+                d->formatted = id128_to_uuid_string(d->id128, p);
+                break;
+        }
+
         default:
                 assert_not_reached("Unexpected type?");
         }
@@ -1409,26 +1583,94 @@ static const char *table_data_format(Table *t, TableData *d) {
         return d->formatted;
 }
 
-static int table_data_requested_width(Table *table, TableData *d, size_t *ret) {
-        const char *t;
-        size_t l;
+static int console_width_height(
+                const char *s,
+                size_t *ret_width,
+                size_t *ret_height) {
 
-        t = table_data_format(table, d);
+        size_t max_width = 0, height = 0;
+        const char *p;
+
+        assert(s);
+
+        /* Determine the width and height in console character cells the specified string needs. */
+
+        do {
+                size_t k;
+
+                p = strchr(s, '\n');
+                if (p) {
+                        _cleanup_free_ char *c = NULL;
+
+                        c = strndup(s, p - s);
+                        if (!c)
+                                return -ENOMEM;
+
+                        k = utf8_console_width(c);
+                        s = p + 1;
+                } else {
+                        k = utf8_console_width(s);
+                        s = NULL;
+                }
+                if (k == (size_t) -1)
+                        return -EINVAL;
+                if (k > max_width)
+                        max_width = k;
+
+                height++;
+        } while (!isempty(s));
+
+        if (ret_width)
+                *ret_width = max_width;
+
+        if (ret_height)
+                *ret_height = height;
+
+        return 0;
+}
+
+static int table_data_requested_width_height(
+                Table *table,
+                TableData *d,
+                size_t *ret_width,
+                size_t *ret_height) {
+
+        _cleanup_free_ char *truncated = NULL;
+        bool truncation_applied = false;
+        size_t width, height;
+        const char *t;
+        int r;
+
+        t = table_data_format(table, d, false);
         if (!t)
                 return -ENOMEM;
 
-        l = utf8_console_width(t);
-        if (l == (size_t) -1)
-                return -EINVAL;
+        if (table->cell_height_max != (size_t) -1) {
+                r = string_truncate_lines(t, table->cell_height_max, &truncated);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        truncation_applied = true;
 
-        if (d->maximum_width != (size_t) -1 && l > d->maximum_width)
-                l = d->maximum_width;
+                t = truncated;
+        }
 
-        if (l < d->minimum_width)
-                l = d->minimum_width;
+        r = console_width_height(t, &width, &height);
+        if (r < 0)
+                return r;
 
-        *ret = l;
-        return 0;
+        if (d->maximum_width != (size_t) -1 && width > d->maximum_width)
+                width = d->maximum_width;
+
+        if (width < d->minimum_width)
+                width = d->minimum_width;
+
+        if (ret_width)
+                *ret_width = width;
+        if (ret_height)
+                *ret_height = height;
+
+        return truncation_applied;
 }
 
 static char *align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
@@ -1491,6 +1733,20 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         return ret;
 }
 
+static bool table_data_isempty(TableData *d) {
+        assert(d);
+
+        if (d->type == TABLE_EMPTY)
+                return true;
+
+        /* Let's also consider an empty strv as truly empty. */
+        if (d->type == TABLE_STRV)
+                return strv_isempty(d->strv);
+
+        /* Note that an empty string we do not consider empty here! */
+        return false;
+}
+
 static const char* table_data_color(TableData *d) {
         assert(d);
 
@@ -1498,8 +1754,17 @@ static const char* table_data_color(TableData *d) {
                 return d->color;
 
         /* Let's implicitly color all "empty" cells in grey, in case an "empty_string" is set that is not empty */
-        if (d->type == TABLE_EMPTY)
+        if (table_data_isempty(d))
                 return ansi_grey();
+
+        return NULL;
+}
+
+static const char* table_data_rgap_color(TableData *d) {
+        assert(d);
+
+        if (d->rgap_color)
+                return d->rgap_color;
 
         return NULL;
 }
@@ -1565,18 +1830,40 @@ int table_print(Table *t, FILE *f) {
 
                 for (j = 0; j < display_columns; j++) {
                         TableData *d;
-                        size_t req;
+                        size_t req_width, req_height;
 
                         assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        r = table_data_requested_width(t, d, &req);
+                        r = table_data_requested_width_height(t, d, &req_width, &req_height);
                         if (r < 0)
                                 return r;
+                        if (r > 0) { /* Truncated because too many lines? */
+                                _cleanup_free_ char *last = NULL;
+                                const char *field;
+
+                                /* If we are going to show only the first few lines of a cell that has
+                                 * multiple make sure that we have enough space horizontally to show an
+                                 * ellipsis. Hence, let's figure out the last line, and account for its
+                                 * length plus ellipsis. */
+
+                                field = table_data_format(t, d, false);
+                                if (!field)
+                                        return -ENOMEM;
+
+                                assert_se(t->cell_height_max > 0);
+                                r = string_extract_line(field, t->cell_height_max-1, &last);
+                                if (r < 0)
+                                        return r;
+
+                                req_width = MAX(req_width,
+                                                utf8_console_width(last) +
+                                                utf8_console_width(special_glyph(SPECIAL_GLYPH_ELLIPSIS)));
+                        }
 
                         /* Determine the biggest width that any cell in this column would like to have */
                         if (requested_width[j] == (size_t) -1 ||
-                            requested_width[j] < req)
-                                requested_width[j] = req;
+                            requested_width[j] < req_width)
+                                requested_width[j] = req_width;
 
                         /* Determine the minimum width any cell in this column needs */
                         if (minimum_width[j] < d->minimum_width)
@@ -1612,9 +1899,9 @@ int table_print(Table *t, FILE *f) {
         }
 
         /* Calculate effective table width */
-        if (t->width != (size_t) -1)
+        if (t->width != 0 && t->width != (size_t) -1)
                 table_effective_width = t->width;
-        else if (pager_have() || !isatty(STDOUT_FILENO))
+        else if (t->width == 0 || pager_have() || !isatty(STDOUT_FILENO))
                 table_effective_width = table_requested_width;
         else
                 table_effective_width = MIN(table_requested_width, columns());
@@ -1723,6 +2010,8 @@ int table_print(Table *t, FILE *f) {
 
         /* Second pass: show output */
         for (i = t->header ? 0 : 1; i < n_rows; i++) {
+                size_t n_subline = 0;
+                bool more_sublines;
                 TableData **row;
 
                 if (sorted)
@@ -1730,69 +2019,126 @@ int table_print(Table *t, FILE *f) {
                 else
                         row = t->data + i * t->n_columns;
 
-                for (j = 0; j < display_columns; j++) {
-                        _cleanup_free_ char *buffer = NULL;
-                        const char *field;
-                        TableData *d;
-                        size_t l;
+                do {
+                        const char *gap_color = NULL;
+                        more_sublines = false;
 
-                        assert_se(d = row[t->display_map ? t->display_map[j] : j]);
+                        for (j = 0; j < display_columns; j++) {
+                                _cleanup_free_ char *buffer = NULL, *extracted = NULL;
+                                bool lines_truncated = false;
+                                const char *field, *color = NULL;
+                                TableData *d;
+                                size_t l;
 
-                        field = table_data_format(t, d);
-                        if (!field)
-                                return -ENOMEM;
+                                assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                        l = utf8_console_width(field);
-                        if (l > width[j]) {
-                                /* Field is wider than allocated space. Let's ellipsize */
-
-                                buffer = ellipsize(field, width[j], d->ellipsize_percent);
-                                if (!buffer)
+                                field = table_data_format(t, d, false);
+                                if (!field)
                                         return -ENOMEM;
 
-                                field = buffer;
-
-                        } else if (l < width[j]) {
-                                /* Field is shorter than allocated space. Let's align with spaces */
-
-                                buffer = align_string_mem(field, d->url, width[j], d->align_percent);
-                                if (!buffer)
-                                        return -ENOMEM;
-
-                                field = buffer;
-                        }
-
-                        if (l >= width[j] && d->url) {
-                                _cleanup_free_ char *clickable = NULL;
-
-                                r = terminal_urlify(d->url, field, &clickable);
+                                r = string_extract_line(field, n_subline, &extracted);
                                 if (r < 0)
                                         return r;
+                                if (r > 0) {
+                                        /* There are more lines to come */
+                                        if ((t->cell_height_max == (size_t) -1 || n_subline + 1 < t->cell_height_max))
+                                                more_sublines = true; /* There are more lines to come */
+                                        else
+                                                lines_truncated = true;
+                                }
+                                if (extracted)
+                                        field = extracted;
 
-                                free_and_replace(buffer, clickable);
-                                field = buffer;
-                        }
+                                l = utf8_console_width(field);
+                                if (l > width[j]) {
+                                        /* Field is wider than allocated space. Let's ellipsize */
 
-                        if (row == t->data) /* underline header line fully, including the column separator */
-                                fputs(ansi_underline(), f);
+                                        buffer = ellipsize(field, width[j], /* ellipsize at the end if we truncated coming lines, otherwise honour configuration */
+                                                           lines_truncated ? 100 : d->ellipsize_percent);
+                                        if (!buffer)
+                                                return -ENOMEM;
 
-                        if (j > 0)
-                                fputc(' ', f); /* column separator */
+                                        field = buffer;
+                                } else {
+                                        if (lines_truncated) {
+                                                _cleanup_free_ char *padded = NULL;
 
-                        if (table_data_color(d) && colors_enabled()) {
-                                if (row == t->data) /* first undo header underliner */
+                                                /* We truncated more lines of this cell, let's add an
+                                                 * ellipsis. We first append it, but that might make our
+                                                 * string grow above what we have space for, hence ellipsize
+                                                 * right after. This will truncate the ellipsis and add a new
+                                                 * one. */
+
+                                                padded = strjoin(field, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                                if (!padded)
+                                                        return -ENOMEM;
+
+                                                buffer = ellipsize(padded, width[j], 100);
+                                                if (!buffer)
+                                                        return -ENOMEM;
+
+                                                field = buffer;
+                                                l = utf8_console_width(field);
+                                        }
+
+                                        if (l < width[j]) {
+                                                _cleanup_free_ char *aligned = NULL;
+                                                /* Field is shorter than allocated space. Let's align with spaces */
+
+                                                aligned = align_string_mem(field, d->url, width[j], d->align_percent);
+                                                if (!aligned)
+                                                        return -ENOMEM;
+
+                                                free_and_replace(buffer, aligned);
+                                                field = buffer;
+                                        }
+                                }
+
+                                if (l >= width[j] && d->url) {
+                                        _cleanup_free_ char *clickable = NULL;
+
+                                        r = terminal_urlify(d->url, field, &clickable);
+                                        if (r < 0)
+                                                return r;
+
+                                        free_and_replace(buffer, clickable);
+                                        field = buffer;
+                                }
+
+                                if (colors_enabled()) {
+                                        if (gap_color)
+                                                fputs(gap_color, f);
+                                        else if (row == t->data) /* underline header line fully, including the column separator */
+                                                fputs(ansi_underline(), f);
+                                }
+
+                                if (j > 0)
+                                        fputc(' ', f); /* column separator left of cell */
+
+                                if (colors_enabled()) {
+                                        color = table_data_color(d);
+
+                                        /* Undo gap color */
+                                        if (gap_color || (color && row == t->data))
+                                                fputs(ANSI_NORMAL, f);
+
+                                        if (color)
+                                                fputs(color, f);
+                                        else if (gap_color && row == t->data) /* underline header line cell */
+                                                fputs(ansi_underline(), f);
+                                }
+
+                                fputs(field, f);
+
+                                if (colors_enabled() && (color || row == t->data))
                                         fputs(ANSI_NORMAL, f);
 
-                                fputs(table_data_color(d), f);
+                                gap_color = table_data_rgap_color(d);
                         }
 
-                        fputs(field, f);
-
-                        if (colors_enabled() && (table_data_color(d) || row == t->data))
-                                fputs(ANSI_NORMAL, f);
-                }
-
-                fputc('\n', f);
+                        fputc('\n', f);
+                        n_subline ++;
+                } while (more_sublines);
         }
 
         return fflush_and_check(f);
@@ -1897,7 +2243,11 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_null(ret);
 
         case TABLE_STRING:
+        case TABLE_PATH:
                 return json_variant_new_string(ret, d->string);
+
+        case TABLE_STRV:
+                return json_variant_new_array_strv(ret, d->strv);
 
         case TABLE_BOOLEAN:
                 return json_variant_new_boolean(ret, d->boolean);
@@ -1919,7 +2269,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 
         case TABLE_SIZE:
         case TABLE_BPS:
-                if (d->size == (size_t) -1)
+                if (d->size == (uint64_t) -1)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->size);
@@ -1966,9 +2316,37 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_IN6_ADDR:
                 return json_variant_new_array_bytes(ret, &d->address, FAMILY_ADDRESS_SIZE(AF_INET6));
 
+        case TABLE_ID128: {
+                char buf[SD_ID128_STRING_MAX];
+                return json_variant_new_string(ret, sd_id128_to_string(d->id128, buf));
+        }
+
+        case TABLE_UUID: {
+                char buf[ID128_UUID_STRING_MAX];
+                return json_variant_new_string(ret, id128_to_uuid_string(d->id128, buf));
+        }
+
         default:
                 return -EINVAL;
         }
+}
+
+static char* string_to_json_field_name(const char *f) {
+        char *c, *x;
+
+        /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
+         * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
+         * underscores and leave everything as is. */
+
+        c = strdup(f);
+        if (!c)
+                return NULL;
+
+        for (x = c; *x; x++)
+                if (isspace(*x))
+                        *x = '_';
+
+        return c;
 }
 
 int table_to_json(Table *t, JsonVariant **ret) {
@@ -2013,11 +2391,27 @@ int table_to_json(Table *t, JsonVariant **ret) {
         }
 
         for (j = 0; j < display_columns; j++) {
+                _cleanup_free_ char *mangled = NULL;
+                const char *formatted;
                 TableData *d;
 
                 assert_se(d = t->data[t->display_map ? t->display_map[j] : j]);
 
-                r = table_data_to_json(d, elements + j*2);
+                /* Field names must be strings, hence format whatever we got here as a string first */
+                formatted = table_data_format(t, d, true);
+                if (!formatted) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                /* Arbitrary strings suck as field names, try to mangle them into something more suitable hence */
+                mangled = string_to_json_field_name(formatted);
+                if (!mangled) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                r = json_variant_new_string(elements + j*2, mangled);
                 if (r < 0)
                         goto finish;
         }

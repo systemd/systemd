@@ -30,12 +30,12 @@ __get_users() {
 
 __get_slices() {
     local a b
-    systemctl list-units -t slice --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    systemctl list-units -t slice --no-legend --no-pager --plain | { while read a b; do echo " $a"; done; };
 }
 
 __get_machines() {
     local a b
-    machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+    machinectl list --full --no-legend --no-pager | { while read a b; do echo " $a"; done; };
 }
 
 __get_env() {

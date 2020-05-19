@@ -71,17 +71,7 @@ static inline bool path_equal_ptr(const char *a, const char *b) {
 }
 
 /* Note: the search terminates on the first NULL item. */
-#define PATH_IN_SET(p, ...)                                     \
-        ({                                                      \
-                char **_s;                                      \
-                bool _found = false;                            \
-                STRV_FOREACH(_s, STRV_MAKE(__VA_ARGS__))        \
-                        if (path_equal(p, *_s)) {               \
-                               _found = true;                   \
-                               break;                           \
-                        }                                       \
-                _found;                                         \
-        })
+#define PATH_IN_SET(p, ...) path_strv_contains(STRV_MAKE(__VA_ARGS__), p)
 
 char* path_startswith_strv(const char *p, char **set);
 #define PATH_STARTSWITH_SET(p, ...) path_startswith_strv(p, STRV_MAKE(__VA_ARGS__))
@@ -181,3 +171,6 @@ bool empty_or_root(const char *root);
 static inline const char *empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
+
+bool path_strv_contains(char **l, const char *path);
+bool prefixed_path_strv_contains(char **l, const char *path);

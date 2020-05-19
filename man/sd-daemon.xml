@@ -68,16 +68,13 @@
 #define SD_INFO    "&lt;6&gt;"  /* informational */
 #define SD_DEBUG   "&lt;7&gt;"  /* debug-level messages */</programlisting>
 
-    <para>These prefixes are intended to be used in conjunction with
-    stderr-based logging as implemented by systemd. If a systemd
-    service definition file is configured with
-    <varname>StandardError=journal</varname>,
-    <varname>StandardError=syslog</varname> or
-    <varname>StandardError=kmsg</varname>, these prefixes can be used
-    to encode a log level in lines printed. This is similar to the
-    kernel <function>printk()</function>-style logging. See
-    <citerefentry><refentrytitle>klogctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-    for more information.</para>
+    <para>These prefixes are intended to be used in conjunction with stderr-based logging (or stdout-based
+    logging) as implemented by systemd. If a systemd service definition file is configured with
+    <varname>StandardError=journal</varname> or <varname>StandardError=kmsg</varname> (and similar with
+    <varname>StandardOutput=</varname>), these prefixes can be used to encode a log level in lines
+    printed. This is similar to the kernel <function>printk()</function>-style logging. See
+    <citerefentry><refentrytitle>klogctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for more
+    information.</para>
 
     <para>The log levels are identical to
     <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>'s

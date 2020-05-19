@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "fileio.h"
 #include "memfd-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -73,12 +74,12 @@ _public_ int sd_journal_print(int priority, const char *format, ...) {
 }
 
 _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
-
-        /* FIXME: Instead of limiting things to LINE_MAX we could do a
-           C99 variable-length array on the stack here in a loop. */
-
-        char buffer[8 + LINE_MAX], p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
+        char p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
+        char sbuf[LINE_MAX + 8] = "MESSAGE=";
         struct iovec iov[2];
+        int len;
+        va_list aq;
+        char *buffer = sbuf;
 
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
@@ -86,14 +87,27 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 
         xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
 
-        memcpy(buffer, "MESSAGE=", 8);
-        vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
+        va_copy(aq, ap);
+        len = vsnprintf(buffer + 8, LINE_MAX, format, aq);
+        va_end(aq);
+
+        if (len >= (int)LONG_LINE_MAX - 8)
+                return -ENOBUFS;
+
+        /* Allocate large buffer to accomodate big message */
+        if (len >= LINE_MAX) {
+                int rlen;
+                buffer = alloca(len + 9);
+                memcpy(buffer, "MESSAGE=", 8);
+                rlen = vsnprintf(buffer + 8, len + 1, format, ap);
+                assert(len == rlen);
+        }
 
         /* Strip trailing whitespace, keep prefix whitespace. */
         (void) strstrip(buffer);
 
         /* Suppress empty lines */
-        if (isempty(buffer+8))
+        if (isempty(buffer + 8))
                 return 0;
 
         iov[0] = IOVEC_MAKE_STRING(buffer);
@@ -437,9 +451,13 @@ _public_ int sd_journal_print_with_location(int priority, const char *file, cons
 }
 
 _public_ int sd_journal_printv_with_location(int priority, const char *file, const char *line, const char *func, const char *format, va_list ap) {
-        char buffer[8 + LINE_MAX], p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
+        char p[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int) + 1];
+        char sbuf[LINE_MAX + 8] = "MESSAGE=";
         struct iovec iov[5];
         char *f;
+        int len;
+        char *buffer = sbuf;
+        va_list aq;
 
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
@@ -447,14 +465,27 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
 
         xsprintf(p, "PRIORITY=%i", priority & LOG_PRIMASK);
 
-        memcpy(buffer, "MESSAGE=", 8);
-        vsnprintf(buffer+8, sizeof(buffer) - 8, format, ap);
+        va_copy(aq, ap);
+        len = vsnprintf(buffer + 8, LINE_MAX, format, aq);
+        va_end(aq);
+
+        if (len >= (int)LONG_LINE_MAX - 8)
+                return -ENOBUFS;
+
+        /* Allocate large buffer to accomodate big message */
+        if (len >= LINE_MAX) {
+                int rlen;
+                buffer = alloca(len + 9);
+                memcpy(buffer, "MESSAGE=", 8);
+                rlen = vsnprintf(buffer + 8, len + 1, format, ap);
+                assert(len == rlen);
+        }
 
         /* Strip trailing whitespace, keep prefixing whitespace */
         (void) strstrip(buffer);
 
         /* Suppress empty lines */
-        if (isempty(buffer+8))
+        if (isempty(buffer + 8))
                 return 0;
 
         /* func is initialized from __func__ which is not a macro, but

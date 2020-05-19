@@ -349,14 +349,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "ListUnits",
-                        &error, &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -1101,7 +1094,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = table_set_sort(table, 0, SIZE_MAX);
+        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
         if (r < 0)
                 return r;
 
@@ -1113,13 +1106,11 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
                 if (u->time <= 0)
                         continue;
 
-                r = table_add_cell(table, NULL, TABLE_TIMESPAN_MSEC, &u->time);
+                r = table_add_many(table,
+                                   TABLE_TIMESPAN_MSEC, u->time,
+                                   TABLE_STRING, u->name);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, u->name);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         (void) pager_open(arg_pager_flags);
@@ -1162,9 +1153,9 @@ static int graph_one_property(
         assert(prop);
         assert(color);
 
-        match_patterns = strv_fnmatch(patterns, u->id, 0);
+        match_patterns = strv_fnmatch(patterns, u->id);
 
-        if (!strv_isempty(from_patterns) && !match_patterns && !strv_fnmatch(from_patterns, u->id, 0))
+        if (!strv_isempty(from_patterns) && !match_patterns && !strv_fnmatch(from_patterns, u->id))
                 return 0;
 
         r = bus_get_unit_property_strv(bus, u->unit_path, prop, &units);
@@ -1174,9 +1165,9 @@ static int graph_one_property(
         STRV_FOREACH(unit, units) {
                 bool match_patterns2;
 
-                match_patterns2 = strv_fnmatch(patterns, *unit, 0);
+                match_patterns2 = strv_fnmatch(patterns, *unit);
 
-                if (!strv_isempty(to_patterns) && !match_patterns2 && !strv_fnmatch(to_patterns, *unit, 0))
+                if (!strv_isempty(to_patterns) && !match_patterns2 && !strv_fnmatch(to_patterns, *unit))
                         continue;
 
                 if (!strv_isempty(patterns) && !match_patterns && !match_patterns2)
@@ -1286,15 +1277,7 @@ static int dot(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                       "org.freedesktop.systemd1",
-                       "/org/freedesktop/systemd1",
-                       "org.freedesktop.systemd1.Manager",
-                       "ListUnits",
-                       &error,
-                       &reply,
-                       "");
+        r = bus_call_method(bus, bus_systemd_mgr, "ListUnits", &error, &reply, "");
         if (r < 0)
                 log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
 
@@ -1336,15 +1319,7 @@ static int dump_fallback(sd_bus *bus) {
 
         assert(bus);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Dump",
-                        &error,
-                        &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Dump", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call Dump: %s", bus_error_message(&error, r));
 
@@ -1372,15 +1347,7 @@ static int dump(int argc, char *argv[], void *userdata) {
         if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
                 return dump_fallback(bus);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "DumpByFileDescriptor",
-                        &error,
-                        &reply,
-                        NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
         if (r < 0) {
                 /* fall back to Dump if DumpByFileDescriptor is not supported */
                 if (!IN_SET(r, -EACCES, -EBADR))
@@ -1446,15 +1413,7 @@ static int set_log_level(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = sd_bus_set_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "LogLevel",
-                        &error,
-                        "s",
-                        argv[1]);
+        r = bus_set_property(bus, bus_systemd_mgr, "LogLevel", &error, "s", argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
@@ -1471,14 +1430,7 @@ static int get_log_level(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "LogLevel",
-                        &error,
-                        &level);
+        r = bus_get_property_string(bus, bus_systemd_mgr, "LogLevel", &error, &level);
         if (r < 0)
                 return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
 
@@ -1502,15 +1454,7 @@ static int set_log_target(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = sd_bus_set_property(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "LogTarget",
-                        &error,
-                        "s",
-                        argv[1]);
+        r = bus_set_property(bus, bus_systemd_mgr, "LogTarget", &error, "s", argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
@@ -1527,14 +1471,7 @@ static int get_log_target(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "LogTarget",
-                        &error,
-                        &target);
+        r = bus_get_property_string(bus, bus_systemd_mgr, "LogTarget", &error, &target);
         if (r < 0)
                 return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
 
@@ -1630,7 +1567,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
                                            TABLE_INT, (int) i,
                                            TABLE_STRING, exit_status_class(i));
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
         else
                 for (int i = 1; i < argc; i++) {
@@ -1646,7 +1583,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
                                            TABLE_INT, status,
                                            TABLE_STRING, exit_status_class(status) ?: "-");
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
         (void) pager_open(arg_pager_flags);
@@ -1657,7 +1594,7 @@ static int dump_exit_status(int argc, char *argv[], void *userdata) {
 #if HAVE_SECCOMP
 
 static int load_kernel_syscalls(Set **ret) {
-        _cleanup_(set_free_freep) Set *syscalls = NULL;
+        _cleanup_set_free_ Set *syscalls = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -1693,11 +1630,7 @@ static int load_kernel_syscalls(Set **ret) {
                 if (STR_IN_SET(e, "newuname", "newfstat", "newstat", "newlstat", "sysctl"))
                         continue;
 
-                r = set_ensure_allocated(&syscalls, &string_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                r = set_put_strdup(syscalls, e);
+                r = set_put_strdup(&syscalls, e);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add system call to list: %m");
         }
@@ -1737,7 +1670,7 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_(set_free_freep) Set *kernel = NULL;
+                _cleanup_set_free_ Set *kernel = NULL;
                 int i, k;
 
                 k = load_kernel_syscalls(&kernel);
@@ -1853,33 +1786,23 @@ static int dump_timespan(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = table_add_cell(table, NULL, TABLE_STRING, "Original:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "Original:",
+                                   TABLE_STRING, *input_timespan);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, *input_timespan);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = table_add_cell_stringf(table, NULL, "%ss:", special_glyph(SPECIAL_GLYPH_MU));
                 if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
-                r = table_add_cell(table, NULL, TABLE_UINT64, &output_usecs);
+                r = table_add_many(table,
+                                   TABLE_UINT64, output_usecs,
+                                   TABLE_STRING, "Human:",
+                                   TABLE_TIMESPAN, output_usecs,
+                                   TABLE_SET_COLOR, ansi_highlight());
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, "Human:");
-                if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, &cell, TABLE_TIMESPAN, &output_usecs);
-                if (r < 0)
-                        return r;
-
-                r = table_set_color(table, cell, ansi_highlight());
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 r = table_print(table, NULL);
                 if (r < 0)
@@ -1925,57 +1848,42 @@ static int test_timestamp_one(const char *p) {
         if (r < 0)
                 return r;
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+        r = table_add_many(table,
+                           TABLE_STRING, "Original form:",
+                           TABLE_STRING, p,
+                           TABLE_STRING, "Normalized form:",
+                           TABLE_TIMESTAMP, usec,
+                           TABLE_SET_COLOR, ansi_highlight_blue());
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, p);
-        if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
-        if (r < 0)
-                return r;
-
-        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &usec);
-        if (r < 0)
-                return r;
-
-        r = table_set_color(table, cell, ansi_highlight_blue());
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         if (!in_utc_timezone()) {
-                r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                r = table_add_many(table,
+                                   TABLE_STRING, "(in UTC):",
+                                   TABLE_TIMESTAMP_UTC, usec);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, &cell, TABLE_TIMESTAMP_UTC, &usec);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
         r = table_add_cell(table, NULL, TABLE_STRING, "UNIX seconds:");
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         if (usec % USEC_PER_SEC == 0)
-                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC,
+                r = table_add_cell_stringf(table, NULL, "@%"PRI_USEC,
                                            usec / USEC_PER_SEC);
         else
-                r = table_add_cell_stringf(table, &cell, "@%"PRI_USEC".%06"PRI_USEC"",
+                r = table_add_cell_stringf(table, NULL, "@%"PRI_USEC".%06"PRI_USEC"",
                                            usec / USEC_PER_SEC,
                                            usec % USEC_PER_SEC);
         if (r < 0)
                 return r;
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+        r = table_add_many(table,
+                           TABLE_STRING, "From now:",
+                           TABLE_TIMESTAMP_RELATIVE, usec);
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, &cell, TABLE_TIMESTAMP_RELATIVE, &usec);
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         return table_print(table, NULL);
 }
@@ -2035,22 +1943,18 @@ static int test_calendar_one(usec_t n, const char *p) {
                 return r;
 
         if (!streq(t, p)) {
-                r = table_add_cell(table, NULL, TABLE_STRING, "Original form:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "Original form:",
+                                   TABLE_STRING, p);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_STRING, p);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_STRING, "Normalized form:");
+        r = table_add_many(table,
+                           TABLE_STRING, "Normalized form:",
+                           TABLE_STRING, t);
         if (r < 0)
-                return r;
-
-        r = table_add_cell(table, NULL, TABLE_STRING, t);
-        if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         for (unsigned i = 0; i < arg_iterations; i++) {
                 usec_t next;
@@ -2058,17 +1962,12 @@ static int test_calendar_one(usec_t n, const char *p) {
                 r = calendar_spec_next_usec(spec, n, &next);
                 if (r == -ENOENT) {
                         if (i == 0) {
-                                r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                                r = table_add_many(table,
+                                                   TABLE_STRING, "Next elapse:",
+                                                   TABLE_STRING, "never",
+                                                   TABLE_SET_COLOR, ansi_highlight_yellow());
                                 if (r < 0)
-                                        return r;
-
-                                r = table_add_cell(table, &cell, TABLE_STRING, "never");
-                                if (r < 0)
-                                        return r;
-
-                                r = table_set_color(table, cell, ansi_highlight_yellow());
-                                if (r < 0)
-                                        return r;
+                                        return table_log_add_error(r);
                         }
                         break;
                 }
@@ -2076,17 +1975,12 @@ static int test_calendar_one(usec_t n, const char *p) {
                         return log_error_errno(r, "Failed to determine next elapse for '%s': %m", p);
 
                 if (i == 0) {
-                        r = table_add_cell(table, NULL, TABLE_STRING, "Next elapse:");
+                        r = table_add_many(table,
+                                           TABLE_STRING, "Next elapse:",
+                                           TABLE_TIMESTAMP, next,
+                                           TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
-                                return r;
-
-                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
-                        if (r < 0)
-                                return r;
-
-                        r = table_set_color(table, cell, ansi_highlight_blue());
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 } else {
                         int k = DECIMAL_STR_WIDTH(i + 1);
 
@@ -2097,34 +1991,28 @@ static int test_calendar_one(usec_t n, const char *p) {
 
                         r = table_add_cell_stringf(table, NULL, "Iter. #%u:", i+1);
                         if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
 
-                        r = table_add_cell(table, &cell, TABLE_TIMESTAMP, &next);
+                        r = table_add_many(table,
+                                           TABLE_TIMESTAMP, next,
+                                           TABLE_SET_COLOR, ansi_highlight_blue());
                         if (r < 0)
-                                return r;
-
-                        r = table_set_color(table, cell, ansi_highlight_blue());
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
                 if (!in_utc_timezone()) {
-                        r = table_add_cell(table, NULL, TABLE_STRING, "(in UTC):");
+                        r = table_add_many(table,
+                                           TABLE_STRING, "(in UTC):",
+                                           TABLE_TIMESTAMP_UTC, next);
                         if (r < 0)
-                                return r;
-
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_UTC, &next);
-                        if (r < 0)
-                                return r;
+                                return table_log_add_error(r);
                 }
 
-                r = table_add_cell(table, NULL, TABLE_STRING, "From now:");
+                r = table_add_many(table,
+                                   TABLE_STRING, "From now:",
+                                   TABLE_TIMESTAMP_RELATIVE, next);
                 if (r < 0)
-                        return r;
-
-                r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &next);
-                if (r < 0)
-                        return r;
+                        return table_log_add_error(r);
 
                 n = next;
         }
@@ -2168,15 +2056,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 
         if (argc == 1) {
                 /* get ServiceWatchdogs */
-                r = sd_bus_get_property_trivial(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ServiceWatchdogs",
-                                &error,
-                                'b',
-                                &b);
+                r = bus_get_property_trivial(bus, bus_systemd_mgr, "ServiceWatchdogs", &error, 'b', &b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get service-watchdog state: %s", bus_error_message(&error, r));
 
@@ -2188,15 +2068,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
                 if (b < 0)
                         return log_error_errno(b, "Failed to parse service-watchdogs argument: %m");
 
-                r = sd_bus_set_property(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ServiceWatchdogs",
-                                &error,
-                                "b",
-                                b);
+                r = bus_set_property(bus, bus_systemd_mgr, "ServiceWatchdogs", &error, "b", b);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
         }

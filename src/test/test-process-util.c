@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -21,11 +22,13 @@
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tests.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -569,10 +572,8 @@ static void test_pid_to_ptr(void) {
         assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MAX)) == INT16_MAX);
         assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MIN)) == INT16_MIN);
 
-#if SIZEOF_PID_T >= 4
         assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MAX)) == INT32_MAX);
         assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
-#endif
 }
 
 static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
@@ -601,6 +602,92 @@ static void test_ioprio_class_from_to_string(void) {
         test_ioprio_class_from_to_string_one("-1", -1);
 }
 
+static void test_setpriority_closest(void) {
+        int r;
+
+        r = safe_fork("(test-setprio)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG, NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                bool full_test;
+                int p, q;
+                /* child */
+
+                /* rlimit of 30 equals nice level of -10 */
+                if (setrlimit(RLIMIT_NICE, &RLIMIT_MAKE_CONST(30)) < 0) {
+                        /* If this fails we are probably unprivileged or in a userns of some kind, let's skip
+                         * the full test */
+                        assert_se(ERRNO_IS_PRIVILEGE(errno));
+                        full_test = false;
+                } else {
+                        assert_se(setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) >= 0);
+                        assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);
+                        full_test = true;
+                }
+
+                errno = 0;
+                p = getpriority(PRIO_PROCESS, 0);
+                assert_se(errno == 0);
+
+                /* It should always be possible to set our nice level to the current one */
+                assert_se(setpriority_closest(p) > 0);
+
+                errno = 0;
+                q = getpriority(PRIO_PROCESS, 0);
+                assert_se(errno == 0 && p == q);
+
+                /* It should also be possible to to set the nice level to one higher */
+                if (p < PRIO_MAX-1) {
+                        assert_se(setpriority_closest(++p) > 0);
+
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && p == q);
+                }
+
+                /* It should also be possible to to set the nice level to two higher */
+                if (p < PRIO_MAX-1) {
+                        assert_se(setpriority_closest(++p) > 0);
+
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && p == q);
+                }
+
+                if (full_test) {
+                        /* These two should work, given the RLIMIT_NICE we set above */
+                        assert_se(setpriority_closest(-10) > 0);
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && q == -10);
+
+                        assert_se(setpriority_closest(-9) > 0);
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && q == -9);
+
+                        /* This should succeed but should be clamped to the limit */
+                        assert_se(setpriority_closest(-11) == 0);
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && q == -10);
+
+                        assert_se(setpriority_closest(-8) > 0);
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && q == -8);
+
+                        /* This should succeed but should be clamped to the limit */
+                        assert_se(setpriority_closest(-12) == 0);
+                        errno = 0;
+                        q = getpriority(PRIO_PROCESS, 0);
+                        assert_se(errno == 0 && q == -10);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -627,6 +714,7 @@ int main(int argc, char *argv[]) {
         test_safe_fork();
         test_pid_to_ptr();
         test_ioprio_class_from_to_string();
+        test_setpriority_closest();
 
         return 0;
 }

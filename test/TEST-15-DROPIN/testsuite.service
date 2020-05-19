@@ -1,6 +1,0 @@
-[Unit]
-Description=Testsuite service
-
-[Service]
-ExecStart=/test-dropin.sh
-Type=oneshot

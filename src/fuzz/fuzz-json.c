@@ -18,7 +18,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         f = fmemopen_unlocked((char*) data, size, "re");
         assert_se(f);
 
-        if (json_parse_file(f, NULL, &v, NULL, NULL) < 0)
+        if (json_parse_file(f, NULL, 0, &v, NULL, NULL) < 0)
                 return 0;
 
         g = open_memstream_unlocked(&out, &out_size);

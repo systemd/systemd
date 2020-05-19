@@ -79,6 +79,7 @@
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
+#include "resolve-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -99,12 +100,6 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
-
-#if HAVE_SPLIT_USR
-#define STATIC_RESOLV_CONF "/lib/systemd/resolv.conf"
-#else
-#define STATIC_RESOLV_CONF "/usr/lib/systemd/resolv.conf"
-#endif
 
 /* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
  * nspawn_notify_socket_path is relative to the container
@@ -848,6 +843,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Network interface name not valid: %s", optarg);
 
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
+
                         if (strv_extend(&arg_network_interfaces, optarg) < 0)
                                 return log_oom();
 
@@ -861,6 +860,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "MACVLAN network interface name not valid: %s", optarg);
 
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
+
                         if (strv_extend(&arg_network_macvlan, optarg) < 0)
                                 return log_oom();
 
@@ -873,6 +876,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!ifname_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "IPVLAN network interface name not valid: %s", optarg);
+
+                        r = test_network_interface_initialized(optarg);
+                        if (r < 0)
+                                return r;
 
                         if (strv_extend(&arg_network_ipvlan, optarg) < 0)
                                 return log_oom();
@@ -1529,6 +1536,9 @@ static int verify_arguments(void) {
         if (arg_volatile_mode != VOLATILE_NO) /* Make sure all file systems contained in the image are mounted read-only if we are in volatile mode */
                 arg_read_only = true;
 
+        if (has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts))
+                arg_read_only = true;
+
         if (arg_keep_unit && arg_register && cg_pid_get_owner_uid(0, NULL) >= 0)
                 /* Save the user from accidentally registering either user-$SESSION.scope or user@.service.
                  * The latter is not technically a user session, but we don't need to labour the point. */
@@ -1835,12 +1845,13 @@ static int setup_resolv_conf(const char *dest) {
         if (arg_resolv_conf == RESOLV_CONF_AUTO) {
                 if (arg_private_network)
                         m = RESOLV_CONF_OFF;
-                else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
-                        m = etc_writable() ? RESOLV_CONF_COPY_STATIC : RESOLV_CONF_BIND_STATIC;
+                else if (have_resolv_conf(PRIVATE_STUB_RESOLV_CONF) > 0 && resolved_listening() > 0)
+                        m = etc_writable() ? RESOLV_CONF_COPY_STUB : RESOLV_CONF_BIND_STUB;
                 else if (have_resolv_conf("/etc/resolv.conf") > 0)
                         m = etc_writable() ? RESOLV_CONF_COPY_HOST : RESOLV_CONF_BIND_HOST;
                 else
                         m = etc_writable() ? RESOLV_CONF_DELETE : RESOLV_CONF_OFF;
+
         } else
                 m = arg_resolv_conf;
 
@@ -1862,12 +1873,16 @@ static int setup_resolv_conf(const char *dest) {
                 return 0;
         }
 
-        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_COPY_STATIC))
-                what = STATIC_RESOLV_CONF;
+        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_REPLACE_STATIC, RESOLV_CONF_COPY_STATIC))
+                what = PRIVATE_STATIC_RESOLV_CONF;
+        else if (IN_SET(m, RESOLV_CONF_BIND_UPLINK, RESOLV_CONF_REPLACE_UPLINK, RESOLV_CONF_COPY_UPLINK))
+                what = PRIVATE_UPLINK_RESOLV_CONF;
+        else if (IN_SET(m, RESOLV_CONF_BIND_STUB, RESOLV_CONF_REPLACE_STUB, RESOLV_CONF_COPY_STUB))
+                what = PRIVATE_STUB_RESOLV_CONF;
         else
                 what = "/etc/resolv.conf";
 
-        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC)) {
+        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_BIND_UPLINK, RESOLV_CONF_BIND_STUB)) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
@@ -1883,17 +1898,22 @@ static int setup_resolv_conf(const char *dest) {
                 r = mount_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+
+                /* If that didn't work, let's copy the file */
         }
 
-        /* If that didn't work, let's copy the file */
-        r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, 0, COPY_REFLINK);
+        if (IN_SET(m, RESOLV_CONF_REPLACE_HOST, RESOLV_CONF_REPLACE_STATIC, RESOLV_CONF_REPLACE_UPLINK, RESOLV_CONF_REPLACE_STUB))
+                r = copy_file_atomic(what, where, 0644, 0, 0, COPY_REFLINK|COPY_REPLACE);
+        else
+                r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, 0, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
                  *
                  * If the disk image is read-only, there's also no point in complaining.
                  */
-                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC) && IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC, RESOLV_CONF_COPY_UPLINK, RESOLV_CONF_COPY_STUB) &&
+                               IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
@@ -2954,13 +2974,10 @@ static int inner_child(
                                 arg_uid_range,
                                 arg_selinux_apifs_context,
                                 true);
-                if (r < 0)
-                        return r;
-        } else {
+        } else
                 r = mount_systemd_cgroup_writable("", arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                return r;
 
         r = setup_boot_id();
         if (r < 0)
@@ -2985,7 +3002,7 @@ static int inner_child(
                 return log_error_errno(errno, "setsid() failed: %m");
 
         if (arg_private_network)
-                loopback_setup();
+                (void) loopback_setup();
 
         if (arg_expose_ports) {
                 r = expose_port_send_rtnl(rtnl_socket);
@@ -3005,7 +3022,7 @@ static int inner_child(
 
                 r = setup_dev_console(console);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to setup /dev/console: %m");
+                        return log_error_errno(r, "Failed to set up /dev/console: %m");
 
                 r = send_one_fd(master_pty_socket, master, 0);
                 if (r < 0)
@@ -3252,6 +3269,7 @@ static int outer_child(
                 int netns_fd) {
 
         _cleanup_close_ int fd = -1;
+        const char *p;
         pid_t pid;
         ssize_t l;
         int r;
@@ -3293,10 +3311,12 @@ static int outer_child(
 
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
                                           DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
-                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0)|
+                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK)|
                                           (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image root file system: %m");
         }
 
         r = determine_uid_shift(directory);
@@ -3380,9 +3400,11 @@ static int outer_child(
         if (dissected_image) {
                 /* Now we know the uid shift, let's now mount everything else that might be in the image. */
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                                          DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK));
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check for image failed: %m");
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount image file system: %m");
         }
 
         if (arg_unified_cgroup_hierarchy == CGROUP_UNIFIED_UNKNOWN) {
@@ -3425,7 +3447,8 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        if (arg_read_only && arg_volatile_mode == VOLATILE_NO) {
+        if (arg_read_only && arg_volatile_mode == VOLATILE_NO &&
+                !has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts)) {
                 r = bind_remount_recursive(directory, MS_RDONLY, MS_RDONLY, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make tree read-only: %m");
@@ -3447,7 +3470,9 @@ static int outer_child(
                 return r;
 
         (void) dev_setup(directory, arg_uid_shift, arg_uid_shift);
-        (void) make_inaccessible_nodes(directory, arg_uid_shift, arg_uid_shift);
+
+        p = prefix_roota(directory, "/run/systemd");
+        (void) make_inaccessible_nodes(p, arg_uid_shift, arg_uid_shift);
 
         r = setup_pts(directory);
         if (r < 0)
@@ -3458,6 +3483,16 @@ static int outer_child(
                 return r;
 
         r = setup_keyring();
+        if (r < 0)
+                return r;
+
+        r = mount_custom(
+                        directory,
+                        arg_custom_mounts,
+                        arg_n_custom_mounts,
+                        arg_uid_shift,
+                        arg_selinux_apifs_context,
+                        MOUNT_NON_ROOT_ONLY);
         if (r < 0)
                 return r;
 
@@ -3474,16 +3509,6 @@ static int outer_child(
                 return r;
 
         r = setup_journal(directory);
-        if (r < 0)
-                return r;
-
-        r = mount_custom(
-                        directory,
-                        arg_custom_mounts,
-                        arg_n_custom_mounts,
-                        arg_uid_shift,
-                        arg_selinux_apifs_context,
-                        MOUNT_NON_ROOT_ONLY);
         if (r < 0)
                 return r;
 
@@ -3662,19 +3687,15 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                 .iov_base = buf,
                 .iov_len = sizeof(buf)-1,
         };
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(struct ucred)) +
-                            CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
         struct msghdr msghdr = {
                 .msg_iov = &iovec,
                 .msg_iovlen = 1,
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
-        struct ucred *ucred = NULL;
+        struct ucred *ucred;
         ssize_t n;
         pid_t inner_child_pid;
         _cleanup_strv_free_ char **tags = NULL;
@@ -3688,24 +3709,15 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
                 return 0;
         }
 
-        n = recvmsg(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0;
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (IN_SET(n, -EAGAIN, -EINTR))
+                return 0;
+        if (n < 0)
+                return log_warning_errno(n, "Couldn't read notification socket: %m");
 
-                return log_warning_errno(errno, "Couldn't read notification socket: %m");
-        }
         cmsg_close_all(&msghdr);
 
-        CMSG_FOREACH(cmsg, &msghdr) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SCM_CREDENTIALS &&
-                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
-
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
-                }
-        }
-
+        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
         if (!ucred || ucred->pid != inner_child_pid) {
                 log_debug("Received notify message without valid credentials. Ignoring.");
                 return 0;
@@ -4196,7 +4208,7 @@ static int run_container(
         int ifi = 0, r;
         ssize_t l;
         sigset_t mask_chld;
-        _cleanup_close_ int netns_fd = -1;
+        _cleanup_close_ int child_netns_fd = -1;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -4255,11 +4267,11 @@ static int run_container(
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
         if (arg_network_namespace_path) {
-                netns_fd = open(arg_network_namespace_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netns_fd < 0)
+                child_netns_fd = open(arg_network_namespace_path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (child_netns_fd < 0)
                         return log_error_errno(errno, "Cannot open file %s: %m", arg_network_namespace_path);
 
-                r = fd_is_network_ns(netns_fd);
+                r = fd_is_network_ns(child_netns_fd);
                 if (r == -EUCLEAN)
                         log_debug_errno(r, "Cannot determine if passed network namespace path '%s' really refers to a network namespace, assuming it does.", arg_network_namespace_path);
                 else if (r < 0)
@@ -4304,7 +4316,7 @@ static int run_container(
                                 master_pty_socket_pair[1],
                                 unified_cgroup_hierarchy_socket_pair[1],
                                 fds,
-                                netns_fd);
+                                child_netns_fd);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4406,7 +4418,15 @@ static int run_container(
                                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early");
                 }
 
-                r = move_network_interfaces(*pid, arg_network_interfaces);
+                if (child_netns_fd < 0) {
+                        /* Make sure we have an open file descriptor to the child's network
+                         * namespace so it stays alive even if the child exits. */
+                        r = namespace_open(*pid, NULL, NULL, &child_netns_fd, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open child network namespace: %m");
+                }
+
+                r = move_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
 
@@ -4652,6 +4672,36 @@ static int run_container(
         /* Normally redundant, but better safe than sorry */
         (void) kill(*pid, SIGKILL);
 
+        if (arg_private_network) {
+                /* Move network interfaces back to the parent network namespace. We use `safe_fork`
+                 * to avoid having to move the parent to the child network namespace. */
+                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG, NULL);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        _cleanup_close_ int parent_netns_fd = -1;
+
+                        r = namespace_open(getpid(), NULL, NULL, &parent_netns_fd, NULL, NULL);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to open parent network namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = namespace_enter(-1, -1, child_netns_fd, -1, -1);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to enter child network namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = move_network_interfaces(parent_netns_fd, arg_network_interfaces);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
+
+                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                }
+        }
+
         r = wait_for_container(*pid, &container_status);
         *pid = 0;
 
@@ -4757,6 +4807,58 @@ static int initialize_rlimits(void) {
         return 0;
 }
 
+static int cant_be_in_netns(void) {
+        union sockaddr_union sa = {
+                .un = {
+                        .sun_family = AF_UNIX,
+                        .sun_path = "/run/udev/control",
+                },
+        };
+        char udev_path[STRLEN("/proc//ns/net") + DECIMAL_STR_MAX(pid_t)];
+        _cleanup_free_ char *udev_ns = NULL, *our_ns = NULL;
+        _cleanup_close_ int fd = -1;
+        struct ucred ucred;
+        int r;
+
+        /* Check if we are in the same netns as udev. If we aren't, then device monitoring (and thus waiting
+         * for loopback block devices) won't work, and we will hang. Detect this case and exit early with a
+         * nice message. */
+
+        if (!arg_image) /* only matters if --image= us used, i.e. we actually need to use loopback devices */
+                return 0;
+
+        fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to allocate udev control socket: %m");
+
+        if (connect(fd, &sa.un, SOCKADDR_UN_LEN(sa.un)) < 0) {
+
+                if (errno == ENOENT || ERRNO_IS_DISCONNECT(errno))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
+
+                return log_error_errno(errno, "Failed to connect socket to udev control socket: %m");
+        }
+
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine peer of udev control socket: %m");
+
+        xsprintf(udev_path, "/proc/" PID_FMT "/ns/net", ucred.pid);
+        r = readlink_malloc(udev_path, &udev_ns);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read network namespace of udev: %m");
+
+        r = readlink_malloc("/proc/self/ns/net", &our_ns);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read our own network namespace: %m");
+
+        if (!streq(our_ns, udev_ns))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Sorry, but --image= is only supported in the main network namespace, since we need access to udev/AF_NETLINK.");
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         bool secondary = false, remove_directory = false, remove_image = false,
                 veth_created = false, remove_tmprootdir = false;
@@ -4780,6 +4882,10 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         r = must_be_root();
+        if (r < 0)
+                goto finish;
+
+        r = cant_be_in_netns();
         if (r < 0)
                 goto finish;
 
@@ -4869,7 +4975,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* We take an exclusive lock on this image, since it's our private, ephemeral copy
-                         * only owned by us and noone else. */
+                         * only owned by us and no one else. */
                         r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to lock %s: %m", np);
@@ -5055,14 +5161,14 @@ static int run(int argc, char *argv[]) {
                                 loop->fd,
                                 arg_image,
                                 arg_root_hash, arg_root_hash_size,
-                                DISSECT_IMAGE_REQUIRE_ROOT,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK,
                                 &dissected_image);
                 if (r == -ENOPKG) {
                         /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
-                                   "    c) or follow http://www.freedesktop.org/wiki/Specifications/DiscoverablePartitionsSpec/\n"
+                                   "    c) or follow https://systemd.io/DISCOVERABLE_PARTITIONS\n"
                                    "    d) or contain a file system without a partition table\n"
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;

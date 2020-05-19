@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "sd-bus-protocol.h"
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -17,20 +16,19 @@
 
 #include "alloc-util.h"
 #include "bus-internal.h"
+#include "bus-introspect.h"
 #include "bus-label.h"
 #include "bus-message.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
-#include "def.h"
 #include "escape.h"
-#include "fd-util.h"
 #include "mountpoint-util.h"
 #include "nsflags.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "proc-cmdline.h"
 #include "rlimit-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -119,36 +117,16 @@ int bus_event_loop_with_idle(
                         return r;
 
                 if (r == 0 && !exiting && idle) {
+                        /* Inform the service manager that we are going down, so that it will queue all
+                         * further start requests, instead of assuming we are already running. */
+                        sd_notify(false, "STOPPING=1");
 
-                        r = sd_bus_try_close(bus);
-                        if (r == -EBUSY)
-                                continue;
-
-                        /* Fallback for dbus1 connections: we
-                         * unregister the name and wait for the
-                         * response to come through for it */
-                        if (r == -EOPNOTSUPP) {
-
-                                /* Inform the service manager that we
-                                 * are going down, so that it will
-                                 * queue all further start requests,
-                                 * instead of assuming we are already
-                                 * running. */
-                                sd_notify(false, "STOPPING=1");
-
-                                r = bus_async_unregister_and_exit(e, bus, name);
-                                if (r < 0)
-                                        return r;
-
-                                exiting = true;
-                                continue;
-                        }
-
+                        r = bus_async_unregister_and_exit(e, bus, name);
                         if (r < 0)
                                 return r;
 
-                        sd_event_exit(e, 0);
-                        break;
+                        exiting = true;
+                        continue;
                 }
         }
 
@@ -183,357 +161,6 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
                 return sd_bus_error_set_errno(error, r);
 
         return has_owner;
-}
-
-static int check_good_user(sd_bus_message *m, uid_t good_user) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        uid_t sender_uid;
-        int r;
-
-        assert(m);
-
-        if (good_user == UID_INVALID)
-                return 0;
-
-        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_EUID, &creds);
-        if (r < 0)
-                return r;
-
-        /* Don't trust augmented credentials for authorization */
-        assert_return((sd_bus_creds_get_augmented_mask(creds) & SD_BUS_CREDS_EUID) == 0, -EPERM);
-
-        r = sd_bus_creds_get_euid(creds, &sender_uid);
-        if (r < 0)
-                return r;
-
-        return sender_uid == good_user;
-}
-
-int bus_test_polkit(
-                sd_bus_message *call,
-                int capability,
-                const char *action,
-                const char **details,
-                uid_t good_user,
-                bool *_challenge,
-                sd_bus_error *e) {
-
-        int r;
-
-        assert(call);
-        assert(action);
-
-        /* Tests non-interactively! */
-
-        r = check_good_user(call, good_user);
-        if (r != 0)
-                return r;
-
-        r = sd_bus_query_sender_privilege(call, capability);
-        if (r < 0)
-                return r;
-        else if (r > 0)
-                return 1;
-#if ENABLE_POLKIT
-        else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                int authorized = false, challenge = false;
-                const char *sender, **k, **v;
-
-                sender = sd_bus_message_get_sender(call);
-                if (!sender)
-                        return -EBADMSG;
-
-                r = sd_bus_message_new_method_call(
-                                call->bus,
-                                &request,
-                                "org.freedesktop.PolicyKit1",
-                                "/org/freedesktop/PolicyKit1/Authority",
-                                "org.freedesktop.PolicyKit1.Authority",
-                                "CheckAuthorization");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(
-                                request,
-                                "(sa{sv})s",
-                                "system-bus-name", 1, "name", "s", sender,
-                                action);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_open_container(request, 'a', "{ss}");
-                if (r < 0)
-                        return r;
-
-                STRV_FOREACH_PAIR(k, v, details) {
-                        r = sd_bus_message_append(request, "{ss}", *k, *v);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = sd_bus_message_close_container(request);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(request, "us", 0, NULL);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_call(call->bus, request, 0, e, &reply);
-                if (r < 0) {
-                        /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
-                                sd_bus_error_free(e);
-                                return -EACCES;
-                        }
-
-                        return r;
-                }
-
-                r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
-                if (r < 0)
-                        return r;
-
-                if (authorized)
-                        return 1;
-
-                if (_challenge) {
-                        *_challenge = challenge;
-                        return 0;
-                }
-        }
-#endif
-
-        return -EACCES;
-}
-
-#if ENABLE_POLKIT
-
-typedef struct AsyncPolkitQuery {
-        sd_bus_message *request, *reply;
-        sd_bus_message_handler_t callback;
-        void *userdata;
-        sd_bus_slot *slot;
-        Hashmap *registry;
-} AsyncPolkitQuery;
-
-static void async_polkit_query_free(AsyncPolkitQuery *q) {
-
-        if (!q)
-                return;
-
-        sd_bus_slot_unref(q->slot);
-
-        if (q->registry && q->request)
-                hashmap_remove(q->registry, q->request);
-
-        sd_bus_message_unref(q->request);
-        sd_bus_message_unref(q->reply);
-
-        free(q);
-}
-
-static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
-        AsyncPolkitQuery *q = userdata;
-        int r;
-
-        assert(reply);
-        assert(q);
-
-        q->slot = sd_bus_slot_unref(q->slot);
-        q->reply = sd_bus_message_ref(reply);
-
-        r = sd_bus_message_rewind(q->request, true);
-        if (r < 0) {
-                r = sd_bus_reply_method_errno(q->request, r, NULL);
-                goto finish;
-        }
-
-        r = q->callback(q->request, q->userdata, &error_buffer);
-        r = bus_maybe_reply_error(q->request, r, &error_buffer);
-
-finish:
-        async_polkit_query_free(q);
-
-        return r;
-}
-
-#endif
-
-int bus_verify_polkit_async(
-                sd_bus_message *call,
-                int capability,
-                const char *action,
-                const char **details,
-                bool interactive,
-                uid_t good_user,
-                Hashmap **registry,
-                sd_bus_error *error) {
-
-#if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
-        AsyncPolkitQuery *q;
-        const char *sender, **k, **v;
-        sd_bus_message_handler_t callback;
-        void *userdata;
-        int c;
-#endif
-        int r;
-
-        assert(call);
-        assert(action);
-        assert(registry);
-
-        r = check_good_user(call, good_user);
-        if (r != 0)
-                return r;
-
-#if ENABLE_POLKIT
-        q = hashmap_get(*registry, call);
-        if (q) {
-                int authorized, challenge;
-
-                /* This is the second invocation of this function, and
-                 * there's already a response from polkit, let's
-                 * process it */
-                assert(q->reply);
-
-                if (sd_bus_message_is_method_error(q->reply, NULL)) {
-                        const sd_bus_error *e;
-
-                        e = sd_bus_message_get_error(q->reply);
-
-                        /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
-                                return -EACCES;
-
-                        /* Copy error from polkit reply */
-                        sd_bus_error_copy(error, e);
-                        return -sd_bus_error_get_errno(e);
-                }
-
-                r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
-                if (r >= 0)
-                        r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
-                if (r < 0)
-                        return r;
-
-                if (authorized)
-                        return 1;
-
-                if (challenge)
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
-
-                return -EACCES;
-        }
-#endif
-
-        r = sd_bus_query_sender_privilege(call, capability);
-        if (r < 0)
-                return r;
-        else if (r > 0)
-                return 1;
-
-#if ENABLE_POLKIT
-        if (sd_bus_get_current_message(call->bus) != call)
-                return -EINVAL;
-
-        callback = sd_bus_get_current_handler(call->bus);
-        if (!callback)
-                return -EINVAL;
-
-        userdata = sd_bus_get_current_userdata(call->bus);
-
-        sender = sd_bus_message_get_sender(call);
-        if (!sender)
-                return -EBADMSG;
-
-        c = sd_bus_message_get_allow_interactive_authorization(call);
-        if (c < 0)
-                return c;
-        if (c > 0)
-                interactive = true;
-
-        r = hashmap_ensure_allocated(registry, NULL);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_new_method_call(
-                        call->bus,
-                        &pk,
-                        "org.freedesktop.PolicyKit1",
-                        "/org/freedesktop/PolicyKit1/Authority",
-                        "org.freedesktop.PolicyKit1.Authority",
-                        "CheckAuthorization");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(
-                        pk,
-                        "(sa{sv})s",
-                        "system-bus-name", 1, "name", "s", sender,
-                        action);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(pk, 'a', "{ss}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(k, v, details) {
-                r = sd_bus_message_append(pk, "{ss}", *k, *v);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(pk);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(pk, "us", interactive, NULL);
-        if (r < 0)
-                return r;
-
-        q = new0(AsyncPolkitQuery, 1);
-        if (!q)
-                return -ENOMEM;
-
-        q->request = sd_bus_message_ref(call);
-        q->callback = callback;
-        q->userdata = userdata;
-
-        r = hashmap_put(*registry, call, q);
-        if (r < 0) {
-                async_polkit_query_free(q);
-                return r;
-        }
-
-        q->registry = *registry;
-
-        r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
-        if (r < 0) {
-                async_polkit_query_free(q);
-                return r;
-        }
-
-        return 0;
-#endif
-
-        return -EACCES;
-}
-
-void bus_verify_polkit_async_registry_free(Hashmap *registry) {
-#if ENABLE_POLKIT
-        hashmap_free_with_destructor(registry, async_polkit_query_free);
-#endif
 }
 
 int bus_check_peercred(sd_bus *c) {
@@ -748,6 +375,12 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         (void) format_timespan(timespan, sizeof(timespan), u, 0);
                         bus_print_property_value(name, expected_value, value, timespan);
 
+                } else if (streq(name, "CoredumpFilter")) {
+                        char buf[STRLEN("0xFFFFFFFF")];
+
+                        xsprintf(buf, "0x%"PRIx64, u);
+                        bus_print_property_value(name, expected_value, value, buf);
+
                 } else if (streq(name, "RestrictNamespaces")) {
                         _cleanup_free_ char *s = NULL;
                         const char *result;
@@ -761,7 +394,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 if (r < 0)
                                         return r;
 
-                                result = s;
+                                result = strempty(s);
                         }
 
                         bus_print_property_value(name, expected_value, value, result);
@@ -875,18 +508,20 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                                 return r;
 
                         while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &str)) > 0) {
-                                bool good;
+                                _cleanup_free_ char *e = NULL;
 
-                                if (first && !value)
-                                        printf("%s=", name);
+                                e = shell_maybe_quote(str, ESCAPE_BACKSLASH_ONELINE);
+                                if (!e)
+                                        return -ENOMEM;
 
-                                /* This property has multiple space-separated values, so
-                                 * neither spaces nor newlines can be allowed in a value. */
-                                good = str[strcspn(str, " \n")] == '\0';
+                                if (first) {
+                                        if (!value)
+                                                printf("%s=", name);
+                                        first = false;
+                                } else
+                                        fputs(" ", stdout);
 
-                                printf("%s%s", first ? "" : " ", good ? str : "[unprintable]");
-
-                                first = false;
+                                fputs(e, stdout);
                         }
                         if (r < 0)
                                 return r;
@@ -1127,7 +762,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
                 if (r < 0)
                         return r;
 
-                return strv_free_and_replace(*p, l);
+                return strv_extend_strv(p, l, false);
         }
 
         case SD_BUS_TYPE_BOOLEAN: {
@@ -1765,3 +1400,317 @@ const struct hash_ops bus_message_hash_ops = {
         .compare = trivial_compare_func,
         .free_value = bus_message_unref_wrapper,
 };
+
+/* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface
+ * strings encapsulated within a single struct.
+ */
+int bus_call_method_async(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata,
+                const char *types, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(locator);
+
+        va_start(ap, types);
+        r = sd_bus_call_method_asyncv(bus, slot, locator->destination, locator->path, locator->interface, member, callback, userdata, types, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_call_method(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *types, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(locator);
+
+        va_start(ap, types);
+        r = sd_bus_call_methodv(bus, locator->destination, locator->path, locator->interface, member, error, reply, types, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_get_property(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *type) {
+
+        assert(locator);
+
+        return sd_bus_get_property(bus, locator->destination, locator->path, locator->interface, member, error, reply, type);
+}
+
+int bus_get_property_trivial(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                char type, void *ptr) {
+
+        assert(locator);
+
+        return sd_bus_get_property_trivial(bus, locator->destination, locator->path, locator->interface, member, error, type, ptr);
+}
+
+int bus_get_property_string(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                char **ret) {
+
+        assert(locator);
+
+        return sd_bus_get_property_string(bus, locator->destination, locator->path, locator->interface, member, error, ret);
+}
+
+int bus_get_property_strv(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                char ***ret) {
+
+        assert(locator);
+
+        return sd_bus_get_property_strv(bus, locator->destination, locator->path, locator->interface, member, error, ret);
+}
+
+int bus_set_property(
+                sd_bus *bus,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_error *error,
+                const char *type, ...) {
+
+        va_list ap;
+        int r;
+
+        assert(locator);
+
+        va_start(ap, type);
+        r = sd_bus_set_propertyv(bus, locator->destination, locator->path, locator->interface, member, error, type, ap);
+        va_end(ap);
+
+        return r;
+}
+
+int bus_match_signal(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        assert(locator);
+
+        return sd_bus_match_signal(bus, ret, locator->destination, locator->path, locator->interface, member, callback, userdata);
+}
+
+int bus_match_signal_async(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const BusLocator *locator,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata) {
+
+        assert(locator);
+
+        return sd_bus_match_signal_async(bus, ret, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
+}
+
+int bus_message_new_method_call(
+                sd_bus *bus,
+                sd_bus_message **m,
+                const BusLocator *locator,
+                const char *member) {
+
+        assert(locator);
+
+        return sd_bus_message_new_method_call(bus, m, locator->destination, locator->path, locator->interface, member);
+}
+
+int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, void *userdata) {
+        int r;
+
+        log_debug("Registering bus object implementation for path=%s iface=%s", impl->path, impl->interface);
+
+        for (const sd_bus_vtable **p = impl->vtables; p && *p; p++) {
+                r = sd_bus_add_object_vtable(bus, NULL,
+                                             impl->path,
+                                             impl->interface,
+                                             *p,
+                                             userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register bus path %s with interface %s: %m",
+                                               impl->path,
+                                               impl->interface);
+        }
+
+        for (const BusObjectVtablePair *p = impl->fallback_vtables; p && p->vtable; p++) {
+                r = sd_bus_add_fallback_vtable(bus, NULL,
+                                               impl->path,
+                                               impl->interface,
+                                               p->vtable,
+                                               p->object_find,
+                                               userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to register bus path %s with interface %s: %m",
+                                               impl->path,
+                                               impl->interface);
+        }
+
+        if (impl->node_enumerator) {
+                r = sd_bus_add_node_enumerator(bus, NULL,
+                                               impl->path,
+                                               impl->node_enumerator,
+                                               userdata);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add node enumerator for %s: %m",
+                                               impl->path);
+        }
+
+        for (size_t i = 0; impl->children && impl->children[i]; i++) {
+                r = bus_add_implementation(bus, impl->children[i], userdata);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static const BusObjectImplementation* find_implementation(
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects) {
+
+        for (size_t i = 0; bus_objects && bus_objects[i]; i++) {
+                const BusObjectImplementation *impl = bus_objects[i];
+
+                if (STR_IN_SET(pattern, impl->path, impl->interface))
+                        return impl;
+
+                impl = find_implementation(pattern, impl->children);
+                if (impl)
+                        return impl;
+        }
+
+        return NULL;
+}
+
+static int bus_introspect_implementation(
+                struct introspect *intro,
+                const BusObjectImplementation *impl) {
+        int r;
+
+        for (const sd_bus_vtable **p = impl->vtables; p && *p; p++) {
+                r = introspect_write_interface(intro, impl->interface, *p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write introspection data: %m");
+        }
+
+        for (const BusObjectVtablePair *p = impl->fallback_vtables; p && p->vtable; p++) {
+                r = introspect_write_interface(intro, impl->interface, p->vtable);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write introspection data: %m");
+        }
+
+        return 0;
+}
+
+static void list_paths(
+                FILE *out,
+                const BusObjectImplementation* const* bus_objects) {
+
+        for (size_t i = 0; bus_objects[i]; i++) {
+                fprintf(out, "%s\t%s\n", bus_objects[i]->path, bus_objects[i]->interface);
+                if (bus_objects[i]->children)
+                        list_paths(out, bus_objects[i]->children);
+        }
+}
+
+int bus_introspect_implementations(
+                FILE *out,
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects) {
+
+        const BusObjectImplementation *impl, *main_impl = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (streq(pattern, "list")) {
+                list_paths(out, bus_objects);
+                return 0;
+        }
+
+        struct introspect intro = {};
+        bool is_interface = interface_name_is_valid(pattern);
+
+        impl = find_implementation(pattern, bus_objects);
+        if (!impl)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "%s %s not found",
+                                       is_interface ? "Interface" : "Object path",
+                                       pattern);
+
+        /* We use trusted=false here to get all the @org.freedesktop.systemd1.Privileged annotations. */
+        r = introspect_begin(&intro, false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        r = introspect_write_default_interfaces(&intro, impl->manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        /* Check if there is a non-fallback path that applies to the given interface, also
+         * print it. This is useful in the case of units: o.fd.systemd1.Service is declared
+         * as a fallback vtable for o/fd/systemd1/unit, and we also want to print
+         * o.fd.systemd1.Unit, which is the non-fallback implementation. */
+        if (impl->fallback_vtables && is_interface)
+                main_impl = find_implementation(impl->path, bus_objects);
+
+        if (main_impl)
+                bus_introspect_implementation(&intro, main_impl);
+
+        if (impl != main_impl)
+                bus_introspect_implementation(&intro, impl);
+
+        _cleanup_set_free_ Set *nodes = NULL;
+
+        for (size_t i = 0; impl->children && impl->children[i]; i++) {
+                r = set_put_strdup(&nodes, impl->children[i]->path);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = introspect_write_child_nodes(&intro, nodes, impl->path);
+        if (r < 0)
+                return r;
+
+        r = introspect_finish(&intro, &s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write introspection data: %m");
+
+        fputs(s, out);
+        return 0;
+}

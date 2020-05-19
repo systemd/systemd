@@ -16,6 +16,11 @@
 #include <lz4frame.h>
 #endif
 
+#if HAVE_ZSTD
+#include <zstd.h>
+#include <zstd_errors.h>
+#endif
+
 #include "alloc-util.h"
 #include "compress.h"
 #include "fd-util.h"
@@ -31,6 +36,22 @@
 #if HAVE_LZ4
 DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_compressionContext_t, LZ4F_freeCompressionContext);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LZ4F_decompressionContext_t, LZ4F_freeDecompressionContext);
+#endif
+
+#if HAVE_ZSTD
+DEFINE_TRIVIAL_CLEANUP_FUNC(ZSTD_CCtx *, ZSTD_freeCCtx);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ZSTD_DCtx *, ZSTD_freeDCtx);
+
+static int zstd_ret_to_errno(size_t ret) {
+        switch (ZSTD_getErrorCode(ret)) {
+        case ZSTD_error_dstSize_tooSmall:
+                return -ENOBUFS;
+        case ZSTD_error_memory_allocation:
+                return -ENOMEM;
+        default:
+                return -EBADMSG;
+        }
+}
 #endif
 
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
@@ -668,12 +689,230 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
 #endif
 }
 
+int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
+#if HAVE_ZSTD
+        _cleanup_(ZSTD_freeCCtxp) ZSTD_CCtx *cctx = NULL;
+        _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
+        size_t in_allocsize, out_allocsize;
+        size_t z;
+        uint64_t left = max_bytes, in_bytes = 0;
+        /* This can be used in the future to add uncompressed size to the header */
+        uint64_t in_totalsize = 0;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        /* Create the context and buffers */
+        in_allocsize = ZSTD_CStreamInSize();
+        out_allocsize = ZSTD_CStreamOutSize();
+        in_buff = malloc(in_allocsize);
+        out_buff = malloc(out_allocsize);
+        cctx = ZSTD_createCCtx();
+        if (!cctx || !out_buff || !in_buff)
+                return -ENOMEM;
+
+        if (in_totalsize) {
+                z = ZSTD_CCtx_setPledgedSrcSize(cctx, in_totalsize);
+                if (z)
+                        log_debug("Failed to enable ZSTD input size, ignoring: %s", ZSTD_getErrorName(z));
+        }
+        z = ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1);
+        if (ZSTD_isError(z))
+                log_debug("Failed to enable ZSTD checksum, ignoring: %s", ZSTD_getErrorName(z));
+
+        /* This loop read from the input file, compresses that entire chunk,
+         * and writes all output produced to the output file.
+         */
+        for (;;) {
+                bool is_last_chunk;
+                ZSTD_inBuffer input = {
+                        .src = in_buff,
+                        .size = 0,
+                        .pos = 0
+                };
+                ssize_t red;
+
+                red = loop_read(fdf, in_buff, in_allocsize, true);
+                if (red < 0)
+                        return red;
+                is_last_chunk = red == 0;
+
+                in_bytes += (size_t) red;
+                input.size = (size_t) red;
+
+                for (bool finished = false; !finished;) {
+                        ZSTD_outBuffer output = {
+                                .dst = out_buff,
+                                .size = out_allocsize,
+                                .pos = 0
+                        };
+                        size_t remaining;
+                        ssize_t wrote;
+
+                        /* Compress into the output buffer and write all of the
+                         * output to the file so we can reuse the buffer next
+                         * iteration.
+                         */
+                        remaining = ZSTD_compressStream2(
+                                cctx, &output, &input,
+                                is_last_chunk ? ZSTD_e_end : ZSTD_e_continue);
+
+                        if (ZSTD_isError(remaining)) {
+                                log_debug("ZSTD encoder failed: %s", ZSTD_getErrorName(remaining));
+                                return zstd_ret_to_errno(remaining);
+                        }
+
+                        if (left < output.pos)
+                                return -EFBIG;
+
+                        wrote = loop_write(fdt, output.dst, output.pos, 1);
+                        if (wrote < 0)
+                                return wrote;
+
+                        left -= output.pos;
+
+                        /* If we're on the last chunk we're finished when zstd
+                         * returns 0, which means its consumed all the input AND
+                         * finished the frame. Otherwise, we're finished when
+                         * we've consumed all the input.
+                         */
+                        finished = is_last_chunk ? (remaining == 0) : (input.pos == input.size);
+                }
+
+                /* zstd only returns 0 when the input is completely consumed */
+                assert(input.pos == input.size);
+                if (is_last_chunk)
+                        break;
+        }
+
+        log_debug(
+                "ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                in_bytes,
+                max_bytes - left,
+                (double) (max_bytes - left) / in_bytes * 100);
+
+        return 0;
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
+#if HAVE_ZSTD
+        _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = NULL;
+        _cleanup_free_ void *in_buff = NULL, *out_buff = NULL;
+        size_t in_allocsize, out_allocsize;
+        size_t last_result = 0;
+        uint64_t left = max_bytes, in_bytes = 0;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        /* Create the context and buffers */
+        in_allocsize = ZSTD_DStreamInSize();
+        out_allocsize = ZSTD_DStreamOutSize();
+        in_buff = malloc(in_allocsize);
+        out_buff = malloc(out_allocsize);
+        dctx = ZSTD_createDCtx();
+        if (!dctx || !out_buff || !in_buff)
+                return -ENOMEM;
+
+        /* This loop assumes that the input file is one or more concatenated
+         * zstd streams. This example won't work if there is trailing non-zstd
+         * data at the end, but streaming decompression in general handles this
+         * case. ZSTD_decompressStream() returns 0 exactly when the frame is
+         * completed, and doesn't consume input after the frame.
+         */
+        for (;;) {
+                bool has_error = false;
+                ZSTD_inBuffer input = {
+                        .src = in_buff,
+                        .size = 0,
+                        .pos = 0
+                };
+                ssize_t red;
+
+                red = loop_read(fdf, in_buff, in_allocsize, true);
+                if (red < 0)
+                        return red;
+                if (red == 0)
+                        break;
+
+                in_bytes += (size_t) red;
+                input.size = (size_t) red;
+                input.pos = 0;
+
+                /* Given a valid frame, zstd won't consume the last byte of the
+                 * frame until it has flushed all of the decompressed data of
+                 * the frame. So input.pos < input.size means frame is not done
+                 * or there is still output available.
+                 */
+                while (input.pos < input.size) {
+                        ZSTD_outBuffer output = {
+                                .dst = out_buff,
+                                .size = out_allocsize,
+                                .pos = 0
+                        };
+                        ssize_t wrote;
+                        /* The return code is zero if the frame is complete, but
+                         * there may be multiple frames concatenated together.
+                         * Zstd will automatically reset the context when a
+                         * frame is complete. Still, calling ZSTD_DCtx_reset()
+                         * can be useful to reset the context to a clean state,
+                         * for instance if the last decompression call returned
+                         * an error.
+                         */
+                        last_result = ZSTD_decompressStream(dctx, &output, &input);
+                        if (ZSTD_isError(last_result)) {
+                                has_error = true;
+                                break;
+                        }
+
+                        if (left < output.pos)
+                                return -EFBIG;
+
+                        wrote = loop_write(fdt, output.dst, output.pos, 1);
+                        if (wrote < 0)
+                                return wrote;
+
+                        left -= output.pos;
+                }
+                if (has_error)
+                        break;
+        }
+
+        if (in_bytes == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoder failed: no data read");
+
+        if (last_result != 0) {
+                /* The last return value from ZSTD_decompressStream did not end
+                 * on a frame, but we reached the end of the file! We assume
+                 * this is an error, and the input was truncated.
+                 */
+                log_debug("ZSTD decoder failed: %s", ZSTD_getErrorName(last_result));
+                return zstd_ret_to_errno(last_result);
+        }
+
+        log_debug(
+                "ZSTD decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                in_bytes,
+                max_bytes - left,
+                (double) (max_bytes - left) / in_bytes * 100);
+        return 0;
+#else
+        log_debug("Cannot decompress file. Compiled without ZSTD support.");
+        return -EPROTONOSUPPORT;
+#endif
+}
+
 int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes) {
 
         if (endswith(filename, ".lz4"))
                 return decompress_stream_lz4(fdf, fdt, max_bytes);
         else if (endswith(filename, ".xz"))
                 return decompress_stream_xz(fdf, fdt, max_bytes);
+        else if (endswith(filename, ".zst"))
+                return decompress_stream_zstd(fdf, fdt, max_bytes);
         else
                 return -EPROTONOSUPPORT;
 }

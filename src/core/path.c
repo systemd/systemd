@@ -223,11 +223,10 @@ static void path_spec_mkdir(PathSpec *s, mode_t mode) {
 }
 
 static void path_spec_dump(PathSpec *s, FILE *f, const char *prefix) {
-        fprintf(f,
-                "%s%s: %s\n",
-                prefix,
-                path_type_to_string(s->type),
-                s->path);
+        const char *type;
+
+        assert_se(type = path_type_to_string(s->type));
+        fprintf(f, "%s%s: %s\n", prefix, type, s->path);
 }
 
 void path_spec_done(PathSpec *s) {
@@ -607,14 +606,16 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", path_result_to_string(p->result));
 
         LIST_FOREACH(spec, s, p->specs) {
+                const char *type;
                 _cleanup_free_ char *escaped = NULL;
 
                 escaped = cescape(s->path);
                 if (!escaped)
                         return log_oom();
 
+                assert_se(type = path_type_to_string(s->type));
                 (void) serialize_item_format(f, "path-spec", "%s %i %s",
-                                             path_type_to_string(s->type),
+                                             type,
                                              s->previous_exists,
                                              s->path);
         }
@@ -806,6 +807,8 @@ const UnitVTable path_vtable = {
         .private_section = "Path",
 
         .can_transient = true,
+        .can_fail = true,
+        .can_trigger = true,
 
         .init = path_init,
         .done = path_done,
@@ -828,6 +831,5 @@ const UnitVTable path_vtable = {
 
         .reset_failed = path_reset_failed,
 
-        .bus_vtable = bus_path_vtable,
         .bus_set_property = bus_path_set_property,
 };

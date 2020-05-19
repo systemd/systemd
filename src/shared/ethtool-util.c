@@ -3,11 +3,13 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <linux/ethtool.h>
+#include <linux/netdevice.h>
 #include <linux/sockios.h>
 
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "socket-util.h"
@@ -48,6 +50,8 @@ DEFINE_STRING_TABLE_LOOKUP(port, NetDevPort);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_port, port, NetDevPort, "Failed to parse Port setting");
 
 static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
+        [NET_DEV_FEAT_RX]   = "rx-checksum",
+        [NET_DEV_FEAT_TX]   = "tx-checksum-", /* The suffix "-" means any feature beginning with "tx-checksum-" */
         [NET_DEV_FEAT_GSO]  = "tx-generic-segmentation",
         [NET_DEV_FEAT_GRO]  = "rx-gro",
         [NET_DEV_FEAT_LRO]  = "rx-lro",
@@ -144,7 +148,7 @@ static int ethtool_connect_or_warn(int *ret, bool warn) {
         return 0;
 }
 
-int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
+int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         struct ethtool_drvinfo ecmd = {
                 .cmd = ETHTOOL_GDRVINFO
         };
@@ -154,15 +158,15 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         char *d;
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -174,8 +178,8 @@ int ethtool_get_driver(int *fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_get_link_info(int *fd, const char *ifname,
-                          int *ret_autonegotiation, size_t *ret_speed,
+int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
+                          int *ret_autonegotiation, uint64_t *ret_speed,
                           Duplex *ret_duplex, NetDevPort *ret_port) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
@@ -185,15 +189,15 @@ int ethtool_get_link_info(int *fd, const char *ifname,
         };
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, false);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, false);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -205,7 +209,7 @@ int ethtool_get_link_info(int *fd, const char *ifname,
 
                 speed = ethtool_cmd_speed(&ecmd);
                 *ret_speed = speed == (uint32_t) SPEED_UNKNOWN ?
-                        SIZE_MAX : (size_t) speed * 1000 * 1000;
+                        UINT64_MAX : (uint64_t) speed * 1000 * 1000;
         }
 
         if (ret_duplex)
@@ -217,7 +221,53 @@ int ethtool_get_link_info(int *fd, const char *ifname,
         return 0;
 }
 
-int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex) {
+int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret) {
+        _cleanup_close_ int fd = -1;
+        struct {
+                struct ethtool_perm_addr addr;
+                uint8_t space[MAX_ADDR_LEN];
+        } epaddr = {
+                .addr.cmd = ETHTOOL_GPERMADDR,
+                .addr.size = MAX_ADDR_LEN,
+        };
+        struct ifreq ifr = {
+                .ifr_data = (caddr_t) &epaddr,
+        };
+        int r;
+
+        assert(ifname);
+        assert(ret);
+
+        if (!ethtool_fd)
+                ethtool_fd = &fd;
+
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, false);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (epaddr.addr.size != 6)
+                return -EOPNOTSUPP;
+
+#pragma GCC diagnostic push
+#if HAVE_ZERO_LENGTH_BOUNDS
+#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#endif
+        for (size_t i = 0; i < epaddr.addr.size; i++)
+                ret->ether_addr_octet[i] = epaddr.addr.data[i];
+#pragma GCC diagnostic pop
+
+        return 0;
+}
+
+int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET
         };
@@ -230,15 +280,15 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -267,7 +317,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SSET;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -275,7 +325,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned speed, Duplex duplex
         return 0;
 }
 
-int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
+int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         struct ethtool_wolinfo ecmd = {
                 .cmd = ETHTOOL_GWOL
         };
@@ -288,15 +338,15 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         if (wol == _WOL_INVALID)
                 return 0;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
@@ -356,7 +406,7 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SWOL;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -364,7 +414,7 @@ int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol) {
         return 0;
 }
 
-int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *ring) {
+int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring_param *ring) {
         struct ethtool_ringparam ecmd = {
                 .cmd = ETHTOOL_GRINGPARAM
         };
@@ -374,36 +424,42 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         bool need_update = false;
         int r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return -errno;
 
-        if (ring->rx_pending_set) {
-                if (ecmd.rx_pending != ring->rx_pending) {
-                        ecmd.rx_pending = ring->rx_pending;
-                        need_update = true;
-                }
+        if (ring->rx_pending_set && ecmd.rx_pending != ring->rx_pending) {
+                ecmd.rx_pending = ring->rx_pending;
+                need_update = true;
         }
 
-        if (ring->tx_pending_set) {
-                   if (ecmd.tx_pending != ring->tx_pending) {
-                           ecmd.tx_pending = ring->tx_pending;
-                           need_update = true;
-                }
+        if (ring->rx_mini_pending_set && ecmd.rx_mini_pending != ring->rx_mini_pending) {
+                ecmd.rx_mini_pending = ring->rx_mini_pending;
+                need_update = true;
+        }
+
+        if (ring->rx_jumbo_pending_set && ecmd.rx_jumbo_pending != ring->rx_jumbo_pending) {
+                ecmd.rx_jumbo_pending = ring->rx_jumbo_pending;
+                need_update = true;
+        }
+
+        if (ring->tx_pending_set && ecmd.tx_pending != ring->tx_pending) {
+                ecmd.tx_pending = ring->tx_pending;
+                need_update = true;
         }
 
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SRINGPARAM;
 
-                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
                         return -errno;
         }
@@ -411,7 +467,7 @@ int ethtool_set_nic_buffer_size(int *fd, const char *ifname, netdev_ring_param *
         return 0;
 }
 
-static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
+static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
                 struct ethtool_sset_info info;
@@ -427,14 +483,19 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
 
         ifr->ifr_data = (void *) &buffer.info;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
         if (r < 0)
                 return -errno;
 
         if (!buffer.info.sset_mask)
                 return -EINVAL;
 
+#pragma GCC diagnostic push
+#if HAVE_ZERO_LENGTH_BOUNDS
+#  pragma GCC diagnostic ignored "-Wzero-length-bounds"
+#endif
         len = buffer.info.data[0];
+#pragma GCC diagnostic pop
 
         strings = malloc0(sizeof(struct ethtool_gstrings) + len * ETH_GSTRING_LEN);
         if (!strings)
@@ -446,7 +507,7 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
 
         ifr->ifr_data = (void *) strings;
 
-        r = ioctl(fd, SIOCETHTOOL, ifr);
+        r = ioctl(ethtool_fd, SIOCETHTOOL, ifr);
         if (r < 0)
                 return -errno;
 
@@ -455,32 +516,48 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
         return 0;
 }
 
-static int find_feature_index(struct ethtool_gstrings *strings, const char *feature) {
-        unsigned i;
+static int set_features_bit(
+                const struct ethtool_gstrings *strings,
+                const char *feature,
+                bool flag,
+                struct ethtool_sfeatures *sfeatures) {
+        bool found = false;
 
-        for (i = 0; i < strings->len; i++) {
-                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature))
-                        return i;
-        }
+        assert(strings);
+        assert(feature);
+        assert(sfeatures);
 
-        return -ENODATA;
+        for (size_t i = 0; i < strings->len; i++)
+                if (streq((char *) &strings->data[i * ETH_GSTRING_LEN], feature) ||
+                    (endswith(feature, "-") && startswith((char *) &strings->data[i * ETH_GSTRING_LEN], feature))) {
+                        size_t block, bit;
+
+                        block = i / 32;
+                        bit = i % 32;
+
+                        sfeatures->features[block].valid |= 1 << bit;
+                        SET_FLAG(sfeatures->features[block].requested, 1 << bit, flag);
+                        found = true;
+                }
+
+        return found ? 0 : -ENODATA;
 }
 
-int ethtool_set_features(int *fd, const char *ifname, int *features) {
+int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
-        int block, bit, i, r;
         struct ifreq ifr = {};
+        int i, r;
 
-        if (*fd < 0) {
-                r = ethtool_connect_or_warn(fd, true);
+        if (*ethtool_fd < 0) {
+                r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
                         return r;
         }
 
         strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
 
-        r = get_stringset(*fd, &ifr, ETH_SS_FEATURES, &strings);
+        r = get_stringset(*ethtool_fd, &ifr, ETH_SS_FEATURES, &strings);
         if (r < 0)
                 return log_warning_errno(r, "ethtool: could not get ethtool features for %s", ifname);
 
@@ -488,31 +565,18 @@ int ethtool_set_features(int *fd, const char *ifname, int *features) {
         sfeatures->cmd = ETHTOOL_SFEATURES;
         sfeatures->size = DIV_ROUND_UP(strings->len, 32U);
 
-        for (i = 0; i < _NET_DEV_FEAT_MAX; i++) {
-
+        for (i = 0; i < _NET_DEV_FEAT_MAX; i++)
                 if (features[i] != -1) {
-
-                        r = find_feature_index(strings, netdev_feature_table[i]);
+                        r = set_features_bit(strings, netdev_feature_table[i], features[i], sfeatures);
                         if (r < 0) {
-                                log_warning_errno(r, "ethtool: could not find feature: %s", netdev_feature_table[i]);
+                                log_warning_errno(r, "ethtool: could not find feature, ignoring: %s", netdev_feature_table[i]);
                                 continue;
                         }
-
-                        block = r / 32;
-                        bit = r % 32;
-
-                        sfeatures->features[block].valid |= 1 << bit;
-
-                        if (features[i])
-                                sfeatures->features[block].requested |= 1 << bit;
-                        else
-                                sfeatures->features[block].requested &= ~(1 << bit);
                 }
-        }
 
         ifr.ifr_data = (void *) sfeatures;
 
-        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        r = ioctl(*ethtool_fd, SIOCETHTOOL, &ifr);
         if (r < 0)
                 return log_warning_errno(r, "ethtool: could not set ethtool features for %s", ifname);
 
@@ -691,7 +755,7 @@ int ethtool_set_glinksettings(
                 const char *ifname,
                 int autonegotiation,
                 uint32_t advertise[static N_ADVERTISE],
-                size_t speed,
+                uint64_t speed,
                 Duplex duplex,
                 NetDevPort port) {
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
@@ -794,6 +858,55 @@ int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels)
 
         if (need_update) {
                 ecmd.cmd = ETHTOOL_SCHANNELS;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
+int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
+        struct ethtool_pauseparam ecmd = {
+                .cmd = ETHTOOL_GPAUSEPARAM
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect_or_warn(fd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (rx >= 0 && ecmd.rx_pause != (uint32_t) rx) {
+                ecmd.rx_pause = rx;
+                need_update = true;
+        }
+
+        if (tx >= 0 && ecmd.tx_pause != (uint32_t) tx) {
+                ecmd.tx_pause = tx;
+                need_update = true;
+        }
+
+        if (autoneg >= 0 && ecmd.autoneg != (uint32_t) autoneg) {
+                ecmd.autoneg = autoneg;
+                need_update = true;
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SPAUSEPARAM;
 
                 r = ioctl(*fd, SIOCETHTOOL, &ifr);
                 if (r < 0)
@@ -939,6 +1052,12 @@ int config_parse_nic_buffer_size(const char *unit,
         if (streq(lvalue, "RxBufferSize")) {
                 ring->rx_pending = k;
                 ring->rx_pending_set = true;
+        } else if (streq(lvalue, "RxMiniBufferSize")) {
+                ring->rx_mini_pending = k;
+                ring->rx_mini_pending_set = true;
+        } else if (streq(lvalue, "RxJumboBufferSize")) {
+                ring->rx_jumbo_pending = k;
+                ring->rx_jumbo_pending_set = true;
         } else if (streq(lvalue, "TxBufferSize")) {
                 ring->tx_pending = k;
                 ring->tx_pending_set = true;

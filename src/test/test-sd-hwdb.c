@@ -1,6 +1,7 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "errno.h"
 #include "tests.h"
 
@@ -12,7 +13,7 @@ static int test_failed_enumerate(void) {
         log_info("/* %s */", __func__);
 
         r = sd_hwdb_new(&hwdb);
-        if (r == -ENOENT)
+        if (r == -ENOENT || ERRNO_IS_PRIVILEGE(r))
                 return r;
         assert_se(r == 0);
 

@@ -314,13 +314,9 @@ char *bus_address_escape(const char *v) {
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
         assert(m);
 
-        if (r < 0) {
+        if (sd_bus_error_is_set(error) || r < 0) {
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
                         sd_bus_reply_method_errno(m, r, error);
-
-        } else if (sd_bus_error_is_set(error)) {
-                if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        sd_bus_reply_method_error(m, error);
         } else
                 return r;
 

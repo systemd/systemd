@@ -38,10 +38,18 @@ typedef enum UserNamespaceMode {
 
 typedef enum ResolvConfMode {
         RESOLV_CONF_OFF,
-        RESOLV_CONF_COPY_HOST,
-        RESOLV_CONF_COPY_STATIC,
+        RESOLV_CONF_COPY_HOST,     /* /etc/resolv.conf */
+        RESOLV_CONF_COPY_STATIC,   /* /usr/lib/systemd/resolv.conf */
+        RESOLV_CONF_COPY_UPLINK,   /* /run/systemd/resolve/resolv.conf */
+        RESOLV_CONF_COPY_STUB,     /* /run/systemd/resolve/stub-resolv.conf */
+        RESOLV_CONF_REPLACE_HOST,
+        RESOLV_CONF_REPLACE_STATIC,
+        RESOLV_CONF_REPLACE_UPLINK,
+        RESOLV_CONF_REPLACE_STUB,
         RESOLV_CONF_BIND_HOST,
         RESOLV_CONF_BIND_STATIC,
+        RESOLV_CONF_BIND_UPLINK,
+        RESOLV_CONF_BIND_STUB,
         RESOLV_CONF_DELETE,
         RESOLV_CONF_AUTO,
         _RESOLV_CONF_MODE_MAX,

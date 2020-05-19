@@ -9,8 +9,9 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
-#include "hashmap.h"
+#include "bus-locator.h"
 #include "macro.h"
+#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -21,6 +22,27 @@ typedef enum BusTransport {
         _BUS_TRANSPORT_MAX,
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
+
+typedef struct BusObjectImplementation BusObjectImplementation;
+
+typedef struct BusObjectVtablePair {
+        const sd_bus_vtable *vtable;
+        sd_bus_object_find_t object_find;
+} BusObjectVtablePair;
+
+struct BusObjectImplementation {
+        const char *path;
+        const char *interface;
+        const sd_bus_vtable **vtables;
+        const BusObjectVtablePair *fallback_vtables;
+        sd_bus_node_enumerator_t node_enumerator;
+        bool manager;
+        const BusObjectImplementation **children;
+};
+
+#define BUS_VTABLES(...) ((const sd_bus_vtable* []){ __VA_ARGS__, NULL })
+#define BUS_FALLBACK_VTABLES(...) ((const BusObjectVtablePair[]) { __VA_ARGS__, {} })
+#define BUS_IMPLEMENTATIONS(...) ((const BusObjectImplementation* []) { __VA_ARGS__, NULL })
 
 typedef int (*bus_property_set_t) (sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
@@ -51,11 +73,6 @@ int bus_event_loop_with_idle(sd_event *e, sd_bus *bus, const char *name, usec_t 
 int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *c);
-
-int bus_test_polkit(sd_bus_message *call, int capability, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
-
-int bus_verify_polkit_async(sd_bus_message *call, int capability, const char *action, const char **details, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
-void bus_verify_polkit_async_registry_free(Hashmap *registry);
 
 int bus_connect_system_systemd(sd_bus **_bus);
 int bus_connect_user_systemd(sd_bus **_bus);
@@ -184,3 +201,23 @@ static inline int bus_open_system_watch_bind(sd_bus **ret) {
 int bus_reply_pair_array(sd_bus_message *m, char **l);
 
 extern const struct hash_ops bus_message_hash_ops;
+
+/* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface
+ * strings encapsulated within a single struct.
+ */
+int bus_call_method_async(sd_bus *bus, sd_bus_slot **slot, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
+int bus_call_method(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *types, ...);
+int bus_get_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, sd_bus_message **reply, const char *type);
+int bus_get_property_trivial(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char type, void *ptr);
+int bus_get_property_string(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char **ret);
+int bus_get_property_strv(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, char ***ret);
+int bus_set_property(sd_bus *bus, const BusLocator *locator, const char *member, sd_bus_error *error, const char *type, ...);
+int bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata);
+int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
+int bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const BusLocator *locator, const char *member);
+
+int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, void *userdata);
+int bus_introspect_implementations(
+                FILE *out,
+                const char *pattern,
+                const BusObjectImplementation* const* bus_objects);

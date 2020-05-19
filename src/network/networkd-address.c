@@ -20,6 +20,24 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret) {
+        assert(link);
+        assert(ret);
+
+        /* see RFC4291 section 2.5.1 */
+        ret->s6_addr[8]  = link->mac.ether_addr_octet[0];
+        ret->s6_addr[8] ^= 1 << 1;
+        ret->s6_addr[9]  = link->mac.ether_addr_octet[1];
+        ret->s6_addr[10] = link->mac.ether_addr_octet[2];
+        ret->s6_addr[11] = 0xff;
+        ret->s6_addr[12] = 0xfe;
+        ret->s6_addr[13] = link->mac.ether_addr_octet[3];
+        ret->s6_addr[14] = link->mac.ether_addr_octet[4];
+        ret->s6_addr[15] = link->mac.ether_addr_octet[5];
+
+        return 0;
+}
+
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 
@@ -33,6 +51,7 @@ int address_new(Address **ret) {
                 .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
                 .cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME,
                 .duplicate_address_detection = ADDRESS_FAMILY_IPV6,
+                .prefix_route = true,
         };
 
         *ret = TAKE_PTR(address);
@@ -186,7 +205,7 @@ static int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS(address_hash_ops, Address, address_hash_func, address_compare_func);
+DEFINE_HASH_OPS(address_hash_ops, Address, address_hash_func, address_compare_func);
 
 bool address_equal(Address *a1, Address *a2) {
         if (a1 == a2)
@@ -596,7 +615,7 @@ int address_configure(
         if (address->manage_temporary_address)
                 address->flags |= IFA_F_MANAGETEMPADDR;
 
-        if (address->prefix_route)
+        if (!address->prefix_route)
                 address->flags |= IFA_F_NOPREFIXROUTE;
 
         if (address->autojoin)
@@ -667,7 +686,7 @@ int address_configure(
                         _cleanup_free_ char *pretty = NULL;
 
                         (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
-                        log_debug("Starting IPv4ACD client. Probing address %s", strna(pretty));
+                        log_link_debug(link, "Starting IPv4ACD client. Probing address %s", strna(pretty));
                 }
 
                 r = sd_ipv4acd_start(address->acd, true);
@@ -1001,6 +1020,8 @@ int config_parse_address_flags(const char *unit,
         else if (streq(lvalue, "ManageTemporaryAddress"))
                 n->manage_temporary_address = r;
         else if (streq(lvalue, "PrefixRoute"))
+                n->prefix_route = !r;
+        else if (streq(lvalue, "AddPrefixRoute"))
                 n->prefix_route = r;
         else if (streq(lvalue, "AutoJoin"))
                 n->autojoin = r;
@@ -1050,6 +1071,7 @@ int config_parse_address_scope(const char *unit,
                 }
         }
 
+        n->scope_set = true;
         n = NULL;
         return 0;
 }
@@ -1121,6 +1143,9 @@ int address_section_verify(Address *address) {
                                          "Ignoring [Address] section from line %u.",
                                          address->section->filename, address->section->line);
         }
+
+        if (!address->scope_set && in_addr_is_localhost(address->family, &address->in_addr) > 0)
+                address->scope = RT_SCOPE_HOST;
 
         return 0;
 }

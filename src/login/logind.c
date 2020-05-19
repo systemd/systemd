@@ -9,6 +9,8 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-log-control-api.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "def.h"
@@ -26,6 +28,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -622,53 +625,19 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/login1", "org.freedesktop.login1.Manager", manager_vtable, m);
+        r = bus_add_implementation(m->bus, &manager_object, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add manager object vtable: %m");
+                return r;
 
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/seat", "org.freedesktop.login1.Seat", seat_vtable, seat_object_find, m);
+        r = bus_log_control_api_register(m->bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to add seat object vtable: %m");
+                return r;
 
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/seat", seat_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add seat enumerator: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/session", "org.freedesktop.login1.Session", session_vtable, session_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add session object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/session", session_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add session enumerator: %m");
-
-        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/login1/user", "org.freedesktop.login1.User", user_vtable, user_object_find, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add user object vtable: %m");
-
-        r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/login1/user", user_node_enumerator, m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add user enumerator: %m");
-
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "JobRemoved",
-                        match_job_removed, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "JobRemoved", match_job_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for JobRemoved: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UnitRemoved",
-                        match_unit_removed, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "UnitRemoved", match_unit_removed, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
@@ -683,26 +652,11 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = sd_bus_match_signal_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reloading",
-                        match_reloading, NULL, m);
+        r = bus_match_signal_async(m->bus, NULL, bus_systemd_mgr, "Reloading", match_reloading, NULL, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = sd_bus_call_method_async(
-                        m->bus,
-                        NULL,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Subscribe",
-                        NULL, NULL,
-                        NULL);
+        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable subscription: %m");
 
@@ -1196,12 +1150,15 @@ static int run(int argc, char *argv[]) {
         log_set_facility(LOG_AUTH);
         log_setup_service();
 
-        umask(0022);
+        r = service_parse_argv("systemd-logind.service",
+                               "Manager for user logins and devices and privileged operations.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
 
-        if (argc != 1) {
-                log_error("This program takes no arguments.");
-                return -EINVAL;
-        }
+        umask(0022);
 
         r = mac_selinux_init();
         if (r < 0)

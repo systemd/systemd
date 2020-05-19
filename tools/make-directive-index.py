@@ -7,166 +7,6 @@ import re
 from xml_helper import xml_parse, xml_print, tree
 from copy import deepcopy
 
-TEMPLATE = '''\
-<refentry id="systemd.directives" conditional="HAVE_PYTHON">
-
-        <refentryinfo>
-                <title>systemd.directives</title>
-                <productname>systemd</productname>
-        </refentryinfo>
-
-        <refmeta>
-                <refentrytitle>systemd.directives</refentrytitle>
-                <manvolnum>7</manvolnum>
-        </refmeta>
-
-        <refnamediv>
-                <refname>systemd.directives</refname>
-                <refpurpose>Index of configuration directives</refpurpose>
-        </refnamediv>
-
-        <refsect1>
-                <title>Unit directives</title>
-
-                <para>Directives for configuring units, used in unit
-                files.</para>
-
-                <variablelist id='unit-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>Options on the kernel command line</title>
-
-                <para>Kernel boot options for configuring the behaviour of the
-                systemd process.</para>
-
-                <variablelist id='kernel-commandline-options' />
-        </refsect1>
-
-        <refsect1>
-                <title>Environment variables</title>
-
-                <para>Environment variables understood by the systemd manager
-                and other programs and environment variable-compatible settings.</para>
-
-                <variablelist id='environment-variables' />
-        </refsect1>
-
-        <refsect1>
-                <title>EFI variables</title>
-
-                <para>EFI variables understood by
-                <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-                and other programs.</para>
-
-                <variablelist id='efi-variables' />
-        </refsect1>
-
-        <refsect1>
-                <title>UDEV directives</title>
-
-                <para>Directives for configuring systemd units through the
-                udev database.</para>
-
-                <variablelist id='udev-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>Network directives</title>
-
-                <para>Directives for configuring network links through the
-                net-setup-link udev builtin and networks through
-                systemd-networkd.</para>
-
-                <variablelist id='network-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>Journal fields</title>
-
-                <para>Fields in the journal events with a well known meaning.</para>
-
-                <variablelist id='journal-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>PAM configuration directives</title>
-
-                <para>Directives for configuring PAM behaviour.</para>
-
-                <variablelist id='pam-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title><filename>/etc/crypttab</filename> and
-                <filename>/etc/fstab</filename> options</title>
-
-                <para>Options which influence mounted filesystems and
-                encrypted volumes.</para>
-
-                <variablelist id='fstab-options' />
-        </refsect1>
-
-        <refsect1>
-                <title><citerefentry><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-                directives</title>
-
-                <para>Directives for configuring systemd-nspawn containers.</para>
-
-                <variablelist id='nspawn-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>Program configuration options</title>
-
-                <para>Directives for configuring the behaviour of the
-                systemd process and other tools through configuration files.</para>
-
-                <variablelist id='config-directives' />
-        </refsect1>
-
-        <refsect1>
-                <title>Command line options</title>
-
-                <para>Command-line options accepted by programs in the
-                systemd suite.</para>
-
-                <variablelist id='options' />
-        </refsect1>
-
-        <refsect1>
-                <title>Constants</title>
-
-                <para>Various constant used and/or defined by systemd.</para>
-
-                <variablelist id='constants' />
-        </refsect1>
-
-        <refsect1>
-                <title>Miscellaneous options and directives</title>
-
-                <para>Other configuration elements which don't fit in
-                any of the above groups.</para>
-
-                <variablelist id='miscellaneous' />
-        </refsect1>
-
-        <refsect1>
-                <title>Files and directories</title>
-
-                <para>Paths and file names referred to in the
-                documentation.</para>
-
-                <variablelist id='filenames' />
-        </refsect1>
-
-        <refsect1>
-                <title>Colophon</title>
-                <para id='colophon' />
-        </refsect1>
-</refentry>
-'''
-
 COLOPHON = '''\
 This index contains {count} entries in {sections} sections,
 referring to {pages} individual manual pages.
@@ -180,9 +20,10 @@ def _extract_directives(directive_groups, formatting, page):
     storopt = directive_groups['options']
     for variablelist in t.iterfind('.//variablelist'):
         klass = variablelist.attrib.get('class')
+        searchpath = variablelist.attrib.get('xpath','./varlistentry/term/varname')
         storvar = directive_groups[klass or 'miscellaneous']
         # <option>s go in OPTIONS, unless class is specified
-        for xpath, stor in (('./varlistentry/term/varname', storvar),
+        for xpath, stor in ((searchpath, storvar),
                             ('./varlistentry/term/option',
                              storvar if klass else storopt)):
             for name in variablelist.iterfind(xpath):
@@ -199,6 +40,13 @@ def _extract_directives(directive_groups, formatting, page):
                         name.tail = ''
                     name.text = text
                     formatting[text] = name
+        extra = variablelist.attrib.get('extra-ref')
+        if extra:
+            stor[extra].append((pagename, section))
+            if extra not in formatting:
+                elt = tree.Element("varname")
+                elt.text= extra
+                formatting[extra] = elt
 
     storfile = directive_groups['filenames']
     for xpath, absolute_only in (('.//refsynopsisdiv//filename', False),
@@ -236,6 +84,18 @@ def _extract_directives(directive_groups, formatting, page):
         name.tail = ''
         if name.text.startswith('('): # a cast, strip it
             name.text = name.text.partition(' ')[2]
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
+
+    storfile = directive_groups['specifiers']
+    for name in t.iterfind(".//table[@class='specifiers']//entry/literal"):
+        if name.text[0] != '%' or name.getparent().text is not None:
+            continue
+        if name.attrib.get('index') == 'false':
+            continue
+        storfile[name.text].append((pagename, section))
+        formatting[name.text] = name
+    for name in t.iterfind(".//literal[@class='specifiers']"):
         storfile[name.text].append((pagename, section))
         formatting[name.text] = name
 
@@ -290,9 +150,9 @@ def _make_page(template, directive_groups, formatting):
 
     return template
 
-def make_page(*xml_files):
+def make_page(template_path, xml_files):
     "Extract directives from xml_files and return XML index tree."
-    template = tree.fromstring(TEMPLATE)
+    template = xml_parse(template_path)
     names = [vl.get('id') for vl in template.iterfind('.//variablelist')]
     directive_groups = {name:collections.defaultdict(list)
                         for name in names}
@@ -307,4 +167,7 @@ def make_page(*xml_files):
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'wb') as f:
-        f.write(xml_print(make_page(*sys.argv[2:])))
+        template_path = sys.argv[2]
+        xml_files = sys.argv[3:]
+        xml = make_page(template_path, xml_files)
+        f.write(xml_print(xml))

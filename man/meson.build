@@ -34,6 +34,7 @@ custom_entities_ent = configure_file(
 man_pages = []
 html_pages = []
 source_xml_files = []
+dbus_docs = []
 foreach tuple : xsltproc.found() ? manpages : []
         stem = tuple[0]
         section = tuple[1]
@@ -90,7 +91,11 @@ foreach tuple : xsltproc.found() ? manpages : []
                         install_dir : join_paths(docdir, 'html'))
                 html_pages += p3
 
-                source_xml_files += files(tuple[0] + '.xml')
+                file = files(tuple[0] + '.xml')
+                source_xml_files += file
+                if tuple[0].startswith('org.freedesktop.')
+                        dbus_docs += file
+                endif
         else
                 message('Skipping @0@.@1@ because @2@ is false'.format(stem, section, condition))
         endif
@@ -105,9 +110,9 @@ endif
 
 systemd_directives_xml = custom_target(
         'systemd.directives.xml',
-        input : source_xml_files,
+        input : ['directives-template.xml', source_xml_files],
         output : 'systemd.directives.xml',
-        command : [make_directive_index_py, '@OUTPUT@'] + source_xml_files)
+        command : [make_directive_index_py, '@OUTPUT@', '@INPUT@'])
 
 nonindex_xml_files = source_xml_files + [systemd_directives_xml]
 systemd_index_xml = custom_target(
@@ -193,13 +198,26 @@ run_target(
 
 ############################################################
 
+if dbus_docs.length() > 0
+        custom_target(
+                'update-dbus-docs',
+                output : 'update-dbus-docs',
+                command : ['python3',
+                           '@0@/tools/update-dbus-docs.py'.format(project_source_root),
+                           '--build-dir=@0@'.format(project_build_root),
+                           '@INPUT@'],
+                input : dbus_docs)
+endif
+
+############################################################
+
 if git.found()
         custom_target(
                 'update-man-rules',
                 output : 'update-man-rules',
                 command : ['sh', '-c',
                            'cd @0@ && '.format(meson.build_root()) +
-                           'python3 @0@/tools/make-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
+                           'python3 @0@/tools/update-man-rules.py $(git ls-files ":/man/*.xml") >t && '.format(project_source_root) +
                            'mv t @0@/rules/meson.build'.format(meson.current_source_dir())],
                 depend_files : custom_entities_ent)
 endif

@@ -77,7 +77,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
                         return NSS_STATUS_TRYAGAIN;
                 }
 
-                /* We respond to our local host name, our hostname suffixed with a single dot. */
+                /* We respond to our local hostname, our hostname suffixed with a single dot. */
                 if (!streq(name, hn) && !streq_ptr(startswith(name, hn), "."))
                         goto not_found;
 

@@ -166,9 +166,8 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
         if (g->curl)
                 curl_multi_cleanup(g->curl);
 
-        while ((io = hashmap_steal_first(g->ios))) {
+        while ((io = hashmap_steal_first(g->ios)))
                 sd_event_source_unref(io);
-        }
 
         hashmap_free(g->ios);
 
@@ -245,6 +244,15 @@ int curl_glue_make(CURL **ret, const char *url, void *userdata) {
                 return -EIO;
 
         if (curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L) != CURLE_OK)
+                return -EIO;
+
+        if (curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1L) != CURLE_OK)
+                return -EIO;
+
+        if (curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 60L) != CURLE_OK)
+                return -EIO;
+
+        if (curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 30L) != CURLE_OK)
                 return -EIO;
 
         *ret = TAKE_PTR(c);

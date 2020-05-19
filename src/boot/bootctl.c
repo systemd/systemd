@@ -982,8 +982,9 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         char machine_string[SD_ID128_STRING_MAX];
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -1;
         const char *p;
-        int r, fd;
+        int r;
 
         p = prefix_roota(esp_path, "/loader/loader.conf");
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
@@ -993,11 +994,9 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open \"%s\" for writing: %m", p);
 
-        f = fdopen(fd, "w");
-        if (!f) {
-                safe_close(fd);
+        f = take_fdopen(&fd, "w");
+        if (!f)
                 return log_oom();
-        }
 
         fprintf(f, "#timeout 3\n"
                    "#console-mode keep\n"
@@ -1007,7 +1006,7 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", p);
 
-        r = link_tmpfile(fd, t, p);
+        r = link_tmpfile(fileno(f), t, p);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -1163,6 +1162,15 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
+static void print_yes_no_line(bool first, bool good, const char *name) {
+        printf("%s%s%s%s %s\n",
+               first ? "     Features: " : "               ",
+               good ? ansi_highlight_green() : ansi_highlight_red(),
+               good ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK),
+               ansi_normal(),
+               name);
+}
+
 static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
         int r, k;
@@ -1242,18 +1250,15 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("Current Boot Loader:\n");
                 printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
 
-                for (i = 0; i < ELEMENTSOF(flags); i++) {
+                for (i = 0; i < ELEMENTSOF(flags); i++)
+                        print_yes_no_line(i == 0, FLAGS_SET(loader_features, flags[i].flag), flags[i].name);
 
-                        if (i == 0)
-                                printf("     Features: ");
-                        else
-                                printf("               ");
+                sd_id128_t bootloader_esp_uuid;
+                bool have_bootloader_esp_uuid = efi_loader_get_device_part_uuid(&bootloader_esp_uuid) >= 0;
 
-                        if (FLAGS_SET(loader_features, flags[i].flag))
-                                printf("%s%s%s %s\n", ansi_highlight_green(), special_glyph(SPECIAL_GLYPH_CHECK_MARK), ansi_normal(), flags[i].name);
-                        else
-                                printf("%s%s%s %s\n", ansi_highlight_red(), special_glyph(SPECIAL_GLYPH_CROSS_MARK), ansi_normal(), flags[i].name);
-                }
+                print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP partition information");
+                if (have_bootloader_esp_uuid && !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
+                        printf("WARNING: The boot loader reports different ESP UUID then detected!\n");
 
                 if (stub)
                         printf("         Stub: %s\n", stub);
@@ -1430,7 +1435,7 @@ static int install_random_seed(const char *esp) {
                          * the EFI variable space we can make sure that even though the random seeds on disk
                          * are all the same they will be different on each system under the assumption that
                          * the EFI variable space is maintained separate from the random seed storage. That
-                         * is generally the case on physical systems, as the ESP is stored on persistant
+                         * is generally the case on physical systems, as the ESP is stored on persistent
                          * storage, and the EFI variables in NVRAM. However in virtualized environments this
                          * is generally not true: the EFI variable set is typically stored along with the
                          * disk image itself. For example, using the OVMF EFI firmware the EFI variables are

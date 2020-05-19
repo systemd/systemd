@@ -14,6 +14,7 @@ typedef struct Manager Manager;
 #include <sys/capability.h>
 
 #include "cgroup-util.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
 #include "fdset.h"
@@ -21,6 +22,7 @@ typedef struct Manager Manager;
 #include "missing_resource.h"
 #include "namespace.h"
 #include "nsflags.h"
+#include "numa-util.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -50,8 +52,6 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_INHERIT,
         EXEC_OUTPUT_NULL,
         EXEC_OUTPUT_TTY,
-        EXEC_OUTPUT_SYSLOG,
-        EXEC_OUTPUT_SYSLOG_AND_CONSOLE,
         EXEC_OUTPUT_KMSG,
         EXEC_OUTPUT_KMSG_AND_CONSOLE,
         EXEC_OUTPUT_JOURNAL,
@@ -160,6 +160,7 @@ struct ExecContext {
         bool working_directory_home:1;
 
         bool oom_score_adjust_set:1;
+        bool coredump_filter_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
@@ -178,9 +179,11 @@ struct ExecContext {
         int ioprio;
         int cpu_sched_policy;
         int cpu_sched_priority;
+        uint64_t coredump_filter;
 
         CPUSet cpu_set;
         NUMAPolicy numa_policy;
+        bool cpu_affinity_from_numa;
 
         ExecInput std_input;
         ExecOutput std_output;
@@ -250,6 +253,8 @@ struct ExecContext {
 
         int log_level_max;
 
+        char *log_namespace;
+
         bool private_tmp;
         bool private_network;
         bool private_devices;
@@ -258,6 +263,7 @@ struct ExecContext {
         bool protect_kernel_tunables;
         bool protect_kernel_modules;
         bool protect_kernel_logs;
+        bool protect_clock;
         bool protect_control_groups;
         ProtectSystem protect_system;
         ProtectHome protect_home;
@@ -401,6 +407,8 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_runtime_vacuum(Manager *m);
 
 void exec_params_clear(ExecParameters *p);
+
+bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

@@ -70,7 +70,7 @@
         <literal>Lennart's Computer</literal> an Internet hostname of
         <literal>lennarts-computer</literal> might be a good choice.
         If this parameter is not set, an application should fall back
-        to the Internet host name for presentation
+        to the Internet hostname for presentation
         purposes.</para></listitem>
       </varlistentry>
 

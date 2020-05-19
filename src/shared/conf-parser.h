@@ -115,10 +115,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_long);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint8);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint16);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint32);
+CONFIG_PARSER_PROTOTYPE(config_parse_int32);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_double);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_size);
-CONFIG_PARSER_PROTOTYPE(config_parse_si_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_si_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
 CONFIG_PARSER_PROTOTYPE(config_parse_bool);
 CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
@@ -137,9 +138,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_signal);
 CONFIG_PARSER_PROTOTYPE(config_parse_personality);
 CONFIG_PARSER_PROTOTYPE(config_parse_permille);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifname);
+CONFIG_PARSER_PROTOTYPE(config_parse_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
+CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,

@@ -126,26 +126,26 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         /* create new RTM message */
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 
         r = sd_rtnl_message_neigh_set_flags(req, fdb_entry->fdb_ntf_flags);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not set neighbor flags: %m");
 
         /* only NUD_PERMANENT state supported. */
         r = sd_rtnl_message_neigh_set_state(req, NUD_NOARP | NUD_PERMANENT);
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not set neighbor state: %m");
 
         r = sd_netlink_message_append_data(req, NDA_LLADDR, &fdb_entry->mac_addr, sizeof(fdb_entry->mac_addr));
         if (r < 0)
-                return rtnl_log_create_error(r);
+                return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
 
         /* VLAN Id is optional. We'll add VLAN Id only if it's specified. */
         if (fdb_entry->vlan_id > 0) {
                 r = sd_netlink_message_append_u16(req, NDA_VLAN, fdb_entry->vlan_id);
                 if (r < 0)
-                        return rtnl_log_create_error(r);
+                        return log_link_error_errno(link, r, "Could not append NDA_VLAN attribute: %m");
         }
 
         if (!in_addr_is_null(fdb_entry->family, &fdb_entry->destination_addr)) {

@@ -14,6 +14,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -44,6 +45,8 @@ enum {
 
 static bool arg_no_block = false;
 static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
+static bool arg_full = false;
 static bool arg_ask_password = true;
 static bool arg_quiet = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -89,6 +92,8 @@ static int help(void) {
                "     --version                    Show package version\n"
                "     --no-block                   Do not wait until operation finished\n"
                "     --no-pager                   Do not pipe output into a pager\n"
+               "     --no-legend                  Do not show the headers\n"
+               "  -l --full                       Do not ellipsize output\n"
                "     --no-ask-password            Do not prompt for password\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "     --user                       Run as user unit\n"
@@ -124,6 +129,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_BLOCK,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
                 ARG_SYSTEM,
@@ -145,6 +151,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
                 { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
+                { "full",               no_argument,       NULL, 'l'                    },
                 { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
                 { "quiet",              no_argument,       NULL, 'q'                    },
                 { "user",               no_argument,       NULL, ARG_USER               },
@@ -177,7 +185,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (strstr(program_invocation_short_name, "systemd-umount"))
                         arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuG", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGl", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -193,6 +201,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                case 'l':
+                        arg_full = true;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -535,13 +551,7 @@ static int start_transient_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -622,13 +632,7 @@ static int start_transient_automount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make mount unit name: %m");
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -838,13 +842,7 @@ static int stop_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to make %s unit name from path %s: %m", suffix + 1, where);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StopUnit");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StopUnit");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1361,43 +1359,12 @@ enum {
         _COLUMN_MAX,
 };
 
-struct item {
-        char* columns[_COLUMN_MAX];
-};
-
-static int compare_item(const struct item *a, const struct item *b) {
-        if (a->columns[COLUMN_NODE] == b->columns[COLUMN_NODE])
-                return 0;
-        if (!a->columns[COLUMN_NODE])
-                return 1;
-        if (!b->columns[COLUMN_NODE])
-                return -1;
-
-        return path_compare(a->columns[COLUMN_NODE], b->columns[COLUMN_NODE]);
-}
-
 static int list_devices(void) {
-
-        static const char * const titles[_COLUMN_MAX] = {
-                [COLUMN_NODE] = "NODE",
-                [COLUMN_PATH] = "PATH",
-                [COLUMN_MODEL] = "MODEL",
-                [COLUMN_WWN] = "WWN",
-                [COLUMN_FSTYPE] = "TYPE",
-                [COLUMN_LABEL] = "LABEL",
-                [COLUMN_UUID] = "UUID"
-        };
-
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        size_t n_allocated = 0, n = 0, i;
-        size_t column_width[_COLUMN_MAX];
-        struct item *items = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_device *d;
         unsigned c;
         int r;
-
-        for (c = 0; c < _COLUMN_MAX; c++)
-                column_width[c] = strlen(titles[c]);
 
         r = sd_device_enumerator_new(&e);
         if (r < 0)
@@ -1411,19 +1378,22 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
+        table = table_new("NODE", "PATH", "MODEL", "WWN", "TYPE", "LABEL", "UUID");
+        if (!table)
+                return log_oom();
+
+        if (arg_full)
+                table_set_width(table, 0);
+
+        r = table_set_sort(table, (size_t) 0, (size_t) SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set sort index: %m");
+
+        table_set_header(table, arg_legend);
+
         FOREACH_DEVICE(e, d) {
-                struct item *j;
-
-                if (!GREEDY_REALLOC0(items, n_allocated, n+1)) {
-                        r = log_oom();
-                        goto finish;
-                }
-
-                j = items + n++;
-
                 for (c = 0; c < _COLUMN_MAX; c++) {
                         const char *x = NULL;
-                        size_t k;
 
                         switch (c) {
 
@@ -1456,59 +1426,19 @@ static int list_devices(void) {
                                 break;
                         }
 
-                        if (isempty(x))
-                                continue;
-
-                        j->columns[c] = strdup(x);
-                        if (!j->columns[c]) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        k = strlen(x);
-                        if (k > column_width[c])
-                                column_width[c] = k;
+                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, strna(x));
+                        if (r < 0)
+                                return table_log_add_error(r);
                 }
         }
-
-        if (n == 0) {
-                log_info("No devices found.");
-                goto finish;
-        }
-
-        typesafe_qsort(items, n, compare_item);
 
         (void) pager_open(arg_pager_flags);
 
-        fputs(ansi_underline(), stdout);
-        for (c = 0; c < _COLUMN_MAX; c++) {
-                if (c > 0)
-                        fputc(' ', stdout);
+        r = table_print(table, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print table: %m");
 
-                printf("%-*s", (int) column_width[c], titles[c]);
-        }
-        fputs(ansi_normal(), stdout);
-        fputc('\n', stdout);
-
-        for (i = 0; i < n; i++) {
-                for (c = 0; c < _COLUMN_MAX; c++) {
-                        if (c > 0)
-                                fputc(' ', stdout);
-
-                        printf("%-*s", (int) column_width[c], strna(items[i].columns[c]));
-                }
-                fputc('\n', stdout);
-        }
-
-        r = 0;
-
-finish:
-        for (i = 0; i < n; i++)
-                for (c = 0; c < _COLUMN_MAX; c++)
-                        free(items[i].columns[c]);
-
-        free(items);
-        return r;
+        return 0;
 }
 
 static int run(int argc, char* argv[]) {

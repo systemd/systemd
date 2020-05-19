@@ -54,15 +54,19 @@
     off the process, i.e. on all processes that match <varname>NotifyAccess=</varname><option>main</option> or
     <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit sends an
     <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
-    attribute the message to the unit, and thus will ignore it, even if
-    <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+    attribute the message to the unit, and thus will ignore it, even if <varname>NotifyAccess=</varname><option>all
+    </option> is set for it. When <option>--no-block</option> is used, all synchronization for reception of notifications
+    is disabled, and hence the aforementioned race may occur if the invoking process is not the service manager or spawned
+    by the service manager.</para>
 
-    <para><command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function> pretending to
-    have the PID of the invoking process. This will only succeed when invoked with sufficient privileges. On failure,
-    it will then fall back to invoking it under its own PID. This behaviour is useful in order that when the tool is
-    invoked from a shell script the shell process — and not the <command>systemd-notify</command> process — appears as
-    sender of the message, which in turn is helpful if the shell process is the main process of a service, due to the
-    limitations of <varname>NotifyAccess=</varname><option>all</option> described above.</para>
+    <para>Hence, <command>systemd-notify</command> will first attempt to invoke <function>sd_notify()</function>
+    pretending to have the PID of the invoking process. This will only succeed when invoked with sufficient privileges.
+    On failure, it will then fall back to invoking it under its own PID. This behaviour is useful in order that when
+    the tool is invoked from a shell script the shell process — and not the <command>systemd-notify</command> process
+    — appears as sender of the message, which in turn is helpful if the shell process is the main process of a service,
+    due to the limitations of <varname>NotifyAccess=</varname><option>all</option>. Use the <option>--pid=</option>
+    switch to tweak this behaviour.</para>
+
   </refsect1>
 
   <refsect1>
@@ -84,12 +88,13 @@
       <varlistentry>
         <term><option>--pid=</option></term>
 
-        <listitem><para>Inform the init system about the main PID of
-        the daemon. Takes a PID as argument. If the argument is
-        omitted, the PID of the process that invoked
-        <command>systemd-notify</command> is used. This is equivalent
-        to <command>systemd-notify MAINPID=$PID</command>. For details
-        about the semantics of this option see
+        <listitem><para>Inform the service manager about the main PID of the daemon. Takes a PID as
+        argument. If the argument is specified as <literal>auto</literal> or omitted, the PID of the process
+        that invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
+        argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
+        command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
+        used — even if it is the service manager. This is equivalent to <command>systemd-notify
+        MAINPID=$PID</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
@@ -126,6 +131,17 @@
         with the <command>is-system-running</command> command. It will
         return <literal>offline</literal> if the system was not booted
         with systemd.  </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-block</option></term>
+
+        <listitem><para>Do not synchronously wait for the requested operation to finish.
+        Use of this option is only recommended when <command>systemd-notify</command>
+        is spawned by the service manager, or when the invoking process is directly spawned
+        by the service manager and has enough privileges to allow <command>systemd-notify
+        </command> to send the notification on its behalf. Sending notifications with
+        this option set is prone to race conditions in all other cases.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

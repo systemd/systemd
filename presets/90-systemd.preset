@@ -7,8 +7,9 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# These ones should be enabled by default, even if distributions
-# generally follow a default-off policy.
+# Settings for systemd units distributed with systemd itself. Most of these
+# should be enabled by default, even if the distribution follows a general
+# default-off policy.
 
 enable remote-fs.target
 enable remote-cryptsetup.target
@@ -18,6 +19,9 @@ enable getty@.service
 enable systemd-timesyncd.service
 enable systemd-networkd.service
 enable systemd-resolved.service
+enable systemd-homed.service
+enable systemd-userdbd.socket
+enable systemd-pstore.service
 
 disable console-getty.service
 disable debug-shell.service
@@ -29,8 +33,28 @@ enable reboot.target
 disable rescue.target
 disable exit.target
 
+disable systemd-networkd-wait-online.service
+disable systemd-time-wait-sync.service
+disable systemd-boot-check-no-failures.service
+disable systemd-network-generator.service
+
 disable syslog.socket
 
 disable systemd-journal-gatewayd.*
 disable systemd-journal-remote.*
 disable systemd-journal-upload.*
+
+# Passive targets: always off by default, since they should only be pulled in
+# by dependent units.
+
+disable cryptsetup-pre.target
+disable getty-pre.target
+disable local-fs-pre.target
+disable network.target
+disable network-pre.target
+disable nss-lookup.target
+disable nss-user-lookup.target
+disable remote-fs-pre.target
+disable rpcbind.target
+disable time-set.target
+disable time-sync.target

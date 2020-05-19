@@ -56,11 +56,17 @@ static int node_vtable_get_userdata(
 static void *vtable_method_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
 
+        if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
+                return SIZE_TO_PTR(p->x.method.offset); /* don't add offset on NULL, to make ubsan happy */
+
         return (uint8_t*) u + p->x.method.offset;
 }
 
 static void *vtable_property_convert_userdata(const sd_bus_vtable *p, void *u) {
         assert(p);
+
+        if (!u || FLAGS_SET(p->flags, SD_BUS_VTABLE_ABSOLUTE_OFFSET))
+                return SIZE_TO_PTR(p->x.property.offset); /* as above */
 
         return (uint8_t*) u + p->x.property.offset;
 }
@@ -774,7 +780,7 @@ static int vtable_append_all_properties(
                 if (v->flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
-                /* Let's not include properties marked as "explicit" in any message that contians a generic
+                /* Let's not include properties marked as "explicit" in any message that contains a generic
                  * dump of properties, but only in those generated as a response to an explicit request. */
                 if (v->flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
                         continue;
@@ -821,10 +827,10 @@ static int property_get_all_callbacks_run(
         if (r < 0)
                 return r;
 
-        found_interface = !iface ||
-                streq(iface, "org.freedesktop.DBus.Properties") ||
-                streq(iface, "org.freedesktop.DBus.Peer") ||
-                streq(iface, "org.freedesktop.DBus.Introspectable");
+        found_interface = !iface || STR_IN_SET(iface,
+                                               "org.freedesktop.DBus.Properties",
+                                               "org.freedesktop.DBus.Peer",
+                                               "org.freedesktop.DBus.Introspectable");
 
         LIST_FOREACH(vtables, c, first) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -933,7 +939,6 @@ int introspect_path(
                 sd_bus_error *error) {
 
         _cleanup_set_free_free_ Set *s = NULL;
-        const char *previous_interface = NULL;
         _cleanup_(introspect_free) struct introspect intro = {};
         struct node_vtable *c;
         bool empty;
@@ -978,22 +983,10 @@ int introspect_path(
                 if (c->vtable[0].flags & SD_BUS_VTABLE_HIDDEN)
                         continue;
 
-                if (!streq_ptr(previous_interface, c->interface)) {
-                        if (previous_interface)
-                                fputs(" </interface>\n", intro.f);
-
-                        fprintf(intro.f, " <interface name=\"%s\">\n", c->interface);
-                }
-
-                r = introspect_write_interface(&intro, c->vtable);
+                r = introspect_write_interface(&intro, c->interface, c->vtable);
                 if (r < 0)
                         return r;
-
-                previous_interface = c->interface;
         }
-
-        if (previous_interface)
-                fputs(" </interface>\n", intro.f);
 
         if (empty) {
                 /* Nothing?, let's see if we exist at all, and if not

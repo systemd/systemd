@@ -250,19 +250,6 @@ _public_ int sd_id128_get_invocation(sd_id128_t *ret) {
         return 0;
 }
 
-static sd_id128_t make_v4_uuid(sd_id128_t id) {
-        /* Stolen from generate_random_uuid() of drivers/char/random.c
-         * in the kernel sources */
-
-        /* Set UUID version to 4 --- truly random generation */
-        id.bytes[6] = (id.bytes[6] & 0x0F) | 0x40;
-
-        /* Set the UUID variant to DCE */
-        id.bytes[8] = (id.bytes[8] & 0x3F) | 0x80;
-
-        return id;
-}
-
 _public_ int sd_id128_randomize(sd_id128_t *ret) {
         sd_id128_t t;
         int r;
@@ -279,7 +266,7 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
          * only guarantee this for newly generated UUIDs, not for
          * pre-existing ones. */
 
-        *ret = make_v4_uuid(t);
+        *ret = id128_make_v4_uuid(t);
         return 0;
 }
 
@@ -306,7 +293,7 @@ static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret)
         /* We chop off the trailing 16 bytes */
         memcpy(&result, p, MIN(khash_get_size(h), sizeof(result)));
 
-        *ret = make_v4_uuid(result);
+        *ret = id128_make_v4_uuid(result);
         return 0;
 }
 

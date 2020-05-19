@@ -5,6 +5,24 @@
 #include "networkd-link.h"
 #include "time-util.h"
 
+typedef struct IPv6Token IPv6Token;
+
+typedef enum IPv6TokenAddressGeneration {
+        IPV6_TOKEN_ADDRESS_GENERATION_NONE,
+        IPV6_TOKEN_ADDRESS_GENERATION_STATIC,
+        IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE,
+        _IPV6_TOKEN_ADDRESS_GENERATION_MAX,
+        _IPV6_TOKEN_ADDRESS_GENERATION_INVALID = -1,
+} IPv6TokenAddressGeneration;
+
+typedef enum IPv6AcceptRAStartDHCP6Client {
+        IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO,
+        IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS,
+        IPV6_ACCEPT_RA_START_DHCP6_CLIENT_YES,
+        _IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX,
+        _IPV6_ACCEPT_RA_START_DHCP6_CLIENT_INVALID = -1,
+} IPv6AcceptRAStartDHCP6Client;
+
 typedef struct NDiscRDNSS {
         usec_t valid_until;
         struct in6_addr address;
@@ -15,6 +33,16 @@ typedef struct NDiscDNSSL {
         /* The domain name follows immediately. */
 } NDiscDNSSL;
 
+struct IPv6Token {
+        IPv6TokenAddressGeneration address_generation_type;
+
+        uint8_t dad_counter;
+        struct in6_addr prefix;
+};
+
+int ipv6token_new(IPv6Token **ret);
+DEFINE_TRIVIAL_CLEANUP_FUNC(IPv6Token *, freep);
+
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
 }
@@ -24,3 +52,8 @@ void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ndisc_black_listed_prefix);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_generation_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_accept_ra_start_dhcp6_client);
+
+const char* ipv6_accept_ra_start_dhcp6_client_to_string(IPv6AcceptRAStartDHCP6Client i) _const_;
+IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client_from_string(const char *s) _pure_;

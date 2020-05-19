@@ -2,8 +2,18 @@
 #pragma once
 
 #include "in-addr-util.h"
+#include "list.h"
+#include "resolve-util.h"
+#include "time-util.h"
 
+typedef struct DnsScope DnsScope;
 typedef struct DnsServer DnsServer;
+typedef struct DnsStream DnsStream;
+typedef struct DnsPacket DnsPacket;
+typedef struct Link Link;
+typedef struct Manager Manager;
+
+#include "resolved-dnstls.h"
 
 typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
@@ -34,10 +44,6 @@ typedef enum DnsServerFeatureLevel {
 
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
-
-#include "resolved-dnstls.h"
-#include "resolved-link.h"
-#include "resolved-manager.h"
 
 struct DnsServer {
         Manager *manager;

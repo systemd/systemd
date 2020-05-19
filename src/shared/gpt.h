@@ -5,6 +5,8 @@
 
 #include "sd-id128.h"
 
+#include "id128-util.h"
+
 /* We only support root disk discovery for x86, x86-64, Itanium and ARM for
  * now, since EFI for anything else doesn't really exist, and we only
  * care for root partitions on the same disk as the EFI ESP. */
@@ -19,6 +21,9 @@
 #define GPT_SWAP        SD_ID128_MAKE(06,57,fd,6d,a4,ab,43,c4,84,e5,09,33,c8,4b,4f,4f)
 #define GPT_HOME        SD_ID128_MAKE(93,3a,c7,e1,2e,b4,4f,13,b8,44,0e,14,e2,ae,f9,15)
 #define GPT_SRV         SD_ID128_MAKE(3b,8f,84,25,20,e0,4f,3b,90,7f,1a,25,a7,6f,98,e8)
+#define GPT_VAR         SD_ID128_MAKE(4d,21,b0,16,b5,34,45,c2,a9,fb,5c,16,e0,91,fd,2d)
+#define GPT_TMP         SD_ID128_MAKE(7e,c6,f5,57,3b,c5,4a,ca,b2,93,16,ef,5d,f6,39,d1)
+#define GPT_USER_HOME   SD_ID128_MAKE(77,3f,91,ef,66,d4,49,b5,bd,83,d6,83,bf,40,ad,16)
 
 /* Verity partitions for the root partitions above (we only define them for the root partitions, because only they are
  * are commonly read-only and hence suitable for verity). */
@@ -53,7 +58,9 @@
 #  define GPT_ROOT_NATIVE_VERITY GPT_ROOT_ARM_VERITY
 #endif
 
+#define GPT_FLAG_REQUIRED_PARTITION (1ULL << 0)
 #define GPT_FLAG_NO_BLOCK_IO_PROTOCOL (1ULL << 1)
+#define GPT_FLAG_LEGACY_BIOS_BOOTABLE (1ULL << 2)
 
 /* Flags we recognize on the root, swap, home and srv partitions when
  * doing auto-discovery. These happen to be identical to what
@@ -63,3 +70,16 @@
 #define GPT_FLAG_NO_AUTO (1ULL << 63)
 
 #define GPT_LINUX_GENERIC SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
+
+const char *gpt_partition_type_uuid_to_string(sd_id128_t id);
+const char *gpt_partition_type_uuid_to_string_harder(
+                sd_id128_t id,
+                char buffer[static ID128_UUID_STRING_MAX]);
+int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret);
+
+typedef struct GptPartitionType {
+        sd_id128_t uuid;
+        const char *name;
+} GptPartitionType;
+
+extern const GptPartitionType gpt_partition_type_table[];

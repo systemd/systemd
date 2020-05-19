@@ -11,6 +11,7 @@ import time
 import os
 import tempfile
 import subprocess
+import sys
 
 from enum import Enum
 
@@ -32,7 +33,7 @@ class ExecutionResumeTest(unittest.TestCase):
         unit_file_content = '''
         [Service]
         Type=oneshot
-        ExecStart=/bin/sleep 2
+        ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         '''.format(self.output_file)
         self.unit_files[UnitFileChange.NO_CHANGE] = unit_file_content
@@ -41,7 +42,7 @@ class ExecutionResumeTest(unittest.TestCase):
         [Service]
         Type=oneshot
         ExecStart=/bin/bash -c "echo foo >> {0}"
-        ExecStart=/bin/sleep 2
+        ExecStart=/bin/sleep 3
         '''.format(self.output_file)
         self.unit_files[UnitFileChange.LINES_SWAPPED] = unit_file_content
 
@@ -49,7 +50,7 @@ class ExecutionResumeTest(unittest.TestCase):
         [Service]
         Type=oneshot
         ExecStart=/bin/bash -c "echo bar >> {0}"
-        ExecStart=/bin/sleep 2
+        ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         '''.format(self.output_file)
         self.unit_files[UnitFileChange.COMMAND_ADDED_BEFORE] = unit_file_content
@@ -57,7 +58,7 @@ class ExecutionResumeTest(unittest.TestCase):
         unit_file_content = '''
         [Service]
         Type=oneshot
-        ExecStart=/bin/sleep 2
+        ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         ExecStart=/bin/bash -c "echo bar >> {0}"
         '''.format(self.output_file)
@@ -67,7 +68,7 @@ class ExecutionResumeTest(unittest.TestCase):
         [Service]
         Type=oneshot
         ExecStart=/bin/bash -c "echo baz >> {0}"
-        ExecStart=/bin/sleep 2
+        ExecStart=/bin/sleep 3
         ExecStart=/bin/bash -c "echo foo >> {0}"
         ExecStart=/bin/bash -c "echo bar >> {0}"
         '''.format(self.output_file)
@@ -107,6 +108,7 @@ class ExecutionResumeTest(unittest.TestCase):
     def setup_unit(self):
         self.write_unit_file(UnitFileChange.NO_CHANGE)
         subprocess.check_call(['systemctl', '--job-mode=replace', '--no-block', 'start', self.unit])
+        time.sleep(1)
 
     def test_no_change(self):
         expected_output = 'foo\n'
@@ -207,4 +209,4 @@ class ExecutionResumeTest(unittest.TestCase):
         self.reload()
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout, verbosity=3))

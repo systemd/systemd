@@ -1,0 +1,10 @@
+[Unit]
+Description=TEST-09-ISSUE-2691
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=sh -c '>/testok'
+ExecStop=sh -c 'kill -SEGV $$$$'
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStopSec=270s

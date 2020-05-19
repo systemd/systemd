@@ -1,0 +1,14 @@
+[Match]
+Name=veth-peer
+
+[Network]
+Address=192.168.5.1/24
+Address=192.168.5.10/24
+IPv6AcceptRA=false
+DHCPServer=yes
+
+[DHCPServer]
+PoolOffset=10
+PoolSize=1
+DNS=192.168.5.1
+NTP=192.168.5.1

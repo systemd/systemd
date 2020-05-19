@@ -1,0 +1,7 @@
+[Unit]
+Description=TEST-30-ONCLOCKCHANGE
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

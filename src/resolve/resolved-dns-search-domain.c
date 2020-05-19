@@ -3,6 +3,8 @@
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-search-domain.h"
+#include "resolved-link.h"
+#include "resolved-manager.h"
 
 int dns_search_domain_new(
                 Manager *m,

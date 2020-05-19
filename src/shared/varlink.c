@@ -168,6 +168,7 @@ struct VarlinkServer {
 
         Hashmap *methods;
         VarlinkConnect connect_callback;
+        VarlinkDisconnect disconnect_callback;
 
         sd_event *event;
         int64_t event_priority;
@@ -270,6 +271,7 @@ static int varlink_new(Varlink **ret) {
 int varlink_connect_address(Varlink **ret, const char *address) {
         _cleanup_(varlink_unrefp) Varlink *v = NULL;
         union sockaddr_union sockaddr;
+        socklen_t sockaddr_len;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -278,6 +280,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         r = sockaddr_un_set_path(&sockaddr.un, address);
         if (r < 0)
                 return r;
+        sockaddr_len = r;
 
         r = varlink_new(&v);
         if (r < 0)
@@ -289,7 +292,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
 
         v->fd = fd_move_above_stdio(v->fd);
 
-        if (connect(v->fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0) {
+        if (connect(v->fd, &sockaddr.sa, sockaddr_len) < 0) {
                 if (!IN_SET(errno, EAGAIN, EINPROGRESS))
                         return -errno;
 
@@ -577,7 +580,7 @@ static int varlink_parse_message(Varlink *v) {
 
         varlink_log(v, "New incoming message: %s", begin);
 
-        r = json_parse(begin, &v->current, NULL, NULL);
+        r = json_parse(begin, 0, &v->current, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -1146,6 +1149,7 @@ int varlink_flush(Varlink *v) {
 }
 
 static void varlink_detach_server(Varlink *v) {
+        VarlinkServer *saved_server;
         assert(v);
 
         if (!v->server)
@@ -1169,8 +1173,15 @@ static void varlink_detach_server(Varlink *v) {
         v->server->n_connections--;
 
         /* If this is a connection associated to a server, then let's disconnect the server and the
-         * connection from each other. This drops the dangling reference that connect_callback() set up. */
-        v->server = varlink_server_unref(v->server);
+         * connection from each other. This drops the dangling reference that connect_callback() set up. But
+         * before we release the references, let's call the disconnection callback if it is defined. */
+
+        saved_server = TAKE_PTR(v->server);
+
+        if (saved_server->disconnect_callback)
+                saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
+
+        varlink_server_unref(saved_server);
         varlink_unref(v);
 }
 
@@ -1193,6 +1204,15 @@ int varlink_close(Varlink *v) {
         return 1;
 }
 
+Varlink* varlink_close_unref(Varlink *v) {
+
+        if (!v)
+                return NULL;
+
+        (void) varlink_close(v);
+        return varlink_unref(v);
+}
+
 Varlink* varlink_flush_close_unref(Varlink *v) {
 
         if (!v)
@@ -1200,7 +1220,6 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
         (void) varlink_flush(v);
         (void) varlink_close(v);
-
         return varlink_unref(v);
 }
 
@@ -1315,7 +1334,7 @@ int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
         if (v->state == VARLINK_DISCONNECTED)
                 return -ENOTCONN;
 
-        /* We allow enqueing multiple method calls at once! */
+        /* We allow enqueuing multiple method calls at once! */
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
                 return -EBUSY;
 
@@ -2207,6 +2226,7 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
 
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t m) {
         union sockaddr_union sockaddr;
+        socklen_t sockaddr_len;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -2217,6 +2237,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         r = sockaddr_un_set_path(&sockaddr.un, address);
         if (r < 0)
                 return r;
+        sockaddr_len = r;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -2227,7 +2248,7 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
         RUN_WITH_UMASK(~m & 0777)
-                if (bind(fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                if (bind(fd, &sockaddr.sa, sockaddr_len) < 0)
                         return -errno;
 
         if (listen(fd, SOMAXCONN) < 0)
@@ -2405,6 +2426,16 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
         return 0;
 }
 
+int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback) {
+        assert_return(s, -EINVAL);
+
+        if (callback && s->disconnect_callback && callback != s->disconnect_callback)
+                return -EBUSY;
+
+        s->disconnect_callback = callback;
+        return 0;
+}
+
 unsigned varlink_server_connections_max(VarlinkServer *s) {
         int dts;
 
@@ -2450,6 +2481,12 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m) {
 
         s->connections_max = m;
         return 0;
+}
+
+unsigned varlink_server_current_connections(VarlinkServer *s) {
+        assert_return(s, UINT_MAX);
+
+        return s->n_connections;
 }
 
 int varlink_server_set_description(VarlinkServer *s, const char *description) {

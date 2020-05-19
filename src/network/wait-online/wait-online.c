@@ -18,10 +18,10 @@ static bool arg_quiet = false;
 static usec_t arg_timeout = 120 * USEC_PER_SEC;
 static Hashmap *arg_interfaces = NULL;
 static char **arg_ignore = NULL;
-static LinkOperationalState arg_required_operstate = _LINK_OPERSTATE_INVALID;
+static LinkOperationalStateRange arg_required_operstate = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
 static bool arg_any = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_keyp);
+STATIC_DESTRUCTOR_REGISTER(arg_interfaces, hashmap_free_free_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ignore, strv_freep);
 
 static int help(void) {
@@ -37,10 +37,10 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"
-               "  -i --interface=INTERFACE[:OPERSTATE]\n"
+               "  -i --interface=INTERFACE[:MIN_OPERSTATE[:MAX_OPERSTATE]]\n"
                "                            Block until at least these interfaces have appeared\n"
                "     --ignore=INTERFACE     Don't take these interfaces into account\n"
-               "  -o --operational-state=OPERSTATE\n"
+               "  -o --operational-state=MIN_OPERSTATE[:MAX_OPERSTATE]\n"
                "                            Required operational state\n"
                "     --any                  Wait until at least one of the interfaces is online\n"
                "     --timeout=SECS         Maximum time to wait for network connectivity\n"
@@ -52,28 +52,28 @@ static int help(void) {
         return 0;
 }
 
-static int parse_interface_with_operstate(const char *str) {
+static int parse_interface_with_operstate_range(const char *str) {
         _cleanup_free_ char *ifname = NULL;
-        LinkOperationalState s;
+        _cleanup_free_ LinkOperationalStateRange *range;
         const char *p;
         int r;
 
         assert(str);
 
+        range = new(LinkOperationalStateRange, 1);
+        if (!range)
+                return log_oom();
+
         p = strchr(str, ':');
         if (p) {
-                if (isempty(p + 1))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Operational state is empty.");
-
-                s = link_operstate_from_string(p + 1);
-                if (s < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid operational state '%s'", p + 1);
+                r = parse_operational_state_range(p + 1, range);
+                if (r < 0)
+                         log_error_errno(r, "Invalid operational state range '%s'", p + 1);
 
                 ifname = strndup(optarg, p - optarg);
         } else {
-                s = _LINK_OPERSTATE_INVALID;
+                range->min = _LINK_OPERSTATE_INVALID;
+                range->max = _LINK_OPERSTATE_INVALID;
                 ifname = strdup(str);
         }
         if (!ifname)
@@ -87,7 +87,7 @@ static int parse_interface_with_operstate(const char *str) {
         if (r < 0)
                 return log_oom();
 
-        r = hashmap_put(arg_interfaces, ifname, INT_TO_PTR(s));
+        r = hashmap_put(arg_interfaces, ifname, TAKE_PTR(range));
         if (r < 0)
                 return log_error_errno(r, "Failed to store interface name: %m");
         if (r == 0)
@@ -140,7 +140,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'i':
-                        r = parse_interface_with_operstate(optarg);
+                        r = parse_interface_with_operstate_range(optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -152,14 +152,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o': {
-                        LinkOperationalState s;
+                        LinkOperationalStateRange range;
 
-                        s = link_operstate_from_string(optarg);
-                        if (s < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid operational state '%s'", optarg);
+                        r = parse_operational_state_range(optarg, &range);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid operational state range '%s'", optarg);
 
-                        arg_required_operstate = s;
+                        arg_required_operstate = range;
+
                         break;
                 }
                 case ARG_ANY:

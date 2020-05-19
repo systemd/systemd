@@ -18,14 +18,28 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 int parse_boolean(const char *v) {
         if (!v)
                 return -EINVAL;
 
-        if (streq(v, "1") || strcaseeq(v, "yes") || strcaseeq(v, "y") || strcaseeq(v, "true") || strcaseeq(v, "t") || strcaseeq(v, "on"))
+        if (STRCASE_IN_SET(v,
+                           "1",
+                           "yes",
+                           "y",
+                           "true",
+                           "t",
+                           "on"))
                 return 1;
-        else if (streq(v, "0") || strcaseeq(v, "no") || strcaseeq(v, "n") || strcaseeq(v, "false") || strcaseeq(v, "f") || strcaseeq(v, "off"))
+
+        if (STRCASE_IN_SET(v,
+                           "0",
+                           "no",
+                           "n",
+                           "false",
+                           "f",
+                           "off"))
                 return 0;
 
         return -EINVAL;
@@ -79,11 +93,10 @@ int parse_mode(const char *s, mode_t *ret) {
         return 0;
 }
 
-int parse_ifindex(const char *s, int *ret) {
+int parse_ifindex(const char *s) {
         int ifi, r;
 
         assert(s);
-        assert(ret);
 
         r = safe_atoi(s, &ifi);
         if (r < 0)
@@ -91,26 +104,7 @@ int parse_ifindex(const char *s, int *ret) {
         if (ifi <= 0)
                 return -EINVAL;
 
-        *ret = ifi;
-        return 0;
-}
-
-int parse_ifindex_or_ifname(const char *s, int *ret) {
-        int r;
-
-        assert(s);
-        assert(ret);
-
-        r = parse_ifindex(s, ret);
-        if (r >= 0)
-                return r;
-
-        r = (int) if_nametoindex(s);
-        if (r <= 0)
-                return -errno;
-
-        *ret = r;
-        return 0;
+        return ifi;
 }
 
 int parse_mtu(int family, const char *s, uint32_t *ret) {
@@ -415,7 +409,7 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atollu(const char *s, long long unsigned *ret_llu) {
+int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) {
         char *x = NULL;
         unsigned long long l;
 
@@ -424,7 +418,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoull(s, &x, 0);
+        l = strtoull(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -714,6 +708,22 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
 
         *low = l;
         *high = h;
+
+        return 0;
+}
+
+int parse_ip_prefix_length(const char *s, int *ret) {
+        unsigned l;
+        int r;
+
+        r = safe_atou(s, &l);
+        if (r < 0)
+                return r;
+
+        if (l > 128)
+                return -ERANGE;
+
+        *ret = (int) l;
 
         return 0;
 }

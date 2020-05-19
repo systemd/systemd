@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd.resource-control">
+<refentry id="systemd.resource-control" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.resource-control</title>
     <productname>systemd</productname>
@@ -82,10 +82,10 @@
   <refsect1>
     <title>Unified and Legacy Control Group Hierarchies</title>
 
-    <para>The unified control group hierarchy is the new version of kernel control group interface, see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>. Depending on the resource type,
-    there are differences in resource control capabilities.  Also, because of interface changes, some resource types
-    have separate set of options on the unified hierarchy.</para>
+    <para>The unified control group hierarchy is the new version of kernel control group interface, see
+    <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink>.
+    Depending on the resource type, there are differences in resource control capabilities. Also, because of
+    interface changes, some resource types have separate set of options on the unified hierarchy.</para>
 
     <para>
       <variablelist>
@@ -126,11 +126,11 @@
     application.</para>
 
     <para>Legacy control group hierarchy (see <ulink
-    url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>), also called cgroup-v1,
-    doesn't allow safe delegation of controllers to unprivileged processes. If the system uses the legacy control group
-    hierarchy, resource control is disabled for systemd user instance, see
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    </para>
+    url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/">Control Groups version 1</ulink>),
+    also called cgroup-v1, doesn't allow safe delegation of controllers to unprivileged processes. If the
+    system uses the legacy control group hierarchy, resource control is disabled for the systemd user
+    instance, see
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -165,8 +165,8 @@
           is used on the system. These options take an integer value and control the <literal>cpu.weight</literal>
           control group attribute. The allowed range is 1 to 10000. Defaults to 100. For details about this control
           group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
-          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink> and <ulink
+          url="https://www.kernel.org/doc/html/latest/scheduler/sched-design-CFS.html">CFS Scheduler</ulink>.
           The available CPU time is split up among all units within one slice relative to their CPU time weight.</para>
 
           <para>While <varname>StartupCPUWeight=</varname> only applies to the startup phase of the system,
@@ -187,7 +187,7 @@
           available on one CPU. Use values &gt; 100% for allotting CPU time on more than one CPU. This controls the
           <literal>cpu.max</literal> attribute on the unified control group hierarchy and
           <literal>cpu.cfs_quota_us</literal> on legacy. For details about these control group attributes, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink> and <ulink
           url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.</para>
 
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
@@ -208,8 +208,8 @@
 
           <para>This controls the second field of <literal>cpu.max</literal> attribute on the unified control group hierarchy
           and <literal>cpu.cfs_period_us</literal> on legacy. For details about these control group attributes, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and
-          <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink> and
+          <ulink url="https://www.kernel.org/doc/html/latest/scheduler/sched-design-CFS.html">CFS Scheduler</ulink>.</para>
 
           <para>Example: <varname>CPUQuotaPeriodSec=10ms</varname> to request that the CPU quota is measured in periods of 10ms.</para>
         </listitem>
@@ -274,7 +274,7 @@
           useful in order to always inherit all of the protection afforded by ancestors.
           This controls the <literal>memory.min</literal> control group attribute. For details about this
           control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -300,7 +300,7 @@
           useful in order to always inherit all of the protection afforded by ancestors.
           This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -325,7 +325,7 @@
           system. If assigned the
           special value <literal>infinity</literal>, no memory throttling is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -346,7 +346,7 @@
           percentage value may be specified, which is taken relative to the installed physical memory on the system. If
           assigned the special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting replaces <varname>MemoryLimit=</varname>.</para>
         </listitem>
@@ -362,7 +362,7 @@
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
           special value <literal>infinity</literal>, no swap limit is applied. This controls the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
-          see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          see <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -397,10 +397,10 @@
           of tasks or a percentage value that is taken relative to the configured maximum number of tasks on the
           system.  If assigned the special value <literal>infinity</literal>, no tasks limit is applied. This controls
           the <literal>pids.max</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
+          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/pids.html">Process Number Controller</ulink>.
+          </para>
 
-          <para>The
-          system default for this setting may be controlled with
+          <para>The system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
@@ -431,8 +431,9 @@
           hierarchy is used on the system. Takes a single weight value (between 1 and 10000) to set the default block
           I/O weight. This controls the <literal>io.weight</literal> control group attribute, which defaults to
           100. For details about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.  The available I/O
-          bandwidth is split up among all units within one slice relative to their block I/O weight.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.
+          The available I/O bandwidth is split up among all units within one slice relative to their block
+          I/O weight.</para>
 
           <para>While <varname>StartupIOWeight=</varname> only applies
           to the startup phase of the system,
@@ -457,10 +458,18 @@
           device of the file system of the file is determined. This controls the <literal>io.weight</literal> control
           group attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices.
           For details about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.</para>
 
           <para>This setting replaces <varname>BlockIODeviceWeight=</varname> and disables settings prefixed with
           <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+
+          <para>The specified device node should reference a block device that has an I/O scheduler
+          associated, i.e. should not refer to partition or loopback block devices, but to the originating,
+          physical device. When a path to a regular file or directory is specified it is attempted to
+          discover the correct originating device backing the file system of the specified path. This works
+          correctly only for simpler cases, where the file system is directly placed on a partition or
+          physical block device, or where simple 1:1 encryption using dm-crypt/LUKS is used. This discovery
+          does not cover complex storage and in particular RAID and volume management storage devices.</para>
         </listitem>
       </varlistentry>
 
@@ -479,12 +488,14 @@
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 5M"). This controls the <literal>io.max</literal> control
           group attributes. Use this option multiple times to set bandwidth limits for multiple devices. For details
           about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.
           </para>
 
           <para>These settings replace <varname>BlockIOReadBandwidth=</varname> and
           <varname>BlockIOWriteBandwidth=</varname> and disable settings prefixed with <varname>BlockIO</varname> or
           <varname>StartupBlockIO</varname>.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
@@ -503,11 +514,13 @@
           "/dev/disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0 1K"). This controls the <literal>io.max</literal> control
           group attributes. Use this option multiple times to set IOPS limits for multiple devices. For details about
           this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.
           </para>
 
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
@@ -522,11 +535,13 @@
           system of the file is determined. This controls the <literal>io.latency</literal> control group
           attribute. Use this option multiple times to set latency target for multiple devices. For details about this
           control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#io-interface-files">IO Interface Files</ulink>.</para>
 
           <para>Implies <literal>IOAccounting=yes</literal>.</para>
 
           <para>These settings are supported only if the unified control group hierarchy is used.</para>
+
+          <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
         </listitem>
       </varlistentry>
 
@@ -697,8 +712,8 @@
           (<emphasis>m</emphasis>knod), respectively. On cgroup-v1 this controls the
           <literal>devices.allow</literal> control group attribute. For details about this control group
           attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/devices.txt">devices.txt</ulink>. On
-          cgroup-v2 this functionality is implemented using eBPF filtering.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/devices.html">Device Whitelist Controller</ulink>.
+          In the unified cgroup hierarchy this functionality is implemented using eBPF filtering.</para>
 
           <para>The device node specifier is either a path to a device node in the file system, starting with
           <filename>/dev/</filename>, or a string starting with either <literal>char-</literal> or
@@ -720,10 +735,15 @@
           <para>Note that whitelists defined this way should only reference device groups which are
           resolvable at the time the unit is started. Any device groups not resolvable then are not added to
           the device whitelist. In order to work around this limitation, consider extending service units
-          with an <command>ExecStartPre=/sbin/modprobe…</command> line that loads the necessary
-          kernel module implementing the device group if missing. Example: <programlisting>…
+          with a pair of <command>After=modprobe@xyz.service</command> and
+          <command>Wants=modprobe@xyz.service</command> lines that load the necessary kernel module
+          implementing the device group if missing.
+          Example: <programlisting>…
+[Unit]
+Wants=modprobe@loop.service
+After=modprobe@loop.service
+
 [Service]
-ExecStartPre=-/sbin/modprobe -abq loop
 DeviceAllow=block-loop
 DeviceAllow=/dev/loop-control
 …</programlisting></para>
@@ -827,9 +847,9 @@ DeviceAllow=/dev/loop-control
           hierarchy. Accordingly, access to the specified controllers will not be granted to unprivileged services on
           the legacy hierarchy, even when requested.</para>
 
-          <para>The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
-          <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
-          <option>pids</option>. Not all of these controllers are available on all kernels however, and some are
+          <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
+
+          <para>Not all of these controllers are available on all kernels however, and some are
           specific to the unified hierarchy while others are specific to the legacy hierarchy. Also note that the
           kernel might support further controllers, which aren't covered here yet as delegation is either not supported
           at all for them or not defined cleanly.</para>
@@ -856,8 +876,7 @@ DeviceAllow=/dev/loop-control
           to disable. Passing <varname>DisableControllers=</varname> by itself with no controller name present resets
           the disabled controller list.</para>
 
-          <para>Valid controllers are <option>cpu</option>, <option>cpuacct</option>, <option>io</option>,
-          <option>blkio</option>, <option>memory</option>, <option>devices</option>, and <option>pids</option>.</para>
+          <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
         </listitem>
       </varlistentry>
     </variablelist>
@@ -878,7 +897,7 @@ DeviceAllow=/dev/loop-control
           <para>Assign the specified CPU time share weight to the processes executed. These options take an integer
           value and control the <literal>cpu.shares</literal> control group attribute. The allowed range is 2 to
           262144. Defaults to 1024. For details about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.
+          url="https://www.kernel.org/doc/html/latest/scheduler/sched-design-CFS.html">CFS Scheduler</ulink>.
           The available CPU time is split up among all units within one slice relative to their CPU time share
           weight.</para>
 
@@ -906,7 +925,7 @@ DeviceAllow=/dev/loop-control
           <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.limit_in_bytes</literal> control group attribute. For details about this control group
           attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/memory.html">Memory Resource Controller</ulink>.</para>
 
           <para>Implies <literal>MemoryAccounting=yes</literal>.</para>
 
@@ -937,7 +956,7 @@ DeviceAllow=/dev/loop-control
         group hierarchy is used on the system. Takes a single weight value (between 10 and 1000) to set the default
         block I/O weight. This controls the <literal>blkio.weight</literal> control group attribute, which defaults to
         500. For details about this control group attribute, see <ulink
-        url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
+        url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/blkio-controller.html">Block IO Controller</ulink>.
         The available I/O bandwidth is split up among all units within one slice relative to their block I/O
         weight.</para>
 
@@ -968,7 +987,7 @@ DeviceAllow=/dev/loop-control
           file system of the file is determined. This controls the <literal>blkio.weight_device</literal> control group
           attribute, which defaults to 1000. Use this option multiple times to set weights for multiple devices. For
           details about this control group attribute, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/blkio-controller.html">Block IO Controller</ulink>.</para>
 
           <para>Implies
           <literal>BlockIOAccounting=yes</literal>.</para>
@@ -992,7 +1011,7 @@ DeviceAllow=/dev/loop-control
           <literal>blkio.throttle.read_bps_device</literal> and <literal>blkio.throttle.write_bps_device</literal>
           control group attributes. Use this option multiple times to set bandwidth limits for multiple devices. For
           details about these control group attributes, see <ulink
-          url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
+          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/blkio-controller.html">Block IO Controller</ulink>.
           </para>
 
           <para>Implies
@@ -1022,11 +1041,7 @@ DeviceAllow=/dev/loop-control
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       The documentation for control groups and specific controllers in the Linux kernel:
-      <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/cgroups.txt">cgroups.txt</ulink>,
-      <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt">cpuacct.txt</ulink>,
-      <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>,
-      <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
-      <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.
+      <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink>.
     </para>
   </refsect1>
 </refentry>

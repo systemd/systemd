@@ -5,13 +5,25 @@
 #include "conf-parser.h"
 #include "qdisc.h"
 
-typedef struct FairQueueTrafficPolicing {
+typedef struct FairQueueing {
         QDisc meta;
 
-        uint32_t limit;
-} FairQueueTrafficPolicing;
+        uint32_t packet_limit;
+        uint32_t flow_limit;
+        uint32_t quantum;
+        uint32_t initial_quantum;
+        uint32_t max_rate;
+        uint32_t buckets;
+        uint32_t orphan_mask;
+        int pacing;
+        usec_t ce_threshold_usec;
+} FairQueueing;
 
-DEFINE_QDISC_CAST(FQ, FairQueueTrafficPolicing);
+DEFINE_QDISC_CAST(FQ, FairQueueing);
 extern const QDiscVTable fq_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_tc_fair_queue_traffic_policing_packet_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_max_rate);

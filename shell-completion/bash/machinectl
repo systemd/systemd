@@ -25,7 +25,7 @@ __contains_word() {
 
 __get_machines() {
     local a b
-    (machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; echo ".host") | \
+    (machinectl list-images --full --no-legend --no-pager; machinectl list --full --no-legend --no-pager; echo ".host") | \
 	{ while read a b; do echo " $a"; done; } | sort -u;
 }
 

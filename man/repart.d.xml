@@ -1,0 +1,388 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<refentry id="repart.d" conditional='ENABLE_REPART'>
+
+  <refentryinfo>
+    <title>repart.d</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>repart.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>repart.d</refname>
+    <refpurpose>Partition Definition Files for Automatic Boot-Time Repartitioning</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><literallayout><filename>/etc/repart.d/*.conf</filename>
+<filename>/run/repart.d/*.conf</filename>
+<filename>/usr/lib/repart.d/*.conf</filename>
+    </literallayout></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>repart.d/*.conf</filename> files describe basic properties of partitions of block
+    devices of the local system. They may be used to declare types, names and sizes of partitions that shall
+    exist. The
+    <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    service reads these files and attempts to add new partitions currently missing and enlarge existing
+    partitions according to these definitions. Operation is generally incremental, i.e. when applied, what
+    exists already is left intact, and partitions are never shrunk, moved or deleted.</para>
+
+    <para>These definition files are useful for implementing operating system images that are prepared and
+    delivered with minimally sized images (for example lacking any state or swap partitions), and which on
+    first boot automatically take possession of any remaining disk space following a few basic rules.</para>
+
+    <para>Currently, support for partition definition files is only implemented for GPT partitition
+    tables.</para>
+
+    <para>Partition files are generally matched against any partitions already existing on disk in a simple
+    algorithm: the partition files are sorted by their filename (ignoring the directory prefix), and then
+    compared in order against existing partitions matching the same partition type UUID. Specifically, the
+    first existing partition with a specific partition type UUID is assigned the first definition file with
+    the same partition type UUID, and the second existing partition with a specific type UUID the second
+    partition file with the same type UUID, and so on. Any left-over partition files that have no matching
+    existing partition are assumed to define new partition that shall be created. Such partitions are
+    appended to the end of the partition table, in the order defined by their names utilizing the first
+    partition slot greater than the highest slot number currently in use. Any existing partitions that have
+    no matching partition file are left as they are.</para>
+
+    <para>Note that these partition definition files do not describe the contents of the partitions, such as
+    the file system used. Separate mechanisms, such as
+    <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+    <command>systemd-makefs</command> maybe be used to initialize or grow the file systems inside of these
+    partitions.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[Partition] Section Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>Type=</varname></term>
+
+        <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
+        <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or one of the following special
+        identifiers:</para>
+
+        <table>
+          <title>GPT partition type identifiers</title>
+
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="name" />
+            <colspec colname="explanation" />
+
+            <thead>
+              <row>
+                <entry>Identifier</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+
+            <tbody>
+              <row>
+                <entry><constant>esp</constant></entry>
+                <entry>EFI System Partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>xbootldr</constant></entry>
+                <entry>Extended Boot Loader Partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>swap</constant></entry>
+                <entry>Swap partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>home</constant></entry>
+                <entry>Home (<filename>/home/</filename>) partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>srv</constant></entry>
+                <entry>Server data (<filename>/srv/</filename>) partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>var</constant></entry>
+                <entry>Variable data (<filename>/var/</filename>) partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>tmp</constant></entry>
+                <entry>Temporary data (<filename>/var/tmp/</filename>) partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>linux-generic</constant></entry>
+                <entry>Generic Linux file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root</constant></entry>
+                <entry>Root file system partition type appropriate for the local architecture (an alias for an architecture root file system partition type listed below, e.g. <constant>root-x86-64</constant>)</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-verity</constant></entry>
+                <entry>Verity data for the root file system partition for the local architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-secondary</constant></entry>
+                <entry>Root file system partition of the secondary architecture of the local architecture; usually the matching 32bit architecture for the local 64bit architecture)</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-secondary-verity</constant></entry>
+                <entry>Verity data for the root file system partition of the secondary architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-x86</constant></entry>
+                <entry>Root file system partition for the x86 (32bit, aka i386) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-x86-verity</constant></entry>
+                <entry>Verity data for the x86 (32bit) root file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-x86-64</constant></entry>
+                <entry>Root file system partition for the x86_64 (64bit, aka amd64) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-x86-64-verity</constant></entry>
+                <entry>Verity data for the x86_64 (64bit) root file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-arm</constant></entry>
+                <entry>Root file system partition for the ARM (32bit) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-arm-verity</constant></entry>
+                <entry>Verity data for the ARM (32bit) root file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-arm64</constant></entry>
+                <entry>Root file system partition for the ARM (64bit, aka aarch64) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-arm64-verity</constant></entry>
+                <entry>Verity data for the ARM (64bit, aka aarch64) root file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-ia64</constant></entry>
+                <entry>Root file system partition for the ia64 architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-ia64-verity</constant></entry>
+                <entry>Verity data for the ia64 root file system partition</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>This setting defaults to <constant>linux-generic</constant>.</para>
+
+        <para>Most of the partition type UUIDs listed above are defined in the <ulink
+        url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Label=</varname></term>
+
+        <listitem><para>The textual label to assign to the partition if none is assigned yet. Note that this
+        setting is not used for matching. It is also not used when a label is already set for an existing
+        partition. It is thus only used when a partition is newly created or when an existing one had a no
+        label set (that is: an empty label). If not specified a label derived from the partition type is
+        automatically used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+
+        <listitem><para>A numeric priority to assign to this partition, in the range -2147483648…2147483647,
+        with smaller values indicating higher priority, and higher values indicating smaller priority. This
+        priority is used in case the configured size constraints on the defined partitions do not permit
+        fitting all partitions onto the available disk space. If the partitions do not fit, the highest
+        numeric partition priority of all defined partitions is determined, and all defined partitions with
+        this priority are removed from the list of new partitions to create (which may be multiple, if the
+        same priority is used for multiple partitions). The fitting algorithm is then tried again. If the
+        partitions still do not fit, the now highest numeric partition priority is determined, and the
+        matching partitions removed too, and so on. Partitions of a priority of 0 or lower are never
+        removed. If all partitions with a priority above 0 are removed and the partitions still do not fit on
+        the device the operation fails. Note that this priority has no effect on ordering partitions, for
+        that use the alphabetical order of the filenames of the partition definition files. Defaults to
+        0.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Weight=</varname></term>
+
+        <listitem><para>A numeric weight to assign to this partition in the range 0…1000000. Available disk
+        space is assigned the defined partitions according to their relative weights (subject to the size
+        constraints configured with <varname>SizeMinBytes=</varname>, <varname>SizeMaxBytes=</varname>), so
+        that a partition with weight 2000 gets double the space as one with weight 1000, and a partition with
+        weight 333 a third of that. Defaults to 1000.</para>
+
+        <para>The <varname>Weight=</varname> setting is used to distribute available disk space in an
+        "elastic" fashion, based on the disk size and existing partitions. If a partition shall have a fixed
+        size use both <varname>SizeMinBytes=</varname> and <varname>SizeMaxBytes=</varname> with the same
+        value in order to fixate the size to one value, in which case the weight has no
+        effect.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PaddingWeight=</varname></term>
+
+        <listitem><para>Similar to <varname>Weight=</varname> but sets a weight for the free space after the
+        partition (the "padding"). When distributing available space the weights of all partitions and all
+        defined padding is summed, and then each partition and padding gets the fraction defined by its
+        weight. Defaults to 0, i.e. by default no padding is applied.</para>
+
+        <para>Padding is useful if empty space shall be left for later additions or a safety margin at the
+        end of the device or between partitions.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SizeMinBytes=</varname></term>
+        <term><varname>SizeMaxBytes=</varname></term>
+
+        <listitem><para>Specifies minimum and maximum size constraints in bytes. Takes the usual K, M, G, T,
+        …  suffixes (to the base of 1024). If <varname>SizeMinBytes=</varname> is specified the partition is
+        created at or grown to at least the specified size. If <varname>SizeMaxBytes=</varname> is specified
+        the partition is created at or grown to at most the specified size. The precise size is determined
+        through the weight value value configured with <varname>Weight=</varname>, see above. When
+        <varname>SizeMinBytes=</varname> is set equal to <varname>SizeMaxBytes=</varname> the configured
+        weight has no effect as the partition is explicitly sized to the specified fixed value. Note that
+        partitions are never created smaller than 4096 bytes, and since partitions are never shrunk the
+        previous size of the partition (in case the partition already exists) is also enforced as lower bound
+        for the new size. The values should be specified as multiples of 4096 bytes, and are rounded upwards
+        (in case of <varname>SizeMinBytes=</varname>) or downwards (in case of
+        <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
+        fulfill the constraints placing the partition will fail. For partitions that shall be created,
+        depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
+        and the placing algorithm restarted. By default no size constraints are set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PaddingMinBytes=</varname></term>
+        <term><varname>PaddingMaxBytes=</varname></term>
+
+        <listitem><para>Specifies minimum and maximum size constrains in bytes for the free space after the
+        partition (the "padding"). Semantics are similar to <varname>SizeMinBytes=</varname> and
+        <varname>SizeMaxBytes=</varname>, except that unlike partition sizes free space can be shrunk and can
+        be as small as zero. By default no size constraints on padding are set, so that only
+        <varname>PaddingWeight=</varname> determines the size of the padding applied.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FactoryReset=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If specified the partition is marked for removal during a
+        factory reset operation. This functionality is useful to implement schemes where images can be reset
+        into their original state by removing partitions and creating them anew. Defaults to off.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Grow the root partition to the full disk size at first boot</title>
+
+      <para>With the following file the root partition is automatically grown to the full disk if possible during boot.</para>
+
+      <para><programlisting># /usr/lib/repart.d/50-root.conf
+[Partition]
+Type=root
+</programlisting></para>
+    </example>
+
+    <example>
+      <title>Create a swap and home partition automatically on boot, if missing</title>
+
+      <para>The home partition gets all available disk space while the swap partition gets 1G at most and 64M
+      at least. We set a priority > 0 on the swap partition to ensure the swap partition is not used if not
+      enough space is available. For every three bytes assigned to the home partition the swap partition gets
+      assigned one.</para>
+
+      <para><programlisting># /usr/lib/repart.d/60-home.conf
+[Partition]
+Type=home
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/repart.d/70-swap.conf
+[Partition]
+Type=swap
+SizeMinBytes=64M
+SizeMaxBytes=1G
+Priority=1
+Weight=333
+</programlisting></para>
+    </example>
+
+    <example>
+      <title>Create B partitions in an A/B Verity setup, if missing</title>
+
+      <para>Let's say the vendor intends to update OS images in an A/B setup, i.e. with two root partitions
+      (and two matching Verity partitions) that shall be used alternatingly during upgrades. To minimize
+      image sizes the original image is shipped only with one root and one Verity partition (the "A" set),
+      and the second root and Verity partitions (the "B" set) shall be created on first boot on the free
+      space on the medium.</para>
+
+      <para><programlisting># /usr/lib/repart.d/50-root.conf
+[Partition]
+Type=root
+SizeMinBytes=512M
+SizeMaxBytes=512M
+</programlisting></para>
+
+      <para><programlisting># /usr/lib/repart.d/60-root-verity.conf
+[Partition]
+Type=root-verity
+SizeMinBytes=64M
+SizeMaxBytes=64M
+</programlisting></para>
+
+      <para>The definitions above cover the "A" set of root partition (of a fixed 512M size) and Verity
+      partition for the root partition (of a fixed 64M size). Let's use symlinks to create the "B" set of
+      partitions, since after all they shall have the same properties and sizes as the "A" set.</para>
+
+<para><programlisting># ln -s 50-root.conf /usr/lib/repart.d/70-root-b.conf
+# ln -s 60-root-verity.conf /usr/lib/repart.d/80-root-verity-b.conf
+</programlisting></para>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

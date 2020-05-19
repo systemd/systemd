@@ -186,14 +186,14 @@
     <para>Note that entering a container is a privileged operation, and will likely only
     work for the root user on the remote machine.</para>
 
-    <para><function>sd_bus_open_system_machine()</function> connects
-    to the system bus in the specified <parameter>machine</parameter>,
-    where <parameter>machine</parameter> is the name of a local
-    container.  See
-    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information about the "machine" concept. Note that
-    connections into local containers are only available to privileged
-    processes at this time.</para>
+    <para><function>sd_bus_open_system_machine()</function> connects to the system bus in the specified
+    <parameter>machine</parameter>, where <parameter>machine</parameter> is the name of a local
+    container. See
+    <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a description of the address syntax, and
+    <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for more
+    information about the "machine" concept. Note that connections into local containers are only available
+    to privileged processes at this time.</para>
 
     <para>These calls allocate a bus connection object and initiate
     the connection to a well-known bus of some form. An alternative to
@@ -297,7 +297,7 @@
         </varlistentry>
       </variablelist>
 
-      <para>In addition, any further connection-related errors may be by returned. See
+      <para>In addition, other connection-related errors may be returned. See
       <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
     </refsect2>
   </refsect1>
@@ -313,6 +313,7 @@
       <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>ssh</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>

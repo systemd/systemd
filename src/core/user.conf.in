@@ -15,6 +15,7 @@
 #LogTarget=console
 #LogColor=yes
 #LogLocation=no
+#LogTime=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat=@STATUS_UNIT_FORMAT_DEFAULT@

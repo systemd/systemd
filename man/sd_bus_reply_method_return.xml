@@ -1,0 +1,121 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_reply_method_return"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_reply_method_return</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_reply_method_return</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_reply_method_return</refname>
+    <refname>sd_bus_reply_method_returnv</refname>
+
+    <refpurpose>Reply to a D-Bus method call</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_reply_method_return</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>...</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_reply_method_returnv</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>const char *<parameter>types</parameter></paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_reply_method_return()</function> sends a reply to the
+    <parameter>call</parameter> message. The type string <parameter>types</parameter> and the
+    arguments that follow it must adhere to the format described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If no reply is expected to <parameter>call</parameter>, this function succeeds without sending a
+    reply.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, this function returns a non-negative integer. On failure, it returns a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input parameter <parameter>call</parameter> is
+          <constant>NULL</constant>.</para>
+
+          <para>Message <parameter>call</parameter> is not a method call message.
+          </para>
+
+          <para>Message <parameter>call</parameter> is not attached to a bus.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>Message <parameter>call</parameter> has been sealed.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus to which message <parameter>call</parameter> is attached is not
+          connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>In addition, any error returned by
+      <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      may be returned.</para>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

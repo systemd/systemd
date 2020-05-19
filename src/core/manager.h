@@ -16,6 +16,7 @@
 #include "list.h"
 #include "prioq.h"
 #include "ratelimit.h"
+#include "varlink.h"
 
 struct libmnt_monitor;
 typedef struct Unit Unit;
@@ -55,6 +56,7 @@ typedef enum ManagerObjective {
 typedef enum StatusType {
         STATUS_TYPE_EPHEMERAL,
         STATUS_TYPE_NORMAL,
+        STATUS_TYPE_NOTICE,
         STATUS_TYPE_EMERGENCY,
 } StatusType;
 
@@ -218,8 +220,6 @@ struct Manager {
 
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
-
-        sd_event_source *sync_bus_names_event_source;
 
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
@@ -424,6 +424,8 @@ struct Manager {
         unsigned notifygen;
 
         bool honor_device_enumeration;
+
+        VarlinkServer *varlink_server;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -504,11 +506,11 @@ void disable_printk_ratelimit(void);
 void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
-void manager_set_show_status(Manager *m, ShowStatus mode);
+void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
 void manager_set_first_boot(Manager *m, bool b);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
-void manager_flip_auto_status(Manager *m, bool enable);
+void manager_flip_auto_status(Manager *m, bool enable, const char *reason);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 

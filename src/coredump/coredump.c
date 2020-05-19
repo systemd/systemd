@@ -420,7 +420,7 @@ static int save_external_coredump(
                 goto fail;
         }
 
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
         /* If we will remove the coredump anyway, do not compress. */
         if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
 
@@ -560,7 +560,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
-                int fd;
+                _cleanup_close_ int fd = -1;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), dent->d_name, &fdname);
                 if (r < 0)
@@ -574,11 +574,9 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 if (fd < 0)
                         continue;
 
-                fdinfo = fdopen(fd, "r");
-                if (!fdinfo) {
-                        safe_close(fd);
+                fdinfo = take_fdopen(&fd, "r");
+                if (!fdinfo)
                         continue;
-                }
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
@@ -886,10 +884,7 @@ static int process_socket(int fd) {
         log_debug("Processing coredump received on stdin...");
 
         for (;;) {
-                union {
-                        struct cmsghdr cmsghdr;
-                        uint8_t buf[CMSG_SPACE(sizeof(int))];
-                } control = {};
+                CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
                 struct msghdr mh = {
                         .msg_control = &control,
                         .msg_controllen = sizeof(control),
@@ -913,39 +908,33 @@ static int process_socket(int fd) {
 
                 mh.msg_iov = &iovec;
 
-                n = recvmsg(fd, &mh, MSG_CMSG_CLOEXEC);
+                n = recvmsg_safe(fd, &mh, MSG_CMSG_CLOEXEC);
                 if (n < 0)  {
                         free(iovec.iov_base);
-                        r = log_error_errno(errno, "Failed to receive datagram: %m");
+                        r = log_error_errno(n, "Failed to receive datagram: %m");
                         goto finish;
                 }
 
                 /* The final zero-length datagram carries the file descriptor and tells us
                  * that we're done. */
                 if (n == 0) {
-                        struct cmsghdr *cmsg, *found = NULL;
+                        struct cmsghdr *found;
 
                         free(iovec.iov_base);
 
-                        CMSG_FOREACH(cmsg, &mh) {
-                                if (cmsg->cmsg_level == SOL_SOCKET &&
-                                    cmsg->cmsg_type == SCM_RIGHTS &&
-                                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                                        assert(!found);
-                                        found = cmsg;
-                                }
-                        }
-
+                        found = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
                         if (!found) {
-                                log_error("Coredump file descriptor missing.");
-                                r = -EBADMSG;
+                                cmsg_close_all(&mh);
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                    "Coredump file descriptor missing.");
                                 goto finish;
                         }
 
                         assert(input_fd < 0);
                         input_fd = *(int*) CMSG_DATA(found);
                         break;
-                }
+                } else
+                        cmsg_close_all(&mh);
 
                 /* Add trailing NUL byte, in case these are strings */
                 ((char*) iovec.iov_base)[n] = 0;
@@ -954,8 +943,6 @@ static int process_socket(int fd) {
                 r = iovw_put(&iovw, iovec.iov_base, iovec.iov_len);
                 if (r < 0)
                         goto finish;
-
-                cmsg_close_all(&mh);
         }
 
         /* Make sure we got all data we really need */

@@ -77,8 +77,10 @@ static int files_add(
                 /* Is this a masking entry? */
                 if ((flags & CONF_FILES_FILTER_MASKED))
                         if (null_or_empty(&st)) {
+                                assert(masked);
+
                                 /* Mark this one as masked */
-                                r = set_put_strdup(masked, de->d_name);
+                                r = set_put_strdup(&masked, de->d_name);
                                 if (r < 0)
                                         return r;
 

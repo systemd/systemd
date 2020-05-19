@@ -48,6 +48,7 @@ enum {
         SD_DHCP_OPTION_TIME_OFFSET                 = 2,
         SD_DHCP_OPTION_ROUTER                      = 3,
         SD_DHCP_OPTION_DOMAIN_NAME_SERVER          = 6,
+        SD_DHCP_OPTION_LPR_SERVER                  = 9,
         SD_DHCP_OPTION_HOST_NAME                   = 12,
         SD_DHCP_OPTION_BOOT_FILE_SIZE              = 13,
         SD_DHCP_OPTION_DOMAIN_NAME                 = 15,
@@ -83,6 +84,8 @@ enum {
         SD_DHCP_OPTION_REBINDING_T2_TIME           = 59,
         SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER     = 60,
         SD_DHCP_OPTION_CLIENT_IDENTIFIER           = 61,
+        SD_DHCP_OPTION_SMTP_SERVER                 = 69,
+        SD_DHCP_OPTION_POP3_SERVER                 = 70,
         SD_DHCP_OPTION_USER_CLASS                  = 77,
         SD_DHCP_OPTION_FQDN                        = 81,
         SD_DHCP_OPTION_NEW_POSIX_TIMEZONE          = 100,
@@ -90,6 +93,7 @@ enum {
         SD_DHCP_OPTION_DOMAIN_SEARCH_LIST          = 119,
         SD_DHCP_OPTION_SIP_SERVER                  = 120,
         SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE      = 121,
+        SD_DHCP_OPTION_MUD_URL                     = 161,
         SD_DHCP_OPTION_PRIVATE_BASE                = 224,
        /* Windows 10 option to send when Anonymize=true */
         SD_DHCP_OPTION_PRIVATE_CLASSLESS_STATIC_ROUTE = 249,
@@ -169,6 +173,9 @@ int sd_dhcp_client_set_hostname(
 int sd_dhcp_client_set_vendor_class_identifier(
                 sd_dhcp_client *client,
                 const char *vci);
+int sd_dhcp_client_set_mud_url(
+                sd_dhcp_client *client,
+                const char *mudurl);
 int sd_dhcp_client_set_user_class(
                 sd_dhcp_client *client,
                 const char* const *user_class);
@@ -179,11 +186,13 @@ int sd_dhcp_client_set_service_type(
                 sd_dhcp_client *client,
                 int type);
 
-int sd_dhcp_client_set_dhcp_option(sd_dhcp_client *client, sd_dhcp_option *v);
+int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
+int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
 
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
+int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);

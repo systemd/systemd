@@ -56,6 +56,8 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
+static BUS_DEFINE_PROPERTY_GET(property_get_cpu_affinity_from_numa, "b", ExecContext, exec_context_get_cpu_affinity_from_numa);
+
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -100,6 +102,7 @@ static int property_get_oom_score_adjust(
 
         ExecContext *c = userdata;
         int32_t n;
+        int r;
 
         assert(bus);
         assert(reply);
@@ -111,11 +114,53 @@ static int property_get_oom_score_adjust(
                 _cleanup_free_ char *t = NULL;
 
                 n = 0;
-                if (read_one_line_file("/proc/self/oom_score_adj", &t) >= 0)
-                        safe_atoi32(t, &n);
+                r = read_one_line_file("/proc/self/oom_score_adj", &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/oom_score_adj, ignoring: %m");
+                else {
+                        r = safe_atoi32(t, &n);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/oom_score_adj, ignoring: %m", t);
+                }
         }
 
         return sd_bus_message_append(reply, "i", n);
+}
+
+static int property_get_coredump_filter(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        uint64_t n;
+        int r;
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        if (c->coredump_filter_set)
+                n = c->coredump_filter;
+        else {
+                _cleanup_free_ char *t = NULL;
+
+                n = COREDUMP_FILTER_MASK_DEFAULT;
+                r = read_one_line_file("/proc/self/coredump_filter", &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/coredump_filter, ignoring: %m");
+                else {
+                        r = safe_atoux64(t, &n);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/coredump_filter, ignoring: %m", t);
+                }
+        }
+
+        return sd_bus_message_append(reply, "t", n);
 }
 
 static int property_get_nice(
@@ -213,6 +258,7 @@ static int property_get_cpu_affinity(
                 sd_bus_error *error) {
 
         ExecContext *c = userdata;
+        _cleanup_(cpu_set_reset) CPUSet s = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -220,7 +266,16 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        (void) cpu_set_to_dbus(&c->cpu_set, &array, &allocated);
+        if (c->cpu_affinity_from_numa) {
+                int r;
+
+                r = numa_to_cpu_set(&c->numa_policy, &s);
+                if (r < 0)
+                        return r;
+        }
+
+        (void) cpu_set_to_dbus(c->cpu_affinity_from_numa ? &s : &c->cpu_set,  &array, &allocated);
+
         return sd_bus_message_append_array(reply, 'y', array, allocated);
 }
 
@@ -735,12 +790,14 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOSchedulingClass", "i", property_get_ioprio_class, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IOSchedulingPriority", "i", property_get_ioprio_priority, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUSchedulingPolicy", "i", property_get_cpu_sched_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUSchedulingPriority", "i", property_get_cpu_sched_priority, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CPUAffinity", "ay", property_get_cpu_affinity, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CPUAffinityFromNUMA", "b", property_get_cpu_affinity_from_numa, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NUMAPolicy", "i", property_get_numa_policy, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NUMAMask", "ay", property_get_numa_mask, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -766,6 +823,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("LogRateLimitIntervalUSec", "t", bus_property_get_usec, offsetof(ExecContext, log_ratelimit_interval_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogRateLimitBurst", "u", bus_property_get_unsigned, offsetof(ExecContext, log_ratelimit_burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogNamespace", "s", NULL, offsetof(ExecContext, log_namespace), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CapabilityBoundingSet", "t", NULL, offsetof(ExecContext, capability_bounding_set), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("AmbientCapabilities", "t", NULL, offsetof(ExecContext, capability_ambient_set), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -781,6 +839,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ProtectClock", "b", bus_property_get_bool, offsetof(ExecContext, protect_clock), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelTunables", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_tunables), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelModules", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_modules), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectKernelLogs", "b", bus_property_get_bool, offsetof(ExecContext, protect_kernel_logs), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1189,10 +1248,10 @@ int bus_exec_context_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "User"))
-                return bus_set_transient_user_compat(u, name, &c->user, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &c->user, message, flags, error);
 
         if (streq(name, "Group"))
-                return bus_set_transient_user_compat(u, name, &c->group, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &c->group, message, flags, error);
 
         if (streq(name, "TTYPath"))
                 return bus_set_transient_path(u, name, &c->tty_path, message, flags, error);
@@ -1284,6 +1343,9 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "ProtectKernelLogs"))
                 return bus_set_transient_bool(u, name, &c->protect_kernel_logs, message, flags, error);
 
+        if (streq(name, "ProtectClock"))
+                return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
+
         if (streq(name, "ProtectControlGroups"))
                 return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
 
@@ -1374,7 +1436,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l)
-                        if (!isempty(*p) && !valid_user_group_name_or_id_compat(*p))
+                        if (!isempty(*p) && !valid_user_group_name(*p, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "Invalid supplementary group names");
 
@@ -1429,6 +1491,32 @@ int bus_exec_context_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
                         unit_write_settingf(u, flags, name, "SyslogFacility=%i", facility);
+                }
+
+                return 1;
+
+        } else if (streq(name, "LogNamespace")) {
+                const char *n;
+
+                r = sd_bus_message_read(message, "s", &n);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(n) && !log_namespace_name_valid(n))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+
+                        if (isempty(n)) {
+                                c->log_namespace = mfree(c->log_namespace);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                r = free_and_strdup(&c->log_namespace, n);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, n);
+                        }
                 }
 
                 return 1;
@@ -1557,6 +1645,7 @@ int bus_exec_context_set_transient_property(
                                         r = seccomp_parse_syscall_filter("@default",
                                                                          -1,
                                                                          c->syscall_filter,
+                                                                         SECCOMP_PARSE_PERMISSIVE |
                                                                          SECCOMP_PARSE_WHITELIST | invert_flag,
                                                                          u->id,
                                                                          NULL, 0);
@@ -1576,7 +1665,9 @@ int bus_exec_context_set_transient_property(
                                 r = seccomp_parse_syscall_filter(n,
                                                                  e,
                                                                  c->syscall_filter,
-                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0) | invert_flag,
+                                                                 SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
+                                                                 invert_flag |
+                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
                                                                  u->id,
                                                                  NULL, 0);
                                 if (r < 0)
@@ -1737,6 +1828,20 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "CPUAffinityFromNUMA")) {
+                int q;
+
+                r = sd_bus_message_read_basic(message, 'b', &q);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpu_affinity_from_numa = q;
+                        unit_write_settingf(u, flags, name, "%s=%s", "CPUAffinity", "numa");
+                }
+
+                return 1;
+
         } else if (streq(name, "NUMAPolicy")) {
                 int32_t type;
 
@@ -1751,6 +1856,7 @@ int bus_exec_context_set_transient_property(
                         c->numa_policy.type = type;
 
                 return 1;
+
         } else if (streq(name, "Nice")) {
                 int32_t q;
 
@@ -2128,6 +2234,21 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
+        } else if (streq(name, "CoredumpFilter")) {
+                uint64_t f;
+
+                r = sd_bus_message_read(message, "t", &f);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->coredump_filter = f;
+                        c->coredump_filter_set = true;
+                        unit_write_settingf(u, flags, name, "CoredumpFilter=0x%"PRIx64, f);
+                }
+
+                return 1;
+
         } else if (streq(name, "EnvironmentFiles")) {
 
                 _cleanup_free_ char *joined = NULL;
@@ -2379,7 +2500,7 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
-                const char *source, *destination;
+                char *source, *destination;
                 int ignore_enoent;
                 uint64_t mount_flags;
                 bool empty = true;
@@ -2400,8 +2521,8 @@ int bus_exec_context_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
                                                    &(BindMount) {
-                                                           .source = strdup(source),
-                                                           .destination = strdup(destination),
+                                                           .source = source,
+                                                           .destination = destination,
                                                            .read_only = !!strstr(name, "ReadOnly"),
                                                            .recursive = !!(mount_flags & MS_REC),
                                                            .ignore_enoent = ignore_enoent,

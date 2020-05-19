@@ -828,7 +828,7 @@ int config_parse_macsec_key_id(
 
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_free_ void *p;
+        _cleanup_free_ void *p = NULL;
         MACsec *s = userdata;
         uint8_t *dest;
         size_t l;
@@ -981,7 +981,7 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
 
         (void) warn_file_is_world_accessible(sa->key_file, NULL, NULL, 0);
 
-        r = read_full_file_full(sa->key_file, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX, (char **) &key, &key_len);
+        r = read_full_file_full(AT_FDCWD, sa->key_file, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX, (char **) &key, &key_len);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",

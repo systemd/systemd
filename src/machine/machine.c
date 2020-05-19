@@ -294,12 +294,11 @@ int machine_load(Machine *m) {
         if (netif) {
                 size_t allocated = 0, nr = 0;
                 const char *p;
-                int *ni = NULL;
+                _cleanup_free_ int *ni = NULL;
 
                 p = netif;
                 for (;;) {
                         _cleanup_free_ char *word = NULL;
-                        int ifi;
 
                         r = extract_first_word(&p, &word, NULL, 0);
                         if (r == 0)
@@ -311,19 +310,18 @@ int machine_load(Machine *m) {
                                 break;
                         }
 
-                        if (parse_ifindex(word, &ifi) < 0)
+                        r = parse_ifindex(word);
+                        if (r < 0)
                                 continue;
 
-                        if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
-                                free(ni);
+                        if (!GREEDY_REALLOC(ni, allocated, nr + 1))
                                 return log_oom();
-                        }
 
-                        ni[nr++] = ifi;
+                        ni[nr++] = r;
                 }
 
                 free(m->netif);
-                m->netif = ni;
+                m->netif = TAKE_PTR(ni);
                 m->n_netif = nr;
         }
 

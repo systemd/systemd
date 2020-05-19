@@ -23,7 +23,11 @@ ADDITIONAL_DEPS=(dnf-plugins-core
                  libubsan
                  clang
                  llvm
-                 perl)
+                 perl
+                 libfdisk-devel
+                 libpwquality-devel
+                 openssl-devel
+                 p11-kit-devel)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -44,8 +48,10 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
                         -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
-            # Beautiful workaround for Fedora's version of Docker
-            sleep 1
+            # Wait for the container to properly boot up, otherwise we were
+            # running following dnf commands during the initializing/starting
+            # (early/late bootup) phase, which caused nasty race conditions
+            $DOCKER_EXEC bash -c 'systemctl is-system-running --wait || :'
             $DOCKER_EXEC dnf makecache
             # Install necessary build/test requirements
             $DOCKER_EXEC dnf -y --exclude selinux-policy\* upgrade

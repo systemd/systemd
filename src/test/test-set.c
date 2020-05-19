@@ -3,6 +3,8 @@
 #include "set.h"
 #include "strv.h"
 
+const bool mempool_use_allowed = VALGRIND;
+
 static void test_set_steal_first(void) {
         _cleanup_set_free_ Set *m = NULL;
         int seen[3] = {};
@@ -86,11 +88,32 @@ static void test_set_put(void) {
         assert_se(strv_length(t) == 3);
 }
 
+static void test_set_put_strdup(void) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        assert_se(set_put_strdup(&m, "aaa") == 1);
+        assert_se(set_put_strdup(&m, "aaa") == 0);
+        assert_se(set_put_strdup(&m, "bbb") == 1);
+        assert_se(set_put_strdup(&m, "bbb") == 0);
+        assert_se(set_put_strdup(&m, "aaa") == 0);
+        assert_se(set_size(m) == 2);
+}
+
+static void test_set_put_strdupv(void) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "aaa")) == 2);
+        assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "ccc")) == 1);
+        assert_se(set_size(m) == 3);
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
         test_set_free_with_hash_ops();
         test_set_put();
+        test_set_put_strdup();
+        test_set_put_strdupv();
 
         return 0;
 }

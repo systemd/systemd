@@ -117,23 +117,24 @@ static int client_context_new(Server *s, pid_t pid, ClientContext **ret) {
         if (r < 0)
                 return r;
 
-        c = new0(ClientContext, 1);
+        c = new(ClientContext, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->pid = pid;
-
-        c->uid = UID_INVALID;
-        c->gid = GID_INVALID;
-        c->auditid = AUDIT_SESSION_INVALID;
-        c->loginuid = UID_INVALID;
-        c->owner_uid = UID_INVALID;
-        c->lru_index = PRIOQ_IDX_NULL;
-        c->timestamp = USEC_INFINITY;
-        c->extra_fields_mtime = NSEC_INFINITY;
-        c->log_level_max = -1;
-        c->log_ratelimit_interval = s->ratelimit_interval;
-        c->log_ratelimit_burst = s->ratelimit_burst;
+        *c = (ClientContext) {
+                .pid = pid,
+                .uid = UID_INVALID,
+                .gid = GID_INVALID,
+                .auditid = AUDIT_SESSION_INVALID,
+                .loginuid = UID_INVALID,
+                .owner_uid = UID_INVALID,
+                .lru_index = PRIOQ_IDX_NULL,
+                .timestamp = USEC_INFINITY,
+                .extra_fields_mtime = NSEC_INFINITY,
+                .log_level_max = -1,
+                .log_ratelimit_interval = s->ratelimit_interval,
+                .log_ratelimit_burst = s->ratelimit_burst,
+        };
 
         r = hashmap_put(s->client_contexts, PID_TO_PTR(pid), c);
         if (r < 0) {
@@ -325,19 +326,29 @@ static int client_context_read_invocation_id(
                 Server *s,
                 ClientContext *c) {
 
-        _cleanup_free_ char *value = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL, *value = NULL;
         int r;
 
         assert(s);
         assert(c);
 
-        /* Read the invocation ID of a unit off a unit. PID 1 stores it in a per-unit symlink in /run/systemd/units/ */
+        /* Read the invocation ID of a unit off a unit.
+         * PID 1 stores it in a per-unit symlink in /run/systemd/units/
+         * User managers store it in a per-unit symlink under /run/user/<uid>/systemd/units/ */
 
         if (!c->unit)
                 return 0;
 
-        p = strjoina("/run/systemd/units/invocation:", c->unit);
+        if (c->user_unit) {
+                r = asprintf(&p, "/run/user/" UID_FMT "/systemd/units/invocation:%s", c->owner_uid, c->user_unit);
+                if (r < 0)
+                        return r;
+        } else {
+                p = strjoin("/run/systemd/units/invocation:", c->unit);
+                if (!p)
+                        return -ENOMEM;
+        }
+
         r = readlink_malloc(p, &value);
         if (r < 0)
                 return r;
@@ -769,7 +780,9 @@ void client_context_acquire_default(Server *s) {
                         log_warning_errno(r, "Failed to acquire our own context, ignoring: %m");
         }
 
-        if (!s->pid1_context) {
+        if (!s->namespace && !s->pid1_context) {
+                /* Acquire PID1's context, but only if we are in non-namespaced mode, since PID 1 is only
+                 * going to log to the non-namespaced journal instance. */
 
                 r = client_context_acquire(s, 1, NULL, NULL, 0, NULL, &s->pid1_context);
                 if (r < 0)

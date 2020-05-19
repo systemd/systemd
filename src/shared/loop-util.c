@@ -11,16 +11,26 @@
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
 #include "parse-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
-int loop_device_make_full(
+static void cleanup_clear_loop_close(int *fd) {
+        if (*fd >= 0) {
+                (void) ioctl(*fd, LOOP_CLR_FD);
+                (void) safe_close(*fd);
+        }
+}
+
+int loop_device_make(
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -28,9 +38,7 @@ int loop_device_make_full(
                 uint32_t loop_flags,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int control = -1, loop = -1;
         _cleanup_free_ char *loopdev = NULL;
-        unsigned n_attempts = 0;
         struct loop_info64 info;
         LoopDevice *d = NULL;
         struct stat st;
@@ -44,7 +52,7 @@ int loop_device_make_full(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (ioctl(loop, LOOP_GET_STATUS64, &info) >= 0) {
+                if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
                         /* Oh! This is a loopback device? That's interesting! */
 
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -58,7 +66,7 @@ int loop_device_make_full(
                 }
 
                 if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
-                        int copy;
+                        _cleanup_close_ int copy = -1;
 
                         /* If this is already a block device, store a copy of the fd as it is */
 
@@ -69,9 +77,8 @@ int loop_device_make_full(
                         d = new(LoopDevice, 1);
                         if (!d)
                                 return -ENOMEM;
-
                         *d = (LoopDevice) {
-                                .fd = copy,
+                                .fd = TAKE_FD(copy),
                                 .nr = nr,
                                 .node = TAKE_PTR(loopdev),
                                 .relinquished = true, /* It's not allocated by us, don't destroy it when this object is freed */
@@ -86,13 +93,18 @@ int loop_device_make_full(
                         return r;
         }
 
+        _cleanup_close_ int control = -1;
+        _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -1;
+
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)
                 return -errno;
 
         /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
          * be gone already, taken by somebody else racing against us. */
-        for (;;) {
+        for (unsigned n_attempts = 0;;) {
+                _cleanup_close_ int loop = -1;
+
                 nr = ioctl(control, LOOP_CTL_GET_FREE);
                 if (nr < 0)
                         return -errno;
@@ -101,19 +113,24 @@ int loop_device_make_full(
                         return -ENOMEM;
 
                 loop = open(loopdev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-                if (loop < 0)
-                        return -errno;
-                if (ioctl(loop, LOOP_SET_FD, fd) < 0) {
+                if (loop < 0) {
+                        /* Somebody might've gotten the same number from the kernel, used the device,
+                         * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
+                        if (errno != ENOENT)
+                                return -errno;
+                } else {
+                        if (ioctl(loop, LOOP_SET_FD, fd) >= 0) {
+                                loop_with_fd = TAKE_FD(loop);
+                                break;
+                        }
                         if (errno != EBUSY)
                                 return -errno;
+                }
 
-                        if (++n_attempts >= 64) /* Give up eventually */
-                                return -EBUSY;
-                } else
-                        break;
+                if (++n_attempts >= 64) /* Give up eventually */
+                        return -EBUSY;
 
                 loopdev = mfree(loopdev);
-                loop = safe_close(loop);
         }
 
         info = (struct loop_info64) {
@@ -123,47 +140,50 @@ int loop_device_make_full(
                 .lo_sizelimit = size == UINT64_MAX ? 0 : size,
         };
 
-        if (ioctl(loop, LOOP_SET_STATUS64, &info) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (ioctl(loop_with_fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
 
         d = new(LoopDevice, 1);
-        if (!d) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
+        if (!d)
+                return -ENOMEM;
         *d = (LoopDevice) {
-                .fd = TAKE_FD(loop),
+                .fd = TAKE_FD(loop_with_fd),
                 .node = TAKE_PTR(loopdev),
                 .nr = nr,
         };
 
         *ret = d;
-        return d->fd;
-
-fail:
-        if (fd >= 0)
-                (void) ioctl(fd, LOOP_CLR_FD);
-        if (d && d->fd >= 0)
-                (void) ioctl(d->fd, LOOP_CLR_FD);
-
-        return r;
+        return 0;
 }
 
 int loop_device_make_by_path(const char *path, int open_flags, uint32_t loop_flags, LoopDevice **ret) {
         _cleanup_close_ int fd = -1;
+        int r;
 
         assert(path);
         assert(ret);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
-        if (fd < 0)
-                return -errno;
+        /* Passing < 0 as open_flags here means we'll try to open the device writable if we can, retrying
+         * read-only if we cannot. */
 
-        return loop_device_make(fd, open_flags, loop_flags, ret);
+        fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(open_flags >= 0 ? open_flags : O_RDWR));
+        if (fd < 0) {
+                r = -errno;
+
+                /* Retry read-only? */
+                if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
+                        return r;
+
+                fd = open(path, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                if (fd < 0)
+                        return r; /* Propagate original error */
+
+                open_flags = O_RDONLY;
+        } else if (open_flags < 0)
+                open_flags = O_RDWR;
+
+        return loop_device_make(fd, open_flags, 0, 0, loop_flags, ret);
 }
 
 LoopDevice* loop_device_unref(LoopDevice *d) {
@@ -171,7 +191,6 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 return NULL;
 
         if (d->fd >= 0) {
-
                 if (d->nr >= 0 && !d->relinquished) {
                         if (ioctl(d->fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
@@ -186,11 +205,19 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
 
                 control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
                 if (control < 0)
-                        log_debug_errno(errno, "Failed to open loop control device: %m");
-                else {
-                        if (ioctl(control, LOOP_CTL_REMOVE, d->nr) < 0)
-                                log_debug_errno(errno, "Failed to remove loop device: %m");
-                }
+                        log_warning_errno(errno,
+                                          "Failed to open loop control device, cannot remove loop device %s: %m",
+                                          strna(d->node));
+                else
+                        for (unsigned n_attempts = 0;;) {
+                                if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
+                                        break;
+                                if (errno != EBUSY || ++n_attempts >= 64) {
+                                        log_warning_errno(errno, "Failed to remove device %s: %m", strna(d->node));
+                                        break;
+                                }
+                                usleep(50 * USEC_PER_MSEC);
+                        }
         }
 
         free(d->node);

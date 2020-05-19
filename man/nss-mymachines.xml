@@ -69,7 +69,7 @@
 group:          compat <command>mymachines</command> systemd
 shadow:         compat
 
-hosts:          files <command>mymachines</command> resolve [!UNAVAIL=return] dns myhostname
+hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] myhostname files dns
 networks:       files
 
 protocols:      db files

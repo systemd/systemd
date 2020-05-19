@@ -14,8 +14,9 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-log-control-api.h"
 #include "bus-message.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "def.h"
 #include "keymap-util.h"
 #include "locale-util.h"
@@ -24,6 +25,7 @@
 #include "missing_capability.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "service-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -33,7 +35,7 @@ static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
         _cleanup_strv_free_ char **l_set = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         size_t c_set, c_unset;
         LocaleVariable p;
         int r;
@@ -256,18 +258,57 @@ static int property_get_xkb(
         return -EINVAL;
 }
 
+static int process_locale_list_item(
+                const char *assignment,
+                char *new_locale[static _VARIABLE_LC_MAX],
+                sd_bus_error *error) {
+
+        assert(assignment);
+        assert(new_locale);
+
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++) {
+                const char *name, *e;
+
+                assert_se(name = locale_variable_to_string(p));
+
+                e = startswith(assignment, name);
+                if (!e)
+                        continue;
+
+                if (*e != '=')
+                        continue;
+
+                e++;
+
+                if (!locale_is_valid(e))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s is not valid, refusing.", e);
+                if (locale_is_installed(e) <= 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s not installed, refusing.", e);
+                if (new_locale[p])
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale variable %s set twice, refusing.", name);
+
+                new_locale[p] = strdup(e);
+                if (!new_locale[p])
+                        return -ENOMEM;
+
+                return 0;
+        }
+
+        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
+}
+
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
         Context *c = userdata;
         bool modified = false;
-        int interactive, p, r;
+        int interactive, r;
         char **i;
 
         assert(m);
         assert(c);
 
-        r = bus_message_read_strv_extend(m, &l);
+        r = sd_bus_message_read_strv(m, &l);
         if (r < 0)
                 return r;
 
@@ -276,11 +317,13 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return r;
 
         /* If single locale without variable name is provided, then we assume it is LANG=. */
-        if (strv_length(l) == 1 && !strchr(*l, '=')) {
-                if (!locale_is_valid(*l))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+        if (strv_length(l) == 1 && !strchr(l[0], '=')) {
+                if (!locale_is_valid(l[0]))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid locale specification: %s", l[0]);
+                if (locale_is_installed(l[0]) <= 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified locale is not installed: %s", l[0]);
 
-                new_locale[VARIABLE_LANG] = strdup(*l);
+                new_locale[VARIABLE_LANG] = strdup(l[0]);
                 if (!new_locale[VARIABLE_LANG])
                         return -ENOMEM;
 
@@ -289,31 +332,9 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* Check whether a variable is valid */
         STRV_FOREACH(i, l) {
-                bool valid = false;
-
-                for (p = 0; p < _VARIABLE_LC_MAX; p++) {
-                        size_t k;
-                        const char *name;
-
-                        name = locale_variable_to_string(p);
-                        assert(name);
-
-                        k = strlen(name);
-                        if (startswith(*i, name) &&
-                            (*i)[k] == '=' &&
-                            locale_is_valid((*i) + k + 1)) {
-                                valid = true;
-
-                                new_locale[p] = strdup((*i) + k + 1);
-                                if (!new_locale[p])
-                                        return -ENOMEM;
-
-                                break;
-                        }
-                }
-
-                if (!valid)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+                r = process_locale_list_item(*i, new_locale, error);
+                if (r < 0)
+                        return r;
         }
 
         /* If LANG was specified, but not LANGUAGE, check if we should
@@ -336,7 +357,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         /* Merge with the current settings */
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 if (!isempty(c->locale[p]) && isempty(new_locale[p])) {
                         new_locale[p] = strdup(c->locale[p]);
                         if (!new_locale[p])
@@ -345,7 +366,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         locale_simplify(new_locale);
 
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 if (!streq_ptr(c->locale[p], new_locale[p])) {
                         modified = true;
                         break;
@@ -370,7 +391,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        for (p = 0; p < _VARIABLE_LC_MAX; p++)
+        for (LocaleVariable p = 0; p < _VARIABLE_LC_MAX; p++)
                 free_and_replace(c->locale[p], new_locale[p]);
 
         r = locale_write_data(c, &settings);
@@ -676,10 +697,42 @@ static const sd_bus_vtable locale_vtable[] = {
         SD_BUS_PROPERTY("X11Options", "s", property_get_xkb, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymap", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("VConsoleKeymapToggle", "s", property_get_vconsole, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_METHOD("SetLocale", "asb", NULL, method_set_locale, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetVConsoleKeyboard", "ssbb", NULL, method_set_vc_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SetX11Keyboard", "ssssbb", NULL, method_set_x11_keyboard, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("SetLocale",
+                                 "asb",
+                                 SD_BUS_PARAM(locale)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_locale,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetVConsoleKeyboard",
+                                 "ssbb",
+                                 SD_BUS_PARAM(keymap)
+                                 SD_BUS_PARAM(keymap_toggle)
+                                 SD_BUS_PARAM(convert)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_vc_keyboard,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetX11Keyboard",
+                                 "ssssbb",
+                                 SD_BUS_PARAM(layout)
+                                 SD_BUS_PARAM(model)
+                                 SD_BUS_PARAM(variant)
+                                 SD_BUS_PARAM(options)
+                                 SD_BUS_PARAM(convert)
+                                 SD_BUS_PARAM(interactive),
+                                 NULL,,
+                                 method_set_x11_keyboard,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
         SD_BUS_VTABLE_END
+};
+
+static const BusObjectImplementation manager_object = {
+        "/org/freedesktop/locale1",
+        "org.freedesktop.locale1",
+        .vtables = BUS_VTABLES(locale_vtable),
 };
 
 static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
@@ -694,9 +747,13 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = sd_bus_add_object_vtable(bus, NULL, "/org/freedesktop/locale1", "org.freedesktop.locale1", locale_vtable, c);
+        r = bus_add_implementation(bus, &manager_object, c);
         if (r < 0)
-                return log_error_errno(r, "Failed to register object: %m");
+                return r;
+
+        r = bus_log_control_api_register(bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.locale1", 0, NULL, NULL);
         if (r < 0)
@@ -723,11 +780,16 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
+        r = service_parse_argv("systemd-localed.service",
+                               "Manage system locale settings and key mappings.",
+                               BUS_IMPLEMENTATIONS(&manager_object,
+                                                   &log_control_object),
+                               argc, argv);
+        if (r <= 0)
+                return r;
+
         umask(0022);
         mac_selinux_init();
-
-        if (argc != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

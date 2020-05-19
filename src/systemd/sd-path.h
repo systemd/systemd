@@ -78,11 +78,38 @@ enum {
         SD_PATH_SEARCH_STATE_FACTORY,
         SD_PATH_SEARCH_CONFIGURATION,
 
+        /* Various systemd paths, generally mirroring systemd.pc */
+        SD_PATH_SYSTEMD_UTIL_DIR,
+        SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR,
+        SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR,
+        SD_PATH_SYSTEMD_USER_UNIT_DIR,
+        SD_PATH_SYSTEMD_USER_PRESET_DIR,
+        SD_PATH_SYSTEMD_SYSTEM_CONF_DIR,
+        SD_PATH_SYSTEMD_USER_CONF_DIR,
+        SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH,
+        SD_PATH_SYSTEMD_USER_UNIT_PATH,
+        SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR,
+        SD_PATH_SYSTEMD_USER_GENERATOR_DIR,
+        SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH,
+        SD_PATH_SYSTEMD_USER_GENERATOR_PATH,
+        SD_PATH_SYSTEMD_SLEEP_DIR,
+        SD_PATH_SYSTEMD_SHUTDOWN_DIR,
+
+        SD_PATH_TMPFILES_DIR,
+        SD_PATH_SYSUSERS_DIR,
+        SD_PATH_SYSCTL_DIR,
+        SD_PATH_BINFMT_DIR,
+        SD_PATH_MODULES_LOAD_DIR,
+        SD_PATH_CATALOG_DIR,
+
+        /* systemd-networkd search paths */
+        SD_PATH_SYSTEMD_NETWORK_PATH,
+
         _SD_PATH_MAX,
 };
 
-int sd_path_home(uint64_t type, const char *suffix, char **path);
-int sd_path_search(uint64_t type, const char *suffix, char ***paths);
+int sd_path_lookup(uint64_t type, const char *suffix, char **path);
+int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***paths);
 
 _SD_END_DECLARATIONS;
 

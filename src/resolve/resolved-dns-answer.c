@@ -678,6 +678,9 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         return 0;
 }
 
+/*
+ * This function is not used in the code base, but is useful when debugging. Do not delete.
+ */
 void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
@@ -707,7 +710,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                 if (flags & DNS_ANSWER_AUTHENTICATED)
                         fputs(" authenticated", f);
                 if (flags & DNS_ANSWER_CACHEABLE)
-                        fputs(" cachable", f);
+                        fputs(" cacheable", f);
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         fputs(" shared-owner", f);
 

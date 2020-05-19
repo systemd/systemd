@@ -87,6 +87,12 @@
 #define _LZ4_FEATURE_ "-LZ4"
 #endif
 
+#if HAVE_ZSTD
+#define _ZSTD_FEATURE_ "+ZSTD"
+#else
+#define _ZSTD_FEATURE_ "-ZSTD"
+#endif
+
 #if HAVE_SECCOMP
 #define _SECCOMP_FEATURE_ "+SECCOMP"
 #else
@@ -146,6 +152,7 @@
         _ACL_FEATURE_ " "                                               \
         _XZ_FEATURE_ " "                                                \
         _LZ4_FEATURE_ " "                                               \
+        _ZSTD_FEATURE_ " "                                              \
         _SECCOMP_FEATURE_ " "                                           \
         _BLKID_FEATURE_ " "                                             \
         _ELFUTILS_FEATURE_ " "                                          \

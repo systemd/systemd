@@ -294,7 +294,7 @@ int config_parse(const char *unit,
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
-        int r;
+        int r, fd;
 
         assert(filename);
         assert(lookup);
@@ -311,7 +311,9 @@ int config_parse(const char *unit,
                 }
         }
 
-        fd_warn_permissions(filename, fileno(f));
+        fd = fileno(f);
+        if (fd >= 0) /* stream might not have an fd, let's be careful hence */
+                fd_warn_permissions(filename, fd);
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
@@ -333,6 +335,8 @@ int config_parse(const char *unit,
 
                         return r;
                 }
+
+                line++;
 
                 l = skip_leading_chars(buf, WHITESPACE);
                 if (*l != '\0' && strchr(COMMENTS, *l))
@@ -390,7 +394,7 @@ int config_parse(const char *unit,
 
                 r = parse_line(unit,
                                filename,
-                               ++line,
+                               line,
                                sections,
                                lookup,
                                table,
@@ -515,6 +519,7 @@ DEFINE_PARSER(long, long, safe_atoli);
 DEFINE_PARSER(uint8, uint8_t, safe_atou8);
 DEFINE_PARSER(uint16, uint16_t, safe_atou16);
 DEFINE_PARSER(uint32, uint32_t, safe_atou32);
+DEFINE_PARSER(int32, int32_t, safe_atoi32);
 DEFINE_PARSER(uint64, uint64_t, safe_atou64);
 DEFINE_PARSER(unsigned, unsigned, safe_atou);
 DEFINE_PARSER(double, double, safe_atod);
@@ -555,7 +560,7 @@ int config_parse_iec_size(const char* unit,
         return 0;
 }
 
-int config_parse_si_size(
+int config_parse_si_uint64(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -567,8 +572,7 @@ int config_parse_si_size(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
-        uint64_t v;
+        uint64_t *sz = data;
         int r;
 
         assert(filename);
@@ -576,15 +580,12 @@ int config_parse_si_size(
         assert(rvalue);
         assert(data);
 
-        r = parse_size(rvalue, 1000, &v);
-        if (r >= 0 && (uint64_t) (size_t) v != v)
-                r = -ERANGE;
+        r = parse_size(rvalue, 1000, sz);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
-        *sz = (size_t) v;
         return 0;
 }
 
@@ -985,6 +986,66 @@ int config_parse_ifname(
         return 0;
 }
 
+int config_parse_ifnames(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **names = NULL;
+        char ***s = data;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *s = strv_free(*s);
+                return 0;
+        }
+
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to extract interface name, ignoring assignment: %s",
+                                   rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (!ifname_valid_full(word, ltype)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Interface name is not valid or too long, ignoring assignment: %s",
+                                   word);
+                        continue;
+                }
+
+                r = strv_consume(&names, TAKE_PTR(word));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        r = strv_extend_strv(s, names, true);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 int config_parse_ip_port(
                 const char *unit,
                 const char *filename,
@@ -1123,6 +1184,38 @@ int config_parse_permille(const char* unit,
         }
 
         *permille = (unsigned) r;
+
+        return 0;
+}
+
+int config_parse_vlanprotocol(const char* unit,
+                              const char *filename,
+                              unsigned line,
+                              const char *section,
+                              unsigned section_line,
+                              const char *lvalue,
+                              int ltype,
+                              const char *rvalue,
+                              void *data,
+                              void *userdata) {
+        int *vlan_protocol = data;
+        assert(filename);
+        assert(lvalue);
+
+        if (isempty(rvalue)) {
+                *vlan_protocol = -1;
+                return 0;
+        }
+
+        if (STR_IN_SET(rvalue, "802.1ad", "802.1AD"))
+                *vlan_protocol = ETH_P_8021AD;
+        else if (STR_IN_SET(rvalue, "802.1q", "802.1Q"))
+                *vlan_protocol = ETH_P_8021Q;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse VLAN protocol value, ignoring: %s", rvalue);
+                return 0;
+        }
 
         return 0;
 }

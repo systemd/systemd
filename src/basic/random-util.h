@@ -10,6 +10,7 @@ typedef enum RandomFlags {
         RANDOM_BLOCK              = 1 << 1, /* Rather block than return crap randomness (only if the kernel supports that) */
         RANDOM_MAY_FAIL           = 1 << 2, /* If we can't get any randomness at all, return early with -ENODATA */
         RANDOM_ALLOW_RDRAND       = 1 << 3, /* Allow usage of the CPU RNG */
+        RANDOM_ALLOW_INSECURE     = 1 << 4, /* Allow usage of GRND_INSECURE flag to kernel's getrandom() API */
 } RandomFlags;
 
 int genuine_random_bytes(void *p, size_t n, RandomFlags flags); /* returns "genuine" randomness, optionally filled up with pseudo random, if not enough is available */

@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -267,9 +267,8 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                                 else if (streq(a[1], "XkbOptions"))
                                         p = &c->x11_options;
 
-                                if (p) {
+                                if (p)
                                         free_and_replace(*p, a[2]);
-                                }
                         }
 
                 } else if (!in_section && first_word(l, "Section")) {

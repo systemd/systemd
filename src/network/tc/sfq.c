@@ -31,7 +31,7 @@ static int stochastic_fairness_queueing_fill_message(Link *link, QDisc *qdisc, s
         return 0;
 }
 
-int config_parse_tc_stochastic_fairness_queueing_perturb_period(
+int config_parse_stochastic_fairness_queueing_perturb_period(
                 const char *unit,
                 const char *filename,
                 unsigned line,

@@ -104,11 +104,10 @@ int seat_save(Seat *s) {
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "IS_SEAT0=%i\n"
-                "CAN_MULTI_SESSION=%i\n"
+                "CAN_MULTI_SESSION=1\n"
                 "CAN_TTY=%i\n"
                 "CAN_GRAPHICAL=%i\n",
                 seat_is_seat0(s),
-                seat_can_multi_session(s),
                 seat_can_tty(s),
                 seat_can_graphical(s));
 
@@ -119,7 +118,7 @@ int seat_save(Seat *s) {
                         "ACTIVE=%s\n"
                         "ACTIVE_UID="UID_FMT"\n",
                         s->active->id,
-                        s->active->user->uid);
+                        s->active->user->user_record->uid);
         }
 
         if (s->sessions) {
@@ -137,7 +136,7 @@ int seat_save(Seat *s) {
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
                         fprintf(f,
                                 UID_FMT"%c",
-                                i->user->uid,
+                                i->user->user_record->uid,
                                 i->sessions_by_seat_next ? ' ' : '\n');
         }
 
@@ -216,8 +215,8 @@ int seat_apply_acls(Seat *s, Session *old_active) {
 
         r = devnode_acl_all(s->id,
                             false,
-                            !!old_active, old_active ? old_active->user->uid : 0,
-                            !!s->active, s->active ? s->active->user->uid : 0);
+                            !!old_active, old_active ? old_active->user->user_record->uid : 0,
+                            !!s->active, s->active ? s->active->user->user_record->uid : 0);
 
         if (r < 0)
                 return log_error_errno(r, "Failed to apply ACLs: %m");
@@ -556,12 +555,6 @@ bool seat_is_seat0(Seat *s) {
         assert(s);
 
         return s->manager->seat0 == s;
-}
-
-bool seat_can_multi_session(Seat *s) {
-        assert(s);
-
-        return seat_has_vts(s);
 }
 
 bool seat_can_tty(Seat *s) {

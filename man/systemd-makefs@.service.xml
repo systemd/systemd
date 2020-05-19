@@ -63,6 +63,7 @@
     <citerefentry project='man-pages'><refentrytitle>ext4</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     btrfs (see
     <citerefentry project='man-pages'><refentrytitle>btrfs-man5</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+    <citerefentry project='man-pages'><refentrytitle>xfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <!-- yes, that's what the man page is called. -->
     and dm-crypt partitions (see
     <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
@@ -79,6 +80,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

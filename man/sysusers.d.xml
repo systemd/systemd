@@ -25,6 +25,16 @@
     <para><filename>/etc/sysusers.d/*.conf</filename></para>
     <para><filename>/run/sysusers.d/*.conf</filename></para>
     <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
+
+    <programlisting>
+#Type Name       ID                   GECOS                 Home directory Shell
+u     user_name  uid                  "User Description"    /path/to/shell
+u     user_name  uid:gid              -                     -
+u     user_name  /file/owned/by/user  -                     -
+g     group_name gid                  "Group Description"
+g     group_name /file/owned/by/group -
+m     user_name  group_name
+r     -          lowest-highest</programlisting>
   </refsynopsisdiv>
 
   <refsect1>
@@ -81,11 +91,13 @@
 
     <programlisting>#Type Name     ID             GECOS                 Home directory Shell
 u     httpd    404            "HTTP User"
-u     authd    /usr/bin/authd "Authorization user"
+u     _authd   /usr/bin/authd "Authorization user"
 u     postgres -              "Postgresql Database" /var/lib/pgsql /usr/libexec/postgresdb
 g     input    -              -
-m     authd    input
-u     root     0              "Superuser"           /root          /bin/zsh</programlisting>
+m     _authd   input
+u     root     0              "Superuser"           /root          /bin/zsh
+r     -        500-900
+</programlisting>
 
     <para>Empty lines and lines beginning with the <literal>#</literal> character are ignored, and may be used for
     commenting.</para>
@@ -101,15 +113,15 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
           <term><varname>u</varname></term>
           <listitem><para>Create a system user and group of the specified name should
           they not exist yet. The user's primary group will be set to the group
-          bearing the same name. The account will be created disabled, so that logins
-          are not allowed.</para></listitem>
+          bearing the same name unless the ID field specifies it. The account will be
+          created disabled, so that logins are not allowed.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>g</varname></term>
           <listitem><para>Create a system group of the specified name
           should it not exist yet. Note that <varname>u</varname>
-          implicitly create a matching group. The group will be
+          implicitly creates a matching group. The group will be
           created with no password set.</para></listitem>
         </varlistentry>
 
@@ -142,6 +154,9 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
       A-Z or <literal>_</literal> (i.e. numbers and <literal>-</literal> are not permitted as first character). The
       user/group name must have at least one character, and at most 31.</para>
 
+      <para>For further details about the syntax of user/group names, see <ulink
+      url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink>.</para>
+
       <para>It is strongly recommended to pick user and group names that are unlikely to clash with normal users
       created by the administrator. A good scheme to guarantee this is by prefixing all system and group names with the
       underscore, and avoiding too generic names.</para>
@@ -166,9 +181,10 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
       binaries).
-      The syntax <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> is also supported to
-      allow creating user and group pairs with different numeric UID and GID values. The group with the indicated GID must get created explicitly before or it must already exist. Specifying <literal>-</literal> for the UID in this syntax
-      is also supported.
+      The syntaxes <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> and
+      <literal><replaceable>uid</replaceable>:<replaceable>groupname</replaceable></literal> are supported to
+      allow creating users with specific primary groups. The given group must be created explicitly, or it
+      must already exist. Specifying <literal>-</literal> for the UID in these syntaxes is also supported.
       </para>
 
       <para>For <varname>m</varname> lines, this field should contain
@@ -218,61 +234,49 @@ u     root     0              "Superuser"           /root          /bin/zsh</pro
   <refsect1>
     <title>Specifiers</title>
 
-    <para>Specifiers can be used in the "Name", "ID", "GECOS", "Home directory", and "Shell" fields.
-    An unknown or unresolvable specifier is treated as invalid configuration.
-    The following expansions are understood:</para>
-      <table>
-        <title>Specifiers available</title>
-        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-          <colspec colname="spec" />
-          <colspec colname="mean" />
-          <colspec colname="detail" />
-          <thead>
-            <row>
-              <entry>Specifier</entry>
-              <entry>Meaning</entry>
-              <entry>Details</entry>
-            </row>
-          </thead>
-          <tbody>
-            <row>
-              <entry><literal>%b</literal></entry>
-              <entry>Boot ID</entry>
-              <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%H</literal></entry>
-              <entry>Host name</entry>
-              <entry>The hostname of the running system.</entry>
-            </row>
-            <row>
-              <entry><literal>%m</literal></entry>
-              <entry>Machine ID</entry>
-              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%T</literal></entry>
-              <entry>Directory for temporary files</entry>
-              <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-            </row>
-            <row>
-              <entry><literal>%v</literal></entry>
-              <entry>Kernel release</entry>
-              <entry>Identical to <command>uname -r</command> output.</entry>
-            </row>
-            <row>
-              <entry><literal>%V</literal></entry>
-              <entry>Directory for larger and persistent temporary files</entry>
-              <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-            </row>
-            <row>
-              <entry><literal>%%</literal></entry>
-              <entry>Escaped <literal>%</literal></entry>
-              <entry>Single percent sign.</entry>
-            </row>
-          </tbody>
-        </tgroup>
-      </table>
+    <para>Specifiers can be used in the <literal>Name</literal>, <literal>ID</literal>,
+    <literal>GECOS</literal>, <literal>Home directory</literal>, and <literal>Shell</literal> fields. An
+    unknown or unresolvable specifier is treated as invalid configuration. The following expansions are
+    understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <row>
+            <entry><literal>%T</literal></entry>
+            <entry>Directory for temporary files</entry>
+            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <row>
+            <entry><literal>%V</literal></entry>
+            <entry>Directory for larger and persistent temporary files</entry>
+            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>

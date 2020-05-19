@@ -31,10 +31,12 @@
 
 static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
+static usec_t arg_exit_idle_time = USEC_INFINITY;
 
 typedef struct Context {
         sd_event *event;
         sd_resolve *resolve;
+        sd_event_source *idle_time;
 
         Set *listen;
         Set *connections;
@@ -75,6 +77,51 @@ static void connection_free(Connection *c) {
         free(c);
 }
 
+static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
+        Context *c = userdata;
+        int r;
+
+        if (!set_isempty(c->connections)) {
+                log_warning("Idle timer fired even though there are connections, ignoring");
+                return 0;
+        }
+
+        r = sd_event_exit(c->event, 0);
+        if (r < 0) {
+                log_warning_errno(r, "Error while stopping event loop, ignoring: %m");
+                return 0;
+        }
+        return 0;
+}
+
+static int connection_release(Connection *c) {
+        int r;
+        Context *context = c->context;
+        usec_t idle_instant;
+
+        connection_free(c);
+
+        if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
+                idle_instant = usec_add(now(CLOCK_MONOTONIC), arg_exit_idle_time);
+                if (context->idle_time) {
+                        r = sd_event_source_set_time(context->idle_time, idle_instant);
+                        if (r < 0)
+                                return log_error_errno(r, "Error while setting idle time: %m");
+
+                        r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                return log_error_errno(r, "Error while enabling idle time: %m");
+                } else {
+                        r = sd_event_add_time(context->event, &context->idle_time, CLOCK_MONOTONIC,
+                                              idle_instant, 0, idle_time_cb, context);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create idle timer: %m");
+                }
+        }
+
+        return 0;
+}
+
 static void context_clear(Context *context) {
         assert(context);
 
@@ -83,6 +130,7 @@ static void context_clear(Context *context) {
 
         sd_event_unref(context->event);
         sd_resolve_unref(context->resolve);
+        sd_event_source_unref(context->idle_time);
 }
 
 static int connection_create_pipes(Connection *c, int buffer[static 2], size_t *sz) {
@@ -206,7 +254,7 @@ static int traffic_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         return 1;
 
 quit:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -269,7 +317,7 @@ static int connection_complete(Connection *c) {
         return 0;
 
 fail:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -299,7 +347,7 @@ static int connect_cb(sd_event_source *s, int fd, uint32_t revents, void *userda
         return connection_complete(c);
 
 fail:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -343,7 +391,7 @@ static int connection_start(Connection *c, struct sockaddr *sa, socklen_t salen)
         return 0;
 
 fail:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -361,7 +409,7 @@ static int resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *
         return connection_start(c, ai->ai_addr, ai->ai_addrlen);
 
 fail:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -373,20 +421,21 @@ static int resolve_remote(Connection *c) {
                 .ai_flags = AI_ADDRCONFIG
         };
 
-        union sockaddr_union sa = {};
         const char *node, *service;
         int r;
 
         if (IN_SET(arg_remote_host[0], '/', '@')) {
-                int salen;
+                union sockaddr_union sa;
+                int sa_len;
 
-                salen = sockaddr_un_set_path(&sa.un, arg_remote_host);
-                if (salen < 0) {
-                        log_error_errno(salen, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
+                r = sockaddr_un_set_path(&sa.un, arg_remote_host);
+                if (r < 0) {
+                        log_error_errno(r, "Specified address doesn't fit in an AF_UNIX address, refusing: %m");
                         goto fail;
                 }
+                sa_len = r;
 
-                return connection_start(c, &sa.sa, salen);
+                return connection_start(c, &sa.sa, sa_len);
         }
 
         service = strrchr(arg_remote_host, ':');
@@ -408,7 +457,7 @@ static int resolve_remote(Connection *c) {
         return 0;
 
 fail:
-        connection_free(c);
+        connection_release(c);
         return 0; /* ignore errors, continue serving */
 }
 
@@ -423,6 +472,12 @@ static int add_connection_socket(Context *context, int fd) {
                 log_warning("Hit connection limit, refusing connection.");
                 safe_close(fd);
                 return 0;
+        }
+
+        if (context->idle_time) {
+                r = sd_event_source_set_enabled(context->idle_time, SD_EVENT_OFF);
+                if (r < 0)
+                        log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
         }
 
         r = set_ensure_allocated(&context->connections, NULL);
@@ -534,9 +589,13 @@ static int add_listen_socket(Context *context, int fd) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_free_ char *time_link = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-socket-proxyd", "8", &link);
+        if (r < 0)
+                return log_oom();
+        r = terminal_urlify_man("systemd.time", "7", &time_link);
         if (r < 0)
                 return log_oom();
 
@@ -544,11 +603,14 @@ static int help(void) {
                "%1$s [SOCKET]\n\n"
                "Bidirectionally proxy local sockets to another (possibly remote) socket.\n\n"
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
+               "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
+               "                         the %3$s for time span format\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
+               , time_link
         );
 
         return 0;
@@ -558,11 +620,13 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_EXIT_IDLE,
                 ARG_IGNORE_ENV
         };
 
         static const struct option options[] = {
                 { "connections-max", required_argument, NULL, 'c'           },
+                { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
                 { "help",            no_argument,       NULL, 'h'           },
                 { "version",         no_argument,       NULL, ARG_VERSION   },
                 {}
@@ -594,6 +658,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Connection limit is too low.");
 
+                        break;
+
+                case ARG_EXIT_IDLE:
+                        r = parse_sec(optarg, &arg_exit_idle_time);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
                         break;
 
                 case '?':

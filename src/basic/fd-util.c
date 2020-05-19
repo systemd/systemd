@@ -21,9 +21,10 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
-#include "util.h"
 #include "tmpfile-util.h"
+#include "util.h"
 
 /* The maximum number of iterations in the loop to close descriptors in the fallback case
  * when /proc/self/fd/ is inaccessible. */
@@ -144,11 +145,7 @@ int fd_nonblock(int fd, bool nonblock) {
         if (flags < 0)
                 return -errno;
 
-        if (nonblock)
-                nflags = flags | O_NONBLOCK;
-        else
-                nflags = flags & ~O_NONBLOCK;
-
+        nflags = UPDATE_FLAG(flags, O_NONBLOCK, nonblock);
         if (nflags == flags)
                 return 0;
 
@@ -167,11 +164,7 @@ int fd_cloexec(int fd, bool cloexec) {
         if (flags < 0)
                 return -errno;
 
-        if (cloexec)
-                nflags = flags | FD_CLOEXEC;
-        else
-                nflags = flags & ~FD_CLOEXEC;
-
+        nflags = UPDATE_FLAG(flags, FD_CLOEXEC, cloexec);
         if (nflags == flags)
                 return 0;
 
@@ -947,8 +940,15 @@ int fd_reopen(int fd, int flags) {
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
         new_fd = open(procfs_path, flags);
-        if (new_fd < 0)
-                return -errno;
+        if (new_fd < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                if (proc_mounted() == 0)
+                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
+
+                return -ENOENT;
+        }
 
         return new_fd;
 }

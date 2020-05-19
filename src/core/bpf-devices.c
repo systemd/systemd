@@ -38,7 +38,13 @@ static int bpf_access_type(const char *acc) {
         return r;
 }
 
-static int bpf_prog_whitelist_device(BPFProgram *prog, char type, int major, int minor, const char *acc) {
+static int bpf_prog_whitelist_device(
+                BPFProgram *prog,
+                char type,
+                int major,
+                int minor,
+                const char *acc) {
+
         int r, access;
 
         assert(prog);
@@ -74,7 +80,12 @@ static int bpf_prog_whitelist_device(BPFProgram *prog, char type, int major, int
         return r;
 }
 
-static int bpf_prog_whitelist_major(BPFProgram *prog, char type, int major, const char *acc) {
+static int bpf_prog_whitelist_major(
+                BPFProgram *prog,
+                char type,
+                int major,
+                const char *acc) {
+
         int r, access;
 
         assert(prog);
@@ -109,7 +120,11 @@ static int bpf_prog_whitelist_major(BPFProgram *prog, char type, int major, cons
         return r;
 }
 
-static int bpf_prog_whitelist_class(BPFProgram *prog, char type, const char *acc) {
+static int bpf_prog_whitelist_class(
+                BPFProgram *prog,
+                char type,
+                const char *acc) {
+
         int r, access;
 
         assert(prog);
@@ -143,7 +158,11 @@ static int bpf_prog_whitelist_class(BPFProgram *prog, char type, const char *acc
         return r;
 }
 
-int bpf_devices_cgroup_init(BPFProgram **ret, CGroupDevicePolicy policy, bool whitelist) {
+int bpf_devices_cgroup_init(
+                BPFProgram **ret,
+                CGroupDevicePolicy policy,
+                bool whitelist) {
+
         const struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */
                 BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1,
@@ -306,7 +325,14 @@ int bpf_devices_supported(void) {
         return supported = 1;
 }
 
-static int whitelist_device_pattern(BPFProgram *prog, const char *path, char type, const unsigned *maj, const unsigned *min, const char *acc) {
+static int whitelist_device_pattern(
+                BPFProgram *prog,
+                const char *path,
+                char type,
+                const unsigned *maj,
+                const unsigned *min,
+                const char *acc) {
+
         assert(IN_SET(type, 'b', 'c'));
 
         if (cg_all_unified() > 0) {
@@ -343,7 +369,12 @@ static int whitelist_device_pattern(BPFProgram *prog, const char *path, char typ
         }
 }
 
-int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
+int bpf_devices_whitelist_device(
+                BPFProgram *prog,
+                const char *path,
+                const char *node,
+                const char *acc) {
+
         mode_t mode;
         dev_t rdev;
         int r;
@@ -377,7 +408,13 @@ int bpf_devices_whitelist_device(BPFProgram *prog, const char *path, const char 
         return whitelist_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
 }
 
-int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
+int bpf_devices_whitelist_major(
+                BPFProgram *prog,
+                const char *path,
+                const char *name,
+                char type,
+                const char *acc) {
+
         unsigned maj;
         int r;
 
@@ -459,7 +496,10 @@ int bpf_devices_whitelist_major(BPFProgram *prog, const char *path, const char *
         return 0;
 }
 
-int bpf_devices_whitelist_static(BPFProgram *prog, const char *path) {
+int bpf_devices_whitelist_static(
+                BPFProgram *prog,
+                const char *path) {
+
         static const char auto_devices[] =
                 "/dev/null\0" "rwm\0"
                 "/dev/zero\0" "rwm\0"

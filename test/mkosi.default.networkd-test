@@ -10,7 +10,6 @@ Release=29
 [Output]
 Format=raw_btrfs
 Bootable=yes
-KernelCommandLine=printk.devkmsg=on
 OutputDirectory=../mkosi.output
 Output=networkd-test.raw
 

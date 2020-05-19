@@ -16,4 +16,5 @@ ConditionPathExists=/dev/tty0
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=@rootlibexecdir@/systemd-vconsole-setup

@@ -4,16 +4,8 @@
 
 #include "conf-parser.h"
 #include "macvlan.h"
-#include "string-table.h"
+#include "macvlan-util.h"
 
-static const char* const macvlan_mode_table[_NETDEV_MACVLAN_MODE_MAX] = {
-        [NETDEV_MACVLAN_MODE_PRIVATE] = "private",
-        [NETDEV_MACVLAN_MODE_VEPA] = "vepa",
-        [NETDEV_MACVLAN_MODE_BRIDGE] = "bridge",
-        [NETDEV_MACVLAN_MODE_PASSTHRU] = "passthru",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(macvlan_mode, MacVlanMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {

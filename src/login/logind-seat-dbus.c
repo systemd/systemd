@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-label.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "logind-dbus.h"
 #include "logind-seat-dbus.h"
@@ -16,7 +17,7 @@
 #include "user-util.h"
 #include "util.h"
 
-static BUS_DEFINE_PROPERTY_GET(property_get_can_multi_session, "b", Seat, seat_can_multi_session);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_const_true, "b", true);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
 
@@ -177,6 +178,20 @@ static int method_activate_session(sd_bus_message *message, void *userdata, sd_b
         if (session->seat != s)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT, "Session %s not on seat %s", name, s->id);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = session_activate(session);
         if (r < 0)
                 return r;
@@ -197,7 +212,21 @@ static int method_switch_to(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         if (to <= 0)
-                return -EINVAL;
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid virtual terminal");
+
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
 
         r = seat_switch_to(s, to);
         if (r < 0)
@@ -213,6 +242,20 @@ static int method_switch_to_next(sd_bus_message *message, void *userdata, sd_bus
         assert(message);
         assert(s);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = seat_switch_to_next(s);
         if (r < 0)
                 return r;
@@ -227,6 +270,20 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
         assert(message);
         assert(s);
 
+        r = bus_verify_polkit_async(
+                        message,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.login1.chvt",
+                        NULL,
+                        false,
+                        UID_INVALID,
+                        &s->manager->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Will call us back */
+
         r = seat_switch_to_previous(s);
         if (r < 0)
                 return r;
@@ -234,29 +291,7 @@ static int method_switch_to_previous(sd_bus_message *message, void *userdata, sd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-const sd_bus_vtable seat_vtable[] = {
-        SD_BUS_VTABLE_START(0),
-
-        SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_can_multi_session, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
-        SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-
-        SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("ActivateSession", "s", NULL, method_activate_session, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchTo", "u", NULL, method_switch_to, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
-
-        SD_BUS_VTABLE_END
-};
-
-int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int seat_object_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         _cleanup_free_ char *e = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
@@ -304,7 +339,7 @@ char *seat_bus_path(Seat *s) {
         return strjoin("/org/freedesktop/login1/seat/", t);
 }
 
-int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
@@ -409,3 +444,44 @@ int seat_send_changed(Seat *s, const char *properties, ...) {
 
         return sd_bus_emit_properties_changed_strv(s->manager->bus, p, "org.freedesktop.login1.Seat", l);
 }
+
+static const sd_bus_vtable seat_vtable[] = {
+        SD_BUS_VTABLE_START(0),
+
+        SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Seat, id), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ActiveSession", "(so)", property_get_active_session, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("CanMultiSession", "b", property_get_const_true, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("CanTTY", "b", property_get_can_tty, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CanGraphical", "b", property_get_can_graphical, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Sessions", "a(so)", property_get_sessions, 0, 0),
+        SD_BUS_PROPERTY("IdleHint", "b", property_get_idle_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHint", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("IdleSinceHintMonotonic", "t", property_get_idle_since_hint, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+
+        SD_BUS_METHOD("Terminate", NULL, NULL, bus_seat_method_terminate, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_NAMES("ActivateSession",
+                                 "s",
+                                 SD_BUS_PARAM(session_id),
+                                 NULL,,
+                                 method_activate_session,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SwitchTo",
+                                 "u",
+                                 SD_BUS_PARAM(vtnr),
+                                 NULL,,
+                                 method_switch_to,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation seat_object = {
+        "/org/freedesktop/login1/seat",
+        "org.freedesktop.login1.Seat",
+        .fallback_vtables = BUS_FALLBACK_VTABLES({seat_vtable, seat_object_find}),
+        .node_enumerator = seat_node_enumerator,
+};

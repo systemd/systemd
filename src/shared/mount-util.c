@@ -76,35 +76,57 @@ int umount_recursive(const char *prefix, int flags) {
         return n;
 }
 
-/* Get the mount flags for the mountpoint at "path" from "table" */
-static int get_mount_flags(const char *path, unsigned long *flags, struct libmnt_table *table) {
-        struct statvfs buf = {};
-        struct libmnt_fs *fs = NULL;
-        const char *opts = NULL;
+static int get_mount_flags(
+                struct libmnt_table *table,
+                const char *path,
+                unsigned long *ret) {
+        struct libmnt_fs *fs;
+        struct statvfs buf;
+        const char *opts;
         int r = 0;
+
+        /* Get the mount flags for the mountpoint at "path" from "table". We have a fallback using statvfs()
+         * in place (which provides us with mostly the same info), but it's just a fallback, since using it
+         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly. */
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
-                log_warning("Could not find '%s' in mount table", path);
+                log_debug("Could not find '%s' in mount table, ignoring.", path);
                 goto fallback;
         }
 
         opts = mnt_fs_get_vfs_options(fs);
-        r = mnt_optstr_get_flags(opts, flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+        if (!opts) {
+                *ret = 0;
+                return 0;
+        }
+
+        r = mnt_optstr_get_flags(opts, ret, mnt_get_builtin_optmap(MNT_LINUX_MAP));
         if (r != 0) {
-                log_warning_errno(r, "Could not get flags for '%s': %m", path);
+                log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                 goto fallback;
         }
 
-        /* relatime is default and trying to set it in an unprivileged container causes EPERM */
-        *flags &= ~MS_RELATIME;
+        /* MS_RELATIME is default and trying to set it in an unprivileged container causes EPERM */
+        *ret &= ~MS_RELATIME;
         return 0;
 
 fallback:
         if (statvfs(path, &buf) < 0)
                 return -errno;
 
-        *flags = buf.f_flag;
+        /* The statvfs() flags and the mount flags mostly have the same values, but for some cases do
+         * not. Hence map the flags manually. (Strictly speaking, ST_RELATIME/MS_RELATIME is the most
+         * prominent one that doesn't match, but that's the one we mask away anyway, see above.) */
+
+        *ret =
+                FLAGS_SET(buf.f_flag, ST_RDONLY) * MS_RDONLY |
+                FLAGS_SET(buf.f_flag, ST_NODEV) * MS_NODEV |
+                FLAGS_SET(buf.f_flag, ST_NOEXEC) * MS_NOEXEC |
+                FLAGS_SET(buf.f_flag, ST_NOSUID) * MS_NOSUID |
+                FLAGS_SET(buf.f_flag, ST_NOATIME) * MS_NOATIME |
+                FLAGS_SET(buf.f_flag, ST_NODIRATIME) * MS_NODIRATIME;
+
         return 0;
 }
 
@@ -118,9 +140,10 @@ int bind_remount_recursive_with_mountinfo(
                 FILE *proc_self_mountinfo) {
 
         _cleanup_set_free_free_ Set *done = NULL;
-        _cleanup_free_ char *cleaned = NULL;
+        _cleanup_free_ char *simplified = NULL;
         int r;
 
+        assert(prefix);
         assert(proc_self_mountinfo);
 
         /* Recursively remount a directory (and all its submounts) read-only or read-write. If the directory is already
@@ -128,17 +151,17 @@ int bind_remount_recursive_with_mountinfo(
          * operation). If it isn't we first make it one. Afterwards we apply MS_BIND|MS_RDONLY (or remove MS_RDONLY) to
          * all submounts we can access, too. When mounts are stacked on the same mount point we only care for each
          * individual "top-level" mount on each point, as we cannot influence/access the underlying mounts anyway. We
-         * do not have any effect on future submounts that might get propagated, they migt be writable. This includes
+         * do not have any effect on future submounts that might get propagated, they might be writable. This includes
          * future submounts that have been triggered via autofs.
          *
          * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the
          * remount operation. Note that we'll ignore the blacklist for the top-level path. */
 
-        cleaned = strdup(prefix);
-        if (!cleaned)
+        simplified = strdup(prefix);
+        if (!simplified)
                 return -ENOMEM;
 
-        path_simplify(cleaned, false);
+        path_simplify(simplified, false);
 
         done = set_new(&path_hash_ops);
         if (!done)
@@ -177,26 +200,26 @@ int bind_remount_recursive_with_mountinfo(
                         if (!path || !type)
                                 continue;
 
-                        if (!path_startswith(path, cleaned))
+                        if (!path_startswith(path, simplified))
                                 continue;
 
                         /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount
                          * we shall operate on. */
-                        if (!path_equal(path, cleaned)) {
+                        if (!path_equal(path, simplified)) {
                                 bool blacklisted = false;
                                 char **i;
 
                                 STRV_FOREACH(i, blacklist) {
-                                        if (path_equal(*i, cleaned))
+                                        if (path_equal(*i, simplified))
                                                 continue;
 
-                                        if (!path_startswith(*i, cleaned))
+                                        if (!path_startswith(*i, simplified))
                                                 continue;
 
                                         if (path_startswith(path, *i)) {
                                                 blacklisted = true;
                                                 log_debug("Not remounting %s blacklisted by %s, called for %s",
-                                                          path, *i, cleaned);
+                                                          path, *i, simplified);
                                                 break;
                                         }
                                 }
@@ -211,12 +234,12 @@ int bind_remount_recursive_with_mountinfo(
                          * already triggered, then we will find
                          * another entry for this. */
                         if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(path, cleaned);
+                                top_autofs = top_autofs || path_equal(path, simplified);
                                 continue;
                         }
 
                         if (!set_contains(done, path)) {
-                                r = set_put_strdup(todo, path);
+                                r = set_put_strdup(&todo, path);
                                 if (r < 0)
                                         return r;
                         }
@@ -226,25 +249,24 @@ int bind_remount_recursive_with_mountinfo(
                  * the root is either already done, or an autofs, we
                  * are done */
                 if (set_isempty(todo) &&
-                    (top_autofs || set_contains(done, cleaned)))
+                    (top_autofs || set_contains(done, simplified)))
                         return 0;
 
-                if (!set_contains(done, cleaned) &&
-                    !set_contains(todo, cleaned)) {
+                if (!set_contains(done, simplified) &&
+                    !set_contains(todo, simplified)) {
                         /* The prefix directory itself is not yet a mount, make it one. */
-                        if (mount(cleaned, cleaned, NULL, MS_BIND|MS_REC, NULL) < 0)
+                        if (mount(simplified, simplified, NULL, MS_BIND|MS_REC, NULL) < 0)
                                 return -errno;
 
                         orig_flags = 0;
-                        (void) get_mount_flags(cleaned, &orig_flags, table);
-                        orig_flags &= ~MS_RDONLY;
+                        (void) get_mount_flags(table, simplified, &orig_flags);
 
-                        if (mount(NULL, cleaned, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
+                        if (mount(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
-                        r = set_put_strdup(done, cleaned);
+                        r = set_put_strdup(&done, simplified);
                         if (r < 0)
                                 return r;
                 }
@@ -278,8 +300,7 @@ int bind_remount_recursive_with_mountinfo(
 
                         /* Try to reuse the original flag set */
                         orig_flags = 0;
-                        (void) get_mount_flags(x, &orig_flags, table);
-                        orig_flags &= ~MS_RDONLY;
+                        (void) get_mount_flags(table, x, &orig_flags);
 
                         if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
                                 return -errno;
@@ -289,7 +310,12 @@ int bind_remount_recursive_with_mountinfo(
         }
 }
 
-int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **blacklist) {
+int bind_remount_recursive(
+                const char *prefix,
+                unsigned long new_flags,
+                unsigned long flags_mask,
+                char **blacklist) {
+
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int r;
 
@@ -298,6 +324,38 @@ int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned
                 return r;
 
         return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, blacklist, proc_self_mountinfo);
+}
+
+int bind_remount_one_with_mountinfo(
+                const char *path,
+                unsigned long new_flags,
+                unsigned long flags_mask,
+                FILE *proc_self_mountinfo) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        unsigned long orig_flags = 0;
+        int r;
+
+        assert(path);
+        assert(proc_self_mountinfo);
+
+        rewind(proc_self_mountinfo);
+
+        table = mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        /* Try to reuse the original flag set */
+        (void) get_mount_flags(table, path, &orig_flags);
+
+        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
+                return -errno;
+
+        return 0;
 }
 
 int mount_move_root(const char *path) {
@@ -339,38 +397,72 @@ int repeat_unmount(const char *path, int flags) {
         }
 }
 
-const char* mode_to_inaccessible_node(mode_t mode) {
+int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest) {
         /* This function maps a node type to a corresponding inaccessible file node. These nodes are created during
          * early boot by PID 1. In some cases we lacked the privs to create the character and block devices (maybe
          * because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a devices policy that excludes
          * device nodes with major and minor of 0), but that's fine, in that case we use an AF_UNIX file node instead,
          * which is not the same, but close enough for most uses. And most importantly, the kernel allows bind mounts
          * from socket nodes to any non-directory file nodes, and that's the most important thing that matters. */
+        _cleanup_free_ char *d = NULL;
+        const char *node = NULL;
+        char *tmp;
+
+        assert(dest);
 
         switch(mode & S_IFMT) {
                 case S_IFREG:
-                        return "/run/systemd/inaccessible/reg";
+                        node = "/inaccessible/reg";
+                        break;
 
                 case S_IFDIR:
-                        return "/run/systemd/inaccessible/dir";
+                        node = "/inaccessible/dir";
+                        break;
 
                 case S_IFCHR:
-                        if (access("/run/systemd/inaccessible/chr", F_OK) == 0)
-                                return "/run/systemd/inaccessible/chr";
-                        return "/run/systemd/inaccessible/sock";
+                        d = path_join(runtime_dir, "/inaccessible/chr");
+                        if (!d)
+                                return log_oom();
+
+                        if (access(d, F_OK) == 0) {
+                                *dest = TAKE_PTR(d);
+                                return 0;
+                        }
+
+                        node = "/inaccessible/sock";
+                        break;
 
                 case S_IFBLK:
-                        if (access("/run/systemd/inaccessible/blk", F_OK) == 0)
-                                return "/run/systemd/inaccessible/blk";
-                        return "/run/systemd/inaccessible/sock";
+                        d = path_join(runtime_dir, "/inaccessible/blk");
+                        if (!d)
+                                return log_oom();
+
+                        if (access(d, F_OK) == 0) {
+                                *dest = TAKE_PTR(d);
+                                return 0;
+                        }
+
+                        node = "/inaccessible/sock";
+                        break;
 
                 case S_IFIFO:
-                        return "/run/systemd/inaccessible/fifo";
+                        node = "/inaccessible/fifo";
+                        break;
 
                 case S_IFSOCK:
-                        return "/run/systemd/inaccessible/sock";
+                        node = "/inaccessible/sock";
+                        break;
         }
-        return NULL;
+
+        if (!node)
+                return -EINVAL;
+
+        tmp = path_join(runtime_dir, node);
+        if (!tmp)
+                return log_oom();
+
+        *dest = tmp;
+        return 0;
 }
 
 #define FLAG(name) (flags & name ? STRINGIFY(name) "|" : "")

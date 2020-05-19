@@ -1,0 +1,7 @@
+[Unit]
+Description=TEST-10-ISSUE-2467
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+Type=oneshot
+ExecStart=sh -e -x -c 'rm -f /tmp/nonexistent; systemctl start test10.socket; printf x >test.file; socat -t20 OPEN:test.file UNIX-CONNECT:/run/test.ctl; >/testok'

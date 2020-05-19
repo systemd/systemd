@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <utmp.h>
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -17,6 +19,7 @@
 #include "format-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -59,6 +62,29 @@ int parse_uid(const char *s, uid_t *ret) {
         if (ret)
                 *ret = uid;
 
+        return 0;
+}
+
+int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
+        uint32_t u, l;
+        int r;
+
+        assert(s);
+        assert(ret_lower);
+        assert(ret_upper);
+
+        r = parse_range(s, &l, &u);
+        if (r < 0)
+                return r;
+
+        if (l > u)
+                return -EINVAL;
+
+        if (!uid_is_valid(l) || !uid_is_valid(u))
+                return -ENXIO;
+
+        *ret_lower = l;
+        *ret_upper = u;
         return 0;
 }
 
@@ -404,11 +430,16 @@ char* gid_to_name(gid_t gid) {
         return ret;
 }
 
+static bool gid_list_has(const gid_t *list, size_t size, gid_t val) {
+        for (size_t i = 0; i < size; i++)
+                if (list[i] == val)
+                        return true;
+        return false;
+}
+
 int in_gid(gid_t gid) {
-        _cleanup_free_ gid_t *allocated = NULL;
-        gid_t local[16], *p = local;
-        int ngroups = ELEMENTSOF(local);
-        unsigned attempt = 0;
+        _cleanup_free_ gid_t *gids = NULL;
+        int ngroups;
 
         if (getgid() == gid)
                 return 1;
@@ -418,6 +449,57 @@ int in_gid(gid_t gid) {
 
         if (!gid_is_valid(gid))
                 return -EINVAL;
+
+        ngroups = getgroups_alloc(&gids);
+        if (ngroups < 0)
+                return ngroups;
+
+        return gid_list_has(gids, ngroups, gid);
+}
+
+int in_group(const char *name) {
+        int r;
+        gid_t gid;
+
+        r = get_group_creds(&name, &gid, 0);
+        if (r < 0)
+                return r;
+
+        return in_gid(gid);
+}
+
+int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **ret) {
+        size_t nresult = 0;
+        assert(ret);
+
+        if (size2 > INT_MAX - size1)
+                return -ENOBUFS;
+
+        gid_t *buf = new(gid_t, size1 + size2);
+        if (!buf)
+                return -ENOMEM;
+
+        /* Duplicates need to be skipped on merging, otherwise they'll be passed on and stored in the kernel. */
+        for (size_t i = 0; i < size1; i++)
+                if (!gid_list_has(buf, nresult, list1[i]))
+                        buf[nresult++] = list1[i];
+        for (size_t i = 0; i < size2; i++)
+                if (!gid_list_has(buf, nresult, list2[i]))
+                        buf[nresult++] = list2[i];
+        *ret = buf;
+        return (int)nresult;
+}
+
+int getgroups_alloc(gid_t** gids) {
+        gid_t *allocated;
+        _cleanup_free_  gid_t *p = NULL;
+        int ngroups = 8;
+        unsigned attempt = 0;
+
+        allocated = new(gid_t, ngroups);
+        if (!allocated)
+                return -ENOMEM;
+        p = allocated;
 
         for (;;) {
                 ngroups = getgroups(ngroups, p);
@@ -440,29 +522,13 @@ int in_gid(gid_t gid) {
 
                 free(allocated);
 
-                allocated = new(gid_t, ngroups);
+                p = allocated = new(gid_t, ngroups);
                 if (!allocated)
                         return -ENOMEM;
-
-                p = allocated;
         }
 
-        for (int i = 0; i < ngroups; i++)
-                if (p[i] == gid)
-                        return true;
-
-        return false;
-}
-
-int in_group(const char *name) {
-        int r;
-        gid_t gid;
-
-        r = get_group_creds(&name, &gid, 0);
-        if (r < 0)
-                return r;
-
-        return in_gid(gid);
+        *gids = TAKE_PTR(p);
+        return ngroups;
 }
 
 int get_home_dir(char **_h) {
@@ -635,76 +701,123 @@ int take_etc_passwd_lock(const char *root) {
         return fd;
 }
 
-bool valid_user_group_name_full(const char *u, bool strict) {
+bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         const char *i;
-        long sz;
 
-        /* Checks if the specified name is a valid user/group name. Also see POSIX IEEE Std 1003.1-2008, 2016 Edition,
-         * 3.437. We are a bit stricter here however. Specifically we deviate from POSIX rules:
+        /* Checks if the specified name is a valid user/group name. There are two flavours of this call:
+         * strict mode is the default which is POSIX plus some extra rules; and relaxed mode where we accept
+         * pretty much everything except the really worst offending names.
          *
-         * - We require that names fit into the appropriate utmp field
-         * - We don't allow empty user names
-         * - No dots or digits in the first character
-         *
-         * If strict==true, additionally:
-         * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
-         *
-         * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
-         */
+         * Whenever we synthesize users ourselves we should use the strict mode. But when we process users
+         * created by other stuff, let's be more liberal. */
 
-        if (isempty(u))
+        if (isempty(u)) /* An empty user name is never valid */
                 return false;
 
-        if (!(u[0] >= 'a' && u[0] <= 'z') &&
-            !(u[0] >= 'A' && u[0] <= 'Z') &&
-            u[0] != '_')
-                return false;
+        if (parse_uid(u, NULL) >= 0) /* Something that parses as numeric UID string is valid exactly when the
+                                      * flag for it is set */
+                return FLAGS_SET(flags, VALID_USER_ALLOW_NUMERIC);
 
-        bool warned = false;
+        if (FLAGS_SET(flags, VALID_USER_RELAX)) {
 
-        for (i = u+1; *i; i++) {
-                if (((*i >= 'a' && *i <= 'z') ||
-                     (*i >= 'A' && *i <= 'Z') ||
-                     (*i >= '0' && *i <= '9') ||
-                     IN_SET(*i, '_', '-')))
-                        continue;
+                /* In relaxed mode we just check very superficially. Apparently SSSD and other stuff is
+                 * extremely liberal (way too liberal if you ask me, even inserting "@" in user names, which
+                 * is bound to cause problems for example when used with an MTA), hence only filter the most
+                 * obvious cases, or where things would result in an invalid entry if such a user name would
+                 * show up in /etc/passwd (or equivalent getent output).
+                 *
+                 * Note that we stepped far out of POSIX territory here. It's not our fault though, but
+                 * SSSD's, Samba's and everybody else who ignored POSIX on this. (I mean, I am happy to step
+                 * outside of POSIX' bounds any day, but I must say in this case I probably wouldn't
+                 * have...) */
 
-                if (*i == '.' && !strict) {
-                        if (!warned) {
-                                log_warning("Bad user or group name \"%s\", accepting for compatibility.", u);
-                                warned = true;
-                        }
+                if (startswith(u, " ") || endswith(u, " ")) /* At least expect whitespace padding is removed
+                                                             * at front and back (accept in the middle, since
+                                                             * that's apparently a thing on Windows). Note
+                                                             * that this also blocks usernames consisting of
+                                                             * whitespace only. */
+                        return false;
 
-                        continue;
-                }
+                if (!utf8_is_valid(u)) /* We want to synthesize JSON from this, hence insist on UTF-8 */
+                        return false;
 
-                return false;
+                if (string_has_cc(u, NULL)) /* CC characters are just dangerous (and \n in particular is the
+                                             * record separator in /etc/passwd), so we can't allow that. */
+                        return false;
+
+                if (strpbrk(u, ":/")) /* Colons are the field separator in /etc/passwd, we can't allow
+                                       * that. Slashes are special to file systems paths and user names
+                                       * typically show up in the file system as home directories, hence
+                                       * don't allow slashes. */
+                        return false;
+
+                if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
+                                                  * with with UIDs (note that this test is more broad than
+                                                  * the parse_uid() test above, as it will cover more than
+                                                  * the 32bit range, and it will detect 65535 (which is in
+                                                  * invalid UID, even though in the unsigned 32 bit range) */
+                        return false;
+
+                if (u[0] == '-' && in_charset(u + 1, "0123456789")) /* Don't allow negative fully numeric
+                                                                     * strings either. After all some people
+                                                                     * write 65535 as -1 (even though that's
+                                                                     * not even true on 32bit uid_t
+                                                                     * anyway) */
+                        return false;
+
+                if (dot_or_dot_dot(u)) /* User names typically become home directory names, and these two are
+                                        * special in that context, don't allow that. */
+                        return false;
+
+                /* Compare with strict result and warn if result doesn't match */
+                if (FLAGS_SET(flags, VALID_USER_WARN) && !valid_user_group_name(u, 0))
+                        log_struct(LOG_NOTICE,
+                                   "MESSAGE=Accepting user/group name '%s', which does not match strict user/group name rules.", u,
+                                   "USER_GROUP_NAME=%s", u,
+                                   "MESSAGE_ID=" SD_MESSAGE_UNSAFE_USER_NAME_STR);
+
+                /* Note that we make no restrictions on the length in relaxed mode! */
+        } else {
+                long sz;
+                size_t l;
+
+                /* Also see POSIX IEEE Std 1003.1-2008, 2016 Edition, 3.437. We are a bit stricter here
+                 * however. Specifically we deviate from POSIX rules:
+                 *
+                 * - We don't allow empty user names (see above)
+                 * - We require that names fit into the appropriate utmp field
+                 * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
+                 * - We don't allow dashes or digit as the first character
+                 *
+                 * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
+                 */
+
+                if (!(u[0] >= 'a' && u[0] <= 'z') &&
+                    !(u[0] >= 'A' && u[0] <= 'Z') &&
+                    u[0] != '_')
+                        return false;
+
+                for (i = u+1; *i; i++)
+                        if (!(*i >= 'a' && *i <= 'z') &&
+                            !(*i >= 'A' && *i <= 'Z') &&
+                            !(*i >= '0' && *i <= '9') &&
+                            !IN_SET(*i, '_', '-'))
+                                return false;
+
+                l = i - u;
+
+                sz = sysconf(_SC_LOGIN_NAME_MAX);
+                assert_se(sz > 0);
+
+                if (l > (size_t) sz)
+                        return false;
+                if (l > FILENAME_MAX)
+                        return false;
+                if (l > UT_NAMESIZE - 1)
+                        return false;
         }
 
-        sz = sysconf(_SC_LOGIN_NAME_MAX);
-        assert_se(sz > 0);
-
-        if ((size_t) (i-u) > (size_t) sz)
-                return false;
-
-        if ((size_t) (i-u) > UT_NAMESIZE - 1)
-                return false;
-
         return true;
-}
-
-bool valid_user_group_name_or_id_full(const char *u, bool strict) {
-
-        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the
-         * right range, and not the invalid user ids. */
-
-        if (isempty(u))
-                return false;
-
-        if (valid_user_group_name_full(u, strict))
-                return true;
-
-        return parse_uid(u, NULL) >= 0;
 }
 
 bool valid_gecos(const char *d) {
@@ -903,40 +1016,3 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
         return !!s;
 }
 #endif
-
-int make_salt(char **ret) {
-        static const char table[] =
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789"
-                "./";
-
-        uint8_t raw[16];
-        char *salt, *j;
-        size_t i;
-        int r;
-
-        /* This is a bit like crypt_gensalt_ra(), but doesn't require libcrypt, and doesn't do anything but
-         * SHA512, i.e. is legacy-free and minimizes our deps. */
-
-        assert_cc(sizeof(table) == 64U + 1U);
-
-        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
-        r = genuine_random_bytes(raw, sizeof(raw), RANDOM_BLOCK);
-        if (r < 0)
-                return r;
-
-        salt = new(char, 3+sizeof(raw)+1+1);
-        if (!salt)
-                return -ENOMEM;
-
-        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
-        j = stpcpy(salt, "$6$");
-        for (i = 0; i < sizeof(raw); i++)
-                j[i] = table[raw[i] & 63];
-        j[i++] = '$';
-        j[i] = 0;
-
-        *ret = salt;
-        return 0;
-}

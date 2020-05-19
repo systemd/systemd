@@ -1,0 +1,11 @@
+[Unit]
+Description=TEST-28-PERCENTJ-WANTEDBY
+# Testsuite: Ensure %j Wants directives work
+Wants=specifier-j-wants.service
+After=specifier-j-wants.service
+Requires=testsuite-28-pre.service
+After=testsuite-28-pre.service
+
+[Service]
+ExecStart=true
+Type=oneshot

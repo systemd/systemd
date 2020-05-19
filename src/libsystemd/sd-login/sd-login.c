@@ -746,7 +746,7 @@ static int seat_get_can(const char *seat, const char *variable) {
 }
 
 _public_ int sd_seat_can_multi_session(const char *seat) {
-        return seat_get_can(seat, "CAN_MULTI_SESSION");
+        return true;
 }
 
 _public_ int sd_seat_can_tty(const char *seat) {
@@ -928,7 +928,8 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
 
                 *(char*) (mempcpy(buf, word, l)) = 0;
 
-                if (parse_ifindex(buf, &ifi) < 0)
+                ifi = parse_ifindex(buf);
+                if (ifi < 0)
                         continue;
 
                 if (!GREEDY_REALLOC(ni, allocated, nr+1)) {

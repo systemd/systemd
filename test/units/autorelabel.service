@@ -1,0 +1,18 @@
+[Unit]
+Description=Relabel all filesystems
+DefaultDependencies=no
+Requires=local-fs.target
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target
+ConditionSecurity=selinux
+ConditionPathExists=|/.autorelabel
+
+[Service]
+ExecStart=sh -x -c 'echo 0 >/sys/fs/selinux/enforce && fixfiles -f -F relabel && rm /.autorelabel && systemctl --force reboot'
+Type=oneshot
+TimeoutSec=0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=basic.target

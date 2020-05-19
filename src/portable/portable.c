@@ -127,10 +127,7 @@ static int send_item(
                 const char *name,
                 int fd) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control = {};
         struct iovec iovec;
         struct msghdr mh = {
                 .msg_control = &control,
@@ -155,7 +152,6 @@ static int send_item(
         cmsg->cmsg_len = CMSG_LEN(sizeof(int));
         memcpy(CMSG_DATA(cmsg), &data_fd, sizeof(int));
 
-        mh.msg_controllen = CMSG_SPACE(sizeof(int));
         iovec = IOVEC_MAKE_STRING(name);
 
         if (sendmsg(socket_fd, &mh, MSG_NOSIGNAL) < 0)
@@ -169,10 +165,7 @@ static int recv_item(
                 char **ret_name,
                 int *ret_fd) {
 
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
         char buffer[PATH_MAX+2];
         struct iovec iov = IOVEC_INIT(buffer, sizeof(buffer)-1);
         struct msghdr mh = {
@@ -190,9 +183,9 @@ static int recv_item(
         assert(ret_name);
         assert(ret_fd);
 
-        n = recvmsg(socket_fd, &mh, MSG_CMSG_CLOEXEC);
+        n = recvmsg_safe(socket_fd, &mh, MSG_CMSG_CLOEXEC);
         if (n < 0)
-                return -errno;
+                return (int) n;
 
         CMSG_FOREACH(cmsg, &mh) {
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -387,7 +380,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP, &m);
+                r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK, &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
                 else if (r == -EADDRNOTAVAIL)
@@ -1092,10 +1085,9 @@ static int test_chroot_dropin(
                 return log_debug_errno(errno, "Failed to open %s/%s: %m", where, p);
         }
 
-        r = fdopen_unlocked(fd, "r", &f);
+        r = take_fdopen_unlocked(&fd, "r", &f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to convert file handle: %m");
-        TAKE_FD(fd);
 
         r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
@@ -1157,10 +1149,6 @@ int portable_detach(
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
         }
 
-        unit_files = set_new(&string_hash_ops);
-        if (!unit_files)
-                return -ENOMEM;
-
         markers = set_new(&path_hash_ops);
         if (!markers)
                 return -ENOMEM;
@@ -1173,7 +1161,7 @@ int portable_detach(
                         continue;
 
                 /* Filter out duplicates */
-                if (set_get(unit_files, de->d_name))
+                if (set_contains(unit_files, de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -1198,7 +1186,7 @@ int portable_detach(
                 if (r > 0)
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active, can't detach.", de->d_name);
 
-                r = set_put_strdup(unit_files, de->d_name);
+                r = set_put_strdup(&unit_files, de->d_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
 
@@ -1311,7 +1299,7 @@ static int portable_get_state_internal(
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
-        _cleanup_set_free_free_ Set *unit_files = NULL;
+        _cleanup_set_free_ Set *unit_files = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where;
         struct dirent *de;
@@ -1337,10 +1325,6 @@ static int portable_get_state_internal(
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
         }
 
-        unit_files = set_new(&string_hash_ops);
-        if (!unit_files)
-                return -ENOMEM;
-
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 UnitFileState state;
 
@@ -1348,7 +1332,7 @@ static int portable_get_state_internal(
                         continue;
 
                 /* Filter out duplicates */
-                if (set_get(unit_files, de->d_name))
+                if (set_contains(unit_files, de->d_name))
                         continue;
 
                 dirent_ensure_type(d, de);
@@ -1373,7 +1357,7 @@ static int portable_get_state_internal(
                 if (r > 0)
                         found_running = true;
 
-                r = set_put_strdup(unit_files, de->d_name);
+                r = set_put_strdup(&unit_files, de->d_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
         }

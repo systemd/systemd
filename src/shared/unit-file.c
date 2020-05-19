@@ -31,6 +31,41 @@ bool unit_type_may_template(UnitType type) {
                       UNIT_PATH);
 }
 
+int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation) {
+        _cleanup_free_ char *template = NULL;
+        int r, un_type1, un_type2;
+
+        un_type1 = unit_name_classify(symlink);
+
+        /* The straightforward case: the symlink name matches the target and we have a valid unit */
+        if (streq(symlink, target) &&
+            (un_type1 & (UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE)))
+                return 1;
+
+        r = unit_name_template(symlink, &template);
+        if (r == -EINVAL)
+                return 0; /* Not a template */
+        if (r < 0)
+                return r;
+
+        un_type2 = unit_name_classify(target);
+
+        /* An instance name points to a target that is just the template name */
+        if (un_type1 == UNIT_NAME_INSTANCE &&
+            un_type2 == UNIT_NAME_TEMPLATE &&
+            streq(template, target))
+                return 1;
+
+        /* foo@.target.requires/bar@.service: instance will be propagated */
+        if (instance_propagation &&
+            un_type1 == UNIT_NAME_TEMPLATE &&
+            un_type2 == UNIT_NAME_TEMPLATE &&
+            streq(template, target))
+                return 1;
+
+        return 0;
+}
+
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target) {
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
@@ -285,7 +320,7 @@ int unit_file_build_name_map(
                                 /* We don't explicitly check for alias loops here. unit_ids_map_get() which
                                  * limits the number of hops should be used to access the map. */
 
-                                _cleanup_free_ char *target = NULL, *target_abs = NULL;
+                                _cleanup_free_ char *target = NULL;
 
                                 r = readlinkat_malloc(dirfd(d), de->d_name, &target);
                                 if (r < 0) {
@@ -294,8 +329,9 @@ int unit_file_build_name_map(
                                         continue;
                                 }
 
-                                if (!path_is_absolute(target)) {
-                                        target_abs = path_join(*dir, target);
+                                const bool is_abs = path_is_absolute(target);
+                                if (lp->root_dir || !is_abs) {
+                                        char *target_abs = path_join(is_abs ? lp->root_dir : *dir, target);
                                         if (!target_abs)
                                                 return log_oom();
 
@@ -427,7 +463,7 @@ int unit_file_find_fragment(
 
         /* The unit always has its own name if it's not a template. */
         if (IN_SET(name_type, UNIT_NAME_PLAIN, UNIT_NAME_INSTANCE)) {
-                r = set_put_strdup(names, unit_name);
+                r = set_put_strdup(&names, unit_name);
                 if (r < 0)
                         return r;
         }
@@ -457,7 +493,7 @@ int unit_file_find_fragment(
                                 if (!streq(unit_name, *t))
                                         log_debug("%s: %s has alias %s", __func__, unit_name, *t);
 
-                                r = set_put_strdup(names, *t);
+                                r = set_put_strdup(&names, *t);
                         }
                         if (r < 0)
                                 return r;

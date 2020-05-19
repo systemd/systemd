@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "string-util.h"
@@ -15,8 +16,10 @@ static void test_mount_points_list(const char *fname) {
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
 
-        if (fname)
-                fname = testdata_fname = path_join(get_testdata_dir(), fname);
+        if (fname) {
+                assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
+                fname = testdata_fname;
+        }
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(mount_points_list_get(fname, &mp_list_head) >= 0);
@@ -34,14 +37,20 @@ static void test_swap_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         _cleanup_free_ char *testdata_fname = NULL;
         MountPoint *m;
+        int r;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
 
-        if (fname)
-                fname = testdata_fname = path_join(get_testdata_dir(), fname);
+        if (fname) {
+                assert_se(get_testdata_dir(fname, &testdata_fname) >= 0);
+                fname = testdata_fname;
+        }
 
         LIST_HEAD_INIT(mp_list_head);
-        assert_se(swap_list_get(fname, &mp_list_head) >= 0);
+        r = swap_list_get(fname, &mp_list_head);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return;
+        assert_se(r >= 0);
 
         LIST_FOREACH(mount_point, m, mp_list_head)
                 log_debug("path=%s o=%s f=0x%lx try-ro=%s dev=%u:%u",

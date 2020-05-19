@@ -22,6 +22,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -627,6 +628,23 @@ int get_process_ppid(pid_t pid, pid_t *_ppid) {
         return 0;
 }
 
+int get_process_umask(pid_t pid, mode_t *umask) {
+        _cleanup_free_ char *m = NULL;
+        const char *p;
+        int r;
+
+        assert(umask);
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "status");
+
+        r = get_proc_field(p, "Umask", WHITESPACE, &m);
+        if (r == -ENOENT)
+                return -ESRCH;
+
+        return parse_mode(m, umask);
+}
+
 int wait_for_terminate(pid_t pid, siginfo_t *status) {
         siginfo_t dummy;
 
@@ -1177,6 +1195,11 @@ int must_be_root(void) {
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
 }
 
+static void restore_sigsetp(sigset_t **ssp) {
+        if (*ssp)
+                (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
+}
+
 int safe_fork_full(
                 const char *name,
                 const int except_fds[],
@@ -1186,7 +1209,8 @@ int safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        bool block_signals = false;
+        _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
+        bool block_signals = false, block_all = false;
         int prio, r;
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
@@ -1201,7 +1225,7 @@ int safe_fork_full(
                  * be sure that SIGTERMs are not lost we might send to the child. */
 
                 assert_se(sigfillset(&ss) >= 0);
-                block_signals = true;
+                block_signals = block_all = true;
 
         } else if (flags & FORK_WAIT) {
                 /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
@@ -1211,37 +1235,37 @@ int safe_fork_full(
                 block_signals = true;
         }
 
-        if (block_signals)
+        if (block_signals) {
                 if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
                         return log_full_errno(prio, errno, "Failed to set signal mask: %m");
+                saved_ssp = &saved_ss;
+        }
 
         if (flags & FORK_NEW_MOUNTNS)
                 pid = raw_clone(SIGCHLD|CLONE_NEWNS);
         else
                 pid = fork();
-        if (pid < 0) {
-                r = -errno;
-
-                if (block_signals) /* undo what we did above */
-                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
-
-                return log_full_errno(prio, r, "Failed to fork: %m");
-        }
+        if (pid < 0)
+                return log_full_errno(prio, errno, "Failed to fork: %m");
         if (pid > 0) {
                 /* We are in the parent process */
 
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (flags & FORK_WAIT) {
+                        if (block_all) {
+                                /* undo everything except SIGCHLD */
+                                ss = saved_ss;
+                                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
+                                (void) sigprocmask(SIG_SETMASK, &ss, NULL);
+                        }
+
                         r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
                         if (r < 0)
                                 return r;
                         if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
                                 return -EPROTO;
                 }
-
-                if (block_signals) /* undo what we did above */
-                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
 
                 if (ret_pid)
                         *ret_pid = pid;
@@ -1250,6 +1274,9 @@ int safe_fork_full(
         }
 
         /* We are in the child process */
+
+        /* Restore signal mask manually */
+        saved_ssp = NULL;
 
         if (flags & FORK_REOPEN_LOG) {
                 /* Close the logs if requested, before we log anything. And make sure we reopen it if needed. */
@@ -1525,6 +1552,62 @@ int pidfd_get_pid(int fd, pid_t *ret) {
         p[strcspn(p, WHITESPACE)] = 0;
 
         return parse_pid(p, ret);
+}
+
+static int rlimit_to_nice(rlim_t limit) {
+        if (limit <= 1)
+                return PRIO_MAX-1; /* i.e. 19 */
+
+        if (limit >= -PRIO_MIN + PRIO_MAX)
+                return PRIO_MIN; /* i.e. -20 */
+
+        return PRIO_MAX - (int) limit;
+}
+
+int setpriority_closest(int priority) {
+        int current, limit, saved_errno;
+        struct rlimit highest;
+
+        /* Try to set requested nice level */
+        if (setpriority(PRIO_PROCESS, 0, priority) >= 0)
+                return 1;
+
+        /* Permission failed */
+        saved_errno = -errno;
+        if (!ERRNO_IS_PRIVILEGE(saved_errno))
+                return saved_errno;
+
+        errno = 0;
+        current = getpriority(PRIO_PROCESS, 0);
+        if (errno != 0)
+                return -errno;
+
+        if (priority == current)
+                return 1;
+
+       /* Hmm, we'd expect that raising the nice level from our status quo would always work. If it doesn't,
+        * then the whole setpriority() system call is blocked to us, hence let's propagate the error
+        * right-away */
+        if (priority > current)
+                return saved_errno;
+
+        if (getrlimit(RLIMIT_NICE, &highest) < 0)
+                return -errno;
+
+        limit = rlimit_to_nice(highest.rlim_cur);
+
+        /* We are already less nice than limit allows us */
+        if (current < limit) {
+                log_debug("Cannot raise nice level, permissions and the resource limit do not allow it.");
+                return 0;
+        }
+
+        /* Push to the allowed limit */
+        if (setpriority(PRIO_PROCESS, 0, limit) < 0)
+                return -errno;
+
+        log_debug("Cannot set requested nice level (%i), used next best (%i).", priority, limit);
+        return 0;
 }
 
 static const char *const ioprio_class_table[] = {

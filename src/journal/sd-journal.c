@@ -39,6 +39,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "syslog-util.h"
 
 #define JOURNAL_FILES_MAX 7168
 
@@ -161,7 +162,7 @@ static int match_is_valid(const void *data, size_t size) {
         if (size < 2)
                 return false;
 
-        if (startswith(data, "__"))
+        if (((char*) data)[0] == '_' && ((char*) data)[1] == '_')
                 return false;
 
         b = data;
@@ -204,16 +205,17 @@ static bool same_field(const void *_a, size_t s, const void *_b, size_t t) {
 static Match *match_new(Match *p, MatchType t) {
         Match *m;
 
-        m = new0(Match, 1);
+        m = new(Match, 1);
         if (!m)
                 return NULL;
 
-        m->type = t;
+        *m = (Match) {
+                .type = t,
+                .parent = p,
+        };
 
-        if (p) {
-                m->parent = p;
+        if (p)
                 LIST_PREPEND(matches, p->matches, m);
-        }
 
         return m;
 }
@@ -433,7 +435,7 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
-_pure_ static int compare_with_location(JournalFile *f, Location *l) {
+_pure_ static int compare_with_location(const JournalFile *f, const Location *l, const JournalFile *current_file) {
         int r;
 
         assert(f);
@@ -446,7 +448,8 @@ _pure_ static int compare_with_location(JournalFile *f, Location *l) {
             l->realtime_set &&
             f->current_realtime == l->realtime &&
             l->xor_hash_set &&
-            f->current_xor_hash == l->xor_hash)
+            f->current_xor_hash == l->xor_hash &&
+            f != current_file)
                 return 0;
 
         if (l->seqnum_set &&
@@ -785,7 +788,7 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 if (j->current_location.type == LOCATION_DISCRETE) {
                         int k;
 
-                        k = compare_with_location(f, &j->current_location);
+                        k = compare_with_location(f, &j->current_location, j->current_file);
 
                         found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
@@ -1434,21 +1437,62 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
 
 static int dirname_is_machine_id(const char *fn) {
         sd_id128_t id, machine;
+        const char *e;
         int r;
+
+        /* Returns true if the specified directory name matches the local machine ID */
 
         r = sd_id128_get_machine(&machine);
         if (r < 0)
                 return r;
 
-        r = sd_id128_from_string(fn, &id);
+        e = strchr(fn, '.');
+        if (e) {
+                const char *k;
+
+                /* Looks like it has a namespace suffix. Verify that. */
+                if (!log_namespace_name_valid(e + 1))
+                        return false;
+
+                k = strndupa(fn, e - fn);
+                r = sd_id128_from_string(k, &id);
+        } else
+                r = sd_id128_from_string(fn, &id);
         if (r < 0)
                 return r;
 
         return sd_id128_equal(id, machine);
 }
 
+static int dirname_has_namespace(const char *fn, const char *namespace) {
+        const char *e;
+
+        /* Returns true if the specified directory name matches the specified namespace */
+
+        e = strchr(fn, '.');
+        if (e) {
+                const char *k;
+
+                if (!namespace)
+                        return false;
+
+                if (!streq(e + 1, namespace))
+                        return false;
+
+                k = strndupa(fn, e - fn);
+                return id128_is_valid(k);
+        }
+
+        if (namespace)
+                return false;
+
+        return id128_is_valid(fn);
+}
+
 static bool dirent_is_journal_file(const struct dirent *de) {
         assert(de);
+
+        /* Returns true if the specified directory entry looks like a journal file we might be interested in */
 
         if (!IN_SET(de->d_type, DT_REG, DT_LNK, DT_UNKNOWN))
                 return false;
@@ -1457,13 +1501,26 @@ static bool dirent_is_journal_file(const struct dirent *de) {
                 endswith(de->d_name, ".journal~");
 }
 
-static bool dirent_is_id128_subdir(const struct dirent *de) {
+static bool dirent_is_journal_subdir(const struct dirent *de) {
+        const char *e, *n;
         assert(de);
+
+        /* returns true if the specified directory entry looks like a directory that might contain journal
+         * files we might be interested in, i.e. is either a 128bit ID or a 128bit ID suffixed by a
+         * namespace. */
 
         if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))
                 return false;
 
-        return id128_is_valid(de->d_name);
+        e = strchr(de->d_name, '.');
+        if (!e)
+                return id128_is_valid(de->d_name); /* No namespace */
+
+        n = strndupa(de->d_name, e - de->d_name);
+        if (!id128_is_valid(n))
+                return false;
+
+        return log_namespace_name_valid(e + 1);
 }
 
 static int directory_open(sd_journal *j, const char *path, DIR **ret) {
@@ -1500,7 +1557,7 @@ static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
                 if (dirent_is_journal_file(de))
                         (void) add_file_by_name(j, m->path, de->d_name);
 
-                if (m->is_root && dirent_is_id128_subdir(de))
+                if (m->is_root && dirent_is_journal_subdir(de))
                         (void) add_directory(j, m->path, de->d_name);
         }
 
@@ -1540,7 +1597,11 @@ static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) 
         }
 }
 
-static int add_directory(sd_journal *j, const char *prefix, const char *dirname) {
+static int add_directory(
+                sd_journal *j,
+                const char *prefix,
+                const char *dirname) {
+
         _cleanup_free_ char *path = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         Directory *m;
@@ -1565,6 +1626,12 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
             !((dirname && dirname_is_machine_id(dirname) > 0) || path_has_prefix(j, path, "/run")))
                 return 0;
 
+        if (dirname &&
+            (!(FLAGS_SET(j->flags, SD_JOURNAL_ALL_NAMESPACES) ||
+               dirname_has_namespace(dirname, j->namespace) > 0 ||
+               (FLAGS_SET(j->flags, SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE) && dirname_has_namespace(dirname, NULL) > 0))))
+                return 0;
+
         r = directory_open(j, path, &d);
         if (r < 0) {
                 log_debug_errno(r, "Failed to open directory '%s': %m", path);
@@ -1573,14 +1640,16 @@ static int add_directory(sd_journal *j, const char *prefix, const char *dirname)
 
         m = hashmap_get(j->directories_by_path, path);
         if (!m) {
-                m = new0(Directory, 1);
+                m = new(Directory, 1);
                 if (!m) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
-                m->is_root = false;
-                m->path = path;
+                *m = (Directory) {
+                        .is_root = false,
+                        .path = path,
+                };
 
                 if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
                         free(m);
@@ -1650,7 +1719,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
         } else {
-                int dfd;
+                _cleanup_close_ int dfd = -1;
 
                 /* If there's no path specified, then we use the top-level fd itself. We duplicate the fd here, since
                  * opendir() will take possession of the fd, and close it, which we don't want. */
@@ -1663,10 +1732,9 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
 
-                d = fdopendir(dfd);
+                d = take_fdopendir(&dfd);
                 if (!d) {
                         r = -errno;
-                        safe_close(dfd);
                         goto fail;
                 }
 
@@ -1803,7 +1871,7 @@ static int allocate_inotify(sd_journal *j) {
         return hashmap_ensure_allocated(&j->directories_by_wd, NULL);
 }
 
-static sd_journal *journal_new(int flags, const char *path) {
+static sd_journal *journal_new(int flags, const char *path, const char *namespace) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
         j = new0(sd_journal, 1);
@@ -1829,6 +1897,12 @@ static sd_journal *journal_new(int flags, const char *path) {
                         j->path = t;
         }
 
+        if (namespace) {
+                j->namespace = strdup(namespace);
+                if (!j->namespace)
+                        return NULL;
+        }
+
         j->files = ordered_hashmap_new(&path_hash_ops);
         if (!j->files)
                 return NULL;
@@ -1845,16 +1919,19 @@ static sd_journal *journal_new(int flags, const char *path) {
 #define OPEN_ALLOWED_FLAGS                              \
         (SD_JOURNAL_LOCAL_ONLY |                        \
          SD_JOURNAL_RUNTIME_ONLY |                      \
-         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_CURRENT_USER |                      \
+         SD_JOURNAL_ALL_NAMESPACES |                    \
+         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
 
-_public_ int sd_journal_open(sd_journal **ret, int flags) {
+_public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, namespace);
         if (!j)
                 return -ENOMEM;
 
@@ -1866,6 +1943,10 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
         return 0;
 }
 
+_public_ int sd_journal_open(sd_journal **ret, int flags) {
+        return sd_journal_open_namespace(ret, NULL, flags);
+}
+
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
         (SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
 
@@ -1875,7 +1956,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         char *p;
         int r;
 
-        /* This is pretty much deprecated, people should use machined's OpenMachineRootDirectory() call instead in
+        /* This is deprecated, people should use machined's OpenMachineRootDirectory() call instead in
          * combination with sd_journal_open_directory_fd(). */
 
         assert_return(machine, -EINVAL);
@@ -1897,7 +1978,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         if (!streq_ptr(class, "container"))
                 return -EIO;
 
-        j = journal_new(flags, root);
+        j = journal_new(flags, root, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1921,7 +2002,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         assert_return(path, -EINVAL);
         assert_return((flags & ~OPEN_DIRECTORY_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, path);
+        j = journal_new(flags, path, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1944,7 +2025,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         assert_return(ret, -EINVAL);
         assert_return(flags == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -1979,7 +2060,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         if (!S_ISDIR(st.st_mode))
                 return -EBADFD;
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2007,7 +2088,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         assert_return(n_fds > 0, -EBADF);
         assert_return(flags == 0, -EINVAL);
 
-        j = journal_new(flags, NULL);
+        j = journal_new(flags, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2079,6 +2160,7 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         free(j->path);
         free(j->prefix);
+        free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
         free(j);
@@ -2480,7 +2562,7 @@ static void process_q_overflow(sd_journal *j) {
         log_debug("Reiteration complete.");
 }
 
-static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
+static void process_inotify_event(sd_journal *j, const struct inotify_event *e) {
         Directory *d;
 
         assert(j);
@@ -2580,12 +2662,26 @@ _public_ int sd_journal_wait(sd_journal *j, uint64_t timeout_usec) {
         assert_return(!journal_pid_changed(j), -ECHILD);
 
         if (j->inotify_fd < 0) {
+                Iterator i;
+                JournalFile *f;
 
                 /* This is the first invocation, hence create the
                  * inotify watch */
                 r = sd_journal_get_fd(j);
                 if (r < 0)
                         return r;
+
+                /* Server might have done some vacuuming while we weren't watching.
+                   Get rid of the deleted files now so they don't stay around indefinitely. */
+                ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+                        r = journal_file_fstat(f);
+                        if (r == -EIDRM)
+                                remove_file_real(j, f);
+                        else if (r < 0) {
+                                log_debug_errno(r,"Failed to fstat() journal file '%s' : %m", f->path);
+                                continue;
+                        }
+                }
 
                 /* The journal might have changed since the context
                  * object was created and we weren't watching before,

@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if.h>
+#include <linux/if.h>
 #include <linux/veth.h>
 #include <sys/file.h>
 
@@ -11,10 +13,12 @@
 #include "ether-addr-util.h"
 #include "lockfile-util.h"
 #include "missing_network.h"
+#include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "parse-util.h"
 #include "siphash24.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -27,6 +31,7 @@
 #define VETH_EXTRA_HOST_HASH_KEY SD_ID128_MAKE(48,c7,f6,b7,ea,9d,4c,9e,b7,28,d4,de,91,d5,bf,66)
 #define VETH_EXTRA_CONTAINER_HASH_KEY SD_ID128_MAKE(af,50,17,61,ce,f9,4d,35,84,0d,2b,20,54,be,ce,59)
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
+#define SHORTEN_IFNAME_HASH_KEY SD_ID128_MAKE(e1,90,a4,04,a8,ef,4b,51,8c,cc,c3,3a,9f,11,fc,a2)
 
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -97,10 +102,34 @@ static int generate_mac(
         return 0;
 }
 
+static int set_alternative_ifname(sd_netlink *rtnl, const char *ifname, const char *altifname) {
+        int r;
+
+        assert(rtnl);
+        assert(ifname);
+
+        if (!altifname)
+                return 0;
+
+        if (strlen(altifname) >= ALTIFNAMSIZ)
+                return log_warning_errno(SYNTHETIC_ERRNO(ERANGE),
+                                         "Alternative interface name '%s' for '%s' is too long, ignoring",
+                                         altifname, ifname);
+
+        r = rtnl_set_link_alternative_names_by_ifname(&rtnl, ifname, STRV_MAKE(altifname));
+        if (r < 0)
+                return log_warning_errno(r,
+                                         "Failed to set alternative interface name '%s' to '%s', ignoring: %m",
+                                         altifname, ifname);
+
+        return 0;
+}
+
 static int add_veth(
                 sd_netlink *rtnl,
                 pid_t pid,
                 const char *ifname_host,
+                const char *altifname_host,
                 const struct ether_addr *mac_host,
                 const char *ifname_container,
                 const struct ether_addr *mac_container) {
@@ -166,7 +195,52 @@ static int add_veth(
         if (r < 0)
                 return log_error_errno(r, "Failed to add new veth interfaces (%s:%s): %m", ifname_host, ifname_container);
 
+        (void) set_alternative_ifname(rtnl, ifname_host, altifname_host);
+
         return 0;
+}
+
+/* This is almost base64char(), but not entirely, as it uses the "url and filename safe" alphabet, since we
+ * don't want "/" appear in interface names (since interfaces appear in sysfs as filenames). See section #5
+ * of RFC 4648. */
+static char urlsafe_base64char(int x) {
+        static const char table[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                      "abcdefghijklmnopqrstuvwxyz"
+                                      "0123456789-_";
+        return table[x & 63];
+}
+
+static int shorten_ifname(char *ifname) {
+        char new_ifname[IFNAMSIZ];
+
+        assert(ifname);
+
+        if (strlen(ifname) < IFNAMSIZ) /* Name is short enough */
+                return 0;
+
+        if (naming_scheme_has(NAMING_NSPAWN_LONG_HASH)) {
+                uint64_t h;
+
+                /* Calculate 64bit hash value */
+                h = siphash24(ifname, strlen(ifname), SHORTEN_IFNAME_HASH_KEY.bytes);
+
+                /* Set the final four bytes (i.e. 32bit) to the lower 24bit of the hash, encoded in url-safe base64 */
+                memcpy(new_ifname, ifname, IFNAMSIZ - 5);
+                new_ifname[IFNAMSIZ - 5] = urlsafe_base64char(h >> 18);
+                new_ifname[IFNAMSIZ - 4] = urlsafe_base64char(h >> 12);
+                new_ifname[IFNAMSIZ - 3] = urlsafe_base64char(h >> 6);
+                new_ifname[IFNAMSIZ - 2] = urlsafe_base64char(h);
+        } else
+                /* On old nspawn versions we just truncated the name, provide compatibility */
+                memcpy(new_ifname, ifname, IFNAMSIZ-1);
+
+        new_ifname[IFNAMSIZ - 1] = 0;
+
+        /* Log the incident to make it more discoverable */
+        log_warning("Network interface name '%s' has been changed to '%s' to fit length constraints.", ifname, new_ifname);
+
+        strcpy(ifname, new_ifname);
+        return 1;
 }
 
 int setup_veth(const char *machine_name,
@@ -176,7 +250,9 @@ int setup_veth(const char *machine_name,
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
-        int r, i;
+        unsigned u;
+        char *n, *a = NULL;
+        int r;
 
         assert(machine_name);
         assert(pid > 0);
@@ -184,8 +260,10 @@ int setup_veth(const char *machine_name,
 
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */
-        snprintf(iface_name, IFNAMSIZ - 1, "%s-%s",
-                 bridge ? "vb" : "ve", machine_name);
+        n = strjoina(bridge ? "vb-" : "ve-", machine_name);
+        r = shorten_ifname(n);
+        if (r > 0)
+                a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
         r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
         if (r < 0)
@@ -199,15 +277,17 @@ int setup_veth(const char *machine_name,
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        r = add_veth(rtnl, pid, iface_name, &mac_host, "host0", &mac_container);
+        r = add_veth(rtnl, pid, n, a, &mac_host, "host0", &mac_container);
         if (r < 0)
                 return r;
 
-        r = parse_ifindex_or_ifname(iface_name, &i);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface %s: %m", iface_name);
+        u = if_nametoindex(n); /* We don't need to use resolve_ifname() here because the
+                                * name we assigned is always the main name. */
+        if (u == 0)
+                return log_error_errno(errno, "Failed to resolve interface %s: %m", n);
 
-        return i;
+        strcpy(iface_name, n);
+        return (int) u;
 }
 
 int setup_veth_extra(
@@ -239,9 +319,9 @@ int setup_veth_extra(
 
                 r = generate_mac(machine_name, &mac_host, VETH_EXTRA_HOST_HASH_KEY, idx);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate predictable MAC address for container side of extra veth link: %m");
+                        return log_error_errno(r, "Failed to generate predictable MAC address for host side of extra veth link: %m");
 
-                r = add_veth(rtnl, pid, *a, &mac_host, *b, &mac_container);
+                r = add_veth(rtnl, pid, *a, NULL, &mac_host, *b, &mac_container);
                 if (r < 0)
                         return r;
 
@@ -259,9 +339,9 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
         assert(veth_name);
         assert(bridge_name);
 
-        r = parse_ifindex_or_ifname(bridge_name, &bridge_ifi);
-        if (r < 0)
-                return r;
+        bridge_ifi = resolve_interface(&rtnl, bridge_name);
+        if (bridge_ifi < 0)
+                return bridge_ifi;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, 0);
         if (r < 0)
@@ -394,41 +474,41 @@ int remove_bridge(const char *bridge_name) {
         return remove_one_link(rtnl, bridge_name);
 }
 
-static int parse_interface(const char *name) {
+int test_network_interface_initialized(const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         int ifi, r;
+        char ifi_str[2 + DECIMAL_STR_MAX(int)];
 
-        r = parse_ifindex_or_ifname(name, &ifi);
+        if (path_is_read_only_fs("/sys"))
+                return 0;
+
+        /* udev should be around. */
+
+        ifi = resolve_interface_or_warn(NULL, name);
+        if (ifi < 0)
+                return ifi;
+
+        sprintf(ifi_str, "n%i", ifi);
+        r = sd_device_new_from_device_id(&d, ifi_str);
         if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface %s: %m", name);
+                return log_error_errno(r, "Failed to get device %s: %m", name);
 
-        if (path_is_read_only_fs("/sys") <= 0) {
-                char ifi_str[2 + DECIMAL_STR_MAX(int)];
+        r = sd_device_get_is_initialized(d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether interface %s is initialized: %m", name);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Network interface %s is not initialized yet.", name);
 
-                /* udev should be around. */
+        r = device_is_renaming(d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine the interface %s is being renamed: %m", name);
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Interface %s is being renamed.", name);
 
-                sprintf(ifi_str, "n%i", ifi);
-                r = sd_device_new_from_device_id(&d, ifi_str);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get device %s: %m", name);
-
-                r = sd_device_get_is_initialized(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine whether interface %s is initialized: %m", name);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Network interface %s is not initialized yet.", name);
-
-                r = device_is_renaming(d);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine the interface %s is being renamed: %m", name);
-                if (r > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Interface %s is being renamed.", name);
-        }
-
-        return ifi;
+        return 0;
 }
 
-int move_network_interfaces(pid_t pid, char **ifaces) {
+int move_network_interfaces(int netns_fd, char **ifaces) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -444,7 +524,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -452,9 +532,9 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate netlink message: %m");
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append namespace PID to netlink message: %m");
+                        return log_error_errno(r, "Failed to append namespace fd to netlink message: %m");
 
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
@@ -479,11 +559,11 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *a = NULL;
                 struct ether_addr mac;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -503,7 +583,12 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                r = shorten_ifname(n);
+                if (r > 0) {
+                        a = strjoin("mv-", *i);
+                        if (!a)
+                                return log_oom();
+                }
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -540,6 +625,8 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new macvlan interfaces: %m");
+
+                (void) set_alternative_ifname(rtnl, n, a);
         }
 
         return 0;
@@ -559,10 +646,10 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
 
         STRV_FOREACH(i, ifaces) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                _cleanup_free_ char *n = NULL;
+                _cleanup_free_ char *n = NULL, *a = NULL;
                 int ifi;
 
-                ifi = parse_interface(*i);
+                ifi = resolve_interface_or_warn(&rtnl, *i);
                 if (ifi < 0)
                         return ifi;
 
@@ -578,7 +665,12 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 if (!n)
                         return log_oom();
 
-                strshorten(n, IFNAMSIZ-1);
+                r = shorten_ifname(n);
+                if (r > 0) {
+                        a = strjoin("iv-", *i);
+                        if (!a)
+                                return log_oom();
+                }
 
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, n);
                 if (r < 0)
@@ -611,6 +703,8 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add new ipvlan interfaces: %m");
+
+                (void) set_alternative_ifname(rtnl, n, a);
         }
 
         return 0;

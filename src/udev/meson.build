@@ -40,8 +40,6 @@ libudev_core_sources = '''
         udev-builtin-usb_id.c
         net/link-config.c
         net/link-config.h
-        net/naming-scheme.c
-        net/naming-scheme.h
 '''.split()
 
 if conf.get('HAVE_KMOD') == 1

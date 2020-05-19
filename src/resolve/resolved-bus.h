@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "bus-util.h"
 #include "resolved-manager.h"
+
+extern const BusObjectImplementation manager_object;
 
 int manager_connect_bus(Manager *m);
 int _manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;

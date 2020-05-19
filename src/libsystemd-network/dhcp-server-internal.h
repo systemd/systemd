@@ -19,6 +19,7 @@ typedef enum DHCPRawOption {
         DHCP_RAW_OPTION_DATA_UINT32,
         DHCP_RAW_OPTION_DATA_STRING,
         DHCP_RAW_OPTION_DATA_IPV4ADDRESS,
+        DHCP_RAW_OPTION_DATA_IPV6ADDRESS,
         _DHCP_RAW_OPTION_DATA_MAX,
         _DHCP_RAW_OPTION_DATA_INVALID,
 } DHCPRawOption;
@@ -55,10 +56,11 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        struct in_addr *ntp, *dns, *sip;
-        unsigned n_ntp, n_dns, n_sip;
+        struct in_addr *ntp, *dns, *sip, *pop3_server, *smtp_server, *lpr_server;
+        size_t n_ntp, n_dns, n_sip, n_pop3_server, n_smtp_server, n_lpr_server;
 
-        OrderedHashmap *raw_option;
+        OrderedHashmap *extra_options;
+        OrderedHashmap *vendor_options;
 
         bool emit_router;
 

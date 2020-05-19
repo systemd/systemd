@@ -29,7 +29,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-localed</filename> is a system service
+    <para><filename>systemd-localed.service</filename> is a system service
     that may be used as mechanism to change the system locale
     settings, as well as the console key mapping and default X11 key
     mapping. <filename>systemd-localed</filename> is automatically
@@ -40,10 +40,11 @@
     <citerefentry project='man-pages'><refentrytitle>localectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     is a command line client to this service.</para>
 
-    <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/localed">
-    developer documentation</ulink> for information about the APIs
-    <filename>systemd-localed</filename> provides.</para>
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.locale1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a description of the D-Bus API.</para>
   </refsect1>
 
   <refsect1>

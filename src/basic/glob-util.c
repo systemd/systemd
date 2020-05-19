@@ -61,11 +61,11 @@ int glob_exists(const char *path) {
         return true;
 }
 
-int glob_extend(char ***strv, const char *path) {
+int glob_extend(char ***strv, const char *path, int flags) {
         _cleanup_globfree_ glob_t g = {};
         int k;
 
-        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE, &g);
+        k = safe_glob(path, GLOB_NOSORT|GLOB_BRACE|flags, &g);
         if (k < 0)
                 return k;
 

@@ -20,7 +20,7 @@ static void test_parse_sleep_config(void) {
         _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
         log_info("/* %s */", __func__);
 
-        assert(parse_sleep_config(&sleep_config) == 0);
+        assert_se(parse_sleep_config(&sleep_config) == 0);
 
         _cleanup_free_ char *sum, *sus, *him, *his, *hym, *hys;
 

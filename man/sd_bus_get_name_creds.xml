@@ -1,0 +1,121 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_get_name_creds" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_get_name_creds</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_get_name_creds</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_get_name_creds</refname>
+    <refname>sd_bus_get_owner_creds</refname>
+
+    <refpurpose>Query bus client credentials</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_name_creds</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>uint64_t <parameter>mask</parameter></paramdef>
+        <paramdef>sd_bus_creds **<parameter>creds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_owner_creds</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>uint64_t <parameter>mask</parameter></paramdef>
+        <paramdef>sd_bus_creds **<parameter>creds</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_get_name_creds()</function> queries the credentials of the bus client
+    identified by <parameter>name</parameter>. The <parameter>mask</parameter> parameter is a combo of
+    <constant index='false'>SD_BUS_CREDS_*</constant> flags that indicate which credential info the caller is
+    interested in. See
+    <citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for a list of possible flags. On success, <parameter>creds</parameter> contains a new
+    <structname>sd_bus_creds</structname> instance with the requested information. Ownership of this instance
+    belongs to the caller and it should be freed once no longer needed by calling
+    <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_get_owner_creds()</function> queries the credentials of the creator of the given
+    bus. The <parameter>mask</parameter> and <parameter>creds</parameter> parameters behave the same as in
+    <function>sd_bus_get_name_creds()</function>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The bus has already been started.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

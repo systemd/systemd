@@ -46,6 +46,11 @@
     devices based on those properties. See the description of <varname>NamePolicy=</varname> and
     <varname>MACAddressPolicy=</varname> in
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Note that while the concept of network interface naming schemes is primarily relevant in the
+    context of <filename>systemd-udevd.service</filename>, the
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    container manager also takes it into account when naming network interfaces, see below.</para>
   </refsect1>
 
   <refsect1>
@@ -74,7 +79,7 @@
           </row>
           <row>
             <entry><constant>sl</constant></entry>
-            <entry>serial line IP (slip)</entry>
+            <entry>Serial line IP (slip)</entry>
           </row>
           <row>
             <entry><constant>wl</constant></entry>
@@ -94,8 +99,8 @@
         <varlistentry>
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
 
-          <listitem><para>This name is set based on the ordering information given by the firmware for
-          on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
+          <listitem><para>This name is set based on the numeric ordering information given by the firmware
+          for on-board devices. The name consists of the prefix, letter <constant>o</constant>, and a number
           specified by the firmware. This is only available for PCI devices.</para>
           </listitem>
         </varlistentry>
@@ -103,8 +108,9 @@
         <varlistentry>
           <term><varname>ID_NET_LABEL_ONBOARD=<replaceable>prefix</replaceable> <replaceable>label</replaceable></varname></term>
 
-          <listitem><para>This property is set based on label given by the firmware for on-board devices. The
-          name consists of the prefix concatenated with the label. This is only available for PCI devices.
+          <listitem><para>This property is set based on textual label given by the firmware for on-board
+          devices. The name consists of the prefix concatenated with the label. This is only available for
+          PCI devices.
           </para>
           </listitem>
         </varlistentry>
@@ -121,15 +127,15 @@
 
         <varlistentry>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
+          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
-          the bus type, as described in the table below. In all cases, PCI slot information must be known. In
-          case of USB, BCMA, and SR-VIO devices, the full name consists of the prefix, PCI slot identifier,
-          and USB or BCMA or SR-VIO slot identifier. The first two parts are denoted as "…" in the table
-          below.</para>
+          the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
+          name consists of the prefix, PCI slot identifier, and USB or BCMA or SR-VIO slot identifier. The
+          first two parts are denoted as "…" in the table below.</para>
 
           <table>
             <title>Slot naming schemes</title>
@@ -146,6 +152,11 @@
                 <row>
                   <entry><replaceable>prefix</replaceable> [<constant>P</constant><replaceable>domain</replaceable>] <constant>s</constant><replaceable>slot</replaceable> [<constant>f</constant><replaceable>function</replaceable>] [<constant>n</constant><replaceable>port_name</replaceable> | <constant>d</constant><replaceable>dev_port</replaceable>]</entry>
                   <entry>PCI slot number</entry>
+                </row>
+
+                <row>
+                  <entry><replaceable>prefix</replaceable> <constant>v</constant><replaceable>slot</replaceable></entry>
+                  <entry>VIO slot number (IBM PowerVM)</entry>
                 </row>
 
                 <row>
@@ -177,11 +188,11 @@
           <para>For USB devices the full chain of port numbers of hubs is composed. If the name gets longer
           than the maximum number of 15 characters, the name is not exported. The usual USB configuration
           number 1 and interface number 0 values are suppressed.</para>
-          </listitem>
 
           <para>SR-IOV virtual devices are named based on the name of the parent interface, with a suffix of
           <constant>v</constant> and the virtual device number, with any leading zeros removed. The bus
-          number is ignored. This device type is found in IBM PowerVMs.</para>
+          number is ignored.</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -329,7 +340,21 @@
           <para>Previously two-letter interface type prefix was prepended to
           <varname>ID_NET_LABEL_ONBOARD=</varname>. This is not done anymore.</para></listitem>
         </varlistentry>
-    </variablelist>
+
+        <varlistentry>
+          <term><constant>v245</constant></term>
+
+          <listitem><para>When
+          <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          derives the name for the host side of the network interface created with
+          <option>--network-veth</option> from the container name it previously simply truncated the result
+          at 15 characters if longer (since that's the maximum length for network interface names). From now
+          on, for any interface name that would be longer than 15 characters the last 4 characters are set to
+          a 24bit hash value of the full interface name. This way network interface name collisions between
+          multiple similarly named containers (who only differ in container name suffix) should be less
+          likely (but still possible, since the 24bit hash value is very small).</para></listitem>
+        </varlistentry>
+      </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
     particular version of systemd.</para>
@@ -428,7 +453,8 @@ ID_NET_NAME_PATH=encf5f0</programlisting>
     <para>
       <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>
+      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

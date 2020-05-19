@@ -41,6 +41,8 @@ union sockaddr_union {
         uint8_t un_buffer[sizeof(struct sockaddr_un) + 1];
 };
 
+#define SUN_PATH_LEN (sizeof(((struct sockaddr_un){}).sun_path))
+
 typedef struct SocketAddress {
         union sockaddr_union sockaddr;
 
@@ -68,12 +70,6 @@ typedef enum SocketAddressBindIPv6Only {
 const char* socket_address_type_to_string(int t) _const_;
 int socket_address_type_from_string(const char *s) _pure_;
 
-int socket_address_parse(SocketAddress *a, const char *s);
-int socket_address_parse_and_warn(SocketAddress *a, const char *s);
-int socket_address_parse_netlink(SocketAddress *a, const char *s);
-int socket_address_print(const SocketAddress *a, char **p);
-int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
-
 int sockaddr_un_unlink(const struct sockaddr_un *sa);
 
 static inline int socket_address_unlink(const SocketAddress *a) {
@@ -94,11 +90,9 @@ int socket_address_listen(
                 mode_t directory_mode,
                 mode_t socket_mode,
                 const char *label);
-int make_socket_fd(int log_level, const char* address, int type, int flags);
 
-bool socket_address_is(const SocketAddress *a, const char *s, int type);
-bool socket_address_is_netlink(const SocketAddress *a, const char *s);
-
+int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
+int socket_address_print(const SocketAddress *a, char **p);
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
@@ -130,7 +124,10 @@ int fd_inc_rcvbuf(int fd, size_t n);
 int ip_tos_to_string_alloc(int i, char **s);
 int ip_tos_from_string(const char *s);
 
-bool ifname_valid(const char *p);
+bool ifname_valid_full(const char *p, bool alternative);
+static inline bool ifname_valid(const char *p) {
+        return ifname_valid_full(p, false);
+}
 bool address_label_valid(const char *p);
 
 int getpeercred(int fd, struct ucred *ucred);
@@ -160,6 +157,25 @@ int flush_accept(int fd);
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
+
+/* Type-safe, dereferencing version of cmsg_find() */
+#define CMSG_FIND_DATA(mh, level, type, ctype) \
+        ({                                                            \
+                struct cmsghdr *_found;                               \
+                _found = cmsg_find(mh, level, type, CMSG_LEN(sizeof(ctype))); \
+                (ctype*) (_found ? CMSG_DATA(_found) : NULL);         \
+        })
+
+/* Resolves to a type that can carry cmsghdr structures. Make sure things are properly aligned, i.e. the type
+ * itself is placed properly in memory and the size is also aligned to what's appropriate for "cmsghdr"
+ * structures. */
+#define CMSG_BUFFER_TYPE(size)                                          \
+        union {                                                         \
+                struct cmsghdr cmsghdr;                                 \
+                uint8_t buf[size];                                      \
+                uint8_t align_check[(size) >= CMSG_SPACE(0) &&          \
+                                    (size) == CMSG_ALIGN(size) ? 1 : -1]; \
+        }
 
 /*
  * Certain hardware address types (e.g Infiniband) do not fit into sll_addr
@@ -202,3 +218,5 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
 
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
+
+ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);

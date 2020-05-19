@@ -82,11 +82,9 @@
     member fields from <parameter>message</parameter> header. The return value will be
     <constant>NULL</constant> is <parameter>message</parameter> is <constant>NULL</constant> or the
     message is of a type that doesn't use those fields or the message doesn't have them set. See
-    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for more discussion of those values.</para>
-
 
     <para><function>sd_bus_message_set_sender()</function> sets the sender service name for the specified bus message
     object. The specified name must be a valid unique or well-known service name. This function is useful only for
@@ -123,9 +121,9 @@
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>For <function>sd_bus_message_set_destination</function> or
-          <function>sd_bus_message_set_sender</function>, the message is already
-          sealed.</para></listitem>
+          <listitem><para>For <function>sd_bus_message_set_destination()</function> and
+          <function>sd_bus_message_set_sender()</function>, the message is already sealed.</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>

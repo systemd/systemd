@@ -15,4 +15,3 @@ const struct ConfigPerfItem* networkd_gperf_lookup(const char *key, GPERF_LEN_TY
 
 CONFIG_PARSER_PROTOTYPE(config_parse_duid_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_duid_rawdata);
-CONFIG_PARSER_PROTOTYPE(config_parse_ip_service_type);

@@ -1,0 +1,165 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_message_open_container"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_message_open_container</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_message_open_container</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_message_open_container</refname>
+    <refname>sd_bus_message_close_container</refname>
+    <refname>sd_bus_message_enter_container</refname>
+    <refname>sd_bus_message_exit_container</refname>
+
+    <refpurpose>Create and move between containers in D-Bus messages</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_open_container</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>const char *<parameter>contents</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_close_container</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_enter_container</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+        <paramdef>char <parameter>type</parameter></paramdef>
+        <paramdef>const char *<parameter>contents</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_exit_container</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_message_open_container()</function> appends a new container to the message
+    <parameter>m</parameter>. After opening a new container, it can be filled with content using
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and similar functions. Containers behave like a stack. To nest containers inside each other, call
+    <function>sd_bus_message_open_container()</function> multiple times without calling
+    <function>sd_bus_message_close_container()</function> in between. Each container will be nested inside the
+    previous container. <parameter>type</parameter> represents the container type and should be one of
+    <literal>r</literal>, <literal>a</literal>, <literal>v</literal> or <literal>e</literal> as described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Instead of literals, the corresponding constants <constant>SD_BUS_TYPE_STRUCT</constant>,
+    <constant>SD_BUS_TYPE_ARRAY</constant>, <constant>SD_BUS_TYPE_VARIANT</constant> or
+    <constant>SD_BUS_TYPE_DICT_ENTRY</constant> can also be used. <parameter>contents</parameter> describes
+    the type of the container's elements and should be a D-Bus type string following the rules described in
+    <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_message_close_container()</function> closes the last container opened with
+    <function>sd_bus_message_open_container()</function>. On success, the write pointer of the message
+    <parameter>m</parameter> is positioned after the closed container in its parent container or in
+    <parameter>m</parameter> itself if there is no parent container.</para>
+
+    <para><function>sd_bus_message_enter_container()</function> enters the next container of the message
+    <parameter>m</parameter>. It behaves mostly the same as
+    <function>sd_bus_message_open_container()</function>. Entering a container allows reading its contents
+    with
+    <citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and similar functions. <parameter>type</parameter> and <parameter>contents</parameter> are the same as in
+    <function>sd_bus_message_open_container()</function>.</para>
+
+    <para><function>sd_bus_message_exit_container()</function> exits the scope of the last container entered
+    with <function>sd_bus_message_enter_container()</function>. It behaves mostly the same as
+    <function>sd_bus_message_close_container()</function>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>m</parameter> or <parameter>contents</parameter> are
+          <constant>NULL</constant> or <parameter>type</parameter> is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> is already sealed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ESTALE</constant></term>
+
+          <listitem><para>The message <parameter>m</parameter> is in an invalid state.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Append an array of strings to a message</title>
+
+      <programlisting><xi:include href="sd-bus-container-append.c" parse="text" /></programlisting>
+    </example>
+
+    <example>
+      <title>Read an array of strings from a message</title>
+
+      <programlisting><xi:include href="sd-bus-container-read.c" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
+    </para>
+  </refsect1>
+
+</refentry>

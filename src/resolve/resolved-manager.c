@@ -14,7 +14,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
@@ -341,7 +341,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         p = h;
         r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to unescape host name: %m");
+                return log_error_errno(r, "Failed to unescape hostname: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Couldn't find a single label in hostname.");
@@ -371,7 +371,7 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
 
         r = dns_label_escape_new(decoded, r, &n);
         if (r < 0)
-                return log_error_errno(r, "Failed to escape host name: %m");
+                return log_error_errno(r, "Failed to escape hostname: %m");
 
         if (is_localhost(n))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -411,7 +411,7 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         p = fallback_hostname();
         r = dns_label_unescape(&p, label, sizeof label, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to unescape fallback host name: %m");
+                return log_error_errno(r, "Failed to unescape fallback hostname: %m");
 
         assert(r > 0); /* The fallback hostname must have at least one label */
 
@@ -581,8 +581,8 @@ int manager_new(Manager **ret) {
                 .dns_stub_tcp_fd = -1,
                 .hostname_fd = -1,
 
-                .llmnr_support = RESOLVE_SUPPORT_YES,
-                .mdns_support = RESOLVE_SUPPORT_YES,
+                .llmnr_support = DEFAULT_LLMNR_MODE,
+                .mdns_support = DEFAULT_MDNS_MODE,
                 .dnssec_mode = DEFAULT_DNSSEC_MODE,
                 .dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE,
                 .enable_cache = DNS_CACHE_MODE_YES,
@@ -591,6 +591,8 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .etc_hosts_mtime = USEC_INFINITY,
+                .etc_hosts_ino = 0,
+                .etc_hosts_dev = 0,
                 .read_etc_hosts = true,
         };
 
@@ -739,12 +741,9 @@ Manager *manager_free(Manager *m) {
 
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
-                               + CMSG_SPACE(int) /* ttl/hoplimit */
-                               + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */];
-        } control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
+                         + CMSG_SPACE(int) /* ttl/hoplimit */
+                         + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */) control;
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
@@ -773,17 +772,14 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
-        l = recvmsg(fd, &mh, 0);
-        if (l < 0) {
-                if (IN_SET(errno, EAGAIN, EINTR))
-                        return 0;
-
-                return -errno;
-        }
+        l = recvmsg_safe(fd, &mh, 0);
+        if (IN_SET(l, -EAGAIN, -EINTR))
+                return 0;
+        if (l < 0)
+                return l;
         if (l == 0)
                 return 0;
 
-        assert(!(mh.msg_flags & MSG_CTRUNC));
         assert(!(mh.msg_flags & MSG_TRUNC));
 
         p->size = (size_t) l;
@@ -931,10 +927,8 @@ static int manager_ipv4_send(
                 uint16_t port,
                 const struct in_addr *source,
                 DnsPacket *p) {
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
-        } control = {};
+
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in_pktinfo))) control = {};
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
@@ -963,10 +957,10 @@ static int manager_ipv4_send(
                 struct in_pktinfo *pi;
 
                 mh.msg_control = &control;
-                mh.msg_controllen = CMSG_LEN(sizeof(struct in_pktinfo));
+                mh.msg_controllen = sizeof(control);
 
                 cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_len = mh.msg_controllen;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
                 cmsg->cmsg_level = IPPROTO_IP;
                 cmsg->cmsg_type = IP_PKTINFO;
 
@@ -989,10 +983,7 @@ static int manager_ipv6_send(
                 const struct in6_addr *source,
                 DnsPacket *p) {
 
-        union {
-                struct cmsghdr header; /* For alignment */
-                uint8_t buffer[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-        } control = {};
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct in6_pktinfo))) control = {};
         union sockaddr_union sa;
         struct iovec iov;
         struct msghdr mh = {
@@ -1022,10 +1013,10 @@ static int manager_ipv6_send(
                 struct in6_pktinfo *pi;
 
                 mh.msg_control = &control;
-                mh.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
+                mh.msg_controllen = sizeof(control);
 
                 cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_len = mh.msg_controllen;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
                 cmsg->cmsg_level = IPPROTO_IPV6;
                 cmsg->cmsg_type = IPV6_PKTINFO;
 
@@ -1466,7 +1457,6 @@ void manager_reset_server_features(Manager *m) {
 void manager_cleanup_saved_user(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
-        int r;
 
         assert(m);
 
@@ -1494,8 +1484,8 @@ void manager_cleanup_saved_user(Manager *m) {
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                r = parse_ifindex(de->d_name, &ifindex);
-                if (r < 0) /* Probably some temporary file from a previous run. Delete it */
+                ifindex = parse_ifindex(de->d_name);
+                if (ifindex < 0) /* Probably some temporary file from a previous run. Delete it */
                         goto rm;
 
                 l = hashmap_get(m->links, INT_TO_PTR(ifindex));

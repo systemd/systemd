@@ -11,6 +11,8 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bus-log-control-api.h"
+#include "bus-polkit.h"
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "def.h"
@@ -29,6 +31,7 @@
 #include "networkd-network-bus.h"
 #include "networkd-speed-meter.h"
 #include "ordered-set.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -38,8 +41,8 @@
 #include "udev-util.h"
 #include "virt.h"
 
-/* use 8 MB for receive socket kernel queue. */
-#define RCVBUF_SIZE    (8*1024*1024)
+/* use 128 MB for receive socket kernel queue. */
+#define RCVBUF_SIZE    (128*1024*1024)
 
 static int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
         const char *err_msg = NULL;
@@ -162,6 +165,10 @@ int manager_connect_bus(Manager *m) {
         r = sd_bus_add_node_enumerator(m->bus, NULL, "/org/freedesktop/network1/network", network_node_enumerator, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add network enumerator: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
         if (r < 0)
@@ -330,14 +337,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return log_oom();
 
         r = sd_rtnl_message_route_get_family(message, &tmp->family);
-        if (r < 0 || !IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received route message with invalid family, ignoring");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received route message without family, ignoring");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received route message with invalid family '%i', ignoring", tmp->family);
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: received route message with invalid route protocol: %m");
+                log_warning_errno(r, "rtnl: received route message without route protocol: %m");
                 return 0;
         }
 
@@ -490,7 +500,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               type == RTM_DELROUTE ? "Forgetting" : route ? "Received remembered" : "Remembering",
+                               (!route && !link->manager->manage_foreign_routes) || type == RTM_DELROUTE ? "Forgetting" :
+                               route ? "Received remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
                                strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
                                format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
@@ -501,7 +512,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
         switch (type) {
         case RTM_NEWROUTE:
-                if (!route) {
+                if (!route && link->manager->manage_foreign_routes) {
                         /* A route appeared that we did not request */
                         r = route_add_foreign(link, tmp, &route);
                         if (r < 0) {
@@ -625,8 +636,11 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         }
 
         r = sd_rtnl_message_neigh_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received neighbor message with invalid family, ignoring.");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received neighbor message without family, ignoring.");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", family);
                 return 0;
         }
 
@@ -689,8 +703,8 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                                        strnull(addr_str), strnull(lladdr_str));
                         (void) neighbor_free(neighbor);
                 } else
-                        log_link_info(link, "Kernel removed a neighbor we don't remember: %s->%s, ignoring.",
-                                      strnull(addr_str), strnull(lladdr_str));
+                        log_link_debug(link, "Kernel removed a neighbor we don't remember: %s->%s, ignoring.",
+                                       strnull(addr_str), strnull(lladdr_str));
 
                 break;
 
@@ -754,8 +768,11 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = sd_rtnl_message_addr_get_family(message, &family);
-        if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address message with invalid family, ignoring.");
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received address message without family, ignoring.");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received address message with invalid family '%i', ignoring.", family);
                 return 0;
         }
 
@@ -846,9 +863,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                        valid_str ? "for " : "forever", strempty(valid_str));
                         (void) address_drop(address);
                 } else
-                        log_link_info(link, "Kernel removed an address we don't remember: %s/%u (valid %s%s), ignoring.",
-                                      strnull(buf), prefixlen,
-                                      valid_str ? "for " : "forever", strempty(valid_str));
+                        log_link_debug(link, "Kernel removed an address we don't remember: %s/%u (valid %s%s), ignoring.",
+                                       strnull(buf), prefixlen,
+                                       valid_str ? "for " : "forever", strempty(valid_str));
 
                 break;
 
@@ -952,6 +969,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         _cleanup_free_ char *from = NULL, *to = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
+        uint32_t suppress_prefixlen;
         Manager *m = userdata;
         unsigned flags;
         uint16_t type;
@@ -1127,6 +1145,20 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 log_warning_errno(r, "rtnl: could not get FRA_DPORT_RANGE attribute, ignoring: %m");
                 return 0;
         }
+
+        r = sd_netlink_message_read(message, FRA_UID_RANGE, sizeof(tmp->uid_range), &tmp->uid_range);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_UID_RANGE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_SUPPRESS_PREFIXLEN, &suppress_prefixlen);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SUPPRESS_PREFIXLEN attribute, ignoring: %m");
+                return 0;
+        }
+        if (r >= 0)
+                tmp->suppress_prefixlen = (int) suppress_prefixlen;
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
@@ -1462,7 +1494,8 @@ static int ordered_set_put_in4_addrv(OrderedSet *s,
 }
 
 static int manager_save(Manager *m) {
-        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
+        _cleanup_ordered_set_free_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *pop3 = NULL,
+                *smtp = NULL, *lpr = NULL, *search_domains = NULL, *route_domains = NULL;
         const char *operstate_str, *carrier_state_str, *address_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
@@ -1470,6 +1503,7 @@ static int manager_save(Manager *m) {
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        const struct in_addr *addresses;
         Link *link;
         Iterator i;
         int r;
@@ -1486,8 +1520,20 @@ static int manager_save(Manager *m) {
         if (!ntp)
                 return -ENOMEM;
 
-       sip = ordered_set_new(&string_hash_ops);
-       if (!sip)
+        sip = ordered_set_new(&string_hash_ops);
+        if (!sip)
+                return -ENOMEM;
+
+        pop3 = ordered_set_new(&string_hash_ops);
+        if (!pop3)
+                return -ENOMEM;
+
+        smtp = ordered_set_new(&string_hash_ops);
+        if (!smtp)
+                return -ENOMEM;
+
+        lpr = ordered_set_new(&string_hash_ops);
+        if (!lpr)
                 return -ENOMEM;
 
         search_domains = ordered_set_new(&dns_name_hash_ops);
@@ -1536,8 +1582,6 @@ static int manager_save(Manager *m) {
 
                 /* Secondly, add the entries acquired via DHCP */
                 if (link->network->dhcp_use_dns) {
-                        const struct in_addr *addresses;
-
                         r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 r = ordered_set_put_in4_addrv(dns, addresses, r, in4_addr_is_non_local);
@@ -1548,8 +1592,6 @@ static int manager_save(Manager *m) {
                 }
 
                 if (link->network->dhcp_use_ntp) {
-                        const struct in_addr *addresses;
-
                         r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 r = ordered_set_put_in4_addrv(ntp, addresses, r, in4_addr_is_non_local);
@@ -1560,8 +1602,6 @@ static int manager_save(Manager *m) {
                 }
 
                 if (link->network->dhcp_use_sip) {
-                        const struct in_addr *addresses;
-
                         r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 r = ordered_set_put_in4_addrv(sip, addresses, r, in4_addr_is_non_local);
@@ -1570,6 +1610,30 @@ static int manager_save(Manager *m) {
                         } else if (r < 0 && r != -ENODATA)
                                 return r;
                 }
+
+                r = sd_dhcp_lease_get_pop3_server(link->dhcp_lease, &addresses);
+                if (r > 0) {
+                        r = ordered_set_put_in4_addrv(pop3, addresses, r, in4_addr_is_non_local);
+                        if (r < 0)
+                                return r;
+                } else if (r < 0 && r != -ENODATA)
+                        return r;
+
+                r = sd_dhcp_lease_get_smtp_server(link->dhcp_lease, &addresses);
+                if (r > 0) {
+                        r = ordered_set_put_in4_addrv(smtp, addresses, r, in4_addr_is_non_local);
+                        if (r < 0)
+                                return r;
+                } else if (r < 0 && r != -ENODATA)
+                        return r;
+
+                r = sd_dhcp_lease_get_lpr_servers(link->dhcp_lease, &addresses);
+                if (r > 0) {
+                        r = ordered_set_put_in4_addrv(lpr, addresses, r, in4_addr_is_non_local);
+                        if (r < 0)
+                                return r;
+                } else if (r < 0 && r != -ENODATA)
+                        return r;
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         const char *domainname;
@@ -1622,6 +1686,9 @@ static int manager_save(Manager *m) {
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
         ordered_set_print(f, "SIP=", sip);
+        ordered_set_print(f, "POP3_SERVERS=", pop3);
+        ordered_set_print(f, "SMTP_SERVERS=", smtp);
+        ordered_set_print(f, "LPR_SERVERS=", lpr);
         ordered_set_print(f, "DOMAINS=", search_domains);
         ordered_set_print(f, "ROUTE_DOMAINS=", route_domains);
 
@@ -1722,6 +1789,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .manage_foreign_routes = true,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");
@@ -2165,7 +2233,7 @@ void manager_dirty(Manager *manager) {
 }
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = userdata;
+        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
 
         assert(m);
@@ -2211,7 +2279,7 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 }
 
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        Manager *manager = userdata;
+        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
 
         assert(m);

@@ -1,0 +1,10 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=no
+
+[Route]
+Gateway=_dhcp
+Destination=10.0.0.0/8

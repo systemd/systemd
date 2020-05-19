@@ -161,10 +161,10 @@
         <listitem><para>Takes a directory path as an argument. All paths will be prefixed with the given alternate
         <replaceable>root</replaceable> path, including config search paths.</para>
 
-        <para>Note that this option does not alter how the users and groups specified in the configuration files are
-        resolved. With or without this option, users and groups are always resolved according to the host's user and
-        group databases, any such databases stored under the specified root directories are not
-        consulted.</para></listitem>
+        <para>When this option is used, the libc Name Service Switch (NSS) is bypassed for resolving users
+        and groups. Instead the files <filename>/etc/passwd</filename> and <filename>/etc/group</filename>
+        inside the alternate root are read directly. This means that users/groups not listed in these files
+        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para></listitem>
       </varlistentry>
 
       <varlistentry>

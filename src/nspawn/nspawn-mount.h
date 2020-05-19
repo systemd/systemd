@@ -16,6 +16,7 @@ typedef enum MountSettingsMask {
         MOUNT_APPLY_TMPFS_TMP    = 1 << 5, /* if set, /tmp will be mounted as tmpfs */
         MOUNT_ROOT_ONLY          = 1 << 6, /* if set, only root mounts are mounted */
         MOUNT_NON_ROOT_ONLY      = 1 << 7, /* if set, only non-root mounts are mounted */
+        MOUNT_MKDIR              = 1 << 8, /* if set, make directory to mount over first */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
@@ -55,6 +56,7 @@ int mount_all(const char *dest, MountSettingsMask mount_settings, uid_t uid_shif
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings);
 
 int mount_custom(const char *dest, CustomMount *mounts, size_t n, uid_t uid_shift, const char *selinux_apifs_context, MountSettingsMask mount_settings);
+bool has_custom_root_mount(const CustomMount *mounts, size_t n);
 
 int setup_volatile_mode(const char *directory, VolatileMode mode, uid_t uid_shift, const char *selinux_apifs_context);
 

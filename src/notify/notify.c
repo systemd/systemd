@@ -18,6 +18,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -27,6 +28,7 @@ static const char *arg_status = NULL;
 static bool arg_booted = false;
 static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
+static bool arg_no_block = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -45,6 +47,7 @@ static int help(void) {
                "     --uid=USER        Set user to send from\n"
                "     --status=TEXT     Set status text\n"
                "     --booted          Check if the system was booted up with systemd\n"
+               "     --no-block        Do not wait until operation finished\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight(), ansi_normal()
@@ -52,6 +55,26 @@ static int help(void) {
         );
 
         return 0;
+}
+
+static pid_t manager_pid(void) {
+        const char *e;
+        pid_t pid;
+        int r;
+
+        /* If we run as a service managed by systemd --user the $MANAGERPID environment variable points to
+         * the service manager's PID. */
+        e = getenv("MANAGERPID");
+        if (!e)
+                return 0;
+
+        r = parse_pid(e, &pid);
+        if (r < 0) {
+                log_warning_errno(r, "$MANAGERPID is set to an invalid PID, ignoring: %s", e);
+                return 0;
+        }
+
+        return pid;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -63,6 +86,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_STATUS,
                 ARG_BOOTED,
                 ARG_UID,
+                ARG_NO_BLOCK
         };
 
         static const struct option options[] = {
@@ -73,6 +97,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "status",    required_argument, NULL, ARG_STATUS    },
                 { "booted",    no_argument,       NULL, ARG_BOOTED    },
                 { "uid",       required_argument, NULL, ARG_UID       },
+                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
                 {}
         };
 
@@ -96,13 +121,24 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PID:
-
-                        if (optarg) {
-                                if (parse_pid(optarg, &arg_pid) < 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Failed to parse PID %s.", optarg);
-                        } else
+                        if (isempty(optarg) || streq(optarg, "auto")) {
                                 arg_pid = getppid();
+
+                                if (arg_pid <= 1 ||
+                                    arg_pid == manager_pid()) /* Don't send from PID 1 or the service
+                                                               * manager's PID (which might be distinct from
+                                                               * 1, if we are a --user instance), that'd just
+                                                               * be confusing for the service manager */
+                                        arg_pid = getpid();
+                        } else if (streq(optarg, "parent"))
+                                arg_pid = getppid();
+                        else if (streq(optarg, "self"))
+                                arg_pid = getpid();
+                        else {
+                                r = parse_pid(optarg, &arg_pid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse PID %s.", optarg);
+                        }
 
                         break;
 
@@ -125,6 +161,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_NO_BLOCK:
+                        arg_no_block = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -151,6 +191,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_strv_free_ char **final_env = NULL;
         char* our_env[4];
         unsigned i = 0;
+        pid_t source_pid;
         int r;
 
         log_show_color(true);
@@ -207,12 +248,33 @@ static int run(int argc, char* argv[]) {
             setreuid(arg_uid, (uid_t) -1) < 0)
                 return log_error_errno(errno, "Failed to change UID: %m");
 
-        r = sd_pid_notify(arg_pid ? arg_pid : getppid(), false, n);
+        if (arg_pid > 0)
+                source_pid = arg_pid;
+        else {
+                /* Pretend the message originates from our parent, given that we are typically called from a
+                 * shell script, i.e. we are not the main process of a service but only a child of it. */
+                source_pid = getppid();
+                if (source_pid <= 1 ||
+                    source_pid == manager_pid()) /* safety check: don't claim we'd send anything from PID 1
+                                                  * or the service manager itself */
+                        source_pid = 0;
+        }
+        r = sd_pid_notify(source_pid, false, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "No status data could be sent: $NOTIFY_SOCKET was not set");
+
+        if (!arg_no_block) {
+                r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to invoke barrier: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "No status data could be sent: $NOTIFY_SOCKET was not set");
+        }
+
         return 0;
 }
 

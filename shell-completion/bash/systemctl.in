@@ -7,7 +7,7 @@
 
 __systemctl() {
     local mode=$1; shift 1
-    systemctl $mode --full --no-legend --no-pager "$@" 2>/dev/null
+    systemctl $mode --full --no-legend --no-pager --plain "$@" 2>/dev/null
 }
 
 __systemd_properties() {
@@ -113,7 +113,7 @@ __get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while re
 
 __get_machines() {
     local a b
-    { machinectl list-images --no-legend --no-pager; machinectl list --no-legend --no-pager; } | \
+    { machinectl list-images --full --no-legend --no-pager; machinectl list --full --no-legend --no-pager; } | \
         { while read a b; do echo " $a"; done; }
 }
 
@@ -211,6 +211,9 @@ _systemctl () {
         [FILE]='link switch-root'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
+        [LOG_LEVEL]='log-level'
+        [LOG_TARGET]='log-target'
+        [SERVICE_WATCHDOGS]='service-watchdogs'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -326,6 +329,12 @@ _systemctl () {
     elif __contains_word "$verb" ${VERBS[TARGETS]}; then
         comps=$( __systemctl $mode list-unit-files --type target --full --all "$cur*" \
                      | { while read -r a b; do echo " $a"; done; } )
+    elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
+        comps='debug info notice warning err crit alert emerg'
+    elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
+        comps='console journal kmsg journal-or-kmsg null'
+    elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
+        comps='on off'
     fi
 
     COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur_orig") )

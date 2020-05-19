@@ -9,10 +9,12 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "architecture.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
 #include "macro.h"
+#include "os-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -158,6 +160,17 @@ int specifier_host_name(char specifier, const void *data, const void *userdata, 
         return 0;
 }
 
+int specifier_short_host_name(char specifier, const void *data, const void *userdata, char **ret) {
+        char *n;
+
+        n = gethostname_short_malloc();
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
+}
+
 int specifier_kernel_release(char specifier, const void *data, const void *userdata, char **ret) {
         struct utsname uts;
         char *n;
@@ -173,6 +186,52 @@ int specifier_kernel_release(char specifier, const void *data, const void *userd
 
         *ret = n;
         return 0;
+}
+
+int specifier_architecture(char specifier, const void *data, const void *userdata, char **ret) {
+        char *t;
+
+        t = strdup(architecture_to_string(uname_architecture()));
+        if (!t)
+                return -ENOMEM;
+
+        *ret = t;
+        return 0;
+}
+
+static int specifier_os_release_common(const char *field, char **ret) {
+        char *t = NULL;
+        int r;
+
+        r = parse_os_release(NULL, field, &t, NULL);
+        if (r < 0)
+                return r;
+        if (!t) {
+                /* fields in /etc/os-release might quite possibly be missing, even if everything is entirely
+                 * valid otherwise. Let's hence return "" in that case. */
+                t = strdup("");
+                if (!t)
+                        return -ENOMEM;
+        }
+
+        *ret = t;
+        return 0;
+}
+
+int specifier_os_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("ID", ret);
+}
+
+int specifier_os_version_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("VERSION_ID", ret);
+}
+
+int specifier_os_build_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("BUILD_ID", ret);
+}
+
+int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret) {
+        return specifier_os_release_common("VARIANT_ID", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {

@@ -26,8 +26,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Network link configuration is performed by the
-    <command>net_setup_link</command> udev builtin.</para>
+    <para>A plain ini-style text file that encodes configuration for matching network devices, used by
+    <citerefentry><refentrytitle>systemd-udev</refentrytitle><manvolnum>8</manvolnum></citerefentry> and in
+    particular its <command>net_setup_link</command> builtin. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
+    general description of the syntax.</para>
 
     <para>The link files are read from the files located in the system
     network directory <filename>/usr/lib/systemd/network</filename>,
@@ -69,7 +72,13 @@
     The following keys are accepted:</para>
 
     <variablelist class='network-directives'>
-      <varlistentry>
+      <!-- This list is reused in systemd.network(3), hence maintain a specific order:
+           1. device matches shared between the two lists
+           2. non-shared settings
+           3. host matches shared between the two lists
+        -->
+
+      <varlistentry id='mac-address'>
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
@@ -80,18 +89,20 @@
           <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>OriginalName=</varname></term>
+
+      <varlistentry id='permanent-mac-address'>
+        <term><varname>PermanentMACAddress=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of shell-style globs matching
-          the device name, as exposed by the udev property
-          "INTERFACE". This cannot be used to match on names that have
-          already been changed from userspace. Caution is advised when matching on
-          kernel-assigned names, as they are known to be unstable
-          between reboots.</para>
+          <para>A whitespace-separated list of hardware's permanent addresses. While
+          <varname>MACAddress=</varname> matches the device's current MAC address, this matches the
+          device's permanent MAC address, which may be different from the current one. Use full
+          colon-, hyphen- or dot-delimited hexadecimal. This option may appear more than once, in
+          which case the lists are merged. If the empty string is assigned to this option, the list
+          of hardware addresses defined prior to this is reset.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='path'>
         <term><varname>Path=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching
@@ -99,23 +110,27 @@
           <varname>ID_PATH</varname>.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='driver'>
         <term><varname>Driver=</varname></term>
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the driver currently bound to the
-          device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or if that
-          is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.</para>
+          device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or
+          if that is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.
+          If the list is prefixed with a "!", the test is inverted.</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='type'>
         <term><varname>Type=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of shell-style globs matching
-          the device type, as exposed by the udev
-          property <varname>DEVTYPE</varname>.</para>
+          <para>A whitespace-separated list of shell-style globs matching the device type, as exposed by
+          <command>networkctl status</command>. If the list is prefixed with a "!", the test is inverted.
+          </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='property'>
         <term><varname>Property=</varname></term>
         <listitem>
           <para>A whitespace-separated list of udev property name with its value after a equal
@@ -130,7 +145,18 @@
           </para>
         </listitem>
       </varlistentry>
+
       <varlistentry>
+        <term><varname>OriginalName=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of shell-style globs matching the device name, as exposed by the
+          udev property "INTERFACE". This cannot be used to match on names that have already been changed
+          from userspace. Caution is advised when matching on kernel-assigned names, as they are known to be
+          unstable between reboots.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id='host'>
         <term><varname>Host=</varname></term>
         <listitem>
           <para>Matches against the hostname or machine ID of the host. See <varname>ConditionHost=</varname> in
@@ -140,7 +166,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='virtualization'>
         <term><varname>Virtualization=</varname></term>
         <listitem>
           <para>Checks whether the system is executed in a virtualized environment and optionally test
@@ -151,7 +178,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='kernel-command-line'>
         <term><varname>KernelCommandLine=</varname></term>
         <listitem>
           <para>Checks whether a specific kernel command line option is set. See
@@ -162,7 +190,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='kernel-version'>
         <term><varname>KernelVersion=</varname></term>
         <listitem>
           <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
@@ -173,7 +202,8 @@
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+
+      <varlistentry id='architecture'>
         <term><varname>Architecture=</varname></term>
         <listitem>
           <para>Checks whether the system is running on a specific architecture. See
@@ -357,6 +387,26 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>AlternativeNamesPolicy=</varname></term>
+        <listitem>
+          <para>A space-separated list of policies by which the interface's alternative names
+          should be set. Each of the policies may fail, and all successful policies are used. The
+          available policies are <literal>database</literal>, <literal>onboard</literal>,
+          <literal>slot</literal>, <literal>path</literal>, and <literal>mac</literal>. If the
+          kernel does not support the alternative names, then this setting will be ignored.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AlternativeName=</varname></term>
+        <listitem>
+          <para>The alternative interface name to use. This option can be specified multiple times.
+          If the empty string is assigned to this option, the list is reset, and all prior assignments
+          have no effect. If the kernel does not support the alternative names, then this setting will
+          be ignored.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
@@ -388,7 +438,7 @@
           When unset, the kernel's default will be used.</para>
 
           <para>Note that if autonegotiation is enabled, speed and duplex settings are
-          read-only. If autonegotation is disabled, speed and duplex settings are writable
+          read-only. If autonegotiation is disabled, speed and duplex settings are writable
           if the driver supports multiple link modes.</para>
         </listitem>
       </varlistentry>
@@ -566,6 +616,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReceiveChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of ingress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TransmitChecksumOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the hardware offload for checksumming of egress
+          network packets is enabled. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the TCP Segmentation Offload (TSO) is enabled.
@@ -586,7 +650,7 @@
           When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
-    <varlistentry>
+      <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the Generic Receive Offload (GRO) is enabled.
@@ -627,13 +691,53 @@
       <varlistentry>
         <term><varname>RxBufferSize=</varname></term>
         <listitem>
-          <para>Takes a integer. Specifies the NIC receive ring buffer size. When unset, the kernel's default will be used.</para>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC receive buffer.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxMiniBufferSize=</varname></term>
+        <listitem>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC mini receive buffer.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxJumboBufferSize=</varname></term>
+        <listitem>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC jumbo receive buffer.
+          When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TxBufferSize=</varname></term>
         <listitem>
-          <para>Takes a integer. Specifies the NIC transmit ring buffer size. When unset, the kernel's default will be used.</para>
+          <para>Takes an integer. Specifies the maximum number of pending packets in the NIC transmit buffer.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the receive flow control, also known as the ethernet
+          receive PAUSE message (generate and send ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, enables the transmit flow control, also known as the ethernet
+          transmit PAUSE message (respond to received ethernet PAUSE frames). When unset, the kernel's
+          default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AutoNegotiationFlowControl=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When set, the auto negotiation enables the interface to exchange state
+          advertisements with the connected peer so that the two devices can agree on the ethernet
+          PAUSE configuration. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 

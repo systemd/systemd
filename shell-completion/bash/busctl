@@ -25,14 +25,14 @@ __contains_word () {
 
 __get_machines() {
     local a b
-    machinectl list --no-legend --no-pager 2>/dev/null |
+    machinectl list --full --no-legend --no-pager 2>/dev/null |
         { while read a b; do echo " $a"; done; };
 }
 
 __get_busnames() {
     local mode=$1
     local a b
-    COLUMNS=65535 busctl $mode list --no-legend --no-pager 2>/dev/null |
+    busctl $mode list --no-legend --no-pager --full 2>/dev/null |
         { while read a b; do echo " $a"; done; };
 }
 
@@ -85,7 +85,7 @@ _busctl() {
                       --show-machine --unique --acquired --activatable --list
                       -q --quiet --verbose --expect-reply=no --auto-start=no
                       --allow-interactive-authorization=no --augment-creds=no
-                      --watch-bind=yes -j'
+                      --watch-bind=yes -j -l --full'
         [ARG]='--address -H --host -M --machine --match --timeout --size --json
                       --destination'
     )

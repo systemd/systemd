@@ -621,7 +621,7 @@ int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNa
                         goto good;
                 log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
                          "Glob pattern passed%s%s, but globs are not supported for this.",
-                         operation ? " " : "", operation ?: "");
+                         operation ? " " : "", strempty(operation));
                 suggest_escape = false;
         }
 

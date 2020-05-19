@@ -22,6 +22,7 @@
     <refname>sd_pid_notify</refname>
     <refname>sd_pid_notifyf</refname>
     <refname>sd_pid_notify_with_fds</refname>
+    <refname>sd_notify_barrier</refname>
     <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
   </refnamediv>
 
@@ -64,6 +65,12 @@
         <paramdef>const char *<parameter>state</parameter></paramdef>
         <paramdef>const int *<parameter>fds</parameter></paramdef>
         <paramdef>unsigned <parameter>n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_notify_barrier</function></funcdef>
+        <paramdef>int <parameter>unset_environment</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -219,8 +226,8 @@
         in a <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory
         file descriptor. Note that the service manager will accept messages for a service only if its
         <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If file
-        descriptors sent are pollable (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
+        <varname>FDPOLL=0</varname> is not set and the file descriptors sent are pollable (see
         <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then any
         <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in their
         automatic removal from the store. Multiple arrays of file descriptors may be sent in separate messages, in
@@ -251,6 +258,27 @@
         submitted name does not follow these restrictions, it is ignored.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>FDPOLL=0</term>
+
+        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, disables polling of the stored
+        file descriptors regardless of whether or not they are pollable. As this option disables automatic cleanup
+        of the stored file descriptors on EPOLLERR and EPOLLHUP, care must be taken to ensure proper manual cleanup.
+        Use of this option is not generally recommended except for when automatic cleanup has unwanted behavior such
+        as prematurely discarding file descriptors from the store.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>BARRIER=1</term>
+
+        <listitem><para>Tells the service manager that the client is explicitly requesting synchronization by means of
+        closing the file descriptor sent with this command. The service manager guarantees that the processing of a <varname>
+        BARRIER=1</varname> command will only happen after all previous notification messages sent before this command
+        have been processed. Hence, this command accompanied with a single file descriptor can be used to synchronize
+        against reception of all previous status messages. Note that this command cannot be mixed with other notifications,
+        and has to be sent in a separate message to the service manager, otherwise all assignments will be ignored. Note that
+        sending 0 or more than 1 file descriptor with this command is a violation of the protocol.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>It is recommended to prefix variable names that are not
@@ -271,6 +299,13 @@
     <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
     attribute the message to the unit, and thus will ignore it, even if
     <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
+    <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of notifications
+    to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as a synchronization point
+    and ensures all notifications sent before this call have been picked up by the service manager when it returns
+    successfully. Use of <function>sd_notify_barrier()</function> is needed for clients which are not invoked by the
+    service manager, otherwise this synchronization mechanism is unnecessary for attribution of notifications to the
+    unit.</para>
 
     <para><function>sd_notifyf()</function> is similar to
     <function>sd_notify()</function> but takes a
@@ -302,6 +337,14 @@
     to the service manager on messages that do not expect them (i.e.
     without <literal>FDSTORE=1</literal>) they are immediately closed
     on reception.</para>
+
+    <para><function>sd_notify_barrier()</function> allows the caller to
+    synchronize against reception of previously sent notification messages
+    and uses the <literal>BARRIER=1</literal> command. It takes a relative
+    <varname>timeout</varname> value in microseconds which is passed to
+    <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
+    </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -391,6 +434,22 @@
       losing state, use <literal>FDSTORE=1</literal>:</para>
 
       <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1\nFDNAME=foobar", &amp;fd, 1);</programlisting>
+    </example>
+
+    <example>
+      <title>Eliminating race conditions</title>
+
+      <para>When the client sending the notifications is not spawned
+      by the service manager, it may exit too quickly and the service
+      manager may fail to attribute them correctly to the unit. To
+      prevent such races, use <function>sd_notify_barrier()</function>
+      to synchronize against reception of all notifications sent before
+      this call is made.</para>
+
+      <programlisting>sd_notify(0, "READY=1");
+      /* set timeout to 5 seconds */
+      sd_notify_barrier(0, 5 * 1000000);
+      </programlisting>
     </example>
   </refsect1>
 

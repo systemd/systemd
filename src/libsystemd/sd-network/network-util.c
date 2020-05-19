@@ -26,6 +26,7 @@ bool network_is_online(void) {
 }
 
 static const char* const link_operstate_table[_LINK_OPERSTATE_MAX] = {
+        [LINK_OPERSTATE_MISSING]          = "missing",
         [LINK_OPERSTATE_OFF]              = "off",
         [LINK_OPERSTATE_NO_CARRIER]       = "no-carrier",
         [LINK_OPERSTATE_DORMANT]          = "dormant",
@@ -56,3 +57,49 @@ static const char* const link_address_state_table[_LINK_ADDRESS_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(link_address_state, LinkAddressState);
+
+int parse_operational_state_range(const char *str, LinkOperationalStateRange *out) {
+        LinkOperationalStateRange range = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
+        _cleanup_free_ const char *min = NULL;
+        const char *p;
+
+        assert(str);
+        assert(out);
+
+        p = strchr(str, ':');
+        if (p) {
+                min = strndup(str, p - str);
+
+                if (!isempty(p + 1)) {
+                        range.max = link_operstate_from_string(p + 1);
+                        if (range.max < 0)
+                                return -EINVAL;
+                }
+        } else
+                min = strdup(str);
+
+        if (!min)
+                return -ENOMEM;
+
+        if (!isempty(min)) {
+                range.min = link_operstate_from_string(min);
+                if (range.min < 0)
+                        return -EINVAL;
+        }
+
+        /* Fail on empty strings. */
+        if (range.min == _LINK_OPERSTATE_INVALID && range.max == _LINK_OPERSTATE_INVALID)
+                return -EINVAL;
+
+        if (range.min == _LINK_OPERSTATE_INVALID)
+                range.min = LINK_OPERSTATE_MISSING;
+        if (range.max == _LINK_OPERSTATE_INVALID)
+                range.max = LINK_OPERSTATE_ROUTABLE;
+
+        if (range.min > range.max)
+                return -EINVAL;
+
+        *out = range;
+
+        return 0;
+}

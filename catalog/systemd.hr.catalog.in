@@ -289,11 +289,11 @@ DNS zahtjev ili snimak resursa nije prošao DNSSEC provjeru. To uobičajeno
 označava da je komunikacijski kanal mijenjan.
 
 -- 4d4408cfd0d144859184d1e65d7c8a65
-Subject: DNSSEC pouzdano sidro je opozvano
+Subject: DNSSEC pouzdano sidrište je opozvano
 Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:systemd-resolved.service(8)
 
-A DNSSEC trust anchor has been revoked. A new trust anchor has to be
-configured, or the operating system needs to be updated, to provide an updated
-DNSSEC trust anchor.
+DNSSEC pouzdano sidrište je opozvano. Novo pouzdano sidrište mora biti
+podešeno, ili operativni sustav mora biti nadopunjen kako bi omogućio nadopunjeno
+DNSSEC pouzdano sidrište.

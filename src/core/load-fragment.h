@@ -26,6 +26,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_socket_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_bind);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_nice);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_oom_score_adjust);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_coredump_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout);
 CONFIG_PARSER_PROTOTYPE(config_parse_service_timeout_abort);
@@ -107,6 +108,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
+CONFIG_PARSER_PROTOTYPE(config_parse_log_namespace);
 CONFIG_PARSER_PROTOTYPE(config_parse_collect_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_exit_status);
@@ -121,6 +123,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
 CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
 CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
 CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
+CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

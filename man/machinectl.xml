@@ -56,7 +56,7 @@
     </itemizedlist>
 
     <para>Machines are identified by names that follow the same rules
-    as UNIX and DNS host names. For details, see below.</para>
+    as UNIX and DNS hostnames. For details, see below.</para>
 
     <para>Machines are instantiated from disk or file system images that
     frequently — but not necessarily — carry the same name as machines running
@@ -383,7 +383,7 @@
         image is optimized for file systems that support copy-on-write, and might not be efficient on others, due to
         file system limitations.</para>
 
-        <para>Note that this command leaves host name, machine ID and
+        <para>Note that this command leaves hostname, machine ID and
         all other settings that could identify the instance
         unmodified. The original image and the cloned copy will hence
         share these credentials, and it might be necessary to manually
@@ -680,7 +680,8 @@
         <term><option>-l</option></term>
         <term><option>--full</option></term>
 
-        <listitem><para>Do not ellipsize process tree entries.</para>
+        <listitem><para>Do not ellipsize process tree entries or table. This implies
+        <option>--max-addresses=full</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -811,15 +812,11 @@
       <varlistentry>
         <term><option>--max-addresses=</option></term>
 
-        <listitem><para>When used with the <option>list-machines</option>
-        command, limits the number of ip addresses output for every machine.
-        Defaults to 1. All addresses can be requested with <literal>all</literal>
-        as argument to <option>--max-addresses</option> . If the argument to
-        <option>--max-addresses</option> is less than the actual number
-        of addresses, <literal>...</literal>follows the last address.
-        If multiple addresses are to be written for a given machine, every
-        address except the first one is on a new line and is followed by
-        <literal>,</literal> if another address will be output afterwards. </para></listitem>
+        <listitem><para>When used with the <option>list-machines</option> command, limits the number of ip
+        addresses output for every machine.  Defaults to 1. All addresses can be requested with
+        <literal>all</literal> as argument to <option>--max-addresses=</option>. If the argument to
+        <option>--max-addresses=</option> is less than the actual number of addresses,
+        <literal>…</literal>follows the last address.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -854,7 +851,7 @@
 
     <para>The <command>machinectl</command> tool operates on machines
     and images whose names must be chosen following strict
-    rules. Machine names must be suitable for use as host names
+    rules. Machine names must be suitable for use as hostnames
     following a conservative subset of DNS and UNIX/Linux
     semantics. Specifically, they must consist of one or more
     non-empty label strings, separated by dots. No leading or trailing

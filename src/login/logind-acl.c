@@ -206,7 +206,7 @@ int devnode_acl_all(const char *seat,
                         continue;
 
                 log_device_debug(d, "Found udev node %s for seat %s", node, seat);
-                r = set_put_strdup(nodes, node);
+                r = set_put_strdup(&nodes, node);
                 if (r < 0)
                         return r;
         }

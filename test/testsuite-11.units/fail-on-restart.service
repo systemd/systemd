@@ -1,0 +1,9 @@
+[Unit]
+Description=Fail on restart
+StartLimitIntervalSec=1m
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=false
+Restart=always

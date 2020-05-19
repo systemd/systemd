@@ -38,7 +38,9 @@ static int test_cgroup_mask(void) {
                 return log_tests_skipped("cgroupfs not available");
 
         /* Prepare the manager. */
-        assert_se(set_unit_path(get_testdata_dir()) >= 0);
+        _cleanup_free_ char *unit_dir = NULL;
+        assert_se(get_testdata_dir("units", &unit_dir) >= 0);
+        assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {

@@ -369,6 +369,8 @@ mouse:usb:v046dpc068:name:Logitech G500:
 
 # Logitech G502 Proteus Spectrum
 mouse:usb:v046dpc332:name:Logitech Gaming Mouse G502:
+# Logitech G502 HERO SE
+mouse:usb:v046dpc08b:name:Logitech G502 HERO SE:
  MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
 
 # Logitech G700 Laser Mouse (Wired)
@@ -449,11 +451,20 @@ mouse:usb:v046dp406a:name:Logitech MX Anywhere 2S:
 mouse:bluetooth:v046dpb01a:name:MX Anywhere 2S Mouse:
  MOUSE_WHEEL_CLICK_ANGLE=20
 
-# Logitech MX Master
+# Logitech MX Master (via Logitech Unifying Receiver)
 # Horiz wheel has 14 stops, angle is rounded up
 mouse:usb:v046dp4060:name:Logitech MX Master:
 mouse:usb:v046dp4041:name:Logitech MX Master:
  MOUSE_DPI=1000@166
+ MOUSE_WHEEL_CLICK_ANGLE=15
+ MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
+ MOUSE_WHEEL_CLICK_COUNT=24
+ MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL=14
+
+# Logitech MX Master (via Bluetooth)
+# Horiz wheel has 14 stops, angle is rounded up
+mouse:bluetooth:v046dpb012:name:MX Master Mouse:
+ MOUSE_DPI=1000@2000
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
  MOUSE_WHEEL_CLICK_COUNT=24
@@ -742,6 +753,12 @@ mouse:usb:v1d57pad17:*
 
 # Zowie FK2
 mouse:usb:v3057p0001:*
+ MOUSE_DPI=400@125 *800@125 1600@125 3200@125 400@500 800@500 1600@500 3200@500 400@1000 800@1000 1600@1000 3200@1000
+ MOUSE_WHEEL_CLICK_COUNT=16
+ MOUSE_WHEEL_CLICK_ANGLE=23
+
+# Zowie ZA12
+mouse:usb:v1af3p0001:name:Kingsis Peripherals ZOWIE Gaming mouse:
  MOUSE_DPI=400@125 *800@125 1600@125 3200@125 400@500 800@500 1600@500 3200@500 400@1000 800@1000 1600@1000 3200@1000
  MOUSE_WHEEL_CLICK_COUNT=16
  MOUSE_WHEEL_CLICK_ANGLE=23

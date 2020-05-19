@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "binfmt-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "def.h"
@@ -51,6 +52,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_TARGET,
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
+                ARG_LOG_TIME,
                 ARG_EXIT_CODE,
                 ARG_TIMEOUT,
         };
@@ -60,6 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
                 { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
                 { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
+                { "log-time",      optional_argument, NULL, ARG_LOG_TIME     },
                 { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
                 { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
                 {}
@@ -107,6 +110,17 @@ static int parse_argv(int argc, char *argv[]) {
                                         log_error_errno(r, "Failed to parse log location setting %s, ignoring: %m", optarg);
                         } else
                                 log_show_location(true);
+
+                        break;
+
+                case ARG_LOG_TIME:
+
+                        if (optarg) {
+                                r = log_show_time_from_string(optarg);
+                                if (r < 0)
+                                        log_error_errno(r, "Failed to parse log time setting %s, ignoring: %m", optarg);
+                        } else
+                                log_show_time(true);
 
                         break;
 
@@ -373,6 +387,7 @@ int main(int argc, char *argv[]) {
                 sync_with_progress();
 
         disable_coredumps();
+        disable_binfmt();
 
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true, arg_timeout);
@@ -510,7 +525,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (need_umount || need_swapoff || need_loop_detach || need_dm_detach)
-                log_error("Failed to finalize %s%s%s%s ignoring",
+                log_error("Failed to finalize%s%s%s%s ignoring.",
                           need_umount ? " file systems," : "",
                           need_swapoff ? " swap devices," : "",
                           need_loop_detach ? " loop devices," : "",
@@ -547,6 +562,9 @@ int main(int argc, char *argv[]) {
                                 /* Child */
 
                                 execv(args[0], (char * const *) args);
+
+                                /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
+                                (void) reboot(cmd);
                                 _exit(EXIT_FAILURE);
                         }
 

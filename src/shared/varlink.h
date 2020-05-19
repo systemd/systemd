@@ -51,6 +51,7 @@ typedef enum VarlinkServerFlags {
 typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
 typedef int (*VarlinkReply)(Varlink *link, JsonVariant *parameters, const char *error_id, VarlinkReplyFlags flags, void *userdata);
 typedef int (*VarlinkConnect)(VarlinkServer *server, Varlink *link, void *userdata);
+typedef void (*VarlinkDisconnect)(VarlinkServer *server, Varlink *link, void *userdata);
 
 int varlink_connect_address(Varlink **ret, const char *address);
 int varlink_connect_fd(Varlink **ret, int fd);
@@ -73,6 +74,7 @@ int varlink_flush(Varlink *v);
 int varlink_close(Varlink *v);
 
 Varlink* varlink_flush_close_unref(Varlink *v);
+Varlink* varlink_close_unref(Varlink *v);
 
 /* Enqueue method call, not expecting a reply */
 int varlink_send(Varlink *v, const char *method, JsonVariant *parameters);
@@ -133,6 +135,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 int varlink_server_bind_method_many_internal(VarlinkServer *s, ...);
 #define varlink_server_bind_method_many(s, ...) varlink_server_bind_method_many_internal(s, __VA_ARGS__, NULL)
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect connect);
+int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect disconnect);
 
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata);
 void* varlink_server_get_userdata(VarlinkServer *s);
@@ -149,9 +152,12 @@ unsigned varlink_server_connections_per_uid_max(VarlinkServer *s);
 int varlink_server_set_connections_per_uid_max(VarlinkServer *s, unsigned m);
 int varlink_server_set_connections_max(VarlinkServer *s, unsigned m);
 
+unsigned varlink_server_current_connections(VarlinkServer *s);
+
 int varlink_server_set_description(VarlinkServer *s, const char *description);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 

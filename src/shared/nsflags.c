@@ -65,12 +65,6 @@ int namespace_flags_to_string(unsigned long flags, char **ret) {
                         return -ENOMEM;
         }
 
-        if (!s) {
-                s = strdup("");
-                if (!s)
-                        return -ENOMEM;
-        }
-
         *ret = TAKE_PTR(s);
 
         return 0;

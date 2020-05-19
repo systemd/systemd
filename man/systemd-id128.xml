@@ -73,6 +73,10 @@
     will be printed. This is available in systemd services. See
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
+
+    <para>With <command>show</command>, well-known UUIDs are printed. When no arguments are specified, all
+    known UUIDs are shown. When arguments are specified, they must be the names or values of one or more
+    known UUIDs, which are then printed.</para>
   </refsect1>
 
   <refsect1>
@@ -104,7 +108,7 @@
         <term><option>--uuid</option></term>
 
         <listitem><para>Generate output as an UUID formatted in the "canonical representation", with five
-        groups of digits seperated by hyphens. See the
+        groups of digits separated by hyphens. See the
         <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
         for more discussion.</para></listitem>
       </varlistentry>

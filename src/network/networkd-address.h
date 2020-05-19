@@ -39,6 +39,7 @@ struct Address {
         union in_addr_union in_addr;
         union in_addr_union in_addr_peer;
 
+        bool scope_set:1;
         bool ip_masquerade_done:1;
         bool manage_temporary_address:1;
         bool home_address:1;
@@ -65,7 +66,11 @@ bool address_is_ready(const Address *a);
 int address_section_verify(Address *a);
 int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
 
+int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret);
+
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
+
+extern const struct hash_ops address_hash_ops;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);

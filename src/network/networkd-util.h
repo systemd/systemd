@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-dhcp-lease.h"
+
 #include "conf-parser.h"
 #include "hash-funcs.h"
 #include "macro.h"
@@ -37,6 +39,9 @@ AddressFamily routing_policy_rule_address_family_from_string(const char *s) _pur
 
 const char *duplicate_address_detection_address_family_to_string(AddressFamily b) _const_;
 AddressFamily duplicate_address_detection_address_family_from_string(const char *s) _pure_;
+
+const char *dhcp_lease_info_to_string(sd_dhcp_lease_info info) _const_;
+sd_dhcp_lease_info dhcp_lease_info_from_string(const char *s) _pure_;
 
 int kernel_route_expiration_supported(void);
 

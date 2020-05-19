@@ -1,0 +1,7 @@
+[Unit]
+Description=Dependent service for percent-j specifier
+After=testsuite-28-pre.service
+
+[Service]
+Type=oneshot
+ExecStart=touch /tmp/test-specifier-j-wants

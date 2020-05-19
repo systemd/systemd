@@ -187,8 +187,16 @@ static void unit_init(Unit *u) {
         if (ec) {
                 exec_context_init(ec);
 
-                ec->keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
-                        EXEC_KEYRING_SHARED : EXEC_KEYRING_INHERIT;
+                if (MANAGER_IS_SYSTEM(u->manager))
+                        ec->keyring_mode = EXEC_KEYRING_SHARED;
+                else {
+                        ec->keyring_mode = EXEC_KEYRING_INHERIT;
+
+                        /* User manager might have its umask redefined by PAM or UMask=. In this
+                         * case let the units it manages inherit this value by default. They can
+                         * still tune this value through their own unit file */
+                        (void) get_process_umask(getpid_cached(), &ec->umask);
+                }
         }
 
         kc = unit_get_kill_context(u);
@@ -210,11 +218,13 @@ int unit_add_name(Unit *u, const char *text) {
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
 
                 if (!u->instance)
-                        return -EINVAL;
+                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                                    "instance is not set when adding name '%s': %m", text);
 
                 r = unit_name_replace_instance(text, u->instance, &s);
                 if (r < 0)
-                        return r;
+                        return log_unit_debug_errno(u, r,
+                                                    "failed to build instance name from '%s': %m", text);
         } else {
                 s = strdup(text);
                 if (!s)
@@ -224,36 +234,43 @@ int unit_add_name(Unit *u, const char *text) {
         if (set_contains(u->names, s))
                 return 0;
         if (hashmap_contains(u->manager->units, s))
-                return -EEXIST;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
+                                            "unit already exist when adding name '%s': %m", text);
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "name '%s' is invalid: %m", text);
 
         t = unit_name_to_type(s);
         if (t < 0)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "failed to to derive unit type from name '%s': %m", text);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "unit type is illegal: u->type(%d) and t(%d) for name '%s': %m",
+                                            u->type, t, text);
 
         r = unit_name_to_instance(s, &i);
         if (r < 0)
-                return r;
+                return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", text);
 
         if (i && !unit_type_may_template(t))
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", text);
 
         /* Ensure that this unit is either instanced or not instanced,
          * but not both. Note that we do allow names with different
          * instance names however! */
         if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
-                return -EINVAL;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "instance is illegal: u->type(%d), u->instance(%s) and i(%s) for name '%s': %m",
+                                            u->type, u->instance, i, text);
 
         if (!unit_type_may_alias(t) && !set_isempty(u->names))
-                return -EEXIST;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST), "symlinks are not allowed for name '%s': %m", text);
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
-                return -E2BIG;
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(E2BIG), "too many units: %m");
 
         r = set_put(u->names, s);
         if (r < 0)
@@ -263,7 +280,7 @@ int unit_add_name(Unit *u, const char *text) {
         r = hashmap_put(u->manager->units, s, u);
         if (r < 0) {
                 (void) set_remove(u->names, s);
-                return r;
+                return log_unit_debug_errno(u, r, "add unit to hashmap failed for name '%s': %m", text);
         }
 
         if (u->type == _UNIT_TYPE_INVALID) {
@@ -611,6 +628,7 @@ void unit_free(Unit *u) {
         sd_bus_slot_unref(u->match_bus_slot);
         sd_bus_track_unref(u->bus_track);
         u->deserialized_refs = strv_free(u->deserialized_refs);
+        u->pending_freezer_message = sd_bus_message_unref(u->pending_freezer_message);
 
         unit_free_requires_mounts_for(u);
 
@@ -718,6 +736,38 @@ void unit_free(Unit *u) {
         free(u->reboot_arg);
 
         free(u);
+}
+
+FreezerState unit_freezer_state(Unit *u) {
+        assert(u);
+
+        return u->freezer_state;
+}
+
+int unit_freezer_state_kernel(Unit *u, FreezerState *ret) {
+        char *values[1] = {};
+        int r;
+
+        assert(u);
+
+        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
+                                   STRV_MAKE("frozen"), values);
+        if (r < 0)
+                return r;
+
+        r = _FREEZER_STATE_INVALID;
+
+        if (values[0])  {
+                if (streq(values[0], "0"))
+                        r = FREEZER_RUNNING;
+                else if (streq(values[0], "1"))
+                        r = FREEZER_FROZEN;
+        }
+
+        free(values[0]);
+        *ret = r;
+
+        return 0;
 }
 
 UnitActiveState unit_active_state(Unit *u) {
@@ -1038,6 +1088,16 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return 0;
 
+        /* For the following three directory types we need write access, and /var/ is possibly on the root
+         * fs. Hence order after systemd-remount-fs.service, to ensure things are writable. */
+        if (!strv_isempty(c->directories[EXEC_DIRECTORY_STATE].paths) ||
+            !strv_isempty(c->directories[EXEC_DIRECTORY_CACHE].paths) ||
+            !strv_isempty(c->directories[EXEC_DIRECTORY_LOGS].paths)) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_REMOUNT_FS_SERVICE, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         if (c->private_tmp) {
                 const char *p;
 
@@ -1052,20 +1112,47 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
+        if (c->root_image) {
+                /* We need to wait for /dev/loopX to appear when doing RootImage=, hence let's add an
+                 * implicit dependency on udev */
+
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_UDEVD_SERVICE, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         if (!IN_SET(c->std_output,
                     EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
-                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE) &&
+                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE) &&
             !IN_SET(c->std_error,
                     EXEC_OUTPUT_JOURNAL, EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
-                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                    EXEC_OUTPUT_SYSLOG, EXEC_OUTPUT_SYSLOG_AND_CONSOLE))
+                    EXEC_OUTPUT_KMSG, EXEC_OUTPUT_KMSG_AND_CONSOLE) &&
+            !c->log_namespace)
                 return 0;
 
-        /* If syslog or kernel logging is requested, make sure our own
-         * logging daemon is run first. */
+        /* If syslog or kernel logging is requested (or log namespacing is), make sure our own logging daemon
+         * is run first. */
 
-        r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
+        if (c->log_namespace) {
+                _cleanup_free_ char *socket_unit = NULL, *varlink_socket_unit = NULL;
+
+                r = unit_name_build_from_type("systemd-journald", c->log_namespace, UNIT_SOCKET, &socket_unit);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, socket_unit, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_build_from_type("systemd-journald-varlink", c->log_namespace, UNIT_SOCKET, &varlink_socket_unit);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, varlink_socket_unit, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        } else
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
         if (r < 0)
                 return r;
 
@@ -1618,28 +1705,54 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
 }
 
 static bool unit_test_condition(Unit *u) {
+        _cleanup_strv_free_ char **env = NULL;
+        int r;
+
         assert(u);
 
         dual_timestamp_get(&u->condition_timestamp);
-        u->condition_result = condition_test_list(u->conditions, condition_type_to_string, log_unit_internal, u);
+
+        r = manager_get_effective_environment(u->manager, &env);
+        if (r < 0) {
+                log_unit_error_errno(u, r, "Failed to determine effective environment: %m");
+                u->condition_result = CONDITION_ERROR;
+        } else
+                u->condition_result = condition_test_list(
+                                u->conditions,
+                                env,
+                                condition_type_to_string,
+                                log_unit_internal,
+                                u);
 
         unit_add_to_dbus_queue(u);
-
         return u->condition_result;
 }
 
 static bool unit_test_assert(Unit *u) {
+        _cleanup_strv_free_ char **env = NULL;
+        int r;
+
         assert(u);
 
         dual_timestamp_get(&u->assert_timestamp);
-        u->assert_result = condition_test_list(u->asserts, assert_type_to_string, log_unit_internal, u);
+
+        r = manager_get_effective_environment(u->manager, &env);
+        if (r < 0) {
+                log_unit_error_errno(u, r, "Failed to determine effective environment: %m");
+                u->assert_result = CONDITION_ERROR;
+        } else
+                u->assert_result = condition_test_list(
+                                u->asserts,
+                                env,
+                                assert_type_to_string,
+                                log_unit_internal,
+                                u);
 
         unit_add_to_dbus_queue(u);
-
         return u->assert_result;
 }
 
-void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) {
+void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *unit_status_msg_format) {
         const char *d;
 
         d = unit_status_string(u);
@@ -1647,7 +1760,7 @@ void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg
                 d = strjoina(ANSI_HIGHLIGHT, d, ANSI_NORMAL);
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        manager_status_printf(u->manager, STATUS_TYPE_NORMAL, status, unit_status_msg_format, d);
+        manager_status_printf(u->manager, status_type, status, unit_status_msg_format, d);
         REENABLE_WARNING;
 }
 
@@ -1790,6 +1903,7 @@ int unit_start(Unit *u) {
          * waits for a holdoff timer to elapse before it will start again. */
 
         unit_add_to_dbus_queue(u);
+        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->start(u);
 }
@@ -1842,6 +1956,7 @@ int unit_stop(Unit *u) {
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
+        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->stop(u);
 }
@@ -1897,6 +2012,8 @@ int unit_reload(Unit *u) {
                 unit_notify(u, unit_active_state(u), unit_active_state(u), 0);
                 return 0;
         }
+
+        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->reload(u);
 }
@@ -2123,7 +2240,7 @@ static int unit_log_resources(Unit *u) {
         struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
         bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
         _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
-        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a treshold */
+        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a threshold */
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
@@ -2684,7 +2801,7 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
 
                 if (m == 0) {
                         /* The array is now empty, remove the entire entry */
-                        assert(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        assert_se(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
                         free(array);
                 }
         }
@@ -2804,13 +2921,13 @@ bool unit_job_is_applicable(Unit *u, JobType j) {
         case JOB_START:
         case JOB_NOP:
                 /* Note that we don't check unit_can_start() here. That's because .device units and suchlike are not
-                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueing
+                 * startable by us but may appear due to external events, and it thus makes sense to permit enqueuing
                  * jobs for it. */
                 return true;
 
         case JOB_STOP:
                 /* Similar as above. However, perpetual units can never be stopped (neither explicitly nor due to
-                 * external events), hence it makes no sense to permit enqueing such a request either. */
+                 * external events), hence it makes no sense to permit enqueuing such a request either. */
                 return !u->perpetual;
 
         case JOB_RESTART:
@@ -2937,11 +3054,24 @@ int unit_add_dependency(
                 return 0;
         }
 
-        if ((d == UNIT_BEFORE && other->type == UNIT_DEVICE) ||
-            (d == UNIT_AFTER && u->type == UNIT_DEVICE)) {
+        /* Note that ordering a device unit after a unit is permitted since it
+         * allows to start its job running timeout at a specific time. */
+        if (d == UNIT_BEFORE && other->type == UNIT_DEVICE) {
                 log_unit_warning(u, "Dependency Before=%s ignored (.device units cannot be delayed)", other->id);
                 return 0;
         }
+
+        if (d == UNIT_ON_FAILURE && !UNIT_VTABLE(u)->can_fail) {
+                log_unit_warning(u, "Requested dependency OnFailure=%s ignored (%s units cannot fail).", other->id, unit_type_to_string(u->type));
+                return 0;
+        }
+
+        if (d == UNIT_TRIGGERS && !UNIT_VTABLE(u)->can_trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency Triggers=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(u->type));
+        if (d == UNIT_TRIGGERED_BY && !UNIT_VTABLE(other)->can_trigger)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Requested dependency TriggeredBy=%s refused (%s units cannot trigger other units).", other->id, unit_type_to_string(other->type));
 
         r = unit_add_dependency_hashmap(u->dependencies + d, other, mask, 0);
         if (r < 0)
@@ -3185,24 +3315,21 @@ int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
 }
 
 static int signal_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *name, *old_owner, *new_owner;
+        const char *new_owner;
         Unit *u = userdata;
         int r;
 
         assert(message);
         assert(u);
 
-        r = sd_bus_message_read(message, "sss", &name, &old_owner, &new_owner);
+        r = sd_bus_message_read(message, "sss", NULL, NULL, &new_owner);
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;
         }
 
-        old_owner = empty_to_null(old_owner);
-        new_owner = empty_to_null(new_owner);
-
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, old_owner, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, empty_to_null(new_owner));
 
         return 0;
 }
@@ -3218,42 +3345,35 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
 
-        if (sd_bus_error_is_set(error)) {
-                log_error("Failed to get name owner from bus: %s", error->message);
-                return 0;
-        }
-
         e = sd_bus_message_get_error(message);
-        if (sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
-                return 0;
-
         if (e) {
-                log_error("Unexpected error response from GetNameOwner: %s", e->message);
-                return 0;
-        }
+                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner"))
+                        log_unit_error(u, "Unexpected error response from GetNameOwner(): %s", e->message);
 
-        r = sd_bus_message_read(message, "s", &new_owner);
-        if (r < 0) {
-                bus_log_parse_error(r);
-                return 0;
-        }
+                new_owner = NULL;
+        } else {
+                r = sd_bus_message_read(message, "s", &new_owner);
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-        new_owner = empty_to_null(new_owner);
+                assert(!isempty(new_owner));
+        }
 
         if (UNIT_VTABLE(u)->bus_name_owner_change)
-                UNIT_VTABLE(u)->bus_name_owner_change(u, NULL, new_owner);
+                UNIT_VTABLE(u)->bus_name_owner_change(u, new_owner);
 
         return 0;
 }
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         const char *match;
+        int r;
 
         assert(u);
         assert(bus);
         assert(name);
 
-        if (u->match_bus_slot)
+        if (u->match_bus_slot || u->get_name_owner_slot)
                 return -EBUSY;
 
         match = strjoina("type='signal',"
@@ -3263,19 +3383,27 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        int r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
+        r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
         if (r < 0)
                 return r;
 
-        return sd_bus_call_method_async(bus,
-                                        &u->get_name_owner_slot,
-                                        "org.freedesktop.DBus",
-                                        "/org/freedesktop/DBus",
-                                        "org.freedesktop.DBus",
-                                        "GetNameOwner",
-                                        get_name_owner_handler,
-                                        u,
-                                        "s", name);
+        r = sd_bus_call_method_async(
+                        bus,
+                        &u->get_name_owner_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetNameOwner",
+                        get_name_owner_handler,
+                        u,
+                        "s", name);
+        if (r < 0) {
+                u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                return r;
+        }
+
+        log_unit_debug(u, "Watching D-Bus name '%s'.", name);
+        return 0;
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
@@ -3298,6 +3426,7 @@ int unit_watch_bus_name(Unit *u, const char *name) {
         r = hashmap_put(u->manager->watch_bus, name, u);
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
+                u->get_name_owner_slot = sd_bus_slot_unref(u->get_name_owner_slot);
                 return log_warning_errno(r, "Failed to put bus name to hashmap: %m");
         }
 
@@ -3425,6 +3554,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         if (!sd_id128_is_null(u->invocation_id))
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
+
+        (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
 
         bus_track_serialize(u->bus_track, f, "ref");
 
@@ -3735,6 +3866,16 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         }
 
                         continue;
+                } else if (streq(l, "freezer-state")) {
+                        FreezerState s;
+
+                        s = freezer_state_from_string(v);
+                        if (s < 0)
+                                log_unit_debug(u, "Failed to deserialize freezer-state '%s', ignoring.", v);
+                        else
+                                u->freezer_state = s;
+
+                        continue;
                 }
 
                 /* Check if this is an IP accounting metric serialization field */
@@ -3831,8 +3972,8 @@ int unit_deserialize_skip(FILE *f) {
 }
 
 int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, UnitDependencyMask mask) {
-        Unit *device;
         _cleanup_free_ char *e = NULL;
+        Unit *device;
         int r;
 
         assert(u);
@@ -3844,8 +3985,7 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         if (!is_device_path(what))
                 return 0;
 
-        /* When device units aren't supported (such as in a
-         * container), don't create dependencies on them. */
+        /* When device units aren't supported (such as in a container), don't create dependencies on them. */
         if (!unit_type_supported(UNIT_DEVICE))
                 return 0;
 
@@ -3863,6 +4003,33 @@ int unit_add_node_dependency(Unit *u, const char *what, UnitDependency dep, Unit
         return unit_add_two_dependencies(u, UNIT_AFTER,
                                          MANAGER_IS_SYSTEM(u->manager) ? dep : UNIT_WANTS,
                                          device, true, mask);
+}
+
+int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask mask) {
+        _cleanup_free_ char *escaped = NULL, *target = NULL;
+        int r;
+
+        assert(u);
+
+        if (isempty(what))
+                return 0;
+
+        if (!path_startswith(what, "/dev/"))
+                return 0;
+
+        /* If we don't support devices, then also don't bother with blockdev@.target */
+        if (!unit_type_supported(UNIT_DEVICE))
+                return 0;
+
+        r = unit_name_path_escape(what, &escaped);
+        if (r < 0)
+                return r;
+
+        r = unit_name_build("blockdev", escaped, ".target", &target);
+        if (r < 0)
+                return r;
+
+        return unit_add_dependency_by_name(u, UNIT_AFTER, target, true, mask);
 }
 
 int unit_coldplug(Unit *u) {
@@ -4170,7 +4337,8 @@ int unit_get_unit_file_preset(Unit *u) {
                 u->unit_file_preset = unit_file_query_preset(
                                 u->manager->unit_file_scope,
                                 NULL,
-                                basename(u->fragment_path));
+                                basename(u->fragment_path),
+                                NULL);
 
         return u->unit_file_preset;
 }
@@ -4217,7 +4385,7 @@ static int user_from_unit_name(Unit *u, char **ret) {
         if (r < 0)
                 return r;
 
-        if (valid_user_group_name(n)) {
+        if (valid_user_group_name(n, 0)) {
                 *ret = TAKE_PTR(n);
                 return 0;
         }
@@ -4272,6 +4440,9 @@ int unit_patch_contexts(Unit *u) {
                 if (ec->protect_kernel_logs)
                         ec->capability_bounding_set &= ~(UINT64_C(1) << CAP_SYSLOG);
 
+                if (ec->protect_clock)
+                        ec->capability_bounding_set &= ~((UINT64_C(1) << CAP_SYS_TIME) | (UINT64_C(1) << CAP_WAKE_ALARM));
+
                 if (ec->dynamic_user) {
                         if (!ec->user) {
                                 r = user_from_unit_name(u, &ec->user);
@@ -4322,6 +4493,17 @@ int unit_patch_contexts(Unit *u) {
                                 return r;
 
                         r = cgroup_add_device_allow(cc, "block-blkext", "rwm");
+                        if (r < 0)
+                                return r;
+
+                        /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices */
+                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "modprobe@loop.service", true, UNIT_DEPENDENCY_FILE);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (ec->protect_clock) {
+                        r = cgroup_add_device_allow(cc, "char-rtc", "r");
                         if (r < 0)
                                 return r;
                 }
@@ -4548,7 +4730,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         /* Make sure the drop-in dir is registered in our path cache. This way we don't need to stupidly
          * recreate the cache after every drop-in we write. */
         if (u->manager->unit_path_cache) {
-                r = set_put_strdup(u->manager->unit_path_cache, p);
+                r = set_put_strdup(&u->manager->unit_path_cache, p);
                 if (r < 0)
                         return r;
         }
@@ -5046,12 +5228,19 @@ static void unit_unref_uid_internal(
         *ref_uid = UID_INVALID;
 }
 
-void unit_unref_uid(Unit *u, bool destroy_now) {
+static void unit_unref_uid(Unit *u, bool destroy_now) {
         unit_unref_uid_internal(u, &u->ref_uid, destroy_now, manager_unref_uid);
 }
 
-void unit_unref_gid(Unit *u, bool destroy_now) {
+static void unit_unref_gid(Unit *u, bool destroy_now) {
         unit_unref_uid_internal(u, (uid_t*) &u->ref_gid, destroy_now, manager_unref_gid);
+}
+
+void unit_unref_uid_gid(Unit *u, bool destroy_now) {
+        assert(u);
+
+        unit_unref_uid(u, destroy_now);
+        unit_unref_gid(u, destroy_now);
 }
 
 static int unit_ref_uid_internal(
@@ -5092,11 +5281,11 @@ static int unit_ref_uid_internal(
         return 1;
 }
 
-int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc) {
+static int unit_ref_uid(Unit *u, uid_t uid, bool clean_ipc) {
         return unit_ref_uid_internal(u, &u->ref_uid, uid, clean_ipc, manager_ref_uid);
 }
 
-int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc) {
+static int unit_ref_gid(Unit *u, gid_t gid, bool clean_ipc) {
         return unit_ref_uid_internal(u, (uid_t*) &u->ref_gid, (uid_t) gid, clean_ipc, manager_ref_gid);
 }
 
@@ -5139,13 +5328,6 @@ int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid) {
                 return log_unit_warning_errno(u, r, "Couldn't add UID/GID reference to unit, proceeding without: %m");
 
         return r;
-}
-
-void unit_unref_uid_gid(Unit *u, bool destroy_now) {
-        assert(u);
-
-        unit_unref_uid(u, destroy_now);
-        unit_unref_gid(u, destroy_now);
 }
 
 void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid) {
@@ -5313,7 +5495,7 @@ static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, 
         if (di.origin_mask == 0 && di.destination_mask == 0) {
                 /* No bit set anymore, let's drop the whole entry */
                 assert_se(hashmap_remove(u->dependencies[d], other));
-                log_unit_debug(u, "%s lost dependency %s=%s", u->id, unit_dependency_to_string(d), other->id);
+                log_unit_debug(u, "lost dependency %s=%s", unit_dependency_to_string(d), other->id);
         } else
                 /* Mask was reduced, let's update the entry */
                 assert_se(hashmap_update(u->dependencies[d], other, di.data) == 0);
@@ -5373,8 +5555,32 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
         }
 }
 
+static int unit_get_invocation_path(Unit *u, char **ret) {
+        char *p;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (MANAGER_IS_SYSTEM(u->manager))
+                p = strjoin("/run/systemd/units/invocation:", u->id);
+        else {
+                _cleanup_free_ char *user_path = NULL;
+                r = xdg_user_runtime_dir(&user_path, "/systemd/units/invocation:");
+                if (r < 0)
+                        return r;
+                p = strjoin(user_path, u->id);
+        }
+
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
+}
+
 static int unit_export_invocation_id(Unit *u) {
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(u);
@@ -5385,7 +5591,10 @@ static int unit_export_invocation_id(Unit *u) {
         if (sd_id128_is_null(u->invocation_id))
                 return 0;
 
-        p = strjoina("/run/systemd/units/invocation:", u->id);
+        r = unit_get_invocation_path(u, &p);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to get invocation path: %m");
+
         r = symlink_atomic(u->invocation_id_string, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create invocation ID symlink %s: %m", p);
@@ -5538,9 +5747,6 @@ void unit_export_state_files(Unit *u) {
         if (!u->id)
                 return;
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
         if (MANAGER_IS_TEST_RUN(u->manager))
                 return;
 
@@ -5559,6 +5765,9 @@ void unit_export_state_files(Unit *u) {
 
         (void) unit_export_invocation_id(u);
 
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
         c = unit_get_exec_context(u);
         if (c) {
                 (void) unit_export_log_level_max(u, c);
@@ -5576,17 +5785,19 @@ void unit_unlink_state_files(Unit *u) {
         if (!u->id)
                 return;
 
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
-
         /* Undoes the effect of unit_export_state() */
 
         if (u->exported_invocation_id) {
-                p = strjoina("/run/systemd/units/invocation:", u->id);
-                (void) unlink(p);
-
-                u->exported_invocation_id = false;
+                _cleanup_free_ char *invocation_path = NULL;
+                int r = unit_get_invocation_path(u, &invocation_path);
+                if (r >= 0) {
+                        (void) unlink(invocation_path);
+                        u->exported_invocation_id = false;
+                }
         }
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
 
         if (u->exported_log_level_max) {
                 p = strjoina("/run/systemd/units/log-level-max:", u->id);
@@ -5699,8 +5910,10 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-const char *unit_label_path(Unit *u) {
+const char *unit_label_path(const Unit *u) {
         const char *p;
+
+        assert(u);
 
         /* Returns the file system path to use for MAC access decisions, i.e. the file to read the SELinux label off
          * when validating access checks. */
@@ -5932,6 +6145,80 @@ int unit_can_clean(Unit *u, ExecCleanMask *ret) {
         assert(UNIT_VTABLE(u)->can_clean);
 
         return UNIT_VTABLE(u)->can_clean(u, ret);
+}
+
+bool unit_can_freeze(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->can_freeze)
+                return UNIT_VTABLE(u)->can_freeze(u);
+
+        return UNIT_VTABLE(u)->freeze;
+}
+
+void unit_frozen(Unit *u) {
+        assert(u);
+
+        u->freezer_state = FREEZER_FROZEN;
+
+        bus_unit_send_pending_freezer_message(u);
+}
+
+void unit_thawed(Unit *u) {
+        assert(u);
+
+        u->freezer_state = FREEZER_RUNNING;
+
+        bus_unit_send_pending_freezer_message(u);
+}
+
+static int unit_freezer_action(Unit *u, FreezerAction action) {
+        UnitActiveState s;
+        int (*method)(Unit*);
+        int r;
+
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        method = action == FREEZER_FREEZE ? UNIT_VTABLE(u)->freeze : UNIT_VTABLE(u)->thaw;
+        if (!method || !cg_freezer_supported())
+                return -EOPNOTSUPP;
+
+        if (u->job)
+                return -EBUSY;
+
+        if (u->load_state != UNIT_LOADED)
+                return -EHOSTDOWN;
+
+        s = unit_active_state(u);
+        if (s != UNIT_ACTIVE)
+                return -EHOSTDOWN;
+
+        if (IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING))
+                return -EALREADY;
+
+        r = method(u);
+        if (r <= 0)
+                return r;
+
+        return 1;
+}
+
+int unit_freeze(Unit *u) {
+        return unit_freezer_action(u, FREEZER_FREEZE);
+}
+
+int unit_thaw(Unit *u) {
+        return unit_freezer_action(u, FREEZER_THAW);
+}
+
+/* Wrappers around low-level cgroup freezer operations common for service and scope units */
+int unit_freeze_vtable_common(Unit *u) {
+        return unit_cgroup_freezer_action(u, FREEZER_FREEZE);
+}
+
+int unit_thaw_vtable_common(Unit *u) {
+        return unit_cgroup_freezer_action(u, FREEZER_THAW);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

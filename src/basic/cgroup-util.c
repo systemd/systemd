@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xattr-util.h"
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **_f, const char *item) {
         _cleanup_free_ char *fs = NULL;
@@ -146,6 +147,17 @@ bool cg_ns_supported(void) {
                 enabled = true;
 
         return enabled;
+}
+
+bool cg_freezer_supported(void) {
+        static thread_local int supported = -1;
+
+        if (supported >= 0)
+                return supported;
+
+        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) == 0;
+
+        return supported;
 }
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d) {
@@ -605,6 +617,24 @@ int cg_get_xattr(const char *controller, const char *path, const char *name, voi
         return (int) n;
 }
 
+int cg_get_xattr_malloc(const char *controller, const char *path, const char *name, char **ret) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        assert(path);
+        assert(name);
+
+        r = cg_get_path(controller, path, NULL, &fs);
+        if (r < 0)
+                return r;
+
+        r = getxattr_malloc(fs, name, ret, false);
+        if (r < 0)
+                return r;
+
+        return r;
+}
+
 int cg_remove_xattr(const char *controller, const char *path, const char *name) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -878,9 +908,8 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         }
 }
 
-int cg_split_spec(const char *spec, char **controller, char **path) {
-        char *t = NULL, *u = NULL;
-        const char *e;
+int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
+        _cleanup_free_ char *controller = NULL, *path = NULL;
 
         assert(spec);
 
@@ -888,76 +917,53 @@ int cg_split_spec(const char *spec, char **controller, char **path) {
                 if (!path_is_normalized(spec))
                         return -EINVAL;
 
-                if (path) {
-                        t = strdup(spec);
-                        if (!t)
+                if (ret_path) {
+                        path = strdup(spec);
+                        if (!path)
                                 return -ENOMEM;
 
-                        *path = path_simplify(t, false);
+                        path_simplify(path, false);
                 }
 
-                if (controller)
-                        *controller = NULL;
+        } else {
+                const char *e;
 
-                return 0;
-        }
-
-        e = strchr(spec, ':');
-        if (!e) {
-                if (!cg_controller_is_valid(spec))
-                        return -EINVAL;
-
-                if (controller) {
-                        t = strdup(spec);
-                        if (!t)
+                e = strchr(spec, ':');
+                if (e) {
+                        controller = strndup(spec, e-spec);
+                        if (!controller)
                                 return -ENOMEM;
+                        if (!cg_controller_is_valid(controller))
+                                return -EINVAL;
 
-                        *controller = t;
+                        if (!isempty(e + 1)) {
+                                path = strdup(e+1);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                if (!path_is_normalized(path) ||
+                                    !path_is_absolute(path))
+                                        return -EINVAL;
+
+                                path_simplify(path, false);
+                        }
+
+                } else {
+                        if (!cg_controller_is_valid(spec))
+                                return -EINVAL;
+
+                        if (ret_controller) {
+                                controller = strdup(spec);
+                                if (!controller)
+                                        return -ENOMEM;
+                        }
                 }
-
-                if (path)
-                        *path = NULL;
-
-                return 0;
         }
 
-        t = strndup(spec, e-spec);
-        if (!t)
-                return -ENOMEM;
-        if (!cg_controller_is_valid(t)) {
-                free(t);
-                return -EINVAL;
-        }
-
-        if (isempty(e+1))
-                u = NULL;
-        else {
-                u = strdup(e+1);
-                if (!u) {
-                        free(t);
-                        return -ENOMEM;
-                }
-
-                if (!path_is_normalized(u) ||
-                    !path_is_absolute(u)) {
-                        free(t);
-                        free(u);
-                        return -EINVAL;
-                }
-
-                path_simplify(u, false);
-        }
-
-        if (controller)
-                *controller = t;
-        else
-                free(t);
-
-        if (path)
-                *path = u;
-        else
-                free(u);
-
+        if (ret_controller)
+                *ret_controller = TAKE_PTR(controller);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
         return 0;
 }
 
@@ -1663,12 +1669,39 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
         return read_one_line_file(p, ret);
 }
 
-int cg_get_keyed_attribute(
+int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret) {
+        _cleanup_free_ char *value = NULL;
+        uint64_t v;
+        int r;
+
+        assert(ret);
+
+        r = cg_get_attribute(controller, path, attribute, &value);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        if (streq(value, "max")) {
+                *ret = CGROUP_LIMIT_MAX;
+                return 0;
+        }
+
+        r = safe_atou64(value, &v);
+        if (r < 0)
+                return r;
+
+        *ret = v;
+        return 0;
+}
+
+int cg_get_keyed_attribute_full(
                 const char *controller,
                 const char *path,
                 const char *attribute,
                 char **keys,
-                char **ret_values) {
+                char **ret_values,
+                CGroupKeyMode mode) {
 
         _cleanup_free_ char *filename = NULL, *contents = NULL;
         const char *p;
@@ -1680,7 +1713,8 @@ int cg_get_keyed_attribute(
          * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
          * entries as 'keys'. On success each entry will be set to the value of the matching key.
          *
-         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
+         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. If mode
+         * is set to GG_KEY_MODE_GRACEFUL we ignore missing keys and return those that were parsed successfully. */
 
         r = cg_get_path(controller, path, attribute, &filename);
         if (r < 0)
@@ -1728,6 +1762,9 @@ int cg_get_keyed_attribute(
                 p += strspn(p, NEWLINE);
         }
 
+        if (mode & CG_KEY_MODE_GRACEFUL)
+                goto done;
+
         r = -ENXIO;
 
 fail:
@@ -1738,6 +1775,9 @@ fail:
 
 done:
         memcpy(ret_values, v, sizeof(char*) * n);
+        if (mode & CG_KEY_MODE_GRACEFUL)
+                return n_done;
+
         return 0;
 }
 
@@ -1989,6 +2029,9 @@ int cg_unified_cached(bool flush) {
                                 unified_cache = CGROUP_UNIFIED_NONE;
                         }
                 }
+        } else if (F_TYPE_EQUAL(fs.f_type, SYSFS_MAGIC)) {
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "No filesystem is currently mounted on /sys/fs/cgroup.");
         } else
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                        "Unknown filesystem type %llx mounted on /sys/fs/cgroup.",

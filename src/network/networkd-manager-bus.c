@@ -6,12 +6,13 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-polkit.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
 #include "path-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -65,9 +66,9 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
         if (r < 0)
                 return r;
 
-        index = if_nametoindex(name);
-        if (index <= 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s not known", name);
+        index = resolve_ifname(&manager->rtnl, name);
+        if (index < 0)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %s cannot be resolved", name);
 
         link = hashmap_get(manager->links, INT_TO_PTR(index));
         if (!link)
@@ -190,6 +191,10 @@ static int bus_method_renew_link(sd_bus_message *message, void *userdata, sd_bus
         return call_link_method(userdata, message, bus_link_method_renew, error);
 }
 
+static int bus_method_force_renew_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_force_renew, error);
+}
+
 static int bus_method_reconfigure_link(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_reconfigure, error);
 }
@@ -248,6 +253,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("RevertLinkNTP", "i", NULL, bus_method_revert_link_ntp, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RevertLinkDNS", "i", NULL, bus_method_revert_link_dns, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("RenewLink", "i", NULL, bus_method_renew_link, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("ForceRenewLink", "i", NULL, bus_method_force_renew_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ReconfigureLink", "i", NULL, bus_method_reconfigure_link, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reload", NULL, NULL, bus_method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
 

@@ -1,0 +1,110 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_list_names"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_list_names</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_list_names</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_list_names</refname>
+
+    <refpurpose>Retrieve information about registered names on a bus</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_list_names</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>char ***<parameter>acquired</parameter></paramdef>
+        <paramdef>char ***<parameter>activatable</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_list_names()</function> retrieves information about the registered names on a bus.
+    If <parameter>acquired</parameter> is not <constant>NULL</constant>, this function calls
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-list-names">
+    org.freedesktop.DBus.ListNames</ulink> to retrieve the list of currently-owned names on the bus. If
+    <parameter>acquired</parameter> is not <constant>NULL</constant>, the function calls
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#bus-messages-list-activatable-names">
+    org.freedesktop.DBus.ListActivableNames</ulink> to retrieve the list of all names on the bus that can be
+    activated. Note that ownership of the arrays returned by <function>sd_bus_list_names()</function> in
+    <parameter>acquired</parameter> and <parameter>activatable</parameter> is transferred to the caller and
+    hence, the caller is responsible for freeing these arrays and their contents.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_list_names()</function> returns a non-negative integer. On failure,
+    it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para><parameter>bus</parameter> or both <parameter>acquired</parameter> and
+          <parameter>activatable</parameter> were <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus cannot be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The bus is not connected.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

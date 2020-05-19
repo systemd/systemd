@@ -1,0 +1,7 @@
+[Unit]
+Description=TEST-07-ISSUE-1981
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

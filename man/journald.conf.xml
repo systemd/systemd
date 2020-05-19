@@ -18,6 +18,7 @@
   <refnamediv>
     <refname>journald.conf</refname>
     <refname>journald.conf.d</refname>
+    <refname>journald@.conf</refname>
     <refpurpose>Journal service configuration files</refpurpose>
   </refnamediv>
 
@@ -26,6 +27,7 @@
     <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
     <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
+    <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -37,6 +39,12 @@
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for a general description of the syntax.</para>
 
+    <para>The <command>systemd-journald</command> instance managing the default namespace is configured by
+    <filename>/etc/systemd/journald.conf</filename> and associated drop-ins. Instances managing other
+    namespaces read <filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename> with
+    the namespace identifier filled in. This allows each namespace to carry a distinct configuration. See
+    <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    for details about journal namespaces.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -52,29 +60,19 @@
       <varlistentry>
         <term><varname>Storage=</varname></term>
 
-        <listitem><para>Controls where to store journal data. One of
-        <literal>volatile</literal>,
-        <literal>persistent</literal>,
-        <literal>auto</literal> and
-        <literal>none</literal>. If
-        <literal>volatile</literal>, journal
-        log data will be stored only in memory, i.e. below the
-        <filename>/run/log/journal</filename> hierarchy (which is
-        created if needed). If <literal>persistent</literal>, data
-        will be stored preferably on disk, i.e. below the
-        <filename>/var/log/journal</filename> hierarchy (which is
-        created if needed), with a fallback to
-        <filename>/run/log/journal</filename> (which is created if
-        needed), during early boot and if the disk is not writable.
-        <literal>auto</literal> is similar to
-        <literal>persistent</literal> but the directory
-        <filename>/var/log/journal</filename> is not created if
-        needed, so that its existence controls where log data goes.
-        <literal>none</literal> turns off all storage, all log data
-        received will be dropped. Forwarding to other targets, such as
-        the console, the kernel log buffer, or a syslog socket will
-        still work however. Defaults to
-        <literal>auto</literal>.</para></listitem>
+        <listitem><para>Controls where to store journal data. One of <literal>volatile</literal>,
+        <literal>persistent</literal>, <literal>auto</literal> and <literal>none</literal>. If
+        <literal>volatile</literal>, journal log data will be stored only in memory, i.e. below the
+        <filename>/run/log/journal</filename> hierarchy (which is created if needed). If
+        <literal>persistent</literal>, data will be stored preferably on disk, i.e. below the
+        <filename>/var/log/journal</filename> hierarchy (which is created if needed), with a fallback to
+        <filename>/run/log/journal</filename> (which is created if needed), during early boot and if the disk
+        is not writable.  <literal>auto</literal> is similar to <literal>persistent</literal> but the
+        directory <filename>/var/log/journal</filename> is not created if needed, so that its existence
+        controls where log data goes.  <literal>none</literal> turns off all storage, all log data received
+        will be dropped. Forwarding to other targets, such as the console, the kernel log buffer, or a syslog
+        socket will still work however. Defaults to <literal>auto</literal> in the default journal namespace,
+        and <literal>persistent</literal> in all others.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,8 +108,11 @@
         <listitem><para>Controls whether to split up journal files per user, either <literal>uid</literal> or
         <literal>none</literal>. Split journal files are primarily useful for access control: on UNIX/Linux access
         control is managed per file, and the journal daemon will assign users read access to their journal files. If
-        <literal>uid</literal>, all regular users will each get their own journal files, and system users will log to
-        the system journal. If <literal>none</literal>, journal files are not split up by user and all messages are
+        <literal>uid</literal>, all regular users (with UID outside the range of system users, dynamic service users,
+        and the nobody user) will each get their own journal files, and system users will log to the system journal.
+        See <ulink url="https://systemd.io/UIDS-GIDS">Users, Groups, UIDs and GIDs on systemd systems</ulink>
+        for more details about UID ranges.
+        If <literal>none</literal>, journal files are not split up by user and all messages are
         instead stored in the single system journal. In this mode unprivileged users generally do not have access to
         their own log data. Note that splitting up journal files by user is only available for journals stored
         persistently. If journals are stored on volatile storage (see <varname>Storage=</varname> above), only a single
@@ -139,7 +140,7 @@
         <literal>us</literal>. To turn off any kind of rate limiting,
         set either value to 0.</para>
 
-        <para>Note that the effective rate limit is multiplied with a
+        <para>Note that the effective rate limit is multiplied by a
         factor derived from the available free disk space for the journal.
         Currently, this factor is calculated using the base 2 logarithm.</para>
 
@@ -349,9 +350,9 @@
         <varname>TTYPath=</varname>, described below.</para>
 
         <para>When forwarding to the kernel log buffer (kmsg), make sure to select a suitably large size for
-        the log buffer, and ensure the kernel's rate-limiting applied to userspace processes is turned
-        off. Specifically, add <literal>log_buf_len=8M</literal> and <literal>printk.devkmsg=on</literal> (or
-        similar) to the kernel command line.</para></listitem>
+        the log buffer, for example by adding <literal>log_buf_len=8M</literal> to the kernel command line.
+        <command>systemd</command> will automatically disable kernel's rate-limiting applied to userspace
+        processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -362,7 +363,7 @@
         <term><varname>MaxLevelWall=</varname></term>
 
         <listitem><para>Controls the maximum log level of messages
-        that are stored on disk, forwarded to syslog, kmsg, the
+        that are stored in the journal, forwarded to syslog, kmsg, the
         console or wall (if that is enabled, see above). As argument,
         takes one of
         <literal>emerg</literal>,
@@ -378,8 +379,8 @@
         are stored/forwarded, messages above are dropped. Defaults to
         <literal>debug</literal> for <varname>MaxLevelStore=</varname>
         and <varname>MaxLevelSyslog=</varname>, to ensure that the all
-        messages are written to disk and forwarded to syslog. Defaults
-        to
+        messages are stored in the journal and forwarded to syslog.
+        Defaults to
         <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
         <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
         and <literal>emerg</literal> for
@@ -396,9 +397,21 @@
       <varlistentry>
         <term><varname>ReadKMsg=</varname></term>
 
-        <listitem><para>Takes a boolean value. If enabled (the
-        default), journal reads <filename>/dev/kmsg</filename>
-        messages generated by the kernel.</para></listitem>
+        <listitem><para>Takes a boolean value. If enabled <command>systemd-journal</command> processes
+        <filename>/dev/kmsg</filename> messages generated by the kernel. In the default journal namespace
+        this option is enabled by default, it is disabled in all others.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Audit=</varname></term>
+
+        <listitem><para>Takes a boolean value. If enabled <command>systemd-journal</command> will turn on
+        kernel auditing on start-up. If disabled it will turn it off. If unset it will neither enable nor
+        disable it, leaving the previous state unchanged. Note that this option does not control whether
+        <command>systemd-journald</command> collects generated audit records, it just controls whether it
+        tells the kernel to generate them. This means if another tool turns on auditing even if
+        <command>systemd-journald</command> left it off, it will still collect the generated
+        messages. Defaults to on.</para></listitem>
       </varlistentry>
 
       <varlistentry>

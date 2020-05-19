@@ -218,6 +218,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--file=<replaceable>GLOB</replaceable></option></term>
+
+        <listitem><para>Takes a file glob as an argument. If
+        specified, coredumpctl will operate on the specified journal
+        files matching <replaceable>GLOB</replaceable> instead of the
+        default runtime and system journal paths. May be specified
+        multiple times, in which case files will be suitably
+        interleaved.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-D</option> <replaceable>DIR</replaceable></term>
         <term><option>--directory=</option><replaceable>DIR</replaceable></term>
 

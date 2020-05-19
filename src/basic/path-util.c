@@ -1051,7 +1051,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 if (!path)
                         return -ENOMEM;
 
-                r = glob_extend(&names, path);
+                r = glob_extend(&names, path, 0);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -1114,4 +1114,30 @@ bool empty_or_root(const char *root) {
                 return true;
 
         return root[strspn(root, "/")] == 0;
+}
+
+bool path_strv_contains(char **l, const char *path) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                if (path_equal(*i, path))
+                        return true;
+
+        return false;
+}
+
+bool prefixed_path_strv_contains(char **l, const char *path) {
+        char **i, *j;
+
+        STRV_FOREACH(i, l) {
+                j = *i;
+                if (*j == '-')
+                        j++;
+                if (*j == '+')
+                        j++;
+                if (path_equal(j, path))
+                        return true;
+        }
+
+        return false;
 }

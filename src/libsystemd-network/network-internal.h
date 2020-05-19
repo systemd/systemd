@@ -8,14 +8,15 @@
 #include "sd-dhcp-lease.h"
 
 #include "conf-parser.h"
-#include "def.h"
 #include "set.h"
 #include "strv.h"
 
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63
 
+char *link_get_type_string(unsigned short iftype, sd_device *device);
 bool net_match_config(Set *match_mac,
+                      Set *match_permanent_mac,
                       char * const *match_path,
                       char * const *match_driver,
                       char * const *match_type,
@@ -24,9 +25,12 @@ bool net_match_config(Set *match_mac,
                       char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
+                      unsigned short iftype,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
+                      const struct ether_addr *dev_permanent_mac,
                       const char *dev_name,
+                      char * const *alternative_names,
                       enum nl80211_iftype wifi_iftype,
                       const char *ssid,
                       const struct ether_addr *bssid);
@@ -61,5 +65,3 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t
 
 /* It is not necessary to add deserialize_dhcp_option(). Use unhexmem() instead. */
 int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size);
-
-#define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))

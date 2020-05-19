@@ -268,17 +268,17 @@ int proc_cmdline_get_bool(const char *key, bool *ret) {
         r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &v);
         if (r < 0)
                 return r;
-        if (r == 0) {
+        if (r == 0) { /* key not specified at all */
                 *ret = false;
                 return 0;
         }
 
-        if (v) { /* parameter passed */
+        if (v) { /* key with parameter passed */
                 r = parse_boolean(v);
                 if (r < 0)
                         return r;
                 *ret = r;
-        } else /* no parameter passed */
+        } else /* key without parameter passed */
                 *ret = true;
 
         return 1;

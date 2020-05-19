@@ -279,7 +279,7 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         return 0;
 }
 
-static void transaction_drop_redundant(Transaction *tr) {
+static void transaction_drop_redundant(Transaction *tr, unsigned generation) {
         bool again;
 
         /* Goes through the transaction and removes all jobs of the units whose jobs are all noops. If not
@@ -299,7 +299,7 @@ static void transaction_drop_redundant(Transaction *tr) {
 
                         LIST_FOREACH(transaction, k, j)
                                 if (tr->anchor_job == k ||
-                                    !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
+                                    !job_is_redundant(k, generation) ||
                                     (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type))) {
                                         keep = true;
                                         break;
@@ -336,9 +336,8 @@ static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
 
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
                 next = strlen(unit_log_field) + strlen(*unit_id);
-                if (!GREEDY_REALLOC(ans, alloc, size + next + 1)) {
+                if (!GREEDY_REALLOC(ans, alloc, size + next + 1))
                         return mfree(ans);
-                }
 
                 sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
                 if (*(unit_id+1))
@@ -425,7 +424,9 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         else
                                 status = " SKIP ";
 
-                        unit_status_printf(delete->unit, status,
+                        unit_status_printf(delete->unit,
+                                           STATUS_TYPE_NOTICE,
+                                           status,
                                            "Ordering cycle found, skipping %s");
                         transaction_delete_unit(tr, delete->unit);
                         return -EAGAIN;
@@ -730,7 +731,7 @@ int transaction_activate(
                 transaction_minimize_impact(tr);
 
         /* Third step: Drop redundant jobs */
-        transaction_drop_redundant(tr);
+        transaction_drop_redundant(tr, generation++);
 
         for (;;) {
                 /* Fourth step: Let's remove unneeded jobs that might
@@ -772,7 +773,7 @@ int transaction_activate(
         }
 
         /* Eights step: Drop redundant jobs again, if the merging now allows us to drop more. */
-        transaction_drop_redundant(tr);
+        transaction_drop_redundant(tr, generation++);
 
         /* Ninth step: check whether we can actually apply this */
         r = transaction_is_destructive(tr, mode, e);

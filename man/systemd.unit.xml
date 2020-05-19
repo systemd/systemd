@@ -6,7 +6,8 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd.unit">
+<refentry id="systemd.unit"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.unit</title>
@@ -136,11 +137,25 @@
     has the alias <filename>dbus-org.freedesktop.network1.service</filename>, created during installation as
     a symlink, so when <command>systemd</command> is asked through D-Bus to load
     <filename>dbus-org.freedesktop.network1.service</filename>, it'll load
-    <filename>systemd-networkd.service</filename>. Alias names may be used in commands like
-    <command>disable</command>, <command>start</command>, <command>stop</command>, <command>status</command>,
-    and similar, and in all unit dependency directives, including <varname>Wants=</varname>,
-    <varname>Requires=</varname>, <varname>Before=</varname>, <varname>After=</varname>. Aliases cannot be
-    used with the <command>preset</command> command.</para>
+    <filename>systemd-networkd.service</filename>. As another example, <filename>default.target</filename> —
+    the default system target started at boot — is commonly symlinked (aliased) to either
+    <filename>multi-user.target</filename> or <filename>graphical.target</filename> to select what is started
+    by default. Alias names may be used in commands like <command>disable</command>,
+    <command>start</command>, <command>stop</command>, <command>status</command>, and similar, and in all
+    unit dependency directives, including <varname>Wants=</varname>, <varname>Requires=</varname>,
+    <varname>Before=</varname>, <varname>After=</varname>. Aliases cannot be used with the
+    <command>preset</command> command.</para>
+
+    <para>Aliases obey the following restrictions: a unit of a certain type (<literal>.service</literal>,
+    <literal>.socket</literal>, …) can only be aliased by a name with the same type suffix. A plain unit (not
+    a template or an instance), may only be aliased by a plain name. A template instance may only be aliased
+    by another template instance, and the instance part must be identical. A template may be aliased by
+    another template (in which case the alias applies to all instances of the template). As a special case, a
+    template instance (e.g. <literal>alias@inst.service</literal>) may be a symlink to different template
+    (e.g. <literal>template@inst.service</literal>). In that case, just this specific instance is aliased,
+    while other instances of the template (e.g. <literal>alias@foo.service</literal>,
+    <literal>alias@bar.service</literal>) are not aliased. Those rule preserve the requirement that the
+    instance (if any) is always uniquely defined for a given unit and all its aliases.</para>
 
     <para>Unit files may specify aliases through the <varname>Alias=</varname> directive in the [Install]
     section. When the unit is enabled, symlinks will be created for those names, and removed when the unit is
@@ -183,6 +198,16 @@
     further down the prefix hierarchy override those further up,
     i.e. <filename>foo-bar-.service.d/10-override.conf</filename> overrides
     <filename>foo-.service.d/10-override.conf</filename>.</para>
+
+    <para>In cases of unit aliases (described above), dropins for the aliased name and all aliases are
+    loaded. In the example of <filename>default.target</filename> aliasing
+    <filename>graphical.target</filename>, <filename>default.target.d/</filename>,
+    <filename>default.target.wants/</filename>, <filename>default.target.requires/</filename>,
+    <filename>graphical.target.d/</filename>, <filename>graphical.target.wants/</filename>,
+    <filename>graphical.target.requires/</filename> would all be read. For templates, dropins for the
+    template, any template aliases, the template instance, and all alias instances are read. When just a
+    specific template instance is aliased, then the dropins for the target template, the target template
+    instance, and the alias template instance are read.</para>
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d/</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or
@@ -467,10 +492,12 @@
     <programlisting>systemd-analyze --user unit-paths</programlisting>
     </para>
 
-    <para>Moreover, additional units might be loaded into systemd ("linked") from
-    directories not on the unit load path. See the <command>link</command> command
-    for
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    <para>Moreover, additional units might be loaded into systemd from
+    directories not on the unit load path by creating a symlink pointing to a
+    unit file in the directories. You can use <command>systemctl link</command>
+    for this operation. See
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for its usage and precaution.
     </para>
   </refsect1>
 
@@ -572,7 +599,7 @@
         <para>Units listed in this option will be started if the configuring unit is. However, if the listed
         units fail to start or cannot be added to the transaction, this has no impact on the validity of the
         transaction as a whole, and this unit will still be started. This is the recommended way to hook
-        start-up of one unit to the start-up of another unit.</para>
+        the start-up of one unit to the start-up of another unit.</para>
 
         <para>Note that requirement dependencies do not influence the order in which services are started or
         stopped. This has to be configured independently with the <varname>After=</varname> or
@@ -704,7 +731,7 @@
         <listitem><para>These two settings expect a space-separated list of unit names. They may be specified
         more than once, in which case dependencies for all listed names are created.</para>
 
-        <para>Those two setttings configure ordering dependencies between units. If unit
+        <para>Those two settings configure ordering dependencies between units. If unit
         <filename>foo.service</filename> contains the setting <option>Before=bar.service</option> and both
         units are being started, <filename>bar.service</filename>'s start-up is delayed until
         <filename>foo.service</filename> has finished starting up. <varname>After=</varname> is the inverse
@@ -724,13 +751,18 @@
         type when precisely a unit has finished starting up. Most importantly, for service units start-up is
         considered completed for the purpose of <varname>Before=</varname>/<varname>After=</varname> when all
         its configured start-up commands have been invoked and they either failed or reported start-up
-        success.</para>
+        success. Note that this does includes <varname>ExecStartPost=</varname> (or
+        <varname>ExecStopPost=</varname> for the shutdown case).</para>
 
         <para>Note that those settings are independent of and orthogonal to the requirement dependencies as
         configured by <varname>Requires=</varname>, <varname>Wants=</varname>, <varname>Requisite=</varname>,
         or <varname>BindsTo=</varname>. It is a common pattern to include a unit name in both the
         <varname>After=</varname> and <varname>Wants=</varname> options, in which case the unit listed will
-        be started before the unit that is configured with these options.</para></listitem>
+        be started before the unit that is configured with these options.</para>
+
+        <para>Note that <varname>Before=</varname> dependencies on device units have no effect and are not
+        supported.  Devices generally become available as a result of an external hotplug event, and systemd
+        creates the corresponding device unit without delay.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1139,6 +1171,7 @@
           <literal>podman</literal>,
           <literal>rkt</literal>,
           <literal>wsl</literal>,
+          <literal>proot</literal>,
           <literal>acrn</literal> to test
           against a specific implementation, or
           <literal>private-users</literal> to check whether we are running in a user namespace. See
@@ -1194,6 +1227,24 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionEnvironment=</varname></term>
+
+          <listitem><para><varname>ConditionEnvironment=</varname> may be used to check whether a specific
+          environment variable is set (or if prefixed with the exclamation mark — unset) in the service
+          manager's environment block.
+
+          The argument may be a single word, to check if the variable with this name is defined in the
+          environment block, or an assignment
+          (<literal><replaceable>name</replaceable>=<replaceable>value</replaceable></literal>), to check if
+          the variable with this exact value is defined. Note that the environment block of the service
+          manager itself is checked, i.e. not any variables defined with <varname>Environment=</varname> or
+          <varname>EnvironmentFile=</varname>, as described above. This is particularly useful when the
+          service manager runs inside a containerized environment or as per-user service manager, in order to
+          check for variables passed in by the enclosing container manager or PAM.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionSecurity=</varname></term>
 
           <listitem><para><varname>ConditionSecurity=</varname> may be used to check whether the given
@@ -1243,6 +1294,13 @@
           <citerefentry><refentrytitle>systemd-update-done.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to make sure they run before the stamp file's modification time gets reset indicating a completed
           update.</para>
+
+          <para>If the <varname>systemd.condition-needs-update=</varname> option is specified on the kernel
+          command line (taking a boolean), it will override the result of this condition check, taking
+          precedence over any file modification time checks. If it is used
+          <filename>systemd-update-done.service</filename> will not have immediate effect on any following
+          <varname>ConditionNeedsUpdate=</varname> checks, until the system is rebooted where the kernel
+          command line option is not specified anymore.</para>
           </listitem>
         </varlistentry>
 
@@ -1254,6 +1312,10 @@
           (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
           be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new
           system instance boots up for the first time.</para>
+
+          <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
+          command line (taking a boolean), it will override the result of this condition check, taking
+          precedence over <filename>/etc/machine-id</filename> existence checks.</para>
           </listitem>
         </varlistentry>
 
@@ -1310,6 +1372,18 @@
           <listitem><para><varname>ConditionPathIsReadWrite=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that the underlying file system is readable
           and writable (i.e. not mounted read-only).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>ConditionPathIsEncrypted=</varname></term>
+
+          <listitem><para><varname>ConditionPathIsEncrypted=</varname> is similar to
+          <varname>ConditionPathExists=</varname> but verifies that the underlying file system's backing
+          block device is encrypted using dm-crypt/LUKS. Note that this check does not cover ext4
+          per-directory encryption, and only detects block level encryption. Moreover, if the specified path
+          resides on a file system on top of a loopback block device, only encryption above the loopback device is
+          detected. It is not detected whether the file system backing the loopback block device is encrypted.</para>
           </listitem>
         </varlistentry>
 
@@ -1545,7 +1619,7 @@
 
     <para>Note: <varname>ConsistsOf=</varname>, <varname>BoundBy=</varname>,
     <varname>RequisiteOf=</varname>, <varname>ConflictedBy=</varname> are created
-    implicitly along with their reverse and cannot be specified directly.</para>
+    implicitly along with their reverses and cannot be specified directly.</para>
 
     <para>Note: <varname>Triggers=</varname> is created implicitly between a socket,
     path unit, or an automount unit, and the unit they activate. By default a unit
@@ -1557,7 +1631,7 @@
     <citerefentry><refentrytitle>systemd.path</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     and
     <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. <varname>TriggersBy=</varname> is created implicitly on the
+    for details. <varname>TriggeredBy=</varname> is created implicitly on the
     triggered unit.</para>
 
     <para>Note: <varname>Following=</varname> is used to group device aliases and points to the
@@ -1662,7 +1736,7 @@
     and resolvable for the setting to be valid. The following
     specifiers are understood:</para>
 
-    <table>
+    <table class='specifiers'>
       <title>Specifiers available in unit files</title>
       <tgroup cols='3' align='left' colsep='1' rowsep='1'>
         <colspec colname="spec" />
@@ -1677,10 +1751,14 @@
         </thead>
         <tbody>
           <row>
-            <entry><literal>%b</literal></entry>
-            <entry>Boot ID</entry>
-            <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
+            <!-- We do not use the common definition from standard-specifiers.xml here since it includes a
+                 reference onto our own man page, which would make the rendered version self-referential. -->
+            <entry><literal>%a</literal></entry>
+            <entry>Architecture</entry>
+            <entry>A short string identifying the architecture of the local system. A string such as <constant>x86</constant>, <constant>x86-64</constant> or <constant>arm64</constant>. See the architectures defined for <varname>ConditionArchitecture=</varname> above for a full list.</entry>
           </row>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
           <row>
             <entry><literal>%C</literal></entry>
             <entry>Cache directory root</entry>
@@ -1704,9 +1782,16 @@
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
           <row>
+            <!-- We do not use the common definition from standard-specifiers.xml here since we want a
+                 slightly more verbose explanation here, referring to the reload cycle. -->
             <entry><literal>%H</literal></entry>
             <entry>Host name</entry>
             <entry>The hostname of the running system at the point in time the unit configuration is loaded.</entry>
+          </row>
+          <row>
+            <entry><literal>%l</literal></entry>
+            <entry>Short host name</entry>
+            <entry>The hostname of the running system at the point in time the unit configuration is loaded, truncated at the first dot to remove any domain component.</entry>
           </row>
           <row>
             <entry><literal>%i</literal></entry>
@@ -1733,11 +1818,8 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
             <entry>Log directory root</entry>
             <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename index="false">/log</filename> appended (for user managers).</entry>
           </row>
-          <row>
-            <entry><literal>%m</literal></entry>
-            <entry>Machine ID</entry>
-            <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
           <row>
             <entry><literal>%n</literal></entry>
             <entry>Full unit name</entry>
@@ -1802,21 +1884,15 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
 
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
-          <row>
-            <entry><literal>%v</literal></entry>
-            <entry>Kernel release</entry>
-            <entry>Identical to <command>uname -r</command> output</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
           <row>
             <entry><literal>%V</literal></entry>
             <entry>Directory for larger and persistent temporary files</entry>
             <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
           </row>
-          <row>
-            <entry><literal>%%</literal></entry>
-            <entry>Single percent sign</entry>
-            <entry>Use <literal>%%</literal> in place of <literal>%</literal> to specify a single percent sign.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+          <xi:include href="standard-specifiers.xml" xpointer="percent"/>
         </tbody>
       </tgroup>
     </table>

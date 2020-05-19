@@ -20,28 +20,29 @@
 #include "string-util.h"
 #include "virt.h"
 
+#if defined(__i386__) || defined(__x86_64__)
+static const char *const vm_table[_VIRTUALIZATION_MAX] = {
+        [VIRTUALIZATION_XEN]       = "XenVMMXenVMM",
+        [VIRTUALIZATION_KVM]       = "KVMKVMKVM",
+        [VIRTUALIZATION_QEMU]      = "TCGTCGTCGTCG",
+        /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
+        [VIRTUALIZATION_VMWARE]    = "VMwareVMware",
+        /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
+        [VIRTUALIZATION_MICROSOFT] = "Microsoft Hv",
+        /* https://wiki.freebsd.org/bhyve */
+        [VIRTUALIZATION_BHYVE]     = "bhyve bhyve ",
+        [VIRTUALIZATION_QNX]       = "QNXQVMBSQG",
+        /* https://projectacrn.org */
+        [VIRTUALIZATION_ACRN]      = "ACRNACRNACRN",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(vm, int);
+#endif
+
 static int detect_vm_cpuid(void) {
 
         /* CPUID is an x86 specific interface. */
 #if defined(__i386__) || defined(__x86_64__)
-
-        static const struct {
-                const char *cpuid;
-                int id;
-        } cpuid_vendor_table[] = {
-                { "XenVMMXenVMM", VIRTUALIZATION_XEN       },
-                { "KVMKVMKVM",    VIRTUALIZATION_KVM       },
-                { "TCGTCGTCGTCG", VIRTUALIZATION_QEMU      },
-                /* http://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1009458 */
-                { "VMwareVMware", VIRTUALIZATION_VMWARE    },
-                /* https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/reference/tlfs */
-                { "Microsoft Hv", VIRTUALIZATION_MICROSOFT },
-                /* https://wiki.freebsd.org/bhyve */
-                { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
-                { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
-                /* https://projectacrn.org */
-                { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
-        };
 
         uint32_t eax, ebx, ecx, edx;
         bool hypervisor;
@@ -59,7 +60,7 @@ static int detect_vm_cpuid(void) {
                         uint32_t sig32[3];
                         char text[13];
                 } sig = {};
-                unsigned j;
+                int v;
 
                 /* There is a hypervisor, see what it is */
                 __cpuid(0x40000000U, eax, ebx, ecx, edx);
@@ -70,11 +71,11 @@ static int detect_vm_cpuid(void) {
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
-                for (j = 0; j < ELEMENTSOF(cpuid_vendor_table); j ++)
-                        if (streq(sig.text, cpuid_vendor_table[j].cpuid))
-                                return cpuid_vendor_table[j].id;
+                v = vm_from_string(sig.text);
+                if (v < 0)
+                        return VIRTUALIZATION_VM_OTHER;
 
-                return VIRTUALIZATION_VM_OTHER;
+                return v;
         }
 #endif
         log_debug("No virtualization found in CPUID");
@@ -142,7 +143,7 @@ static int detect_vm_dmi(void) {
                 int id;
         } dmi_vendor_table[] = {
                 { "KVM",                 VIRTUALIZATION_KVM       },
-                { "QEMU",                VIRTUALIZATION_QEMU      },                
+                { "QEMU",                VIRTUALIZATION_QEMU      },
                 { "VMware",              VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
                 { "VMW",                 VIRTUALIZATION_VMWARE    },
                 { "innotek GmbH",        VIRTUALIZATION_ORACLE    },
@@ -432,25 +433,25 @@ finish:
         return r;
 }
 
-int detect_container(void) {
-        static const struct {
-                const char *value;
-                int id;
-        } value_table[] = {
-                { "lxc",            VIRTUALIZATION_LXC            },
-                { "lxc-libvirt",    VIRTUALIZATION_LXC_LIBVIRT    },
-                { "systemd-nspawn", VIRTUALIZATION_SYSTEMD_NSPAWN },
-                { "docker",         VIRTUALIZATION_DOCKER         },
-                { "podman",         VIRTUALIZATION_PODMAN         },
-                { "rkt",            VIRTUALIZATION_RKT            },
-                { "wsl",            VIRTUALIZATION_WSL            },
-        };
+static const char *const container_table[_VIRTUALIZATION_MAX] = {
+        [VIRTUALIZATION_LXC]            = "lxc",
+        [VIRTUALIZATION_LXC_LIBVIRT]    = "lxc-libvirt",
+        [VIRTUALIZATION_SYSTEMD_NSPAWN] = "systemd-nspawn",
+        [VIRTUALIZATION_DOCKER]         = "docker",
+        [VIRTUALIZATION_PODMAN]         = "podman",
+        [VIRTUALIZATION_RKT]            = "rkt",
+        [VIRTUALIZATION_WSL]            = "wsl",
+        [VIRTUALIZATION_PROOT]          = "proot",
+};
 
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
+
+int detect_container(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL;
         _cleanup_free_ char *o = NULL;
+        _cleanup_free_ char *p = NULL;
         const char *e = NULL;
-        unsigned j;
         int r;
 
         if (cached_found >= 0)
@@ -465,10 +466,27 @@ int detect_container(void) {
 
         /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364 */
         r = read_one_line_file("/proc/sys/kernel/osrelease", &o);
-        if (r >= 0) {
-                if (strstr(o, "Microsoft") || strstr(o, "WSL")) {
-                        r = VIRTUALIZATION_WSL;
-                        goto finish;
+        if (r >= 0 &&
+            (strstr(o, "Microsoft") || strstr(o, "WSL"))) {
+                r = VIRTUALIZATION_WSL;
+                goto finish;
+        }
+
+        /* proot doesn't use PID namespacing, so we can just check if we have a matching tracer for this
+         * invocation without worrying about it being elsewhere.
+         */
+        r = get_proc_field("/proc/self/status", "TracerPid", WHITESPACE, &p);
+        if (r == 0 && !streq(p, "0")) {
+                pid_t ptrace_pid;
+                r = parse_pid(p, &ptrace_pid);
+                if (r == 0) {
+                        const char *pf = procfs_file_alloca(ptrace_pid, "comm");
+                        _cleanup_free_ char *ptrace_comm = NULL;
+                        r = read_one_line_file(pf, &ptrace_comm);
+                        if (r >= 0 && startswith(ptrace_comm, "proot")) {
+                                r = VIRTUALIZATION_PROOT;
+                                goto finish;
+                        }
                 }
         }
 
@@ -532,13 +550,9 @@ int detect_container(void) {
         goto finish;
 
 translate_name:
-        for (j = 0; j < ELEMENTSOF(value_table); j++)
-                if (streq(e, value_table[j].value)) {
-                        r = value_table[j].id;
-                        goto finish;
-                }
-
-        r = VIRTUALIZATION_CONTAINER_OTHER;
+        r = container_from_string(e);
+        if (r < 0)
+                r = VIRTUALIZATION_CONTAINER_OTHER;
 
 finish:
         log_debug("Found container virtualization %s.", virtualization_to_string(r));
@@ -664,6 +678,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_PODMAN] = "podman",
         [VIRTUALIZATION_RKT] = "rkt",
         [VIRTUALIZATION_WSL] = "wsl",
+        [VIRTUALIZATION_PROOT] = "proot",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 

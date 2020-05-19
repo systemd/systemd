@@ -69,6 +69,7 @@ struct sd_journal {
 
         char *path;
         char *prefix;
+        char *namespace;
 
         OrderedHashmap *files;
         IteratedCache *files_cache;

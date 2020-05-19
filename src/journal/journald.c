@@ -14,13 +14,16 @@
 #include "sigbus.h"
 
 int main(int argc, char *argv[]) {
+        const char *namespace;
         Server server;
         int r;
 
-        if (argc > 1) {
-                log_error("This program does not take arguments.");
+        if (argc > 2) {
+                log_error("This program takes one or no arguments.");
                 return EXIT_FAILURE;
         }
+
+        namespace = argc > 1 ? empty_to_null(argv[1]) : NULL;
 
         log_set_prohibit_ipc(true);
         log_set_target(LOG_TARGET_AUTO);
@@ -32,7 +35,7 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = server_init(&server);
+        r = server_init(&server, namespace);
         if (r < 0)
                 goto finish;
 
@@ -40,7 +43,11 @@ int main(int argc, char *argv[]) {
         server_flush_to_var(&server, true);
         server_flush_dev_kmsg(&server);
 
-        log_debug("systemd-journald running as pid "PID_FMT, getpid_cached());
+        if (server.namespace)
+                log_debug("systemd-journald running as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
+        else
+                log_debug("systemd-journald running as PID "PID_FMT" for the system.", getpid_cached());
+
         server_driver_message(&server, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_START_STR,
                               LOG_MESSAGE("Journal started"),
@@ -55,8 +62,10 @@ int main(int argc, char *argv[]) {
                 usec_t t = USEC_INFINITY, n;
 
                 r = sd_event_get_state(server.event);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to get event loop state: %m");
                         goto finish;
+                }
                 if (r == SD_EVENT_FINISHED)
                         break;
 
@@ -99,7 +108,11 @@ int main(int argc, char *argv[]) {
                 server_maybe_warn_forward_syslog_missed(&server);
         }
 
-        log_debug("systemd-journald stopped as pid "PID_FMT, getpid_cached());
+        if (server.namespace)
+                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
+        else
+                log_debug("systemd-journald stopped as PID "PID_FMT" for the system.", getpid_cached());
+
         server_driver_message(&server, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_STOP_STR,
                               LOG_MESSAGE("Journal stopped"),

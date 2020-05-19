@@ -29,7 +29,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-timedated</filename> is a system service
+    <para><filename>systemd-timedated.service</filename> is a system service
     that may be used as a mechanism to change the system clock and
     timezone, as well as to enable/disable network time synchronization.
     <filename>systemd-timedated</filename> is automatically activated
@@ -39,10 +39,25 @@
     <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     is a command line client to this service.</para>
 
-    <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/timedated">
-    developer documentation</ulink> for information about the APIs
-    <filename>systemd-timedated</filename> provides.</para>
+    <para><filename>systemd-timedated</filename> currently offers access to
+    the following four settings:
+    <itemizedlist>
+      <listitem><para>The system time</para></listitem>
+
+      <listitem><para>The system timezone</para></listitem>
+
+      <listitem><para>A boolean controlling whether the system RTC is in local or UTC
+      timezone</para></listitem>
+
+      <listitem><para>Whether the time synchronization service is enabled/started or
+      disabled/stopped, see next section.</para></listitem>
+    </itemizedlist></para>
+
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.timedate1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the D-Bus API.</para>
   </refsect1>
 
   <refsect1>

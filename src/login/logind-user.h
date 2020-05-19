@@ -6,6 +6,7 @@ typedef struct User User;
 #include "conf-parser.h"
 #include "list.h"
 #include "logind.h"
+#include "user-record.h"
 
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
@@ -20,10 +21,9 @@ typedef enum UserState {
 
 struct User {
         Manager *manager;
-        uid_t uid;
-        gid_t gid;
-        char *name;
-        char *home;
+
+        UserRecord *user_record;
+
         char *state_file;
         char *runtime_path;
 
@@ -50,7 +50,7 @@ struct User {
         LIST_FIELDS(User, gc_queue);
 };
 
-int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name, const char *home);
+int user_new(User **out, Manager *m, UserRecord *ur);
 User *user_free(User *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);

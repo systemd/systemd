@@ -51,6 +51,7 @@ static bool syslog_is_stream = false;
 
 static bool show_color = false;
 static bool show_location = false;
+static bool show_time = false;
 
 static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
@@ -332,8 +333,10 @@ static int write_to_console(
                 const char *func,
                 const char *buffer) {
 
-        char location[256], prefix[1 + DECIMAL_STR_MAX(int) + 2];
-        struct iovec iovec[6] = {};
+        char location[256],
+             header_time[FORMAT_TIMESTAMP_MAX],
+             prefix[1 + DECIMAL_STR_MAX(int) + 2];
+        struct iovec iovec[8] = {};
         const char *on = NULL, *off = NULL;
         size_t n = 0;
 
@@ -343,6 +346,13 @@ static int write_to_console(
         if (log_target == LOG_TARGET_CONSOLE_PREFIXED) {
                 xsprintf(prefix, "<%i>", level);
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
+        }
+
+        if (show_time) {
+                if (format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
+                        iovec[n++] = IOVEC_MAKE_STRING(header_time);
+                        iovec[n++] = IOVEC_MAKE_STRING(" ");
+                }
         }
 
         if (show_color)
@@ -1099,6 +1109,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (log_show_location_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log location setting '%s'. Ignoring.", value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_time")) {
+
+                if (log_show_time_from_string(value ?: "1") < 0)
+                        log_warning("Failed to parse log time setting '%s'. Ignoring.", value);
+
         }
 
         return 0;
@@ -1130,6 +1146,10 @@ void log_parse_environment_realm(LogRealm realm) {
         e = getenv("SYSTEMD_LOG_LOCATION");
         if (e && log_show_location_from_string(e) < 0)
                 log_warning("Failed to parse log location '%s'. Ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_TIME");
+        if (e && log_show_time_from_string(e) < 0)
+                log_warning("Failed to parse log time '%s'. Ignoring.", e);
 }
 
 LogTarget log_get_target(void) {
@@ -1156,6 +1176,14 @@ bool log_get_show_location(void) {
         return show_location;
 }
 
+void log_show_time(bool b) {
+        show_time = b;
+}
+
+bool log_get_show_time(void) {
+        return show_time;
+}
+
 int log_show_color_from_string(const char *e) {
         int t;
 
@@ -1175,6 +1203,17 @@ int log_show_location_from_string(const char *e) {
                 return t;
 
         log_show_location(t);
+        return 0;
+}
+
+int log_show_time_from_string(const char *e) {
+        int t;
+
+        t = parse_boolean(e);
+        if (t < 0)
+                return t;
+
+        log_show_time(t);
         return 0;
 }
 

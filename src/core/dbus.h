@@ -21,8 +21,6 @@ int bus_fdset_add_all(Manager *m, FDSet *fds);
 void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix);
 int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l);
 
-int manager_enqueue_sync_bus_names(Manager *m);
-
 int bus_foreach_bus(Manager *m, sd_bus_track *subscribed2, int (*send_message)(sd_bus *bus, void *userdata), void *userdata);
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error);
@@ -35,3 +33,4 @@ int bus_forward_agent_released(Manager *m, const char *path);
 uint64_t manager_bus_n_queued_write(Manager *m);
 
 void dump_bus_properties(FILE *f);
+int bus_manager_introspect_implementations(FILE *out, const char *pattern);

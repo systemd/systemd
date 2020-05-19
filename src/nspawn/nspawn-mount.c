@@ -102,6 +102,30 @@ static char *resolve_source_path(const char *dest, const char *source) {
         return strdup(source);
 }
 
+static int allocate_temporary_source(CustomMount *m) {
+        assert(m);
+        assert(!m->source);
+        assert(!m->rm_rf_tmpdir);
+
+        m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
+        if (!m->rm_rf_tmpdir)
+                return log_oom();
+
+        if (!mkdtemp(m->rm_rf_tmpdir)) {
+                m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
+                return log_error_errno(errno, "Failed to acquire temporary directory: %m");
+        }
+
+        m->source = path_join(m->rm_rf_tmpdir, "src");
+        if (!m->source)
+                return log_oom();
+
+        if (mkdir(m->source, 0755) < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", m->source);
+
+        return 0;
+}
+
 int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         size_t i;
         int r;
@@ -136,21 +160,9 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                         } else {
                                 /* No source specified? In that case, use a throw-away temporary directory in /var/tmp */
 
-                                m->rm_rf_tmpdir = strdup("/var/tmp/nspawn-temp-XXXXXX");
-                                if (!m->rm_rf_tmpdir)
-                                        return log_oom();
-
-                                if (!mkdtemp(m->rm_rf_tmpdir)) {
-                                        m->rm_rf_tmpdir = mfree(m->rm_rf_tmpdir);
-                                        return log_error_errno(errno, "Failed to acquire temporary directory: %m");
-                                }
-
-                                m->source = path_join(m->rm_rf_tmpdir, "src");
-                                if (!m->source)
-                                        return log_oom();
-
-                                if (mkdir(m->source, 0755) < 0)
-                                        return log_error_errno(errno, "Failed to create %s: %m", m->source);
+                                r = allocate_temporary_source(m);
+                                if (r < 0)
+                                        return r;
                         }
                 }
 
@@ -167,6 +179,20 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                 free_and_replace(*j, s);
                         }
 
+                        if (m->source) {
+                                char *s;
+
+                                s = resolve_source_path(dest, m->source);
+                                if (!s)
+                                        return log_oom();
+
+                                free_and_replace(m->source, s);
+                        } else {
+                                r = allocate_temporary_source(m);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         if (m->work_dir) {
                                 char *s;
 
@@ -176,8 +202,6 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
 
                                 free_and_replace(m->work_dir, s);
                         } else {
-                                assert(m->source);
-
                                 r = tempfn_random(m->source, NULL, &m->work_dir);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to acquire working directory: %m");
@@ -545,7 +569,7 @@ int mount_all(const char *dest,
         static const MountPoint mount_table[] = {
                 /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
                 { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_IN_USERNS },
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,
                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
@@ -575,28 +599,28 @@ int mount_all(const char *dest,
                 PROC_READ_ONLY("/proc/scsi"),
 
                 { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_IN_USERNS },
+                  MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
-                { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP },
-                { "tmpfs",           "/sys",            "tmpfs", "mode=555",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
-                { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
-                { "sysfs",           "/sys",            "sysfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL },                          /* skipped if above was mounted */
-                { "tmpfs",           "/dev",            "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,
-                  MOUNT_FATAL },
-                { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
-                { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-                  MOUNT_FATAL },
+                { "tmpfs",           "/tmp",            "tmpfs", "mode=1777" TMPFS_LIMITS_TMP,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
+                { "tmpfs",           "/sys",            "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
+                { "sysfs",           "/sys",            "sysfs", NULL,                             MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR },    /* skipped if above was mounted */
+                { "sysfs",           "/sys",            "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
+                { "tmpfs",           "/dev",            "tmpfs", "mode=755" TMPFS_LIMITS_DEV,      MS_NOSUID|MS_STRICTATIME,
+                  MOUNT_FATAL|MOUNT_MKDIR },
+                { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777" TMPFS_LIMITS_DEV_SHM, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL|MOUNT_MKDIR },
+                { "tmpfs",           "/run",            "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL|MOUNT_MKDIR },
 
 #if HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,                             MS_BIND,
                   0 },  /* Bind mount first */
-                { NULL,              "/sys/fs/selinux", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                { NULL,              "/sys/fs/selinux", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   0 },  /* Then, make it r/o */
 #endif
         };
@@ -639,17 +663,19 @@ int mount_all(const char *dest,
                                 continue;
                 }
 
-                r = mkdir_userns_p(dest, where, 0755, (use_userns && !in_userns) ? uid_shift : UID_INVALID);
-                if (r < 0 && r != -EEXIST) {
-                        if (fatal && r != -EROFS)
-                                return log_error_errno(r, "Failed to create directory %s: %m", where);
+                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR)) {
+                        r = mkdir_userns_p(dest, where, 0755, (use_userns && !in_userns) ? uid_shift : UID_INVALID);
+                        if (r < 0 && r != -EEXIST) {
+                                if (fatal && r != -EROFS)
+                                        return log_error_errno(r, "Failed to create directory %s: %m", where);
 
-                        log_debug_errno(r, "Failed to create directory %s: %m", where);
-                        /* If we failed mkdir() or chown() due to the root
-                         * directory being read only, attempt to mount this fs
-                         * anyway and let mount_verbose log any errors */
-                        if (r != -EROFS)
-                                continue;
+                                log_debug_errno(r, "Failed to create directory %s: %m", where);
+
+                                /* If we failed mkdir() or chown() due to the root directory being read only,
+                                 * attempt to mount this fs anyway and let mount_verbose log any errors */
+                                if (r != -EROFS)
+                                        continue;
+                        }
                 }
 
                 o = mount_table[k].options;
@@ -859,8 +885,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 }
 
 static int mount_inaccessible(const char *dest, CustomMount *m) {
-        _cleanup_free_ char *where = NULL;
-        const char *source;
+        _cleanup_free_ char *where = NULL, *source = NULL;
         struct stat st;
         int r;
 
@@ -873,7 +898,9 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
                 return m->graceful ? 0 : r;
         }
 
-        assert_se(source = mode_to_inaccessible_node(st.st_mode));
+        r = mode_to_inaccessible_node("/run/systemd", st.st_mode, &source);
+        if (r < 0)
+                return m->graceful ? 0 : r;
 
         r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, source, where, NULL, MS_BIND, NULL);
         if (r < 0)
@@ -881,7 +908,7 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
 
         r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
         if (r < 0) {
-                umount_verbose(where);
+                (void) umount_verbose(where);
                 return m->graceful ? 0 : r;
         }
 
@@ -964,6 +991,19 @@ int mount_custom(
         return 0;
 }
 
+bool has_custom_root_mount(const CustomMount *mounts, size_t n) {
+        size_t i;
+
+        for (i = 0; i < n; i++) {
+                const CustomMount *m = mounts + i;
+
+                if (path_equal(m->destination, "/"))
+                        return true;
+        }
+
+        return false;
+}
+
 static int setup_volatile_state(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
 
         _cleanup_free_ char *buf = NULL;
@@ -983,7 +1023,7 @@ static int setup_volatile_state(const char *directory, uid_t uid_shift, const ch
         if (r < 0 && errno != EEXIST)
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
-        options = "mode=755";
+        options = "mode=755" TMPFS_LIMITS_VOLATILE_STATE;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
@@ -1028,7 +1068,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        options = "mode=755";
+        options = "mode=755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto fail;
@@ -1095,7 +1135,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
         if (!mkdtemp(template))
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        options = "mode=755";
+        options = "mode=755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto finish;

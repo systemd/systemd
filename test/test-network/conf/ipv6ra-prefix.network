@@ -4,10 +4,13 @@ Name=veth99
 [Network]
 DHCP=no
 IPv6PrefixDelegation=yes
-Address=2001:db8:0:1::1/64
 
 [IPv6Prefix]
-Prefix=2001:db8:0:1::4/64
+Prefix=2001:db8:0:1::/64
+
+[IPv6Prefix]
+Prefix=2001:db8:0:2::/64
+Assign=yes
 
 [IPv6RoutePrefix]
 Route=2001:db0:fff::/64

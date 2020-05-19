@@ -16,8 +16,8 @@
 #include "string-util.h"
 #include "strv.h"
 
-char *strv_find(char **l, const char *name) {
-        char **i;
+char *strv_find(char * const *l, const char *name) {
+        char * const *i;
 
         assert(name);
 
@@ -28,8 +28,20 @@ char *strv_find(char **l, const char *name) {
         return NULL;
 }
 
-char *strv_find_prefix(char **l, const char *name) {
-        char **i;
+char *strv_find_case(char * const *l, const char *name) {
+        char * const *i;
+
+        assert(name);
+
+        STRV_FOREACH(i, l)
+                if (strcaseeq(*i, name))
+                        return *i;
+
+        return NULL;
+}
+
+char *strv_find_prefix(char * const *l, const char *name) {
+        char * const *i;
 
         assert(name);
 
@@ -40,8 +52,8 @@ char *strv_find_prefix(char **l, const char *name) {
         return NULL;
 }
 
-char *strv_find_startswith(char **l, const char *name) {
-        char **i, *e;
+char *strv_find_startswith(char * const *l, const char *name) {
+        char * const *i, *e;
 
         assert(name);
 
@@ -57,20 +69,15 @@ char *strv_find_startswith(char **l, const char *name) {
         return NULL;
 }
 
-void strv_clear(char **l) {
+char **strv_free(char **l) {
         char **k;
 
         if (!l)
-                return;
+                return NULL;
 
         for (k = l; *k; k++)
                 free(*k);
 
-        *l = NULL;
-}
-
-char **strv_free(char **l) {
-        strv_clear(l);
         return mfree(l);
 }
 
@@ -181,8 +188,8 @@ char **strv_new_internal(const char *x, ...) {
         return r;
 }
 
-int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
-        char **s, **t;
+int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
+        char * const *s, **t;
         size_t p, q, i = 0, j;
 
         assert(a);
@@ -228,9 +235,9 @@ rollback:
         return -ENOMEM;
 }
 
-int strv_extend_strv_concat(char ***a, char **b, const char *suffix) {
+int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
+        char * const *s;
         int r;
-        char **s;
 
         STRV_FOREACH(s, b) {
                 char *v;
@@ -346,9 +353,9 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
         return (int) n;
 }
 
-char *strv_join_prefix(char **l, const char *separator, const char *prefix) {
+char *strv_join_prefix(char * const *l, const char *separator, const char *prefix) {
+        char * const *s;
         char *r, *e;
-        char **s;
         size_t n, k, m;
 
         if (!separator)
@@ -562,8 +569,8 @@ char **strv_uniq(char **l) {
         return l;
 }
 
-bool strv_is_uniq(char **l) {
-        char **i;
+bool strv_is_uniq(char * const *l) {
+        char * const *i;
 
         STRV_FOREACH(i, l)
                 if (strv_find(i+1, *i))
@@ -666,7 +673,7 @@ char **strv_split_nulstr(const char *s) {
         return r;
 }
 
-int strv_make_nulstr(char **l, char **p, size_t *q) {
+int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
         /* A valid nulstr with two NULs at the end will be created, but
          * q will be the length without the two trailing NULs. Thus the output
          * string is a valid nulstr and can be iterated over using NULSTR_FOREACH,
@@ -676,10 +683,10 @@ int strv_make_nulstr(char **l, char **p, size_t *q) {
 
         size_t n_allocated = 0, n = 0;
         _cleanup_free_ char *m = NULL;
-        char **i;
+        char * const *i;
 
-        assert(p);
-        assert(q);
+        assert(ret);
+        assert(ret_size);
 
         STRV_FOREACH(i, l) {
                 size_t z;
@@ -703,16 +710,16 @@ int strv_make_nulstr(char **l, char **p, size_t *q) {
                 m[n] = '\0';
 
         assert(n > 0);
-        *p = m;
-        *q = n - 1;
+        *ret = m;
+        *ret_size = n - 1;
 
         m = NULL;
 
         return 0;
 }
 
-bool strv_overlap(char **a, char **b) {
-        char **i;
+bool strv_overlap(char * const *a, char * const *b) {
+        char * const *i;
 
         STRV_FOREACH(i, a)
                 if (strv_contains(b, *i))
@@ -730,23 +737,30 @@ char **strv_sort(char **l) {
         return l;
 }
 
-bool strv_equal(char **a, char **b) {
+int strv_compare(char * const *a, char * const *b) {
+        int r;
 
-        if (strv_isempty(a))
-                return strv_isempty(b);
+        if (strv_isempty(a)) {
+                if (strv_isempty(b))
+                        return 0;
+                else
+                        return -1;
+        }
 
         if (strv_isempty(b))
-                return false;
+                return 1;
 
-        for ( ; *a || *b; ++a, ++b)
-                if (!streq_ptr(*a, *b))
-                        return false;
+        for ( ; *a || *b; ++a, ++b) {
+                r = strcmp_ptr(*a, *b);
+                if (r != 0)
+                        return r;
+        }
 
-        return true;
+        return 0;
 }
 
-void strv_print(char **l) {
-        char **s;
+void strv_print(char * const *l) {
+        char * const *s;
 
         STRV_FOREACH(s, l)
                 puts(*s);
@@ -800,12 +814,13 @@ char **strv_shell_escape(char **l, const char *bad) {
         return l;
 }
 
-bool strv_fnmatch(char* const* patterns, const char *s, int flags) {
-        char* const* p;
-
-        STRV_FOREACH(p, patterns)
-                if (fnmatch(*p, s, flags) == 0)
+bool strv_fnmatch_full(char* const* patterns, const char *s, int flags, size_t *matched_pos) {
+        for (size_t i = 0; patterns && patterns[i]; i++)
+                if (fnmatch(patterns[i], s, flags) == 0) {
+                        if (matched_pos)
+                                *matched_pos = i;
                         return true;
+                }
 
         return false;
 }
@@ -874,9 +889,9 @@ rollback:
         return -ENOMEM;
 }
 
-int fputstrv(FILE *f, char **l, const char *separator, bool *space) {
+int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         bool b = false;
-        char **s;
+        char * const *s;
         int r;
 
         /* Like fputs(), but for strv, and with a less stupid argument order */

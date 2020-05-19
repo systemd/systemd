@@ -199,7 +199,7 @@
             option is used without <varname>RemainAfterExit=</varname> the service will never enter
             <literal>active</literal> unit state, but directly transition from <literal>activating</literal>
             to <literal>deactivating</literal> or <literal>dead</literal> since no process is configured that
-            shall run continously. In particular this means that after a service of this type ran (and which
+            shall run continuously. In particular this means that after a service of this type ran (and which
             has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
             as dead.</para></listitem>
 
@@ -217,8 +217,7 @@
             this notification message has been sent. If this option is used, <varname>NotifyAccess=</varname> (see
             below) should be set to open access to the notification socket provided by systemd. If
             <varname>NotifyAccess=</varname> is missing or set to <option>none</option>, it will be forcibly set to
-            <option>main</option>. Note that currently <varname>Type=</varname><option>notify</option> will not work if
-            used in combination with <varname>PrivateNetwork=</varname><option>yes</option>.</para></listitem>
+            <option>main</option></para></listitem>.
 
             <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
             actual execution of the service program is delayed until all active jobs are dispatched. This may be used
@@ -424,6 +423,9 @@
         <varname>ExecStart=</varname>, or <varname>ExecStartPost=</varname> fail (and are not prefixed with
         <literal>-</literal>, see above) or time out before the service is fully up, execution continues with commands
         specified in <varname>ExecStopPost=</varname>, the commands in <varname>ExecStop=</varname> are skipped.</para>
+
+        <para>Note that the execution of <varname>ExecStartPost=</varname> is taken into account for the purpose of
+        <varname>Before=</varname>/<varname>After=</varname> ordering constraints.</para>
         </listitem>
       </varlistentry>
 
@@ -535,7 +537,10 @@
         service, as well as the main process' exit code and status, set in the <varname>$SERVICE_RESULT</varname>,
         <varname>$EXIT_CODE</varname> and <varname>$EXIT_STATUS</varname> environment variables, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <para>Note that the execution of <varname>ExecStopPost=</varname> is taken into account for the purpose of
+        <varname>Before=</varname>/<varname>After=</varname> ordering constraints.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -563,7 +568,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has exended beyond
+        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has extended beyond
         <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
         startup status is finished by <literal>READY=1</literal>. (see
@@ -590,7 +595,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
+        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has extended beyond
         <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
         (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
@@ -619,7 +624,7 @@
         <para>If a service of <varname>Type=notify</varname> handles <constant>SIGABRT</constant> itself (instead of relying
         on the kernel to write a core dump) it can send <literal>EXTEND_TIMEOUT_USEC=…</literal> to
         extended the abort time beyond <varname>TimeoutAbortSec=</varname>. The first receipt of this message
-        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has exended beyond
+        must occur before <varname>TimeoutAbortSec=</varname> is exceeded, and once the abort time has extended beyond
         <varname>TimeoutAbortSec=</varname>, the service manager will allow the service to continue to abort, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
         (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
@@ -645,7 +650,7 @@
 
         <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
         the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
-        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
+        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has extended beyond
         <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
         shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see
@@ -840,35 +845,41 @@
 
       <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
+
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
-        process, will be considered successful termination, in addition to the normal successful exit code 0
-        and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+        process, will be considered successful termination, in addition to the normal successful exit status
+        0 and the signals <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
         <constant>SIGTERM</constant>, and <constant>SIGPIPE</constant>. Exit status definitions can be
-        numeric exit codes, termination code names, or termination signal names, separated by spaces. See the
-        Process Exit Codes section in
+        numeric termination statuses, termination status names, or termination signal names, separated by
+        spaces. See the Process Exit Codes section in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        a list of termination codes names (for this setting only the part without the
-        <literal>EXIT_</literal> or <literal>EX_</literal> prefix should be used). See
-        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        a list of termination status names (for this setting only the part without the
+        <literal>EXIT_</literal> or <literal>EX_</literal> prefix should be used). See <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         a list of signal names.</para>
 
-        <para>This option may appear more than once, in which case the
-        list of successful exit statuses is merged. If the empty
-        string is assigned to this option, the list is reset, all
-        prior assignments of this option will have no
-        effect.</para>
+        <para>Note that this setting does not change the the mapping between numeric exit statuses and their
+        names, i.e. regardless how this setting is used 0 will still be mapped to <literal>SUCCESS</literal>
+        (and thus typically shown as <literal>0/SUCCESS</literal> in tool outputs) and 1 to
+        <literal>FAILURE</literal> (and thus typically shown as <literal>1/FAILURE</literal>), and so on. It
+        only controls what happens as effect of these exit statuses, and how it propagates to the state of
+        the service as a whole.</para>
+
+        <para>This option may appear more than once, in which case the list of successful exit statuses is
+        merged. If the empty string is assigned to this option, the list is reset, all prior assignments of
+        this option will have no effect.</para>
 
         <example>
           <title>A service with with the <varname>SuccessExitStatus=</varname> setting</title>
 
           <programlisting>SuccessExitStatus=TEMPFAIL 250 SIGUSR1</programlisting>
 
-          <para>Exit codes 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
+          <para>Exit status 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
           <constant>SIGKILL</constant> are considered clean service terminations.</para>
         </example>
 
-        <para>Note: <command>systemd-analyze exit-codes</command> may be used to list exit
-        codes and translate between numerical code values and names.</para></listitem>
+        <para>Note: <command>systemd-analyze exit-status</command> may be used to list exit statuses and
+        translate between numerical status values and names.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -954,7 +965,14 @@
         <option>exec</option>. Conversely, if an auxiliary process of the unit sends an
         <function>sd_notify()</function> message and immediately exits, the service manager might not be able to
         properly attribute the message to the unit, and thus will ignore it, even if
-        <varname>NotifyAccess=</varname><option>all</option> is set for it.</para></listitem>
+        <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
+        <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of notifications
+        to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as a synchronization point
+        and ensures all notifications sent before this call have been picked up by the service manager when it returns
+        successfully. Use of <function>sd_notify_barrier()</function> is needed for clients which are not invoked by the
+        service manager, otherwise this synchronization mechanism is unnecessary for attribution of notifications to the
+        unit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1101,10 +1119,10 @@
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
-    own, on the command line, in which case it will be replaced by the
-    value of the environment variable including all whitespace it
-    contains, resulting in a single argument. Use
-    <literal>$FOO</literal> as a separate word on the command line, in
+    own, on the command line, in which case it will be erased and replaced
+    by the exact value of the environment variable (if any) including all
+    whitespace it contains, always resulting in exactly a single argument.
+    Use <literal>$FOO</literal> as a separate word on the command line, in
     which case it will be replaced by the value of the environment
     variable split at whitespace, resulting in zero or more arguments.
     For this type of expansion, quotes are respected when splitting

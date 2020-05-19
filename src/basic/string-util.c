@@ -113,7 +113,7 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
         bool escaped = false;
         int n;
 
-        for (n=0; s[n]; n++) {
+        for (n = 0; s[n] != '\0'; n++) {
                 if (escaped)
                         escaped = false;
                 else if (s[n] == '\\')
@@ -122,50 +122,62 @@ static size_t strcspn_escaped(const char *s, const char *reject) {
                         break;
         }
 
-        /* if s ends in \, return index of previous char */
-        return n - escaped;
+        return n;
 }
 
 /* Split a string into words. */
-const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags) {
+const char* split(
+                const char **state,
+                size_t *l,
+                const char *separator,
+                SplitFlags flags) {
+
         const char *current;
+
+        assert(state);
+        assert(l);
+
+        if (!separator)
+                separator = WHITESPACE;
 
         current = *state;
 
-        if (!*current) {
-                assert(**state == '\0');
+        if (*current == '\0') /* already at the end? */
                 return NULL;
-        }
 
-        current += strspn(current, separator);
-        if (!*current) {
+        current += strspn(current, separator); /* skip leading separators */
+        if (*current == '\0') { /* at the end now? */
                 *state = current;
                 return NULL;
         }
 
-        if (flags & SPLIT_QUOTES && strchr("\'\"", *current)) {
-                char quotechars[2] = {*current, '\0'};
+        if (FLAGS_SET(flags, SPLIT_QUOTES)) {
 
-                *l = strcspn_escaped(current + 1, quotechars);
-                if (current[*l + 1] == '\0' || current[*l + 1] != quotechars[0] ||
-                    (current[*l + 2] && !strchr(separator, current[*l + 2]))) {
-                        /* right quote missing or garbage at the end */
-                        if (flags & SPLIT_RELAX) {
-                                *state = current + *l + 1 + (current[*l + 1] != '\0');
-                                return current + 1;
+                if (strchr(QUOTES, *current)) {
+                        /* We are looking at a quote */
+                        *l = strcspn_escaped(current + 1, CHAR_TO_STR(*current));
+                        if (current[*l + 1] != *current ||
+                            (current[*l + 2] != 0 && !strchr(separator, current[*l + 2]))) {
+                                /* right quote missing or garbage at the end */
+                                if (FLAGS_SET(flags, SPLIT_RELAX)) {
+                                        *state = current + *l + 1 + (current[*l + 1] != '\0');
+                                        return current + 1;
+                                }
+                                *state = current;
+                                return NULL;
                         }
-                        *state = current;
-                        return NULL;
+                        *state = current++ + *l + 2;
+
+                } else {
+                        /* We are looking at a something that is not a quote */
+                        *l = strcspn_escaped(current, separator);
+                        if (current[*l] && !strchr(separator, current[*l]) && !FLAGS_SET(flags, SPLIT_RELAX)) {
+                                /* unfinished escape */
+                                *state = current;
+                                return NULL;
+                        }
+                        *state = current + *l;
                 }
-                *state = current++ + *l + 2;
-        } else if (flags & SPLIT_QUOTES) {
-                *l = strcspn_escaped(current, separator);
-                if (current[*l] && !strchr(separator, current[*l]) && !(flags & SPLIT_RELAX)) {
-                        /* unfinished escape */
-                        *state = current;
-                        return NULL;
-                }
-                *state = current + *l;
         } else {
                 *l = strcspn(current, separator);
                 *state = current + *l;
@@ -1054,6 +1066,8 @@ bool string_is_safe(const char *p) {
         if (!p)
                 return false;
 
+        /* Checks if the specified string contains no quotes or control characters */
+
         for (t = p; *t; t++) {
                 if (*t > 0 && *t < ' ') /* no control characters */
                         return false;
@@ -1073,4 +1087,122 @@ char* string_erase(char *x) {
          * used them. */
         explicit_bzero_safe(x, strlen(x));
         return x;
+}
+
+int string_truncate_lines(const char *s, size_t n_lines, char **ret) {
+        const char *p = s, *e = s;
+        bool truncation_applied = false;
+        char *copy;
+        size_t n = 0;
+
+        assert(s);
+
+        /* Truncate after the specified number of lines. Returns > 0 if a truncation was applied or == 0 if
+         * there were fewer lines in the string anyway. Trailing newlines on input are ignored, and not
+         * generated either. */
+
+        for (;;) {
+                size_t k;
+
+                k = strcspn(p, "\n");
+
+                if (p[k] == 0) {
+                        if (k == 0) /* final empty line */
+                                break;
+
+                        if (n >= n_lines) /* above threshold */
+                                break;
+
+                        e = p + k; /* last line to include */
+                        break;
+                }
+
+                assert(p[k] == '\n');
+
+                if (n >= n_lines)
+                        break;
+
+                if (k > 0)
+                        e = p + k;
+
+                p += k + 1;
+                n++;
+        }
+
+        /* e points after the last character we want to keep */
+        if (isempty(e))
+                copy = strdup(s);
+        else {
+                if (!in_charset(e, "\n")) /* We only consider things truncated if we remove something that
+                                           * isn't a new-line or a series of them */
+                        truncation_applied = true;
+
+                copy = strndup(s, e - s);
+        }
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return truncation_applied;
+}
+
+int string_extract_line(const char *s, size_t i, char **ret) {
+        const char *p = s;
+        size_t c = 0;
+
+        /* Extract the i'nth line from the specified string. Returns > 0 if there are more lines after that,
+         * and == 0 if we are looking at the last line or already beyond the last line. As special
+         * optimization, if the first line is requested and the string only consists of one line we return
+         * NULL, indicating the input string should be used as is, and avoid a memory allocation for a very
+         * common case. */
+
+        for (;;) {
+                const char *q;
+
+                q = strchr(p, '\n');
+                if (i == c) {
+                        /* The line we are looking for! */
+
+                        if (q) {
+                                char *m;
+
+                                m = strndup(p, q - p);
+                                if (!m)
+                                        return -ENOMEM;
+
+                                *ret = m;
+                                return !isempty(q + 1); /* more coming? */
+                        } else {
+                                if (p == s)
+                                        *ret = NULL; /* Just use the input string */
+                                else {
+                                        char *m;
+
+                                        m = strdup(p);
+                                        if (!m)
+                                                return -ENOMEM;
+
+                                        *ret = m;
+                                }
+
+                                return 0; /* The end */
+                        }
+                }
+
+                if (!q) {
+                        char *m;
+
+                        /* No more lines, return empty line */
+
+                        m = strdup("");
+                        if (!m)
+                                return -ENOMEM;
+
+                        *ret = m;
+                        return 0; /* The end */
+                }
+
+                p = q + 1;
+                c++;
+        }
 }

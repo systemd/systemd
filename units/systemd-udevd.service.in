@@ -16,6 +16,8 @@ Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 
 [Service]
+DeviceAllow=block-* rwm
+DeviceAllow=char-* rwm
 Type=notify
 # Note that udev also adjusts the OOM score internally and will reset the value internally for its workers
 OOMScoreAdjust=-1000
@@ -23,10 +25,11 @@ Sockets=systemd-udevd-control.socket systemd-udevd-kernel.socket
 Restart=always
 RestartSec=0
 ExecStart=@rootlibexecdir@/systemd-udevd
-ExecReload=@rootbindir@/udevadm control --reload --timeout 0
+ExecReload=udevadm control --reload --timeout 0
 KillMode=mixed
 TasksMax=infinity
 PrivateMounts=yes
+ProtectClock=yes
 ProtectHostname=yes
 MemoryDenyWriteExecute=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6

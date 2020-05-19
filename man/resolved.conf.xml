@@ -68,7 +68,7 @@
       <varlistentry>
         <term><varname>Domains=</varname></term>
         <listitem><para>A space-separated list of domains. These domains are used as search suffixes when resolving
-        single-label host names (domain names which contain no dot), in order to qualify them into fully-qualified
+        single-label hostnames (domain names which contain no dot), in order to qualify them into fully-qualified
         domain names (FQDNs). Search domains are strictly processed in the order they are specified, until the name
         with the suffix appended is found. For compatibility reasons, if this setting is not specified, the search
         domains listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any domains
@@ -193,11 +193,17 @@
       <varlistentry>
         <term><varname>DNSOverTLS=</varname></term>
         <listitem>
-        <para>Takes a boolean argument or <literal>opportunistic</literal>.
-        If true all connections to the server will be encrypted. Note that
-        this mode requires a DNS server that supports DNS-over-TLS and has
-        a valid certificate for it's IP. If the DNS server does not support
-        DNS-over-TLS all DNS requests will fail. When set to <literal>opportunistic</literal>
+        <para>Takes a boolean argument or <literal>opportunistic</literal>. If
+        true all connections to the server will be encrypted. Note that this
+        mode requires a DNS server that supports DNS-over-TLS and has a valid
+        certificate. If the hostname was specified in <varname>DNS=</varname>
+        by using the format format <literal>address#server_name</literal> it
+        is used to validate its certificate and also to enable Server Name
+        Indication (SNI) when opening a TLS connection. Otherwise
+        the certificate is checked against the server's IP.
+        If the DNS server does not support DNS-over-TLS all DNS requests will fail.</para>
+
+        <para>When set to <literal>opportunistic</literal>
         DNS request are attempted to send encrypted with DNS-over-TLS.
         If the DNS server does not support TLS, DNS-over-TLS is disabled.
         Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
@@ -214,9 +220,6 @@
         resolver is not capable of authenticating the server, so it is
         vulnerable to "man-in-the-middle" attacks.</para>
 
-        <para>Server Name Indication (SNI) can be used when opening a TLS connection.
-        Entries in <varname>DNS=</varname> should be in format <literal>address#server_name</literal>.</para>
-
         <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         also maintains per-link DNSOverTLS settings. For system DNS
@@ -231,11 +234,11 @@
 
       <varlistentry>
         <term><varname>Cache=</varname></term>
-        <listitem><para>Takes a boolean or <literal>no-negative</literal> as argument. If <literal>yes</literal> (the default), resolving a domain name
-        which already got queried earlier will return the previous result as long as it is still valid, and thus does
-        not result in a new network request. Be aware that turning off caching comes at a performance penalty, which
-        is particularly high when DNSSEC is used.</para>
-        If <literal>no-negative</literal>, only positive answers are cached.
+        <listitem><para>Takes a boolean or <literal>no-negative</literal> as argument. If
+        <literal>yes</literal> (the default), resolving a domain name which already got queried earlier will
+        return the previous result as long as it is still valid, and thus does not result in a new network
+        request. Be aware that turning off caching comes at a performance penalty, which is particularly high
+        when DNSSEC is used. If <literal>no-negative</literal>, only positive answers are cached.</para>
 
         <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
         (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>

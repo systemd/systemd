@@ -41,6 +41,11 @@ uint64_t physical_memory(void) {
         }
         if (r > 0) {
                 r = cg_get_attribute("memory", root, "memory.max", &value);
+                if (r == -ENOENT) /* Field does not exist on the system's top-level cgroup, hence don't
+                                   * complain. (Note that it might exist on our own root though, if we live
+                                   * in a cgroup namespace, hence check anyway instead of not even
+                                   * trying.) */
+                        return mem;
                 if (r < 0) {
                         log_debug_errno(r, "Failed to read memory.max cgroup attribute, ignoring cgroup memory limit: %m");
                         return mem;
@@ -120,16 +125,9 @@ uint64_t system_tasks_max(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to determine cgroup root path, ignoring: %m");
         else {
-                _cleanup_free_ char *value = NULL;
-
-                r = cg_get_attribute("pids", root, "pids.max", &value);
+                r = cg_get_attribute_as_uint64("pids", root, "pids.max", &b);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read pids.max attribute of cgroup root, ignoring: %m");
-                else if (!streq(value, "max")) {
-                        r = safe_atou64(value, &b);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse pids.max attribute of cgroup root, ignoring: %m");
-                }
         }
 
         return MIN3(TASKS_MAX,

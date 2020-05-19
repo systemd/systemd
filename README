@@ -150,6 +150,7 @@ REQUIREMENTS:
         libselinux (optional)
         liblzma (optional)
         liblz4 >= 1.3.0 / 130 (optional)
+        libzstd >= 1.4.0 (optional)
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
@@ -174,7 +175,9 @@ REQUIREMENTS:
         dependencies:
 
         util-linux >= v2.27.1 required
-        dbus >= 1.11.0 (strictly speaking optional, but recommended)
+        dbus >= 1.4.0 (strictly speaking optional, but recommended)
+                NOTE: If using dbus < 1.9.18, you should override the default
+                policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
         polkit (optional)
 

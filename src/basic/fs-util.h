@@ -34,6 +34,7 @@ int readlink_and_make_absolute(const char *p, char **r);
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid);
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid);
+int chmod_and_chown_unsafe(const char *path, mode_t mode, uid_t uid, gid_t gid);
 
 int fchmod_umask(int fd, mode_t mode);
 int fchmod_opath(int fd, mode_t m);
@@ -81,7 +82,7 @@ enum {
         CHASE_SAFE        = 1 << 3, /* Return EPERM if we ever traverse from unprivileged to privileged files or directories */
         CHASE_TRAIL_SLASH = 1 << 4, /* Any trailing slash will be preserved */
         CHASE_STEP        = 1 << 5, /* Just execute a single step of the normalization */
-        CHASE_NOFOLLOW    = 1 << 6, /* Do not follow the path's right-most compontent. With ret_fd, when the path's
+        CHASE_NOFOLLOW    = 1 << 6, /* Do not follow the path's right-most component. With ret_fd, when the path's
                                      * right-most component refers to symlink, return O_PATH fd of the symlink. */
         CHASE_WARN        = 1 << 7, /* Emit an appropriate warning when an error is encountered */
 };
@@ -121,3 +122,5 @@ int fsync_path_at(int at_fd, const char *path);
 int syncfs_path(int atfd, const char *path);
 
 int open_parent(const char *path, int flags, mode_t mode);
+
+int path_is_encrypted(const char *path);

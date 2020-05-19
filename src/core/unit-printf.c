@@ -186,8 +186,14 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
          * %u: the username of the running user
          *
          * %m: the machine ID of the running system
-         * %H: the host name of the running system
          * %b: the boot ID of the running system
+         * %H: the hostname of the running system
+         * %v: the kernel version
+         * %a: the native userspace architecture
+         * %o: the OS ID according to /etc/os-release
+         * %w: the OS version ID, according to /etc/os-release
+         * %B: the OS build ID, according to /etc/os-release
+         * %W: the OS variant ID, according to /etc/os-release
          */
 
         const Specifier table[] = {
@@ -203,8 +209,14 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
                 { 'u', specifier_user_name,           NULL },
 
                 { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
                 { 'b', specifier_boot_id,             NULL },
+                { 'H', specifier_host_name,           NULL },
+                { 'v', specifier_kernel_release,      NULL },
+                { 'a', specifier_architecture,        NULL },
+                { 'o', specifier_os_id,               NULL },
+                { 'w', specifier_os_version_id,       NULL },
+                { 'B', specifier_os_build_id,         NULL },
+                { 'W', specifier_os_variant_id,       NULL },
                 {}
         };
 
@@ -279,6 +291,7 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
 
                 { 'm', specifier_machine_id,               NULL },
                 { 'H', specifier_host_name,                NULL },
+                { 'l', specifier_short_host_name,          NULL },
                 { 'b', specifier_boot_id,                  NULL },
                 { 'v', specifier_kernel_release,           NULL },
                 {}

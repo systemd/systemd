@@ -12,11 +12,12 @@
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
+#include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
-#include "util.h"
+#include "vrf.h"
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
@@ -143,6 +144,8 @@ void route_free(Route *route) {
                 set_remove(route->link->routes, route);
                 set_remove(route->link->routes_foreign, route);
         }
+
+        ordered_set_free_free(route->multipath_routes);
 
         sd_event_source_unref(route->expire);
 
@@ -509,11 +512,93 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
 
         r = route_remove(route, route->link, NULL);
         if (r < 0)
-                log_warning_errno(r, "Could not remove route: %m");
+                log_link_warning_errno(route->link, r, "Could not remove route: %m");
         else
                 route_free(route);
 
         return 1;
+}
+
+static int append_nexthop_one(Route *route, MultipathRoute *m, struct rtattr **rta, size_t offset) {
+        struct rtnexthop *rtnh;
+        struct rtattr *new_rta;
+        int r;
+
+        assert(route);
+        assert(m);
+        assert(rta);
+        assert(*rta);
+
+        new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
+        if (!new_rta)
+                return -ENOMEM;
+        *rta = new_rta;
+
+        rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+        *rtnh = (struct rtnexthop) {
+                .rtnh_len = sizeof(*rtnh),
+                .rtnh_ifindex = m->ifindex,
+                .rtnh_hops = m->weight > 0 ? m->weight - 1 : 0,
+        };
+
+        (*rta)->rta_len += sizeof(struct rtnexthop);
+
+        if (route->family == m->gateway.family) {
+                r = rtattr_append_attribute(rta, RTA_GATEWAY, &m->gateway.address, FAMILY_ADDRESS_SIZE(m->gateway.family));
+                if (r < 0)
+                        goto clear;
+                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family));
+        } else {
+                r = rtattr_append_attribute(rta, RTA_VIA, &m->gateway, FAMILY_ADDRESS_SIZE(m->gateway.family) + sizeof(m->gateway.family));
+                if (r < 0)
+                        goto clear;
+                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family) + sizeof(m->gateway.family));
+        }
+
+        return 0;
+
+clear:
+        (*rta)->rta_len -= sizeof(struct rtnexthop);
+        return r;
+}
+
+static int append_nexthops(Route *route, sd_netlink_message *req) {
+        _cleanup_free_ struct rtattr *rta = NULL;
+        struct rtnexthop *rtnh;
+        MultipathRoute *m;
+        size_t offset;
+        Iterator i;
+        int r;
+
+        if (ordered_set_isempty(route->multipath_routes))
+                return 0;
+
+        rta = new(struct rtattr, 1);
+        if (!rta)
+                return -ENOMEM;
+
+        *rta = (struct rtattr) {
+                .rta_type = RTA_MULTIPATH,
+                .rta_len = RTA_LENGTH(0),
+        };
+        offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
+
+        ORDERED_SET_FOREACH(m, route->multipath_routes, i) {
+                r = append_nexthop_one(route, m, &rta, offset);
+                if (r < 0)
+                        return r;
+
+                rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
+                offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+        }
+
+        r = sd_netlink_message_append_data(req, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int route_configure(
@@ -698,6 +783,10 @@ int route_configure(
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append RTA_METRICS attribute: %m");
+
+        r = append_nexthops(route, req);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
                                link_netlink_destroy_callback, link);
@@ -910,10 +999,19 @@ int config_parse_gateway(
                 /* we are not in an Route section, so treat
                  * this as the special '0' section */
                 r = route_new_static(network, NULL, 0, &n);
-        } else
+                if (r < 0)
+                        return r;
+        } else {
                 r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+
+                if (streq(rvalue, "_dhcp")) {
+                        n->gateway_from_dhcp = true;
+                        TAKE_PTR(n);
+                        return 0;
+                }
+        }
 
         if (n->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
@@ -1480,6 +1578,114 @@ int config_parse_route_ttl_propagate(
         return 0;
 }
 
+int config_parse_multipath_route(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        _cleanup_free_ char *word = NULL, *buf = NULL;
+        _cleanup_free_ MultipathRoute *m = NULL;
+        Network *network = userdata;
+        const char *p, *ip, *dev;
+        union in_addr_union a;
+        int family, r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                n->multipath_routes = ordered_set_free_free(n->multipath_routes);
+                return 0;
+        }
+
+        m = new0(MultipathRoute, 1);
+        if (!m)
+                return log_oom();
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, NULL, 0);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid multipath route option, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        dev = strchr(word, '@');
+        if (dev) {
+                buf = strndup(word, dev - word);
+                if (!buf)
+                        return log_oom();
+                ip = buf;
+                dev++;
+        } else
+                ip = word;
+
+        r = in_addr_from_string_auto(ip, &family, &a);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        m->gateway.address = a;
+        m->gateway.family = family;
+
+        if (dev) {
+                r = resolve_interface(NULL, dev);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid interface name or index, ignoring assignment: %s", dev);
+                        return 0;
+                }
+                m->ifindex = r;
+        }
+
+        if (!isempty(p)) {
+                r = safe_atou32(p, &m->weight);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid multipath route weight, ignoring assignment: %s", p);
+                        return 0;
+                }
+                if (m->weight == 0 || m->weight > 256) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid multipath route weight, ignoring assignment: %s", p);
+                        return 0;
+                }
+        }
+
+        r = ordered_set_ensure_allocated(&n->multipath_routes, NULL);
+        if (r < 0)
+                return log_oom();
+
+        r = ordered_set_put(n->multipath_routes, m);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to store multipath route, ignoring assignment: %m");
+                return 0;
+        }
+
+        TAKE_PTR(m);
+        TAKE_PTR(n);
+        return 0;
+}
+
 int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
@@ -1492,6 +1698,11 @@ int route_section_verify(Route *route, Network *network) {
                                          "or PreferredSource= field configured. "
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
+        }
+
+        if (!route->table_set && network->vrf) {
+                route->table = VRF(network->vrf)->table;
+                route->table_set = true;
         }
 
         if (!route->table_set && IN_SET(route->type, RTN_LOCAL, RTN_BROADCAST, RTN_ANYCAST, RTN_NAT))

@@ -13,8 +13,10 @@ REPO_ROOT=${REPO_ROOT:-$(pwd)}
 sudo bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ xenial main restricted universe multiverse' >>/etc/apt/sources.list"
 sudo apt-get update -y
 sudo apt-get build-dep systemd -y
-sudo apt-get install -y ninja-build python3-pip python3-setuptools
-pip3 install meson
+sudo apt-get install -y python3-pip python3-setuptools
+# The following should be dropped when debian packaging has been updated to include them
+sudo apt-get install -y libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev
+pip3 install ninja meson
 
 cd $REPO_ROOT
 export PATH="$HOME/.local/bin/:$PATH"
@@ -34,7 +36,7 @@ else
     FUZZIT_BRANCH="PR-${TRAVIS_PULL_REQUEST}"
 fi
 
-# Because we want Fuzzit to run on every pull-request and Travis/Azure doesnt support encrypted keys
+# Because we want Fuzzit to run on every pull-request and Travis/Azure doesn't support encrypted keys
 # on pull-request we use a write-only key which is ok for now. maybe there will be a better solution in the future
 export FUZZIT_API_KEY=af6992074353998676713818cc6435ef4a750439932dab58b51e9354d6742c54d740a3cd9fc1fc001db82f51734a24bc
 FUZZIT_ADDITIONAL_FILES="./out/src/shared/libsystemd-shared-*.so"
@@ -46,10 +48,30 @@ FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVI
 wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/latest/download/fuzzit_Linux_x86_64
 chmod +x fuzzit
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-asan-ubsan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+# Simple wrapper which retries given command up to three times if it fails
+_retry() {
+    local EC=1
+
+    for _ in {0..2}; do
+        if "$@"; then
+            EC=0
+            break
+        fi
+
+        sleep 1
+    done
+
+    return $EC
+}
+
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | while read -r fuzzer; do
+    _retry ./fuzzit create job ${FUZZIT_ARGS} ${fuzzer}-asan-ubsan out/${fuzzer} ${FUZZIT_ADDITIONAL_FILES}
+done
 
 export SANITIZER="memory -fsanitize-memory-track-origins"
 FUZZIT_ARGS="--type ${FUZZING_TYPE} --branch ${FUZZIT_BRANCH} --revision ${TRAVIS_COMMIT}"
 tools/oss-fuzz.sh
 
-find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | xargs --verbose -n1 -I%FUZZER% ./fuzzit create job ${FUZZIT_ARGS} %FUZZER%-msan out/%FUZZER% ${FUZZIT_ADDITIONAL_FILES}
+find out/ -maxdepth 1 -name 'fuzz-*' -executable -type f -exec basename '{}' \; | while read -r fuzzer; do
+    _retry ./fuzzit create job ${FUZZIT_ARGS} ${fuzzer}-msan out/${fuzzer} ${FUZZIT_ADDITIONAL_FILES}
+done

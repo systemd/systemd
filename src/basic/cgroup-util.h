@@ -170,7 +170,7 @@ typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 
-int cg_split_spec(const char *spec, char **controller, char **path);
+int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
 int cg_mangle_path(const char *path, char **result);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
@@ -180,14 +180,39 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_rmdir(const char *controller, const char *path);
 
+typedef enum  {
+        CG_KEY_MODE_GRACEFUL = 1 << 0,
+} CGroupKeyMode;
+
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char **keys, char **values);
+int cg_get_keyed_attribute_full(const char *controller, const char *path, const char *attribute, char **keys, char **values, CGroupKeyMode mode);
+
+static inline int cg_get_keyed_attribute(
+                const char *controller,
+                const char *path,
+                const char *attribute,
+                char **keys,
+                char **ret_values) {
+        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, 0);
+}
+
+static inline int cg_get_keyed_attribute_graceful(
+                const char *controller,
+                const char *path,
+                const char *attribute,
+                char **keys,
+                char **ret_values) {
+        return cg_get_keyed_attribute_full(controller, path, attribute, keys, ret_values, CG_KEY_MODE_GRACEFUL);
+}
+
+int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
 
 int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid);
 
 int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags);
 int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size);
+int cg_get_xattr_malloc(const char *controller, const char *path, const char *name, char **ret);
 int cg_remove_xattr(const char *controller, const char *path, const char *name);
 
 int cg_install_release_agent(const char *controller, const char *agent);
@@ -235,6 +260,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret);
 int cg_kernel_controllers(Set **controllers);
 
 bool cg_ns_supported(void);
+bool cg_freezer_supported(void);
 
 int cg_all_unified(void);
 int cg_hybrid_unified(void);

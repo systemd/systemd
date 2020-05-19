@@ -439,52 +439,6 @@ int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union
         return -EINVAL;
 }
 
-int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
-        _cleanup_free_ char *buf = NULL;
-        const char *suffix;
-        int r, ifi = 0;
-
-        assert(s);
-        assert(family);
-        assert(ret);
-
-        /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix ("scope id")
-         * if one is found. */
-
-        suffix = strchr(s, '%');
-        if (suffix) {
-
-                if (ifindex) {
-                        /* If we shall return the interface index, try to parse it */
-                        r = parse_ifindex(suffix + 1, &ifi);
-                        if (r < 0) {
-                                unsigned u;
-
-                                u = if_nametoindex(suffix + 1);
-                                if (u <= 0)
-                                        return -errno;
-
-                                ifi = (int) u;
-                        }
-                }
-
-                buf = strndup(s, suffix - s);
-                if (!buf)
-                        return -ENOMEM;
-
-                s = buf;
-        }
-
-        r = in_addr_from_string_auto(s, family, ret);
-        if (r < 0)
-                return r;
-
-        if (ifindex)
-                *ifindex = ifi;
-
-        return r;
-}
-
 unsigned char in4_addr_netmask_to_prefixlen(const struct in_addr *addr) {
         assert(addr);
 

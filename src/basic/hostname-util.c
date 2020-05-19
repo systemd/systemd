@@ -12,6 +12,7 @@
 #include "hostname-util.h"
 #include "macro.h"
 #include "string-util.h"
+#include "strv.h"
 
 bool hostname_is_set(void) {
         struct utsname u;
@@ -21,7 +22,7 @@ bool hostname_is_set(void) {
         if (isempty(u.nodename))
                 return false;
 
-        /* This is the built-in kernel default host name */
+        /* This is the built-in kernel default hostname */
         if (streq(u.nodename, "(none)"))
                 return false;
 
@@ -30,6 +31,7 @@ bool hostname_is_set(void) {
 
 char* gethostname_malloc(void) {
         struct utsname u;
+        const char *s;
 
         /* This call tries to return something useful, either the actual hostname
          * or it makes something up. The only reason it might fail is OOM.
@@ -37,10 +39,28 @@ char* gethostname_malloc(void) {
 
         assert_se(uname(&u) >= 0);
 
-        if (isempty(u.nodename) || streq(u.nodename, "(none)"))
-                return strdup(FALLBACK_HOSTNAME);
+        s = u.nodename;
+        if (isempty(s) || streq(s, "(none)"))
+                s = FALLBACK_HOSTNAME;
 
-        return strdup(u.nodename);
+        return strdup(s);
+}
+
+char* gethostname_short_malloc(void) {
+        struct utsname u;
+        const char *s;
+
+        /* Like above, but kills the FQDN part if present. */
+
+        assert_se(uname(&u) >= 0);
+
+        s = u.nodename;
+        if (isempty(s) || streq(s, "(none)") || s[0] == '.') {
+                s = FALLBACK_HOSTNAME;
+                assert(s[0] != '.');
+        }
+
+        return strndup(s, strcspn(s, "."));
 }
 
 int gethostname_strict(char **ret) {
@@ -77,7 +97,7 @@ bool valid_ldh_char(char c) {
 }
 
 /**
- * Check if s looks like a valid host name or FQDN. This does not do
+ * Check if s looks like a valid hostname or FQDN. This does not do
  * full DNS validation, but only checks if the name is composed of
  * allowed characters and the length is not above the maximum allowed
  * by Linux (c.f. dns_name_is_valid()). Trailing dot is allowed if
@@ -180,14 +200,16 @@ bool is_localhost(const char *hostname) {
         /* This tries to identify local host and domain names
          * described in RFC6761 plus the redhatism of localdomain */
 
-        return strcaseeq(hostname, "localhost") ||
-               strcaseeq(hostname, "localhost.") ||
-               strcaseeq(hostname, "localhost.localdomain") ||
-               strcaseeq(hostname, "localhost.localdomain.") ||
-               endswith_no_case(hostname, ".localhost") ||
-               endswith_no_case(hostname, ".localhost.") ||
-               endswith_no_case(hostname, ".localhost.localdomain") ||
-               endswith_no_case(hostname, ".localhost.localdomain.");
+        return STRCASE_IN_SET(
+                        hostname,
+                        "localhost",
+                        "localhost.",
+                        "localhost.localdomain",
+                        "localhost.localdomain.") ||
+                endswith_no_case(hostname, ".localhost") ||
+                endswith_no_case(hostname, ".localhost.") ||
+                endswith_no_case(hostname, ".localhost.localdomain") ||
+                endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
 bool is_gateway_hostname(const char *hostname) {

@@ -1,0 +1,8 @@
+[Unit]
+Description=TEST-12-ISSUE-3171
+After=multi-user.target
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

@@ -9,6 +9,7 @@
 #include "hostname-util.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
+#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -36,6 +37,8 @@ void etc_hosts_free(EtcHosts *hosts) {
 void manager_etc_hosts_flush(Manager *m) {
         etc_hosts_free(&m->etc_hosts);
         m->etc_hosts_mtime = USEC_INFINITY;
+        m->etc_hosts_ino = 0;
+        m->etc_hosts_dev = 0;
 }
 
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
@@ -97,7 +100,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
                 if (r < 0)
-                        return log_error_errno(r, "/etc/hosts:%u: couldn't extract host name: %m", nr);
+                        return log_error_errno(r, "/etc/hosts:%u: couldn't extract hostname: %m", nr);
                 if (r == 0)
                         break;
 
@@ -159,7 +162,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         }
 
         if (!found)
-                log_warning("/etc/hosts:%u: line is missing any host names", nr);
+                log_warning("/etc/hosts:%u: line is missing any hostnames", nr);
 
         return 0;
 }
@@ -223,8 +226,9 @@ static int manager_etc_hosts_read(Manager *m) {
                         return 0;
                 }
 
-                /* Did the mtime change? If not, there's no point in re-reading the file. */
-                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime)
+                /* Did the mtime or ino/dev change? If not, there's no point in re-reading the file. */
+                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime &&
+                    st.st_ino == m->etc_hosts_ino && st.st_dev == m->etc_hosts_dev)
                         return 0;
         }
 
@@ -248,6 +252,8 @@ static int manager_etc_hosts_read(Manager *m) {
                 return r;
 
         m->etc_hosts_mtime = timespec_load(&st.st_mtim);
+        m->etc_hosts_ino = st.st_ino;
+        m->etc_hosts_dev = st.st_dev;
         m->etc_hosts_last = ts;
 
         return 1;

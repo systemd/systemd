@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <sys/stat.h>
+
 #include "sd-event.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -15,10 +17,8 @@ typedef struct Manager Manager;
 #include "resolved-conf.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
-#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-trust-anchor.h"
-#include "resolved-dnstls.h"
 #include "resolved-link.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
@@ -73,7 +73,7 @@ struct Manager {
         bool need_builtin_fallbacks:1;
 
         bool read_resolv_conf:1;
-        usec_t resolv_conf_mtime;
+        struct stat resolv_conf_stat;
 
         DnsTrustAnchor trust_anchor;
 
@@ -127,6 +127,8 @@ struct Manager {
         /* Data from /etc/hosts */
         EtcHosts etc_hosts;
         usec_t etc_hosts_last, etc_hosts_mtime;
+        ino_t etc_hosts_ino;
+        dev_t etc_hosts_dev;
         bool read_etc_hosts;
 
         /* Local DNS stub on 127.0.0.53:53 */
@@ -165,6 +167,7 @@ void manager_verify_all(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
+/* For some reason we need some extra cmsg space on some kernels/archs. One of those days we ned to figure out why */
 #define EXTRA_CMSG_SPACE 1024
 
 int manager_is_own_hostname(Manager *m, const char *name);

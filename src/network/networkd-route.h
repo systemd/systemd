@@ -10,6 +10,17 @@ typedef struct NetworkConfigSection NetworkConfigSection;
 #include "networkd-network.h"
 #include "networkd-util.h"
 
+typedef struct MultipathRouteVia {
+        uint16_t family;
+        union in_addr_union address;
+} _packed_ MultipathRouteVia;
+
+typedef struct MultipathRoute {
+        MultipathRouteVia gateway;
+        int ifindex;
+        uint32_t weight;
+} MultipathRoute;
+
 struct Route {
         Network *network;
         NetworkConfigSection *section;
@@ -37,11 +48,13 @@ struct Route {
         unsigned char pref;
         unsigned flags;
         int gateway_onlink;
+        bool gateway_from_dhcp;
 
         union in_addr_union gw;
         union in_addr_union dst;
         union in_addr_union src;
         union in_addr_union prefsrc;
+        OrderedSet *multipath_routes;
 
         usec_t lifetime;
         sd_event_source *expire;
@@ -96,3 +109,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_quickack);
 CONFIG_PARSER_PROTOTYPE(config_parse_fast_open_no_cookie);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_ttl_propagate);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
+CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);

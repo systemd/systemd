@@ -51,7 +51,7 @@
  * cgrouspv1 crap: kernel, kernelTCP, swapiness, disableOOMKiller, swap, devices, leafWeight
  * general: it shouldn't leak lower level abstractions this obviously
  * unmanagable cgroups stuff: realtimeRuntime/realtimePeriod
- * needs to say what happense when some option is not specified, i.e. which defautls apply
+ * needs to say what happense when some option is not specified, i.e. which defaults apply
  * no architecture? no personality?
  * seccomp example and logic is simply broken: there's no constant "SCMP_ACT_ERRNO".
  * spec should say what to do with unknown props
@@ -172,24 +172,13 @@ static int oci_env(const char *name, JsonVariant *v, JsonDispatchFlags flags, vo
 static int oci_args(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         char ***value = userdata;
-        JsonVariant *e;
         int r;
 
         assert(value);
 
-        JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                const char *n;
-
-                if (!json_variant_is_string(e))
-                        return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Argument is not a string.");
-
-                assert_se(n = json_variant_string(e));
-
-                r = strv_extend(&l, n);
-                if (r < 0)
-                        return log_oom();
-        }
+        r = json_variant_strv(v, &l);
+        if (r < 0)
+                return json_log(v, flags, r, "Cannot parse arguments as list of strings: %m");
 
         if (strv_isempty(l))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
@@ -2214,7 +2203,7 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
 
         path = strjoina(bundle, "/config.json");
 
-        r = json_parse_file(f, path, &oci, &line, &column);
+        r = json_parse_file(f, path, 0, &oci, &line, &column);
         if (r < 0) {
                 if (line != 0 && column != 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", path, line, column);

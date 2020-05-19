@@ -82,14 +82,35 @@ enum {
         DHCP6_NTP_SUBOPTION_SRV_FQDN            = 3,
 };
 
+/*
+ * RFC 8415, RFC 5007 and RFC 7653 status codes:
+ * https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-5
+ */
 enum {
-        DHCP6_STATUS_SUCCESS                    = 0,
-        DHCP6_STATUS_UNSPEC_FAIL                = 1,
-        DHCP6_STATUS_NO_ADDRS_AVAIL             = 2,
-        DHCP6_STATUS_NO_BINDING                 = 3,
-        DHCP6_STATUS_NOT_ON_LINK                = 4,
-        DHCP6_STATUS_USE_MULTICAST              = 5,
-        _DHCP6_STATUS_MAX                       = 6,
+        DHCP6_STATUS_SUCCESS                      = 0,
+        DHCP6_STATUS_UNSPEC_FAIL                  = 1,
+        DHCP6_STATUS_NO_ADDRS_AVAIL               = 2,
+        DHCP6_STATUS_NO_BINDING                   = 3,
+        DHCP6_STATUS_NOT_ON_LINK                  = 4,
+        DHCP6_STATUS_USE_MULTICAST                = 5,
+        DHCP6_STATUS_NO_PREFIX_AVAIL              = 6,
+        DHCP6_STATUS_UNKNOWN_QUERY_TYPE           = 7,
+        DHCP6_STATUS_MALFORMED_QUERY              = 8,
+        DHCP6_STATUS_NOT_CONFIGURED               = 9,
+        DHCP6_STATUS_NOT_ALLOWED                  = 10,
+        DHCP6_STATUS_QUERY_TERMINATED             = 11,
+        DHCP6_STATUS_DATA_MISSING                 = 12,
+        DHCP6_STATUS_CATCHUP_COMPLETE             = 13,
+        DHCP6_STATUS_NOT_SUPPORTED                = 14,
+        DHCP6_STATUS_TLS_CONNECTION_REFUSED       = 15,
+        DHCP6_STATUS_ADDRESS_IN_USE               = 16,
+        DHCP6_STATUS_CONFIGURATION_CONFLICT       = 17,
+        DHCP6_STATUS_MISSING_BINDING_INFORMATION  = 18,
+        DHCP6_STATUS_OUTDATED_BINDING_INFORMATION = 19,
+        DHCP6_STATUS_SERVER_SHUTTING_DOWN         = 20,
+        DHCP6_STATUS_DNS_UPDATE_NOT_SUPPORTED     = 21,
+        DHCP6_STATUS_EXCESSIVE_TIME_SKEW          = 22,
+        _DHCP6_STATUS_MAX                         = 23,
 };
 
 enum {

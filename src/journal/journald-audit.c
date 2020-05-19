@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "audit-type.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -512,7 +513,7 @@ int server_open_audit(Server *s) {
 
                 s->audit_fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
                 if (s->audit_fd < 0) {
-                        if (IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT))
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_debug("Audit not supported in the kernel.");
                         else
                                 log_warning_errno(errno, "Failed to create audit socket, ignoring: %m");
@@ -539,10 +540,16 @@ int server_open_audit(Server *s) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        /* We are listening now, try to enable audit */
-        r = enable_audit(s->audit_fd, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to issue audit enable call: %m");
+        if (s->set_audit >= 0) {
+                /* We are listening now, try to enable audit if configured so */
+                r = enable_audit(s->audit_fd, s->set_audit);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to issue audit enable call: %m");
+                else if (s->set_audit > 0)
+                        log_debug("Auditing in kernel turned on.");
+                else
+                        log_debug("Auditing in kernel turned off.");
+        }
 
         return 0;
 }

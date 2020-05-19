@@ -20,7 +20,8 @@
     <refname>sd_bus_set_close_on_exit</refname>
     <refname>sd_bus_get_close_on_exit</refname>
 
-    <refpurpose>Control whether to close the bus connection during the event loop exit phase</refpurpose>
+    <refpurpose>Control whether to close the bus connection during the event loop exit phase
+    </refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -44,30 +45,35 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_set_close_on_exit()</function> may be used to enable or disable whether the bus connection
-    is automatically flushed (as in
-    <citerefentry><refentrytitle>sd_bus_flush</refentrytitle><manvolnum>3</manvolnum></citerefentry>) and closed (as in
-    <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>) during the exit
-    phase of the event loop. This logic only applies to bus connections that are attached to an
-    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> event loop, see
-    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>. By default
-    this mechanism is enabled and makes sure that any pending messages that have not been written to the bus connection
-    are written out when the event loop is shutting down. In some cases this behaviour is not desirable, for example
-    when the bus connection shall remain usable until after the event loop exited. If <parameter>b</parameter> is
-    true, the feature is enabled (which is the default), otherwise disabled.</para>
+    <para><function>sd_bus_set_close_on_exit()</function> may be used to enable or disable whether
+    the bus connection is automatically flushed (as in
+    <citerefentry><refentrytitle>sd_bus_flush</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    and closed (as in
+    <citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+    during the exit phase of the event loop. This logic only applies to bus connections that are
+    attached to an
+    <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    event loop, see
+    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    By default this mechanism is enabled and makes sure that any pending messages that have not been
+    written to the bus connection are written out when the event loop is shutting down. In some
+    cases this behaviour is not desirable, for example when the bus connection shall remain usable
+    until after the event loop exited. If <parameter>b</parameter> is true, the feature is enabled
+    (which is the default), otherwise disabled.</para>
 
-    <para><function>sd_bus_get_close_on_exit()</function> may be used to query the current setting of this feature. It
-    returns zero when the feature is disabled, and positive if enabled.</para>
+    <para><function>sd_bus_get_close_on_exit()</function> may be used to query the current setting
+    of this feature. It returns zero when the feature is disabled, and positive if enabled.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_bus_set_close_on_exit()</function> returns 0 or a positive integer. On failure, it returns a negative errno-style
-    error code.</para>
+    <para>On success, <function>sd_bus_set_close_on_exit()</function> returns a non-negative
+    integer. On failure, it returns a negative errno-style error code.</para>
 
-    <para><function>sd_bus_get_close_on_exit()</function> returns 0 if the feature is currently turned off or a
-    positive integer if it is on. On failure, it returns a negative errno-style error code.</para>
+    <para><function>sd_bus_get_close_on_exit()</function> returns 0 if the feature is currently
+    disabled or a positive integer if it is enabled. On failure, it returns a negative errno-style
+    error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -78,7 +84,8 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process.</para></listitem>
+          <listitem><para>The bus connection was created in a different process.</para>
+          </listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -98,5 +105,4 @@
       <citerefentry><refentrytitle>sd_event_add_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>

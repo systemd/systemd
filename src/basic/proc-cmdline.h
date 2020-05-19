@@ -6,9 +6,9 @@
 #include "log.h"
 
 typedef enum ProcCmdlineFlags {
-        PROC_CMDLINE_STRIP_RD_PREFIX = 1 << 0,
-        PROC_CMDLINE_VALUE_OPTIONAL  = 1 << 1,
-        PROC_CMDLINE_RD_STRICT       = 1 << 2,
+        PROC_CMDLINE_STRIP_RD_PREFIX = 1 << 0, /* automatically strip "rd." prefix if it is set (and we are in the initrd, since otherwise we'd not consider it anyway) */
+        PROC_CMDLINE_VALUE_OPTIONAL  = 1 << 1, /* the value is optional (for boolean switches that can omit the value) */
+        PROC_CMDLINE_RD_STRICT       = 1 << 2, /* ignore this in the initrd */
 } ProcCmdlineFlags;
 
 typedef int (*proc_cmdline_parse_t)(const char *key, const char *value, void *data);

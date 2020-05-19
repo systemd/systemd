@@ -410,5 +410,5 @@ int open_journal_for_upload(Uploader *u,
                                                cursor);
         }
 
-        return process_journal_input(u, 1 + !!after_cursor);
+        return process_journal_input(u, !!after_cursor);
 }

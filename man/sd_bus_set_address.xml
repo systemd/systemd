@@ -1,0 +1,188 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_set_address"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_set_address</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_set_address</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_set_address</refname>
+    <refname>sd_bus_get_address</refname>
+    <refname>sd_bus_set_exec</refname>
+
+    <refpurpose>Set or query the address of the bus connection</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_address</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>address</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_address</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char **<parameter>address</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_exec</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>char *const *<parameter>argv</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_set_address()</function> configures a list of addresses of bus brokers to try to
+    connect to from a subsequent
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry> call.
+    The argument is a <literal>;</literal>-separated list of addresses to try. Each item must be one of the
+    following:
+    </para>
+
+    <itemizedlist>
+      <listitem>
+        <para>A unix socket address specified as
+        <literal>unix:guid=<replaceable>guid</replaceable>,path=<replaceable>path</replaceable></literal> or
+        <literal>unix:guid=<replaceable>guid</replaceable>,abstract=<replaceable>path</replaceable></literal>.
+        Exactly one of the <varname>path=</varname> and <varname>abstract=</varname> keys must be present,
+        while <varname>guid=</varname> is optional.</para>
+      </listitem>
+
+      <listitem>
+        <para>A TCP socket address specified as
+        <literal>tcp:[guid=<replaceable>guid</replaceable>,][host=<replaceable>host</replaceable>][,port=<replaceable>port</replaceable>][,family=<replaceable>family</replaceable>]</literal>.
+        One or both of the <varname>host=</varname> and <varname>port=</varname> keys must be present, while
+        the rest is optional. <replaceable>family</replaceable> may be either <option>ipv4</option> or
+        <option>ipv6</option>.</para>
+      </listitem>
+
+      <listitem>
+        <para>An executable to spawn specified as
+        <literal>unixexec:guid=<replaceable>guid</replaceable>,path=<replaceable>path</replaceable>,argv1=<replaceable>argument</replaceable>,argv2=<replaceable>argument</replaceable>,...</literal>.
+        The <varname>path=</varname> key must be present, while <varname>guid=</varname> is optional.</para>
+      </listitem>
+
+      <listitem>
+        <para>A machine (container) to connect to specified as
+        <literal>x-machine-unix:guid=<replaceable>guid</replaceable>,machine=<replaceable>machine</replaceable>,pid=<replaceable>pid</replaceable></literal>.
+        Exactly one of the <varname>machine=</varname> and <varname>pid=</varname> keys must be present,
+        while <varname>guid=</varname> is optional. <parameter>machine</parameter> is the name of a local
+        container. See
+        <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        more information about the "machine" concept. <literal>machine=.host</literal> may be used to specify
+        the host machine. A connection to the standard system bus socket inside of the specified machine will
+        be created.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>In all cases, parameter <parameter>guid</parameter> is an identifier of the remote peer, in the
+    syntax accepted by
+    <citerefentry><refentrytitle>sd_id128_from_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    If specified, the identifier returned by the peer after the connection is established will be checked and
+    the connection will be rejected in case of a mismatch.</para>
+
+    <para>Note that the addresses passed to <function>sd_bus_set_address()</function> may not be verified
+    immediately. If they are invalid, an error may be returned e.g. from a subsequent call to
+    <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
+
+    <para><function>sd_bus_get_address()</function> returns any previously set addresses. In addition to
+    being explicitly set by <function>sd_bus_set_address()</function>, the address will also be set
+    automatically by
+    <citerefentry><refentrytitle>sd_bus_open</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    similar calls, based on environment variables or built-in defaults.</para>
+
+    <para><function>sd_bus_set_exec</function> is a shorthand function for setting a
+    <literal>unixexec</literal> address that spawns the given executable with the given arguments.
+    If <parameter>argv</parameter> is <constant>NULL</constant>, the given executable is spawned
+    without any extra arguments.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input parameters <parameter>bus</parameter> or <parameter>address</parameter> are <constant>NULL</constant>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus object <parameter>bus</parameter> could not be resolved.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>The input parameter <parameter>bus</parameter> is in a wrong state
+          (<function>sd_bus_set_address()</function> may only be called once on a newly-created bus object).</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus object <parameter>bus</parameter> was created in a different
+          process.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The bus object <parameter>bus</parameter> has no address configured.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

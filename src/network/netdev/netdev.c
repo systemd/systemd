@@ -2,6 +2,7 @@
 
 #include <net/if.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "bond.h"
@@ -24,6 +25,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "nlmon.h"
+#include "path-lookup.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -692,7 +694,7 @@ int netdev_load_one(Manager *manager, const char *filename) {
                 return r;
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(netdev_raw->conditions, NULL, NULL, NULL)) {
+        if (!condition_test_list(netdev_raw->conditions, environ, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions in the file do not match the system environment, skipping.", filename);
                 return 0;
         }

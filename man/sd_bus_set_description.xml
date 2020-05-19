@@ -19,9 +19,14 @@
     <refname>sd_bus_set_description</refname>
     <refname>sd_bus_get_description</refname>
     <refname>sd_bus_set_anonymous</refname>
+    <refname>sd_bus_is_anonymous</refname>
     <refname>sd_bus_set_trusted</refname>
+    <refname>sd_bus_is_trusted</refname>
     <refname>sd_bus_set_allow_interactive_authorization</refname>
     <refname>sd_bus_get_allow_interactive_authorization</refname>
+    <refname>sd_bus_get_scope</refname>
+    <refname>sd_bus_get_tid</refname>
+    <refname>sd_bus_get_unique_name</refname>
 
     <refpurpose>Set or query properties of a bus object</refpurpose>
   </refnamediv>
@@ -49,9 +54,19 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_is_anonymous</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_set_trusted</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_is_trusted</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -64,60 +79,101 @@
         <funcdef>int <function>sd_bus_get_allow_interactive_authorization</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
       </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_scope</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char **<parameter>scope</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_tid</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>pid_t *<parameter>tid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_unique_name</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>const char **<parameter>unique</parameter></paramdef>
+      </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_set_description()</function> sets the description string
-    that is used in logging to the specified string. The string is copied internally
-    and freed when the bus object is deallocated. The
-    <parameter>description</parameter> argument may be <constant>NULL</constant>, in
-    which case the description is unset. This function must be called before the bus
-    has been started.</para>
+    <para><function>sd_bus_set_description()</function> sets the description string that is used in
+    logging to the specified string. The string is copied internally and freed when the bus object
+    is deallocated. The <parameter>description</parameter> argument may be
+    <constant>NULL</constant>, in which case the description is unset. This function must be called
+    before the bus is started.</para>
 
-    <para><function>sd_bus_get_description()</function> returns a description string
-    in <parameter>description</parameter>. This string may have been previously set
-    with <function>sd_bus_set_description()</function> or
+    <para><function>sd_bus_get_description()</function> returns a description string in
+    <parameter>description</parameter>. This string may have been previously set with
+    <function>sd_bus_set_description()</function> or
     <citerefentry><refentrytitle>sd_bus_open_with_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    or similar. If not set this way, a default string like <literal>system</literal>
-    or <literal>user</literal> will be returned for the system or user buses,
-    and <constant>NULL</constant> otherwise.</para>
+    or similar. If not set this way, a default string like <literal>system</literal> or
+    <literal>user</literal> will be returned for the system or user buses, and
+    <constant>NULL</constant> otherwise.</para>
 
-    <para><function>sd_bus_set_anonymous()</function> enables or disables "anonymous
-    authentication", i.e. lack of authentication, of the bus peer. This function must
-    be called before the bus has been started. See the <ulink
-    url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms">Authentication
-    Mechanisms</ulink> section of the D-Bus specification for details.</para>
+    <para><function>sd_bus_set_anonymous()</function> enables or disables "anonymous authentication",
+    i.e. lack of authentication, of the bus peer. This function must be called before the bus is
+    started. See the
+    <ulink url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms">
+    Authentication Mechanisms</ulink> section of the D-Bus specification for details.</para>
+
+    <para><function>sd_bus_is_anonymous()</function> returns true if the bus connection allows
+    anonymous authentication (in the sense described in previous paragraph).</para>
 
     <para><function>sd_bus_set_trusted()</function> sets the "trusted" state on the
-    <parameter>bus</parameter> object. If true, all connections on the bus are
-    trusted and access to all privileged and unprivileged methods is granted.  This
-    function must be called before the bus has been started.</para>
+    <parameter>bus</parameter> object. If true, all connections on the bus are trusted and access to
+    all privileged and unprivileged methods is granted. This function must be called before the bus
+    is started.</para>
 
-    <para><function>sd_bus_set_allow_interactive_authorization()</function>
-    enables or disables interactive authorization for method calls. If true,
-    messages are marked with the
+    <para><function>sd_bus_is_trusted()</function> returns true if the bus connection is trusted (in
+    the sense described in previous paragraph).</para>
+
+    <para><function>sd_bus_set_allow_interactive_authorization()</function> enables or disables
+    interactive authorization for method calls. If true, messages are marked with the
     <constant>ALLOW_INTERACTIVE_AUTHORIZATION</constant> flag specified by the
-    <ulink
-    url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus</ulink>
-    specification, informing the receiving side that the caller is prepared to
-    wait for interactive authorization, which might take a considerable time to
-    complete. If this flag is set, the user may be queried for passwords or
-    confirmation via <ulink
-    url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink> or a
-    similar framework.</para>
+    <ulink url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html">D-Bus</ulink>
+    specification, informing the receiving side that the caller is prepared to wait for interactive
+    authorization, which might take a considerable time to complete. If this flag is set, the user
+    may be queried for passwords or confirmation via
+    <ulink url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink> or a similar
+    framework.</para>
 
-    <para><function>sd_bus_get_allow_interactive_authorization()</function> returns
-    true if interactive authorization is allowed and false if not.</para>
+    <para><function>sd_bus_get_allow_interactive_authorization()</function> returns true if
+    interactive authorization is allowed and false if not.</para>
+
+    <para><function>sd_bus_get_scope()</function> stores the scope of the given bus object in
+    <parameter>scope</parameter>. The scope of the system bus is <literal>system</literal>. The
+    scope of a user session bus is <literal>user</literal>. If the given bus object is not the
+    system or a user session bus, <function>sd_bus_get_scope()</function> returns an error.</para>
+
+    <para><function>sd_bus_get_tid()</function> stores the kernel thread id of the thread associated
+    with the given bus object in <parameter>tid</parameter>. If <parameter>bus</parameter> is a
+    default bus object obtained by calling one of the functions of the
+    <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    family of functions, it stores the thread id of the thread the bus object was created in.
+    Otherwise, if the bus object is attached to an event loop, it stores the thread id of the
+    thread the event loop object was created in. If <parameter>bus</parameter> is not a default bus
+    object and is not attached to an event loop, <function>sd_bus_get_tid()</function> returns an
+    error.</para>
+
+    <para><function>sd_bus_get_unique_name()</function> stores the unique name of the bus object on
+    the bus in <parameter>unique</parameter>. See
+    <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names-bus">
+    The D-Bus specification</ulink> for more information on bus names. Note that the caller does not
+    own the string stored in <parameter>unique</parameter> and should not free it.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return 0 or a positive integer. On failure, they return a negative
-    errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
@@ -154,8 +210,21 @@
 
           <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
-      </variablelist>
 
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The bus object passed to <function>sd_bus_get_scope()</function> was not a
+          system or user session bus.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>The bus object passed to <function>sd_bus_get_tid()</function> was not a
+          default bus object and is not attached to an event loop.</para></listitem>
+        </varlistentry>
+      </variablelist>
     </refsect2>
   </refsect1>
 

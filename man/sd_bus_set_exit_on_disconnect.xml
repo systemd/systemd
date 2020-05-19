@@ -1,0 +1,114 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_set_exit_on_disconnect"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_bus_set_exit_on_disconnect</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_set_exit_on_disconnect</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_set_exit_on_disconnect</refname>
+    <refname>sd_bus_get_exit_on_disconnect</refname>
+
+    <refpurpose>Control the exit behavior when the bus object disconnects</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_set_exit_on_disconnect</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+        <paramdef>int <parameter>b</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_get_exit_on_disconnect</function></funcdef>
+        <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_set_exit_on_disconnect()</function> may be used to configure the exit
+    behavior when the given bus object disconnects. If <parameter>b</parameter> is zero, no special
+    logic is executed when the bus object disconnects. If <parameter>b</parameter> is non-zero, the
+    behavior on disconnect depends on whether the bus object is attached to an event loop or not. If
+    the bus object is attached to an event loop (see
+    <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
+    the event loop is closed when the bus object disconnects (as if calling
+    <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    Otherwise,
+    <citerefentry project='man-pages'><refentrytitle>exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    is called. The exit code passed to <function>sd_event_exit()</function> and
+    <function>exit()</function> is <constant>EXIT_FAILURE</constant>. If the bus object has already
+    disconnected when enabling the exit behavior, the exit behavior is executed immediately. By
+    default, the exit behavior is disabled.</para>
+
+    <para><function>sd_bus_get_exit_on_disconnect()</function> returns whether the exit on
+    disconnect behavior is enabled for the given bus object.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_bus_set_exit_on_disconnect()</function> returns a non-negative
+    integer. On failure, it returns a negative errno-style error code.</para>
+
+    <para><function>sd_bus_get_exit_on_disconnect()</function> returns a positive integer if the
+    exit on disconnect behavior is enabled. Otherwise, it returns zero.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>A required parameter was <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOPKG</constant></term>
+
+          <listitem><para>The bus object could not be resolved.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The bus connection was created in a different process.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_event_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

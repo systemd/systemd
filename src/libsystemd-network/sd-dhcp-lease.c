@@ -96,37 +96,80 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         return 0;
 }
 
+int sd_dhcp_lease_get_servers(
+                sd_dhcp_lease *lease,
+                sd_dhcp_lease_info what,
+                const struct in_addr **addr) {
+
+        assert_return(lease, -EINVAL);
+        assert_return(addr, -EINVAL);
+
+        switch (what) {
+        case SD_DHCP_LEASE_DNS_SERVERS:
+                if (lease->dns_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->dns;
+                return (int) lease->dns_size;
+
+        case SD_DHCP_LEASE_NTP_SERVERS:
+                if (lease->ntp_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->ntp;
+                return (int) lease->ntp_size;
+
+        case SD_DHCP_LEASE_SIP_SERVERS:
+                if (lease->sip_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->sip;
+                return (int) lease->sip_size;
+
+        case SD_DHCP_LEASE_POP3_SERVERS:
+                if (lease->pop3_server_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->pop3_server;
+                return (int) lease->pop3_server_size;
+
+        case SD_DHCP_LEASE_SMTP_SERVERS:
+                if (lease->smtp_server_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->smtp_server;
+                return (int) lease->smtp_server_size;
+
+        case SD_DHCP_LEASE_LPR_SERVERS:
+                if (lease->lpr_server_size <= 0)
+                        return -ENODATA;
+
+                *addr = lease->lpr_server;
+                return (int) lease->lpr_server_size;
+
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Unknown DHCP lease info item %d.", what);
+        }
+}
+
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->dns_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->dns;
-        return (int) lease->dns_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_DNS_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->ntp_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->ntp;
-        return (int) lease->ntp_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP_SERVERS, addr);
 }
-
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
-        assert_return(lease, -EINVAL);
-        assert_return(addr, -EINVAL);
-
-        if (lease->sip_size <= 0)
-                return -ENODATA;
-
-        *addr = lease->sip;
-        return (int) lease->sip_size;
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP_SERVERS, addr);
+}
+int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_POP3_SERVERS, addr);
+}
+int sd_dhcp_lease_get_smtp_server(sd_dhcp_lease *lease, const struct in_addr **addr) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SMTP_SERVERS, addr);
+}
+int sd_dhcp_lease_get_lpr_servers(sd_dhcp_lease *lease, const struct in_addr **addr) {
+        return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_LPR_SERVERS, addr);
 }
 
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
@@ -279,6 +322,9 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->dns);
         free(lease->ntp);
         free(lease->sip);
+        free(lease->pop3_server);
+        free(lease->smtp_server);
+        free(lease->lpr_server);
         free(lease->static_route);
         free(lease->client_id);
         free(lease->vendor_specific);
@@ -601,6 +647,24 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse SIP server, ignoring: %m");
                 break;
 
+        case SD_DHCP_OPTION_POP3_SERVER:
+                r = lease_parse_in_addrs(option, len, &lease->pop3_server, &lease->pop3_server_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse POP3 server, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_SMTP_SERVER:
+                r = lease_parse_in_addrs(option, len, &lease->smtp_server, &lease->smtp_server_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse SMTP server, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_LPR_SERVER:
+                r = lease_parse_in_addrs(option, len, &lease->lpr_server, &lease->lpr_server_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse LPR server, ignoring: %m");
+                break;
+
         case SD_DHCP_OPTION_STATIC_ROUTE:
                 r = lease_parse_routes(option, len, &lease->static_route, &lease->static_route_size, &lease->static_route_allocated);
                 if (r < 0)
@@ -636,7 +700,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
         case SD_DHCP_OPTION_HOST_NAME:
                 r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to parse host name, ignoring: %m");
+                        log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
                         return 0;
                 }
 
@@ -1037,6 +1101,9 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *dns = NULL,
                 *ntp = NULL,
                 *sip = NULL,
+                *pop3_server = NULL,
+                *smtp_server = NULL,
+                *lpr_server = NULL,
                 *mtu = NULL,
                 *routes = NULL,
                 *domains = NULL,
@@ -1066,6 +1133,9 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "DNS", &dns,
                            "NTP", &ntp,
                            "SIP", &sip,
+                           "POP3_SERVERS", &pop3_server,
+                           "SMTP_SERVERS", &smtp_server,
+                           "LPR_SERVERS", &lpr_server,
                            "MTU", &mtu,
                            "DOMAINNAME", &lease->domainname,
                            "HOSTNAME", &lease->hostname,
@@ -1175,8 +1245,33 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to deserialize SIP servers %s, ignoring: %m", sip);
                 else
-                        lease->ntp_size = r;
+                        lease->sip_size = r;
         }
+
+        if (pop3_server) {
+                r = deserialize_in_addrs(&lease->pop3_server, pop3_server);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize POP3 server %s, ignoring: %m", pop3_server);
+                else
+                        lease->pop3_server_size = r;
+        }
+
+        if (smtp_server) {
+                r = deserialize_in_addrs(&lease->smtp_server, smtp_server);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize SMTP server %s, ignoring: %m", smtp_server);
+                else
+                        lease->smtp_server_size = r;
+        }
+
+        if (lpr_server) {
+                r = deserialize_in_addrs(&lease->lpr_server, lpr_server);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize LPR server %s, ignoring: %m", lpr_server);
+                else
+                        lease->lpr_server_size = r;
+        }
+
 
         if (mtu) {
                 r = safe_atou16(mtu, &lease->mtu);

@@ -18,46 +18,71 @@
 static const char *arg_suffix = NULL;
 
 static const char* const path_table[_SD_PATH_MAX] = {
-        [SD_PATH_TEMPORARY] = "temporary",
-        [SD_PATH_TEMPORARY_LARGE] = "temporary-large",
-        [SD_PATH_SYSTEM_BINARIES] = "system-binaries",
-        [SD_PATH_SYSTEM_INCLUDE] = "system-include",
-        [SD_PATH_SYSTEM_LIBRARY_PRIVATE] = "system-library-private",
-        [SD_PATH_SYSTEM_LIBRARY_ARCH] = "system-library-arch",
-        [SD_PATH_SYSTEM_SHARED] = "system-shared",
-        [SD_PATH_SYSTEM_CONFIGURATION_FACTORY] = "system-configuration-factory",
-        [SD_PATH_SYSTEM_STATE_FACTORY] = "system-state-factory",
-        [SD_PATH_SYSTEM_CONFIGURATION] = "system-configuration",
-        [SD_PATH_SYSTEM_RUNTIME] = "system-runtime",
-        [SD_PATH_SYSTEM_RUNTIME_LOGS] = "system-runtime-logs",
-        [SD_PATH_SYSTEM_STATE_PRIVATE] = "system-state-private",
-        [SD_PATH_SYSTEM_STATE_LOGS] = "system-state-logs",
-        [SD_PATH_SYSTEM_STATE_CACHE] = "system-state-cache",
-        [SD_PATH_SYSTEM_STATE_SPOOL] = "system-state-spool",
-        [SD_PATH_USER_BINARIES] = "user-binaries",
-        [SD_PATH_USER_LIBRARY_PRIVATE] = "user-library-private",
-        [SD_PATH_USER_LIBRARY_ARCH] = "user-library-arch",
-        [SD_PATH_USER_SHARED] = "user-shared",
-        [SD_PATH_USER_CONFIGURATION] = "user-configuration",
-        [SD_PATH_USER_RUNTIME] = "user-runtime",
-        [SD_PATH_USER_STATE_CACHE] = "user-state-cache",
-        [SD_PATH_USER] = "user",
-        [SD_PATH_USER_DOCUMENTS] = "user-documents",
-        [SD_PATH_USER_MUSIC] = "user-music",
-        [SD_PATH_USER_PICTURES] = "user-pictures",
-        [SD_PATH_USER_VIDEOS] = "user-videos",
-        [SD_PATH_USER_DOWNLOAD] = "user-download",
-        [SD_PATH_USER_PUBLIC] = "user-public",
-        [SD_PATH_USER_TEMPLATES] = "user-templates",
-        [SD_PATH_USER_DESKTOP] = "user-desktop",
-        [SD_PATH_SEARCH_BINARIES] = "search-binaries",
-        [SD_PATH_SEARCH_BINARIES_DEFAULT] = "search-binaries-default",
-        [SD_PATH_SEARCH_LIBRARY_PRIVATE] = "search-library-private",
-        [SD_PATH_SEARCH_LIBRARY_ARCH] = "search-library-arch",
-        [SD_PATH_SEARCH_SHARED] = "search-shared",
-        [SD_PATH_SEARCH_CONFIGURATION_FACTORY] = "search-configuration-factory",
-        [SD_PATH_SEARCH_STATE_FACTORY] = "search-state-factory",
-        [SD_PATH_SEARCH_CONFIGURATION] = "search-configuration",
+        [SD_PATH_TEMPORARY]                     = "temporary",
+        [SD_PATH_TEMPORARY_LARGE]               = "temporary-large",
+        [SD_PATH_SYSTEM_BINARIES]               = "system-binaries",
+        [SD_PATH_SYSTEM_INCLUDE]                = "system-include",
+        [SD_PATH_SYSTEM_LIBRARY_PRIVATE]        = "system-library-private",
+        [SD_PATH_SYSTEM_LIBRARY_ARCH]           = "system-library-arch",
+        [SD_PATH_SYSTEM_SHARED]                 = "system-shared",
+        [SD_PATH_SYSTEM_CONFIGURATION_FACTORY]  = "system-configuration-factory",
+        [SD_PATH_SYSTEM_STATE_FACTORY]          = "system-state-factory",
+        [SD_PATH_SYSTEM_CONFIGURATION]          = "system-configuration",
+        [SD_PATH_SYSTEM_RUNTIME]                = "system-runtime",
+        [SD_PATH_SYSTEM_RUNTIME_LOGS]           = "system-runtime-logs",
+        [SD_PATH_SYSTEM_STATE_PRIVATE]          = "system-state-private",
+        [SD_PATH_SYSTEM_STATE_LOGS]             = "system-state-logs",
+        [SD_PATH_SYSTEM_STATE_CACHE]            = "system-state-cache",
+        [SD_PATH_SYSTEM_STATE_SPOOL]            = "system-state-spool",
+        [SD_PATH_USER_BINARIES]                 = "user-binaries",
+        [SD_PATH_USER_LIBRARY_PRIVATE]          = "user-library-private",
+        [SD_PATH_USER_LIBRARY_ARCH]             = "user-library-arch",
+        [SD_PATH_USER_SHARED]                   = "user-shared",
+        [SD_PATH_USER_CONFIGURATION]            = "user-configuration",
+        [SD_PATH_USER_RUNTIME]                  = "user-runtime",
+        [SD_PATH_USER_STATE_CACHE]              = "user-state-cache",
+        [SD_PATH_USER]                          = "user",
+        [SD_PATH_USER_DOCUMENTS]                = "user-documents",
+        [SD_PATH_USER_MUSIC]                    = "user-music",
+        [SD_PATH_USER_PICTURES]                 = "user-pictures",
+        [SD_PATH_USER_VIDEOS]                   = "user-videos",
+        [SD_PATH_USER_DOWNLOAD]                 = "user-download",
+        [SD_PATH_USER_PUBLIC]                   = "user-public",
+        [SD_PATH_USER_TEMPLATES]                = "user-templates",
+        [SD_PATH_USER_DESKTOP]                  = "user-desktop",
+        [SD_PATH_SEARCH_BINARIES]               = "search-binaries",
+        [SD_PATH_SEARCH_BINARIES_DEFAULT]       = "search-binaries-default",
+        [SD_PATH_SEARCH_LIBRARY_PRIVATE]        = "search-library-private",
+        [SD_PATH_SEARCH_LIBRARY_ARCH]           = "search-library-arch",
+        [SD_PATH_SEARCH_SHARED]                 = "search-shared",
+        [SD_PATH_SEARCH_CONFIGURATION_FACTORY]  = "search-configuration-factory",
+        [SD_PATH_SEARCH_STATE_FACTORY]          = "search-state-factory",
+        [SD_PATH_SEARCH_CONFIGURATION]          = "search-configuration",
+
+        [SD_PATH_SYSTEMD_UTIL_DIR]              = "systemd-util-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR]       = "systemd-system-unit-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR]     = "systemd-system-preset-dir",
+        [SD_PATH_SYSTEMD_USER_UNIT_DIR]         = "systemd-user-unit-dir",
+        [SD_PATH_SYSTEMD_USER_PRESET_DIR]       = "systemd-user-preset-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_CONF_DIR]       = "systemd-system-conf-dir",
+        [SD_PATH_SYSTEMD_USER_CONF_DIR]         = "systemd-user-conf-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH]      = "systemd-system-unit-path",
+        [SD_PATH_SYSTEMD_USER_UNIT_PATH]        = "systemd-user-unit-path",
+        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR]  = "systemd-system-generator-dir",
+        [SD_PATH_SYSTEMD_USER_GENERATOR_DIR]    = "systemd-user-generator-dir",
+        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH] = "systemd-system-generator-path",
+        [SD_PATH_SYSTEMD_USER_GENERATOR_PATH]   = "systemd-user-generator-path",
+        [SD_PATH_SYSTEMD_SLEEP_DIR]             = "systemd-sleep-dir",
+        [SD_PATH_SYSTEMD_SHUTDOWN_DIR]          = "systemd-shutdown-dir",
+
+        [SD_PATH_TMPFILES_DIR]                  = "tmpfiles-dir",
+        [SD_PATH_SYSUSERS_DIR]                  = "sysusers-dir",
+        [SD_PATH_SYSCTL_DIR]                    = "sysctl-dir",
+        [SD_PATH_BINFMT_DIR]                    = "binfmt-dir",
+        [SD_PATH_MODULES_LOAD_DIR]              = "modules-load-dir",
+        [SD_PATH_CATALOG_DIR]                   = "catalog-dir",
+
+        [SD_PATH_SYSTEMD_NETWORK_PATH]          = "systemd-network-path",
 };
 
 static int list_homes(void) {
@@ -68,12 +93,12 @@ static int list_homes(void) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
-                q = sd_path_home(i, arg_suffix, &p);
-                if (q == -ENXIO)
-                        continue;
+                q = sd_path_lookup(i, arg_suffix, &p);
                 if (q < 0) {
-                        log_error_errno(r, "Failed to query %s: %m", path_table[i]);
-                        r = q;
+                        log_full_errno(q == -ENXIO ? LOG_DEBUG : LOG_ERR,
+                                       q, "Failed to query %s: %m", path_table[i]);
+                        if (q != -ENXIO)
+                                r = q;
                         continue;
                 }
 
@@ -91,7 +116,7 @@ static int print_home(const char *n) {
                 if (streq(path_table[i], n)) {
                         _cleanup_free_ char *p = NULL;
 
-                        r = sd_path_home(i, arg_suffix, &p);
+                        r = sd_path_lookup(i, arg_suffix, &p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to query %s: %m", n);
 
@@ -126,7 +151,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_SUFFIX,

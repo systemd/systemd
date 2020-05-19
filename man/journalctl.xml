@@ -374,9 +374,10 @@
                 <option>cat</option>
               </term>
               <listitem>
-                <para>generates a very terse output, only showing the
-                actual message of each journal entry with no metadata,
-                not even a timestamp.</para>
+                <para>generates a very terse output, only showing the actual message of each journal entry
+                with no metadata, not even a timestamp. If combined with the
+                <option>--output-fields=</option> option will output the listed fields for each log record,
+                instead of the message.</para>
               </listitem>
             </varlistentry>
 
@@ -398,10 +399,11 @@
       <varlistentry>
         <term><option>--output-fields=</option></term>
 
-        <listitem><para>A comma separated list of the fields which should be included in the output. This only has an
-        effect for the output modes which would normally show all fields (<option>verbose</option>,
-        <option>export</option>, <option>json</option>, <option>json-pretty</option>, <option>json-sse</option> and
-        <option>json-seq</option>). The <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
+        <listitem><para>A comma separated list of the fields which should be included in the output. This has
+        an effect only for the output modes which would normally show all fields (<option>verbose</option>,
+        <option>export</option>, <option>json</option>, <option>json-pretty</option>,
+        <option>json-sse</option> and <option>json-seq</option>), as well as on <option>cat</option>. For the
+        former, the <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
         <literal>__MONOTONIC_TIMESTAMP</literal>, and <literal>_BOOT_ID</literal> fields are always
         printed.</para></listitem>
       </varlistentry>
@@ -416,8 +418,13 @@
       <varlistentry>
         <term><option>--no-hostname</option></term>
 
-        <listitem><para>Don't show the hostname field of log messages originating from the local host. This switch only
-        has an effect on the <option>short</option> family of output modes (see above).</para></listitem>
+        <listitem><para>Don't show the hostname field of log messages originating from the local host. This
+        switch has an effect only on the <option>short</option> family of output modes (see above).
+        </para>
+
+        <para>Note: this option does not remove occurrences of the hostname from log entries themselves, so
+        it does not prevent the hostname from being visible in the logs.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -598,6 +605,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--facility=</option></term>
+
+        <listitem><para>Filter output by syslog facility. Takes a comma-separated list of numbers or facility
+        names. The names are the usual syslog facilities as documented in
+        <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        <option>--facility=help</option> may be used to display a list of known facility names and exit.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-g</option></term>
         <term><option>--grep=</option></term>
 
@@ -616,7 +633,7 @@
       <varlistentry>
         <term><option>--case-sensitive<optional>=BOOLEAN</optional></option></term>
 
-        <listitem><para>Make pattern matching case sensitive or case insenstive.</para>
+        <listitem><para>Make pattern matching case sensitive or case insensitive.</para>
         </listitem>
       </varlistentry>
 
@@ -747,6 +764,18 @@
         and journal files under <filename><replaceable>ROOT</replaceable>/run/journal</filename>
         or <filename><replaceable>ROOT</replaceable>/var/log/journal</filename> will be displayed).
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--namespace=<replaceable>NAMESPACE</replaceable></option></term>
+
+        <listitem><para>Takes a journal namespace identifier string as argument. If not specified the data
+        collected by the default namespace is shown. If specified shows the log data of the specified
+        namespace instead. If the namespace is specified as <literal>*</literal> data from all namespaces is
+        shown, interleaved. If the namespace identifier is prefixed with <literal>+</literal> data from the
+        specified namespace and the default namespace is shown, interleaved, but no other. For details about
+        journal namespaces see
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

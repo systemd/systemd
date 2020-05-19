@@ -1,10 +1,10 @@
 ---
-title: Users, Groups, UIDs and GIDs on `systemd` Systems
-category: Concepts
+title: Users, Groups, UIDs and GIDs on systemd Systems
+category: Users, Groups and Home Directories
 layout: default
 ---
 
-# Users, Groups, UIDs and GIDs on `systemd` Systems
+# Users, Groups, UIDs and GIDs on systemd Systems
 
 Here's a summary of the requirements `systemd` (and Linux) make on UID/GID
 assignments and their ranges.
@@ -96,7 +96,15 @@ but downstreams are strongly advised against doing that.)
 
 `systemd` defines a number of special UID ranges:
 
-1. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
+1. 60001…60513 → UIDs for home directories managed by
+   [`systemd-homed.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html). UIDs
+   from this range are automatically assigned to any home directory discovered,
+   and persisted locally on first login. On different systems the same user
+   might get different UIDs assigned in case of conflict, though it is
+   attempted to make UID assignments stable, by deriving them from a hash of
+   the user name.
+
+2. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
    `DynamicUser=` documentation in
    [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)). This
    range has been chosen so that it is below the 16bit boundary (i.e. below
@@ -111,7 +119,7 @@ but downstreams are strongly advised against doing that.)
    user record resolving works correctly without those users being in
    `/etc/passwd`.
 
-2. 524288…1879048191 → UID range for `systemd-nspawn`'s automatic allocation of
+3. 524288…1879048191 → UID range for `systemd-nspawn`'s automatic allocation of
    per-container UID ranges. When the `--private-users=pick` switch is used (or
    `-U`) then it will automatically find a so far unused 16bit subrange of this
    range and assign it to the container. The range is picked so that the upper
@@ -232,7 +240,8 @@ the artifacts the container manager persistently leaves in the system.
 |                     5 | `tty` group           | `systemd`     | `/etc/passwd`                 |
 |                 6…999 | System users          | Distributions | `/etc/passwd`                 |
 |            1000…60000 | Regular users         | Distributions | `/etc/passwd` + LDAP/NIS/…    |
-|           60001…61183 | Unused                |               |                               |
+|           60001…60513 | Human Users (homed)   | `systemd`     | `nss-systemd`
+|           60514…61183 | Unused                |               |                               |
 |           61184…65519 | Dynamic service users | `systemd`     | `nss-systemd`                 |
 |           65520…65533 | Unused                |               |                               |
 |                 65534 | `nobody` user         | Linux         | `/etc/passwd` + `nss-systemd` |

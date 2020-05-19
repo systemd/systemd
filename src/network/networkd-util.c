@@ -8,14 +8,14 @@
 #include "string-util.h"
 #include "util.h"
 
-static const char * const address_family_table[_ADDRESS_FAMILY_MAX] = {
+static const char* const address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "no",
         [ADDRESS_FAMILY_YES]           = "yes",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
-static const char * const link_local_address_family_table[_ADDRESS_FAMILY_MAX] = {
+static const char* const link_local_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "no",
         [ADDRESS_FAMILY_YES]           = "yes",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
@@ -24,17 +24,26 @@ static const char * const link_local_address_family_table[_ADDRESS_FAMILY_MAX] =
         [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
 };
 
-static const char * const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
+static const char* const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_YES]           = "both",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
-static const char * const duplicate_address_detection_address_family_table[_ADDRESS_FAMILY_MAX] = {
+static const char* const duplicate_address_detection_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_NO]            = "none",
         [ADDRESS_FAMILY_YES]           = "both",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
+};
+
+static const char* const dhcp_lease_info_table[_SD_DHCP_LEASE_INFO_MAX] = {
+        [SD_DHCP_LEASE_DNS_SERVERS]  = "DNS servers",
+        [SD_DHCP_LEASE_NTP_SERVERS]  = "NTP servers",
+        [SD_DHCP_LEASE_SIP_SERVERS]  = "SIP servers",
+        [SD_DHCP_LEASE_POP3_SERVERS] = "POP3 servers",
+        [SD_DHCP_LEASE_SMTP_SERVERS] = "SMTP servers",
+        [SD_DHCP_LEASE_LPR_SERVERS]  = "LPR servers",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
@@ -43,6 +52,7 @@ DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,
                          AddressFamily, "Failed to parse option");
+DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_info, sd_dhcp_lease_info);
 
 int config_parse_address_family_with_kernel(
                 const char* unit,
@@ -97,7 +107,7 @@ int kernel_route_expiration_supported(void) {
                         .type = CONDITION_KERNEL_VERSION,
                         .parameter = (char *) ">= 4.5"
                 };
-                r = condition_test(&c);
+                r = condition_test(&c, NULL);
                 if (r < 0)
                         return r;
 

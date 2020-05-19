@@ -2,6 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "parse-util.h"
 #include "tc-util.h"
@@ -90,5 +91,34 @@ int tc_fill_ratespec_and_table(struct tc_ratespec *rate, uint32_t *rtab, uint32_
         rate->cell_align = -1;
         rate->cell_log = cell_log;
         rate->linklayer = TC_LINKLAYER_ETHERNET;
+        return 0;
+}
+
+int parse_handle(const char *t, uint32_t *ret) {
+        _cleanup_free_ char *word = NULL;
+        uint16_t major, minor;
+        int r;
+
+        assert(t);
+        assert(ret);
+
+        /* Extract the major number. */
+        r = extract_first_word(&t, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+        if (!t)
+                return -EINVAL;
+
+        r = safe_atou16_full(word, 16, &major);
+        if (r < 0)
+                return r;
+
+        r = safe_atou16_full(t, 16, &minor);
+        if (r < 0)
+                return r;
+
+        *ret = ((uint32_t) major << 16) | minor;
         return 0;
 }

@@ -36,7 +36,7 @@ int link_new(Manager *m, Link **ret, int ifindex, const char *ifname) {
                 .manager = m,
                 .ifname = TAKE_PTR(n),
                 .ifindex = ifindex,
-                .required_operstate = LINK_OPERSTATE_DEGRADED,
+                .required_operstate = LINK_OPERSTATE_RANGE_DEFAULT,
         };
 
         r = hashmap_put(m->links_by_name, l->ifname, l);
@@ -105,7 +105,6 @@ int link_update_rtnl(Link *l, sd_netlink_message *m) {
 
 int link_update_monitor(Link *l) {
         _cleanup_free_ char *operstate = NULL, *required_operstate = NULL, *state = NULL;
-        LinkOperationalState s;
         int r, ret = 0;
 
         assert(l);
@@ -121,19 +120,21 @@ int link_update_monitor(Link *l) {
         r = sd_network_link_get_required_operstate_for_online(l->ifindex, &required_operstate);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get required operational state, ignoring: %m");
+        else if (isempty(required_operstate))
+                l->required_operstate = LINK_OPERSTATE_RANGE_DEFAULT;
         else {
-                s = link_operstate_from_string(required_operstate);
-                if (s < 0)
+                r = parse_operational_state_range(required_operstate, &l->required_operstate);
+                if (r < 0)
                         ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
                                                    "Failed to parse required operational state, ignoring: %m");
-                else
-                        l->required_operstate = s;
         }
 
         r = sd_network_link_get_operational_state(l->ifindex, &operstate);
         if (r < 0)
                 ret = log_link_debug_errno(l, r, "Failed to get operational state, ignoring: %m");
         else {
+                LinkOperationalState s;
+
                 s = link_operstate_from_string(operstate);
                 if (s < 0)
                         ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),

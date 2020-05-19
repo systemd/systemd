@@ -304,6 +304,30 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><command>freeze <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Freeze one or more units specified on the
+            command line using cgroup freezer</para>
+
+            <para>Freezing the unit will cause all processes contained within the cgroup corresponding to the unit
+            to be suspended. Being suspended means that unit's processes won't be scheduled to run on CPU until thawed.
+            Note that this command is supported only on systems that use unified cgroup hierarchy. Unit is automatically
+            thawed just before we execute a job against the unit, e.g. before the unit is stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><command>thaw <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Thaw (unfreeze) one or more units specified on the
+            command line.</para>
+
+            <para>This is the inverse operation to the <command>freeze</command> command and resumes the execution of
+            processes in the unit's cgroup.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
 
           <listitem>
@@ -507,17 +531,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>list-dependencies</command>
-            <optional><replaceable>UNIT</replaceable></optional>
+            <optional><replaceable>UNIT</replaceable>...</optional>
           </term>
 
           <listitem>
             <para>Shows units required and wanted by the specified
-            unit. This recursively lists units following the
+            units. This recursively lists units following the
             <varname>Requires=</varname>,
             <varname>Requisite=</varname>,
             <varname>ConsistsOf=</varname>,
             <varname>Wants=</varname>, <varname>BindsTo=</varname>
-            dependencies. If no unit is specified,
+            dependencies. If no units are specified,
             <filename>default.target</filename> is implied.</para>
 
             <para>By default, only target units are recursively
@@ -728,6 +752,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>linked-runtime</literal></entry>
+                  </row>
+                  <row>
+                    <entry><literal>alias</literal></entry>
+                    <entry>The name is an alias (symlink to another unit file).</entry>
+                    <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>masked</literal></entry>
@@ -1067,7 +1096,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
 
-        <varlistentry>
+        <varlistentry id='log-level'>
           <term><command>log-level</command> [<replaceable>LEVEL</replaceable>]</term>
 
           <listitem><para>If no argument is given, print the current log level of the manager. If an
@@ -1503,6 +1532,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>-P</option></term>
+
+        <listitem>
+          <para>Equivalent to <option>--value</option> <option>--property=</option>, i.e. shows the
+          value of the property without the property name or <literal>=</literal>. Note that using
+          <option>-P</option> once will also affect all properties listed with
+          <option>-p</option>/<option>--property=</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-a</option></term>
         <term><option>--all</option></term>
 
@@ -1593,6 +1633,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       </varlistentry>
 
       <varlistentry>
+        <term><option>--with-dependencies</option></term>
+
+        <listitem>
+          <para>When used with <command>status</command>,
+          <command>cat</command>, <command>list-units</command>, and
+          <command>list-unit-files</command>, those commands print all
+          specified units and the dependencies of those units.</para>
+
+          <para>Options <option>--reverse</option>,
+          <option>--after</option>, <option>--before</option>
+          may be used to change what types of dependencies
+          are shown.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-l</option></term>
         <term><option>--full</option></term>
 
@@ -1611,9 +1667,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--value</option></term>
 
         <listitem>
-          <para>When printing properties with <command>show</command>,
-          only print the value, and skip the property name and
-          <literal>=</literal>.</para>
+          <para>When printing properties with <command>show</command>, only print the value, and skip the
+          property name and <literal>=</literal>. Also see option <option>-P</option> above.</para>
         </listitem>
       </varlistentry>
 
@@ -1907,7 +1962,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
           type of resource. This option may be specified more than once, in which case all specified resource
           types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
-          specifiying all five resource types. If this option is not specified defaults to the combination of
+          specifying all five resource types. If this option is not specified defaults to the combination of
           <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
           are generally considered to be redundant and can be reconstructed on next invocation.</para>
         </listitem>

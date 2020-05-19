@@ -2,6 +2,7 @@
 
 #include <linux/netdevice.h>
 #include <netinet/ether.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-netlink.h"
@@ -16,10 +17,11 @@
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
-#include "naming-scheme.h"
+#include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
@@ -47,6 +49,7 @@ static void link_config_free(link_config *link) {
         free(link->filename);
 
         set_free_free(link->match_mac);
+        set_free_free(link->match_permanent_mac);
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
@@ -58,6 +61,8 @@ static void link_config_free(link_config *link) {
         free(link->mac);
         free(link->name_policy);
         free(link->name);
+        strv_free(link->alternative_names);
+        free(link->alternative_names_policy);
         free(link->alias);
 
         free(link);
@@ -145,6 +150,9 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 .duplex = _DUP_INVALID,
                 .port = _NET_DEV_PORT_INVALID,
                 .autonegotiation = -1,
+                .rx_flow_control = -1,
+                .tx_flow_control = -1,
+                .autoneg_flow_control = -1,
         };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
@@ -157,18 +165,16 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (link->speed > UINT_MAX)
-                return -ERANGE;
-
-        if (set_isempty(link->match_mac) && strv_isempty(link->match_path) &&
-            strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
-            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions)
-                log_warning("%s: No valid settings found in the [Match] section. "
-                            "The file will match all interfaces. "
-                            "If that is intended, please add OriginalName=* in the [Match] section.",
+        if (set_isempty(link->match_mac) && set_isempty(link->match_permanent_mac) &&
+            strv_isempty(link->match_path) && strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
+            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions) {
+                log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
+                            "To match all interfaces, add OriginalName=* in the [Match] section.",
                             filename);
+                return 0;
+        }
 
-        if (!condition_test_list(link->conditions, NULL, NULL, NULL)) {
+        if (!condition_test_list(link->conditions, environ, NULL, NULL, NULL)) {
                 log_debug("%s: Conditions do not match the system environment, skipping.", filename);
                 return 0;
         }
@@ -202,7 +208,7 @@ static int link_unsigned_attribute(sd_device *device, const char *attr, unsigned
 }
 
 int link_config_load(link_config_ctx *ctx) {
-        _cleanup_strv_free_ char **files;
+        _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
 
@@ -234,16 +240,36 @@ bool link_config_should_reload(link_config_ctx *ctx) {
 }
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
+        struct ether_addr permanent_mac = {};
+        unsigned short iftype = 0;
         link_config *link;
+        const char *name;
+        int ifindex, r;
 
         assert(ctx);
         assert(device);
         assert(ret);
 
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return r;
+
+        r = rtnl_get_link_iftype(&ctx->rtnl, ifindex, &iftype);
+        if (r < 0)
+                return r;
+
+        r = ethtool_get_permanent_macaddr(&ctx->ethtool_fd, name, &permanent_mac);
+        if (r < 0)
+                log_device_debug_errno(device, r, "Failed to get permanent MAC address, ignoring: %m");
+
         LIST_FOREACH(links, link, ctx->links) {
-                if (net_match_config(link->match_mac, link->match_path, link->match_driver,
+                if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, NULL, 0, NULL, NULL)) {
+                                     iftype, device, NULL, &permanent_mac, NULL, NULL, 0, NULL, NULL)) {
                         if (link->match_name && !strv_contains(link->match_name, "*")) {
                                 unsigned name_assign_type = NET_NAME_UNKNOWN;
 
@@ -325,6 +351,7 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       sd_device *device, const char **name) {
+        _cleanup_strv_free_ char **altnames = NULL;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         const char *new_name = NULL;
@@ -381,10 +408,16 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         log_warning_errno(r, "Could not set channels of %s: %m", old_name);
         }
 
-        if (config->ring.rx_pending_set || config->ring.tx_pending_set) {
+        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
                 r = ethtool_set_nic_buffer_size(&ctx->ethtool_fd, old_name, &config->ring);
                 if (r < 0)
                         log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
+        }
+
+        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
+                r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
         }
 
         r = sd_device_get_ifindex(device, &ifindex);
@@ -400,7 +433,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         }
 
         if (ctx->enable_name_policy && config->name_policy)
-                for (NamePolicy *p = config->name_policy; !new_name && *p != _NAMEPOLICY_INVALID; p++) {
+                for (NamePolicy *p = config->name_policy; *p != _NAMEPOLICY_INVALID; p++) {
                         policy = *p;
 
                         switch (policy) {
@@ -437,6 +470,8 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                         default:
                                 assert_not_reached("invalid policy");
                         }
+                        if (ifname_valid(new_name))
+                                break;
                 }
 
         if (new_name)
@@ -457,6 +492,54 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
                 return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
+
+        if (config->alternative_names) {
+                altnames = strv_copy(config->alternative_names);
+                if (!altnames)
+                        return log_oom();
+        }
+
+        if (config->alternative_names_policy)
+                for (NamePolicy *p = config->alternative_names_policy; *p != _NAMEPOLICY_INVALID; p++) {
+                        const char *n = NULL;
+
+                        switch (*p) {
+                        case NAMEPOLICY_DATABASE:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_FROM_DATABASE", &n);
+                                break;
+                        case NAMEPOLICY_ONBOARD:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_ONBOARD", &n);
+                                break;
+                        case NAMEPOLICY_SLOT:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_SLOT", &n);
+                                break;
+                        case NAMEPOLICY_PATH:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_PATH", &n);
+                                break;
+                        case NAMEPOLICY_MAC:
+                                (void) sd_device_get_property_value(device, "ID_NET_NAME_MAC", &n);
+                                break;
+                        default:
+                                assert_not_reached("invalid policy");
+                        }
+                        if (!isempty(n)) {
+                                r = strv_extend(&altnames, n);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
+
+        if (new_name)
+                strv_remove(altnames, new_name);
+        strv_remove(altnames, old_name);
+        strv_uniq(altnames);
+        strv_sort(altnames);
+
+        r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, altnames);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s, ignoring: %m", old_name);
+        else if (r < 0)
+                return log_warning_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s: %m", old_name);
 
         *name = new_name;
 
@@ -504,3 +587,16 @@ DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 DEFINE_CONFIG_PARSE_ENUMV(config_parse_name_policy, name_policy, NamePolicy,
                           _NAMEPOLICY_INVALID,
                           "Failed to parse interface name policy");
+
+static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
+        [NAMEPOLICY_DATABASE] = "database",
+        [NAMEPOLICY_ONBOARD] = "onboard",
+        [NAMEPOLICY_SLOT] = "slot",
+        [NAMEPOLICY_PATH] = "path",
+        [NAMEPOLICY_MAC] = "mac",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
+DEFINE_CONFIG_PARSE_ENUMV(config_parse_alternative_names_policy, alternative_names_policy, NamePolicy,
+                          _NAMEPOLICY_INVALID,
+                          "Failed to parse alternative names policy");

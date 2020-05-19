@@ -167,6 +167,11 @@
             <entry><varname>wsl</varname></entry>
             <entry><ulink url="https://docs.microsoft.com/en-us/windows/wsl/about">Windows Subsystem for Linux</ulink></entry>
           </row>
+
+          <row>
+            <entry><varname>proot</varname></entry>
+            <entry><ulink url="https://proot-me.github.io/">proot</ulink> userspace chroot/bind mount emulation</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>

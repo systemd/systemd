@@ -5,8 +5,23 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# See sysctl.d(5) for the description of the files in this directory,
-# and systemd-coredump(8) and core(5) for the explanation of the
-# setting below.
+# See sysctl.d(5) for the description of the files in this directory.
 
+# Pipe the core file to systemd-coredump. The systemd-coredump process spawned
+# by the kernel will start a second copy of itself as the
+# systemd-coredump@.service, which will do the actual processing and storing of
+# the core dump.
+#
+# See systemd-coredump(8) and core(5).
 kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %P %u %g %s %t %c %h
+
+# Also dump processes executing a set-user-ID/set-group-ID program that is
+# owned by a user/group other than the real user/group ID of the process, or
+# a program that has file capabilities. ("2" is called "suidsafe" in core(5)).
+#
+# systemd-coredump will store the core file owned by the effective uid and gid
+# of the running process (and not the filesystem-user-ID which the kernel uses
+# when saving a core dump).
+#
+# See proc(5), setuid(2), capabilities(7).
+fs.suid_dumpable=2

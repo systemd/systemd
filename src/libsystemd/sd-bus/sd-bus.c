@@ -284,7 +284,7 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         return 0;
 }
 
-_public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
+_public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv) {
         _cleanup_strv_free_ char **a = NULL;
         int r;
 
@@ -504,7 +504,6 @@ static int synthesize_connected_signal(sd_bus *bus) {
 }
 
 void bus_set_state(sd_bus *bus, enum bus_state state) {
-
         static const char * const table[_BUS_STATE_MAX] = {
                 [BUS_UNSET] = "UNSET",
                 [BUS_WATCH_BIND] = "WATCH_BIND",
@@ -980,9 +979,8 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                         return -EINVAL;
 
                 free_and_replace(b->machine, machine);
-        } else {
+        } else
                 b->machine = mfree(b->machine);
-        }
 
         if (pid) {
                 r = parse_pid(pid, &b->nspid);
@@ -1271,10 +1269,7 @@ int bus_set_address_system(sd_bus *b) {
         assert(b);
 
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
-        if (e)
-                return sd_bus_set_address(b, e);
-
-        return sd_bus_set_address(b, DEFAULT_SYSTEM_BUS_ADDRESS);
+        return sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
 }
 
 _public_ int sd_bus_open_system_with_description(sd_bus **ret, const char *description) {
@@ -1319,29 +1314,30 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
 }
 
 int bus_set_address_user(sd_bus *b) {
-        const char *e;
-        _cleanup_free_ char *ee = NULL, *s = NULL;
+        const char *a;
+        _cleanup_free_ char *_a = NULL;
 
         assert(b);
 
-        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
-        if (e)
-                return sd_bus_set_address(b, e);
+        a = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+        if (!a) {
+                const char *e;
+                _cleanup_free_ char *ee = NULL;
 
-        e = secure_getenv("XDG_RUNTIME_DIR");
-        if (!e)
-                return -ENOENT;
+                e = secure_getenv("XDG_RUNTIME_DIR");
+                if (!e)
+                        return -ENOENT;
 
-        ee = bus_address_escape(e);
-        if (!ee)
-                return -ENOMEM;
+                ee = bus_address_escape(e);
+                if (!ee)
+                        return -ENOMEM;
 
-        if (asprintf(&s, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
-                return -ENOMEM;
+                if (asprintf(&_a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
+                        return -ENOMEM;
+                a = _a;
+        }
 
-        b->address = TAKE_PTR(s);
-
-        return 0;
+        return sd_bus_set_address(b, a);
 }
 
 _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *description) {
@@ -1837,7 +1833,7 @@ static int dispatch_wqueue(sd_bus *bus) {
         return ret;
 }
 
-static int bus_read_message(sd_bus *bus, bool hint_priority, int64_t priority) {
+static int bus_read_message(sd_bus *bus) {
         assert(bus);
 
         return bus_socket_read_message(bus);
@@ -1864,16 +1860,12 @@ static void rqueue_drop_one(sd_bus *bus, size_t i) {
         bus->rqueue_size--;
 }
 
-static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **m) {
+static int dispatch_rqueue(sd_bus *bus, sd_bus_message **m) {
         int r, ret = 0;
 
         assert(bus);
         assert(m);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
-
-        /* Note that the priority logic is only available on kdbus,
-         * where the rqueue is unused. We check the rqueue here
-         * anyway, because it's simple... */
 
         for (;;) {
                 if (bus->rqueue_size > 0) {
@@ -1884,7 +1876,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
                 }
 
                 /* Try to read a new message */
-                r = bus_read_message(bus, hint_priority, priority);
+                r = bus_read_message(bus);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -1902,9 +1894,10 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
 
         assert_return(m, -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -1986,9 +1979,10 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
 
         assert_return(m, -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -2051,9 +2045,10 @@ _public_ int sd_bus_call_async(
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
         assert_return(!m->sealed || (!!callback == !(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)), -EINVAL);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -2157,9 +2152,10 @@ _public_ int sd_bus_call(
         bus_assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL, error);
         bus_assert_return(!bus_error_is_dirty(error), -EINVAL, error);
 
-        if (!bus)
-                bus = m->bus;
-
+        if (bus)
+                assert_return(bus = bus_resolve(bus), -ENOPKG);
+        else
+                assert_return(bus = m->bus, -ENOTCONN);
         bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
 
         if (!BUS_IS_OPEN(bus->state)) {
@@ -2237,7 +2233,7 @@ _public_ int sd_bus_call(
                         i++;
                 }
 
-                r = bus_read_message(bus, false, 0);
+                r = bus_read_message(bus);
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r)) {
                                 bus_enter_closing(bus);
@@ -2286,7 +2282,6 @@ fail:
 }
 
 _public_ int sd_bus_get_fd(sd_bus *bus) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->input_fd == bus->output_fd, -EPERM);
@@ -2777,7 +2772,7 @@ static int dispatch_track(sd_bus *bus) {
         return 1;
 }
 
-static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
+static int process_running(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
@@ -2796,7 +2791,7 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
         if (r != 0)
                 goto null_message;
 
-        r = dispatch_rqueue(bus, hint_priority, priority, &m);
+        r = dispatch_rqueue(bus, &m);
         if (r < 0)
                 return r;
         if (!m)
@@ -2982,7 +2977,7 @@ finish:
         return r;
 }
 
-static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
+static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
         int r;
 
         /* Returns 0 when we didn't do anything. This should cause the
@@ -3022,7 +3017,7 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
 
         case BUS_RUNNING:
         case BUS_HELLO:
-                r = process_running(bus, hint_priority, priority, ret);
+                r = process_running(bus, ret);
                 if (r >= 0)
                         return r;
 
@@ -3049,11 +3044,11 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
 }
 
 _public_ int sd_bus_process(sd_bus *bus, sd_bus_message **ret) {
-        return bus_process_internal(bus, false, 0, ret);
+        return bus_process_internal(bus, ret);
 }
 
 _public_ int sd_bus_process_priority(sd_bus *bus, int64_t priority, sd_bus_message **ret) {
-        return bus_process_internal(bus, true, priority, ret);
+        return bus_process_internal(bus, ret);
 }
 
 static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
@@ -3677,31 +3672,31 @@ _public_ int sd_bus_detach_event(sd_bus *bus) {
 }
 
 _public_ sd_event* sd_bus_get_event(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->event;
 }
 
 _public_ sd_bus_message* sd_bus_get_current_message(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_message;
 }
 
 _public_ sd_bus_slot* sd_bus_get_current_slot(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_slot;
 }
 
 _public_ sd_bus_message_handler_t sd_bus_get_current_handler(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_handler;
 }
 
 _public_ void* sd_bus_get_current_userdata(sd_bus *bus) {
-        assert_return(bus, NULL);
+        assert_return(bus = bus_resolve(bus), NULL);
 
         return bus->current_userdata;
 }
@@ -4018,7 +4013,6 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
 }
 
 _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(address, -EINVAL);
@@ -4206,4 +4200,28 @@ _public_ int sd_bus_get_close_on_exit(sd_bus *bus) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
 
         return bus->close_on_exit;
+}
+
+_public_ int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m) {
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
+
+        /* Re-enqueue a message for reading. This is primarily useful for PolicyKit-style authentication,
+         * where we accept a message, then determine we need to interactively authenticate the user, and then
+         * we want to process the message again. */
+
+        r = bus_rqueue_make_room(bus);
+        if (r < 0)
+                return r;
+
+        bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(m, bus);
+        return 0;
 }

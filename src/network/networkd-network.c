@@ -3,6 +3,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <linux/netdevice.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
@@ -16,12 +17,14 @@
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "set.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tc.h"
 #include "util.h"
 
 /* Let's assume that anything above this number is a user misconfiguration. */
@@ -154,23 +157,23 @@ int network_verify(Network *network) {
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
-        QDisc *qdisc;
+        TrafficControl *tc;
         Iterator i;
 
         assert(network);
         assert(network->filename);
 
-        if (set_isempty(network->match_mac) && strv_isempty(network->match_path) &&
-            strv_isempty(network->match_driver) && strv_isempty(network->match_type) &&
-            strv_isempty(network->match_name) && strv_isempty(network->match_property) &&
-            strv_isempty(network->match_ssid) && !network->conditions)
-                log_warning("%s: No valid settings found in the [Match] section. "
-                            "The file will match all interfaces. "
-                            "If that is intended, please add Name=* in the [Match] section.",
-                            network->filename);
+        if (set_isempty(network->match_mac) && set_isempty(network->match_permanent_mac) &&
+            strv_isempty(network->match_path) && strv_isempty(network->match_driver) &&
+            strv_isempty(network->match_type) && strv_isempty(network->match_name) &&
+            strv_isempty(network->match_property) && strv_isempty(network->match_ssid) && !network->conditions)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: No valid settings found in the [Match] section, ignoring file. "
+                                         "To match all interfaces, add Name=* in the [Match] section.",
+                                         network->filename);
 
         /* skip out early if configuration does not match the environment */
-        if (!condition_test_list(network->conditions, NULL, NULL, NULL))
+        if (!condition_test_list(network->conditions, environ, NULL, NULL, NULL))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: Conditions in the file do not match the system environment, skipping.",
                                        network->filename);
@@ -265,6 +268,9 @@ int network_verify(Network *network) {
                 network->dhcp_use_mtu = false;
         }
 
+        if (network->dhcp_use_gateway < 0)
+                network->dhcp_use_gateway = network->dhcp_use_routes;
+
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0)
                         log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
@@ -316,9 +322,9 @@ int network_verify(Network *network) {
                         routing_policy_rule_free(rule);
 
         bool has_root = false, has_clsact = false;
-        ORDERED_HASHMAP_FOREACH(qdisc, network->qdiscs_by_section, i)
-                if (qdisc_section_verify(qdisc, &has_root, &has_clsact) < 0)
-                        qdisc_free(qdisc);
+        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section, i)
+                if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
+                        traffic_control_free(tc);
 
         return 0;
 }
@@ -375,7 +381,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .n_ref = 1,
 
                 .required_for_online = true,
-                .required_operstate_for_online = LINK_OPERSTATE_DEGRADED,
+                .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
                 .dhcp = ADDRESS_FAMILY_NO,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
@@ -383,6 +389,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
+                .dhcp_use_gateway = -1,
                 /* NOTE: this var might be overwritten by network_apply_anonymize_if_set */
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
@@ -451,10 +458,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_use_onlink_prefix = true,
                 .ipv6_accept_ra_route_table = RT_TABLE_MAIN,
                 .ipv6_accept_ra_route_table_set = false,
+                .ipv6_accept_ra_start_dhcp6_client = true,
 
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
                 .can_triple_sampling = -1,
+                .can_termination = -1,
                 .ip_service_type = -1,
         };
 
@@ -480,8 +489,30 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "IPv6PrefixDelegation\0"
                               "IPv6Prefix\0"
                               "IPv6RoutePrefix\0"
+                              "LLDP\0"
                               "TrafficControlQueueingDiscipline\0"
-                              "CAN\0",
+                              "CAN\0"
+                              "QDisc\0"
+                              "BFIFO\0"
+                              "CAKE\0"
+                              "ControlledDelay\0"
+                              "DeficitRoundRobinScheduler\0"
+                              "DeficitRoundRobinSchedulerClass\0"
+                              "PFIFO\0"
+                              "PFIFOFast\0"
+                              "PFIFOHeadDrop\0"
+                              "FairQueueing\0"
+                              "FairQueueingControlledDelay\0"
+                              "GenericRandomEarlyDetection\0"
+                              "HeavyHitterFilter\0"
+                              "HierarchyTokenBucket\0"
+                              "HierarchyTokenBucketClass\0"
+                              "NetworkEmulator\0"
+                              "PIE\0"
+                              "StochasticFairBlue\0"
+                              "StochasticFairnessQueueing\0"
+                              "TokenBucketFilter\0"
+                              "TrivialLinkEqualizer\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
         if (r < 0)
@@ -601,6 +632,7 @@ static Network *network_free(Network *network) {
         free(network->filename);
 
         set_free_free(network->match_mac);
+        set_free_free(network->match_permanent_mac);
         strv_free(network->match_path);
         strv_free(network->match_driver);
         strv_free(network->match_type);
@@ -613,15 +645,22 @@ static Network *network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        free(network->dhcp_mudurl);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
         set_free(network->dhcp_black_listed_ip);
         set_free(network->dhcp_request_options);
+        set_free(network->dhcp6_request_options);
         free(network->mac);
+        free(network->dhcp6_mudurl);
+
+        if (network->dhcp_acd)
+                sd_ipv4acd_unref(network->dhcp_acd);
 
         strv_free(network->ntp);
         free(network->dns);
         strv_free(network->sip);
+        strv_free(network->smtp);
         ordered_set_free_free(network->search_domains);
         ordered_set_free_free(network->route_domains);
         strv_free(network->bind_carrier);
@@ -678,7 +717,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->rules_by_section);
-        ordered_hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);
+        ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
         if (network->manager &&
             network->manager->duids_requesting_uuid)
@@ -693,8 +732,13 @@ static Network *network_free(Network *network) {
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
+        free(network->lldp_mud);
+
         ordered_hashmap_free(network->dhcp_client_send_options);
+        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         ordered_hashmap_free(network->dhcp_server_send_options);
+        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        ordered_hashmap_free(network->ipv6_tokens);
 
         return mfree(network);
 }
@@ -717,8 +761,9 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
         return 0;
 }
 
-int network_get(Manager *manager, sd_device *device,
-                const char *ifname, const struct ether_addr *address,
+int network_get(Manager *manager, unsigned short iftype, sd_device *device,
+                const char *ifname, char * const *alternative_names,
+                const struct ether_addr *address, const struct ether_addr *permanent_address,
                 enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
                 Network **ret) {
         Network *network;
@@ -728,10 +773,12 @@ int network_get(Manager *manager, sd_device *device,
         assert(ret);
 
         ORDERED_HASHMAP_FOREACH(network, manager->networks, i)
-                if (net_match_config(network->match_mac, network->match_path, network->match_driver,
+                if (net_match_config(network->match_mac, network->match_permanent_mac,
+                                     network->match_path, network->match_driver,
                                      network->match_type, network->match_name, network->match_property,
                                      network->match_wlan_iftype, network->match_ssid, network->match_bssid,
-                                     device, address, ifname, wlan_iftype, ssid, bssid)) {
+                                     iftype, device, address, permanent_address,
+                                     ifname, alternative_names, wlan_iftype, ssid, bssid)) {
                         if (network->match_name && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
@@ -1293,18 +1340,18 @@ int config_parse_required_for_online(
                 void *userdata) {
 
         Network *network = data;
-        LinkOperationalState s;
+        LinkOperationalStateRange range;
         bool required = true;
         int r;
 
         if (isempty(rvalue)) {
                 network->required_for_online = true;
-                network->required_operstate_for_online = LINK_OPERSTATE_DEGRADED;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
                 return 0;
         }
 
-        s = link_operstate_from_string(rvalue);
-        if (s < 0) {
+        r = parse_operational_state_range(rvalue, &range);
+        if (r < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
@@ -1314,11 +1361,11 @@ int config_parse_required_for_online(
                 }
 
                 required = r;
-                s = LINK_OPERSTATE_DEGRADED;
+                range = LINK_OPERSTATE_RANGE_DEFAULT;
         }
 
         network->required_for_online = required;
-        network->required_operstate_for_online = s;
+        network->required_operstate_for_online = range;
 
         return 0;
 }

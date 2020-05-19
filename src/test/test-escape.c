@@ -96,6 +96,22 @@ static void test_cunescape(void) {
 
         assert_se(cunescape("A=A\\\\x0aB", UNESCAPE_RELAX, &unescaped) >= 0);
         assert_se(streq_ptr(unescaped, "A=A\\x0aB"));
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\x00\\x00\\x00", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\u0000\\u0000\\u0000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\U00000000\\U00000000\\U00000000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
+        unescaped = mfree(unescaped);
+
+        assert_se(cunescape("\\000\\000\\000", UNESCAPE_ACCEPT_NUL, &unescaped) == 3);
+        assert_se(memcmp(unescaped, "\0\0\0", 3) == 0);
 }
 
 static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {
@@ -126,31 +142,42 @@ static void test_shell_maybe_quote_one(const char *s,
 static void test_shell_maybe_quote(void) {
 
         test_shell_maybe_quote_one("", ESCAPE_BACKSLASH, "");
+        test_shell_maybe_quote_one("", ESCAPE_BACKSLASH_ONELINE, "");
         test_shell_maybe_quote_one("", ESCAPE_POSIX, "");
         test_shell_maybe_quote_one("\\", ESCAPE_BACKSLASH, "\"\\\\\"");
+        test_shell_maybe_quote_one("\\", ESCAPE_BACKSLASH_ONELINE, "\"\\\\\"");
         test_shell_maybe_quote_one("\\", ESCAPE_POSIX, "$'\\\\'");
         test_shell_maybe_quote_one("\"", ESCAPE_BACKSLASH, "\"\\\"\"");
+        test_shell_maybe_quote_one("\"", ESCAPE_BACKSLASH_ONELINE, "\"\\\"\"");
         test_shell_maybe_quote_one("\"", ESCAPE_POSIX, "$'\"'");
         test_shell_maybe_quote_one("foobar", ESCAPE_BACKSLASH, "foobar");
+        test_shell_maybe_quote_one("foobar", ESCAPE_BACKSLASH_ONELINE, "foobar");
         test_shell_maybe_quote_one("foobar", ESCAPE_POSIX, "foobar");
         test_shell_maybe_quote_one("foo bar", ESCAPE_BACKSLASH, "\"foo bar\"");
+        test_shell_maybe_quote_one("foo bar", ESCAPE_BACKSLASH_ONELINE, "\"foo bar\"");
         test_shell_maybe_quote_one("foo bar", ESCAPE_POSIX, "$'foo bar'");
         test_shell_maybe_quote_one("foo\tbar", ESCAPE_BACKSLASH, "\"foo\tbar\"");
+        test_shell_maybe_quote_one("foo\tbar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\tbar\"");
         test_shell_maybe_quote_one("foo\tbar", ESCAPE_POSIX, "$'foo\\tbar'");
         test_shell_maybe_quote_one("foo\nbar", ESCAPE_BACKSLASH, "\"foo\nbar\"");
+        test_shell_maybe_quote_one("foo\nbar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\nbar\"");
         test_shell_maybe_quote_one("foo\nbar", ESCAPE_POSIX, "$'foo\\nbar'");
         test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_BACKSLASH, "\"foo \\\"bar\\\" waldo\"");
+        test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_BACKSLASH_ONELINE, "\"foo \\\"bar\\\" waldo\"");
         test_shell_maybe_quote_one("foo \"bar\" waldo", ESCAPE_POSIX, "$'foo \"bar\" waldo'");
         test_shell_maybe_quote_one("foo$bar", ESCAPE_BACKSLASH, "\"foo\\$bar\"");
+        test_shell_maybe_quote_one("foo$bar", ESCAPE_BACKSLASH_ONELINE, "\"foo\\$bar\"");
         test_shell_maybe_quote_one("foo$bar", ESCAPE_POSIX, "$'foo$bar'");
 
         /* Note that current users disallow control characters, so this "test"
          * is here merely to establish current behaviour. If control characters
          * were allowed, they should be quoted, i.e. \001 should become \\001. */
         test_shell_maybe_quote_one("a\nb\001", ESCAPE_BACKSLASH, "\"a\nb\001\"");
+        test_shell_maybe_quote_one("a\nb\001", ESCAPE_BACKSLASH_ONELINE, "\"a\\nb\001\"");
         test_shell_maybe_quote_one("a\nb\001", ESCAPE_POSIX, "$'a\\nb\001'");
 
         test_shell_maybe_quote_one("foo!bar", ESCAPE_BACKSLASH, "\"foo!bar\"");
+        test_shell_maybe_quote_one("foo!bar", ESCAPE_BACKSLASH_ONELINE, "\"foo!bar\"");
         test_shell_maybe_quote_one("foo!bar", ESCAPE_POSIX, "$'foo!bar'");
 }
 

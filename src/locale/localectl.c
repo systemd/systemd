@@ -163,13 +163,7 @@ static int set_locale(int argc, char **argv, void *userdata) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
-                        "SetLocale");
+        r = bus_message_new_method_call(bus, &m, bus_locale, "SetLocale");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -215,11 +209,9 @@ static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
         map = argv[1];
         toggle_map = argc > 2 ? argv[2] : "";
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
+                        bus_locale,
                         "SetVConsoleKeyboard",
                         &error,
                         NULL,
@@ -258,11 +250,9 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
         variant = argc > 3 ? argv[3] : "";
         options = argc > 4 ? argv[4] : "";
 
-        r = sd_bus_call_method(
+        r = bus_call_method(
                         bus,
-                        "org.freedesktop.locale1",
-                        "/org/freedesktop/locale1",
-                        "org.freedesktop.locale1",
+                        bus_locale,
                         "SetX11Keyboard",
                         &error,
                         NULL,

@@ -287,6 +287,19 @@ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) _s
 int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds);
 
 /*
+  Returns > 0 if synchronization with systemd succeeded.  Returns < 0
+  on error. Returns 0 if $NOTIFY_SOCKET was not set. Note that the
+  timeout parameter of this function call takes the timeout in µs, and
+  will be passed to ppoll(2), hence the behaviour will be similar to
+  ppoll(2). This function can be called after sending a status message
+  to systemd, if one needs to synchronize against reception of the
+  status messages sent before this call is made. Therefore, this
+  cannot be used to know if the status message was processed
+  successfully, but to only synchronize against its consumption.
+*/
+int sd_notify_barrier(int unset_environment, uint64_t timeout);
+
+/*
   Returns > 0 if the system was booted with systemd. Returns < 0 on
   error. Returns 0 if the system was not booted with systemd. Note
   that all of the functions above handle non-systemd boots just

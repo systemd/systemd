@@ -16,7 +16,9 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "limits-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -215,31 +217,12 @@ void cgroup_context_done(CGroupContext *c) {
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
-        _cleanup_free_ char *raw_kval = NULL;
-        uint64_t kval;
-        int r;
-
         assert(u);
 
         if (!u->cgroup_realized)
                 return -EOWNERDEAD;
 
-        r = cg_get_attribute("memory", u->cgroup_path, file, &raw_kval);
-        if (r < 0)
-                return r;
-
-        if (streq(raw_kval, "max")) {
-                *ret = CGROUP_LIMIT_MAX;
-                return 0;
-        }
-
-        r = safe_atou64(raw_kval, &kval);
-        if (r < 0)
-                return r;
-
-        *ret = kval;
-
-        return 0;
+        return cg_get_attribute_as_uint64("memory", u->cgroup_path, file, ret);
 }
 
 static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_t *ret_unit_value, uint64_t *ret_kernel_value) {
@@ -651,34 +634,35 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         r = device_path_parse_major_minor(p, &mode, &rdev);
         if (r == -ENODEV) { /* not a parsable device node, need to go to disk */
                 struct stat st;
+
                 if (stat(p, &st) < 0)
                         return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
-                rdev = (dev_t)st.st_rdev;
-                dev = (dev_t)st.st_dev;
+
                 mode = st.st_mode;
+                rdev = st.st_rdev;
+                dev = st.st_dev;
         } else if (r < 0)
                 return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
 
-        if (S_ISCHR(mode)) {
-                log_warning("Device node '%s' is a character device, but block device needed.", p);
-                return -ENOTBLK;
-        } else if (S_ISBLK(mode))
+        if (S_ISCHR(mode))
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOTBLK),
+                                         "Device node '%s' is a character device, but block device needed.", p);
+        if (S_ISBLK(mode))
                 *ret = rdev;
         else if (major(dev) != 0)
                 *ret = dev; /* If this is not a device node then use the block device this file is stored on */
         else {
                 /* If this is btrfs, getting the backing block device is a bit harder */
                 r = btrfs_get_block_device(p, ret);
-                if (r < 0 && r != -ENOTTY)
+                if (r == -ENOTTY)
+                        return log_warning_errno(SYNTHETIC_ERRNO(ENODEV),
+                                                 "'%s' is not a block device node, and file system block device cannot be determined or is not local.", p);
+                if (r < 0)
                         return log_warning_errno(r, "Failed to determine block device backing btrfs file system '%s': %m", p);
-                if (r == -ENOTTY) {
-                        log_warning("'%s' is not a block device node, and file system block device cannot be determined or is not local.", p);
-                        return -ENODEV;
-                }
         }
 
-        /* If this is a LUKS device, try to get the originating block device */
-        (void) block_get_originating(*ret, ret);
+        /* If this is a LUKS/DM device, recursively try to get the originating block device */
+        while (block_get_originating(*ret, ret) > 0);
 
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);
@@ -1526,10 +1510,9 @@ CGroupMask unit_get_members_mask(Unit *u) {
                 Unit *member;
                 Iterator i;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
                         if (UNIT_DEREF(member->slice) == u)
                                 u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
-                }
         }
 
         u->cgroup_members_mask_valid = true;
@@ -2334,29 +2317,39 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
 static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
         Unit *slice;
 
-        /* This adds the siblings of the specified unit and the
-         * siblings of all parent units to the cgroup queue. (But
-         * neither the specified unit itself nor the parents.) */
+        /* This adds the siblings of the specified unit and the siblings of all parent units to the cgroup
+         * queue. (But neither the specified unit itself nor the parents.)
+         *
+         * Propagation of realization "side-ways" (i.e. towards siblings) is relevant on cgroup-v1 where
+         * scheduling becomes very weird if two units that own processes reside in the same slice, but one is
+         * realized in the "cpu" hierarchy and one is not (for example because one has CPUWeight= set and the
+         * other does not), because that means individual processes need to be scheduled against whole
+         * cgroups. Let's avoid this asymmetry by always ensuring that units below a slice that are realized
+         * at all are always realized in *all* their hierarchies, and it is sufficient for a unit's sibling
+         * to be realized for the unit itself to be realized too. */
 
         while ((slice = UNIT_DEREF(u->slice))) {
                 Iterator i;
                 Unit *m;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
-                        /* Skip units that have a dependency on the slice
-                         * but aren't actually in it. */
+                HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
+
+                        /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != slice)
                                 continue;
 
-                        /* No point in doing cgroup application for units
-                         * without active processes. */
+                        /* No point in doing cgroup application for units without active processes. */
                         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(m)))
                                 continue;
 
-                        /* If the unit doesn't need any new controllers
-                         * and has current ones realized, it doesn't need
-                         * any changes. */
+                        /* We only enqueue siblings if they were realized once at least, in the main
+                         * hierarchy. */
+                        if (!m->cgroup_realized)
+                                continue;
+
+                        /* If the unit doesn't need any new controllers and has current ones realized, it
+                         * doesn't need any changes. */
                         if (unit_has_mask_realized(m,
                                                    unit_get_target_mask(m),
                                                    unit_get_enable_mask(m)))
@@ -2652,6 +2645,7 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
         /* Let's verify that the cgroup is really empty */
         if (!u->cgroup_path)
                 return;
+
         r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
         if (r < 0) {
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", u->cgroup_path);
@@ -2667,6 +2661,16 @@ void unit_add_to_cgroup_empty_queue(Unit *u) {
         r = sd_event_source_set_enabled(u->manager->cgroup_empty_event_source, SD_EVENT_ONESHOT);
         if (r < 0)
                 log_debug_errno(r, "Failed to enable cgroup empty event source: %m");
+}
+
+static void unit_remove_from_cgroup_empty_queue(Unit *u) {
+        assert(u);
+
+        if (!u->in_cgroup_empty_queue)
+                return;
+
+        LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+        u->in_cgroup_empty_queue = false;
 }
 
 int unit_check_oom(Unit *u) {
@@ -2769,6 +2773,41 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
                 log_error_errno(r, "Failed to enable cgroup oom event source: %m");
 }
 
+static int unit_check_cgroup_events(Unit *u) {
+        char *values[2] = {};
+        int r;
+
+        assert(u);
+
+        r = cg_get_keyed_attribute_graceful(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
+                                            STRV_MAKE("populated", "frozen"), values);
+        if (r < 0)
+                return r;
+
+        /* The cgroup.events notifications can be merged together so act as we saw the given state for the
+         * first time. The functions we call to handle given state are idempotent, which makes them
+         * effectively remember the previous state. */
+        if (values[0]) {
+                if (streq(values[0], "1"))
+                        unit_remove_from_cgroup_empty_queue(u);
+                else
+                        unit_add_to_cgroup_empty_queue(u);
+        }
+
+        /* Disregard freezer state changes due to operations not initiated by us */
+        if (values[1] && IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING)) {
+                if (streq(values[1], "0"))
+                        unit_thawed(u);
+                else
+                        unit_frozen(u);
+        }
+
+        free(values[0]);
+        free(values[1]);
+
+        return 0;
+}
+
 static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
 
@@ -2805,7 +2844,7 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 
                         u = hashmap_get(m->cgroup_control_inotify_wd_unit, INT_TO_PTR(e->wd));
                         if (u)
-                                unit_add_to_cgroup_empty_queue(u);
+                                unit_check_cgroup_events(u);
 
                         u = hashmap_get(m->cgroup_memory_inotify_wd_unit, INT_TO_PTR(e->wd));
                         if (u)
@@ -3101,7 +3140,6 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 }
 
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
-        _cleanup_free_ char *v = NULL;
         int r;
 
         assert(u);
@@ -3123,22 +3161,11 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         r = cg_all_unified();
         if (r < 0)
                 return r;
-        if (r > 0)
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.current", &v);
-        else
-                r = cg_get_attribute("memory", u->cgroup_path, "memory.usage_in_bytes", &v);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
 
-        return safe_atou64(v, ret);
+        return cg_get_attribute_as_uint64("memory", u->cgroup_path, r > 0 ? "memory.current" : "memory.usage_in_bytes", ret);
 }
 
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
-        _cleanup_free_ char *v = NULL;
-        int r;
-
         assert(u);
         assert(ret);
 
@@ -3155,17 +3182,10 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
 
-        r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-
-        return safe_atou64(v, ret);
+        return cg_get_attribute_as_uint64("pids", u->cgroup_path, "pids.current", ret);
 }
 
 static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
-        _cleanup_free_ char *v = NULL;
         uint64_t ns;
         int r;
 
@@ -3201,17 +3221,8 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
                         return r;
 
                 ns = us * NSEC_PER_USEC;
-        } else {
-                r = cg_get_attribute("cpuacct", u->cgroup_path, "cpuacct.usage", &v);
-                if (r == -ENOENT)
-                        return -ENODATA;
-                if (r < 0)
-                        return r;
-
-                r = safe_atou64(v, &ns);
-                if (r < 0)
-                        return r;
-        }
+        } else
+                return cg_get_attribute_as_uint64("cpuacct", u->cgroup_path, "cpuacct.usage", ret);
 
         *ret = ns;
         return 0;
@@ -3516,10 +3527,9 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                 Iterator i;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
                         if (UNIT_DEREF(member->slice) == u)
                                 unit_invalidate_cgroup_bpf(member);
-                }
         }
 }
 
@@ -3587,6 +3597,46 @@ int compare_job_priority(const void *a, const void *b) {
         return strcmp(x->unit->id, y->unit->id);
 }
 
+int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
+        _cleanup_free_ char *path = NULL;
+        FreezerState target, kernel = _FREEZER_STATE_INVALID;
+        int r;
+
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        if (!u->cgroup_realized)
+                return -EBUSY;
+
+        target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
+
+        r = unit_freezer_state_kernel(u, &kernel);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
+
+        if (target == kernel) {
+                u->freezer_state = target;
+                return 0;
+        }
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
+        if (r < 0)
+                return r;
+
+        log_unit_debug(u, "%s unit.", action == FREEZER_FREEZE ? "Freezing" : "Thawing");
+
+        if (action == FREEZER_FREEZE)
+                u->freezer_state = FREEZER_FREEZING;
+        else
+                u->freezer_state = FREEZER_THAWING;
+
+        r = write_string_file(path, one_zero(action == FREEZER_FREEZE), WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] = {
         [CGROUP_DEVICE_POLICY_AUTO]   = "auto",
         [CGROUP_DEVICE_POLICY_CLOSED] = "closed",
@@ -3611,8 +3661,8 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
                 return r;
         if (r == 0)
                 return -ENODATA;
-        if (r > 0)
-                r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
+
+        r = cg_get_attribute("cpuset", u->cgroup_path, name, &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -3622,3 +3672,10 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
 }
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
+
+static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
+        [FREEZER_FREEZE] = "freeze",
+        [FREEZER_THAW] = "thaw",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);

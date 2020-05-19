@@ -41,9 +41,9 @@ static const sd_bus_vtable vtable[] = {
 static void* thread_server(void *p) {
         _cleanup_free_ char *suffixed = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -1;
-        union sockaddr_union u = {};
+        union sockaddr_union u;
         const char *path = p;
-        int salen;
+        int r;
 
         log_debug("Initializing server");
 
@@ -66,13 +66,15 @@ static void* thread_server(void *p) {
         assert_se(symlink(basename(suffixed), suffixed2) >= 0);
         (void) usleep(100 * USEC_PER_MSEC);
 
-        salen = sockaddr_un_set_path(&u.un, path);
-        assert_se(salen >= 0);
+        socklen_t sa_len;
+        r = sockaddr_un_set_path(&u.un, path);
+        assert_se(r >= 0);
+        sa_len = r;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(fd >= 0);
 
-        assert_se(bind(fd, &u.sa, salen) >= 0);
+        assert_se(bind(fd, &u.sa, sa_len) >= 0);
         usleep(100 * USEC_PER_MSEC);
 
         assert_se(listen(fd, SOMAXCONN) >= 0);

@@ -1,0 +1,21 @@
+%{
+#if __GNUC__ >= 7
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "homed-conf.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name homed_gperf_hash
+%define lookup-function-name homed_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Home.DefaultStorage,        config_parse_default_storage,          0, offsetof(Manager, default_storage)
+Home.DefaultFileSystemType, config_parse_default_file_system_type, 0, offsetof(Manager, default_file_system_type)

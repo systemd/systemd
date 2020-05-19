@@ -404,10 +404,10 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"random-seed-mode:       off\n");
                 break;
         case RANDOM_SEED_WITH_SYSTEM_TOKEN:
-                Print(L"random-seed-node:       with-system-token\n");
+                Print(L"random-seed-mode:       with-system-token\n");
                 break;
         case RANDOM_SEED_ALWAYS:
-                Print(L"random-seed-node:       always\n");
+                Print(L"random-seed-mode:       always\n");
                 break;
         default:
                 ;
@@ -742,6 +742,7 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = TRUE;
                         break;
 
@@ -1200,7 +1201,7 @@ static VOID config_entry_parse_tries(
                         }
 
                         new_factor = factor * 10;
-                        if (new_factor < factor) /* overflow chck */
+                        if (new_factor < factor) /* overflow check */
                                 return;
 
                         factor = new_factor;
@@ -1893,8 +1894,8 @@ static VOID config_entry_add_linux(
                 UINTN bufsize = sizeof buf;
                 EFI_FILE_INFO *f;
                 CHAR8 *sections[] = {
-                        (UINT8 *)".osrel",
-                        (UINT8 *)".cmdline",
+                        (CHAR8 *)".osrel",
+                        (CHAR8 *)".cmdline",
                         NULL
                 };
                 UINTN offs[ELEMENTSOF(sections)-1] = {};
@@ -1958,7 +1959,7 @@ static VOID config_entry_add_linux(
                                 continue;
                         }
 
-                        if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
+                        if (strcmpa((CHAR8 *)"VERSION", key) == 0) {
                                 FreePool(os_version);
                                 os_version = stra_to_str(value);
                                 continue;

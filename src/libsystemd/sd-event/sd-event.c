@@ -115,6 +115,9 @@ struct sd_event {
 
         unsigned n_sources;
 
+        struct epoll_event *event_queue;
+        size_t event_queue_allocated;
+
         LIST_HEAD(sd_event_source, sources);
 
         usec_t last_run, last_log;
@@ -286,6 +289,8 @@ static sd_event *event_free(sd_event *e) {
         hashmap_free(e->child_sources);
         set_free(e->post_sources);
 
+        free(e->event_queue);
+
         return mfree(e);
 }
 
@@ -386,22 +391,20 @@ static int source_io_register(
                 int enabled,
                 uint32_t events) {
 
-        struct epoll_event ev;
-        int r;
-
         assert(s);
         assert(s->type == SOURCE_IO);
         assert(enabled != SD_EVENT_OFF);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
                 .data.ptr = s,
         };
+        int r;
 
-        if (s->io.registered)
-                r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_MOD, s->io.fd, &ev);
-        else
-                r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_ADD, s->io.fd, &ev);
+        r = epoll_ctl(s->event->epoll_fd,
+                      s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                      s->io.fd,
+                      &ev);
         if (r < 0)
                 return -errno;
 
@@ -436,9 +439,7 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
         assert(enabled != SD_EVENT_OFF);
 
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                struct epoll_event ev;
-
-                ev = (struct epoll_event) {
+                struct epoll_event ev = {
                         .events = EPOLLIN | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
                         .data.ptr = s,
                 };
@@ -544,7 +545,6 @@ static int event_make_signal_data(
                 int sig,
                 struct signal_data **ret) {
 
-        struct epoll_event ev;
         struct signal_data *d;
         bool added = false;
         sigset_t ss_copy;
@@ -611,7 +611,7 @@ static int event_make_signal_data(
 
         d->fd = fd_move_above_stdio(r);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
@@ -823,9 +823,7 @@ static void source_disconnect(sd_event_source *s) {
         if (s->prepare)
                 prioq_remove(s->event->prepare, s, &s->prepare_index);
 
-        event = s->event;
-
-        s->event = NULL;
+        event = TAKE_PTR(s->event);
         LIST_REMOVE(sources, event->sources, s);
         event->n_sources--;
 
@@ -1039,14 +1037,14 @@ static int event_setup_timer_fd(
                 struct clock_data *d,
                 clockid_t clock) {
 
-        struct epoll_event ev;
-        int r, fd;
-
         assert(e);
         assert(d);
 
         if (_likely_(d->fd >= 0))
                 return 0;
+
+        _cleanup_close_ int fd = -1;
+        int r;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1054,18 +1052,16 @@ static int event_setup_timer_fd(
 
         fd = fd_move_above_stdio(fd);
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
 
         r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0) {
-                safe_close(fd);
+        if (r < 0)
                 return -errno;
-        }
 
-        d->fd = fd;
+        d->fd = TAKE_FD(fd);
         return 0;
 }
 
@@ -1549,7 +1545,6 @@ static int event_make_inotify_data(
 
         _cleanup_close_ int fd = -1;
         struct inotify_data *d;
-        struct epoll_event ev;
         int r;
 
         assert(e);
@@ -1588,7 +1583,7 @@ static int event_make_inotify_data(
                 return r;
         }
 
-        ev = (struct epoll_event) {
+        struct epoll_event ev = {
                 .events = EPOLLIN,
                 .data.ptr = d,
         };
@@ -3477,8 +3472,7 @@ pending:
 }
 
 _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
-        struct epoll_event *ev_queue;
-        unsigned ev_queue_max;
+        size_t event_queue_max;
         int r, m, i;
 
         assert_return(e, -EINVAL);
@@ -3492,14 +3486,15 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                 return 1;
         }
 
-        ev_queue_max = MAX(e->n_sources, 1u);
-        ev_queue = newa(struct epoll_event, ev_queue_max);
+        event_queue_max = MAX(e->n_sources, 1u);
+        if (!GREEDY_REALLOC(e->event_queue, e->event_queue_allocated, event_queue_max))
+                return -ENOMEM;
 
         /* If we still have inotify data buffered, then query the other fds, but don't wait on it */
         if (e->inotify_data_buffered)
                 timeout = 0;
 
-        m = epoll_wait(e->epoll_fd, ev_queue, ev_queue_max,
+        m = epoll_wait(e->epoll_fd, e->event_queue, event_queue_max,
                        timeout == (uint64_t) -1 ? -1 : (int) DIV_ROUND_UP(timeout, USEC_PER_MSEC));
         if (m < 0) {
                 if (errno == EINTR) {
@@ -3515,26 +3510,26 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
 
         for (i = 0; i < m; i++) {
 
-                if (ev_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
-                        r = flush_timer(e, e->watchdog_fd, ev_queue[i].events, NULL);
+                if (e->event_queue[i].data.ptr == INT_TO_PTR(SOURCE_WATCHDOG))
+                        r = flush_timer(e, e->watchdog_fd, e->event_queue[i].events, NULL);
                 else {
-                        WakeupType *t = ev_queue[i].data.ptr;
+                        WakeupType *t = e->event_queue[i].data.ptr;
 
                         switch (*t) {
 
                         case WAKEUP_EVENT_SOURCE: {
-                                sd_event_source *s = ev_queue[i].data.ptr;
+                                sd_event_source *s = e->event_queue[i].data.ptr;
 
                                 assert(s);
 
                                 switch (s->type) {
 
                                 case SOURCE_IO:
-                                        r = process_io(e, s, ev_queue[i].events);
+                                        r = process_io(e, s, e->event_queue[i].events);
                                         break;
 
                                 case SOURCE_CHILD:
-                                        r = process_pidfd(e, s, ev_queue[i].events);
+                                        r = process_pidfd(e, s, e->event_queue[i].events);
                                         break;
 
                                 default:
@@ -3545,20 +3540,20 @@ _public_ int sd_event_wait(sd_event *e, uint64_t timeout) {
                         }
 
                         case WAKEUP_CLOCK_DATA: {
-                                struct clock_data *d = ev_queue[i].data.ptr;
+                                struct clock_data *d = e->event_queue[i].data.ptr;
 
                                 assert(d);
 
-                                r = flush_timer(e, d->fd, ev_queue[i].events, &d->next);
+                                r = flush_timer(e, d->fd, e->event_queue[i].events, &d->next);
                                 break;
                         }
 
                         case WAKEUP_SIGNAL_DATA:
-                                r = process_signal(e, ev_queue[i].data.ptr, ev_queue[i].events);
+                                r = process_signal(e, e->event_queue[i].data.ptr, e->event_queue[i].events);
                                 break;
 
                         case WAKEUP_INOTIFY_DATA:
-                                r = event_inotify_data_read(e, ev_queue[i].data.ptr, ev_queue[i].events);
+                                r = event_inotify_data_read(e, e->event_queue[i].data.ptr, e->event_queue[i].events);
                                 break;
 
                         default:
@@ -3841,8 +3836,6 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 return e->watchdog;
 
         if (b) {
-                struct epoll_event ev;
-
                 r = sd_watchdog_enabled(false, &e->watchdog_period);
                 if (r <= 0)
                         return r;
@@ -3859,7 +3852,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 if (r < 0)
                         goto fail;
 
-                ev = (struct epoll_event) {
+                struct epoll_event ev = {
                         .events = EPOLLIN,
                         .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
                 };
