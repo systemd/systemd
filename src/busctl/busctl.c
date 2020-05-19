@@ -856,20 +856,24 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         assert(interface);
         assert(members);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "interface";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "interface",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate interface");
+        if (r == -EEXIST)
+                return log_error_errno(r,  "Invalid introspection data: duplicate interface '%s'.", interface);
+        if (r < 0)
+                return log_oom();
 
         m = NULL;
         return 0;
@@ -883,12 +887,14 @@ static int on_method(const char *interface, const char *name, const char *signat
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "method";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "method",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -907,8 +913,10 @@ static int on_method(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate method");
+        if (r == -EEXIST)
+                return log_error_errno(r, "Invalid introspection data: duplicate method '%s' on interface '%s'.", name, interface);
+        if (r < 0)
+                return log_oom();
 
         m = NULL;
         return 0;
@@ -922,12 +930,14 @@ static int on_signal(const char *interface, const char *name, const char *signat
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "signal";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "signal",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -942,8 +952,10 @@ static int on_signal(const char *interface, const char *name, const char *signat
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate signal");
+        if (r == -EEXIST)
+                return log_error_errno(r, "Invalid introspection data: duplicate signal '%s' on interface '%s'.", name, interface);
+        if (r < 0)
+                return log_oom();
 
         m = NULL;
         return 0;
@@ -957,13 +969,15 @@ static int on_property(const char *interface, const char *name, const char *sign
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "property";
-        m->flags = flags;
-        m->writable = writable;
+        *m = (Member) {
+                .type = "property",
+                .flags = flags,
+                .writable = writable,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -978,8 +992,10 @@ static int on_property(const char *interface, const char *name, const char *sign
                 return log_oom();
 
         r = set_put(members, m);
-        if (r <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Duplicate property");
+        if (r == -EEXIST)
+                return log_error_errno(r, "Invalid introspection data: duplicate property '%s' on interface '%s'.", name, interface);
+        if (r < 0)
+                return log_oom();
 
         m = NULL;
         return 0;
