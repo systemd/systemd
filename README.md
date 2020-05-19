@@ -8,6 +8,7 @@ System and Service Manager
 [![Coverity Scan Status](https://scan.coverity.com/projects/350/badge.svg)](https://scan.coverity.com/projects/350)<br/>
 [![Fuzzit Status](https://app.fuzzit.dev/badge?org_id=systemd&branch=master)](https://app.fuzzit.dev/orgs/systemd/dashboard)<br/>
 [![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#systemd)<br/>
+[![CIFuzz](https://github.com/systemd/systemd/workflows/CIFuzz/badge.svg)](https://github.com/systemd/systemd/actions)<br/>
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
 [![Travis CI Build Status](https://travis-ci.org/systemd/systemd.svg?branch=master)](https://travis-ci.org/systemd/systemd)<br/>
 [![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)<br/>
