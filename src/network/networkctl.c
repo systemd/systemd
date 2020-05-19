@@ -33,6 +33,7 @@
 #include "geneve-util.h"
 #include "glob-util.h"
 #include "hwdb-util.h"
+#include "ipvlan-util.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
@@ -192,6 +193,10 @@ typedef struct LinkInfo {
         /* macvlan and macvtap info */
         uint32_t macvlan_mode;
 
+        /* ipvlan info */
+        uint16_t ipvlan_mode;
+        uint16_t ipvlan_flags;
+
         /* ethtool info */
         int autonegotiation;
         uint64_t speed;
@@ -335,6 +340,10 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
                 (void) sd_netlink_message_read_in6_addr(m, IFLA_VTI_REMOTE, &info->remote.in6);
         } else if (STR_IN_SET(received_kind, "macvlan", "macvtap"))
                 (void) sd_netlink_message_read_u32(m, IFLA_MACVLAN_MODE, &info->macvlan_mode);
+        else if (streq(received_kind, "ipvlan")) {
+                (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_MODE, &info->ipvlan_mode);
+                (void) sd_netlink_message_read_u16(m, IFLA_IPVLAN_FLAGS, &info->ipvlan_flags);
+        }
 
         strncpy(info->netdev_kind, received_kind, IFNAMSIZ);
 
@@ -1796,6 +1805,28 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Mode:",
                                    TABLE_STRING, macvlan_mode_to_string(info->macvlan_mode));
+                if (r < 0)
+                        return table_log_add_error(r);
+        } else if (streq_ptr(info->netdev_kind, "ipvlan")) {
+                _cleanup_free_ char *p = NULL, *s = NULL;
+
+                if (info->ipvlan_flags & IPVLAN_F_PRIVATE)
+                        p = strdup("private");
+                else if (info->ipvlan_flags & IPVLAN_F_VEPA)
+                        p = strdup("vepa");
+                else
+                        p = strdup("bridge");
+                if (!p)
+                        log_oom();
+
+                s = strjoin(ipvlan_mode_to_string(info->ipvlan_mode), " (", p, ")");
+                if (!s)
+                        return log_oom();
+
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Mode:",
+                                   TABLE_STRING, s);
                 if (r < 0)
                         return table_log_add_error(r);
         }
