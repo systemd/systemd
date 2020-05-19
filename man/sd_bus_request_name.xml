@@ -28,6 +28,8 @@
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
+      <xi:include href="sd_bus_add_match.xml" xpointer="sd_bus_message_handler_t"/>
+
       <funcprototype>
         <funcdef>int <function>sd_bus_request_name</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
