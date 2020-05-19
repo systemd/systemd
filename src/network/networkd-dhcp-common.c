@@ -360,7 +360,7 @@ int config_parse_dhcp6_mud_url(
                 return 0;
         }
 
-        if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > UINT8_MAX) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
 
@@ -435,7 +435,7 @@ int config_parse_dhcp_send_option(
                                    "Invalid DHCP option, ignoring assignment: %s", rvalue);
                          return 0;
                 }
-                if (u8 < 1 || u8 >= 255) {
+                if (u8 < 1 || u8 >= UINT8_MAX) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Invalid DHCP option, valid range is 1-254, ignoring assignment: %s", rvalue);
                         return 0;
@@ -631,7 +631,7 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (i < 1 || i >= 255) {
+                if (i < 1 || i >= UINT8_MAX) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "DHCP request option is invalid, valid range is 1-254, ignoring assignment: %s", n);
                         continue;
