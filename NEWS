@@ -805,6 +805,9 @@ CHANGES WITH 243:
         * systemd-networkd's TUN support gained a new setting VnetHeader= for
           tweaking Generic Segment Offload support.
 
+        * The address family for policy rules may be specified using the new
+          Family= option in the [RoutingPolicyRule] section.
+
         * networkctl gained a new "delete" command for removing virtual network
           devices, as well as a new "--stats" switch for showing device
           statistics.
