@@ -856,12 +856,14 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
         assert(interface);
         assert(members);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "interface";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "interface",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -883,12 +885,14 @@ static int on_method(const char *interface, const char *name, const char *signat
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "method";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "method",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -922,12 +926,14 @@ static int on_signal(const char *interface, const char *name, const char *signat
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "signal";
-        m->flags = flags;
+        *m = (Member) {
+                .type = "signal",
+                .flags = flags,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
@@ -957,13 +963,15 @@ static int on_property(const char *interface, const char *name, const char *sign
         assert(interface);
         assert(name);
 
-        m = new0(Member, 1);
+        m = new(Member, 1);
         if (!m)
                 return log_oom();
 
-        m->type = "property";
-        m->flags = flags;
-        m->writable = writable;
+        *m = (Member) {
+                .type = "property",
+                .flags = flags,
+                .writable = writable,
+        };
 
         r = free_and_strdup(&m->interface, interface);
         if (r < 0)
