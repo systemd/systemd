@@ -22,6 +22,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* machined: add API to acquire UID range. add API to mount/dissect loopback
+  file. Both protected by PK. Then make nspawn use these APIs to run
+  unprivileged containers. i.e. push the truly privileged bits into machined,
+  so that the client side can remain entirely unprivileged, with SUID or
+  anything like that.
+
 * add "throttling" to sd-event event sources: optionally, when we wake up too
   often for one, let's turn it off entirely for a while. Use that for the
   /proc/self/mountinfo logic.
