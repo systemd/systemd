@@ -2227,8 +2227,10 @@ executable(
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
         systemd_cryptsetup_sources = files('''
-                src/cryptsetup/cryptsetup.c
                 src/cryptsetup/cryptsetup-pkcs11.h
+                src/cryptsetup/cryptsetup-util.c
+                src/cryptsetup/cryptsetup-util.h
+                src/cryptsetup/cryptsetup.c
 '''.split())
 
         if conf.get('HAVE_P11KIT') == 1

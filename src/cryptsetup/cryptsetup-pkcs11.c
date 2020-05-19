@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
+#include "cryptsetup-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -19,73 +20,6 @@
 #include "stat-util.h"
 #include "strv.h"
 
-#define KEY_FILE_SIZE_MAX (16U*1024U*1024U) /* 16 MiB */
-
-static int load_key_file(
-                const char *key_file,
-                size_t key_file_size,
-                uint64_t key_file_offset,
-                void **ret_encrypted_key,
-                size_t *ret_encrypted_key_size) {
-
-        _cleanup_(erase_and_freep) char *buffer = NULL;
-        _cleanup_close_ int fd = -1;
-        ssize_t n;
-        int r;
-
-        assert(key_file);
-        assert(ret_encrypted_key);
-        assert(ret_encrypted_key_size);
-
-        fd = open(key_file, O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to load encrypted PKCS#11 key: %m");
-
-        if (key_file_size == 0) {
-                struct stat st;
-
-                if (fstat(fd, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat key file: %m");
-
-                r = stat_verify_regular(&st);
-                if (r < 0)
-                        return log_error_errno(r, "Key file is not a regular file: %m");
-
-                if (st.st_size == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file is empty, refusing.");
-                if ((uint64_t) st.st_size > KEY_FILE_SIZE_MAX) {
-                        char buf1[FORMAT_BYTES_MAX], buf2[FORMAT_BYTES_MAX];
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                               "Key file larger (%s) than allowed maximum size (%s), refusing.",
-                                               format_bytes(buf1, sizeof(buf1), st.st_size),
-                                               format_bytes(buf2, sizeof(buf2), KEY_FILE_SIZE_MAX));
-                }
-
-                if (key_file_offset >= (uint64_t) st.st_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Key file offset too large for file, refusing.");
-
-                key_file_size = st.st_size - key_file_offset;
-        }
-
-        buffer = malloc(key_file_size);
-        if (!buffer)
-                return log_oom();
-
-        if (key_file_offset > 0)
-                n = pread(fd, buffer, key_file_size, key_file_offset);
-        else
-                n = read(fd, buffer, key_file_size);
-        if (n < 0)
-                return log_error_errno(errno, "Failed to read PKCS#11 key file: %m");
-        if (n == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty encrypted key found, refusing.");
-
-        *ret_encrypted_key = TAKE_PTR(buffer);
-        *ret_encrypted_key_size = (size_t) n;
-
-        return 0;
-}
-
 struct pkcs11_callback_data {
         const char *friendly_name;
         usec_t until;
@@ -93,11 +27,14 @@ struct pkcs11_callback_data {
         size_t encrypted_key_size;
         void *decrypted_key;
         size_t decrypted_key_size;
+        bool free_encrypted_key;
 };
 
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
         free(data->decrypted_key);
-        free(data->encrypted_key);
+
+        if (data->free_encrypted_key)
+                free(data->encrypted_key);
 }
 
 static int pkcs11_callback(
@@ -160,9 +97,11 @@ static int pkcs11_callback(
 int decrypt_pkcs11_key(
                 const char *friendly_name,
                 const char *pkcs11_uri,
-                const char *key_file,
+                const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
                 size_t key_file_size,
                 uint64_t key_file_offset,
+                const void *key_data,         /* … or key_data and key_data_size (for literal keys) */
+                size_t key_data_size,
                 usec_t until,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size) {
@@ -175,15 +114,24 @@ int decrypt_pkcs11_key(
 
         assert(friendly_name);
         assert(pkcs11_uri);
-        assert(key_file);
+        assert(key_file || key_data);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
 
         /* The functions called here log about all errors, except for EAGAIN which means "token not found right now" */
 
-        r = load_key_file(key_file, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
-        if (r < 0)
-                return r;
+        if (key_data) {
+                data.encrypted_key = (void*) key_data;
+                data.encrypted_key_size = key_data_size;
+
+                data.free_encrypted_key = false;
+        } else {
+                r = load_key_file(key_file, NULL, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
+                if (r < 0)
+                        return r;
+
+                data.free_encrypted_key = true;
+        }
 
         r = pkcs11_find_token(pkcs11_uri, pkcs11_callback, &data);
         if (r < 0)

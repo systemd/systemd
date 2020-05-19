@@ -188,7 +188,11 @@ static int print_dependencies(FILE *f, const char* device_path) {
                 /* None, nothing to do */
                 return 0;
 
-        if (PATH_IN_SET(device_path, "/dev/urandom", "/dev/random", "/dev/hw_random")) {
+        if (PATH_IN_SET(device_path,
+                        "/dev/urandom",
+                        "/dev/random",
+                        "/dev/hw_random",
+                        "/dev/hwrng")) {
                 /* RNG device, add random dep */
                 fputs("After=systemd-random-seed.service\n", f);
                 return 0;
@@ -209,7 +213,9 @@ static int print_dependencies(FILE *f, const char* device_path) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
 
-                fprintf(f, "After=%1$s\nRequires=%1$s\n", unit);
+                fprintf(f,
+                        "After=%1$s\n"
+                        "Requires=%1$s\n", unit);
         } else {
                 /* Regular file, add mount dependency */
                 _cleanup_free_ char *escaped_path = specifier_escape(device_path);

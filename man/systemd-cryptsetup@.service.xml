@@ -44,6 +44,32 @@
     <para>At early boot and when the system manager configuration is reloaded, <filename>/etc/crypttab</filename> is
     translated into <filename>systemd-cryptsetup@.service</filename> units by
     <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>In order to unlock a volume a password or binary key is
+    required. <filename>systemd-cryptsetup@.service</filename> tries to acquire a suitable password or binary
+    key via the following mechanisms, tried in order:</para>
+
+    <orderedlist>
+      <listitem><para>If a key file is explicitly configured (via the third column in
+      <filename>/etc/crypttab</filename>), a key read from it is used. If a PKCS#11 token is configured
+      (using the <varname>pkcs11-uri=</varname> option) the key is decrypted before use.</para></listitem>
+
+      <listitem><para>If no key file is configured explicitly this way, a key file is automatically loaded
+      from <filename>/etc/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename> and
+      <filename>/run/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename>, if present. Here
+      too, if a PKCS#11 token is configured, any key found this way is decrypted before
+      use.</para></listitem>
+
+      <listitem><para>If the <varname>try-empty-password</varname> option is specified it is then attempted
+      to unlock the volume with an empty password.</para></listitem>
+
+      <listitem><para>The kernel keyring is then checked for a suitable cached password from previous
+      attempts.</para></listitem>
+
+      <listitem><para>Finally, the user is queried for a password, possibly multiple times.</para></listitem>
+    </orderedlist>
+
+    <para>If no suitable key may be acquired via any of the mechanisms describes above, volume activation fails.</para>
   </refsect1>
 
   <refsect1>

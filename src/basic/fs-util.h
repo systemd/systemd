@@ -113,7 +113,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 int access_fd(int fd, int mode);
 
 void unlink_tempfilep(char (*p)[]);
-int unlinkat_deallocate(int fd, const char *name, int flags);
+
+typedef enum UnlinkDeallocateFlags {
+        UNLINK_REMOVEDIR = 1 << 0,
+        UNLINK_ERASE     = 1 << 1,
+} UnlinkDeallocateFlags;
+
+int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags);
 
 int fsync_directory_of_file(int fd);
 int fsync_full(int fd);
