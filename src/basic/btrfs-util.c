@@ -319,7 +319,7 @@ int btrfs_get_block_device_fd(int fd, dev_t *dev) {
                         return -errno;
 
                 if (!S_ISBLK(st.st_mode))
-                        return -ENODEV;
+                        return -ENOTBLK;
 
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
