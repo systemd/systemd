@@ -18,3 +18,5 @@ int block_get_originating(dev_t d, dev_t *ret);
 int get_block_device(const char *path, dev_t *dev);
 
 int get_block_device_harder(const char *path, dev_t *dev);
+
+int lock_whole_block_device(dev_t devt, int operation);

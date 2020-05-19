@@ -367,12 +367,12 @@ static int create_disk(
 
         if (tmp)
                 fprintf(f,
-                        "ExecStartPost=/sbin/mke2fs '/dev/mapper/%s'\n",
+                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs ext2 '/dev/mapper/%s'\n",
                         name_escaped);
 
         if (swap)
                 fprintf(f,
-                        "ExecStartPost=/sbin/mkswap '/dev/mapper/%s'\n",
+                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs swap '/dev/mapper/%s'\n",
                         name_escaped);
 
         if (keydev)

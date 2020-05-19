@@ -75,10 +75,9 @@ int probe_filesystem(const char *node, char **ret_fstype) {
                 log_debug("No type detected on partition %s", node);
                 goto not_found;
         }
-        if (r == -2) {
-                log_debug("Results ambiguous for partition %s", node);
-                return -EUCLEAN;
-        }
+        if (r == -2)
+                return log_debug_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Results ambiguous for partition %s", node);
         if (r != 0)
                 return errno_or_else(EIO);
 
