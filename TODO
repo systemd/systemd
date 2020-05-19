@@ -1245,19 +1245,13 @@ External:
    - natively watch for dbus-*.service symlinks (PENDING)
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
-* fix alsa mixer restore to not print error when no config is stored
-
 * make cryptsetup lower --iter-time
-
-* patch kernel for xattr support in /dev, /proc/, /sys?
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
 * /usr/bin/service should actually show the new command line
 
 * fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
-
-* fedora: F20: go timer units all the way, leave cron.daily for cron
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
 
