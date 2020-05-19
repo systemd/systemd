@@ -1294,6 +1294,13 @@
           <citerefentry><refentrytitle>systemd-update-done.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to make sure they run before the stamp file's modification time gets reset indicating a completed
           update.</para>
+
+          <para>If the <varname>systemd.condition-needs-update=</varname> option is specified on the kernel
+          command line (taking a boolean), it will override the result of this condition check, taking
+          precedence over any file modification time checks. If it is used
+          <filename>systemd-update-done.service</filename> will not have immediate effect on any following
+          <varname>ConditionNeedsUpdate=</varname> checks, until the system is rebooted where the kernel
+          command line option is not specified anymore.</para>
           </listitem>
         </varlistentry>
 
@@ -1305,6 +1312,10 @@
           (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
           be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new
           system instance boots up for the first time.</para>
+
+          <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
+          command line (taking a boolean), it will override the result of this condition check, taking
+          precedence over <filename>/etc/machine-id</filename> existence checks.</para>
           </listitem>
         </varlistentry>
 

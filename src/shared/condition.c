@@ -546,30 +546,47 @@ static int condition_test_capability(Condition *c, char **env) {
 }
 
 static int condition_test_needs_update(Condition *c, char **env) {
-        const char *p;
         struct stat usr, other;
+        const char *p;
+        bool b;
+        int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_NEEDS_UPDATE);
 
+        r = proc_cmdline_get_bool("systemd.condition-needs-update", &b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse systemd.condition-needs-update= kernel command line argument, ignoring: %m");
+        if (r > 0)
+                return b;
+
+        if (!path_is_absolute(c->parameter)) {
+                log_debug("Specified condition parameter '%s' is not absolute, assuming an update is needed.", c->parameter);
+                return true;
+        }
+
         /* If the file system is read-only we shouldn't suggest an update */
-        if (path_is_read_only_fs(c->parameter) > 0)
+        r = path_is_read_only_fs(c->parameter);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine if '%s' is read-only, ignoring: %m", c->parameter);
+        if (r > 0)
                 return false;
 
-        /* Any other failure means we should allow the condition to be true,
-         * so that we rather invoke too many update tools than too
-         * few. */
-
-        if (!path_is_absolute(c->parameter))
-                return true;
+        /* Any other failure means we should allow the condition to be true, so that we rather invoke too
+         * many update tools than too few. */
 
         p = strjoina(c->parameter, "/.updated");
-        if (lstat(p, &other) < 0)
+        if (lstat(p, &other) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to stat() '%s', assuming an update is needed: %m", p);
                 return true;
+        }
 
-        if (lstat("/usr/", &usr) < 0)
+        if (lstat("/usr/", &usr) < 0) {
+                log_debug_errno(errno, "Failed to stat() /usr/, assuming an update is needed: %m");
                 return true;
+        }
 
         /*
          * First, compare seconds as they are always accurate...
@@ -585,44 +602,52 @@ static int condition_test_needs_update(Condition *c, char **env) {
          * AND the target file's nanoseconds == 0
          * (otherwise the filesystem supports nsec timestamps, see stat(2)).
          */
-        if (usr.st_mtim.tv_nsec > 0 && other.st_mtim.tv_nsec == 0) {
-                _cleanup_free_ char *timestamp_str = NULL;
-                uint64_t timestamp;
-                int r;
+        if (usr.st_mtim.tv_nsec == 0 || other.st_mtim.tv_nsec > 0)
+                return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
 
-                r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
-                        return true;
-                } else if (r == 0) {
-                        log_debug("No data in timestamp file '%s', using mtime", p);
-                        return true;
-                }
-
-                r = safe_atou64(timestamp_str, &timestamp);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
-                        return true;
-                }
-
-                timespec_store(&other.st_mtim, timestamp);
+        _cleanup_free_ char *timestamp_str = NULL;
+        r = parse_env_file(NULL, p, "TIMESTAMP_NSEC", &timestamp_str);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
+                return true;
+        } else if (r == 0) {
+                log_debug("No data in timestamp file '%s', using mtime.", p);
+                return true;
         }
 
-        return usr.st_mtim.tv_nsec > other.st_mtim.tv_nsec;
+        uint64_t timestamp;
+        r = safe_atou64(timestamp_str, &timestamp);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse timestamp value '%s' in file '%s', using mtime: %m", timestamp_str, p);
+                return true;
+        }
+
+        return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
 static int condition_test_first_boot(Condition *c, char **env) {
-        int r;
+        int r, q;
+        bool b;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_FIRST_BOOT);
 
+        r = proc_cmdline_get_bool("systemd.condition-first-boot", &b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse systemd.condition-first-boot= kernel command line argument, ignoring: %m");
+        if (r > 0)
+                return b == !!r;
+
         r = parse_boolean(c->parameter);
         if (r < 0)
                 return r;
 
-        return (access("/run/systemd/first-boot", F_OK) >= 0) == !!r;
+        q = access("/run/systemd/first-boot", F_OK);
+        if (q < 0 && errno != ENOENT)
+                log_debug_errno(errno, "Failed to check if /run/systemd/first-boot exists, ignoring: %m");
+
+        return (q >= 0) == !!r;
 }
 
 static int condition_test_environment(Condition *c, char **env) {
