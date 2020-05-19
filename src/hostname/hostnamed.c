@@ -43,9 +43,6 @@ enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
-        PROP_KERNEL_NAME,
-        PROP_KERNEL_RELEASE,
-        PROP_KERNEL_VERSION,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
         PROP_HOME_URL,
@@ -55,8 +52,6 @@ enum {
 typedef struct Context {
         char *data[_PROP_MAX];
         Hashmap *polkit_registry;
-        sd_id128_t uuid;
-        bool has_uuid;
 } Context;
 
 static void context_reset(Context *c) {
@@ -68,7 +63,7 @@ static void context_reset(Context *c) {
                 c->data[p] = mfree(c->data[p]);
 }
 
-static void context_clear(Context *c) {
+static void context_destroy(Context *c) {
         assert(c);
 
         context_reset(c);
@@ -77,19 +72,10 @@ static void context_clear(Context *c) {
 
 static int context_read_data(Context *c) {
         int r;
-        struct utsname u;
 
         assert(c);
 
         context_reset(c);
-
-        assert_se(uname(&u) >= 0);
-        c->data[PROP_KERNEL_NAME] = strdup(u.sysname);
-        c->data[PROP_KERNEL_RELEASE] = strdup(u.release);
-        c->data[PROP_KERNEL_VERSION] = strdup(u.version);
-        if (!c->data[PROP_KERNEL_NAME] || !c->data[PROP_KERNEL_RELEASE] ||
-            !c->data[PROP_KERNEL_VERSION])
-                return -ENOMEM;
 
         c->data[PROP_HOSTNAME] = gethostname_malloc();
         if (!c->data[PROP_HOSTNAME])
@@ -115,17 +101,6 @@ static int context_read_data(Context *c) {
                              NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
-
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &c->uuid);
-        if (r == -ENOENT)
-                r = id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, &c->uuid);
-        if (r < 0)
-                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to read product UUID, ignoring: %m");
-        else if (sd_id128_is_null(c->uuid) || sd_id128_is_allf(c->uuid))
-                log_debug("DMI product UUID " SD_ID128_FORMAT_STR " is all 0x00 or all 0xFF, ignoring.", SD_ID128_FORMAT_VAL(c->uuid));
-        else
-                c->has_uuid = true;
 
         return 0;
 }
@@ -411,6 +386,22 @@ static int property_get_chassis(
         return sd_bus_message_append(reply, "s", name);
 }
 
+static int property_get_uname_field(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        struct utsname u;
+
+        assert_se(uname(&u) >= 0);
+
+        return sd_bus_message_append(reply, "s", (char*) &u + PTR_TO_SIZE(userdata));
+}
+
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         const char *name;
@@ -627,13 +618,27 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
 static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Context *c = userdata;
+        bool has_uuid = false;
         int interactive, r;
+        sd_id128_t uuid;
 
         assert(m);
         assert(c);
 
-        if (!c->has_uuid)
-                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID, "Failed to read product UUID from /sys/class/dmi/id/product_uuid");
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &uuid);
+        if (r == -ENOENT)
+                r = id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, &uuid);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read product UUID, ignoring: %m");
+        else if (sd_id128_is_null(uuid) || sd_id128_is_allf(uuid))
+                log_debug("DMI product UUID " SD_ID128_FORMAT_STR " is all 0x00 or all 0xFF, ignoring.", SD_ID128_FORMAT_VAL(uuid));
+        else
+                has_uuid = true;
+
+        if (!has_uuid)
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID,
+                                        "Failed to read product UUID from firmware.");
 
         r = sd_bus_message_read(m, "b", &interactive);
         if (r < 0)
@@ -657,7 +662,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append_array(reply, 'y', &c->uuid, sizeof(c->uuid));
+        r = sd_bus_message_append_array(reply, 'y', &uuid, sizeof(uuid));
         if (r < 0)
                 return r;
 
@@ -673,9 +678,9 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Deployment", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Location", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_LOCATION, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("KernelName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KernelRelease", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_RELEASE, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelName", "s", property_get_uname_field, offsetof(struct utsname, sysname), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelRelease", "s", property_get_uname_field, offsetof(struct utsname, release), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("KernelVersion", "s", property_get_uname_field, offsetof(struct utsname, version), SD_BUS_VTABLE_ABSOLUTE_OFFSET|SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HomeURL", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -780,7 +785,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_(context_destroy) Context context = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
