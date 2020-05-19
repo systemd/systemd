@@ -2233,7 +2233,6 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 assert(sd_id128_is_null(p->new_uuid));
-                assert(!p->new_label);
 
                 /* Never touch foreign partitions */
                 if (PARTITION_IS_FOREIGN(p)) {
@@ -2255,6 +2254,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (p->new_label) /* Explicitly set by user? */
+                        continue;
 
                 if (!isempty(p->current_label)) {
                         p->new_label = strdup(p->current_label); /* never change initialized labels */
