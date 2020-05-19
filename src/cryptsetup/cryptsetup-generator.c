@@ -237,18 +237,18 @@ static int create_disk(
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
                 *keydev_mount = NULL, *keyfile_timeout_value = NULL,
-                *filtered = NULL, *u_escaped = NULL, *name_escaped = NULL, *header_path = NULL, *password_buffer = NULL;
+                *filtered = NULL, *u_escaped = NULL, *name_escaped = NULL, *header_path = NULL, *password_buffer = NULL,
+                *tmp_fstype = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, tmp, swap, netdev, attach_in_initrd;
-        int r, detached_header, keyfile_can_timeout;
+        bool noauto, nofail, swap, netdev, attach_in_initrd;
+        int r, detached_header, keyfile_can_timeout, tmp;
 
         assert(name);
         assert(device);
 
         noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
         nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
-        tmp = fstab_test_option(options, "tmp\0");
         swap = fstab_test_option(options, "swap\0");
         netdev = fstab_test_option(options, "_netdev\0");
         attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
@@ -260,6 +260,10 @@ static int create_disk(
         detached_header = fstab_filter_options(options, "header\0", NULL, &header_path, NULL);
         if (detached_header < 0)
                 return log_error_errno(detached_header, "Failed to parse header= option value: %m");
+
+        tmp = fstab_filter_options(options, "tmp\0", NULL, &tmp_fstype, NULL);
+        if (tmp < 0)
+                return log_error_errno(tmp, "Failed to parse tmp= option value: %m");
 
         if (tmp && swap)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -371,10 +375,19 @@ static int create_disk(
         if (r < 0)
                 return r;
 
-        if (tmp)
+        if (tmp) {
+                _cleanup_free_ char *tmp_fstype_escaped = NULL;
+
+                if (tmp_fstype) {
+                        tmp_fstype_escaped = specifier_escape(tmp_fstype);
+                        if (!tmp_fstype_escaped)
+                                return log_oom();
+                }
+
                 fprintf(f,
-                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs ext2 '/dev/mapper/%s'\n",
-                        name_escaped);
+                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs '%s' '/dev/mapper/%s'\n",
+                        tmp_fstype_escaped ?: "ext4", name_escaped);
+        }
 
         if (swap)
                 fprintf(f,
