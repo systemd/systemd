@@ -471,6 +471,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s is currently not active", h->user_name);
         case -ENOSPC:
                 return sd_bus_error_setf(error, BUS_ERROR_NO_DISK_SPACE, "Not enough disk space for home %s", h->user_name);
+        case -EKEYREVOKED:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_CANT_AUTHENTICATE, "Home %s has no password or other authentication mechanism defined.", h->user_name);
         }
 
         return 0;

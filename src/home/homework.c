@@ -1489,6 +1489,7 @@ static int run(int argc, char *argv[]) {
          * EBUSY           → file system is currently active
          * ENOEXEC         → file system is currently not active
          * ENOSPC          → not enough disk space for operation
+         * EKEYREVOKED     → user record has not suitable hashed password or pkcs#11 entry, we cannot authenticate
          */
 
         if (streq(argv[1], "activate"))
