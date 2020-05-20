@@ -218,7 +218,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
 }
 
 int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value) {
-        _cleanup_free_ char *line = NULL;
+        _cleanup_free_ char *line = NULL, *v = NULL;
         int r;
 
         /* Looks for a specific key on the kernel command line and (with lower priority) the EFI variable.
@@ -245,14 +245,24 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (r < 0)
                 return r;
 
-        r = cmdline_get_key(line, key, flags, ret_value);
-        if (r != 0) /* Either error or true if found. */
+        r = cmdline_get_key(line, key, flags, ret_value ? &v : NULL);
+        if (r < 0)
                 return r;
+        if (r > 0) {
+                if (ret_value)
+                        *ret_value = TAKE_PTR(v);
+
+                return r;
+        }
 
         line = mfree(line);
         r = systemd_efi_options_variable(&line);
-        if (r == -ENODATA)
+        if (r == -ENODATA) {
+                if (ret_value)
+                        *ret_value = NULL;
+
                 return false; /* Not found */
+        }
         if (r < 0)
                 return r;
 
