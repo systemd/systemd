@@ -1488,6 +1488,12 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set ip service type: %m");
         }
 
+        if (link->network->dhcp_fallback_lease_lifetime > 0) {
+                r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed set to lease lifetime: %m");
+        }
+
         if (link->network->dhcp_send_decline) {
                 r = configure_dhcpv4_duplicate_address_detection(link);
                 if (r < 0)
@@ -1672,6 +1678,44 @@ int config_parse_dhcp_mud_url(
         }
 
         return free_and_strdup_warn(&network->dhcp_mudurl, unescaped);
+}
+
+int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        unsigned k;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp_fallback_lease_lifetime = 0;
+                return 0;
+        }
+
+        /* We accept only "forever" or "infinity". */
+        if (STR_IN_SET(rvalue, "forever", "infinity"))
+                k = CACHE_INFO_INFINITY_LIFE_TIME;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid LeaseLifetime= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        network->dhcp_fallback_lease_lifetime = k;
+
+        return 0;
 }
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
