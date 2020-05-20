@@ -2364,7 +2364,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
                 case HOME_UNFIXATED:
                 case HOME_ABSENT:
                 case HOME_INACTIVE:
-                        r = 0; /* done */
+                        r = 1; /* done */
                         break;
 
                 case HOME_LOCKED:
@@ -2384,7 +2384,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
 
         assert(!h->current_operation);
 
-        if (r <= 0) /* failure or completed */
+        if (r != 0) /* failure or completed */
                 operation_result(o, r, &error);
         else /* ongoing */
                 h->current_operation = operation_ref(o);
@@ -2406,12 +2406,12 @@ static int home_dispatch_lock_all(Home *h, Operation *o) {
         case HOME_ABSENT:
         case HOME_INACTIVE:
                 log_info("Home %s is not active, no locking necessary.", h->user_name);
-                r = 0; /* done */
+                r = 1; /* done */
                 break;
 
         case HOME_LOCKED:
                 log_info("Home %s is already locked.", h->user_name);
-                r = 0; /* done */
+                r = 1; /* done */
                 break;
 
         case HOME_ACTIVE:
