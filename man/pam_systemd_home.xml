@@ -73,7 +73,12 @@
         the re-authentication must take place from a component running outside of the user's context, so that
         it does not require access to the user's home directory for operation. Traditionally, most desktop
         environments do not implement screen locking this way, and need to be updated
-        accordingly.</para></listitem>
+        accordingly.</para>
+
+        <para>This setting may also be controlled via the <varname>$SYSTEMD_HOME_SUSPEND</varname>
+        environment variable (see below), which <command>pam_systemd_home</command> reads during initialization and sets
+        for sessions. If both the environment variable is set and the module parameter specified the latter
+        takes precedence.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,6 +108,15 @@
         <term><varname>$SYSTEMD_HOME=1</varname></term>
 
         <listitem><para>Indicates that the user's home directory is managed by <filename>systemd-homed.service</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$SYSTEMD_HOME_SUSPEND=</varname></term>
+
+        <listitem><para>Indicates whether the session has been registered with the suspend mechanism enabled
+        or disabled (see above). The variable's value is either <literal>0</literal> or
+        <literal>1</literal>. Note that the module both reads the variable when initializing, and sets it for
+        sessions.</para></listitem>
       </varlistentry>
 
     </variablelist>
