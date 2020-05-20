@@ -963,6 +963,7 @@ static int partition_read_definition(Partition *p, const char *path) {
         ConfigTableItem table[] = {
                 { "Partition", "Type",            config_parse_type,     0,  &p->type_uuid      },
                 { "Partition", "Label",           config_parse_label,    0,  &p->new_label      },
+                { "Partition", "UUID",            config_parse_id128,    0,  &p->new_uuid       },
                 { "Partition", "Priority",        config_parse_int32,    0,  &p->priority       },
                 { "Partition", "Weight",          config_parse_weight,   0,  &p->weight         },
                 { "Partition", "PaddingWeight",   config_parse_weight,   0,  &p->padding_weight },
@@ -2232,13 +2233,12 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         assert(context);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                assert(sd_id128_is_null(p->new_uuid));
-
                 /* Never touch foreign partitions */
                 if (PARTITION_IS_FOREIGN(p)) {
                         p->new_uuid = p->current_uuid;
 
                         if (p->current_label) {
+                                free(p->new_label);
                                 p->new_label = strdup(p->current_label);
                                 if (!p->new_label)
                                         return log_oom();
@@ -2249,20 +2249,21 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                 if (!sd_id128_is_null(p->current_uuid))
                         p->new_uuid = p->current_uuid; /* Never change initialized UUIDs */
-                else {
+                else if (sd_id128_is_null(p->new_uuid)) {
+                        /* Not explicitly set by user! */
                         r = partition_acquire_uuid(context, p, &p->new_uuid);
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->new_label) /* Explicitly set by user? */
-                        continue;
-
                 if (!isempty(p->current_label)) {
+                        free(p->new_label);
                         p->new_label = strdup(p->current_label); /* never change initialized labels */
                         if (!p->new_label)
                                 return log_oom();
-                } else {
+                } else if (!p->new_label) {
+                        /* Not explicitly set by user! */
+
                         r = partition_acquire_label(context, p, &p->new_label);
                         if (r < 0)
                                 return r;
