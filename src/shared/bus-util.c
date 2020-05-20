@@ -1591,6 +1591,12 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
                                                impl->path);
         }
 
+        if (impl->manager) {
+                r = sd_bus_add_object_manager(bus, NULL, impl->path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add object manager for %s: %m", impl->path);
+        }
+
         for (size_t i = 0; impl->children && impl->children[i]; i++) {
                 r = bus_add_implementation(bus, impl->children[i], userdata);
                 if (r < 0)
