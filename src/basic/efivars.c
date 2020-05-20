@@ -331,7 +331,7 @@ int systemd_efi_options_variable(char **line) {
                  * does, let's return a recognizable error (EPERM), and if not ENODATA. */
 
                 if (access(k, F_OK) < 0)
-                        return errno == -ENOENT ? -ENODATA : -errno;
+                        return errno == ENOENT ? -ENODATA : -errno;
 
                 return -EPERM;
         }
