@@ -296,6 +296,7 @@ int proc_cmdline_get_bool(const char *key, bool *ret) {
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         _cleanup_free_ char *line = NULL;
+        bool processing_efi = true;
         const char *p;
         va_list ap;
         int r, ret = 0;
@@ -306,9 +307,9 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
 
         /* This call may clobber arguments on failure! */
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                return r;
+        r = systemd_efi_options_variable(&line);
+        if (r < 0 && r != -ENODATA)
+                log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
 
         p = line;
         for (;;) {
@@ -317,8 +318,22 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
                 r = proc_cmdline_extract_first(&p, &word, flags);
                 if (r < 0)
                         return r;
-                if (r == 0)
+                if (r == 0) {
+                        /* We finished with this command line. If this was the EFI one, then let's proceed with the regular one */
+                        if (processing_efi) {
+                                processing_efi = false;
+
+                                line = mfree(line);
+                                r = proc_cmdline(&line);
+                                if (r < 0)
+                                        return r;
+
+                                p = line;
+                                continue;
+                        }
+
                         break;
+                }
 
                 va_start(ap, flags);
 
