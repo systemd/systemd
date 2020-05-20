@@ -1365,7 +1365,7 @@ static int manager_generate_key_pair(Manager *m) {
 
         if (rename(temp_private, "/var/lib/systemd/home/local.private") < 0) {
                 (void) unlink_noerrno("/var/lib/systemd/home/local.public"); /* try to remove the file we already created */
-                return log_error_errno(errno, "Failed to move privtate key file into place: %m");
+                return log_error_errno(errno, "Failed to move private key file into place: %m");
         }
         temp_private = mfree(temp_private);
 
