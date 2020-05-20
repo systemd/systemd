@@ -1814,7 +1814,7 @@ static int udev_rule_apply_token_to_event(
         case TK_M_IMPORT_CMDLINE: {
                 _cleanup_free_ char *value = NULL;
 
-                r = proc_cmdline_get_key(token->value, PROC_CMDLINE_VALUE_OPTIONAL, &value);
+                r = proc_cmdline_get_key(token->value, PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_IGNORE_EFI_OPTIONS, &value);
                 if (r < 0)
                         return log_rule_error_errno(dev, rules, r,
                                                     "Failed to read '%s' option from /proc/cmdline: %m",
