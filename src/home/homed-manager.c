@@ -329,15 +329,30 @@ static int manager_add_home_by_record(
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line, column;
         int r, is_signed;
+        struct stat st;
         Home *h;
 
         assert(m);
         assert(name);
         assert(fname);
 
+        if (fstatat(dir_fd, fname, &st, 0) < 0)
+                return log_error_errno(errno, "Failed to stat identity record %s: %m", fname);
+
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("Identity record file %s is not a regular file, ignoring.", fname);
+                return 0;
+        }
+
+        if (st.st_size == 0)
+                goto unlink_this_file;
+
         r = json_parse_file_at(NULL, dir_fd, fname, JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);
+
+        if (json_variant_is_blank_object(v))
+                goto unlink_this_file;
 
         hr = user_record_new();
         if (!hr)
@@ -394,6 +409,19 @@ static int manager_add_home_by_record(
         h->signed_locally = is_signed == USER_RECORD_SIGNED_EXCLUSIVE;
 
         return 1;
+
+unlink_this_file:
+        /* If this is an empty file, then let's just remove it. An empty file is not useful in any case, and
+         * apparently xfs likes to leave empty files around when not unmounted cleanly (see
+         * https://github.com/systemd/systemd/issues/15178 for example). Note that we don't delete non-empty
+         * files even if they are invalid, because that's just too risky, we might delete data the user still
+         * needs. But empty files are never useful, hence let's just remove them. */
+
+        if (unlinkat(dir_fd, fname, 0) < 0)
+                return log_error_errno(errno, "Failed to remove empty user record file %s: %m", fname);
+
+        log_notice("Discovered empty user record file /var/lib/systemd/home/%s, removed automatically.", fname);
+        return 0;
 }
 
 static int manager_enumerate_records(Manager *m) {
