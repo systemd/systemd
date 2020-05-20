@@ -360,6 +360,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.rw-only</option></term>
+
+        <listitem><para>If a mount operation fails to mount the file system
+        read-write, it normally tries mounting the file system read-only instead.
+        This option disables that behaviour, and causes the mount to fail
+        immediately instead. This option is translated into the
+        <varname>ReadWriteOnly=</varname> setting in a unit file.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>_netdev</option></term>
 
         <listitem><para>Normally the file system type is used to determine if a
@@ -494,6 +505,19 @@
         This corresponds with
         <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
         <parameter>-l</parameter> switch. Defaults to
+        off.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadWriteOnly=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If false, a mount
+        point that shall be mounted read-write but cannot be mounted
+        so is retried to be mounted read-only. If true the operation
+        will fail immediately after the read-write mount attempt did
+        not succeed. This corresponds with
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        <parameter>-w</parameter> switch. Defaults to
         off.</para></listitem>
       </varlistentry>
 
