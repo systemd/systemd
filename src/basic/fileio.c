@@ -164,6 +164,13 @@ static int write_string_file_atomic(
                 goto fail;
         }
 
+        if (FLAGS_SET(flags, WRITE_STRING_FILE_SYNC)) {
+                /* Sync the rename, too */
+                r = fsync_directory_of_file(fileno(f));
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 
 fail:
