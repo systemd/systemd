@@ -451,7 +451,7 @@ int bus_message_from_header(
         if (!IN_SET(h->version, 1, 2))
                 return -EBADMSG;
 
-        if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
+        if (h->type <= _SD_BUS_MESSAGE_TYPE_INVALID || h->type >= _SD_BUS_MESSAGE_TYPE_MAX)
                 return -EBADMSG;
 
         if (!IN_SET(h->endian, BUS_LITTLE_ENDIAN, BUS_BIG_ENDIAN))
@@ -589,7 +589,7 @@ _public_ int sd_bus_message_new(
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
-        assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
+        assert_return(type > _SD_BUS_MESSAGE_TYPE_INVALID && type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
         sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!t)
@@ -5202,29 +5202,34 @@ int bus_message_parse_fields(sd_bus_message *m) {
                  * table */
                 m->user_body_size = m->body_size - ((char*) m->footer + m->footer_accessible - p);
 
-                /* Pull out the offset table for the fields array */
-                sz = bus_gvariant_determine_word_size(m->fields_size, 0);
-                if (sz > 0) {
-                        size_t framing;
-                        void *q;
+                /* Pull out the offset table for the fields array, if any */
+                if (m->fields_size > 0) {
+                        sz = bus_gvariant_determine_word_size(m->fields_size, 0);
+                        if (sz > 0) {
+                                size_t framing;
+                                void *q;
 
-                        ri = m->fields_size - sz;
-                        r = message_peek_fields(m, &ri, 1, sz, &q);
-                        if (r < 0)
-                                return r;
+                                if (m->fields_size < sz)
+                                        return -EBADMSG;
 
-                        framing = bus_gvariant_read_word_le(q, sz);
-                        if (framing >= m->fields_size - sz)
-                                return -EBADMSG;
-                        if ((m->fields_size - framing) % sz != 0)
-                                return -EBADMSG;
+                                ri = m->fields_size - sz;
+                                r = message_peek_fields(m, &ri, 1, sz, &q);
+                                if (r < 0)
+                                        return r;
 
-                        ri = framing;
-                        r = message_peek_fields(m, &ri, 1, m->fields_size - framing, &offsets);
-                        if (r < 0)
-                                return r;
+                                framing = bus_gvariant_read_word_le(q, sz);
+                                if (framing >= m->fields_size - sz)
+                                        return -EBADMSG;
+                                if ((m->fields_size - framing) % sz != 0)
+                                        return -EBADMSG;
 
-                        n_offsets = (m->fields_size - framing) / sz;
+                                ri = framing;
+                                r = message_peek_fields(m, &ri, 1, m->fields_size - framing, &offsets);
+                                if (r < 0)
+                                        return r;
+
+                                n_offsets = (m->fields_size - framing) / sz;
+                        }
                 }
         } else
                 m->user_body_size = m->body_size;
@@ -5492,6 +5497,9 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 if (m->reply_cookie == 0 || !m->error.name)
                         return -EBADMSG;
                 break;
+
+        default:
+                assert_not_reached("Bad message type");
         }
 
         /* Refuse non-local messages that claim they are local */
