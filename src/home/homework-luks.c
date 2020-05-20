@@ -727,9 +727,10 @@ static int luks_validate_home_record(
                 if (!user_record_compatible(h, lhr))
                         return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "LUKS home record not compatible with host record, refusing.");
 
-                r = user_record_authenticate(lhr, h, pkcs11_decrypted_passwords);
+                r = user_record_authenticate(lhr, h, pkcs11_decrypted_passwords, /* strict_verify= */ true);
                 if (r < 0)
                         return r;
+                assert(r > 0); /* Insist that a password was verified */
 
                 *ret_luks_home_record = TAKE_PTR(lhr);
                 return 0;

@@ -35,7 +35,8 @@
 int user_record_authenticate(
                 UserRecord *h,
                 UserRecord *secret,
-                char ***pkcs11_decrypted_passwords) {
+                char ***pkcs11_decrypted_passwords,
+                bool strict_verify) {
 
         bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false,
                 pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false;
@@ -66,7 +67,7 @@ int user_record_authenticate(
                 return log_error_errno(r, "Failed to validate password of record: %m");
         else {
                 log_info("Provided password unlocks user record.");
-                return 0;
+                return 1;
         }
 
         /* Second, let's see if any of the PKCS#11 security tokens are plugged in and help us */
@@ -86,7 +87,7 @@ int user_record_authenticate(
                                 return log_error_errno(r, "Failed to check supplied PKCS#11 password: %m");
                         if (r > 0) {
                                 log_info("Previously acquired PKCS#11 password unlocks user record.");
-                                return 0;
+                                return 1;
                         }
                 }
 
@@ -129,7 +130,7 @@ int user_record_authenticate(
                         if (r < 0)
                                 return log_oom();
 
-                        return 0;
+                        return 1;
                 }
 #else
                 need_token = true;
@@ -156,7 +157,18 @@ int user_record_authenticate(
                 return -ENOKEY;
 
         /* Hmm, this means neither PCKS#11 nor classic hashed passwords were supplied, we cannot authenticate this reasonably */
-        return log_debug_errno(SYNTHETIC_ERRNO(EKEYREVOKED), "No hashed passwords and no PKCS#11 tokens defined, cannot authenticate user record.");
+        if (strict_verify)
+                return log_debug_errno(SYNTHETIC_ERRNO(EKEYREVOKED),
+                                       "No hashed passwords and no PKCS#11 tokens defined, cannot authenticate user record, refusing.");
+
+        /* If strict verification is off this means we are possibly in the case where we encountered an
+         * unfixated record, i.e. a synthetic one that accordingly lacks any authentication data. In this
+         * case, allow the authentication to pass for now, so that the second (or third) authentication level
+         * (the ones of the user record in the LUKS header or inside the home directory) will then catch
+         * invalid passwords. The second/third authentication always runs in strict verification mode. */
+        log_debug("No hashed passwords and no PKCS#11 tokens defined in record, cannot authenticate user record. "
+                  "Deferring to embedded user record.");
+        return 0;
 }
 
 int home_setup_undo(HomeSetup *setup) {
@@ -402,9 +414,10 @@ int home_load_embedded_identity(
                 return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "Embedded home record not compatible with host record, refusing.");
 
         /* Insist that credentials the user supplies also unlocks any embedded records. */
-        r = user_record_authenticate(embedded_home, h, pkcs11_decrypted_passwords);
+        r = user_record_authenticate(embedded_home, h, pkcs11_decrypted_passwords, /* strict_verify= */ true);
         if (r < 0)
                 return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         /* At this point we have three records to deal with:
          *
@@ -615,7 +628,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Activating home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords);
+        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
@@ -1177,9 +1190,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         assert(h);
         assert(ret);
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords);
+        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ true);
         if (r < 0)
                 return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup);
         if (r < 0)
@@ -1233,9 +1247,10 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords);
+        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ true);
         if (r < 0)
                 return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup);
         if (r < 0)
@@ -1343,7 +1358,7 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         assert(h);
         assert(ret_home);
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords);
+        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
@@ -1413,7 +1428,7 @@ static int home_unlock(UserRecord *h) {
         /* Note that we don't check if $HOME is actually mounted, since we want to avoid disk accesses on
          * that mount until we have resumed the device. */
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords);
+        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
