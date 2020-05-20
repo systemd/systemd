@@ -1337,7 +1337,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
 
-        r = fflush_and_check(fpublic);
+        r = fflush_sync_and_check(fpublic);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
 
@@ -1351,7 +1351,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, 0) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
 
-        r = fflush_and_check(fprivate);
+        r = fflush_sync_and_check(fprivate);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
 
@@ -1368,6 +1368,10 @@ static int manager_generate_key_pair(Manager *m) {
                 return log_error_errno(errno, "Failed to move private key file into place: %m");
         }
         temp_private = mfree(temp_private);
+
+        r = fsync_path_at(AT_FDCWD, "/var/lib/systemd/home/");
+        if (r < 0)
+                log_warning_errno(r, "Failed to sync /var/lib/systemd/home/, ignoring: %m");
 
         return 1;
 }
