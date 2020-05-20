@@ -292,7 +292,7 @@ int home_save_record(Home *h) {
 
         fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
 
-        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600);
+        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return r;
 
