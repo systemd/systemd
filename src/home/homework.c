@@ -985,7 +985,7 @@ static int home_remove(UserRecord *h) {
                 assert(ip);
 
                 if (stat(ip, &st) < 0) {
-                        if (errno != -ENOENT)
+                        if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to stat() %s: %m", ip);
 
                 } else {

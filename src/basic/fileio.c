@@ -381,7 +381,7 @@ int read_full_virtual_file(const char *filename, char **ret_contents, size_t *re
                                 break;
                         }
 
-                        if (errno != -EINTR)
+                        if (errno != EINTR)
                                 return -errno;
                 }
 

@@ -517,7 +517,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
         if (!force) {
                 fd_to = open(to, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                 if (fd_to < 0) {
-                        if (errno != -ENOENT)
+                        if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open \"%s\" for reading: %m", to);
                 } else {
                         r = version_check(fd_from, from, fd_to, to);
