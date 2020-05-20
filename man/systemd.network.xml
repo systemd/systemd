@@ -1623,6 +1623,15 @@
           </listitem>
         </varlistentry>
 
+         <varlistentry>
+          <term><varname>FallbackLeaseLifetimeSec=</varname></term>
+          <listitem>
+            <para>Allows to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease lifetime.
+            Takes one of <literal>forever</literal> or <literal>infinity</literal> means that the address
+            never expires. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><varname>SendRelease=</varname></term>
           <listitem>

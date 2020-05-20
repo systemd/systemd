@@ -105,6 +105,7 @@ SendVendorOption=
 SendDecline=
 MUDURL=
 RouteMTUBytes=
+FallbackLeaseLifetimeSec=
 [DHCPv6]
 UseNTP=
 UseDNS=
