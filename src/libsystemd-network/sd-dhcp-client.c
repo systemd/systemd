@@ -87,6 +87,7 @@ struct sd_dhcp_client {
         char *mudurl;
         char **user_class;
         uint32_t mtu;
+        uint32_t fallback_lease_lifetime;
         uint32_t xid;
         usec_t start_time;
         uint64_t attempt;
@@ -608,6 +609,15 @@ int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
         assert_return(client, -EINVAL);
 
         client->ip_service_type = type;
+
+        return 0;
+}
+
+int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint32_t fallback_lease_lifetime) {
+        assert_return(client, -EINVAL);
+        assert_return(fallback_lease_lifetime > 0, -EINVAL);
+
+        client->fallback_lease_lifetime = fallback_lease_lifetime;
 
         return 0;
 }
@@ -1418,6 +1428,9 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
 
         lease->next_server = offer->siaddr;
         lease->address = offer->yiaddr;
+
+        if (lease->lifetime == 0 && client->fallback_lease_lifetime > 0)
+                lease->lifetime = client->fallback_lease_lifetime;
 
         if (lease->address == 0 ||
             lease->server_address == 0 ||
