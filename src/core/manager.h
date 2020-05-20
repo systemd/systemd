@@ -114,6 +114,13 @@ typedef enum ManagerTimestamp {
         _MANAGER_TIMESTAMP_INVALID = -1,
 } ManagerTimestamp;
 
+typedef enum WatchdogType {
+        WATCHDOG_RUNTIME,
+        WATCHDOG_REBOOT,
+        WATCHDOG_KEXEC,
+        _WATCHDOG_TYPE_MAX,
+} WatchdogType;
+
 #include "execute.h"
 #include "job.h"
 #include "path-lookup.h"
@@ -231,9 +238,8 @@ struct Manager {
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */
 
-        usec_t runtime_watchdog;
-        usec_t reboot_watchdog;
-        usec_t kexec_watchdog;
+        usec_t watchdog[_WATCHDOG_TYPE_MAX];
+        usec_t watchdog_overridden[_WATCHDOG_TYPE_MAX];
 
         dual_timestamp timestamps[_MANAGER_TIMESTAMP_MAX];
 
@@ -510,7 +516,6 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
 void manager_set_first_boot(Manager *m, bool b);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
-void manager_flip_auto_status(Manager *m, bool enable, const char *reason);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
@@ -523,15 +528,6 @@ int manager_ref_uid(Manager *m, uid_t uid, bool clean_ipc);
 
 void manager_unref_gid(Manager *m, gid_t gid, bool destroy_now);
 int manager_ref_gid(Manager *m, gid_t gid, bool destroy_now);
-
-void manager_vacuum_uid_refs(Manager *m);
-void manager_vacuum_gid_refs(Manager *m);
-
-void manager_serialize_uid_refs(Manager *m, FILE *f);
-void manager_deserialize_uid_refs_one(Manager *m, const char *value);
-
-void manager_serialize_gid_refs(Manager *m, FILE *f);
-void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
 char *manager_taint_string(Manager *m);
 
@@ -554,6 +550,10 @@ void manager_disable_confirm_spawn(void);
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
 ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;
 ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
+
+usec_t manager_get_watchdog(Manager *m, WatchdogType t);
+void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
+int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

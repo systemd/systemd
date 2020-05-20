@@ -110,6 +110,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
 static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
+static void manager_vacuum(Manager *m);
 
 static usec_t manager_watch_jobs_next_time(Manager *m) {
         return usec_add(now(CLOCK_MONOTONIC),
@@ -181,7 +182,7 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
         }
 }
 
-void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
+static void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
         assert(m);
 
         if (enable) {
@@ -778,6 +779,10 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
+
+                .watchdog_overridden[WATCHDOG_RUNTIME] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_REBOOT] = USEC_INFINITY,
+                .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
 
                 .notify_fd = -1,
                 .cgroups_agent_fd = -1,
@@ -1594,20 +1599,6 @@ static void manager_preset_all(Manager *m) {
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
         else
                 log_info("Populated /etc with preset unit settings.");
-}
-
-static void manager_vacuum(Manager *m) {
-        assert(m);
-
-        /* Release any dynamic users no longer referenced */
-        dynamic_user_vacuum(m, true);
-
-        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
-        manager_vacuum_uid_refs(m);
-        manager_vacuum_gid_refs(m);
-
-        /* Release any runtimes no longer referenced */
-        exec_runtime_vacuum(m);
 }
 
 static void manager_ready(Manager *m) {
@@ -2922,9 +2913,10 @@ int manager_loop(Manager *m) {
                 return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
         while (m->objective == MANAGER_OK) {
-                usec_t wait_usec;
+                usec_t wait_usec, watchdog_usec;
 
-                if (timestamp_is_set(m->runtime_watchdog) && MANAGER_IS_SYSTEM(m))
+                watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
+                if (timestamp_is_set(watchdog_usec))
                         watchdog_ping();
 
                 if (!ratelimit_below(&rl)) {
@@ -2955,7 +2947,7 @@ int manager_loop(Manager *m) {
                         continue;
 
                 /* Sleep for watchdog runtime wait time */
-                if (MANAGER_IS_SYSTEM(m))
+                if (timestamp_is_set(watchdog_usec))
                         wait_usec = watchdog_runtime_wait();
                 else
                         wait_usec = USEC_INFINITY;
@@ -3158,6 +3150,47 @@ static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
                        MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 }
 
+#define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
+
+static void manager_serialize_uid_refs_internal(
+                Manager *m,
+                FILE *f,
+                Hashmap **uid_refs,
+                const char *field_name) {
+
+        Iterator i;
+        void *p, *k;
+
+        assert(m);
+        assert(f);
+        assert(uid_refs);
+        assert(field_name);
+
+        /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as
+         * the actual counter of it is better rebuild after a reload/reexec. */
+
+        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
+                uint32_t c;
+                uid_t uid;
+
+                uid = PTR_TO_UID(k);
+                c = PTR_TO_UINT32(p);
+
+                if (!(c & DESTROY_IPC_FLAG))
+                        continue;
+
+                (void) serialize_item_format(f, field_name, UID_FMT, uid);
+        }
+}
+
+static void manager_serialize_uid_refs(Manager *m, FILE *f) {
+        manager_serialize_uid_refs_internal(m, f, &m->uid_refs, "destroy-ipc-uid");
+}
+
+static void manager_serialize_gid_refs(Manager *m, FILE *f) {
+        manager_serialize_uid_refs_internal(m, f, &m->gid_refs, "destroy-ipc-gid");
+}
+
 int manager_serialize(
                 Manager *m,
                 FILE *f,
@@ -3195,6 +3228,10 @@ int manager_serialize(
                 (void) serialize_item_format(f, "log-level-override", "%i", log_get_max_level());
         if (m->log_target_overridden)
                 (void) serialize_item(f, "log-target-override", log_target_to_string(log_get_target()));
+
+        (void) serialize_usec(f, "runtime-watchdog-overridden", m->watchdog_overridden[WATCHDOG_RUNTIME]);
+        (void) serialize_usec(f, "reboot-watchdog-overridden", m->watchdog_overridden[WATCHDOG_REBOOT]);
+        (void) serialize_usec(f, "kexec-watchdog-overridden", m->watchdog_overridden[WATCHDOG_KEXEC]);
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
@@ -3328,6 +3365,114 @@ static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
         return 0;
 }
 
+usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return USEC_INFINITY;
+
+        if (timestamp_is_set(m->watchdog_overridden[t]))
+                return m->watchdog_overridden[t];
+
+        return m->watchdog[t];
+}
+
+void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
+        int r = 0;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return;
+
+        if (m->watchdog[t] == timeout)
+                return;
+
+        if (t == WATCHDOG_RUNTIME)
+                if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME])) {
+                        if (timestamp_is_set(timeout))
+                                r = watchdog_set_timeout(&timeout);
+                        else
+                                watchdog_close(true);
+                }
+
+        if (r >= 0)
+                m->watchdog[t] = timeout;
+}
+
+int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout) {
+        int r = 0;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m))
+                return 0;
+
+        if (m->watchdog_overridden[t] == timeout)
+                return 0;
+
+        if (t == WATCHDOG_RUNTIME) {
+                usec_t *p;
+
+                p = timestamp_is_set(timeout) ? &timeout : &m->watchdog[t];
+                if (timestamp_is_set(*p))
+                        r = watchdog_set_timeout(p);
+                else
+                        watchdog_close(true);
+        }
+
+        if (r >= 0)
+                m->watchdog_overridden[t] = timeout;
+
+        return 0;
+}
+
+static void manager_deserialize_uid_refs_one_internal(
+                Manager *m,
+                Hashmap** uid_refs,
+                const char *value) {
+
+        uid_t uid;
+        uint32_t c;
+        int r;
+
+        assert(m);
+        assert(uid_refs);
+        assert(value);
+
+        r = parse_uid(value, &uid);
+        if (r < 0 || uid == 0) {
+                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
+                return;
+        }
+
+        r = hashmap_ensure_allocated(uid_refs, &trivial_hash_ops);
+        if (r < 0) {
+                log_oom();
+                return;
+        }
+
+        c = PTR_TO_UINT32(hashmap_get(*uid_refs, UID_TO_PTR(uid)));
+        if (c & DESTROY_IPC_FLAG)
+                return;
+
+        c |= DESTROY_IPC_FLAG;
+
+        r = hashmap_replace(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to add UID reference entry: %m");
+                return;
+        }
+}
+
+static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
+        manager_deserialize_uid_refs_one_internal(m, &m->uid_refs, value);
+}
+
+static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
+        manager_deserialize_uid_refs_one_internal(m, &m->gid_refs, value);
+}
+
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         int r = 0;
 
@@ -3450,6 +3595,30 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse log-target-override value '%s', ignoring.", val);
                         else
                                 manager_override_log_target(m, target);
+
+                } else if ((val = startswith(l, "runtime-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse runtime-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_RUNTIME, t);
+
+                } else if ((val = startswith(l, "reboot-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse reboot-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_REBOOT, t);
+
+                } else if ((val = startswith(l, "kexec-watchdog-overridden="))) {
+                        usec_t t;
+
+                        if (deserialize_usec(val, &t) < 0)
+                                log_notice("Failed to parse kexec-watchdog-overridden value '%s', ignoring.", val);
+                        else
+                                manager_set_watchdog_overridden(m, WATCHDOG_KEXEC, t);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(l + 4, &m->client_environment);
@@ -4301,8 +4470,6 @@ ManagerState manager_state(Manager *m) {
         return MANAGER_RUNNING;
 }
 
-#define DESTROY_IPC_FLAG (UINT32_C(1) << 31)
-
 static void manager_unref_uid_internal(
                 Manager *m,
                 Hashmap **uid_refs,
@@ -4441,97 +4608,26 @@ static void manager_vacuum_uid_refs_internal(
         }
 }
 
-void manager_vacuum_uid_refs(Manager *m) {
+static void manager_vacuum_uid_refs(Manager *m) {
         manager_vacuum_uid_refs_internal(m, &m->uid_refs, clean_ipc_by_uid);
 }
 
-void manager_vacuum_gid_refs(Manager *m) {
+static void manager_vacuum_gid_refs(Manager *m) {
         manager_vacuum_uid_refs_internal(m, &m->gid_refs, clean_ipc_by_gid);
 }
 
-static void manager_serialize_uid_refs_internal(
-                Manager *m,
-                FILE *f,
-                Hashmap **uid_refs,
-                const char *field_name) {
-
-        Iterator i;
-        void *p, *k;
-
+static void manager_vacuum(Manager *m) {
         assert(m);
-        assert(f);
-        assert(uid_refs);
-        assert(field_name);
 
-        /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as the actual counter
-         * of it is better rebuild after a reload/reexec. */
+        /* Release any dynamic users no longer referenced */
+        dynamic_user_vacuum(m, true);
 
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
-                uint32_t c;
-                uid_t uid;
+        /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
+        manager_vacuum_uid_refs(m);
+        manager_vacuum_gid_refs(m);
 
-                uid = PTR_TO_UID(k);
-                c = PTR_TO_UINT32(p);
-
-                if (!(c & DESTROY_IPC_FLAG))
-                        continue;
-
-                (void) serialize_item_format(f, field_name, UID_FMT, uid);
-        }
-}
-
-void manager_serialize_uid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->uid_refs, "destroy-ipc-uid");
-}
-
-void manager_serialize_gid_refs(Manager *m, FILE *f) {
-        manager_serialize_uid_refs_internal(m, f, &m->gid_refs, "destroy-ipc-gid");
-}
-
-static void manager_deserialize_uid_refs_one_internal(
-                Manager *m,
-                Hashmap** uid_refs,
-                const char *value) {
-
-        uid_t uid;
-        uint32_t c;
-        int r;
-
-        assert(m);
-        assert(uid_refs);
-        assert(value);
-
-        r = parse_uid(value, &uid);
-        if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID reference serialization: " UID_FMT, uid);
-                return;
-        }
-
-        r = hashmap_ensure_allocated(uid_refs, &trivial_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return;
-        }
-
-        c = PTR_TO_UINT32(hashmap_get(*uid_refs, UID_TO_PTR(uid)));
-        if (c & DESTROY_IPC_FLAG)
-                return;
-
-        c |= DESTROY_IPC_FLAG;
-
-        r = hashmap_replace(*uid_refs, UID_TO_PTR(uid), UINT32_TO_PTR(c));
-        if (r < 0) {
-                log_debug_errno(r, "Failed to add UID reference entry: %m");
-                return;
-        }
-}
-
-void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
-        manager_deserialize_uid_refs_one_internal(m, &m->uid_refs, value);
-}
-
-void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
-        manager_deserialize_uid_refs_one_internal(m, &m->gid_refs, value);
+        /* Release any runtimes no longer referenced */
+        exec_runtime_vacuum(m);
 }
 
 int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {

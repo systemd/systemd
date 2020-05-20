@@ -713,15 +713,17 @@ static void set_manager_settings(Manager *m) {
 
         assert(m);
 
-        /* Propagates the various manager settings into the manager object, i.e. properties that effect the manager
-         * itself (as opposed to just being inherited into newly allocated units, see set_manager_defaults() above). */
+        /* Propagates the various manager settings into the manager object, i.e. properties that
+         * effect the manager itself (as opposed to just being inherited into newly allocated
+         * units, see set_manager_defaults() above). */
 
         m->confirm_spawn = arg_confirm_spawn;
         m->service_watchdogs = arg_service_watchdogs;
-        m->runtime_watchdog = arg_runtime_watchdog;
-        m->reboot_watchdog = arg_reboot_watchdog;
-        m->kexec_watchdog = arg_kexec_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
+
+        manager_set_watchdog(m, WATCHDOG_RUNTIME, arg_runtime_watchdog);
+        manager_set_watchdog(m, WATCHDOG_REBOOT, arg_reboot_watchdog);
+        manager_set_watchdog(m, WATCHDOG_KEXEC, arg_kexec_watchdog);
 
         manager_set_show_status(m, arg_show_status, "commandline");
         m->status_unit_format = arg_status_unit_format;
@@ -1816,6 +1818,7 @@ static int invoke_main_loop(
                         (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
 
                         set_manager_defaults(m);
+                        set_manager_settings(m);
 
                         update_cpu_affinity(false);
                         update_numa_policy(false);
@@ -2006,9 +2009,6 @@ static int initialize_runtime(
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
                 }
-
-                if (timestamp_is_set(arg_runtime_watchdog))
-                        watchdog_set_timeout(&arg_runtime_watchdog);
         }
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
@@ -2281,29 +2281,6 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
 
         /* Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
-
-        return 0;
-}
-
-static int load_configuration(
-                int argc,
-                char **argv,
-                const struct rlimit *saved_rlimit_nofile,
-                const struct rlimit *saved_rlimit_memlock,
-                const char **ret_error_message) {
-        int r;
-
-        assert(saved_rlimit_nofile);
-        assert(saved_rlimit_memlock);
-        assert(ret_error_message);
-
-        (void) parse_configuration(saved_rlimit_nofile, saved_rlimit_memlock);
-
-        r = parse_argv(argc, argv);
-        if (r < 0) {
-                *ret_error_message = "Failed to parse commandline arguments";
-                return r;
-        }
 
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -2650,9 +2627,13 @@ int main(int argc, char *argv[]) {
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
 
-        r = load_configuration(argc, argv, &saved_rlimit_nofile, &saved_rlimit_memlock, &error_message);
-        if (r < 0)
+        (void) parse_configuration(&saved_rlimit_nofile, &saved_rlimit_memlock);
+
+        r = parse_argv(argc, argv);
+        if (r < 0) {
+                error_message = "Failed to parse commandline arguments";
                 goto finish;
+        }
 
         r = safety_checks();
         if (r < 0)
@@ -2787,8 +2768,8 @@ finish:
         pager_close();
 
         if (m) {
-                arg_reboot_watchdog = m->reboot_watchdog;
-                arg_kexec_watchdog = m->kexec_watchdog;
+                arg_reboot_watchdog = manager_get_watchdog(m, WATCHDOG_REBOOT);
+                arg_kexec_watchdog = manager_get_watchdog(m, WATCHDOG_KEXEC);
                 m = manager_free(m);
         }
 

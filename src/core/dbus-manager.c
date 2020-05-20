@@ -244,6 +244,76 @@ static int property_get_show_status(
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
+static int property_get_runtime_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_get_watchdog(m, WATCHDOG_RUNTIME));
+}
+
+static int property_get_reboot_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_get_watchdog(m, WATCHDOG_REBOOT));
+}
+
+static int property_get_kexec_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
+        assert(bus);
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", manager_get_watchdog(m, WATCHDOG_KEXEC));
+}
+
+static int property_set_watchdog(Manager *m, WatchdogType type, sd_bus_message *value) {
+        usec_t timeout;
+        int r;
+
+        assert(m);
+        assert(value);
+
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
+
+        r = sd_bus_message_read(value, "t", &timeout);
+        if (r < 0)
+                return r;
+
+        return manager_set_watchdog_overridden(m, type, timeout);
+}
+
 static int property_set_runtime_watchdog(
                 sd_bus *bus,
                 const char *path,
@@ -253,19 +323,37 @@ static int property_set_runtime_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        usec_t *t = userdata;
-        int r;
+        return property_set_watchdog(userdata, WATCHDOG_RUNTIME, value);
+}
 
+static int property_set_reboot_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        return property_set_watchdog(userdata, WATCHDOG_REBOOT, value);
+}
+
+static int property_set_kexec_watchdog(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(m);
         assert(bus);
         assert(value);
 
-        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
-
-        r = sd_bus_message_read(value, "t", t);
-        if (r < 0)
-                return r;
-
-        return watchdog_set_timeout(t);
+        return property_set_watchdog(userdata, WATCHDOG_KEXEC, value);
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -2404,11 +2492,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.search_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", bus_property_get_usec, property_set_runtime_watchdog, offsetof(Manager, runtime_watchdog), 0),
-        SD_BUS_WRITABLE_PROPERTY("RebootWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, reboot_watchdog), 0),
+        SD_BUS_WRITABLE_PROPERTY("RuntimeWatchdogUSec", "t", property_get_runtime_watchdog, property_set_runtime_watchdog, 0, 0),
+        SD_BUS_WRITABLE_PROPERTY("RebootWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, 0),
         /* The following item is an obsolete alias */
-        SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, reboot_watchdog), SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_WRITABLE_PROPERTY("KExecWatchdogUSec", "t", bus_property_get_usec, bus_property_set_usec, offsetof(Manager, kexec_watchdog), 0),
+        SD_BUS_WRITABLE_PROPERTY("ShutdownWatchdogUSec", "t", property_get_reboot_watchdog, property_set_reboot_watchdog, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_WRITABLE_PROPERTY("KExecWatchdogUSec", "t", property_get_kexec_watchdog, property_set_kexec_watchdog, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("ServiceWatchdogs", "b", bus_property_get_bool, bus_property_set_bool, offsetof(Manager, service_watchdogs), 0),
         SD_BUS_PROPERTY("ControlGroup", "s", NULL, offsetof(Manager, cgroup_root), 0),
         SD_BUS_PROPERTY("SystemState", "s", property_get_system_state, 0, 0),
