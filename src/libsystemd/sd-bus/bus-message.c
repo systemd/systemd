@@ -5202,29 +5202,34 @@ int bus_message_parse_fields(sd_bus_message *m) {
                  * table */
                 m->user_body_size = m->body_size - ((char*) m->footer + m->footer_accessible - p);
 
-                /* Pull out the offset table for the fields array */
-                sz = bus_gvariant_determine_word_size(m->fields_size, 0);
-                if (sz > 0) {
-                        size_t framing;
-                        void *q;
+                /* Pull out the offset table for the fields array, if any */
+                if (m->fields_size > 0) {
+                        sz = bus_gvariant_determine_word_size(m->fields_size, 0);
+                        if (sz > 0) {
+                                size_t framing;
+                                void *q;
 
-                        ri = m->fields_size - sz;
-                        r = message_peek_fields(m, &ri, 1, sz, &q);
-                        if (r < 0)
-                                return r;
+                                if (m->fields_size < sz)
+                                        return -EBADMSG;
 
-                        framing = bus_gvariant_read_word_le(q, sz);
-                        if (framing >= m->fields_size - sz)
-                                return -EBADMSG;
-                        if ((m->fields_size - framing) % sz != 0)
-                                return -EBADMSG;
+                                ri = m->fields_size - sz;
+                                r = message_peek_fields(m, &ri, 1, sz, &q);
+                                if (r < 0)
+                                        return r;
 
-                        ri = framing;
-                        r = message_peek_fields(m, &ri, 1, m->fields_size - framing, &offsets);
-                        if (r < 0)
-                                return r;
+                                framing = bus_gvariant_read_word_le(q, sz);
+                                if (framing >= m->fields_size - sz)
+                                        return -EBADMSG;
+                                if ((m->fields_size - framing) % sz != 0)
+                                        return -EBADMSG;
 
-                        n_offsets = (m->fields_size - framing) / sz;
+                                ri = framing;
+                                r = message_peek_fields(m, &ri, 1, m->fields_size - framing, &offsets);
+                                if (r < 0)
+                                        return r;
+
+                                n_offsets = (m->fields_size - framing) / sz;
+                        }
                 }
         } else
                 m->user_body_size = m->body_size;
