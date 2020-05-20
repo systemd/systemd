@@ -41,12 +41,7 @@
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus-vtable.h&gt;</funcsynopsisinfo>
 
-      <funcprototype>
-        <funcdef>typedef int (*<function>sd_bus_message_handler_t</function>)</funcdef>
-        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
-        <paramdef>void *<parameter>userdata</parameter></paramdef>
-        <paramdef>sd_bus_error *<parameter>ret_error</parameter></paramdef>
-      </funcprototype>
+      <xi:include href="sd_bus_add_match.xml" xpointer="sd_bus_message_handler_t"/>
 
       <funcprototype>
         <funcdef>typedef int (*<function>sd_bus_property_get_t</function>)</funcdef>
