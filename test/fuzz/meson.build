@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
-sanitize_address = custom_target(
-        'sanitize-address-fuzzers',
-        output : 'sanitize-address-fuzzers',
+sanitize_address_undefined = custom_target(
+        'sanitize-address-undefined-fuzzers',
+        output : 'sanitize-address-undefined-fuzzers',
         command : [meson_build_sh,
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Db_lundef=false -Db_sanitize=address',
+                   '-Db_lundef=false -Db_sanitize=address,undefined',
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
 
-sanitizers = [['address', sanitize_address]]
+sanitizers = [['address,undefined', sanitize_address_undefined]]
 
 if git.found()
         out = run_command(
