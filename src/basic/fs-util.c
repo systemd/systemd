@@ -23,6 +23,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -1303,10 +1304,12 @@ void unlink_tempfilep(char (*p)[]) {
                 (void) unlink_noerrno(*p);
 }
 
-int unlinkat_deallocate(int fd, const char *name, int flags) {
+int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
         _cleanup_close_ int truncate_fd = -1;
         struct stat st;
         off_t l, bs;
+
+        assert((flags & ~(UNLINK_REMOVEDIR|UNLINK_ERASE)) == 0);
 
         /* Operates like unlinkat() but also deallocates the file contents if it is a regular file and there's no other
          * link to it. This is useful to ensure that other processes that might have the file open for reading won't be
@@ -1324,7 +1327,7 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
          * Note that we attempt deallocation, but failure to succeed with that is not considered fatal, as long as the
          * primary job – to delete the file – is accomplished. */
 
-        if ((flags & AT_REMOVEDIR) == 0) {
+        if (!FLAGS_SET(flags, UNLINK_REMOVEDIR)) {
                 truncate_fd = openat(fd, name, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
                 if (truncate_fd < 0) {
 
@@ -1340,7 +1343,7 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
                 }
         }
 
-        if (unlinkat(fd, name, flags) < 0)
+        if (unlinkat(fd, name, FLAGS_SET(flags, UNLINK_REMOVEDIR) ? AT_REMOVEDIR : 0) < 0)
                 return -errno;
 
         if (truncate_fd < 0) /* Don't have a file handle, can't do more ☹️ */
@@ -1351,7 +1354,45 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
                 return 0;
         }
 
-        if (!S_ISREG(st.st_mode) || st.st_blocks == 0 || st.st_nlink > 0)
+        if (!S_ISREG(st.st_mode))
+                return 0;
+
+        if (FLAGS_SET(flags, UNLINK_ERASE) && st.st_size > 0 && st.st_nlink == 0) {
+                uint64_t left = st.st_size;
+                char buffer[64 * 1024];
+
+                /* If erasing is requested, let's overwrite the file with random data once before deleting
+                 * it. This isn't going to give you shred(1) semantics, but hopefully should be good enough
+                 * for stuff backed by tmpfs at least.
+                 *
+                 * Note that we only erase like this if the link count of the file is zero. If it is higer it
+                 * is still linked by someone else and we'll leave it to them to remove it securely
+                 * eventually! */
+
+                random_bytes(buffer, sizeof(buffer));
+
+                while (left > 0) {
+                        ssize_t n;
+
+                        n = write(truncate_fd, buffer, MIN(sizeof(buffer), left));
+                        if (n < 0) {
+                                log_debug_errno(errno, "Failed to erase data in file '%s', ignoring.", name);
+                                break;
+                        }
+
+                        assert(left >= (size_t) n);
+                        left -= n;
+                }
+
+                /* Let's refresh metadata */
+                if (fstat(truncate_fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat file '%s' for deallocation, ignoring: %m", name);
+                        return 0;
+                }
+        }
+
+        /* Don't dallocate if there's nothing to deallocate or if the file is linked elsewhere */
+        if (st.st_blocks == 0 || st.st_nlink > 0)
                 return 0;
 
         /* If this is a regular file, it actually took up space on disk and there are no other links it's time to

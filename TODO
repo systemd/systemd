@@ -22,6 +22,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* machined: add API to acquire UID range. add API to mount/dissect loopback
+  file. Both protected by PK. Then make nspawn use these APIs to run
+  unprivileged containers. i.e. push the truly privileged bits into machined,
+  so that the client side can remain entirely unprivileged, with SUID or
+  anything like that.
+
 * add "throttling" to sd-event event sources: optionally, when we wake up too
   often for one, let's turn it off entirely for a while. Use that for the
   /proc/self/mountinfo logic.
@@ -1203,17 +1209,14 @@ Features:
 * networkd:
    - add more keys to [Route] and [Address] sections
    - add support for more DHCPv4 options (and, longer term, other kinds of dynamic config)
-   - add proper initrd support (in particular generate .network/.link files based on /proc/cmdline)
    - add reduced [Link] support to .network files
-   - add Scope= parsing option for [Network]
    - properly handle routerless dhcp leases
    - work with non-Ethernet devices
-   - add support for more bond options
    - dhcp: do we allow configuring dhcp routes on interfaces that are not the one we got the dhcp info from?
    - the DHCP lease data (such as NTP/DNS) is still made available when
      a carrier is lost on a link. It should be removed instantly.
    - expose in the API the following bits:
-         - option 15, domain name and/or option 119, search list
+         - option 15, domain name
          - option 12, hostname and/or option 81, fqdn
          - option 123, 144, geolocation
          - option 252, configure http proxy (PAC/wpad)
@@ -1222,11 +1225,7 @@ Features:
    - allow Name= to be specified repeatedly in the [Match] section. Maybe also
      support Name=foo*|bar*|baz ?
    - duplicate address check for static IPs (like ARPCHECK in network-scripts)
-   - allow DUID/IAID to be customized, see issue #394.
    - whenever uplink info changes, make DHCP server send out FORCERENEW
-
-* networkd-wait-online:
-   - make operstates to wait for configurable?
 
 * dhcp:
    - figure out how much we can increase Maximum Message Size
@@ -1251,19 +1250,13 @@ External:
    - natively watch for dbus-*.service symlinks (PENDING)
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
-* fix alsa mixer restore to not print error when no config is stored
-
 * make cryptsetup lower --iter-time
-
-* patch kernel for xattr support in /dev, /proc/, /sys?
 
 * kernel: add device_type = "fb", "fbcon" to class "graphics"
 
 * /usr/bin/service should actually show the new command line
 
 * fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
-
-* fedora: F20: go timer units all the way, leave cron.daily for cron
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
 

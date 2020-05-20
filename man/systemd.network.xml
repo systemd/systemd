@@ -1774,6 +1774,20 @@
             option numbers, the option number is an integer in the range 1..65536.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>UserClass=</varname></term>
+          <listitem>
+            <para>A DHCPv6 client can use User Class option to identify the type or category of user or applications
+            it represents. The information contained in this option is a string that represents the user class of which
+            the client is a member. Each class sets an identifying string of information to be used by the DHCP
+            service to classify clients. Special characters in the data string may be escaped using
+            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+            then all options specified earlier are cleared. Takes a whitespace-separated list of strings. Note that
+            currently NUL bytes are not allowed.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

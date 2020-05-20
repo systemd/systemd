@@ -23,8 +23,9 @@ dd if=/dev/urandom of=plaintext.bin bs=128 count=1
 base64 < plaintext.bin | tr -d '\n\r\t ' > plaintext.base64
 
 # Encrypt this newly generated (binary) LUKS decryption key using the public key whose private key is on the
-# Yubikey, store the result in /etc/encrypted-luks-key.bin, where we'll look for it during boot.
-sudo openssl rsautl -encrypt -pubin -inkey pubkey.pem -in plaintext.bin -out /etc/encrypted-luks-key.bin
+# Yubikey, store the result in /etc/cryptsetup-keys.d/mytest.key, where we'll look for it during boot.
+mkdir -p /etc/cryptsetup-keys.d
+sudo openssl rsautl -encrypt -pubin -inkey pubkey.pem -in plaintext.bin -out /etc/cryptsetup-keys.d/mytest.key
 
 # Configure the LUKS decryption key on the LUKS device. We use very low pbkdf settings since the key already
 # has quite a high quality (it comes directly from /dev/urandom after all), and thus we don't need to do much
@@ -40,8 +41,10 @@ shred -u plaintext.bin plaintext.base64
 rm pubkey.pem
 
 # Test: Let's run systemd-cryptsetup to test if this all worked. The option string should contain the full
-# PKCS#11 URI we have in the clipboard, it tells the tool how to decipher the encrypted LUKS key.
-sudo systemd-cryptsetup attach mytest /dev/sdXn /etc/encrypted-luks-key.bin 'pkcs11-uri=pkcs11:…'
+# PKCS#11 URI we have in the clipboard; it tells the tool how to decipher the encrypted LUKS key. Note that
+# systemd-cryptsetup automatically searches for the encrypted key in /etc/cryptsetup-keys.d/, hence we do
+# not need to specify the key file path explicitly here.
+sudo systemd-cryptsetup attach mytest /dev/sdXn - 'pkcs11-uri=pkcs11:…'
 
 # If that worked, let's now add the same line persistently to /etc/crypttab, for the future.
-sudo bash -c 'echo "mytest /dev/sdXn /etc/encrypted-luks-key \'pkcs11-uri=pkcs11:…\'" >> /etc/crypttab'
+sudo bash -c 'echo "mytest /dev/sdXn - \'pkcs11-uri=pkcs11:…\'" >> /etc/crypttab'

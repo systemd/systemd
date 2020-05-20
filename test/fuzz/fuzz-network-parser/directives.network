@@ -115,6 +115,7 @@ WithoutRA=
 MUDURL=
 SendOption=
 RequestOptions=
+UserClass=
 [Route]
 Destination=
 Protocol=

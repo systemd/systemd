@@ -167,6 +167,36 @@ int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn) {
         return r;
 }
 
+int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char **user_class) {
+        _cleanup_free_ uint8_t *p = NULL;
+        size_t total = 0, offset = 0;
+        char **s;
+
+        assert_return(buf && *buf && buflen && user_class, -EINVAL);
+
+        STRV_FOREACH(s, user_class) {
+                size_t len = strlen(*s);
+                uint8_t *q;
+
+                if (len > 0xffff)
+                        return -ENAMETOOLONG;
+
+                q = realloc(p, total + len + 2);
+                if (!q)
+                        return -ENOMEM;
+
+                p = q;
+
+                unaligned_write_be16(&p[offset], len);
+                memcpy(&p[offset + 2], *s, len);
+
+                offset += 2 + len;
+                total += 2 + len;
+        }
+
+        return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, total, p);
+}
+
 int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd, DHCP6Address *hint_pd_prefix) {
         DHCP6Option *option = (DHCP6Option *)buf;
         size_t i = sizeof(*option) + sizeof(pd->ia_pd);

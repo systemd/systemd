@@ -13,13 +13,16 @@
 #include "ask-password-api.h"
 #include "crypt-util.h"
 #include "cryptsetup-pkcs11.h"
+#include "cryptsetup-util.h"
 #include "device-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -42,6 +45,8 @@ static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
 static uint64_t arg_keyfile_offset = 0;
+static bool arg_keyfile_erase = false;
+static bool arg_try_empty_password = false;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -67,12 +72,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
 
 /* Options Debian's crypttab knows we don't:
 
-    precheck=
     check=
     checkargs=
-    noearly=
-    loud=
+    noearly
+    loud
+    quiet
     keyscript=
+    tmp= (the version without argument is supported)
+    initramfs
 */
 
 static int parse_one_option(const char *option) {
@@ -126,7 +133,8 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if ((val = startswith(option, "key-slot="))) {
+        } else if ((val = startswith(option, "key-slot=")) ||
+                   (val = startswith(option, "keyslot="))) {
 
                 arg_type = ANY_LUKS;
                 r = safe_atoi(val, &arg_key_slot);
@@ -160,7 +168,20 @@ static int parse_one_option(const char *option) {
                         return 0;
                 }
 
-        } else if ((val = startswith(option, "hash="))) {
+        } else if ((val = startswith(option, "keyfile-erase="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_keyfile_erase = r;
+
+        } else if (streq(option, "keyfile-erase"))
+                arg_keyfile_erase = true;
+
+        else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
                 if (r < 0)
                         return log_oom();
@@ -202,13 +223,13 @@ static int parse_one_option(const char *option) {
                 arg_type = ANY_LUKS;
         else if (streq(option, "tcrypt"))
                 arg_type = CRYPT_TCRYPT;
-        else if (streq(option, "tcrypt-hidden")) {
+        else if (STR_IN_SET(option, "tcrypt-hidden", "tcrypthidden")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_hidden = true;
         } else if (streq(option, "tcrypt-system")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_system = true;
-        } else if (streq(option, "tcrypt-veracrypt")) {
+        } else if (STR_IN_SET(option, "tcrypt-veracrypt", "veracrypt")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
         } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
@@ -242,7 +263,20 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
-        } else if (!streq(option, "x-initrd.attach"))
+        } else if ((val = startswith(option, "try-empty-password="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_try_empty_password = r;
+
+        } else if (streq(option, "try-empty-password"))
+                arg_try_empty_password = true;
+
+        else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
         return 0;
@@ -440,6 +474,8 @@ static int attach_tcrypt(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
+                const void *key_data,
+                size_t key_data_size,
                 char **passwords,
                 uint32_t flags) {
 
@@ -453,7 +489,7 @@ static int attach_tcrypt(
 
         assert(cd);
         assert(name);
-        assert(key_file || (passwords && passwords[0]));
+        assert(key_file || key_data || !strv_isempty(passwords));
 
         if (arg_pkcs11_uri)
                 /* Ask for a regular password */
@@ -469,22 +505,33 @@ static int attach_tcrypt(
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
 
-        if (key_file) {
-                r = read_one_line_file(key_file, &passphrase);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
-                }
+        if (key_data) {
+                params.passphrase = key_data;
+                params.passphrase_size = key_data_size;
+        } else {
+                if (key_file) {
+                        r = read_one_line_file(key_file, &passphrase);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to read password file '%s': %m", key_file);
+                                return -EAGAIN; /* log with the actual error, but return EAGAIN */
+                        }
 
-                params.passphrase = passphrase;
-        } else
-                params.passphrase = passwords[0];
-        params.passphrase_size = strlen(params.passphrase);
+                        params.passphrase = passphrase;
+                } else
+                        params.passphrase = passwords[0];
+
+                params.passphrase_size = strlen(params.passphrase);
+        }
 
         r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
-                if (key_file && r == -EPERM) {
-                        log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
+                if (r == -EPERM) {
+                        if (key_data)
+                                log_error_errno(r, "Failed to activate using discovered key. (Key not correct?)");
+
+                        if (key_file)
+                                log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
+
                         return -EAGAIN; /* log the actual error, but return EAGAIN */
                 }
 
@@ -502,6 +549,8 @@ static int attach_luks_or_plain(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
+                const void *key_data,
+                size_t key_data_size,
                 char **passwords,
                 uint32_t flags,
                 usec_t until) {
@@ -571,7 +620,7 @@ static int attach_luks_or_plain(
                 _cleanup_free_ char *friendly = NULL;
                 size_t decrypted_key_size = 0;
 
-                if (!key_file)
+                if (!key_file && !key_data)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
 
                 friendly = friendly_disk_name(crypt_get_device_name(cd), name);
@@ -584,8 +633,8 @@ static int attach_luks_or_plain(
                         r = decrypt_pkcs11_key(
                                         friendly,
                                         arg_pkcs11_uri,
-                                        key_file,
-                                        arg_keyfile_size, arg_keyfile_offset,
+                                        key_file, arg_keyfile_size, arg_keyfile_offset,
+                                        key_data, key_data_size,
                                         until,
                                         &decrypted_key, &decrypted_key_size);
                         if (r >= 0)
@@ -620,7 +669,7 @@ static int attach_luks_or_plain(
                                         return log_error_errno(r, "Failed to start device monitor: %m");
 
                                 log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                         arg_pkcs11_uri, friendly);
+                                           arg_pkcs11_uri, friendly);
 
                                 /* Let's immediately rescan in case the token appeared in the time we needed
                                  * to create and configure the monitor */
@@ -667,6 +716,18 @@ static int attach_luks_or_plain(
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
+
+        } else if (key_data) {
+                if (pass_volume_key)
+                        r = crypt_activate_by_volume_key(cd, name, key_data, key_data_size, flags);
+                else
+                        r = crypt_activate_by_passphrase(cd, name, arg_key_slot, key_data, key_data_size, flags);
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate. (Key incorrect?)");
+                        return -EAGAIN; /* Log actual error, but return EAGAIN */
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to activate: %m");
 
         } else if (key_file) {
                 r = crypt_activate_by_keyfile_device_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
@@ -748,6 +809,17 @@ static uint32_t determine_flags(void) {
         return flags;
 }
 
+static void remove_and_erasep(const char **p) {
+        int r;
+
+        if (!*p)
+                return;
+
+        r = unlinkat_deallocate(AT_FDCWD, *p, UNLINK_ERASE);
+        if (r < 0 && r != -ENOENT)
+                log_warning_errno(r, "Unable to erase key file '%s', ignoring: %m", *p);
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
@@ -774,12 +846,18 @@ static int run(int argc, char *argv[]) {
                 unsigned tries;
                 usec_t until;
                 crypt_status_info status;
+                _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 const char *key_file = NULL;
+                _cleanup_(erase_and_freep) void *key_data = NULL;
+                size_t key_data_size = 0;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
+
+                if (!filename_is_valid(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", argv[2]);
 
                 if (argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none")) {
                         if (path_is_absolute(argv[4]))
@@ -796,6 +874,24 @@ static int run(int argc, char *argv[]) {
 
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);
+
+                if (!key_file) {
+                        const char *fn;
+
+                        /* If a key file is not explicitly specified, search for a key in a well defined
+                         * search path, and load it. */
+
+                        fn = strjoina(argv[2], ".key");
+                        r = load_key_file(fn,
+                                          STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
+                                          0, 0,  /* Note we leave arg_keyfile_offset/arg_keyfile_size as something that only applies to arg_keyfile! */
+                                          &key_data, &key_data_size);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                log_debug("Automatically discovered key for volume '%s'.", argv[2]);
+                } else if (arg_keyfile_erase)
+                        destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
                 if (arg_header) {
                         log_debug("LUKS header: %s", arg_header);
@@ -843,7 +939,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file) {
+                        if (!key_file && !key_data) {
                                 r = crypt_activate_by_token(cd, argv[2], CRYPT_ANY_TOKEN, NULL, flags);
                                 if (r >= 0) {
                                         log_debug("Volume %s activated with LUKS token id %i.", argv[2], r);
@@ -857,32 +953,62 @@ static int run(int argc, char *argv[]) {
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
-                        if (!key_file && !arg_pkcs11_uri) {
-                                r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
-                                if (r == -EAGAIN)
-                                        continue;
-                                if (r < 0)
-                                        return r;
+                        /* When we were able to acquire multiple keys, let's always process them in this order:
+                         *
+                         *    1. A key acquired via PKCS#11 token
+                         *    2. The discovered key: i.e. key_data + key_data_size
+                         *    3. The configured key: i.e. key_file + arg_keyfile_offset + arg_keyfile_size
+                         *    4. The empty password, in case arg_try_empty_password is set
+                         *    5. We enquire the user for a password
+                         */
+
+                        if (!key_file && !key_data && !arg_pkcs11_uri) {
+
+                                if (arg_try_empty_password) {
+                                        /* Hmm, let's try an empty password now, but only once */
+                                        arg_try_empty_password = false;
+
+                                        key_data = strdup("");
+                                        if (!key_data)
+                                                return log_oom();
+
+                                        key_data_size = 0;
+                                } else {
+                                        /* Ask the user for a passphrase only as last resort, if we have
+                                         * nothing else to check for */
+
+                                        r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
+                                        if (r == -EAGAIN)
+                                                continue;
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
-                                r = attach_tcrypt(cd, argv[2], key_file, passwords, flags);
+                                r = attach_tcrypt(cd, argv[2], key_file, key_data, key_data_size, passwords, flags);
                         else
-                                r = attach_luks_or_plain(cd, argv[2], key_file, passwords, flags, until);
+                                r = attach_luks_or_plain(cd, argv[2], key_file, key_data, key_data_size, passwords, flags, until);
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN)
                                 return r;
 
-                        /* Passphrase not correct? Let's try again! */
+                        /* Key not correct? Let's try again! */
+
                         key_file = NULL;
-                        arg_pkcs11_uri = NULL;
+                        key_data = erase_and_free(key_data);
+                        key_data_size = 0;
+                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
 
         } else if (streq(argv[1], "detach")) {
+
+                if (!filename_is_valid(argv[2]))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", argv[2]);
 
                 r = crypt_init_by_name(&cd, argv[2]);
                 if (r == -ENODEV) {
