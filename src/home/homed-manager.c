@@ -513,7 +513,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);
                         else
-                                log_warning_errno(r, "Failed to query quota on %s, ignoring.", where);
+                                log_warning_errno(r, "Failed to query quota on %s, ignoring: %m", where);
 
                         continue;
                 }
