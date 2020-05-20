@@ -451,7 +451,7 @@ int bus_message_from_header(
         if (!IN_SET(h->version, 1, 2))
                 return -EBADMSG;
 
-        if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
+        if (h->type <= _SD_BUS_MESSAGE_TYPE_INVALID || h->type >= _SD_BUS_MESSAGE_TYPE_MAX)
                 return -EBADMSG;
 
         if (!IN_SET(h->endian, BUS_LITTLE_ENDIAN, BUS_BIG_ENDIAN))
@@ -589,7 +589,7 @@ _public_ int sd_bus_message_new(
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
-        assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
+        assert_return(type > _SD_BUS_MESSAGE_TYPE_INVALID && type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
         sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!t)
@@ -5497,6 +5497,9 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 if (m->reply_cookie == 0 || !m->error.name)
                         return -EBADMSG;
                 break;
+
+        default:
+                assert_not_reached("Bad message type");
         }
 
         /* Refuse non-local messages that claim they are local */
