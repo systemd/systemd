@@ -329,6 +329,59 @@ int config_parse_dhcp_user_class(
         return 0;
 }
 
+int config_parse_dhcp_vendor_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to split vendor classes option, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                if (strlen(w) > UINT8_MAX) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s length is not in the range 1-255, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
 int config_parse_dhcp6_mud_url(
                 const char *unit,
                 const char *filename,

@@ -654,6 +654,7 @@ static Network *network_free(Network *network) {
         free(network->mac);
         free(network->dhcp6_mudurl);
         strv_free(network->dhcp6_user_class);
+        strv_free(network->dhcp6_vendor_class);
 
         if (network->dhcp_acd)
                 sd_ipv4acd_unref(network->dhcp_acd);
