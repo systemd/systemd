@@ -360,7 +360,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
 
-        if (option <= 0 || option >= 255)
+        if (option <= 0 || option >= UINT8_MAX)
                 return -EINVAL;
 
         for (t = 0; t < client->req_opts_len; t++)
@@ -381,7 +381,7 @@ int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, const char *mud
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
         assert_return(mudurl, -EINVAL);
-        assert_return(strlen(mudurl) <= 255, -EINVAL);
+        assert_return(strlen(mudurl) <= UINT8_MAX, -EINVAL);
         assert_return(http_url_is_valid(mudurl), -EINVAL);
 
         return free_and_strdup(&client->mudurl, mudurl);
@@ -400,7 +400,7 @@ int sd_dhcp6_client_set_request_user_class(sd_dhcp6_client *client, char **user_
                 if (strlen(*p) > UINT16_MAX)
                         return -ENAMETOOLONG;
 
-        s = strv_copy((char **) user_class);
+        s = strv_copy(user_class);
         if (!s)
                 return -ENOMEM;
 
