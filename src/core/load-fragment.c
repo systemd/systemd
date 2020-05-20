@@ -5157,7 +5157,7 @@ int config_parse_swap_priority(
 
         r = safe_atoi(rvalue, &priority);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid swap pririty '%s', ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid swap priority '%s', ignoring.", rvalue);
                 return 0;
         }
 
