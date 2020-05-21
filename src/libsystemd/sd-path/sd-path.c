@@ -624,7 +624,7 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH:
         case SD_PATH_SYSTEMD_USER_GENERATOR_PATH: {
                 char **t;
-                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH ?
+                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH ?
                                                     UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
                 t = generator_binary_paths(scope);
