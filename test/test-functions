@@ -389,9 +389,9 @@ run_nspawn() {
         dwarn "nspawn doesn't support SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=hybrid, skipping"
         exit
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "yes" || "$UNIFIED_CGROUP_HIERARCHY" = "no" ]]; then
-        _nspawn_pre=("${nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
+        _nspawn_pre=("${_nspawn_pre[@]}" env SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=$UNIFIED_CGROUP_HIERARCHY)
     elif [[ "$UNIFIED_CGROUP_HIERARCHY" = "default" ]]; then
-        _nspawn_pre=("${nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
+        _nspawn_pre=("${_nspawn_pre[@]}" env --unset=UNIFIED_CGROUP_HIERARCHY --unset=SYSTEMD_NSPAWN_UNIFIED_HIERARCHY)
     else
         dfatal "Unknown UNIFIED_CGROUP_HIERARCHY. Got $UNIFIED_CGROUP_HIERARCHY, expected [yes|no|hybrid|default]"
         exit 1
