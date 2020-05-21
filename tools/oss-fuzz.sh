@@ -27,9 +27,15 @@ build=$WORK/build
 rm -rf $build
 mkdir -p $build
 
-fuzzflag="oss-fuzz=true"
 if [ -z "$FUZZING_ENGINE" ]; then
     fuzzflag="llvm-fuzz=true"
+else
+    fuzzflag="oss-fuzz=true"
+    if [[ "$SANITIZER" == undefined ]]; then
+        UBSAN_FLAGS="-fsanitize=pointer-overflow -fno-sanitize-recover=pointer-overflow"
+        CFLAGS="$CFLAGS $UBSAN_FLAGS"
+        CXXFLAGS="$CXXFLAGS $UBSAN_FLAGS"
+    fi
 fi
 
 meson $build -D$fuzzflag -Db_lundef=false
