@@ -21,24 +21,15 @@ static Address* link_find_dhcp_server_address(Link *link) {
         assert(link->network);
 
         /* The first statically configured address if there is any */
-        LIST_FOREACH(addresses, address, link->network->static_addresses) {
-
-                if (address->family != AF_INET)
-                        continue;
-
-                if (in_addr_is_null(address->family, &address->in_addr))
-                        continue;
-
-                return address;
-        }
+        LIST_FOREACH(addresses, address, link->network->static_addresses)
+                if (address->family == AF_INET &&
+                    !in_addr_is_null(address->family, &address->in_addr))
+                        return address;
 
         /* If that didn't work, find a suitable address we got from the pool */
-        LIST_FOREACH(addresses, address, link->pool_addresses) {
-                if (address->family != AF_INET)
-                        continue;
-
-                return address;
-        }
+        LIST_FOREACH(addresses, address, link->pool_addresses)
+                if (address->family == AF_INET)
+                        return address;
 
         return NULL;
 }
@@ -46,9 +37,8 @@ static Address* link_find_dhcp_server_address(Link *link) {
 static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         _cleanup_free_ struct in_addr *addresses = NULL;
         size_t n_addresses = 0, n_allocated = 0;
-        unsigned i;
 
-        for (i = 0; i < link->network->n_dns; i++) {
+        for (unsigned i = 0; i < link->network->n_dns; i++) {
                 struct in_addr ia;
 
                 /* Only look for IPv4 addresses */
@@ -68,16 +58,14 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
         }
 
         if (link->network->dhcp_use_dns && link->dhcp_lease) {
-                const struct in_addr *da = NULL;
-                int j, n;
+                const struct in_addr *da;
 
-                n = sd_dhcp_lease_get_dns(link->dhcp_lease, &da);
+                int n = sd_dhcp_lease_get_dns(link->dhcp_lease, &da);
                 if (n > 0) {
-
                         if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
                                 return log_oom();
 
-                        for (j = 0; j < n; j++)
+                        for (int j = 0; j < n; j++)
                                 if (in4_addr_is_non_local(&da[j]))
                                         addresses[n_addresses++] = da[j];
                 }
