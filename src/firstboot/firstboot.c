@@ -533,17 +533,13 @@ static int process_machine_id(void) {
 }
 
 static int prompt_root_password(void) {
-        const char *msg1, *msg2, *etc_shadow;
+        const char *msg1, *msg2;
         int r;
 
         if (arg_root_password)
                 return 0;
 
         if (!arg_prompt_root_password)
-                return 0;
-
-        etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (laccess(etc_shadow, F_OK) >= 0)
                 return 0;
 
         print_welcome();
