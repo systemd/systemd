@@ -160,12 +160,12 @@ static int link_push_uplink_to_dhcp_server(
         if (lease_condition && link->dhcp_lease) {
                 const struct in_addr *da;
 
-                size_t n = sd_dhcp_lease_get_servers(link->dhcp_lease, what, &da);
+                int n = sd_dhcp_lease_get_servers(link->dhcp_lease, what, &da);
                 if (n > 0) {
                         if (!GREEDY_REALLOC(addresses, n_allocated, n_addresses + n))
                                 return log_oom();
 
-                        for (unsigned i = 0; i < n; i++)
+                        for (int i = 0; i < n; i++)
                                 if (in4_addr_is_non_local(&da[i]))
                                         addresses[n_addresses++] = da[i];
                 }
