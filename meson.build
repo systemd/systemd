@@ -308,6 +308,7 @@ meson_build_sh = find_program('tools/meson-build.sh')
 
 want_tests = get_option('tests')
 slow_tests = want_tests != 'false' and get_option('slow-tests')
+fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = get_option('install-tests')
 
 if add_languages('cpp', required : fuzzer_build)
@@ -3350,7 +3351,7 @@ foreach tuple : sanitizers
                         if name != prev
                                 if want_tests == 'false'
                                         message('Not compiling @0@ because tests is set to false'.format(name))
-                                elif slow_tests
+                                elif slow_tests or fuzz_tests
                                         exe = custom_target(
                                                 name,
                                                 output : name,
@@ -3360,12 +3361,12 @@ foreach tuple : sanitizers
                                                            '@OUTPUT@'],
                                                 build_by_default : true)
                                 else
-                                        message('Not compiling @0@ because slow-tests is set to false'.format(name))
+                                        message('Not compiling @0@ because slow-tests/fuzz-tests is set to false'.format(name))
                                 endif
                         endif
                         prev = name
 
-                        if want_tests != 'false' and slow_tests
+                        if want_tests != 'false' and (slow_tests or fuzz_tests)
                                 test('@0@:@1@:@2@'.format(b, c, sanitizer),
                                      env,
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
