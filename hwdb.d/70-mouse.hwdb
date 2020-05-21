@@ -50,8 +50,6 @@
 #    MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL
 #    MOUSE_WHEEL_CLICK_COUNT
 #    MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL
-#    MOUSE_WHEEL_TILT_HORIZONTAL
-#    MOUSE_WHEEL_TILT_VERTICAL
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -135,26 +133,6 @@
 #
 # MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL works the same way but also follows the
 # rules of MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL.
-
-#########################################
-#    MOUSE_WHEEL_TILT_HORIZONTAL        #
-#    MOUSE_WHEEL_TILT_VERTICAL          #
-#########################################
-#
-# Indicates that the respective axis is not a mouse wheel rotation but a
-# tilt along that axis. Wheel tilt is most commonly used for horizontal
-# scroll wheel emulation on mice with only a single vertical wheel.
-#
-# The vertical and horizontal Axes are independently marked as tilt axes,
-# for example it is permitted to have a MOUSE_WHEEL_CLICK_COUNT or
-# MOUSE_WHEEL_CLICK_ANGLE for the vertical axis and mark the horizontal axis
-# marked as as MOUSE_WHEEL_TILT_HORIZONTAL.
-#
-# It is a bug to have either CLICK_COUNT or CLICK_ANGLE set on the same axis
-# as WHEEL_TILT. Applications should give priority to WHEEL_TILT and ignore
-# other settings.
-#
-# This is a flag only, permitted values: 0 or 1
 
 #
 # Sort by brand, type (usb, bluetooth), DPI, frequency.
