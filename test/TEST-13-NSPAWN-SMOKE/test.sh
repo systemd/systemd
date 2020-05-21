@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="systemd-nspawn smoke test"
-IMAGE_NAME=nspawn
+IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions

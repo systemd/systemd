@@ -18,6 +18,7 @@ EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
 IMAGE_NAME=${IMAGE_NAME:-default}
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
 
 # Decide if we can (and want to) run QEMU with KVM acceleration.
@@ -329,12 +330,13 @@ systemd.wants=testsuite-$1.service ${_end} \
 $KERNEL_APPEND \
 "
 
+    [ -e "$IMAGE_PRIVATE" ] && image="$IMAGE_PRIVATE" || image="$IMAGE_PUBLIC"
     QEMU_OPTIONS="-smp $QEMU_SMP \
 -net none \
 -m $QEMU_MEM \
 -nographic \
 -kernel $KERNEL_BIN \
--drive format=raw,cache=unsafe,file=${IMAGESTATEDIR}/${IMAGE_NAME}.img \
+-drive format=raw,cache=unsafe,file=$image \
 $QEMU_OPTIONS \
 "
 
@@ -692,16 +694,14 @@ create_empty_image() {
         _size=$((4*_size))
     fi
 
-    image="${TESTDIR}/${IMAGE_NAME}.img"
-    public="$IMAGESTATEDIR/${IMAGE_NAME}.img"
-    echo "Setting up $public (${_size} MB)"
-    rm -f "$image" "$public"
+    echo "Setting up $IMAGE_PUBLIC (${_size} MB)"
+    rm -f "$IMAGE_PRIVATE" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${_size}M" "$image"
-    ln -vs "$(realpath $image)" "$public"
+    truncate -s "${_size}M" "$IMAGE_PRIVATE"
+    ln -vs "$(realpath $IMAGE_PRIVATE)" "$IMAGE_PUBLIC"
 
-    LOOPDEV=$(losetup --show -P -f "$public")
+    LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
     sfdisk "$LOOPDEV" <<EOF
 ,$((_size-50))M
@@ -722,7 +722,7 @@ EOF
 
 mount_initdir() {
     if [ -z "${LOOPDEV}" ]; then
-        image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+        [ -e "$IMAGE_PRIVATE" ] && image="$IMAGE_PRIVATE" || image="$IMAGE_PUBLIC"
         LOOPDEV=$(losetup --show -P -f "$image")
         [ -b "$LOOPDEV" ] || return 1
 
@@ -744,8 +744,7 @@ cleanup_initdir() {
 umount_loopback() {
     # unmount the loopback device from all places. Otherwise we risk file
     # system corruption.
-    image="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
-    for device in $(losetup -l | awk '$6=="'"$image"'" {print $1}'); do
+    for device in $(losetup -l | awk '$6=="'"$IMAGE_PUBLIC"'" {print $1}'); do
         ddebug "Unmounting all uses of $device"
         mount | awk '/^'"${device}"'p/{print $1}' | xargs --no-run-if-empty umount -v
     done
@@ -1215,6 +1214,9 @@ TESTDIR="$TESTDIR"
 EOF
         export TESTDIR
     fi
+
+    IMAGE_PRIVATE="${TESTDIR}/${IMAGE_NAME}.img"
+    IMAGE_PUBLIC="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
 }
 
 import_initdir() {
@@ -1964,7 +1966,7 @@ _test_cleanup() {
     (
         set +e
         _umount_dir $initdir
-        rm -vf "${IMAGESTATEDIR}/${IMAGE_NAME}.img"
+        rm -vf "$IMAGE_PUBLIC"
         rm -vfr "$TESTDIR"
         rm -vf "$STATEFILE"
     ) || :
@@ -2000,14 +2002,16 @@ test_setup() {
         exit 1
     fi
 
-    image="${TESTDIR}/${IMAGE_NAME}.img"
-    public="${IMAGESTATEDIR}/${IMAGE_NAME}.img"
-    if [ -e "$image" ]; then
-        echo "Reusing existing image $PWD/$image → $(realpath $image)"
+    if [ -e "$IMAGE_PRIVATE" ]; then
+        echo "Reusing existing image $IMAGE_PRIVATE → $(realpath $IMAGE_PRIVATE)"
         mount_initdir
-    elif [ -e "$public" ]; then
-        echo "Reusing existing cached image $PWD/$public → $(realpath $public)"
-        ln -s "$(realpath $public)" "$image"
+    elif [ -e "$IMAGE_PUBLIC" ]; then
+        echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath $IMAGE_PUBLIC)"
+        if [ ${TEST_PARALLELIZE} -ne 0 ]; then
+            cp -v "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        else
+            ln -sv "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
+        fi
         mount_initdir
     else
         test_create_image

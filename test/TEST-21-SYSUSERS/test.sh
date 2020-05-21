@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 TEST_DESCRIPTION="Sysuser-related tests"
-IMAGE_NAME=sysusers
+IMAGE_NAME="sysusers"
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
