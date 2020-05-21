@@ -53,9 +53,10 @@
         openpgp:"Retrieve openpgp keys for an email"
         query:"Resolve domain names, IPv4 and IPv6 addresses"
         reset-server-features:"Flushes all feature level information the resolver has learned about specific servers"
-        reset-statistics:"Resets the statistics counter show in statistics to zero"
+        reset-statistics:"Resets the statistics counter shown in statistics to zero"
         revert:"Revert the per-interfce DNS configuration"
         service:"Resolve DNS-SD and SRV services"
+        statistics:"Show resolver statistics"
         status:"Show the global and per-link DNS settings currently in effect"
         tlsa:"Query tlsa public keys stored as TLSA resource records"
     )
@@ -78,10 +79,6 @@ _arguments \
     '--service[Resolve services]' \
     '--service-address=no[Do not resolve address for services]' \
     '--service-txt=no[Do not resolve TXT records for services]' \
-    '--openpgp[Query OpenPGP public key]' \
-    '--tlsa[Query TLS public key]' \
     '--cname=no[Do not follow CNAME redirects]' \
     '--search=no[Do not use search domains]' \
-    '--statistics[Show resolver statistics]' \
-    '--reset-statistics[Reset resolver statistics]' \
     '*::default: _resolvectl_commands'
