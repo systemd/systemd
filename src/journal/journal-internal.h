@@ -41,10 +41,10 @@ struct Match {
 struct Location {
         LocationType type;
 
-        bool seqnum_set;
-        bool realtime_set;
-        bool monotonic_set;
-        bool xor_hash_set;
+        bool seqnum_set:1;
+        bool realtime_set:1;
+        bool monotonic_set:1;
+        bool xor_hash_set:1;
 
         uint64_t seqnum;
         sd_id128_t seqnum_id;
