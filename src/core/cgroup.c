@@ -2313,37 +2313,34 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         return n;
 }
 
-void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
-        Unit *slice;
-        Unit *p = u;
+void unit_add_family_to_cgroup_realize_queue(Unit *u) {
+        assert(u);
+        assert(u->type == UNIT_SLICE);
 
-        /* This adds the path from the specified unit to root slice to the queue and siblings at each level.
-         * The unit itself is excluded (assuming it's handled separately).
-         * The function must invalidate cgroup_members_mask of all ancestors in order to calculate up to date
-         * masks.
+        /* Family of a unit for is defined as (immediate) children of the unit and immediate children of all
+         * its ancestors.
          *
-         * Propagation of realization "side-ways" (i.e. towards siblings) is relevant on cgroup-v1 where
-         * scheduling becomes very weird if two units that own processes reside in the same slice, but one is
-         * realized in the "cpu" hierarchy and one is not (for example because one has CPUWeight= set and the
-         * other does not), because that means individual processes need to be scheduled against whole
-         * cgroups. Let's avoid this asymmetry by always ensuring that units below a slice that are realized
-         * at all are always realized in *all* their hierarchies, and it is sufficient for a unit's sibling
-         * to be realized for the unit itself to be realized too. */
+         * Ideally we would enqueue ancestor path only (bottom up). However, on cgroup-v1 scheduling becomes
+         * very weird if two units that own processes reside in the same slice, but one is realized in the
+         * "cpu" hierarchy and one is not (for example because one has CPUWeight= set and the other does
+         * not), because that means individual processes need to be scheduled against whole cgroups. Let's
+         * avoid this asymmetry by always ensuring that siblings of a unit are always realized in their v1
+         * controller hierarchies too (if unit requires the controller to be realized).
+         *
+         * The function must invalidate cgroup_members_mask of all ancestors in order to calculate up to date
+         * masks. */
 
-        while ((slice = UNIT_DEREF(p->slice))) {
+        do {
                 Iterator i;
                 Unit *m;
                 void *v;
 
-                /* Children of slice likely changed when we're called */
-                slice->cgroup_members_mask_valid = false;
+                /* Children of u likely changed when we're called */
+                u->cgroup_members_mask_valid = false;
 
-                HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
-                        if (UNIT_DEREF(m->slice) != slice)
-                                continue;
-                        /* The origin must be handled separately by caller */
-                        if (m == u)
+                        if (UNIT_DEREF(m->slice) != u)
                                 continue;
 
                         /* No point in doing cgroup application for units without active processes. */
@@ -2365,12 +2362,9 @@ void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                         unit_add_to_cgroup_realize_queue(m);
                 }
 
-                p = slice;
-        }
-
-        /* Root slice comes last */
-        if (p != u)
-                unit_add_to_cgroup_realize_queue(p);
+                /* Parent comes after children */
+                unit_add_to_cgroup_realize_queue(u);
+        } while ((u = UNIT_DEREF(u->slice)));
 }
 
 int unit_realize_cgroup(Unit *u) {
@@ -2379,20 +2373,17 @@ int unit_realize_cgroup(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
-        /* So, here's the deal: when realizing the cgroups for this
-         * unit, we need to first create all parents, but there's more
-         * actually: for the weight-based controllers we also need to
-         * make sure that all our siblings (i.e. units that are in the
-         * same slice as we are) have cgroups, too. Otherwise, things
-         * would become very uneven as each of their processes would
-         * get as much resources as all our group together. This call
-         * will synchronously create the parent cgroups, but will
-         * defer work on the siblings to the next event loop
-         * iteration. When removing a realized controller, it may become unnecessary in ancestors,
-         * so we also ensure deferred bottom up (de)realization of ancestors.
-         */
+        /* So, here's the deal: when realizing the cgroups for this unit, we need to first create all
+         * parents, but there's more actually: for the weight-based controllers we also need to make sure
+         * that all our siblings (i.e. units that are in the same slice as we are) have cgroups, too.  On the
+         * other hand, when a controller is removed from realized set, it may become unnecessary in siblings
+         * and ancestors and they should be (de)realized too.
+         *
+         * This call will defer work on the siblings and derealized ancestors to the next event loop
+         * iteration and synchronously creates the parent cgroups (unit_realize_cgroup_now). */
 
-        unit_add_siblings_to_cgroup_realize_queue(u);
+        if (UNIT_ISSET(u->slice))
+                unit_add_family_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
 
         /* And realize this one now (and apply the values) */
         return unit_realize_cgroup_now(u, manager_state(u->manager));
