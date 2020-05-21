@@ -949,8 +949,8 @@ int config_parse_lifetime(const char *unit,
         if (r < 0)
                 return r;
 
-        /* We accept only "forever", "infinity", or "0". */
-        if (STR_IN_SET(rvalue, "forever", "infinity"))
+        /* We accept only "forever", "infinity", empty, or "0". */
+        if (STR_IN_SET(rvalue, "forever", "infinity", ""))
                 k = CACHE_INFO_INFINITY_LIFE_TIME;
         else if (streq(rvalue, "0"))
                 k = 0;
