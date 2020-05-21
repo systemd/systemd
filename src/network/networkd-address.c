@@ -954,7 +954,7 @@ int config_parse_lifetime(const char *unit,
                           void *userdata) {
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
-        unsigned k;
+        uint32_t k;
         int r;
 
         assert(filename);
@@ -979,7 +979,7 @@ int config_parse_lifetime(const char *unit,
         }
 
         n->cinfo.ifa_prefered = k;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
