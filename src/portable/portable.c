@@ -701,6 +701,7 @@ static int install_chroot_dropin(
                                "[Service]\n",
                                IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=", image_path, "\n"
                                "Environment=PORTABLE=", basename(image_path), "\n"
+                               "BindReadOnlyPaths=-/etc/os-release:/run/host/etc/os-release /usr/lib/os-release:/run/host/usr/lib/os-release\n"
                                "LogExtraFields=PORTABLE=", basename(image_path), "\n",
                                NULL))
 
