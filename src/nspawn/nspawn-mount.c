@@ -545,29 +545,33 @@ int mount_all(const char *dest,
                 PROC_READ_ONLY("/proc/irq"),
                 PROC_READ_ONLY("/proc/scsi"),
 
-                { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "mqueue",                 "/dev/mqueue",                  "mqueue", NULL,                            MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
-                { "tmpfs",           "/tmp",            "tmpfs", "mode=1777" TMPFS_LIMITS_TMP,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/tmp",                         "tmpfs", "mode=1777" TMPFS_LIMITS_TMP,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
-                { "tmpfs",           "/sys",            "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "tmpfs",                  "/sys",                         "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
-                { "sysfs",           "/sys",            "sysfs", NULL,                             MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO|MOUNT_MKDIR },    /* skipped if above was mounted */
-                { "sysfs",           "/sys",            "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "sysfs",                  "/sys",                         "sysfs", NULL,                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
-                { "tmpfs",           "/dev",            "tmpfs", "mode=755" TMPFS_LIMITS_DEV,      MS_NOSUID|MS_STRICTATIME,
+                { "tmpfs",                  "/dev",                         "tmpfs", "mode=755" TMPFS_LIMITS_DEV,      MS_NOSUID|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777" TMPFS_LIMITS_DEV_SHM, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=1777" TMPFS_LIMITS_DEV_SHM, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "tmpfs",           "/run",            "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
+                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH },
+                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_MKDIR|MOUNT_TOUCH },
 
 #if HAVE_SELINUX
-                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,                             MS_BIND,
+                { "/sys/fs/selinux",        "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND,
                   MOUNT_MKDIR },  /* Bind mount first (mkdir/chown the mount point in case /sys/ is mounted as minimal skeleton tmpfs) */
-                { NULL,              "/sys/fs/selinux", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                { NULL,                     "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   0 },            /* Then, make it r/o (don't mkdir/chown the mount point here, the previous entry already did that) */
 #endif
         };
@@ -583,6 +587,7 @@ int mount_all(const char *dest,
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
+                struct stat source_st;
                 bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
 
                 if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
@@ -608,11 +613,26 @@ int mount_all(const char *dest,
                                 return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
                         if (r > 0)
                                 continue;
+
+                        /* Shortcut for optional bind mounts: if the source can't be found skip ahead to avoid creating
+                         * empty and unused directories. */
+                        if (!fatal && FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR) && FLAGS_SET(mount_table[k].flags, MS_BIND)) {
+                                r = stat(mount_table[k].what, &source_st);
+                                if (r < 0) {
+                                        if (errno == ENOENT)
+                                                continue;
+                                        return log_error_errno(errno, "Failed to stat %s: %m", mount_table[k].what);
+                                }
+                        }
                 }
 
                 if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR)) {
                         uid_t u = (use_userns && !in_userns) ? uid_shift : UID_INVALID;
-                        r = mkdir_p_safe(dest, where, 0755, u, u, 0);
+
+                        if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH))
+                                r = mkdir_parents_safe(dest, where, 0755, u, u, 0);
+                        else
+                                r = mkdir_p_safe(dest, where, 0755, u, u, 0);
                         if (r < 0 && r != -EEXIST) {
                                 if (fatal && r != -EROFS)
                                         return log_error_errno(r, "Failed to create directory %s: %m", where);
@@ -623,6 +643,14 @@ int mount_all(const char *dest,
                                  * attempt to mount this fs anyway and let mount_verbose log any errors */
                                 if (r != -EROFS)
                                         continue;
+                        }
+                        if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH)) {
+                                r = touch(where);
+                                if (r < 0 && r != -EEXIST) {
+                                        if (fatal)
+                                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
+                                        log_debug_errno(r, "Failed to create mount point %s: %m", where);
+                                }
                         }
                 }
 

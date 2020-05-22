@@ -60,6 +60,18 @@ function check_notification_socket {
     systemd-nspawn --register=no -D /testsuite-13.nc-container -U /bin/sh -x -c "$_cmd"
 }
 
+function check_os_release {
+    local _cmd='. /tmp/os-release
+if [ -n "${ID:+set}" ] && [ "${ID}" != "${container_host_id}" ]; then exit 1; fi
+if [ -n "${VERSION_ID:+set}" ] && [ "${VERSION_ID}" != "${container_host_version_id}" ]; then exit 1; fi
+if [ -n "${BUILD_ID:+set}" ] && [ "${BUILD_ID}" != "${container_host_build_id}" ]; then exit 1; fi
+if [ -n "${VARIANT_ID:+set}" ] && [ "${VARIANT_ID}" != "${container_host_variant_id}" ]; then exit 1; fi
+cd /tmp; (cd /run/host/usr/lib; md5sum os-release) | md5sum -c
+'
+
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --bind=/etc/os-release:/tmp/os-release /bin/sh -x -e -c "$_cmd"
+}
+
 function run {
     if [[ "$1" = "yes" && "$is_v2_supported" = "no" ]]; then
         printf "Unified cgroup hierarchy is not supported. Skipping.\n" >&2
@@ -143,6 +155,8 @@ check_bind_tmp_path
 check_norbind
 
 check_notification_socket
+
+check_os_release
 
 for api_vfs_writable in yes no network; do
     run no no $api_vfs_writable
