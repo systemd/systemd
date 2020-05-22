@@ -207,6 +207,12 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 }
 
 static int update_argv(const char name[], size_t l) {
+        static int can_do = -1;
+
+        if (can_do == 0)
+                return 0;
+        can_do = false; /* We'll set it to true only if the whole process works */
+
         /* Let's not bother with this if we don't have euid == 0. Strictly speaking we should check for the
          * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability generally is
          * present only for euid == 0, hence let's use this as quick bypass check, to avoid calling mmap() if
@@ -233,6 +239,9 @@ static int update_argv(const char name[], size_t l) {
 
                 /* Now, let's tell the kernel about this new memory */
                 if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
+                        if (ERRNO_IS_PRIVILEGE(errno))
+                                return log_debug_errno(errno, "PR_SET_MM_ARG_START failed: %m");
+
                         /* HACK: prctl() API is kind of dumb on this point.  The existing end address may already be
                          * below the desired start address, in which case the kernel may have kicked this back due
                          * to a range-check failure (see linux/kernel/sys.c:validate_prctl_map() to see this in
@@ -272,6 +281,7 @@ static int update_argv(const char name[], size_t l) {
                         log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
         }
 
+        can_do = true;
         return 0;
 }
 
