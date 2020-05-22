@@ -715,7 +715,8 @@ static int run(int argc, char *argv[]) {
                 n = now(CLOCK_MONOTONIC);
                 if (n >= usec_add(start_time, RUNTIME_MAX_USEC)) {
                         char buf[FORMAT_TIMESPAN_MAX];
-                        log_debug("Exiting worker, ran for %s, that's enough.", format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, start_time), 0));
+                        log_debug("Exiting worker, ran for %s, that's enough.",
+                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, start_time), 0));
                         break;
                 }
 
@@ -723,7 +724,8 @@ static int run(int argc, char *argv[]) {
                         last_busy_usec = n;
                 else if (listen_idle_usec != USEC_INFINITY && n >= usec_add(last_busy_usec, listen_idle_usec)) {
                         char buf[FORMAT_TIMESPAN_MAX];
-                        log_debug("Exiting worker, been idle for %s, .", format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, last_busy_usec), 0));
+                        log_debug("Exiting worker, been idle for %s, .",
+                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, last_busy_usec), 0));
                         break;
                 }
 
@@ -736,7 +738,7 @@ static int run(int argc, char *argv[]) {
                 (void) rename_process("systemd-userwork: processing...");
 
                 if (fd == -EAGAIN)
-                        continue; /* The listening socket as SO_RECVTIMEO set, hence a time-out is expected
+                        continue; /* The listening socket has SO_RECVTIMEO set, hence a timeout is expected
                                    * after a while, let's check if it's time to exit though. */
                 if (fd == -EINTR)
                         continue; /* Might be that somebody attached via strace, let's just continue in that
