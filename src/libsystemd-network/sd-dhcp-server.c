@@ -98,6 +98,9 @@ int sd_dhcp_server_configure_pool(
 
                 /* Drop any leases associated with the old address range */
                 hashmap_clear(server->leases_by_client_id);
+
+                if (server->callback)
+                        server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
         }
 
         return 0;
@@ -899,6 +902,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                 hashmap_put(server->leases_by_client_id,
                                             &lease->client_id, lease);
 
+                                if (server->callback)
+                                        server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
+
                                 return DHCP_ACK;
                         }
 
@@ -935,6 +941,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         server->bound_leases[pool_offset] = NULL;
                         hashmap_remove(server->leases_by_client_id, existing_lease);
                         dhcp_lease_free(existing_lease);
+
+                        if (server->callback)
+                                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
                 }
 
                 return 0;
