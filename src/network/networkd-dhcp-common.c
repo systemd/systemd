@@ -326,7 +326,7 @@ int config_parse_dhcp_send_option(
         r = extract_first_word(&p, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
