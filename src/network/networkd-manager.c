@@ -24,6 +24,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager-bus.h"
@@ -151,6 +152,10 @@ int manager_connect_bus(Manager *m) {
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
         r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.Link", link_vtable, link_object_find, m);
+        if (r < 0)
+               return log_error_errno(r, "Failed to add link object vtable: %m");
+
+        r = sd_bus_add_fallback_vtable(m->bus, NULL, "/org/freedesktop/network1/link", "org.freedesktop.network1.DHCPServer", dhcp_server_vtable, link_object_find, m);
         if (r < 0)
                return log_error_errno(r, "Failed to add link object vtable: %m");
 
