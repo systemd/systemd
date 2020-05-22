@@ -206,68 +206,28 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         return 0;
 }
 
-int rename_process(const char name[]) {
-        static size_t mm_size = 0;
-        static char *mm = NULL;
-        bool truncated = false;
-        size_t l;
-
-        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the glibc's
-         * internally used name of the process. For the first one a limit of 16 chars applies; to the second one in
-         * many cases one of 10 (i.e. length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded;
-         * to the third one 7 (i.e. the length of "systemd". If you pass a longer string it will likely be
-         * truncated.
-         *
-         * Returns 0 if a name was set but truncated, > 0 if it was set but not truncated. */
-
-        if (isempty(name))
-                return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
-
-        if (!is_main_thread())
-                return -EPERM; /* Let's not allow setting the process name from other threads than the main one, as we
-                                * cache things without locking, and we make assumptions that PR_SET_NAME sets the
-                                * process name that isn't correct on any other threads */
-
-        l = strlen(name);
-
-        /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
-         * can use PR_SET_NAME, which sets the thread name for the calling thread. */
-        if (prctl(PR_SET_NAME, name) < 0)
-                log_debug_errno(errno, "PR_SET_NAME failed: %m");
-        if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
-                truncated = true;
-
-        /* Second step, change glibc's ID of the process name. */
-        if (program_invocation_name) {
-                size_t k;
-
-                k = strlen(program_invocation_name);
-                strncpy(program_invocation_name, name, k);
-                if (l > k)
-                        truncated = true;
-        }
-
-        /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
-         * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
-         * the end. This is the best option for changing /proc/self/cmdline. */
-
+static int update_argv(const char name[], size_t l) {
         /* Let's not bother with this if we don't have euid == 0. Strictly speaking we should check for the
          * CAP_SYS_RESOURCE capability which is independent of the euid. In our own code the capability generally is
          * present only for euid == 0, hence let's use this as quick bypass check, to avoid calling mmap() if
          * PR_SET_MM_ARG_{START,END} fails with EPERM later on anyway. After all geteuid() is dead cheap to call, but
          * mmap() is not. */
         if (geteuid() != 0)
-                log_debug("Skipping PR_SET_MM, as we don't have privileges.");
-        else if (mm_size < l+1) {
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Skipping PR_SET_MM, as we don't have privileges.");
+
+        static size_t mm_size = 0;
+        static char *mm = NULL;
+        int r;
+
+        if (mm_size < l+1) {
                 size_t nn_size;
                 char *nn;
 
                 nn_size = PAGE_ALIGN(l+1);
                 nn = mmap(NULL, nn_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-                if (nn == MAP_FAILED) {
-                        log_debug_errno(errno, "mmap() failed: %m");
-                        goto use_saved_argv;
-                }
+                if (nn == MAP_FAILED)
+                        return log_debug_errno(errno, "mmap() failed: %m");
 
                 strncpy(nn, name, nn_size);
 
@@ -284,15 +244,13 @@ int rename_process(const char name[]) {
                         log_debug_errno(errno, "PR_SET_MM_ARG_START failed, attempting PR_SET_MM_ARG_END hack: %m");
 
                         if (prctl(PR_SET_MM, PR_SET_MM_ARG_END, (unsigned long) nn + l + 1, 0, 0) < 0) {
-                                log_debug_errno(errno, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
+                                r = log_debug_errno(errno, "PR_SET_MM_ARG_END hack failed, proceeding without: %m");
                                 (void) munmap(nn, nn_size);
-                                goto use_saved_argv;
+                                return r;
                         }
 
-                        if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0) {
-                                log_debug_errno(errno, "PR_SET_MM_ARG_START still failed, proceeding without: %m");
-                                goto use_saved_argv;
-                        }
+                        if (prctl(PR_SET_MM, PR_SET_MM_ARG_START, (unsigned long) nn, 0, 0) < 0)
+                                return log_debug_errno(errno, "PR_SET_MM_ARG_START still failed, proceeding without: %m");
                 } else {
                         /* And update the end pointer to the new end, too. If this fails, we don't really know what
                          * to do, it's pretty unlikely that we can rollback, hence we'll just accept the failure,
@@ -314,13 +272,55 @@ int rename_process(const char name[]) {
                         log_debug_errno(errno, "PR_SET_MM_ARG_END failed, proceeding without: %m");
         }
 
-use_saved_argv:
+        return 0;
+}
+
+int rename_process(const char name[]) {
+        bool truncated = false;
+
+        /* This is a like a poor man's setproctitle(). It changes the comm field, argv[0], and also the glibc's
+         * internally used name of the process. For the first one a limit of 16 chars applies; to the second one in
+         * many cases one of 10 (i.e. length of "/sbin/init") — however if we have CAP_SYS_RESOURCES it is unbounded;
+         * to the third one 7 (i.e. the length of "systemd". If you pass a longer string it will likely be
+         * truncated.
+         *
+         * Returns 0 if a name was set but truncated, > 0 if it was set but not truncated. */
+
+        if (isempty(name))
+                return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
+
+        if (!is_main_thread())
+                return -EPERM; /* Let's not allow setting the process name from other threads than the main one, as we
+                                * cache things without locking, and we make assumptions that PR_SET_NAME sets the
+                                * process name that isn't correct on any other threads */
+
+        size_t l = strlen(name);
+
+        /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
+         * can use PR_SET_NAME, which sets the thread name for the calling thread. */
+        if (prctl(PR_SET_NAME, name) < 0)
+                log_debug_errno(errno, "PR_SET_NAME failed: %m");
+        if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
+                truncated = true;
+
+        /* Second step, change glibc's ID of the process name. */
+        if (program_invocation_name) {
+                size_t k;
+
+                k = strlen(program_invocation_name);
+                strncpy(program_invocation_name, name, k);
+                if (l > k)
+                        truncated = true;
+        }
+
+        /* Third step, completely replace the argv[] array the kernel maintains for us. This requires privileges, but
+         * has the advantage that the argv[] array is exactly what we want it to be, and not filled up with zeros at
+         * the end. This is the best option for changing /proc/self/cmdline. */
+        (void) update_argv(name, l);
+
         /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
          * it still looks here */
-
         if (saved_argc > 0) {
-                int i;
-
                 if (saved_argv[0]) {
                         size_t k;
 
@@ -330,7 +330,7 @@ use_saved_argv:
                                 truncated = true;
                 }
 
-                for (i = 1; i < saved_argc; i++) {
+                for (int i = 1; i < saved_argc; i++) {
                         if (!saved_argv[i])
                                 break;
 
