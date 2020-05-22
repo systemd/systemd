@@ -68,6 +68,9 @@ struct sd_dhcp_server {
         DHCPLease invalid_lease;
 
         uint32_t max_lease_time, default_lease_time;
+
+        sd_dhcp_server_callback_t callback;
+        void *callback_userdata;
 };
 
 typedef struct DHCPRequest {

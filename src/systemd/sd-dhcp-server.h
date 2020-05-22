@@ -40,6 +40,10 @@ int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int64_t
 int sd_dhcp_server_detach_event(sd_dhcp_server *client);
 sd_event *sd_dhcp_server_get_event(sd_dhcp_server *client);
 
+typedef void (*sd_dhcp_server_callback_t)(sd_dhcp_server *server, uint64_t event, void *userdata);
+
+int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_t cb, void *userdata);
+
 int sd_dhcp_server_is_running(sd_dhcp_server *server);
 
 int sd_dhcp_server_start(sd_dhcp_server *server);

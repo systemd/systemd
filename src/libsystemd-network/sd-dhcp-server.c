@@ -1202,3 +1202,12 @@ int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v) 
 
         return 1;
 }
+
+int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_t cb, void *userdata) {
+        assert_return(server, -EINVAL);
+
+        server->callback = cb;
+        server->callback_userdata = userdata;
+
+        return 0;
+}
