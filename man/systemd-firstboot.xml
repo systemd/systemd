@@ -221,6 +221,15 @@
         <option>--root=</option>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>systemd-firstboot doesn't modify existing files unless <option>--force</option>
+        is specified. For modifications to <filename>/etc/passwd</filename> and
+        <filename>/etc/shadow</filename>, systemd-firstboot only modifies the entry of the
+        <literal>root</literal> user instead of overwriting the entire file.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

@@ -30,6 +30,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "tmpfile-util-label.h"
 #include "umask-util.h"
 #include "user-util.h"
 
@@ -50,6 +51,7 @@ static bool arg_copy_locale = false;
 static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
+static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
@@ -273,7 +275,7 @@ static int process_locale(void) {
         int r;
 
         etc_localeconf = prefix_roota(arg_root, "/etc/locale.conf");
-        if (laccess(etc_localeconf, F_OK) >= 0)
+        if (laccess(etc_localeconf, F_OK) >= 0 && !arg_force)
                 return 0;
 
         if (arg_copy_locale && arg_root) {
@@ -340,7 +342,7 @@ static int process_keymap(void) {
         int r;
 
         etc_vconsoleconf = prefix_roota(arg_root, "/etc/vconsole.conf");
-        if (laccess(etc_vconsoleconf, F_OK) >= 0)
+        if (laccess(etc_vconsoleconf, F_OK) >= 0 && !arg_force)
                 return 0;
 
         if (arg_copy_keymap && arg_root) {
@@ -412,7 +414,7 @@ static int process_timezone(void) {
         int r;
 
         etc_localtime = prefix_roota(arg_root, "/etc/localtime");
-        if (laccess(etc_localtime, F_OK) >= 0)
+        if (laccess(etc_localtime, F_OK) >= 0 && !arg_force)
                 return 0;
 
         if (arg_copy_timezone && arg_root) {
@@ -492,7 +494,7 @@ static int process_hostname(void) {
         int r;
 
         etc_hostname = prefix_roota(arg_root, "/etc/hostname");
-        if (laccess(etc_hostname, F_OK) >= 0)
+        if (laccess(etc_hostname, F_OK) >= 0 && !arg_force)
                 return 0;
 
         r = prompt_hostname();
@@ -503,7 +505,8 @@ static int process_hostname(void) {
                 return 0;
 
         r = write_string_file(etc_hostname, arg_hostname,
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755);
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
+                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_hostname);
 
@@ -517,14 +520,15 @@ static int process_machine_id(void) {
         int r;
 
         etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-        if (laccess(etc_machine_id, F_OK) >= 0)
+        if (laccess(etc_machine_id, F_OK) >= 0 && !arg_force)
                 return 0;
 
         if (sd_id128_is_null(arg_machine_id))
                 return 0;
 
         r = write_string_file(etc_machine_id, sd_id128_to_string(arg_machine_id, id),
-                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755);
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
+                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
         if (r < 0)
                 return log_error_errno(r, "Failed to write machine id: %m");
 
@@ -582,45 +586,83 @@ static int prompt_root_password(void) {
         return 0;
 }
 
-static int write_root_shadow(const char *path, const struct spwd *p) {
-        _cleanup_fclose_ FILE *f = NULL;
+static int write_root_shadow(const char *shadow_path, const char *hashed_password) {
+        _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
+        _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
 
-        assert(path);
-        assert(p);
-
-        RUN_WITH_UMASK(0777)
-                f = fopen(path, "wex");
-        if (!f)
-                return -errno;
-
-        r = putspent_sane(p, f);
+        r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
                 return r;
 
-        return fflush_sync_and_check(f);
+        original = fopen(shadow_path, "re");
+        if (original) {
+                struct spwd *i;
+
+                r = sync_rights(fileno(original), fileno(shadow));
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetspent_sane(original, &i)) > 0) {
+
+                        if (streq(i->sp_namp, "root")) {
+                                i->sp_pwdp = (char *) hashed_password;
+                                i->sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
+                        }
+
+                        r = putspent_sane(i, shadow);
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return r;
+
+        } else {
+                struct spwd root = {
+                        .sp_namp = (char*) "root",
+                        .sp_pwdp = (char *) hashed_password,
+                        .sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY),
+                        .sp_min = -1,
+                        .sp_max = -1,
+                        .sp_warn = -1,
+                        .sp_inact = -1,
+                        .sp_expire = -1,
+                        .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
+                };
+
+                if (errno != ENOENT)
+                        return -errno;
+
+                r = fchmod(fileno(shadow), 0000);
+                if (r < 0)
+                        return -errno;
+
+                r = putspent_sane(&root, shadow);
+                if (r < 0)
+                        return r;
+        }
+
+        r = fflush_sync_and_check(shadow);
+        if (r < 0)
+                return r;
+
+        r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int process_root_password(void) {
-
-        struct spwd item = {
-                .sp_namp = (char*) "root",
-                .sp_min = -1,
-                .sp_max = -1,
-                .sp_warn = -1,
-                .sp_inact = -1,
-                .sp_expire = -1,
-                .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
-        };
         _cleanup_free_ char *salt = NULL;
         _cleanup_close_ int lock = -1;
         struct crypt_data cd = {};
-
+        const char *hashed_password;
         const char *etc_shadow;
         int r;
 
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (laccess(etc_shadow, F_OK) >= 0)
+        if (laccess(etc_shadow, F_OK) >= 0 && !arg_force)
                 return 0;
 
         (void) mkdir_parents(etc_shadow, 0755);
@@ -642,7 +684,7 @@ static int process_root_password(void) {
                                 return log_error_errno(errno, "Failed to find shadow entry for root: %m");
                         }
 
-                        r = write_root_shadow(etc_shadow, p);
+                        r = write_root_shadow(etc_shadow, p->sp_pwdp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
 
@@ -663,14 +705,12 @@ static int process_root_password(void) {
                 return log_error_errno(r, "Failed to get salt: %m");
 
         errno = 0;
-        item.sp_pwdp = crypt_r(arg_root_password, salt, &cd);
-        if (!item.sp_pwdp)
+        hashed_password = crypt_r(arg_root_password, salt, &cd);
+        if (!hashed_password)
                 return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
                                        "Failed to encrypt password: %m");
 
-        item.sp_lstchg = (long) (now(CLOCK_REALTIME) / USEC_PER_DAY);
-
-        r = write_root_shadow(etc_shadow, &item);
+        r = write_root_shadow(etc_shadow, hashed_password);
         if (r < 0)
                 return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
 
@@ -711,6 +751,7 @@ static int help(void) {
                "     --copy-root-password      Copy root password from host\n"
                "     --copy                    Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
+               "     --force                   Overwrite existing files\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -744,6 +785,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_SETUP_MACHINE_ID,
+                ARG_FORCE,
         };
 
         static const struct option options[] = {
@@ -770,6 +812,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-timezone",        no_argument,       NULL, ARG_COPY_TIMEZONE        },
                 { "copy-root-password",   no_argument,       NULL, ARG_COPY_ROOT_PASSWORD   },
                 { "setup-machine-id",     no_argument,       NULL, ARG_SETUP_MACHINE_ID     },
+                { "force",                no_argument,       NULL, ARG_FORCE                },
                 {}
         };
 
@@ -914,6 +957,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to generate randomized machine ID: %m");
 
+                        break;
+
+                case ARG_FORCE:
+                        arg_force = true;
                         break;
 
                 case '?':
