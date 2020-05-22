@@ -7,7 +7,8 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Db_lundef=false -Db_sanitize=address,undefined',
+                   '-Db_lundef=false -Db_sanitize=address,undefined ' +
+                   '--optimization=@0@'.format(get_option('optimization')),
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
 
