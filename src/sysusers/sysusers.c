@@ -345,28 +345,6 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 }
 #endif
 
-static int sync_rights(FILE *from, const char *to) {
-        struct stat st;
-
-        if (fstat(fileno(from), &st) < 0)
-                return -errno;
-
-        return chmod_and_chown_unsafe(to, st.st_mode & 07777, st.st_uid, st.st_gid);
-}
-
-static int rename_and_apply_smack(const char *temp_path, const char *dest_path) {
-        int r = 0;
-        if (rename(temp_path, dest_path) < 0)
-                return -errno;
-
-#ifdef SMACK_RUN_LABEL
-        r = mac_smack_apply(dest_path, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
-        if (r < 0)
-                return r;
-#endif
-        return r;
-}
-
 static const char* default_shell(uid_t uid) {
         return uid == 0 ? "/bin/sh" : NOLOGIN;
 }

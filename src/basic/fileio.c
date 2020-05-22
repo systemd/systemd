@@ -1187,3 +1187,25 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
                             filename, st->st_mode & 07777);
         return 0;
 }
+
+int sync_rights(FILE *from, const char *to) {
+        struct stat st;
+
+        if (fstat(fileno(from), &st) < 0)
+                return -errno;
+
+        return chmod_and_chown_unsafe(to, st.st_mode & 07777, st.st_uid, st.st_gid);
+}
+
+int rename_and_apply_smack(const char *from, const char *to) {
+        int r = 0;
+        if (rename(from, to) < 0)
+                return -errno;
+
+#ifdef SMACK_RUN_LABEL
+        r = mac_smack_apply(to, SMACK_ATTR_ACCESS, SMACK_FLOOR_LABEL);
+        if (r < 0)
+                return r;
+#endif
+        return r;
+}
