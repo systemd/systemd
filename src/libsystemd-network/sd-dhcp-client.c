@@ -35,6 +35,32 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
+typedef struct sd_dhcp_client_id {
+        uint8_t type;
+        union {
+                struct {
+                        /* 0: Generic (non-LL) (RFC 2132) */
+                        uint8_t data[MAX_CLIENT_ID_LEN];
+                } _packed_ gen;
+                struct {
+                        /* 1: Ethernet Link-Layer (RFC 2132) */
+                        uint8_t haddr[ETH_ALEN];
+                } _packed_ eth;
+                struct {
+                        /* 2 - 254: ARP/Link-Layer (RFC 2132) */
+                        uint8_t haddr[0];
+                } _packed_ ll;
+                struct {
+                        /* 255: Node-specific (RFC 4361) */
+                        be32_t iaid;
+                        struct duid duid;
+                } _packed_ ns;
+                struct {
+                        uint8_t data[MAX_CLIENT_ID_LEN];
+                } _packed_ raw;
+        };
+} _packed_ sd_dhcp_client_id;
+
 struct sd_dhcp_client {
         unsigned n_ref;
 
@@ -56,31 +82,7 @@ struct sd_dhcp_client {
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
         uint16_t arp_type;
-        struct {
-                uint8_t type;
-                union {
-                        struct {
-                                /* 0: Generic (non-LL) (RFC 2132) */
-                                uint8_t data[MAX_CLIENT_ID_LEN];
-                        } _packed_ gen;
-                        struct {
-                                /* 1: Ethernet Link-Layer (RFC 2132) */
-                                uint8_t haddr[ETH_ALEN];
-                        } _packed_ eth;
-                        struct {
-                                /* 2 - 254: ARP/Link-Layer (RFC 2132) */
-                                uint8_t haddr[0];
-                        } _packed_ ll;
-                        struct {
-                                /* 255: Node-specific (RFC 4361) */
-                                be32_t iaid;
-                                struct duid duid;
-                        } _packed_ ns;
-                        struct {
-                                uint8_t data[MAX_CLIENT_ID_LEN];
-                        } _packed_ raw;
-                };
-        } _packed_ client_id;
+        sd_dhcp_client_id client_id;
         size_t client_id_len;
         char *hostname;
         char *vendor_class_identifier;
