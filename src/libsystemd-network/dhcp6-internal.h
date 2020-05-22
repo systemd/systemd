@@ -11,12 +11,14 @@
 #include "sd-event.h"
 
 #include "list.h"
+#include "hashmap.h"
 #include "macro.h"
 #include "sparse-endian.h"
 
 typedef struct sd_dhcp6_option {
         unsigned n_ref;
 
+        uint32_t enterprise_identifier;
         uint16_t option;
         void *data;
         size_t length;
@@ -99,6 +101,7 @@ int dhcp6_option_append_pd(uint8_t *buf, size_t len, const DHCP6IA *pd, DHCP6Add
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char **user_class);
 int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char **user_class);
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options);
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
 int dhcp6_option_parse_status(DHCP6Option *option, size_t len);
