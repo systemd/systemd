@@ -339,6 +339,13 @@
     name in order to avoid name clashes. Applications
     reading this file must ignore unknown fields. Example:
     <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal></para>
+
+    <para>Container and sandbox runtime managers may make the host's
+    identification data available to applications by providing the host's
+    <filename>/etc/os-release</filename> and
+    <filename>/usr/lib/os-release</filename> as respectively
+    <filename>/run/host/etc/os-release</filename> and
+    <filename>/run/host/usr/lib/os-release</filename>.</para>
   </refsect1>
 
   <refsect1>
