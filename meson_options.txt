@@ -351,6 +351,8 @@ option('tests', type : 'combo', choices : ['true', 'unsafe', 'false'],
        description : 'enable extra tests with =unsafe')
 option('slow-tests', type : 'boolean', value : 'false',
        description : 'run the slow tests by default')
+option('fuzz-tests', type : 'boolean', value : 'false',
+       description : 'run the fuzzer regression tests by default')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
 
