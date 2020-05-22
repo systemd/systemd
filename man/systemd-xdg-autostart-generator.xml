@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<refentry id="systemd-xdg-autostart-generator" conditional="ENABLE_XDG_AUTOSTART">
+
+  <refentryinfo>
+    <title>systemd-xdg-autostart-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-xdg-autostart-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-xdg-autostart-generator</refname>
+    <refpurpose>User unit generator for XDG autostart files</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-xdg-autostart-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-xdg-autostart-generator</filename> is a generator
+    that creates .service units for
+    <ulink url="https://specifications.freedesktop.org/autostart-spec/autostart-spec-latest.html">XDG autostart</ulink>
+    files.
+    This permits desktop environments to delegate startup of these applications to
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    .</para>
+
+    <para>Units created by <filename>systemd-xdg-autostart-generator</filename>
+    can be started by the desktop environment using <literal>xdg-desktop-autostart.target</literal>.
+    See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for more details.</para>
+
+    <para><filename>systemd-xdg-autostart-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
