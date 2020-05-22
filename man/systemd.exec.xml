@@ -1098,8 +1098,8 @@ StateDirectory=aaa/bbb ccc</programlisting>
         clean …</command>, see
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details. Takes the usual time values and defaults to <constant>infinity</constant>, i.e. by default
-        no time-out is applied. If a time-out is configured the clean operation will be aborted forcibly when
-        the time-out is reached, potentially leaving resources on disk.</para></listitem>
+        no timeout is applied. If a timeout is configured the clean operation will be aborted forcibly when
+        the timeout is reached, potentially leaving resources on disk.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -3745,7 +3745,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>ActiveState</varname> above). The following values are currently known:
       <literal>success</literal> is set if the unit didn't fail. <literal>resources</literal> indicates that
       not enough resources were available to fork off and execute the service
-      processes. <literal>timeout</literal> indicates that a time-out occurred while executing a service
+      processes. <literal>timeout</literal> indicates that a timeout occurred while executing a service
       operation. <literal>exit-code</literal> indicates that a service process exited with an unclean exit
       code. <literal>signal</literal> indicates that a service process exited with an uncaught
       signal. <literal>core-dump</literal> indicates that a service process exited uncleanly and dumped

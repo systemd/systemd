@@ -26,7 +26,7 @@
     <refname>sd_bus_get_events</refname>
     <refname>sd_bus_get_timeout</refname>
 
-    <refpurpose>Get the file descriptor, I/O events and time-out to wait for from a message bus
+    <refpurpose>Get the file descriptor, I/O events and timeout to wait for from a message bus
     object</refpurpose>
   </refnamediv>
 
@@ -79,13 +79,13 @@
     <constant>POLLIN</constant>, <constant>POLLOUT</constant>, … events, or negative on error.
     </para>
 
-    <para><function>sd_bus_get_timeout()</function> returns the time-out in µs to pass to to
+    <para><function>sd_bus_get_timeout()</function> returns the timeout in µs to pass to to
     <function>poll()</function> or a similar call when waiting for events on the specified bus
-    connection. The returned time-out may be zero, in which case a subsequent I/O polling call
+    connection. The returned timeout may be zero, in which case a subsequent I/O polling call
     should be invoked in non-blocking mode. The returned timeout may be
     <constant>UINT64_MAX</constant> in which case the I/O polling call may block indefinitely,
-    without any applied time-out. Note that the returned time-out should be considered only a
-    maximum sleeping time. It is permissible (and even expected) that shorter time-outs are used by
+    without any applied timeout. Note that the returned timeout should be considered only a
+    maximum sleeping time. It is permissible (and even expected) that shorter timeouts are used by
     the calling program, in case other event sources are polled in the same event loop. Note that
     the returned time-value is relative and specified in microseconds. When converting this value in
     order to pass it as third argument to <function>poll()</function> (which expects milliseconds),
@@ -93,7 +93,7 @@
     doesn't sleep for shorter than necessary, which might result in unintended busy looping
     (alternatively, use
     <citerefentry project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    instead of plain <function>poll()</function>, which understands time-outs with nano-second
+    instead of plain <function>poll()</function>, which understands timeouts with nano-second
     granularity).</para>
 
     <para>These three functions are useful to hook up a bus connection object with an external or
@@ -101,7 +101,7 @@
     each invocation of the I/O polling call, all three functions should be invoked: the file
     descriptor returned by <function>sd_bus_get_fd()</function> should be polled for the events
     indicated by <function>sd_bus_get_events()</function>, and the I/O call should block for that up
-    to the time-out returned by <function>sd_bus_get_timeout()</function>. After each I/O polling
+    to the timeout returned by <function>sd_bus_get_timeout()</function>. After each I/O polling
     call the bus connection needs to process incoming or outgoing data, by invoking
     <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>

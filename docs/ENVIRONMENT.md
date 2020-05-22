@@ -145,7 +145,7 @@ systemd-udevd:
   boot loader menu through EFI a file `/run/systemd/reboot-to-boot-loader-menu`
   is created whenever this is requested. The file contains the requested boot
   loader menu timeout in µs, formatted in ASCII decimals, or zero in case no
-  time-out is requested. This file may be checked for by services run during
+  timeout is requested. This file may be checked for by services run during
   system shutdown in order to request the appropriate operation from the boot
   loader in an alternative fashion.
 

@@ -1718,7 +1718,7 @@ static int wait_for_devlink(const char *path) {
         usec_t until;
         int r;
 
-        /* let's wait for a device link to show up in /dev, with a time-out. This is good to do since we
+        /* let's wait for a device link to show up in /dev, with a timeout. This is good to do since we
          * return a /dev/disk/by-uuid/… link to our callers and they likely want to access it right-away,
          * hence let's wait until udev has caught up with our changes, and wait for the symlink to be
          * created. */

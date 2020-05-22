@@ -200,7 +200,7 @@ node /org/freedesktop/home1 {
       the returned error code, in case more credentials are necessary. This function is synchronous and
       returns only after the home directory was fully activated (or the operation failed), which might take
       some time. Clients must be prepared for that, and typically should extend the D-Bus method call
-      time-out accordingly. This method is equivalent to the <function>Activate()</function> method on the
+      timeout accordingly. This method is equivalent to the <function>Activate()</function> method on the
       <classname>org.freedesktop.home1.Home</classname> interface documented below, but may be called on the
       manager object and takes a user name as additional argument, instead.</para>
 
