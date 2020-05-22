@@ -1,0 +1,15 @@
+[Match]
+Name=veth99
+
+[Network]
+DHCP=ipv4
+IPv6AcceptRA=false
+
+[DHCPv4]
+SendOption=12:string:test
+SendOption=1:string:
+SendOption=1:uint8:
+SendOption=1:uint16:
+SendOption=1:uint32:
+SendOption=1:ipv4address:
+SendOption=1:ipv6address:
