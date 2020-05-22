@@ -471,9 +471,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
         return 1;
 }
 
-static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int link_get_property(
+                sd_bus *bus,
+                const LinkInfo *link,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *iface,
+                const char *propname) {
         _cleanup_free_ char *path = NULL, *ifindex_str = NULL;
         int r;
 
@@ -484,17 +488,25 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        return sd_bus_call_method(
                         bus,
                         "org.freedesktop.network1",
                         path,
                         "org.freedesktop.DBus.Properties",
                         "Get",
-                        &error,
-                        &reply,
+                        error,
+                        reply,
                         "ss",
-                        "org.freedesktop.network1.Link",
-                        "BitRates");
+                        iface,
+                        propname);
+}
+
+static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates");
         if (r < 0) {
                 bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY) ||
                              sd_bus_error_has_name(&error, BUS_ERROR_SPEED_METER_INACTIVE);
