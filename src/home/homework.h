@@ -56,6 +56,6 @@ int home_load_embedded_identity(UserRecord *h, int root_fd, UserRecord *header_h
 int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserRecord *old_home);
 int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *setup);
 
-int user_record_authenticate(UserRecord *h, UserRecord *secret, char ***pkcs11_decrypted_passwords);
+int user_record_authenticate(UserRecord *h, UserRecord *secret, char ***pkcs11_decrypted_passwords, bool strict_verify);
 
 int home_sync_and_statfs(int root_fd, struct statfs *ret);

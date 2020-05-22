@@ -292,7 +292,7 @@ int home_save_record(Home *h) {
 
         fn = strjoina("/var/lib/systemd/home/", h->user_name, ".identity");
 
-        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600);
+        r = write_string_file(fn, text, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0600|WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return r;
 
@@ -471,6 +471,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s is currently not active", h->user_name);
         case -ENOSPC:
                 return sd_bus_error_setf(error, BUS_ERROR_NO_DISK_SPACE, "Not enough disk space for home %s", h->user_name);
+        case -EKEYREVOKED:
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_CANT_AUTHENTICATE, "Home %s has no password or other authentication mechanism defined.", h->user_name);
         }
 
         return 0;

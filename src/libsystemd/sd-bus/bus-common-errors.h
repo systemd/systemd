@@ -115,5 +115,6 @@
 #define BUS_ERROR_NO_DISK_SPACE "org.freedesktop.home1.NoDiskSpace"
 #define BUS_ERROR_TOO_MANY_OPERATIONS "org.freedesktop.home1.TooManyOperations"
 #define BUS_ERROR_AUTHENTICATION_LIMIT_HIT "org.freedesktop.home1.AuthenticationLimitHit"
+#define BUS_ERROR_HOME_CANT_AUTHENTICATE "org.freedesktop.home1.HomeCantAuthenticate"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);

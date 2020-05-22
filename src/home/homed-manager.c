@@ -329,21 +329,36 @@ static int manager_add_home_by_record(
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line, column;
         int r, is_signed;
+        struct stat st;
         Home *h;
 
         assert(m);
         assert(name);
         assert(fname);
 
+        if (fstatat(dir_fd, fname, &st, 0) < 0)
+                return log_error_errno(errno, "Failed to stat identity record %s: %m", fname);
+
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("Identity record file %s is not a regular file, ignoring.", fname);
+                return 0;
+        }
+
+        if (st.st_size == 0)
+                goto unlink_this_file;
+
         r = json_parse_file_at(NULL, dir_fd, fname, JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);
+
+        if (json_variant_is_blank_object(v))
+                goto unlink_this_file;
 
         hr = user_record_new();
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET);
+        r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG);
         if (r < 0)
                 return r;
 
@@ -394,6 +409,19 @@ static int manager_add_home_by_record(
         h->signed_locally = is_signed == USER_RECORD_SIGNED_EXCLUSIVE;
 
         return 1;
+
+unlink_this_file:
+        /* If this is an empty file, then let's just remove it. An empty file is not useful in any case, and
+         * apparently xfs likes to leave empty files around when not unmounted cleanly (see
+         * https://github.com/systemd/systemd/issues/15178 for example). Note that we don't delete non-empty
+         * files even if they are invalid, because that's just too risky, we might delete data the user still
+         * needs. But empty files are never useful, hence let's just remove them. */
+
+        if (unlinkat(dir_fd, fname, 0) < 0)
+                return log_error_errno(errno, "Failed to remove empty user record file %s: %m", fname);
+
+        log_notice("Discovered empty user record file /var/lib/systemd/home/%s, removed automatically.", fname);
+        return 0;
 }
 
 static int manager_enumerate_records(Manager *m) {
@@ -485,7 +513,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_debug_errno(r, "No UID quota support on %s, ignoring.", where);
                         else
-                                log_warning_errno(r, "Failed to query quota on %s, ignoring.", where);
+                                log_warning_errno(r, "Failed to query quota on %s, ignoring: %m", where);
 
                         continue;
                 }
@@ -1309,7 +1337,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PUBKEY(fpublic, m->private_key) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key.");
 
-        r = fflush_and_check(fpublic);
+        r = fflush_sync_and_check(fpublic);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
 
@@ -1323,7 +1351,7 @@ static int manager_generate_key_pair(Manager *m) {
         if (PEM_write_PrivateKey(fprivate, m->private_key, NULL, NULL, 0, NULL, 0) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write private key pair.");
 
-        r = fflush_and_check(fprivate);
+        r = fflush_sync_and_check(fprivate);
         if (r < 0)
                 return log_error_errno(r, "Failed to write private key: %m");
 
@@ -1337,9 +1365,13 @@ static int manager_generate_key_pair(Manager *m) {
 
         if (rename(temp_private, "/var/lib/systemd/home/local.private") < 0) {
                 (void) unlink_noerrno("/var/lib/systemd/home/local.public"); /* try to remove the file we already created */
-                return log_error_errno(errno, "Failed to move privtate key file into place: %m");
+                return log_error_errno(errno, "Failed to move private key file into place: %m");
         }
         temp_private = mfree(temp_private);
+
+        r = fsync_path_at(AT_FDCWD, "/var/lib/systemd/home/");
+        if (r < 0)
+                log_warning_errno(r, "Failed to sync /var/lib/systemd/home/, ignoring: %m");
 
         return 1;
 }
