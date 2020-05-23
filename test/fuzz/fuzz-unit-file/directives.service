@@ -865,6 +865,7 @@ RestrictNamespaces=
 RestrictRealtime=
 RestrictSUIDSGID=
 RuntimeDirectory=
+RuntimeDirectoryInodesMax=
 RuntimeDirectoryMode=
 RuntimeDirectoryPreserve=
 RuntimeDirectorySize=
