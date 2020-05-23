@@ -65,7 +65,10 @@ for phase in "${PHASES[@]}"; do
         RUN_ASAN|RUN_CLANG_ASAN)
             if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
-                MESON_ARGS="-Db_lundef=false" # See https://github.com/mesonbuild/meson/issues/764
+                # Build fuzzer regression tests only with clang (for now),
+                # see: https://github.com/systemd/systemd/pull/15886#issuecomment-632689604
+                # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
+                MESON_ARGS="-Db_lundef=false -Dfuzz-tests=true --optimization=1"
             fi
             docker exec $ENV_VARS -it $CONT_NAME meson --werror -Dtests=unsafe -Db_sanitize=address,undefined -Dsplit-usr=true $MESON_ARGS build
             $DOCKER_EXEC ninja -v -C build
