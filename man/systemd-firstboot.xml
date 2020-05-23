@@ -230,6 +230,14 @@
         <literal>root</literal> user instead of overwriting the entire file.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--delete-root-password</option></term>
+
+        <listitem><para>Removes the password of the system's root user, enabling login as root without a
+        password unless the root account is locked. Note that this is extremely insecure and hence this
+        option should not be used lightly.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

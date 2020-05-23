@@ -52,6 +52,7 @@ static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 static bool arg_force = false;
+static bool arg_delete_root_password = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
@@ -586,6 +587,69 @@ static int prompt_root_password(void) {
         return 0;
 }
 
+static int write_root_passwd(const char *passwd_path, const char *password) {
+        _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
+        _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
+        int r;
+
+        r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
+        if (r < 0)
+                return r;
+
+        original = fopen(passwd_path, "re");
+        if (original) {
+                struct passwd *i;
+
+                r = sync_rights(fileno(original), fileno(passwd));
+                if (r < 0)
+                        return r;
+
+                while ((r = fgetpwent_sane(original, &i)) > 0) {
+
+                        if (streq(i->pw_name, "root"))
+                                i->pw_passwd = (char *) password;
+
+                        r = putpwent_sane(i, passwd);
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return r;
+
+        } else {
+                struct passwd root = {
+                        .pw_name = (char *) "root",
+                        .pw_passwd = (char *) password,
+                        .pw_uid = 0,
+                        .pw_gid = 0,
+                        .pw_gecos = (char *) "Super User",
+                        .pw_dir = (char *) "/root",
+                        .pw_shell = (char *) "/bin/sh",
+                };
+
+                if (errno != ENOENT)
+                        return -errno;
+
+                r = fchmod(fileno(passwd), 0000);
+                if (r < 0)
+                        return -errno;
+
+                r = putpwent_sane(&root, passwd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = fflush_sync_and_check(passwd);
+        if (r < 0)
+                return r;
+
+        r = rename_and_apply_smack_floor_label(passwd_tmp, passwd_path);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int write_root_shadow(const char *shadow_path, const char *hashed_password) {
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
@@ -671,6 +735,21 @@ static int process_root_password(void) {
         if (lock < 0)
                 return log_error_errno(lock, "Failed to take a lock: %m");
 
+        if (arg_delete_root_password) {
+                const char *etc_passwd;
+
+                /* Mixing alloca() and other stuff that touches the stack in one expression is not portable. */
+                etc_passwd = prefix_roota(arg_root, "/etc/passwd");
+
+                r = write_root_passwd(etc_passwd, "");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
+
+                log_info("%s written", etc_passwd);
+
+                return 0;
+        }
+
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;
 
@@ -752,6 +831,7 @@ static int help(void) {
                "     --copy                    Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id        Generate a new random machine ID\n"
                "     --force                   Overwrite existing files\n"
+               "     --delete-root-password    Delete root password\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -786,6 +866,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
+                ARG_DELETE_ROOT_PASSWORD,
         };
 
         static const struct option options[] = {
@@ -813,6 +894,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-root-password",   no_argument,       NULL, ARG_COPY_ROOT_PASSWORD   },
                 { "setup-machine-id",     no_argument,       NULL, ARG_SETUP_MACHINE_ID     },
                 { "force",                no_argument,       NULL, ARG_FORCE                },
+                { "delete-root-password", no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD },
                 {}
         };
 
@@ -963,6 +1045,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
+                case ARG_DELETE_ROOT_PASSWORD:
+                        arg_delete_root_password = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -977,6 +1063,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
         if (arg_locale_messages && !locale_is_ok(arg_locale_messages))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
+
+        if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--delete-root-password cannot be combined with other root password options");
 
         return 1;
 }
