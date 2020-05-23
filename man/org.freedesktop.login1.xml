@@ -217,6 +217,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RuntimeDirectorySize = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeDirectoryInodesMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t InhibitorsMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t NCurrentInhibitors = ...;
@@ -425,6 +427,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectorySize"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RuntimeDirectoryInodesMax"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="InhibitorsMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NCurrentInhibitors"/>
@@ -623,7 +627,8 @@ node /org/freedesktop/login1 {
       <varname>HandleLidSwitchExternalPower</varname>, <varname>HandleLidSwitchDocked</varname>,
       <varname>IdleActionUSec</varname>, <varname>HoldoffTimeoutUSec</varname>,
       <varname>RemoveIPC</varname>, <varname>RuntimeDirectorySize</varname>,
-      <varname>InhibitorsMax</varname>, and <varname>SessionsMax</varname>.
+      <varname>RuntimeDirectoryInodesMax</varname>, <varname>InhibitorsMax</varname>, and
+      <varname>SessionsMax</varname>.
       </para>
 
       <para>The <varname>IdleHint</varname> property reflects the idle hint state of the system. If the

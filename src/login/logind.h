@@ -120,6 +120,7 @@ struct Manager {
         sd_event_source *lid_switch_ignore_event_source;
 
         uint64_t runtime_dir_size;
+        uint64_t runtime_dir_inodes;
         uint64_t sessions_max;
         uint64_t inhibitors_max;
 };
