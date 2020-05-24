@@ -167,7 +167,7 @@ void manager_verify_all(Manager *m);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-/* For some reason we need some extra cmsg space on some kernels/archs. One of those days we ned to figure out why */
+/* For some reason we need some extra cmsg space on some kernels/archs. One of those days we need to figure out why */
 #define EXTRA_CMSG_SPACE 1024
 
 int manager_is_own_hostname(Manager *m, const char *name);

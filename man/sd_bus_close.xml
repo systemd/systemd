@@ -73,12 +73,12 @@
 
     <para><function>sd_bus_default_flush_close()</function> is similar to
     <function>sd_bus_flush_close_unref</function>, but does not take a bus pointer argument and
-    instead iterates over any of the "default" busses opened by
+    instead iterates over any of the "default" buses opened by
     <citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_default_user</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_default_system</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     and similar calls. <function>sd_bus_default_flush_close()</function> is particularly useful to
-    clean up any busses opened using those calls before the program exits.</para>
+    clean up any buses opened using those calls before the program exits.</para>
   </refsect1>
 
   <refsect1>
