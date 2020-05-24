@@ -695,7 +695,8 @@ good:
 }
 
 int slice_build_parent_slice(const char *slice, char **ret) {
-        char *s, *dash;
+        _cleanup_free_ char *s = NULL;
+        char *dash;
         int r;
 
         assert(slice);
@@ -718,13 +719,11 @@ int slice_build_parent_slice(const char *slice, char **ret) {
                 strcpy(dash, ".slice");
         else {
                 r = free_and_strdup(&s, SPECIAL_ROOT_SLICE);
-                if (r < 0) {
-                        free(s);
+                if (r < 0)
                         return r;
-                }
         }
 
-        *ret = s;
+        *ret = TAKE_PTR(s);
         return 1;
 }
 
