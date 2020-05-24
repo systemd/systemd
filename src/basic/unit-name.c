@@ -207,8 +207,9 @@ UnitType unit_name_to_type(const char *n) {
 }
 
 int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
-        char *e, *s;
+        _cleanup_free_ char *s = NULL;
         size_t a, b;
+        char *e;
 
         assert(n);
         assert(suffix);
@@ -230,8 +231,12 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
                 return -ENOMEM;
 
         strcpy(mempcpy(s, n, a), suffix);
-        *ret = s;
 
+        /* Make sure the name is still valid (i.e. didn't grow too large due to longer suffix) */
+        if (!unit_name_is_valid(s, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -253,8 +258,8 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
 }
 
 int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret) {
+        _cleanup_free_ char *s = NULL;
         const char *ut;
-        char *s;
 
         assert(prefix);
         assert(type >= 0);
@@ -264,19 +269,23 @@ int unit_name_build_from_type(const char *prefix, const char *instance, UnitType
         if (!unit_prefix_is_valid(prefix))
                 return -EINVAL;
 
-        if (instance && !unit_instance_is_valid(instance))
-                return -EINVAL;
-
         ut = unit_type_to_string(type);
 
-        if (!instance)
-                s = strjoin(prefix, ".", ut);
-        else
+        if (instance) {
+                if (!unit_instance_is_valid(instance))
+                        return -EINVAL;
+
                 s = strjoin(prefix, "@", instance, ".", ut);
+        } else
+                s = strjoin(prefix, ".", ut);
         if (!s)
                 return -ENOMEM;
 
-        *ret = s;
+        /* Verify that this didn't grow too large (or otherwise is invalid) */
+        if (!unit_name_is_valid(s, instance ? UNIT_NAME_INSTANCE : UNIT_NAME_PLAIN))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -441,8 +450,8 @@ int unit_name_path_unescape(const char *f, char **ret) {
 }
 
 int unit_name_replace_instance(const char *f, const char *i, char **ret) {
+        _cleanup_free_ char *s = NULL;
         const char *p, *e;
-        char *s;
         size_t a, b;
 
         assert(f);
@@ -466,7 +475,11 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret) {
 
         strcpy(mempcpy(mempcpy(s, f, a + 1), i, b), e);
 
-        *ret = s;
+        /* Make sure the resulting name still is valid, i.e. didn't grow too large */
+        if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -497,8 +510,7 @@ int unit_name_template(const char *f, char **ret) {
 }
 
 int unit_name_from_path(const char *path, const char *suffix, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        char *s = NULL;
+        _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
         assert(path);
@@ -516,7 +528,11 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (!s)
                 return -ENOMEM;
 
-        *ret = s;
+        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -543,6 +559,10 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         s = strjoin(prefix, "@", p, suffix);
         if (!s)
                 return -ENOMEM;
+
+        /* Refuse this if this got too long or for some other reason didn't result in a valid name */
+        if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
+                return -EINVAL;
 
         *ret = s;
         return 0;
@@ -597,9 +617,9 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
 int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret) {
-        char *s;
-        int r;
+        _cleanup_free_ char *s = NULL;
         bool mangled, suggest_escape = true;
+        int r;
 
         assert(name);
         assert(suffix);
@@ -657,7 +677,12 @@ int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNa
         if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
                 strcat(s, suffix);
 
-        *ret = s;
+        /* Make sure mangling didn't grow this too large (but don't do this check if globbing is allowed,
+         * since globs generally do not qualify as valid unit names) */
+        if (!FLAGS_SET(flags, UNIT_NAME_MANGLE_GLOB) && !unit_name_is_valid(s, UNIT_NAME_ANY))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(s);
         return 1;
 
 good:
@@ -665,7 +690,7 @@ good:
         if (!s)
                 return -ENOMEM;
 
-        *ret = s;
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
