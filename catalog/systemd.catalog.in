@@ -435,3 +435,34 @@ hyphen and otherwise fully numeric.
 For further details on strict and relaxed user/group name rules, see:
 
 https://systemd.io/USER_NAMES
+
+-- 1b3bb94037f04bbf81028e135a12d293
+Subject: Failed to generate valid unit name from path '@MOUNT_POINT@'.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The following mount point path could not be converted into a valid .mount
+unit name:
+
+    @MOUNT_POINT@
+
+Typically this means that the path to the mount point is longer than allowed
+for valid unit names.
+
+systemd dynamically synthesizes .mount units for all mount points appearing on
+the system. For that a simple escaping algorithm is applied: the absolute path
+name is used, with all "/" characters replaced by "-" (the leading one is
+removed). Moreover, any non-alphanumeric characters (as well as any of ":",
+"-", "_", ".", "\") are replaced by "\xNN" where "NN" is the hexadecimal code
+of the character. Finally, ".mount" is suffixed. The resulting string must be
+under 256 characters in length to be a valid unit name. This restriction is
+made in order for all unit names to also be suitable as file names. If a mount
+point appears that — after escaping — is longer than this limit it cannot be
+mapped to a unit. In this case systemd will refrain from synthesizing a unit
+and cannot be used to manage the mount point. It will not appear in the service
+manager's unit table and thus also not be torn down safely and automatically at
+system shutdown.
+
+It is generally recommended to avoid such overly long mount point paths, or —
+if used anyway – manage them independently of systemd, i.e. establish them as
+well as tear them down automatically at system shutdown by other software.
