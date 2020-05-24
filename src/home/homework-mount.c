@@ -20,7 +20,7 @@ static const char *mount_options_for_fstype(const char *fstype) {
         return NULL;
 }
 
-int home_mount_node(const char *node, const char *fstype, bool discard) {
+int home_mount_node(const char *node, const char *fstype, bool discard, unsigned long flags) {
         _cleanup_free_ char *joined = NULL;
         const char *options, *discard_option;
         int r;
@@ -38,7 +38,7 @@ int home_mount_node(const char *node, const char *fstype, bool discard) {
         } else
                 options = discard_option;
 
-        r = mount_verbose(LOG_ERR, node, "/run/systemd/user-home-mount", fstype, MS_NODEV|MS_NOSUID|MS_RELATIME, strempty(options));
+        r = mount_verbose(LOG_ERR, node, "/run/systemd/user-home-mount", fstype, flags|MS_RELATIME, strempty(options));
         if (r < 0)
                 return r;
 
@@ -46,7 +46,7 @@ int home_mount_node(const char *node, const char *fstype, bool discard) {
         return 0;
 }
 
-int home_unshare_and_mount(const char *node, const char *fstype, bool discard) {
+int home_unshare_and_mount(const char *node, const char *fstype, bool discard, unsigned long flags) {
         int r;
 
         if (unshare(CLONE_NEWNS) < 0)
@@ -59,7 +59,7 @@ int home_unshare_and_mount(const char *node, const char *fstype, bool discard) {
         (void) mkdir_p("/run/systemd/user-home-mount", 0700);
 
         if (node)
-                return home_mount_node(node, fstype, discard);
+                return home_mount_node(node, fstype, discard, flags);
 
         return 0;
 }
