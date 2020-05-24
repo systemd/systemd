@@ -53,7 +53,7 @@
         <literal>cifs</literal>. For details about these options, see
         <citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If not
         configured or assigned the empty string, the default storage is automatically determined: if not
-        running in a container enviroment and <filename>/home/</filename> is not itself encrypted, defaults
+        running in a container environment and <filename>/home/</filename> is not itself encrypted, defaults
         to <literal>luks</literal>. Otherwise defaults to <literal>subvolume</literal> if
         <filename>/home/</filename> is on a btrfs file system, and <literal>directory</literal>
         otherwise. Note that the storage selected on the <command>homectl</command> command line always takes

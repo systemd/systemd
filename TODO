@@ -81,7 +81,7 @@ Features:
 * homed: as an extension to the directory+subvolume backend: if located on
   especially marked fs, then sync down password into LUKS header of that fs,
   and always verify passwords against it too. Bootstrapping is a problem
-  though: if noone is logged in (or no other user even exists yet), how do you
+  though: if no one is logged in (or no other user even exists yet), how do you
   unlock the volume in order to create the first user and add the first pw.
 
 * homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt

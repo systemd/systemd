@@ -1365,7 +1365,7 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
                  * it. This isn't going to give you shred(1) semantics, but hopefully should be good enough
                  * for stuff backed by tmpfs at least.
                  *
-                 * Note that we only erase like this if the link count of the file is zero. If it is higer it
+                 * Note that we only erase like this if the link count of the file is zero. If it is higher it
                  * is still linked by someone else and we'll leave it to them to remove it securely
                  * eventually! */
 
