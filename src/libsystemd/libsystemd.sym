@@ -700,6 +700,11 @@ global:
 
 LIBSYSTEMD_246 {
 global:
+        sd_bus_interface_name_is_valid;
+        sd_bus_service_name_is_valid;
+        sd_bus_member_name_is_valid;
+        sd_bus_object_path_is_valid;
+
         sd_bus_call_methodv;
         sd_bus_call_method_asyncv;
         sd_bus_emit_signalv;
@@ -707,6 +712,7 @@ global:
         sd_bus_reply_method_errorfv;
         sd_bus_reply_method_returnv;
         sd_bus_set_propertyv;
+
         sd_path_lookup;
         sd_path_lookup_strv;
 } LIBSYSTEMD_245;
