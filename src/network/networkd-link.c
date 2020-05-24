@@ -3969,7 +3969,7 @@ int link_save(Link *link) {
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
                         if (r < 0 && r != -ENOMSG)
-                                log_link_debug(link, "No DHCPv6 lease");
+                                log_link_debug_errno(link, r, "Failed to get DHCPv6 lease: %m");
                 }
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
