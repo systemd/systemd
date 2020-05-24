@@ -496,32 +496,21 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
 }
 
 static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool many) {
-        _cleanup_set_free_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+        _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
         _cleanup_free_ char **l = NULL;
-        char *m;
         int r;
 
-        paths = set_new(&string_hash_ops);
-        if (!paths)
+        r = set_put_strdup(&paths, "/");
+        if (r < 0)
                 return log_oom();
 
-        done = set_new(&string_hash_ops);
+        done = set_new(&string_hash_ops_free);
         if (!done)
                 return log_oom();
 
-        failed = set_new(&string_hash_ops);
+        failed = set_new(&string_hash_ops_free);
         if (!failed)
                 return log_oom();
-
-        m = strdup("/");
-        if (!m)
-                return log_oom();
-
-        r = set_put(paths, m);
-        if (r < 0) {
-                free(m);
-                return log_oom();
-        }
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
@@ -536,19 +525,13 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
                         continue;
 
                 q = find_nodes(bus, service, p, paths, many);
-                if (q < 0) {
-                        if (r >= 0)
-                                r = q;
+                if (q < 0 && r >= 0)
+                        r = q;
 
-                        q = set_put(failed, p);
-                } else
-                        q = set_put(done, p);
-
+                q = set_consume(q < 0 ? failed : done, TAKE_PTR(p));
+                assert(q != 0);
                 if (q < 0)
                         return log_oom();
-
-                assert(q != 0);
-                p = NULL;
         }
 
         (void) pager_open(arg_pager_flags);
@@ -2608,7 +2591,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int busctl_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names },
                 { "status",       VERB_ANY, 2,        0,            status         },
