@@ -1227,6 +1227,8 @@ Features:
    - duplicate address check for static IPs (like ARPCHECK in network-scripts)
    - whenever uplink info changes, make DHCP server send out FORCERENEW
 
+* Figure out how to do unittests of networkd's state serialization
+
 * dhcp:
    - figure out how much we can increase Maximum Message Size
 

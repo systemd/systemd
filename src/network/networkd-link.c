@@ -3999,6 +3999,61 @@ static void link_save_dns(FILE *f, struct in_addr_data *dns, unsigned n_dns, boo
         }
 }
 
+static void serialize_addresses(
+                FILE *f,
+                const char *lvalue,
+                bool *space,
+                char **addresses,
+                sd_dhcp_lease *lease,
+                bool conditional,
+                sd_dhcp_lease_info what,
+                sd_dhcp6_lease *lease6,
+                bool conditional6,
+                int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),
+                int (*lease6_get_fqdn)(sd_dhcp6_lease*, char ***)) {
+        int r;
+
+        bool _space = false;
+        if (!space)
+                space = &_space;
+
+        if (lvalue)
+                fprintf(f, "%s=", lvalue);
+        fputstrv(f, addresses, NULL, space);
+
+        if (lease && conditional) {
+                const struct in_addr *lease_addresses;
+
+                r = sd_dhcp_lease_get_servers(lease, what, &lease_addresses);
+                if (r > 0)
+                        if (serialize_in_addrs(f, lease_addresses, r, space, in4_addr_is_non_local) > 0)
+                                *space = true;
+        }
+
+        if (lease6 && conditional6 && lease6_get_addr) {
+                const struct in6_addr *in6_addrs;
+
+                r = lease6_get_addr(lease6, &in6_addrs);
+                if (r > 0) {
+                        if (*space)
+                                fputc(' ', f);
+                        serialize_in6_addrs(f, in6_addrs, r);
+                        *space = true;
+                }
+        }
+
+        if (lease6 && conditional6 && lease6_get_fqdn) {
+                char **in6_hosts;
+
+                r = lease6_get_fqdn(lease6, &in6_hosts);
+                if (r > 0)
+                        fputstrv(f, in6_hosts, NULL, space);
+        }
+
+        if (lvalue)
+                fputc('\n', f);
+}
+
 int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
@@ -4055,14 +4110,11 @@ int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s",
-                        strempty(link_operstate_to_string(link->network->required_operstate_for_online.min)));
-
-                if (link->network->required_operstate_for_online.max != LINK_OPERSTATE_RANGE_DEFAULT.max)
-                        fprintf(f, ":%s",
-                                strempty(link_operstate_to_string(link->network->required_operstate_for_online.max)));
-
-                fprintf(f, "\n");
+                LinkOperationalStateRange st = link->network->required_operstate_for_online;
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s%s%s\n",
+                        strempty(link_operstate_to_string(st.min)),
+                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
+                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
 
                 if (link->dhcp6_client) {
                         r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
@@ -4072,35 +4124,24 @@ int link_save(Link *link) {
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
+                /************************************************************/
+
                 fputs("DNS=", f);
                 space = false;
-
                 if (link->n_dns != (unsigned) -1)
                         link_save_dns(f, link->dns, link->n_dns, &space);
                 else
                         link_save_dns(f, link->network->dns, link->network->n_dns, &space);
 
-                if (link->network->dhcp_use_dns &&
-                    link->dhcp_lease) {
-                        const struct in_addr *addresses;
-
-                        r = sd_dhcp_lease_get_dns(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
-
-                if (link->network->dhcp6_use_dns && dhcp6_lease) {
-                        const struct in6_addr *in6_addrs;
-
-                        r = sd_dhcp6_lease_get_dns(dhcp6_lease, &in6_addrs);
-                        if (r > 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                serialize_in6_addrs(f, in6_addrs, r);
-                                space = true;
-                        }
-                }
+                serialize_addresses(f, NULL, &space,
+                                    NULL,
+                                    link->dhcp_lease,
+                                    link->network->dhcp_use_dns,
+                                    SD_DHCP_LEASE_DNS_SERVERS,
+                                    dhcp6_lease,
+                                    link->network->dhcp6_use_dns,
+                                    sd_dhcp6_lease_get_dns,
+                                    NULL);
 
                 /* Make sure to flush out old entries before we use the NDISC data */
                 ndisc_vacuum(link);
@@ -4119,100 +4160,47 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
-                fputs("NTP=", f);
-                space = false;
-                fputstrv(f, link->ntp ?: link->network->ntp, NULL, &space);
+                /************************************************************/
 
-                if (link->network->dhcp_use_ntp &&
-                    link->dhcp_lease) {
-                        const struct in_addr *addresses;
+                serialize_addresses(f, "NTP", NULL,
+                                    link->ntp ?: link->network->ntp,
+                                    link->dhcp_lease,
+                                    link->network->dhcp_use_ntp,
+                                    SD_DHCP_LEASE_NTP_SERVERS,
+                                    dhcp6_lease,
+                                    link->network->dhcp6_use_ntp,
+                                    sd_dhcp6_lease_get_ntp_addrs,
+                                    sd_dhcp6_lease_get_ntp_fqdn);
 
-                        r = sd_dhcp_lease_get_ntp(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
+                serialize_addresses(f, "SIP", NULL,
+                                    link->network->sip,
+                                    link->dhcp_lease,
+                                    link->network->dhcp_use_sip,
+                                    SD_DHCP_LEASE_SIP_SERVERS,
+                                    false, NULL, NULL, NULL);
 
-                fputc('\n', f);
+                serialize_addresses(f, "POP3_SERVERS", NULL,
+                                    link->network->pop3,
+                                    link->dhcp_lease,
+                                    true,
+                                    SD_DHCP_LEASE_POP3_SERVERS,
+                                    false, NULL, NULL, NULL);
 
-                fputs("SIP=", f);
-                space = false;
-                fputstrv(f, link->network->sip, NULL, &space);
+                serialize_addresses(f, "SMTP_SERVERS", NULL,
+                                    link->network->smtp,
+                                    link->dhcp_lease,
+                                    true,
+                                    SD_DHCP_LEASE_SMTP_SERVERS,
+                                    false, NULL, NULL, NULL);
 
-                if (link->network->dhcp_use_sip &&
-                    link->dhcp_lease) {
-                        const struct in_addr *addresses;
+                serialize_addresses(f, "LPR_SERVERS", NULL,
+                                    link->network->lpr,
+                                    link->dhcp_lease,
+                                    true,
+                                    SD_DHCP_LEASE_LPR_SERVERS,
+                                    false, NULL, NULL, NULL);
 
-                        r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
-
-                fputc('\n', f);
-
-                fputs("POP3_SERVERS=", f);
-                space = false;
-                fputstrv(f, link->network->pop3, NULL, &space);
-
-                fputc('\n', f);
-
-                fputs("SMTP_SERVERS=", f);
-                space = false;
-                fputstrv(f, link->network->smtp, NULL, &space);
-
-                fputc('\n', f);
-
-                fputs("LPR_SERVERS=", f);
-                space = false;
-                fputstrv(f, link->network->lpr, NULL, &space);
-
-                if (link->dhcp_lease) {
-                        const struct in_addr *addresses;
-
-                        r = sd_dhcp_lease_get_pop3_server(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
-
-                if (link->dhcp_lease) {
-                        const struct in_addr *addresses;
-
-                        r = sd_dhcp_lease_get_smtp_server(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
-
-                if (link->dhcp_lease) {
-                        const struct in_addr *addresses;
-
-                        r = sd_dhcp_lease_get_lpr_servers(link->dhcp_lease, &addresses);
-                        if (r > 0)
-                                if (serialize_in_addrs(f, addresses, r, space, in4_addr_is_non_local) > 0)
-                                        space = true;
-                }
-
-                if (link->network->dhcp6_use_ntp && dhcp6_lease) {
-                        const struct in6_addr *in6_addrs;
-                        char **hosts;
-
-                        r = sd_dhcp6_lease_get_ntp_addrs(dhcp6_lease,
-                                                         &in6_addrs);
-                        if (r > 0) {
-                                if (space)
-                                        fputc(' ', f);
-                                serialize_in6_addrs(f, in6_addrs, r);
-                                space = true;
-                        }
-
-                        r = sd_dhcp6_lease_get_ntp_fqdn(dhcp6_lease, &hosts);
-                        if (r > 0)
-                                fputstrv(f, hosts, NULL, &space);
-                }
-
-                fputc('\n', f);
+                /************************************************************/
 
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         if (link->dhcp_lease) {
@@ -4246,6 +4234,8 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
+                /************************************************************/
+
                 fputs("ROUTE_DOMAINS=", f);
                 space = false;
                 ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains, i)
@@ -4269,46 +4259,57 @@ int link_save(Link *link) {
 
                 fputc('\n', f);
 
+                /************************************************************/
+
                 fprintf(f, "LLMNR=%s\n",
                         resolve_support_to_string(link->llmnr >= 0 ? link->llmnr : link->network->llmnr));
+
+                /************************************************************/
+
                 fprintf(f, "MDNS=%s\n",
                         resolve_support_to_string(link->mdns >= 0 ? link->mdns : link->network->mdns));
-                if (link->dns_default_route >= 0)
-                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(link->dns_default_route));
-                else if (link->network->dns_default_route >= 0)
-                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(link->network->dns_default_route));
 
-                if (link->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
-                        fprintf(f, "DNS_OVER_TLS=%s\n",
-                                dns_over_tls_mode_to_string(link->dns_over_tls_mode));
-                else if (link->network->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
-                        fprintf(f, "DNS_OVER_TLS=%s\n",
-                                dns_over_tls_mode_to_string(link->network->dns_over_tls_mode));
+                /************************************************************/
 
-                if (link->dnssec_mode != _DNSSEC_MODE_INVALID)
-                        fprintf(f, "DNSSEC=%s\n",
-                                dnssec_mode_to_string(link->dnssec_mode));
-                else if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
-                        fprintf(f, "DNSSEC=%s\n",
-                                dnssec_mode_to_string(link->network->dnssec_mode));
+                int dns_default_route =
+                        link->dns_default_route >= 0 ? link->dns_default_route :
+                        link->network->dns_default_route;
+                if (dns_default_route >= 0)
+                        fprintf(f, "DNS_DEFAULT_ROUTE=%s\n", yes_no(dns_default_route));
 
-                if (!set_isempty(link->dnssec_negative_trust_anchors)) {
+                /************************************************************/
+
+                DnsOverTlsMode dns_over_tls_mode =
+                        link->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID ? link->dns_over_tls_mode :
+                        link->network->dns_over_tls_mode;
+                if (dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                        fprintf(f, "DNS_OVER_TLS=%s\n", dns_over_tls_mode_to_string(dns_over_tls_mode));
+
+                /************************************************************/
+
+                DnssecMode dnssec_mode =
+                        link->dnssec_mode != _DNSSEC_MODE_INVALID ? link->dnssec_mode :
+                        link->network->dnssec_mode;
+                if (dnssec_mode != _DNSSEC_MODE_INVALID)
+                        fprintf(f, "DNSSEC=%s\n", dnssec_mode_to_string(dnssec_mode));
+
+                /************************************************************/
+
+                Set *nta_anchors = link->dnssec_negative_trust_anchors;
+                if (set_isempty(nta_anchors))
+                        nta_anchors = link->network->dnssec_negative_trust_anchors;
+
+                if (!set_isempty(nta_anchors)) {
                         const char *n;
 
                         fputs("DNSSEC_NTA=", f);
                         space = false;
-                        SET_FOREACH(n, link->dnssec_negative_trust_anchors, i)
-                                fputs_with_space(f, n, NULL, &space);
-                        fputc('\n', f);
-                } else if (!set_isempty(link->network->dnssec_negative_trust_anchors)) {
-                        const char *n;
-
-                        fputs("DNSSEC_NTA=", f);
-                        space = false;
-                        SET_FOREACH(n, link->network->dnssec_negative_trust_anchors, i)
+                        SET_FOREACH(n, nta_anchors, i)
                                 fputs_with_space(f, n, NULL, &space);
                         fputc('\n', f);
                 }
+
+                /************************************************************/
 
                 fputs("ADDRESSES=", f);
                 space = false;
@@ -4323,6 +4324,8 @@ int link_save(Link *link) {
                         space = true;
                 }
                 fputc('\n', f);
+
+                /************************************************************/
 
                 fputs("ROUTES=", f);
                 space = false;
