@@ -110,13 +110,10 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
-                        if (arg_user) {
-                                bus->is_user = true;
+                        if (arg_user)
                                 r = bus_set_address_user(bus);
-                        } else {
-                                bus->is_system = true;
+                        else
                                 r = bus_set_address_system(bus);
-                        }
                         break;
 
                 case BUS_TRANSPORT_REMOTE:
