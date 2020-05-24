@@ -3982,11 +3982,9 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
 }
 
 static void link_save_dns(FILE *f, struct in_addr_data *dns, unsigned n_dns, bool *space) {
-        unsigned j;
-        int r;
-
-        for (j = 0; j < n_dns; j++) {
+        for (unsigned j = 0; j < n_dns; j++) {
                 _cleanup_free_ char *b = NULL;
+                int r;
 
                 r = in_addr_to_string(dns[j].family, &dns[j].address, &b);
                 if (r < 0) {
