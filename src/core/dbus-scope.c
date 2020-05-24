@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-internal.h"
 #include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
@@ -140,7 +139,7 @@ static int bus_scope_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!isempty(controller) && !service_name_is_valid(controller))
+                if (!isempty(controller) && !sd_bus_service_name_is_valid(controller))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Controller '%s' is not a valid bus name.", controller);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
