@@ -371,7 +371,7 @@ static int test_advertise_option(sd_event *e) {
         int r;
         uint8_t *opt;
         bool opt_clientid = false;
-        struct in6_addr *addrs;
+        const struct in6_addr *addrs;
         char **domains;
 
         log_debug("/* %s */", __func__);
@@ -518,7 +518,7 @@ static void test_client_solicit_cb(sd_dhcp6_client *client, int event,
                                    void *userdata) {
         sd_event *e = userdata;
         sd_dhcp6_lease *lease;
-        struct in6_addr *addrs;
+        const struct in6_addr *addrs;
         char **domains;
 
         log_debug("/* %s */", __func__);
@@ -744,7 +744,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
                                        void *userdata) {
         sd_event *e = userdata;
         sd_dhcp6_lease *lease;
-        struct in6_addr *addrs;
+        const struct in6_addr *addrs;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         char **domains;
 
