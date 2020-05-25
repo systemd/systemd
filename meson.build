@@ -929,6 +929,7 @@ conf.set10('HAVE_SELINUX', have)
 want_apparmor = get_option('apparmor')
 if want_apparmor != 'false' and not skip_deps
         libapparmor = dependency('libapparmor',
+                                 version : '>= 2.13',
                                  required : want_apparmor == 'true')
         have = libapparmor.found()
 else
