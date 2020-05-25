@@ -22,6 +22,7 @@
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json.h"
+#include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
@@ -39,6 +40,7 @@
 #include "time-util.h"
 #include "utf8.h"
 #include "util.h"
+#include "web-util.h"
 
 /* up to three lines (each up to 100 characters) or 300 characters, whichever is less */
 #define PRINT_LINE_THRESHOLD 3
@@ -47,12 +49,16 @@
 #define JSON_THRESHOLD 4096U
 
 static int print_catalog(FILE *f, sd_journal *j) {
-        int r;
         _cleanup_free_ char *t = NULL, *z = NULL;
+        int r;
+
+        assert(j);
 
         r = sd_journal_get_catalog(j, &t);
+        if (r == -ENOENT)
+                return 0;
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to find catalog entry: %m");
 
         z = strreplace(strstrip(t), "\n", "\n-- ");
         if (!z)
@@ -62,6 +68,48 @@ static int print_catalog(FILE *f, sd_journal *j) {
         fputs(z, f);
         fputc('\n', f);
 
+        return 1;
+}
+
+static int url_from_catalog(sd_journal *j, char **ret) {
+        _cleanup_free_ char *t = NULL, *url = NULL;
+        const char *weblink;
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        r = sd_journal_get_catalog(j, &t);
+        if (r == -ENOENT)
+                goto notfound;
+        if (r < 0)
+                return log_error_errno(r, "Failed to find catalog entry: %m");
+
+        weblink = startswith(t, "Documentation:");
+        if (!weblink) {
+                weblink = strstr(t + 1, "\nDocumentation:");
+                if (!weblink)
+                        goto notfound;
+
+                weblink += 15;
+        }
+
+        /* Skip whitespace to value */
+        weblink += strspn(weblink, " \t");
+
+        /* Cut out till next whitespace/newline */
+        url = strndup(weblink, strcspn(weblink, WHITESPACE));
+        if (!url)
+                return log_oom();
+
+        if (!documentation_url_is_valid(url))
+                goto notfound;
+
+        *ret = TAKE_PTR(url);
+        return 1;
+
+notfound:
+        *ret = NULL;
         return 0;
 }
 
@@ -374,10 +422,13 @@ static int output_short(
 
         int r;
         const void *data;
-        size_t length;
-        size_t n = 0;
-        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL, *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL, *config_file = NULL, *unit = NULL, *user_unit = NULL;
-        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0, realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0, unit_len = 0, user_unit_len = 0;
+        size_t length, n = 0;
+        _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
+                *message = NULL, *realtime = NULL, *monotonic = NULL, *priority = NULL, *transport = NULL,
+                *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL;
+        size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
+                realtime_len = 0, monotonic_len = 0, priority_len = 0, transport_len = 0, config_file_len = 0,
+                unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
         int p = LOG_INFO;
         bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
@@ -394,6 +445,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=", &config_file, &config_file_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
+                PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
@@ -482,11 +534,42 @@ static int output_short(
                 n += fake_pid_len + 2;
         }
 
+        fputs(": ", f);
+
+        if (urlify_enabled()) {
+                _cleanup_free_ char *c = NULL;
+
+                /* Insert a hyperlink to a documentation URL before the message. Note that we don't make the
+                 * whole message a hyperlink, since otherwise the whole screen might end up being just
+                 * hyperlinks. Moreover, we want to be able to highlight parts of the message (such as the
+                 * config file, see below) hence let's keep the documentation URL link separate. */
+
+                if (documentation_url && shall_print(documentation_url, documentation_url_len, flags)) {
+                        c = strndup(documentation_url, documentation_url_len);
+                        if (!c)
+                                return log_oom();
+
+                        if (!documentation_url_is_valid(c)) /* Eat up invalid links */
+                                c = mfree(c);
+                }
+
+                if (!c)
+                        (void) url_from_catalog(j, &c); /* Acquire from catalog if not embedded in log message itself */
+
+                if (c) {
+                        _cleanup_free_ char *urlified = NULL;
+
+                        if (terminal_urlify(c, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK), &urlified) >= 0) {
+                                fputs(urlified, f);
+                                fputc(' ', f);
+                        }
+                }
+        }
+
         if (!(flags & OUTPUT_SHOW_ALL) && !utf8_is_printable(message, message_len)) {
                 char bytes[FORMAT_BYTES_MAX];
-                fprintf(f, ": [%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
+                fprintf(f, "[%s blob data]\n", format_bytes(bytes, sizeof(bytes), message_len));
         } else {
-                fputs(": ", f);
 
                 /* URLify config_file string in message, if the message starts with it.
                  * Skip URLification if the highlighted pattern overlaps. */
@@ -522,7 +605,7 @@ static int output_short(
         }
 
         if (flags & OUTPUT_CATALOG)
-                print_catalog(f, j);
+                (void) print_catalog(f, j);
 
         return ellipsized;
 }
@@ -641,7 +724,7 @@ static int output_verbose(
                 return r;
 
         if (flags & OUTPUT_CATALOG)
-                print_catalog(f, j);
+                (void) print_catalog(f, j);
 
         return 0;
 }
