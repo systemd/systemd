@@ -365,6 +365,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SIGMA]                   = "S",
                         [SPECIAL_GLYPH_ARROW]                   = "->",
                         [SPECIAL_GLYPH_ELLIPSIS]                = "...",
+                        [SPECIAL_GLYPH_EXTERNAL_LINK]           = "[LNK]",
                         [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = ":-]",
                         [SPECIAL_GLYPH_HAPPY_SMILEY]            = ":-}",
                         [SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY]   = ":-)",
@@ -399,6 +400,9 @@ const char *special_glyph(SpecialGlyph code) {
 
                         /* Single glyph in Unicode, three in ASCII */
                         [SPECIAL_GLYPH_ELLIPSIS]                = "\342\200\246",             /* … (actually called: HORIZONTAL ELLIPSIS) */
+
+                        /* Three glyphs in Unicode, five in ASCII */
+                        [SPECIAL_GLYPH_EXTERNAL_LINK]           = "[\360\237\241\225]",       /* 🡕 (actually called: NORTH EAST SANS-SERIF ARROW, enclosed in []) */
 
                         /* These smileys are a single glyph in Unicode, and three in ASCII */
                         [SPECIAL_GLYPH_ECSTATIC_SMILEY]         = "\360\237\230\207",         /* 😇 (actually called: SMILING FACE WITH HALO) */
