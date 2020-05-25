@@ -165,6 +165,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--kernel-command-line=<replaceable>CMDLINE</replaceable></option></term>
+
+        <listitem><para>Sets the system's kernel command line. This controls the
+        <filename>/etc/kernel/cmdline</filename> file which is used by
+        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--prompt-locale</option></term>
         <term><option>--prompt-keymap</option></term>
         <term><option>--prompt-timezone</option></term>

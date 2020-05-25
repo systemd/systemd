@@ -42,6 +42,7 @@ static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
 static char *arg_root_password = NULL;
+static char *arg_kernel_cmdline = NULL;
 static bool arg_prompt_locale = false;
 static bool arg_prompt_keymap = false;
 static bool arg_prompt_timezone = false;
@@ -804,6 +805,27 @@ static int process_root_password(void) {
         return 0;
 }
 
+static int process_kernel_cmdline(void) {
+        const char *etc_kernel_cmdline;
+        int r;
+
+        etc_kernel_cmdline = prefix_roota(arg_root, "/etc/kernel/cmdline");
+        if (laccess(etc_kernel_cmdline, F_OK) >= 0 && !arg_force)
+                return 0;
+
+        if (!arg_kernel_cmdline)
+                return 0;
+
+        r = write_string_file(etc_kernel_cmdline, arg_kernel_cmdline,
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
+                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_kernel_cmdline);
+
+        log_info("%s written.", etc_kernel_cmdline);
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -862,6 +884,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
                 ARG_ROOT_PASSWORD_HASHED,
+                ARG_KERNEL_COMMAND_LINE,
                 ARG_PROMPT,
                 ARG_PROMPT_LOCALE,
                 ARG_PROMPT_KEYMAP,
@@ -891,6 +914,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
                 { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
                 { "root-password-hashed",    required_argument, NULL, ARG_ROOT_PASSWORD_HASHED    },
+                { "kernel-command-line",     required_argument, NULL, ARG_KERNEL_COMMAND_LINE     },
                 { "prompt",                  no_argument,       NULL, ARG_PROMPT                  },
                 { "prompt-locale",           no_argument,       NULL, ARG_PROMPT_LOCALE           },
                 { "prompt-keymap",           no_argument,       NULL, ARG_PROMPT_KEYMAP           },
@@ -1007,6 +1031,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (sd_id128_from_string(optarg, &arg_machine_id) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse machine id %s.", optarg);
+
+                        break;
+
+                case ARG_KERNEL_COMMAND_LINE:
+                        r = free_and_strdup(&arg_kernel_cmdline, optarg);
+                        if (r < 0)
+                                return log_oom();
 
                         break;
 
@@ -1131,6 +1162,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = process_root_password();
+        if (r < 0)
+                return r;
+
+        r = process_kernel_cmdline();
         if (r < 0)
                 return r;
 
