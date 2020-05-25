@@ -12,6 +12,8 @@ libcore_shared_sources = '''
 '''.split()
 
 libcore_sources = '''
+        apparmor-setup.c
+        apparmor-setup.h
         audit-fd.c
         audit-fd.h
         automount.c

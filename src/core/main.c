@@ -19,6 +19,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "apparmor-setup.h"
 #include "architecture.h"
 #include "build.h"
 #include "bus-error.h"
@@ -2357,6 +2358,12 @@ static int initialize_security(
         r = mac_smack_setup(loaded_policy);
         if (r < 0) {
                 *ret_error_message = "Failed to load SMACK policy";
+                return r;
+        }
+
+        r = mac_apparmor_setup();
+        if (r < 0) {
+                *ret_error_message = "Failed to load AppArmor policy";
                 return r;
         }
 
