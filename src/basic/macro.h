@@ -114,6 +114,10 @@
         _Pragma("GCC diagnostic push")
 #endif
 
+#define DISABLE_WARNING_FLOAT_EQUAL \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wfloat-equal\"")
+
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
 

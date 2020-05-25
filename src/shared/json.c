@@ -253,10 +253,9 @@ static JsonVariant *json_variant_formalize(JsonVariant *v) {
                 return json_variant_unsigned(v) == 0 ? JSON_VARIANT_MAGIC_ZERO_UNSIGNED : v;
 
         case JSON_VARIANT_REAL:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+                DISABLE_WARNING_FLOAT_EQUAL;
                 return json_variant_real(v) == 0.0 ? JSON_VARIANT_MAGIC_ZERO_REAL : v;
-#pragma GCC diagnostic pop
+                REENABLE_WARNING;
 
         case JSON_VARIANT_STRING:
                 return isempty(json_variant_string(v)) ? JSON_VARIANT_MAGIC_EMPTY_STRING : v;
@@ -353,13 +352,12 @@ int json_variant_new_real(JsonVariant **ret, long double d) {
 
         assert_return(ret, -EINVAL);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+        DISABLE_WARNING_FLOAT_EQUAL;
         if (d == 0.0) {
-#pragma GCC diagnostic pop
                 *ret = JSON_VARIANT_MAGIC_ZERO_REAL;
                 return 0;
         }
+        REENABLE_WARNING;
 
         r = json_variant_new(&v, JSON_VARIANT_REAL, sizeof(d));
         if (r < 0)
@@ -896,11 +894,10 @@ intmax_t json_variant_integer(JsonVariant *v) {
 
                 converted = (intmax_t) v->value.real;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+                DISABLE_WARNING_FLOAT_EQUAL;
                 if ((long double) converted == v->value.real)
-#pragma GCC diagnostic pop
                         return converted;
+                REENABLE_WARNING;
 
                 log_debug("Real %Lg requested as integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
@@ -944,11 +941,10 @@ uintmax_t json_variant_unsigned(JsonVariant *v) {
 
                 converted = (uintmax_t) v->value.real;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+                DISABLE_WARNING_FLOAT_EQUAL;
                 if ((long double) converted == v->value.real)
-#pragma GCC diagnostic pop
                         return converted;
+                REENABLE_WARNING;
 
                 log_debug("Real %Lg requested as unsigned integer, and cannot be converted losslessly, returning 0.", v->value.real);
                 return 0;
@@ -1137,14 +1133,15 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         if (rt == JSON_VARIANT_UNSIGNED && type == JSON_VARIANT_REAL)
                 return (uintmax_t) (long double) v->value.unsig == v->value.unsig;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+        DISABLE_WARNING_FLOAT_EQUAL;
+
         /* Any real that can be converted losslessly to an integer and back may also be considered an integer */
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_INTEGER)
                 return (long double) (intmax_t) v->value.real == v->value.real;
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_UNSIGNED)
                 return (long double) (uintmax_t) v->value.real == v->value.real;
-#pragma GCC diagnostic pop
+
+        REENABLE_WARNING;
 
         return false;
 }
@@ -1298,10 +1295,9 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b) {
                 return json_variant_unsigned(a) == json_variant_unsigned(b);
 
         case JSON_VARIANT_REAL:
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+                DISABLE_WARNING_FLOAT_EQUAL;
                 return json_variant_real(a) == json_variant_real(b);
-#pragma GCC diagnostic pop
+                REENABLE_WARNING;
 
         case JSON_VARIANT_BOOLEAN:
                 return json_variant_boolean(a) == json_variant_boolean(b);
