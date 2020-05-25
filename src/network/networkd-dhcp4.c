@@ -1691,7 +1691,7 @@ int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
                 void *data,
                 void *userdata) {
         Network *network = userdata;
-        unsigned k;
+        uint32_t k;
 
         assert(filename);
         assert(section);

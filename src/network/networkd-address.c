@@ -954,7 +954,7 @@ int config_parse_lifetime(const char *unit,
                           void *userdata) {
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
-        unsigned k;
+        uint32_t k;
         int r;
 
         assert(filename);
@@ -967,8 +967,8 @@ int config_parse_lifetime(const char *unit,
         if (r < 0)
                 return r;
 
-        /* We accept only "forever", "infinity", or "0". */
-        if (STR_IN_SET(rvalue, "forever", "infinity"))
+        /* We accept only "forever", "infinity", empty, or "0". */
+        if (STR_IN_SET(rvalue, "forever", "infinity", ""))
                 k = CACHE_INFO_INFINITY_LIFE_TIME;
         else if (streq(rvalue, "0"))
                 k = 0;
@@ -979,7 +979,7 @@ int config_parse_lifetime(const char *unit,
         }
 
         n->cinfo.ifa_prefered = k;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
