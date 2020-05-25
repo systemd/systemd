@@ -1093,8 +1093,11 @@ JsonVariantType json_variant_type(JsonVariant *v) {
         return v->type;
 }
 
-bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
+_function_no_sanitize_float_cast_overflow_ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
         JsonVariantType rt;
+
+        /* Note: we turn off ubsan float cast overflo detection for this function, since it would complain
+         * about our float casts but we do them explicitly to detect conversion errors. */
 
         v = json_variant_dereference(v);
         if (!v)
