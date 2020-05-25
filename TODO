@@ -256,8 +256,6 @@ Features:
 * systemd-firstboot: teach it dissector magic, so that you can point it to some
   disk image and it will just set everything in it all behind the scenes.
 
-* systemd-firstboot: add --force mode that replaces existing configuration.
-
 * We should probably replace /var/log/README, /etc/rc.d/README with symlinks
   that are linked to these places instead of copied. After all they are
   constant vendor data.
