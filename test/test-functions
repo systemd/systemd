@@ -678,6 +678,7 @@ cleanup_loopdev() {
     if [ -n "${LOOPDEV}" ]; then
         ddebug "losetup -d $LOOPDEV"
         losetup -d "${LOOPDEV}"
+        unset LOOPDEV
     fi
 }
 
@@ -698,8 +699,7 @@ create_empty_image() {
     rm -f "$IMAGE_PRIVATE" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${_size}M" "$IMAGE_PRIVATE"
-    ln -vs "$(realpath $IMAGE_PRIVATE)" "$IMAGE_PUBLIC"
+    truncate -s "${_size}M" "$IMAGE_PUBLIC"
 
     LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
     [ -b "$LOOPDEV" ] || return 1
@@ -2005,16 +2005,26 @@ test_setup() {
     if [ -e "$IMAGE_PRIVATE" ]; then
         echo "Reusing existing image $IMAGE_PRIVATE → $(realpath $IMAGE_PRIVATE)"
         mount_initdir
-    elif [ -e "$IMAGE_PUBLIC" ]; then
+    else
+        if [ ! -e "$IMAGE_PUBLIC" ]; then
+            # Create the backing public image, but then completely unmount
+            # it and drop the loopback device responsible for it, since we're
+            # going to symlink/copy the image and mount it again from
+            # elsewhere.
+            test_create_image
+            test_setup_cleanup
+            umount_loopback
+            cleanup_loopdev
+        fi
+
         echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath $IMAGE_PUBLIC)"
         if [ ${TEST_PARALLELIZE} -ne 0 ]; then
             cp -v "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
         else
             ln -sv "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
         fi
+
         mount_initdir
-    else
-        test_create_image
     fi
 
     setup_nspawn_root
