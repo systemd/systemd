@@ -1692,12 +1692,18 @@ static int link_configure_addrgen_mode(Link *link) {
 
         if (!link_ipv6ll_enabled(link))
                 ipv6ll_mode = IN6_ADDR_GEN_MODE_NONE;
-        else if (sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL) < 0)
-                /* The file may not exist. And even if it exists, when stable_secret is unset,
-                 * reading the file fails with EIO. */
-                ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
-        else
-                ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        else if (link->network->ipv6_address_gen_mode < 0) {
+                r = sysctl_read_ip_property(AF_INET6, link->ifname, "stable_secret", NULL);
+                if (r < 0) {
+                        /* The file may not exist. And even if it exists, when stable_secret is unset,
+                         * reading the file fails with EIO. */
+                        log_link_debug_errno(link, r, "Failed to read sysctl property stable_secret: %m");
+
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_EUI64;
+                } else
+                        ipv6ll_mode = IN6_ADDR_GEN_MODE_STABLE_PRIVACY;
+        } else
+                ipv6ll_mode = link->network->ipv6_address_gen_mode;
 
         r = sd_netlink_message_append_u8(req, IFLA_INET6_ADDR_GEN_MODE, ipv6ll_mode);
         if (r < 0)
@@ -4433,6 +4439,16 @@ void link_clean(Link *link) {
 
         link_unref(set_remove(link->manager->dirty_links, link));
 }
+
+static const char* const link_ipv6_address_gen_mode_table[_LINK_IPV6_ADDRESS_GEN_MODE_MAX] = {
+        [LINK_IPV6_ADDRESSS_GEN_MODE_EUI64] = "eui64",
+        [LINK_IPV6_ADDRESSS_GEN_MODE_NONE] = "none",
+        [LINK_IPV6_ADDRESSS_GEN_MODE_STABLE_PRIVACY] = "stable-privacy",
+        [LINK_IPV6_ADDRESSS_GEN_MODE_RANDOM] = "random",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(link_ipv6_address_gen_mode, LinkIPv6AddressGenMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_link_ipv6_address_gen_mode, link_ipv6_address_gen_mode, LinkIPv6AddressGenMode, "Failed to parse link IPv6 address generation mode");
 
 static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_PENDING] = "pending",

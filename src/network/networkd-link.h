@@ -35,6 +35,15 @@ typedef enum LinkState {
         _LINK_STATE_INVALID = -1
 } LinkState;
 
+typedef enum LinkIPv6AddressGenMode {
+       LINK_IPV6_ADDRESSS_GEN_MODE_EUI64          = IN6_ADDR_GEN_MODE_EUI64,
+       LINK_IPV6_ADDRESSS_GEN_MODE_NONE           = IN6_ADDR_GEN_MODE_NONE,
+       LINK_IPV6_ADDRESSS_GEN_MODE_STABLE_PRIVACY = IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
+       LINK_IPV6_ADDRESSS_GEN_MODE_RANDOM         = IN6_ADDR_GEN_MODE_RANDOM,
+       _LINK_IPV6_ADDRESS_GEN_MODE_MAX,
+       _LINK_IPV6_ADDRESS_GEN_MODE_INVALID        = -1
+} LinkIPv6AddressGenMode;
+
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Address Address;
@@ -209,6 +218,9 @@ int link_stop_clients(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
+const char* link_ipv6_address_gen_mode_to_string(LinkIPv6AddressGenMode s) _const_;
+LinkIPv6AddressGenMode link_ipv6_address_gen_mode_from_string(const char *s) _pure_;
+
 uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
@@ -216,6 +228,8 @@ int link_request_set_routes(Link *link);
 int link_request_set_nexthop(Link *link);
 
 int link_reconfigure(Link *link, bool force);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_link_ipv6_address_gen_mode);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
 #define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)

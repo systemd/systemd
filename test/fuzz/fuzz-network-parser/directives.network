@@ -38,6 +38,7 @@ MTUBytes=
 Multicast=
 MACAddress=
 Group=
+IPv6LinkLocalAddressGenerationMode=
 [BridgeFDB]
 VLANId=
 MACAddress=
