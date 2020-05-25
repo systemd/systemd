@@ -499,10 +499,9 @@ static void log_xkb(struct xkb_context *ctx, enum xkb_log_level lvl, const char 
         const char *fmt;
 
         fmt = strjoina("libxkbcommon: ", format);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_DEBUG, 0, __FILE__, __LINE__, __func__, fmt, args);
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
 }
 
 #define LOAD_SYMBOL(symbol, dl, name)                                   \

@@ -123,12 +123,12 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
         fmt2 = strjoina("selinux: ", fmt);
 
         va_start(ap, fmt);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         log_internalv(LOG_AUTH | callback_type_to_priority(type),
                       0, PROJECT_FILE, __LINE__, __FUNCTION__,
                       fmt2, ap);
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
         va_end(ap);
 
         return 0;
