@@ -176,9 +176,6 @@ static int field_set_test(const Set *fields, const char *name, size_t n) {
                 return 1;
 
         s = strndupa(name, n);
-        if (!s)
-                return log_oom();
-
         return set_contains(fields, s);
 }
 
