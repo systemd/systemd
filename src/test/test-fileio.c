@@ -633,8 +633,7 @@ static void test_tempfn(void) {
 static const char chars[] =
         "Aąę„”\n루\377";
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
+DISABLE_WARNING_TYPE_LIMITS;
 
 static void test_fgetc(void) {
         _cleanup_fclose_ FILE *f = NULL;
@@ -665,7 +664,7 @@ static void test_fgetc(void) {
         assert_se(safe_fgetc(f, &c) == 0);
 }
 
-#pragma GCC diagnostic pop
+REENABLE_WARNING;
 
 static const char buffer[] =
         "Some test data\n"

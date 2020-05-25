@@ -4091,10 +4091,9 @@ int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFl
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
         assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
+        DISABLE_WARNING_TYPE_LIMITS;
         assert_cc(((uid_t) -1 < (uid_t) 0) == ((gid_t) -1 < (gid_t) 0));
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
 
         if (json_variant_is_null(variant)) {
                 *uid = UID_INVALID;
