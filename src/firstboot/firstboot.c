@@ -53,6 +53,7 @@ static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
 static bool arg_force = false;
 static bool arg_delete_root_password = false;
+static bool arg_root_password_is_hashed = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_locale, freep);
@@ -718,7 +719,6 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
 }
 
 static int process_root_password(void) {
-        _cleanup_free_ char *salt = NULL;
         _cleanup_close_ int lock = -1;
         struct crypt_data cd = {};
         const char *hashed_password;
@@ -779,15 +779,22 @@ static int process_root_password(void) {
         if (!arg_root_password)
                 return 0;
 
-        r = make_salt(&salt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get salt: %m");
+        if (arg_root_password_is_hashed)
+                hashed_password = arg_root_password;
+        else {
+                _cleanup_free_ char *salt = NULL;
+                /* hashed_password points inside cd after crypt_r returns so cd has function scope. */
 
-        errno = 0;
-        hashed_password = crypt_r(arg_root_password, salt, &cd);
-        if (!hashed_password)
-                return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
-                                       "Failed to encrypt password: %m");
+                r = make_salt(&salt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get salt: %m");
+
+                errno = 0;
+                hashed_password = crypt_r(arg_root_password, salt, &cd);
+                if (!hashed_password)
+                        return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
+                                        "Failed to encrypt password: %m");
+        }
 
         r = write_root_shadow(etc_shadow, hashed_password);
         if (r < 0)
@@ -807,31 +814,32 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Configures basic settings of the system.\n\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "     --root=PATH               Operate on an alternate filesystem root\n"
-               "     --locale=LOCALE           Set primary locale (LANG=)\n"
-               "     --locale-messages=LOCALE  Set message locale (LC_MESSAGES=)\n"
-               "     --keymap=KEYMAP           Set keymap\n"
-               "     --timezone=TIMEZONE       Set timezone\n"
-               "     --hostname=NAME           Set hostname\n"
-               "     --machine-ID=ID           Set machine ID\n"
-               "     --root-password=PASSWORD  Set root password\n"
-               "     --root-password-file=FILE Set root password from file\n"
-               "     --prompt-locale           Prompt the user for locale settings\n"
-               "     --prompt-keymap           Prompt the user for keymap settings\n"
-               "     --prompt-timezone         Prompt the user for timezone\n"
-               "     --prompt-hostname         Prompt the user for hostname\n"
-               "     --prompt-root-password    Prompt the user for root password\n"
-               "     --prompt                  Prompt for all of the above\n"
-               "     --copy-locale             Copy locale from host\n"
-               "     --copy-keymap             Copy keymap from host\n"
-               "     --copy-timezone           Copy timezone from host\n"
-               "     --copy-root-password      Copy root password from host\n"
-               "     --copy                    Copy locale, keymap, timezone, root password\n"
-               "     --setup-machine-id        Generate a new random machine ID\n"
-               "     --force                   Overwrite existing files\n"
-               "     --delete-root-password    Delete root password\n"
+               "  -h --help                                 Show this help\n"
+               "     --version                              Show package version\n"
+               "     --root=PATH                            Operate on an alternate filesystem root\n"
+               "     --locale=LOCALE                        Set primary locale (LANG=)\n"
+               "     --locale-messages=LOCALE               Set message locale (LC_MESSAGES=)\n"
+               "     --keymap=KEYMAP                        Set keymap\n"
+               "     --timezone=TIMEZONE                    Set timezone\n"
+               "     --hostname=NAME                        Set hostname\n"
+               "     --machine-ID=ID                        Set machine ID\n"
+               "     --root-password=PASSWORD               Set root password from plaintext password\n"
+               "     --root-password-file=FILE              Set root password from file\n"
+               "     --root-password-hashed=HASHED_PASSWORD Set root password from hashed password\n"
+               "     --prompt-locale                        Prompt the user for locale settings\n"
+               "     --prompt-keymap                        Prompt the user for keymap settings\n"
+               "     --prompt-timezone                      Prompt the user for timezone\n"
+               "     --prompt-hostname                      Prompt the user for hostname\n"
+               "     --prompt-root-password                 Prompt the user for root password\n"
+               "     --prompt                               Prompt for all of the above\n"
+               "     --copy-locale                          Copy locale from host\n"
+               "     --copy-keymap                          Copy keymap from host\n"
+               "     --copy-timezone                        Copy timezone from host\n"
+               "     --copy-root-password                   Copy root password from host\n"
+               "     --copy                                 Copy locale, keymap, timezone, root password\n"
+               "     --setup-machine-id                     Generate a new random machine ID\n"
+               "     --force                                Overwrite existing files\n"
+               "     --delete-root-password                 Delete root password\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -853,6 +861,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MACHINE_ID,
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
+                ARG_ROOT_PASSWORD_HASHED,
                 ARG_PROMPT,
                 ARG_PROMPT_LOCALE,
                 ARG_PROMPT_KEYMAP,
@@ -870,31 +879,32 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "locale",               required_argument, NULL, ARG_LOCALE               },
-                { "locale-messages",      required_argument, NULL, ARG_LOCALE_MESSAGES      },
-                { "keymap",               required_argument, NULL, ARG_KEYMAP               },
-                { "timezone",             required_argument, NULL, ARG_TIMEZONE             },
-                { "hostname",             required_argument, NULL, ARG_HOSTNAME             },
-                { "machine-id",           required_argument, NULL, ARG_MACHINE_ID           },
-                { "root-password",        required_argument, NULL, ARG_ROOT_PASSWORD        },
-                { "root-password-file",   required_argument, NULL, ARG_ROOT_PASSWORD_FILE   },
-                { "prompt",               no_argument,       NULL, ARG_PROMPT               },
-                { "prompt-locale",        no_argument,       NULL, ARG_PROMPT_LOCALE        },
-                { "prompt-keymap",        no_argument,       NULL, ARG_PROMPT_KEYMAP        },
-                { "prompt-timezone",      no_argument,       NULL, ARG_PROMPT_TIMEZONE      },
-                { "prompt-hostname",      no_argument,       NULL, ARG_PROMPT_HOSTNAME      },
-                { "prompt-root-password", no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD },
-                { "copy",                 no_argument,       NULL, ARG_COPY                 },
-                { "copy-locale",          no_argument,       NULL, ARG_COPY_LOCALE          },
-                { "copy-keymap",          no_argument,       NULL, ARG_COPY_KEYMAP          },
-                { "copy-timezone",        no_argument,       NULL, ARG_COPY_TIMEZONE        },
-                { "copy-root-password",   no_argument,       NULL, ARG_COPY_ROOT_PASSWORD   },
-                { "setup-machine-id",     no_argument,       NULL, ARG_SETUP_MACHINE_ID     },
-                { "force",                no_argument,       NULL, ARG_FORCE                },
-                { "delete-root-password", no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD },
+                { "help",                    no_argument,       NULL, 'h'                         },
+                { "version",                 no_argument,       NULL, ARG_VERSION                 },
+                { "root",                    required_argument, NULL, ARG_ROOT                    },
+                { "locale",                  required_argument, NULL, ARG_LOCALE                  },
+                { "locale-messages",         required_argument, NULL, ARG_LOCALE_MESSAGES         },
+                { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
+                { "timezone",                required_argument, NULL, ARG_TIMEZONE                },
+                { "hostname",                required_argument, NULL, ARG_HOSTNAME                },
+                { "machine-id",              required_argument, NULL, ARG_MACHINE_ID              },
+                { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
+                { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
+                { "root-password-hashed",    required_argument, NULL, ARG_ROOT_PASSWORD_HASHED    },
+                { "prompt",                  no_argument,       NULL, ARG_PROMPT                  },
+                { "prompt-locale",           no_argument,       NULL, ARG_PROMPT_LOCALE           },
+                { "prompt-keymap",           no_argument,       NULL, ARG_PROMPT_KEYMAP           },
+                { "prompt-timezone",         no_argument,       NULL, ARG_PROMPT_TIMEZONE         },
+                { "prompt-hostname",         no_argument,       NULL, ARG_PROMPT_HOSTNAME         },
+                { "prompt-root-password",    no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD    },
+                { "copy",                    no_argument,       NULL, ARG_COPY                    },
+                { "copy-locale",             no_argument,       NULL, ARG_COPY_LOCALE             },
+                { "copy-keymap",             no_argument,       NULL, ARG_COPY_KEYMAP             },
+                { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
+                { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
+                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
+                { "force",                   no_argument,       NULL, ARG_FORCE                   },
+                { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 {}
         };
 
@@ -959,6 +969,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup(&arg_root_password, optarg);
                         if (r < 0)
                                 return log_oom();
+
+                        arg_root_password_is_hashed = false;
                         break;
 
                 case ARG_ROOT_PASSWORD_FILE:
@@ -968,6 +980,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read %s: %m", optarg);
 
+                        arg_root_password_is_hashed = false;
+                        break;
+
+                case ARG_ROOT_PASSWORD_HASHED:
+                        r = free_and_strdup(&arg_root_password, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_root_password_is_hashed = true;
                         break;
 
                 case ARG_HOSTNAME:
