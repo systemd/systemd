@@ -302,7 +302,8 @@ shut down.
 Subject: DNSSEC mode has been turned off, as server doesn't support it
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+Documentation: man:systemd-resolved.service(8)
+Documentation: man:resolved.conf(5)
 
 The resolver service (systemd-resolved.service) has detected that the
 configured DNS server does not support DNSSEC, and DNSSEC validation has been
@@ -417,6 +418,7 @@ Note that the memory pressure might or might not have been caused by @UNIT@.
 Subject: Accepting user/group name @USER_GROUP_NAME@, which does not match strict user/group name rules.
 Defined-By: systemd
 Support: %SUPPORT_URL%
+Documentation: https://systemd.io/USER_NAMES
 
 The user/group name @USER_GROUP_NAME@ has been specified, which is accepted
 according the relaxed user/group name rules, but does not qualify under the
@@ -431,10 +433,6 @@ string; names containing NUL bytes, control characters, colon or slash
 characters; names not valid UTF-8; names with leading or trailing whitespace;
 the strings "." or ".."; fully numeric strings, or strings beginning in a
 hyphen and otherwise fully numeric.
-
-For further details on strict and relaxed user/group name rules, see:
-
-https://systemd.io/USER_NAMES
 
 -- 1b3bb94037f04bbf81028e135a12d293
 Subject: Failed to generate valid unit name from path '@MOUNT_POINT@'.
