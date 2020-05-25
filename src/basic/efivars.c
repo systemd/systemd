@@ -50,6 +50,7 @@ int efi_get_variable(
         _cleanup_free_ char *p = NULL;
         _cleanup_free_ void *buf = NULL;
         struct stat st;
+        usec_t begin;
         uint32_t a;
         ssize_t n;
 
@@ -67,6 +68,9 @@ int efi_get_variable(
 
                 return 0;
         }
+
+        if (DEBUG_LOGGING)
+                begin = now(CLOCK_MONOTONIC);
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -120,6 +124,16 @@ int efi_get_variable(
         } else
                 /* Assume that the reported size is accurate */
                 n = st.st_size - 4;
+
+        if (DEBUG_LOGGING) {
+                char ts[FORMAT_TIMESPAN_MAX];
+                usec_t end;
+
+                end = now(CLOCK_MONOTONIC);
+                if (end > begin + EFI_RETRY_DELAY)
+                        log_debug("Detected slow EFI variable read access on " SD_ID128_FORMAT_STR "-%s: %s",
+                                  SD_ID128_FORMAT_VAL(vendor), name, format_timespan(ts, sizeof(ts), end - begin, 1));
+        }
 
         /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
          * with a smaller value. */
