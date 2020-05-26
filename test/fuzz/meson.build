@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+# The 'optimization' option was introduced in meson 0.48.0, so let's keep
+# the code compatible with older versions as well
+if meson.version().version_compare('>=0.48.0')
+        optimization = '--optimization=@0@'.format(get_option('optimization'))
+else
+        optimization = ''
+endif
+
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
         output : 'sanitize-address-undefined-fuzzers',
@@ -7,8 +15,7 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Db_lundef=false -Db_sanitize=address,undefined ' +
-                   '--optimization=@0@'.format(get_option('optimization')),
+                   '-Db_lundef=false -Db_sanitize=address,undefined @0@'.format(optimization),
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
 
