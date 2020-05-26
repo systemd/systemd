@@ -62,3 +62,8 @@ struct sockaddr_vm {
 #ifndef IP_TRANSPARENT
 #define IP_TRANSPARENT 19
 #endif
+
+/* linux/sockios.h */
+#ifndef SIOCGSKNS
+#define SIOCGSKNS 0x894C
+#endif

@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <linux/filter.h>
 #include <linux/netlink.h>
+#include <linux/sockios.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -13,10 +15,12 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -163,12 +167,54 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
 
         if (fd >= 0) {
                 r = monitor_set_nl_address(m);
-                if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to set netlink address: %m");
+                if (r < 0) {
+                        log_debug_errno(r, "sd-device-monitor: Failed to set netlink address: %m");
+                        goto fail;
+                }
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_close_ int netns = -1;
+
+                /* So here's the thing: only AF_NETLINK sockets from the main network namespace will get
+                 * hardware events. Let's check if ours is from there, and if not generate a debug message,
+                 * since we cannot possibly work correctly otherwise. This is just a safety check to make
+                 * things easier to debug. */
+
+                netns = ioctl(m->sock, SIOCGSKNS);
+                if (netns < 0)
+                        log_debug_errno(errno, "sd-device-monitor: Unable to get network namespace of udev netlink socket, unable to determine if we are in host netns: %m");
+                else {
+                        struct stat a, b;
+
+                        if (fstat(netns, &a) < 0) {
+                                r = log_debug_errno(errno, "sd-device-monitor: Failed to stat netns of udev netlink socket: %m");
+                                goto fail;
+                        }
+
+                        if (stat("/proc/1/ns/net", &b) < 0) {
+                                if (ERRNO_IS_PRIVILEGE(errno))
+                                        /* If we can't access PID1's netns info due to permissions, it's fine, this is a
+                                         * safety check only after all. */
+                                        log_debug_errno(errno, "sd-device-monitor: No permission to stat PID1's netns, unable to determine if we are in host netns: %m");
+                                else
+                                        log_debug_errno(errno, "sd-device-monitor: Failed to stat PID1's netns: %m");
+
+                        } else if (a.st_dev != b.st_dev || a.st_ino != b.st_ino)
+                                log_debug("sd-device-monitor: Netlink socket we listen on is not from host netns, we won't see device events.");
+                }
         }
 
         *ret = TAKE_PTR(m);
         return 0;
+
+fail:
+        /* Let's unset the socket fd in the monitor object before we destroy it so that the fd passed in is
+         * not closed on failure. */
+        if (fd >= 0)
+                m->sock = -1;
+
+        return r;
 }
 
 _public_ int sd_device_monitor_new(sd_device_monitor **ret) {
