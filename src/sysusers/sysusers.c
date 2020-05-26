@@ -367,7 +367,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         original = fopen(passwd_path, "re");
         if (original) {
 
-                r = sync_rights(original, passwd_tmp);
+                r = sync_rights(fileno(original), fileno(passwd));
                 if (r < 0)
                         return r;
 
@@ -469,7 +469,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         original = fopen(shadow_path, "re");
         if (original) {
 
-                r = sync_rights(original, shadow_tmp);
+                r = sync_rights(fileno(original), fileno(shadow));
                 if (r < 0)
                         return r;
 
@@ -566,7 +566,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         original = fopen(group_path, "re");
         if (original) {
 
-                r = sync_rights(original, group_tmp);
+                r = sync_rights(fileno(original), fileno(group));
                 if (r < 0)
                         return r;
 
@@ -665,7 +665,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         if (original) {
                 struct sgrp *sg;
 
-                r = sync_rights(original, gshadow_tmp);
+                r = sync_rights(fileno(original), fileno(gshadow));
                 if (r < 0)
                         return r;
 

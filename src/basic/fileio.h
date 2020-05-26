@@ -107,6 +107,6 @@ int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
 
-int sync_rights(FILE *from, const char *to);
+int sync_rights(int from, int to);
 
 int rename_and_apply_smack(const char *temp_path, const char *dest_path);

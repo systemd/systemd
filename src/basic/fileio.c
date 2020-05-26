@@ -1188,13 +1188,13 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
         return 0;
 }
 
-int sync_rights(FILE *from, const char *to) {
+int sync_rights(int from, int to) {
         struct stat st;
 
-        if (fstat(fileno(from), &st) < 0)
+        if (fstat(from, &st) < 0)
                 return -errno;
 
-        return chmod_and_chown_unsafe(to, st.st_mode & 07777, st.st_uid, st.st_gid);
+        return fchmod_and_chown(to, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
 int rename_and_apply_smack(const char *from, const char *to) {
