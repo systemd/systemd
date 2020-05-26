@@ -679,18 +679,12 @@ static int manager_setup_prefix(Manager *m) {
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL },
         };
 
-        const struct table_entry *p;
-        ExecDirectoryType i;
-        int r;
-
         assert(m);
 
-        if (MANAGER_IS_SYSTEM(m))
-                p = paths_system;
-        else
-                p = paths_user;
+        const struct table_entry *p = MANAGER_IS_SYSTEM(m) ? paths_system : paths_user;
+        int r;
 
-        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
+        for (ExecDirectoryType i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++) {
                 r = sd_path_lookup(p[i].type, p[i].suffix, &m->prefix[i]);
                 if (r < 0)
                         return r;
@@ -1344,15 +1338,12 @@ static void manager_clear_jobs_and_units(Manager *m) {
 }
 
 Manager* manager_free(Manager *m) {
-        ExecDirectoryType dt;
-        UnitType c;
-
         if (!m)
                 return NULL;
 
         manager_clear_jobs_and_units(m);
 
-        for (c = 0; c < _UNIT_TYPE_MAX; c++)
+        for (UnitType c = 0; c < _UNIT_TYPE_MAX; c++)
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
@@ -1423,22 +1414,20 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
 
         return mfree(m);
 }
 
 static void manager_enumerate_perpetual(Manager *m) {
-        UnitType c;
-
         assert(m);
 
         if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
-        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+        for (UnitType c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
@@ -1450,15 +1439,13 @@ static void manager_enumerate_perpetual(Manager *m) {
 }
 
 static void manager_enumerate(Manager *m) {
-        UnitType c;
-
         assert(m);
 
         if (m->test_run_flags == MANAGER_TEST_RUN_MINIMAL)
                 return;
 
         /* Let's ask every type to load all units from disk/kernel that it might know */
-        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+        for (UnitType c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
                         continue;
