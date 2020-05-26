@@ -517,7 +517,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         } else if (!value) {
                 const char *target;
 
-                /* SysV compatibility */
+                /* Compatible with SysV, but supported independently even if SysV compatiblity is disabled. */
                 target = runlevel_to_target(key);
                 if (target)
                         return free_and_strdup_warn(&arg_default_unit, target);
