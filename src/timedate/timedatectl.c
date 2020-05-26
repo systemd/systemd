@@ -363,10 +363,9 @@ static const char * const ntp_leap_table[4] = {
         [3] = "not synchronized",
 };
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
+DISABLE_WARNING_TYPE_LIMITS;
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ntp_leap, uint32_t);
-#pragma GCC diagnostic pop
+REENABLE_WARNING;
 
 static int print_ntp_status_info(NTPStatusInfo *i) {
         char ts[FORMAT_TIMESPAN_MAX], jitter[FORMAT_TIMESPAN_MAX],

@@ -263,10 +263,10 @@ static int write_dependency(
                 res = strv_join(units, " ");
                 if (!res)
                         return log_oom();
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+
+                DISABLE_WARNING_FORMAT_NONLITERAL;
                 fprintf(f, format, res);
-#pragma GCC diagnostic pop
+                REENABLE_WARNING;
         }
 
         return 0;

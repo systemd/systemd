@@ -14,7 +14,7 @@
 /* Print information about various types. Useful when diagnosing
  * gcc diagnostics on an unfamiliar architecture. */
 
-#pragma GCC diagnostic ignored "-Wtype-limits"
+DISABLE_WARNING_TYPE_LIMITS;
 
 #define info(t)                                                         \
         printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \

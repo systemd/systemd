@@ -449,11 +449,10 @@ static int names_platform(sd_device *dev, struct netnames *names, bool test) {
          * The Vendor (3 or 4 char), followed by hexdecimal model number : instance id.
          */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+        DISABLE_WARNING_FORMAT_NONLITERAL;
         if (sscanf(syspath, pattern, vendor, &model, &instance, &ethid) != 4)
                 return -EINVAL;
-#pragma GCC diagnostic pop
+        REENABLE_WARNING;
 
         if (!in_charset(vendor, validchars))
                 return -ENOENT;

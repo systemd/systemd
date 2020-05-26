@@ -231,10 +231,9 @@ static void test_zeroes(JsonVariant *v) {
                 assert_se(json_variant_integer(w) == 0);
                 assert_se(json_variant_unsigned(w) == 0U);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
+                DISABLE_WARNING_FLOAT_EQUAL;
                 assert_se(json_variant_real(w) == 0.0L);
-#pragma GCC diagnostic pop
+                REENABLE_WARNING;
 
                 assert_se(json_variant_is_integer(w));
                 assert_se(json_variant_is_unsigned(w));

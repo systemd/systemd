@@ -84,6 +84,14 @@
 #define _variable_no_sanitize_address_
 #endif
 
+/* Apparently there's no has_feature() call defined to check for ubsan, hence let's define this
+ * unconditionally on llvm */
+#if defined(__clang__)
+#define _function_no_sanitize_float_cast_overflow_ __attribute__((no_sanitize("float-cast-overflow")))
+#else
+#define _function_no_sanitize_float_cast_overflow_
+#endif
+
 /* Temporarily disable some warnings */
 #define DISABLE_WARNING_FORMAT_NONLITERAL                               \
         _Pragma("GCC diagnostic push");                                 \
@@ -113,6 +121,14 @@
 #  define DISABLE_WARNING_STRINGOP_TRUNCATION                           \
         _Pragma("GCC diagnostic push")
 #endif
+
+#define DISABLE_WARNING_FLOAT_EQUAL \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wfloat-equal\"")
+
+#define DISABLE_WARNING_TYPE_LIMITS \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
 
 #define REENABLE_WARNING                                                \
         _Pragma("GCC diagnostic pop")
