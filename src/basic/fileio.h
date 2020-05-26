@@ -109,4 +109,4 @@ int warn_file_is_world_accessible(const char *filename, struct stat *st, const c
 
 int sync_rights(int from, int to);
 
-int rename_and_apply_smack(const char *temp_path, const char *dest_path);
+int rename_and_apply_smack_floor_label(const char *temp_path, const char *dest_path);

@@ -1197,7 +1197,7 @@ int sync_rights(int from, int to) {
         return fchmod_and_chown(to, st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
-int rename_and_apply_smack(const char *from, const char *to) {
+int rename_and_apply_smack_floor_label(const char *from, const char *to) {
         int r = 0;
         if (rename(from, to) < 0)
                 return -errno;
