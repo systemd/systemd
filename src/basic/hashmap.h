@@ -14,7 +14,7 @@
  * will be treated as empty hashmap for all read operations. That way it is not
  * necessary to instantiate an object for each Hashmap use.
  *
- * If ENABLE_DEBUG_HASHMAP is defined (by configuring with --enable-debug=hashmap),
+ * If ENABLE_DEBUG_HASHMAP is defined (by configuring with -Ddebug-extra=hashmap),
  * the implementation will:
  * - store extra data for debugging and statistics (see tools/gdb-sd_dump_hashmaps.py)
  * - perform extra checks for invalid use of iterators
