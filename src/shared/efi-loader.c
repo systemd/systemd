@@ -28,10 +28,11 @@
 #define END_ENTIRE_DEVICE_PATH_SUBTYPE      0xff
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI    0x0000000000000001
 
-#define boot_option__contents {                 \
-        uint32_t attr;                          \
-        uint16_t path_len;                      \
-        uint16_t title[];                       \
+#define boot_option__contents                   \
+        {                                       \
+                uint32_t attr;                  \
+                uint16_t path_len;              \
+                uint16_t title[];               \
         }
 
 struct boot_option boot_option__contents;
@@ -49,20 +50,20 @@ struct drive_path {
         uint8_t signature_type;
 } _packed_;
 
-#define device_path__contents {                 \
-        uint8_t type;                           \
-        uint8_t sub_type;                       \
-        uint16_t length;                        \
-        union {                                 \
-                uint16_t path[0];               \
-                struct drive_path drive;        \
-        };                                      \
+#define device_path__contents                           \
+        {                                               \
+                uint8_t type;                           \
+                uint8_t sub_type;                       \
+                uint16_t length;                        \
+                union {                                 \
+                        uint16_t path[0];               \
+                        struct drive_path drive;        \
+                };                                      \
         }
 
 struct device_path device_path__contents;
 struct device_path__packed device_path__contents _packed_;
 assert_cc(sizeof(struct device_path) == sizeof(struct device_path__packed));
-
 
 int efi_reboot_to_firmware_supported(void) {
         _cleanup_free_ void *v = NULL;
