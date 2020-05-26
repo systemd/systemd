@@ -37,6 +37,8 @@ Features:
 
 * nspawn: support time namespaces
 
+* add ConditionSecurity=tpm2
+
 * pid1: Move to tracking of main pid/control pid of units per pidfd
 
 * pid1: support new clone3() fork-into-cgroup feature
