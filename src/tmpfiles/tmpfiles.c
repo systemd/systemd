@@ -1265,7 +1265,7 @@ static int path_set_attribute(Item *item, const char *path) {
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1, dir_fd = -1;
         char *bn;
-        int flags, r;
+        int r;
 
         assert(i);
         assert(path);
@@ -1280,15 +1280,19 @@ static int write_one_file(Item *i, const char *path) {
 
         bn = basename(path);
 
-        flags = O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY;
-
         /* Follows symlinks */
-        fd = openat(dir_fd, bn, i->append_or_force ? flags|O_APPEND : flags, i->mode);
+        fd = openat(dir_fd, bn,
+                    O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY|(i->append_or_force ? O_APPEND : 0),
+                    i->mode);
         if (fd < 0) {
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
                         return 0;
                 }
+
+                if (i->allow_failure)
+                        return log_debug_errno(errno, "Failed to open file \"%s\", ignoring: %m", path);
+
                 return log_error_errno(errno, "Failed to open file \"%s\": %m", path);
         }
 
