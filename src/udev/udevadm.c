@@ -11,6 +11,7 @@
 #include "selinux-util.h"
 #include "string-util.h"
 #include "udevadm.h"
+#include "udevd.h"
 #include "udev-util.h"
 #include "verbs.h"
 #include "util.h"
@@ -109,6 +110,9 @@ static int udevadm_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        if (strstr(program_invocation_short_name, "udevd"))
+                return run_udevd(argc, argv);
 
         udev_parse_config();
         log_parse_environment();
