@@ -13,9 +13,8 @@ udevadm_sources = files('''
         udevadm-trigger.c
         udevadm-util.c
         udevadm-util.h
+        udevd.c
 '''.split())
-
-systemd_udevd_sources = files('udevd.c')
 
 libudev_core_sources = '''
         udev-ctrl.c

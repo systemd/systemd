@@ -59,6 +59,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "syslog-util.h"
+#include "udevd.h"
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
@@ -1713,7 +1714,7 @@ static int main_loop(Manager *manager) {
         return r;
 }
 
-static int run(int argc, char *argv[]) {
+int run_udevd(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         _cleanup_(manager_freep) Manager *manager = NULL;
         int fd_ctrl = -1, fd_uevent = -1;
@@ -1828,5 +1829,3 @@ static int run(int argc, char *argv[]) {
 
         return main_loop(manager);
 }
-
-DEFINE_MAIN_FUNCTION(run);

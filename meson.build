@@ -2198,6 +2198,10 @@ foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                                  join_paths(rootsbindir, alias))
 endforeach
 
+meson.add_install_script(meson_make_symlink,
+                         join_paths(rootbindir, 'udevadm'),
+                         join_paths(rootlibexecdir, 'systemd-udevd'))
+
 if conf.get('ENABLE_BACKLIGHT') == 1
         executable(
                 'systemd-backlight',
@@ -2980,24 +2984,6 @@ public_programs += executable(
         link_with : [libshared],
         dependencies : [threads],
         install_rpath : rootlibexecdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-public_programs += executable(
-        'systemd-udevd',
-        systemd_udevd_sources,
-        include_directories : includes,
-        c_args : '-DLOG_REALM=LOG_REALM_UDEV',
-        link_with : [libudev_core,
-                     libsystemd_network,
-                     libudev_static],
-        dependencies : [versiondep,
-                        threads,
-                        libkmod,
-                        libidn,
-                        libacl,
-                        libblkid],
-        install_rpath : udev_rpath,
         install : true,
         install_dir : rootlibexecdir)
 
