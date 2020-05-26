@@ -198,15 +198,6 @@ static void service_stop_watchdog(Service *s) {
         s->watchdog_timestamp = DUAL_TIMESTAMP_NULL;
 }
 
-static usec_t service_get_watchdog_usec(Service *s) {
-        assert(s);
-
-        if (s->watchdog_override_enable)
-                return s->watchdog_override_usec;
-
-        return s->watchdog_original_usec;
-}
-
 static void service_start_watchdog(Service *s) {
         usec_t watchdog_usec;
         int r;
