@@ -447,14 +447,17 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
                 }
         }
 
-        fs = new0(ServiceFDStore, 1);
+        fs = new(ServiceFDStore, 1);
         if (!fs)
                 return -ENOMEM;
 
-        fs->fd = fd;
-        fs->service = s;
-        fs->do_poll = do_poll;
-        fs->fdname = strdup(name ?: "stored");
+        *fs = (ServiceFDStore) {
+                .fd = fd,
+                .service = s,
+                .do_poll = do_poll,
+                .fdname = strdup(name ?: "stored"),
+        };
+
         if (!fs->fdname) {
                 free(fs);
                 return -ENOMEM;
