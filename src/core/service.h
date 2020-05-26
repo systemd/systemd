@@ -200,6 +200,11 @@ static inline usec_t service_timeout_abort_usec(Service *s) {
         return s->timeout_abort_set ? s->timeout_abort_usec : s->timeout_stop_usec;
 }
 
+static inline usec_t service_get_watchdog_usec(Service *s) {
+        assert(s);
+        return s->watchdog_override_enable ? s->watchdog_override_usec : s->watchdog_original_usec;
+}
+
 extern const UnitVTable service_vtable;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, bool selinux_context_net);
