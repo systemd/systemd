@@ -656,24 +656,27 @@ int config_parse_bridge_port_priority(
 size_t serialize_in_addrs(FILE *f,
                           const struct in_addr *addresses,
                           size_t size,
-                          bool with_leading_space,
+                          bool *with_leading_space,
                           bool (*predicate)(const struct in_addr *addr)) {
         assert(f);
         assert(addresses);
 
         size_t count = 0;
+        bool _space = false;
+        if (!with_leading_space)
+                with_leading_space = &_space;
 
         for (size_t i = 0; i < size; i++) {
                 char sbuf[INET_ADDRSTRLEN];
 
                 if (predicate && !predicate(&addresses[i]))
                         continue;
-                if (with_leading_space)
+
+                if (*with_leading_space)
                         fputc(' ', f);
-                else
-                        with_leading_space = true;
                 fputs(inet_ntop(AF_INET, &addresses[i], sbuf, sizeof(sbuf)), f);
                 count++;
+                *with_leading_space = true;
         }
 
         return count;
@@ -715,18 +718,22 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
         return size;
 }
 
-void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size) {
+void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses, size_t size, bool *with_leading_space) {
         assert(f);
         assert(addresses);
         assert(size);
 
+        bool _space = false;
+        if (!with_leading_space)
+                with_leading_space = &_space;
+
         for (size_t i = 0; i < size; i++) {
                 char buffer[INET6_ADDRSTRLEN];
 
-                fputs(inet_ntop(AF_INET6, addresses+i, buffer, sizeof(buffer)), f);
-
-                if (i < size - 1)
+                if (*with_leading_space)
                         fputc(' ', f);
+                fputs(inet_ntop(AF_INET6, addresses+i, buffer, sizeof(buffer)), f);
+                *with_leading_space = true;
         }
 }
 

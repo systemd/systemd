@@ -4026,20 +4026,15 @@ static void serialize_addresses(
 
                 r = sd_dhcp_lease_get_servers(lease, what, &lease_addresses);
                 if (r > 0)
-                        if (serialize_in_addrs(f, lease_addresses, r, space, in4_addr_is_non_local) > 0)
-                                *space = true;
+                        serialize_in_addrs(f, lease_addresses, r, space, in4_addr_is_non_local);
         }
 
         if (lease6 && conditional6 && lease6_get_addr) {
                 const struct in6_addr *in6_addrs;
 
                 r = lease6_get_addr(lease6, &in6_addrs);
-                if (r > 0) {
-                        if (*space)
-                                fputc(' ', f);
-                        serialize_in6_addrs(f, in6_addrs, r);
-                        *space = true;
-                }
+                if (r > 0)
+                        serialize_in6_addrs(f, in6_addrs, r, space);
         }
 
         if (lease6 && conditional6 && lease6_get_fqdn) {
@@ -4149,13 +4144,8 @@ int link_save(Link *link) {
                 if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
                         NDiscRDNSS *dd;
 
-                        SET_FOREACH(dd, link->ndisc_rdnss, i) {
-                                if (space)
-                                        fputc(' ', f);
-
-                                serialize_in6_addrs(f, &dd->address, 1);
-                                space = true;
-                        }
+                        SET_FOREACH(dd, link->ndisc_rdnss, i)
+                                serialize_in6_addrs(f, &dd->address, 1, &space);
                 }
 
                 fputc('\n', f);
@@ -4361,7 +4351,7 @@ int link_save(Link *link) {
                 r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
                 if (r >= 0) {
                         fputs("DHCP4_ADDRESS=", f);
-                        serialize_in_addrs(f, &address, 1, false, NULL);
+                        serialize_in_addrs(f, &address, 1, NULL, NULL);
                         fputc('\n', f);
                 }
 
