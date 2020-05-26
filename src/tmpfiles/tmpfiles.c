@@ -1625,7 +1625,7 @@ static int create_subvolume(Item *i, const char *path) {
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
                 else if (r == -EROFS)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
-                else if (r == -ENOPROTOOPT)
+                else if (r == -ENOTCONN)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
                 else if (r < 0)
                         q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
