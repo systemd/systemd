@@ -16,6 +16,7 @@
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "device-util.h"
+#include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "limits-util.h"
@@ -815,5 +816,29 @@ void manager_reconnect_utmp(Manager *m) {
                 return;
 
         manager_connect_utmp(m);
+#endif
+}
+
+int manager_read_efi_boot_loader_entries(Manager *m) {
+#if ENABLE_EFI
+        int r;
+
+        assert(m);
+        if (m->efi_boot_loader_entries_set)
+                return 0;
+
+        r = efi_loader_get_entries(&m->efi_boot_loader_entries);
+        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
+                log_debug_errno(r, "Boot loader reported no entries.");
+                m->efi_boot_loader_entries_set = true;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+
+        m->efi_boot_loader_entries_set = true;
+        return 1;
+#else
+        return 0;
 #endif
 }

@@ -1311,6 +1311,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_strv_free_ char **efi_entries = NULL;
         int r;
 
         /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
@@ -1333,7 +1334,13 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        (void) boot_entries_augment_from_loader(&config, false);
+        r = efi_loader_get_entries(&efi_entries);
+        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                log_debug_errno(r, "Boot loader reported no entries.");
+        else if (r < 0)
+                log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+        else
+                (void) boot_entries_augment_from_loader(&config, efi_entries, false);
 
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");

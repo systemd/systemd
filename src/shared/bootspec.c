@@ -735,9 +735,12 @@ int boot_entries_load_config_auto(
         return boot_entries_load_config(esp_where, xbootldr_where, config);
 }
 
-#if ENABLE_EFI
-int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
-        static const char * const title_table[] = {
+int boot_entries_augment_from_loader(
+                BootConfig *config,
+                char **found_by_loader,
+                bool only_auto) {
+
+        static const char *const title_table[] = {
                 /* Pretty names for a few well-known automatically discovered entries. */
                 "auto-osx",                      "macOS",
                 "auto-windows",                  "Windows Boot Manager",
@@ -746,21 +749,13 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
         };
 
-        _cleanup_strv_free_ char **found_by_loader = NULL;
         size_t n_allocated;
         char **i;
-        int r;
 
         assert(config);
 
         /* Let's add the entries discovered by the boot loader to the end of our list, unless they are
          * already included there. */
-
-        r = efi_loader_get_entries(&found_by_loader);
-        if (IN_SET(r, -ENOENT, -EOPNOTSUPP))
-                return log_debug_errno(r, "Boot loader reported no entries.");
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
 
         n_allocated = config->n_entries;
 
@@ -803,7 +798,6 @@ int boot_entries_augment_from_loader(BootConfig *config, bool only_auto) {
 
         return 0;
 }
-#endif
 
 /********************************************************************************/
 
