@@ -424,29 +424,15 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
         }
 }
 
-static void print_tree(const char *prefix, char **l) {
-
-        prefix = strempty(prefix);
-
-        if (arg_list) {
-                char **i;
-
-                STRV_FOREACH(i, l)
-                        printf("%s%s\n", prefix, *i);
-                return;
-        }
-
-        if (strv_isempty(l)) {
+static void print_tree(char **l) {
+        if (arg_list)
+                strv_print(l);
+        else if (strv_isempty(l))
                 printf("No objects discovered.\n");
-                return;
-        }
-
-        if (streq(l[0], "/") && !l[1]) {
+        else if (streq(l[0], "/") && !l[1])
                 printf("Only root object discovered.\n");
-                return;
-        }
-
-        print_subtree(prefix, "/", l);
+        else
+                print_subtree("", "/", l);
 }
 
 static int on_path(const char *path, void *userdata) {
@@ -490,7 +476,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
         return parse_xml_introspect(path, xml, &ops, paths);
 }
 
-static int tree_one(sd_bus *bus, const char *service, const char *prefix) {
+static int tree_one(sd_bus *bus, const char *service) {
         _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
         _cleanup_free_ char **l = NULL;
         int r;
@@ -536,7 +522,7 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix) {
                 return log_oom();
 
         strv_sort(l);
-        print_tree(prefix, l);
+        print_tree(l);
 
         fflush(stdout);
 
@@ -585,7 +571,7 @@ static int tree(int argc, char **argv, void *userdata) {
 
                         printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
 
-                        q = tree_one(bus, *i, NULL);
+                        q = tree_one(bus, *i);
                         if (q < 0 && r >= 0)
                                 r = q;
 
@@ -603,7 +589,7 @@ static int tree(int argc, char **argv, void *userdata) {
                                 printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
-                        q = tree_one(bus, *i, NULL);
+                        q = tree_one(bus, *i);
                         if (q < 0 && r >= 0)
                                 r = q;
                 }
