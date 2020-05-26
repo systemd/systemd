@@ -67,16 +67,22 @@ assert_cc(sizeof(struct device_path) == sizeof(struct device_path__packed));
 
 int efi_reboot_to_firmware_supported(void) {
         _cleanup_free_ void *v = NULL;
+        static int cache = -1;
         uint64_t b;
         size_t s;
         int r;
 
-        if (!is_efi_boot())
+        if (cache > 0)
+                return 0;
+        if (cache == 0)
                 return -EOPNOTSUPP;
 
+        if (!is_efi_boot())
+                goto not_supported;
+
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
-        if (r == -ENOENT) /* variable doesn't exist? it's not supported then */
-                return -EOPNOTSUPP;
+        if (r == -ENOENT)
+                goto not_supported; /* variable doesn't exist? it's not supported then */
         if (r < 0)
                 return r;
         if (s != sizeof(uint64_t))
@@ -84,9 +90,14 @@ int efi_reboot_to_firmware_supported(void) {
 
         b = *(uint64_t*) v;
         if (!(b & EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                return -EOPNOTSUPP; /* bit unset? it's not supported then */
+                goto not_supported; /* bit unset? it's not supported then */
 
+        cache = 1;
         return 0;
+
+not_supported:
+        cache = 0;
+        return -EOPNOTSUPP;
 }
 
 static int get_os_indications(uint64_t *os_indication) {
@@ -110,7 +121,7 @@ static int get_os_indications(uint64_t *os_indication) {
                 return 0;
         } else if (r < 0)
                 return r;
-        else if (s != sizeof(uint64_t))
+        if (s != sizeof(uint64_t))
                 return -EINVAL;
 
         *os_indication = *(uint64_t *)v;
