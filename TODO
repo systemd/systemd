@@ -22,6 +22,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* build short web pages out of each catalog entry, build them along with man
+  pages, and include hyperlinks to them in the journal output
+
 * machined: add API to acquire UID range. add API to mount/dissect loopback
   file. Both protected by PK. Then make nspawn use these APIs to run
   unprivileged containers. i.e. push the truly privileged bits into machined,
