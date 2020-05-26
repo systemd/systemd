@@ -927,9 +927,12 @@ static int qgroup_create_or_destroy(int fd, bool b, uint64_t qgroupid) {
         for (c = 0;; c++) {
                 if (ioctl(fd, BTRFS_IOC_QGROUP_CREATE, &args) < 0) {
 
-                        /* If quota is not enabled, we get EINVAL. Turn this into a recognizable error */
-                        if (errno == EINVAL)
-                                return -ENOPROTOOPT;
+                        /* On old kernels if quota is not enabled, we get EINVAL. On newer kernels we get
+                         * ENOTCONN. Let's always convert this to ENOTCONN to make this recognizable
+                         * everywhere the same way. */
+
+                        if (IN_SET(errno, EINVAL, ENOTCONN))
+                                return -ENOTCONN;
 
                         if (errno == EBUSY && c < 10) {
                                 (void) btrfs_quota_scan_wait(fd);
