@@ -4290,28 +4290,6 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
                 (void) unlink("/run/systemd/show-status");
 }
 
-static bool manager_get_show_status(Manager *m, StatusType type) {
-        assert(m);
-
-        if (!MANAGER_IS_SYSTEM(m))
-                return false;
-
-        if (m->no_console_output)
-                return false;
-
-        if (!IN_SET(manager_state(m), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING))
-                return false;
-
-        /* If we cannot find out the status properly, just proceed. */
-        if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
-                return false;
-
-        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
-                return true;
-
-        return show_status_on(m->show_status);
-}
-
 const char *manager_get_confirm_spawn(Manager *m) {
         static int last_errno = 0;
         struct stat st;
@@ -4384,12 +4362,34 @@ bool manager_is_confirm_spawn_disabled(Manager *m) {
         return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
+static bool manager_should_show_status(Manager *m, StatusType type) {
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return false;
+
+        if (m->no_console_output)
+                return false;
+
+        if (!IN_SET(manager_state(m), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING))
+                return false;
+
+        /* If we cannot find out the status properly, just proceed. */
+        if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
+                return false;
+
+        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
+                return true;
+
+        return show_status_on(m->show_status);
+}
+
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {
         va_list ap;
 
         /* If m is NULL, assume we're after shutdown and let the messages through. */
 
-        if (m && !manager_get_show_status(m, type))
+        if (m && !manager_should_show_status(m, type))
                 return;
 
         /* XXX We should totally drop the check for ephemeral here
