@@ -213,7 +213,7 @@ int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
         return 0;
 }
 
-int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, struct in6_addr **addrs) {
+int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **addrs) {
         assert_return(lease, -EINVAL);
         assert_return(addrs, -EINVAL);
 
@@ -341,7 +341,7 @@ int dhcp6_lease_set_sntp(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) 
 }
 
 int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease,
-                                 struct in6_addr **addrs) {
+                                 const struct in6_addr **addrs) {
         assert_return(lease, -EINVAL);
         assert_return(addrs, -EINVAL);
 
