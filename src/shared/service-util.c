@@ -9,7 +9,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static int help(const char *program_path, const char *service, const char *description, bool bus_introspect) {
+static int help(const char *program_path, const char *service, const char *description) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -61,7 +61,7 @@ int service_parse_argv(
                 switch(c) {
 
                 case 'h':
-                        return help(argv[0], service, description, bus_objects);
+                        return help(argv[0], service, description);
 
                 case ARG_VERSION:
                         return version();
