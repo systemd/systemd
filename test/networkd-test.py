@@ -176,7 +176,7 @@ class NetworkdTestingUtilities:
                 actual = fields[-1]
                 if (actual != expected and
                         not (expected == 'managed' and actual != 'unmanaged')):
-                    err_msg = "Link {} expects state {}, found {}".format(iface, expected, actual)
+                    err_msg = "Link {} expects state {}, found {}".format(iface, expected, actual) # FIXME put back in self.fail() when fix is found
                     self.fail(err_msg)
                 interfaces.remove(iface)
 
