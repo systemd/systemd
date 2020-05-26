@@ -1266,10 +1266,16 @@ _public_ int sd_bus_open(sd_bus **ret) {
 
 int bus_set_address_system(sd_bus *b) {
         const char *e;
+        int r;
+
         assert(b);
 
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
-        return sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
+
+        r = sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
+        if (r >= 0)
+                b->is_system = true;
+        return r;
 }
 
 _public_ int sd_bus_open_system_with_description(sd_bus **ret, const char *description) {
@@ -1293,7 +1299,6 @@ _public_ int sd_bus_open_system_with_description(sd_bus **ret, const char *descr
                 return r;
 
         b->bus_client = true;
-        b->is_system = true;
 
         /* Let's do per-method access control on the system bus. We
          * need the caller's UID and capability set for that. */
@@ -1316,6 +1321,7 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
 int bus_set_address_user(sd_bus *b) {
         const char *a;
         _cleanup_free_ char *_a = NULL;
+        int r;
 
         assert(b);
 
@@ -1337,7 +1343,10 @@ int bus_set_address_user(sd_bus *b) {
                 a = _a;
         }
 
-        return sd_bus_set_address(b, a);
+        r = sd_bus_set_address(b, a);
+        if (r >= 0)
+                b->is_user = true;
+        return r;
 }
 
 _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *description) {
@@ -1361,7 +1370,6 @@ _public_ int sd_bus_open_user_with_description(sd_bus **ret, const char *descrip
                 return r;
 
         b->bus_client = true;
-        b->is_user = true;
 
         /* We don't do any per-method access control on the user bus. */
         b->trusted = true;

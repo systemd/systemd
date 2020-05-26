@@ -1948,7 +1948,7 @@ int config_parse_bus_name(
                 return 0;
         }
 
-        if (!service_name_is_valid(k)) {
+        if (!sd_bus_service_name_is_valid(k)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid bus name, ignoring: %s", k);
                 return 0;
         }

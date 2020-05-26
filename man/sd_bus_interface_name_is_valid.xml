@@ -1,0 +1,98 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_interface_name_is_valid" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_bus_interface_name_is_valid</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_interface_name_is_valid</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_interface_name_is_valid</refname>
+    <refname>sd_bus_service_name_is_valid</refname>
+    <refname>sd_bus_member_name_is_valid</refname>
+    <refname>sd_bus_object_path_is_valid</refname>
+
+    <refpurpose>Check if a string is a valid bus name or object path</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_interface_name_is_valid</function></funcdef>
+        <paramdef>const char* <parameter>p</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_service_name_is_valid</function></funcdef>
+        <paramdef>const char* <parameter>p</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_member_name_is_valid</function></funcdef>
+        <paramdef>const char* <parameter>p</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_object_path_is_valid</function></funcdef>
+        <paramdef>const char* <parameter>p</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_interface_name_is_valid()</function> checks if a given string
+    <parameter>p</parameter> is a syntactically valid bus interface name. Similarly,
+    <function>sd_bus_service_name_is_valid()</function> checks if the argument is a valid bus service name,
+    <function>sd_bus_member_name_is_valid()</function> checks if the argument is a valid bus interface member
+    name, and <function>sd_bus_object_path_is_valid()</function> checks if the argument is a valid bus object
+    path. Those functions generally check that only allowed characters are used and that the length of the
+    string is within limits.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>Those functions return 1 if the argument is a valid interface / service / member name or object
+    path, and 0 if it is not. If the argument is NULL, an error is returned.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The <parameter>p</parameter> parameter is
+          <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

@@ -124,6 +124,13 @@ typedef _sd_destroy_t sd_bus_destroy_t;
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
 
+/* Naming */
+
+int sd_bus_interface_name_is_valid(const char *p);
+int sd_bus_service_name_is_valid(const char *p);
+int sd_bus_member_name_is_valid(const char *p);
+int sd_bus_object_path_is_valid(const char *p);
+
 /* Connections */
 
 int sd_bus_default(sd_bus **ret);

@@ -1156,7 +1156,7 @@ int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id,
         int r;
 
         assert_return(b || (sender_id && external_id), -EINVAL);
-        assert_return(object_path_is_valid(prefix), -EINVAL);
+        assert_return(sd_bus_object_path_is_valid(prefix), -EINVAL);
         assert_return(ret_path, -EINVAL);
 
         if (!sender_id) {
@@ -1208,8 +1208,8 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
         const char *p, *q;
         char *sender, *external;
 
-        assert(object_path_is_valid(path));
-        assert(object_path_is_valid(prefix));
+        assert(sd_bus_object_path_is_valid(path));
+        assert(sd_bus_object_path_is_valid(prefix));
         assert(ret_sender);
         assert(ret_external);
 
@@ -1670,7 +1670,7 @@ int bus_introspect_implementations(
         }
 
         struct introspect intro = {};
-        bool is_interface = interface_name_is_valid(pattern);
+        bool is_interface = sd_bus_interface_name_is_valid(pattern);
 
         impl = find_implementation(pattern, bus_objects);
         if (!impl)

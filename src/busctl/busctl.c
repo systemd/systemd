@@ -110,13 +110,10 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
-                        if (arg_user) {
-                                bus->is_user = true;
+                        if (arg_user)
                                 r = bus_set_address_user(bus);
-                        } else {
-                                bus->is_system = true;
+                        else
                                 r = bus_set_address_system(bus);
-                        }
                         break;
 
                 case BUS_TRANSPORT_REMOTE:
@@ -427,29 +424,15 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
         }
 }
 
-static void print_tree(const char *prefix, char **l) {
-
-        prefix = strempty(prefix);
-
-        if (arg_list) {
-                char **i;
-
-                STRV_FOREACH(i, l)
-                        printf("%s%s\n", prefix, *i);
-                return;
-        }
-
-        if (strv_isempty(l)) {
+static void print_tree(char **l) {
+        if (arg_list)
+                strv_print(l);
+        else if (strv_isempty(l))
                 printf("No objects discovered.\n");
-                return;
-        }
-
-        if (streq(l[0], "/") && !l[1]) {
+        else if (streq(l[0], "/") && !l[1])
                 printf("Only root object discovered.\n");
-                return;
-        }
-
-        print_subtree(prefix, "/", l);
+        else
+                print_subtree("", "/", l);
 }
 
 static int on_path(const char *path, void *userdata) {
@@ -465,7 +448,7 @@ static int on_path(const char *path, void *userdata) {
         return 0;
 }
 
-static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *paths, bool many) {
+static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *paths) {
         static const XMLIntrospectOps ops = {
                 .on_path = on_path,
         };
@@ -479,12 +462,10 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
                                "org.freedesktop.DBus.Introspectable", "Introspect",
                                &error, &reply, "");
         if (r < 0) {
-                if (many)
-                        printf("Failed to introspect object %s of service %s: %s\n",
-                               path, service, bus_error_message(&error, r));
-                else
-                        log_error_errno(r, "Failed to introspect object %s of service %s: %s",
-                                        path, service, bus_error_message(&error, r));
+                printf("%sFailed to introspect object %s of service %s: %s%s\n",
+                       ansi_highlight_red(),
+                       path, service, bus_error_message(&error, r),
+                       ansi_normal());
                 return r;
         }
 
@@ -495,33 +476,22 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
         return parse_xml_introspect(path, xml, &ops, paths);
 }
 
-static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool many) {
-        _cleanup_set_free_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+static int tree_one(sd_bus *bus, const char *service) {
+        _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
         _cleanup_free_ char **l = NULL;
-        char *m;
         int r;
 
-        paths = set_new(&string_hash_ops);
-        if (!paths)
+        r = set_put_strdup(&paths, "/");
+        if (r < 0)
                 return log_oom();
 
-        done = set_new(&string_hash_ops);
+        done = set_new(&string_hash_ops_free);
         if (!done)
                 return log_oom();
 
-        failed = set_new(&string_hash_ops);
+        failed = set_new(&string_hash_ops_free);
         if (!failed)
                 return log_oom();
-
-        m = strdup("/");
-        if (!m)
-                return log_oom();
-
-        r = set_put(paths, m);
-        if (r < 0) {
-                free(m);
-                return log_oom();
-        }
 
         for (;;) {
                 _cleanup_free_ char *p = NULL;
@@ -535,20 +505,14 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
                     set_contains(failed, p))
                         continue;
 
-                q = find_nodes(bus, service, p, paths, many);
-                if (q < 0) {
-                        if (r >= 0)
-                                r = q;
+                q = find_nodes(bus, service, p, paths);
+                if (q < 0 && r >= 0)
+                        r = q;
 
-                        q = set_put(failed, p);
-                } else
-                        q = set_put(done, p);
-
+                q = set_consume(q < 0 ? failed : done, TAKE_PTR(p));
+                assert(q != 0);
                 if (q < 0)
                         return log_oom();
-
-                assert(q != 0);
-                p = NULL;
         }
 
         (void) pager_open(arg_pager_flags);
@@ -558,7 +522,7 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
                 return log_oom();
 
         strv_sort(l);
-        print_tree(prefix, l);
+        print_tree(l);
 
         fflush(stdout);
 
@@ -569,6 +533,12 @@ static int tree(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **i;
         int r = 0;
+
+        /* Do superficial verification of arguments before even opening the bus */
+        STRV_FOREACH(i, strv_skip(argv, 1))
+                if (!sd_bus_service_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Invalid bus service name: %s", *i);
 
         if (!arg_unique && !arg_acquired)
                 arg_acquired = true;
@@ -601,14 +571,14 @@ static int tree(int argc, char **argv, void *userdata) {
 
                         printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
 
-                        q = tree_one(bus, *i, NULL, true);
+                        q = tree_one(bus, *i);
                         if (q < 0 && r >= 0)
                                 r = q;
 
                         not_first = true;
                 }
-        } else {
-                STRV_FOREACH(i, argv+1) {
+        } else
+                STRV_FOREACH(i, strv_skip(argv, 1)) {
                         int q;
 
                         if (i > argv+1)
@@ -619,11 +589,10 @@ static int tree(int argc, char **argv, void *userdata) {
                                 printf("Service %s%s%s:\n", ansi_highlight(), *i, ansi_normal());
                         }
 
-                        q = tree_one(bus, *i, NULL, !!argv[2]);
+                        q = tree_one(bus, *i);
                         if (q < 0 && r >= 0)
                                 r = q;
                 }
-        }
 
         return r;
 }
@@ -1291,7 +1260,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         STRV_FOREACH(i, argv+1) {
                 _cleanup_free_ char *m = NULL;
 
-                if (!service_name_is_valid(*i))
+                if (!sd_bus_service_name_is_valid(*i))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid service name '%s'", *i);
 
                 m = strjoin("sender='", *i, "'");
@@ -2608,7 +2577,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int busctl_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names },
                 { "status",       VERB_ANY, 2,        0,            status         },

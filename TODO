@@ -4,9 +4,6 @@ Bugfixes:
   manager or system manager can be always set. It would be better to reject
   them when parsing config.
 
-* busctl prints errors to stdout:
-  busctl tree org.freedesktop.systemd1  /org/freedesktop/systemd1
-
 External:
 
 * Fedora: add an rpmlint check that verifies that all unit files in the RPM are listed in %systemd_post macros.

@@ -4,7 +4,6 @@
 
 #include "alloc-util.h"
 #include "async.h"
-#include "bus-internal.h"
 #include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
@@ -258,7 +257,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(notify_access, NotifyAccess, notify_access
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
-static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, service_name_is_valid);
+static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
 
 static int bus_service_set_transient_property(
                 Service *s,
