@@ -23,6 +23,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "sd-id128.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -645,6 +646,35 @@ int config_parse_bool(const char* unit,
         }
 
         *b = k;
+        return 0;
+}
+
+int config_parse_id128(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        sd_id128_t t, *result = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = sd_id128_from_string(rvalue, &t);
+        if (r < 0)
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+        else if (sd_id128_is_null(t))
+                log_syntax(unit, LOG_ERR, filename, line, 0, "128bit ID/UUID is all 0, ignoring: %s", rvalue);
+
+        *result = t;
         return 0;
 }
 

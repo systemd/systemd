@@ -234,7 +234,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_capability);
-CONFIG_PARSER_PROTOTYPE(config_parse_id128);
 CONFIG_PARSER_PROTOTYPE(config_parse_expose_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_volatile_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_pivot_root);
