@@ -4971,11 +4971,11 @@ int unit_kill_context(
                                 if (!pid_set)
                                         return -ENOMEM;
 
-                                cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                                  SIGHUP,
-                                                  CGROUP_IGNORE_SELF,
-                                                  pid_set,
-                                                  NULL, NULL);
+                                (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                                                         SIGHUP,
+                                                         CGROUP_IGNORE_SELF,
+                                                         pid_set,
+                                                         NULL, NULL);
                         }
                 }
         }
