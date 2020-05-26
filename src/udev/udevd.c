@@ -443,13 +443,18 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         assert(manager);
 
         r = worker_process_device(manager, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
+        if (r == -EAGAIN)
+                /* if we couldn't acquire the flock(), then proceed quietly */
+                log_device_debug_errno(dev, r, "Device currently locked, not processing.");
+        else {
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to process device, ignoring: %m");
 
-        /* send processed event back to libudev listeners */
-        r = device_monitor_send_device(monitor, NULL, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+                /* send processed event back to libudev listeners */
+                r = device_monitor_send_device(monitor, NULL, dev);
+                if (r < 0)
+                        log_device_warning_errno(dev, r, "Failed to send device, ignoring: %m");
+        }
 
         /* send udevd the result of the event execution */
         r = worker_send_message(manager->worker_watch[WRITE_END]);
