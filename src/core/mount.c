@@ -863,6 +863,8 @@ static void mount_enter_dead(Mount *m, MountResult f) {
                 m->result = f;
 
         unit_log_result(UNIT(m), m->result == MOUNT_SUCCESS, mount_result_to_string(m->result));
+        unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_stop);
+
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 
         m->exec_runtime = exec_runtime_unref(m->exec_runtime, true);
@@ -1008,7 +1010,7 @@ static void mount_enter_mounting(Mount *m) {
         (void) mkdir_p_label(m->where, m->directory_mode);
 
         unit_warn_if_dir_nonempty(UNIT(m), m->where);
-        unit_warn_leftover_processes(UNIT(m));
+        unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);
 
         m->control_command_id = MOUNT_EXEC_MOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_MOUNT;
