@@ -330,7 +330,7 @@ static int run(int argc, char *argv[]) {
                                "Manage registrations of local VMs and containers.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv);
+                               argc, argv, NULL);
         if (r <= 0)
                 return r;
 

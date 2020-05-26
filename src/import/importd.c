@@ -1371,7 +1371,7 @@ static int run(int argc, char *argv[]) {
                                "VM and container image import and export service.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv);
+                               argc, argv, NULL);
         if (r <= 0)
                 return r;
 

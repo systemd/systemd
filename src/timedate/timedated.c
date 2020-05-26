@@ -1115,7 +1115,7 @@ static int run(int argc, char *argv[]) {
                                "Manage the system clock and timezone and NTP enablement.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv);
+                               argc, argv, NULL);
         if (r <= 0)
                 return r;
 

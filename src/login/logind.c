@@ -1166,7 +1166,7 @@ static int run(int argc, char *argv[]) {
                                "Manager for user logins and devices and privileged operations.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv);
+                               argc, argv, NULL);
         if (r <= 0)
                 return r;
 

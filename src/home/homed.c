@@ -23,7 +23,7 @@ static int run(int argc, char *argv[]) {
                                "A service to create, remove, change or inspect home areas.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
-                               argc, argv);
+                               argc, argv, NULL);
         if (r <= 0)
                 return r;
 
