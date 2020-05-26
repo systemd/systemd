@@ -698,10 +698,10 @@ CHANGES WITH 243:
           the IO accounting data is included in the resource log message
           generated whenever a unit stops.
 
-        * Units may now configure an explicit time-out to wait for when killed
+        * Units may now configure an explicit timeout to wait for when killed
           with SIGABRT, for example when a service watchdog is hit. Previously,
-          the regular TimeoutStopSec= time-out was applied in this case too —
-          now a separate time-out may be set using TimeoutAbortSec=.
+          the regular TimeoutStopSec= timeout was applied in this case too —
+          now a separate timeout may be set using TimeoutAbortSec=.
 
         * Services may now send a special WATCHDOG=trigger message with
           sd_notify() to trigger an immediate "watchdog missed" event, and thus
@@ -731,7 +731,7 @@ CHANGES WITH 243:
 
         * If processes terminated during the last phase of shutdown do not exit
           quickly systemd will now show their names after a short time, to make
-          debugging easier. After a longer time-out they are forcibly killed,
+          debugging easier. After a longer timeout they are forcibly killed,
           as before.
 
         * journalctl (and the other tools that display logs) will now highlight

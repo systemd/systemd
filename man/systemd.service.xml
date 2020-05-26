@@ -464,7 +464,7 @@
         of the daemon, and may be used for command lines like the
         following:</para>
 
-        <programlisting>/bin/kill -HUP $MAINPID</programlisting>
+        <programlisting>ExecReload=kill -HUP $MAINPID</programlisting>
 
         <para>Note however that reloading a daemon by sending a signal
         (as with the example line above) is usually not a good choice,
@@ -473,7 +473,14 @@
         other. It is strongly recommended to set
         <varname>ExecReload=</varname> to a command that not only
         triggers a configuration reload of the daemon, but also
-        synchronously waits for it to complete.</para>
+        synchronously waits for it to complete. For example,
+        <citerefentry project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        uses the following:</para>
+
+        <programlisting>ExecReload=busctl call org.freedesktop.DBus \
+        /org/freedesktop/DBus org.freedesktop.DBus \
+        ReloadConfig
+</programlisting>
         </listitem>
       </varlistentry>
 

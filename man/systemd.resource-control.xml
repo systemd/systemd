@@ -571,29 +571,29 @@
         <term><varname>IPAddressDeny=<replaceable>ADDRESS[/PREFIXLENGTH]…</replaceable></varname></term>
 
         <listitem>
-          <para>Turn on address range network traffic filtering for IP packets sent and received over
-          <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets.  Both directives take a
+          <para>Turn on network traffic filtering for IP packets sent and received over
+          <constant>AF_INET</constant> and <constant>AF_INET6</constant> sockets. Both directives take a
           space separated list of IPv4 or IPv6 addresses, each optionally suffixed with an address prefix
-          length in bits (separated by a <literal>/</literal> character). If the latter is omitted, the
-          address is considered a host address, i.e. the prefix covers the whole address (32 for IPv4, 128
-          for IPv6).</para>
+          length in bits after a <literal>/</literal> character. If the suffix is omitted, the address is
+          considered a host address, i.e. the filter covers the whole address (32 bits for IPv4, 128 bits for
+          IPv6).</para>
 
           <para>The access lists configured with this option are applied to all sockets created by processes
           of this unit (or in the case of socket units, associated with it). The lists are implicitly
           combined with any lists configured for any of the parent slice units this unit might be a member
-          of. By default all access lists are empty. Both ingress and egress traffic is filtered by these
+          of. By default both access lists are empty. Both ingress and egress traffic is filtered by these
           settings. In case of ingress traffic the source IP address is checked against these access lists,
-          in case of egress traffic the destination IP address is checked. When configured the lists are
-          enforced as follows:</para>
+          in case of egress traffic the destination IP address is checked. The following rules are applied in
+          turn:</para>
 
           <itemizedlist>
-            <listitem><para>Access will be granted in case an IP packet's destination/source address matches
-            any entry in the <varname>IPAddressAllow=</varname> setting.</para></listitem>
+            <listitem><para>Access is granted when the checked IP address matches an entry in the
+            <varname>IPAddressAllow=</varname> list.</para></listitem>
 
-            <listitem><para>Otherwise, access will be denied in case its destination/source address matches
-            any entry in the <varname>IPAddressDeny=</varname> setting.</para></listitem>
+            <listitem><para>Otherwise, access is denied when the checked IP address matches an entry in the
+            <varname>IPAddressDeny=</varname> list.</para></listitem>
 
-            <listitem><para>Otherwise, access will be granted.</para></listitem>
+            <listitem><para>Otherwise, access is granted.</para></listitem>
           </itemizedlist>
 
           <para>In order to implement a whitelisting IP firewall, it is recommended to use a
@@ -604,12 +604,13 @@
           details on these slice units), plus individual per-service <varname>IPAddressAllow=</varname> lines
           permitting network access to relevant services, and only them.</para>
 
-          <para>Note that for socket-activated services, the IP access list configured on the socket unit applies to
-          all sockets associated with it directly, but not to any sockets created by the ultimately activated services
-          for it. Conversely, the IP access list configured for the service is not applied to any sockets passed into
-          the service via socket activation. Thus, it is usually a good idea, to replicate the IP access lists on both
-          the socket and the service unit, however it often makes sense to maintain one list more open and the other
-          one more restricted, depending on the usecase.</para>
+          <para>Note that for socket-activated services, the IP access list configured on the socket unit
+          applies to all sockets associated with it directly, but not to any sockets created by the
+          ultimately activated services for it. Conversely, the IP access list configured for the service is
+          not applied to any sockets passed into the service via socket activation. Thus, it is usually a
+          good idea to replicate the IP access lists on both the socket and the service unit. Nevertheless,
+          it may make sense to maintain one list more open and the other one more restricted, depending on
+          the usecase.</para>
 
           <para>If these settings are used multiple times in the same unit the specified lists are combined. If an
           empty string is assigned to these settings the specific access list is reset and all previous settings undone.</para>
