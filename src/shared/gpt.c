@@ -29,7 +29,8 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_SRV,                   "srv"                   },
         { GPT_VAR,                   "var"                   },
         { GPT_TMP,                   "tmp"                   },
-        { GPT_LINUX_GENERIC,         "linux-generic",        },
+        { GPT_USER_HOME,             "user-home"             },
+        { GPT_LINUX_GENERIC,         "linux-generic"         },
         {}
 };
 
