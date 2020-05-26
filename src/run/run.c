@@ -978,8 +978,11 @@ typedef struct RunContext {
         PTYForward *forward;
         sd_bus_slot *match;
 
-        /* The exit data of the unit */
+        /* Current state of the unit */
         char *active_state;
+        bool has_job;
+
+        /* The exit data of the unit */
         uint64_t inactive_exit_usec;
         uint64_t inactive_enter_usec;
         char *result;
@@ -1010,7 +1013,7 @@ static void run_context_check_done(RunContext *c) {
         assert(c);
 
         if (c->match)
-                done = STRPTR_IN_SET(c->active_state, "inactive", "failed");
+                done = STRPTR_IN_SET(c->active_state, "inactive", "failed") && !c->has_job;
         else
                 done = true;
 
@@ -1021,20 +1024,35 @@ static void run_context_check_done(RunContext *c) {
                 sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
+static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        bool *b = userdata;
+        const char *job;
+        uint32_t id;
+        int r;
+
+        r = sd_bus_message_read(m, "(uo)", &id, &job);
+        if (r < 0)
+                return r;
+
+        *b = id != 0 || !streq(job, "/");
+        return 0;
+}
+
 static int run_context_update(RunContext *c, const char *path) {
 
         static const struct bus_properties_map map[] = {
-                { "ActiveState",                      "s", NULL, offsetof(RunContext, active_state)        },
-                { "InactiveExitTimestampMonotonic",   "t", NULL, offsetof(RunContext, inactive_exit_usec)  },
-                { "InactiveEnterTimestampMonotonic",  "t", NULL, offsetof(RunContext, inactive_enter_usec) },
-                { "Result",                           "s", NULL, offsetof(RunContext, result)              },
-                { "ExecMainCode",                     "i", NULL, offsetof(RunContext, exit_code)           },
-                { "ExecMainStatus",                   "i", NULL, offsetof(RunContext, exit_status)         },
-                { "CPUUsageNSec",                     "t", NULL, offsetof(RunContext, cpu_usage_nsec)      },
-                { "IPIngressBytes",                   "t", NULL, offsetof(RunContext, ip_ingress_bytes)    },
-                { "IPEgressBytes",                    "t", NULL, offsetof(RunContext, ip_egress_bytes)     },
-                { "IOReadBytes",                      "t", NULL, offsetof(RunContext, io_read_bytes)       },
-                { "IOWriteBytes",                     "t", NULL, offsetof(RunContext, io_write_bytes)      },
+                { "ActiveState",                     "s",    NULL,    offsetof(RunContext, active_state)        },
+                { "InactiveExitTimestampMonotonic",  "t",    NULL,    offsetof(RunContext, inactive_exit_usec)  },
+                { "InactiveEnterTimestampMonotonic", "t",    NULL,    offsetof(RunContext, inactive_enter_usec) },
+                { "Result",                          "s",    NULL,    offsetof(RunContext, result)              },
+                { "ExecMainCode",                    "i",    NULL,    offsetof(RunContext, exit_code)           },
+                { "ExecMainStatus",                  "i",    NULL,    offsetof(RunContext, exit_status)         },
+                { "CPUUsageNSec",                    "t",    NULL,    offsetof(RunContext, cpu_usage_nsec)      },
+                { "IPIngressBytes",                  "t",    NULL,    offsetof(RunContext, ip_ingress_bytes)    },
+                { "IPEgressBytes",                   "t",    NULL,    offsetof(RunContext, ip_egress_bytes)     },
+                { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
+                { "IOWriteBytes",                    "t",    NULL,    offsetof(RunContext, io_write_bytes)      },
+                { "Job",                             "(uo)", map_job, offsetof(RunContext, has_job)             },
                 {}
         };
 
