@@ -40,7 +40,9 @@ UtmpIdentifier=%I
 TTYPath=/dev/%I
 TTYReset=yes
 TTYVHangup=yes
+m4_ifdef(`ENABLE_LOGIND',,
 KillMode=process
+)m4_dnl
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
 

@@ -4971,11 +4971,11 @@ int unit_kill_context(
                                 if (!pid_set)
                                         return -ENOMEM;
 
-                                cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                                  SIGHUP,
-                                                  CGROUP_IGNORE_SELF,
-                                                  pid_set,
-                                                  NULL, NULL);
+                                (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                                                         SIGHUP,
+                                                         CGROUP_IGNORE_SELF,
+                                                         pid_set,
+                                                         NULL, NULL);
                         }
                 }
         }
@@ -5861,13 +5861,19 @@ int unit_prepare_exec(Unit *u) {
         return 0;
 }
 
-static int log_leftover(pid_t pid, int sig, void *userdata) {
+static bool ignore_leftover_process(const char *comm) {
+        return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
+}
+
+int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         (void) get_process_comm(pid, &comm);
 
-        if (comm && comm[0] == '(') /* Most likely our own helper process (PAM?), ignore */
+        if (ignore_leftover_process(comm))
                 return 0;
+
+        /* During start we print a warning */
 
         log_unit_warning(userdata,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
@@ -5877,7 +5883,24 @@ static int log_leftover(pid_t pid, int sig, void *userdata) {
         return 1;
 }
 
-int unit_warn_leftover_processes(Unit *u) {
+int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata) {
+        _cleanup_free_ char *comm = NULL;
+
+        (void) get_process_comm(pid, &comm);
+
+        if (ignore_leftover_process(comm))
+                return 0;
+
+        /* During stop we only print an informational message */
+
+        log_unit_info(userdata,
+                      "Unit process " PID_FMT " (%s) remains running after unit stopped.",
+                      pid, strna(comm));
+
+        return 1;
+}
+
+int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
         assert(u);
 
         (void) unit_pick_cgroup_path(u);
@@ -5885,7 +5908,7 @@ int unit_warn_leftover_processes(Unit *u) {
         if (!u->cgroup_path)
                 return 0;
 
-        return cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+        return cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_func, u);
 }
 
 bool unit_needs_console(Unit *u) {

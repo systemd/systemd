@@ -117,7 +117,6 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGrou
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home, ProtectHome, "Failed to parse protect home value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system, ProtectSystem, "Failed to parse protect system value");
@@ -628,6 +627,48 @@ int config_parse_exec_coredump_filter(
 
         c->coredump_filter |= f;
         c->oom_score_adjust_set = true;
+        return 0;
+}
+
+int config_parse_kill_mode(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        KillMode *k = data, m;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *k = KILL_CONTROL_GROUP;
+                return 0;
+        }
+
+        m = kill_mode_from_string(rvalue);
+        if (m < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse kill mode specification, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (m == KILL_NONE)
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Unit configured to use KillMode=none. "
+                           "This is unsafe, as it disables systemd's process life-cycle management for the service. "
+                           "Please update your service to use a safer KillMode=, such as 'mixed' or 'control-group'. "
+                           "Support for KillMode=none is deprecated and will eventually be removed.");
+
+        *k = m;
         return 0;
 }
 

@@ -788,19 +788,25 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                         if (!fpath)
                                 return log_oom();
 
-                        service = new0(SysvStub, 1);
+                        log_warning("SysV service '%s' lacks a native systemd unit file. "
+                                    "Automatically generating a unit file for compatibility. "
+                                    "Please update package to include a native systemd unit file, in order to make it more safe and robust.", fpath);
+
+                        service = new(SysvStub, 1);
                         if (!service)
                                 return log_oom();
 
-                        service->sysv_start_priority = -1;
-                        service->name = TAKE_PTR(name);
-                        service->path = TAKE_PTR(fpath);
+                        *service = (SysvStub) {
+                                .sysv_start_priority = -1,
+                                .name = TAKE_PTR(name),
+                                .path = TAKE_PTR(fpath),
+                        };
 
                         r = hashmap_put(all_services, service->name, service);
                         if (r < 0)
                                 return log_oom();
 
-                        service = NULL;
+                        TAKE_PTR(service);
                 }
         }
 

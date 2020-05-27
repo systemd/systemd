@@ -61,28 +61,25 @@
 
       <varlistentry>
         <term><varname>KillMode=</varname></term>
-        <listitem><para>Specifies how processes of this unit shall be
-        killed. One of
-        <option>control-group</option>,
-        <option>process</option>,
-        <option>mixed</option>,
+        <listitem><para>Specifies how processes of this unit shall be killed. One of
+        <option>control-group</option>, <option>mixed</option>, <option>process</option>,
         <option>none</option>.</para>
 
-        <para>If set to <option>control-group</option>, all remaining
-        processes in the control group of this unit will be killed on
-        unit stop (for services: after the stop command is executed,
-        as configured with <varname>ExecStop=</varname>). If set to
-        <option>process</option>, only the main process itself is
-        killed. If set to <option>mixed</option>, the
-        <constant>SIGTERM</constant> signal (see below) is sent to the
-        main process while the subsequent <constant>SIGKILL</constant>
-        signal (see below) is sent to all remaining processes of the
-        unit's control group. If set to <option>none</option>, no
-        process is killed. In this case, only the stop command will be
-        executed on unit stop, but no process will be killed otherwise.
-        Processes remaining alive after stop are left in their control
-        group and the control group continues to exist after stop
-        unless it is empty.</para>
+        <para>If set to <option>control-group</option>, all remaining processes in the control group of this
+        unit will be killed on unit stop (for services: after the stop command is executed, as configured
+        with <varname>ExecStop=</varname>). If set to <option>mixed</option>, the
+        <constant>SIGTERM</constant> signal (see below) is sent to the main process while the subsequent
+        <constant>SIGKILL</constant> signal (see below) is sent to all remaining processes of the unit's
+        control group. If set to <option>process</option>, only the main process itself is killed (not
+        recommended!). If set to <option>none</option>, no process is killed (strongly recommended
+        against!). In this case, only the stop command will be executed on unit stop, but no process will be
+        killed otherwise.  Processes remaining alive after stop are left in their control group and the
+        control group continues to exist after stop unless empty.</para>
+
+        <para>Note that it is not recommended to set <varname>KillMode=</varname> to
+        <constant>process</constant> or even <constant>none</constant>, as this allows processes to escape
+        the service manager's lifecycle and resource management, and to remain running even while their
+        service is considered stopped and is assumed to not consume any resources.</para>
 
         <para>Processes will first be terminated via <constant>SIGTERM</constant> (unless the signal to send
         is changed via <varname>KillSignal=</varname> or <varname>RestartKillSignal=</varname>). Optionally,
