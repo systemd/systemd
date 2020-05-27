@@ -146,4 +146,10 @@ fuzzers += [
         [['src/fuzz/fuzz-time-util.c'],
          [libshared],
          []],
+
+        [['src/fuzz/fuzz-xdg-desktop.c',
+          'src/xdg-autostart-generator/xdg-autostart-service.h',
+          'src/xdg-autostart-generator/xdg-autostart-service.c'],
+         [],
+         []],
 ]

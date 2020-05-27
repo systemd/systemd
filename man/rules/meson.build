@@ -975,6 +975,7 @@ manpages = [
   ['systemd-veritysetup'],
   'HAVE_LIBCRYPTSETUP'],
  ['systemd-volatile-root.service', '8', ['systemd-volatile-root'], ''],
+ ['systemd-xdg-autostart-generator', '8', [], 'ENABLE_XDG_AUTOSTART'],
  ['systemd', '1', ['init'], ''],
  ['systemd.automount', '5', [], ''],
  ['systemd.device', '5', [], ''],

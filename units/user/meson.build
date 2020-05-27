@@ -20,6 +20,10 @@ units = [
         'timers.target',
 ]
 
+if conf.get('ENABLE_XDG_AUTOSTART') == 1
+        units += [ 'xdg-desktop-autostart.target', ]
+endif
+
 foreach file : units
         install_data(file,
                      install_dir : userunitdir)

@@ -1143,3 +1143,13 @@ tests += [
           libshared],
          [threads]],
 ]
+
+############################################################
+
+tests += [
+        [['src/test/test-xdg-autostart.c',
+          'src/xdg-autostart-generator/xdg-autostart-service.c',
+          'src/xdg-autostart-generator/xdg-autostart-service.h',],
+         [],
+         []],
+]

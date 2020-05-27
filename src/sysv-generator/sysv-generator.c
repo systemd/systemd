@@ -849,7 +849,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 continue;
                         }
 
-                        FOREACH_DIRENT(de, d, log_error_errno(errno, "Failed to enumerate directory %s, ignoring: %m", path)) {
+                        FOREACH_DIRENT(de, d, log_warning_errno(errno, "Failed to enumerate directory %s, ignoring: %m", path)) {
                                 _cleanup_free_ char *name = NULL, *fpath = NULL;
                                 int a, b;
 
