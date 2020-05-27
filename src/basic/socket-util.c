@@ -1246,3 +1246,26 @@ int socket_ioctl_fd(void) {
 
         return fd;
 }
+
+int socket_pass_pktinfo(int fd, bool b) {
+        int af;
+        socklen_t sl = sizeof(af);
+
+        if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &af, &sl) < 0)
+                return -errno;
+
+        switch (af) {
+
+        case AF_INET:
+                return setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, b);
+
+        case AF_INET6:
+                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, b);
+
+        case AF_NETLINK:
+                return setsockopt_int(fd, SOL_NETLINK, NETLINK_PKTINFO, b);
+
+        default:
+                return -EAFNOSUPPORT;
+        }
+}

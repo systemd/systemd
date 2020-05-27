@@ -190,3 +190,5 @@ static inline int setsockopt_int(int fd, int level, int optname, int value) {
 
         return 0;
 }
+
+int socket_pass_pktinfo(int fd, bool b);
