@@ -145,12 +145,7 @@ struct hashmap_debug_info {
 /* Tracks all existing hashmaps. Get at it from gdb. See sd_dump_hashmaps.py */
 static LIST_HEAD(struct hashmap_debug_info, hashmap_debug_list);
 static pthread_mutex_t hashmap_debug_list_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-#define HASHMAP_DEBUG_FIELDS struct hashmap_debug_info debug;
-
-#else /* !ENABLE_DEBUG_HASHMAP */
-#define HASHMAP_DEBUG_FIELDS
-#endif /* ENABLE_DEBUG_HASHMAP */
+#endif
 
 enum HashmapType {
         HASHMAP_TYPE_PLAIN,
@@ -212,7 +207,10 @@ struct HashmapBase {
         bool from_pool:1;            /* whether was allocated from mempool */
         bool dirty:1;                /* whether dirtied since last iterated_cache_get() */
         bool cached:1;               /* whether this hashmap is being cached */
-        HASHMAP_DEBUG_FIELDS         /* optional hashmap_debug_info */
+
+#if ENABLE_DEBUG_HASHMAP
+        struct hashmap_debug_info debug;
+#endif
 };
 
 /* Specific hash types
