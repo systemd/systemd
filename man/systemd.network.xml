@@ -721,6 +721,16 @@
           </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6PDSubnetId=</varname></term>
+          <listitem><para>Configure a specific subnet ID on the interface from a (previously) received prefix delegation.
+          You can either set "auto" (the default) or a specific subnet ID
+          (as defined in <ulink url="https://tools.ietf.org/html/rfc4291#section-2.5.4">RFC 4291</ulink>, section 2.5.4),
+          in which case the allowed value is hexadecimal, from 0 to 0x7fffffffffffffff inclusive.
+          This option is only effective when used together with <varname>IPv6PrefixDelegation=</varname>
+          and the corresponding configuration on the upstream interface.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
           <listitem><para>Configures IPv6 maximum transmission unit (MTU).
           An integer greater than or equal to 1280 bytes. When unset, the kernel's default will be used.

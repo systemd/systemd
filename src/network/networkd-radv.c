@@ -864,3 +864,40 @@ int config_parse_router_preference(const char *unit,
 
         return 0;
 }
+
+int config_parse_router_prefix_subnet_id(const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+        uint64_t t;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue) || streq(rvalue, "auto")) {
+                network->router_prefix_subnet_id = -1;
+                return 0;
+        }
+
+        r = safe_atoux64(rvalue, &t);
+        if (r < 0 || t > INT64_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                                "Subnet id '%s' is invalid, ignoring assignment.",
+                                rvalue);
+                return 0;
+        }
+
+        network->router_prefix_subnet_id = (int64_t)t;
+
+        return 0;
+}

@@ -36,6 +36,7 @@ bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b);
 int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_union *b);
 int in_addr_prefix_intersect(int family, const union in_addr_union *a, unsigned aprefixlen, const union in_addr_union *b, unsigned bprefixlen);
 int in_addr_prefix_next(int family, union in_addr_union *u, unsigned prefixlen);
+int in_addr_prefix_nth(int family, union in_addr_union *u, unsigned prefixlen, uint64_t nth);
 int in_addr_random_prefix(int family, union in_addr_union *u, unsigned prefixlen_fixed_part, unsigned prefixlen);
 int in_addr_to_string(int family, const union in_addr_union *u, char **ret);
 int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned prefixlen, char **ret);
