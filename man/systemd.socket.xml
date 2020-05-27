@@ -713,6 +713,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PassPacketInfo=</varname></term>
+        <listitem><para>Takes a boolean value. This controls the <constant>IP_PKTINFO</constant>,
+        <constant>IPV6_RECVPKTINFO</constant> and <constant>NETLINK_PKTINFO</constant> socket options, which
+        enable reception of additional per-packet metadata as ancillary message, on
+        <constant>AF_INET</constant>, <constant>AF_INET6</constant> and <constant>AF_UNIX</constant> sockets.
+        Defaults to <option>false</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TCPCongestion=</varname></term>
         <listitem><para>Takes a string value. Controls the TCP
         congestion algorithm used by this socket. Should be one of

@@ -1478,8 +1478,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
         if (STR_IN_SET(field,
                        "Accept", "Writable", "KeepAlive", "NoDelay", "FreeBind", "Transparent", "Broadcast",
                        "PassCredentials", "PassSecurity", "ReusePort", "RemoveOnStop", "SELinuxContextFromNet",
-                       "FlushPending"))
-
+                       "FlushPending", "PassPacketInfo"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "Priority", "IPTTL", "Mark"))

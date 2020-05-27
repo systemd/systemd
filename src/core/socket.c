@@ -660,6 +660,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sBroadcast: %s\n"
                 "%sPassCredentials: %s\n"
                 "%sPassSecurity: %s\n"
+                "%sPassPacketInfo: %s\n"
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
@@ -678,6 +679,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(s->broadcast),
                 prefix, yes_no(s->pass_cred),
                 prefix, yes_no(s->pass_sec),
+                prefix, yes_no(s->pass_pktinfo),
                 prefix, strna(s->tcp_congestion),
                 prefix, yes_no(s->remove_on_stop),
                 prefix, yes_no(s->writable),
@@ -1097,6 +1099,12 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int one = 1;
                 if (setsockopt(fd, SOL_SOCKET, SO_PASSSEC, &one, sizeof(one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_PASSSEC failed: %m");
+        }
+
+        if (s->pass_pktinfo) {
+                r = socket_pass_pktinfo(fd, true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to enable packet info socket option: %m");
         }
 
         if (s->priority >= 0)

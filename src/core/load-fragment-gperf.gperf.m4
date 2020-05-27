@@ -381,6 +381,7 @@ Socket.Transparent,              config_parse_bool,                  0,         
 Socket.Broadcast,                config_parse_bool,                  0,                             offsetof(Socket, broadcast)
 Socket.PassCredentials,          config_parse_bool,                  0,                             offsetof(Socket, pass_cred)
 Socket.PassSecurity,             config_parse_bool,                  0,                             offsetof(Socket, pass_sec)
+Socket.PassPacketInfo,           config_parse_bool,                  0,                             offsetof(Socket, pass_pktinfo)
 Socket.TCPCongestion,            config_parse_string,                0,                             offsetof(Socket, tcp_congestion)
 Socket.ReusePort,                config_parse_bool,                  0,                             offsetof(Socket, reuse_port)
 Socket.MessageQueueMaxMessages,  config_parse_long,                  0,                             offsetof(Socket, mq_maxmsg)
