@@ -1041,7 +1041,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove              Remove systemd-boot from the ESP and EFI variables\n"
                "  is-installed        Test whether systemd-boot is installed in the ESP\n"
                "  random-seed         Initialize random seed in ESP and EFI variables\n"
-               "  systemd-efi-options Query or set system options string in EFI variable\n"
+               "  systemd-efi-options [STRING]\n"
+               "                      Query or set system options string in EFI variable\n"
+               "  reboot-to-firmware [BOOL]\n"
+               "                      Query or set reboot-to-firmware EFI flag\n"
                "\nBoot Loader Entries Commands:\n"
                "  list                List boot loader entries\n"
                "  set-default ID      Set default boot loader entry\n"
@@ -1785,6 +1788,39 @@ static int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
+        int r;
+
+        if (argc < 2) {
+                r = efi_get_reboot_to_firmware();
+                if (r > 0) {
+                        puts("active");
+                        return EXIT_SUCCESS; /* success */
+                }
+                if (r == 0) {
+                        puts("supported");
+                        return 1; /* recognizable error #1 */
+                }
+                if (r == -EOPNOTSUPP) {
+                        puts("not supported");
+                        return 2; /* recognizable error #2 */
+                }
+
+                log_error_errno(r, "Failed to query reboot-to-firmware state: %m");
+                return 3; /* other kind of error */
+        } else {
+                r = parse_boolean(argv[1]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse argument: %s", argv[1]);
+
+                r = efi_set_reboot_to_firmware(r);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set reboot-to-firmware option: %m");
+
+                return 0;
+        }
+}
+
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",                VERB_ANY, VERB_ANY, 0,            help                     },
@@ -1798,6 +1834,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-oneshot",         2,        2,        0,            verb_set_default         },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
+                { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
                 {}
         };
 
@@ -1821,4 +1858,4 @@ static int run(int argc, char *argv[]) {
         return bootctl_main(argc, argv);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

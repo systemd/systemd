@@ -102,13 +102,24 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>systemd-efi-options</option> <optional><replaceable>VALUE</replaceable></optional></term>
+        <term><option>systemd-efi-options</option> <optional><replaceable>STRING</replaceable></optional></term>
 
         <listitem><para>When called without the optional argument, prints the current value of the
         <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the
         variable to that value. See
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for the meaning of that variable.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>reboot-to-firmware</option> <optional><replaceable>BOOL</replaceable></optional></term>
+
+        <listitem><para>Query or set the "Reboot-Into-Firmware-Setup" flag of the EFI firmware. Takes a
+        boolean argument which controls whether to show the firmware setup on next system reboot. If the
+        argument is omitted shows the current status of the flag, or whether the flag is supported. This
+        controls the same flag as <command>systemctl reboot --firmware-setup</command>, but is more
+        low-level and allows setting the flag independently from actually requesting a
+        reboot.</para></listitem>
       </varlistentry>
 
       <varlistentry>
