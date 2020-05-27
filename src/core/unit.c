@@ -93,10 +93,6 @@ Unit *unit_new(Manager *m, size_t size) {
         if (!u)
                 return NULL;
 
-        u->names = set_new(&string_hash_ops);
-        if (!u->names)
-                return mfree(u);
-
         u->manager = m;
         u->type = _UNIT_TYPE_INVALID;
         u->default_dependencies = true;
@@ -152,7 +148,8 @@ bool unit_has_name(const Unit *u, const char *name) {
         assert(u);
         assert(name);
 
-        return set_contains(u->names, (char*) name);
+        return streq_ptr(name, u->id) ||
+               set_contains(u->aliases, name);
 }
 
 static void unit_init(Unit *u) {
@@ -207,8 +204,25 @@ static void unit_init(Unit *u) {
                 UNIT_VTABLE(u)->init(u);
 }
 
+static int unit_add_alias(Unit *u, char *donated_name) {
+        int r;
+
+        /* Make sure that u->names is allocated. We may leave u->names
+         * empty if we fail later, but this is not a problem. */
+        r = set_ensure_allocated(&u->aliases, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = set_put(u->aliases, donated_name);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        return 0;
+}
+
 int unit_add_name(Unit *u, const char *text) {
-        _cleanup_free_ char *s = NULL, *i = NULL;
+        _cleanup_free_ char *name = NULL, *instance = NULL;
         UnitType t;
         int r;
 
@@ -216,99 +230,101 @@ int unit_add_name(Unit *u, const char *text) {
         assert(text);
 
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
-
                 if (!u->instance)
                         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                                     "instance is not set when adding name '%s': %m", text);
 
-                r = unit_name_replace_instance(text, u->instance, &s);
+                r = unit_name_replace_instance(text, u->instance, &name);
                 if (r < 0)
                         return log_unit_debug_errno(u, r,
                                                     "failed to build instance name from '%s': %m", text);
         } else {
-                s = strdup(text);
-                if (!s)
+                name = strdup(text);
+                if (!name)
                         return -ENOMEM;
         }
 
-        if (set_contains(u->names, s))
+        if (unit_has_name(u, name))
                 return 0;
-        if (hashmap_contains(u->manager->units, s))
+
+        if (hashmap_contains(u->manager->units, name))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
-                                            "unit already exist when adding name '%s': %m", text);
+                                            "unit already exist when adding name '%s': %m", name);
 
-        if (!unit_name_is_valid(s, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "name '%s' is invalid: %m", text);
+                                            "name '%s' is invalid: %m", name);
 
-        t = unit_name_to_type(s);
+        t = unit_name_to_type(name);
         if (t < 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "failed to to derive unit type from name '%s': %m", text);
+                                            "failed to to derive unit type from name '%s': %m", name);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "unit type is illegal: u->type(%d) and t(%d) for name '%s': %m",
-                                            u->type, t, text);
+                                            u->type, t, name);
 
-        r = unit_name_to_instance(s, &i);
+        r = unit_name_to_instance(name, &instance);
         if (r < 0)
-                return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", text);
+                return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", name);
 
-        if (i && !unit_type_may_template(t))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", text);
+        if (instance && !unit_type_may_template(t))
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", name);
 
         /* Ensure that this unit is either instanced or not instanced,
          * but not both. Note that we do allow names with different
          * instance names however! */
-        if (u->type != _UNIT_TYPE_INVALID && !u->instance != !i)
+        if (u->type != _UNIT_TYPE_INVALID && !!u->instance != !!instance)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "instance is illegal: u->type(%d), u->instance(%s) and i(%s) for name '%s': %m",
-                                            u->type, u->instance, i, text);
+                                            u->type, u->instance, instance, name);
 
-        if (!unit_type_may_alias(t) && !set_isempty(u->names))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST), "symlinks are not allowed for name '%s': %m", text);
+        if (u->id && !unit_type_may_alias(t))
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST), "aliases are not allowed for name '%s': %m", name);
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(E2BIG), "too many units: %m");
 
-        r = set_put(u->names, s);
+        /* Add name to the global hashmap first, because that's easier to undo */
+        r = hashmap_put(u->manager->units, name, u);
         if (r < 0)
-                return r;
-        assert(r > 0);
-
-        r = hashmap_put(u->manager->units, s, u);
-        if (r < 0) {
-                (void) set_remove(u->names, s);
                 return log_unit_debug_errno(u, r, "add unit to hashmap failed for name '%s': %m", text);
-        }
 
-        if (u->type == _UNIT_TYPE_INVALID) {
+        if (u->id) {
+                r = unit_add_alias(u, name); /* unit_add_alias() takes ownership of the name on success */
+                if (r < 0) {
+                        hashmap_remove(u->manager->units, name);
+                        return r;
+                }
+                TAKE_PTR(name);
+
+        } else {
+                /* A new name, we don't need the set yet. */
+                assert(u->type == _UNIT_TYPE_INVALID);
+                assert(!u->instance);
+
                 u->type = t;
-                u->id = s;
-                u->instance = TAKE_PTR(i);
+                u->id = TAKE_PTR(name);
+                u->instance = TAKE_PTR(instance);
 
                 LIST_PREPEND(units_by_type, u->manager->units_by_type[t], u);
-
                 unit_init(u);
         }
-
-        s = NULL;
 
         unit_add_to_dbus_queue(u);
         return 0;
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        _cleanup_free_ char *t = NULL;
-        char *s, *i;
+        _cleanup_free_ char *t = NULL, *i = NULL;
+        char *s;
         int r;
 
         assert(u);
         assert(name);
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-
                 if (!u->instance)
                         return -EINVAL;
 
@@ -319,17 +335,27 @@ int unit_choose_id(Unit *u, const char *name) {
                 name = t;
         }
 
-        /* Selects one of the names of this unit as the id */
-        s = set_get(u->names, (char*) name);
+        if (streq_ptr(u->id, name))
+                return 0; /* Nothing to do. */
+
+        /* Selects one of the aliases of this unit as the id */
+        s = set_get(u->aliases, (char*) name);
         if (!s)
                 return -ENOENT;
 
         /* Determine the new instance from the new id */
-        r = unit_name_to_instance(s, &i);
+        r = unit_name_to_instance(name, &i);
         if (r < 0)
                 return r;
 
-        u->id = s;
+        if (u->id) {
+                r = set_remove_and_put(u->aliases, name, u->id);
+                if (r < 0)
+                        return r;
+        } else
+                assert_se(set_remove(u->aliases, name)); /* see set_get() above… */
+
+        u->id = s; /* Old u->id is now stored in the set, and s is not stored anywhere */
 
         free(u->instance);
         u->instance = i;
@@ -632,8 +658,10 @@ void unit_free(Unit *u) {
 
         unit_free_requires_mounts_for(u);
 
-        SET_FOREACH(t, u->names, i)
+        SET_FOREACH(t, u->aliases, i)
                 hashmap_remove_value(u->manager->units, t, u);
+        if (u->id)
+                hashmap_remove_value(u->manager->units, u->id, u);
 
         if (!sd_id128_is_null(u->invocation_id))
                 hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
@@ -730,10 +758,10 @@ void unit_free(Unit *u) {
         free(u->instance);
 
         free(u->job_timeout_reboot_arg);
-
-        set_free_free(u->names);
-
         free(u->reboot_arg);
+
+        set_free_free(u->aliases);
+        free(u->id);
 
         free(u);
 }
@@ -789,21 +817,6 @@ const char* unit_sub_state_to_string(Unit *u) {
         return UNIT_VTABLE(u)->sub_state_to_string(u);
 }
 
-static int set_complete_move(Set **s, Set **other) {
-        assert(s);
-        assert(other);
-
-        if (!other)
-                return 0;
-
-        if (*s)
-                return set_move(*s, *other);
-        else
-                *s = TAKE_PTR(*other);
-
-        return 0;
-}
-
 static int hashmap_complete_move(Hashmap **s, Hashmap **other) {
         assert(s);
         assert(other);
@@ -820,23 +833,28 @@ static int hashmap_complete_move(Hashmap **s, Hashmap **other) {
 }
 
 static int merge_names(Unit *u, Unit *other) {
-        char *t;
+        char *name;
         Iterator i;
         int r;
 
         assert(u);
         assert(other);
 
-        r = set_complete_move(&u->names, &other->names);
+        r = unit_add_alias(u, other->id);
         if (r < 0)
                 return r;
 
-        set_free_free(other->names);
-        other->names = NULL;
-        other->id = NULL;
+        r = set_move(u->aliases, other->aliases);
+        if (r < 0) {
+                set_remove(u->aliases, other->id);
+                return r;
+        }
 
-        SET_FOREACH(t, u->names, i)
-                assert_se(hashmap_replace(u->manager->units, t, u) == 0);
+        TAKE_PTR(other->id);
+        other->aliases = set_free_free(other->aliases);
+
+        SET_FOREACH(name, u->aliases, i)
+                assert_se(hashmap_replace(u->manager->units, name, u) == 0);
 
         return 0;
 }
@@ -1241,9 +1259,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s-> Unit %s:\n",
                 prefix, u->id);
 
-        SET_FOREACH(t, u->names, i)
-                if (!streq(t, u->id))
-                        fprintf(f, "%s\tAlias: %s\n", prefix, t);
+        SET_FOREACH(t, u->aliases, i)
+                fprintf(f, "%s\tAlias: %s\n", prefix, t);
 
         fprintf(f,
                 "%s\tDescription: %s\n"

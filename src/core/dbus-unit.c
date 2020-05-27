@@ -102,20 +102,24 @@ static int property_get_names(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Set **s = userdata;
+        Unit *u = userdata;
         Iterator i;
         const char *t;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(s);
+        assert(u);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        SET_FOREACH(t, *s, i) {
+        r = sd_bus_message_append(reply, "s", u->id);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(t, u->aliases, i) {
                 r = sd_bus_message_append(reply, "s", t);
                 if (r < 0)
                         return r;
@@ -841,7 +845,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Unit, id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Names", "as", property_get_names, offsetof(Unit, names), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Names", "as", property_get_names, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Following", "s", property_get_following, 0, 0),
         SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE]), SD_BUS_VTABLE_PROPERTY_CONST),

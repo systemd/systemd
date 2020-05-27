@@ -117,10 +117,10 @@ typedef struct Unit {
         FreezerState freezer_state;
         sd_bus_message *pending_freezer_message;
 
-        char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
+        char *id;   /* The one special name that we use for identification */
         char *instance;
 
-        Set *names;
+        Set *aliases; /* All the other names. */
 
         /* For each dependency type we maintain a Hashmap whose key is the Unit* object, and the value encodes why the
          * dependency exists, using the UnitDependencyInfo type */
