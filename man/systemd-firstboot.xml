@@ -150,18 +150,27 @@
       <varlistentry>
         <term><option>--root-password=<replaceable>PASSWORD</replaceable></option></term>
         <term><option>--root-password-file=<replaceable>PATH</replaceable></option></term>
+        <term><option>--root-password-hashed=<replaceable>HASHED_PASSWORD</replaceable></option></term>
 
-        <listitem><para>Sets the password of the system's root user.
-        This creates a
+        <listitem><para>Sets the password of the system's root user. This creates a
         <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file. This setting exists in two forms:
-        <option>--root-password=</option> accepts the password to set
-        directly on the command line, and
-        <option>--root-password-file=</option> reads it from a file.
-        Note that it is not recommended to specify passwords on the
-        command line, as other users might be able to see them simply
-        by invoking
-        <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        file. This setting exists in three forms: <option>--root-password=</option> accepts the password to
+        set directly on the command line, <option>--root-password-file=</option> reads it from a file and
+        <option>--root-password-hashed=</option> accepts an already hashed password on the command line. See
+        <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for more information on the format of the hashed password. Note that it is not recommended to specify
+        plaintext passwords on the command line, as other users might be able to see them simply by invoking
+        <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--kernel-command-line=<replaceable>CMDLINE</replaceable></option></term>
+
+        <listitem><para>Sets the system's kernel command line. This controls the
+        <filename>/etc/kernel/cmdline</filename> file which is used by
+        <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -219,6 +228,23 @@
         <listitem><para>Initialize the system's machine ID to a random
         ID. This only works in combination with
         <option>--root=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>systemd-firstboot doesn't modify existing files unless <option>--force</option>
+        is specified. For modifications to <filename>/etc/passwd</filename> and
+        <filename>/etc/shadow</filename>, systemd-firstboot only modifies the entry of the
+        <literal>root</literal> user instead of overwriting the entire file.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--delete-root-password</option></term>
+
+        <listitem><para>Removes the password of the system's root user, enabling login as root without a
+        password unless the root account is locked. Note that this is extremely insecure and hence this
+        option should not be used lightly.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
