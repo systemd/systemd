@@ -272,10 +272,8 @@ int unit_add_name(Unit *u, const char *text) {
         if (instance && !unit_type_may_template(t))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", name);
 
-        /* Ensure that this unit is either instanced or not instanced,
-         * but not both. Note that we do allow names with different
-         * instance names however! */
-        if (u->type != _UNIT_TYPE_INVALID && !!u->instance != !!instance)
+        /* Ensure that this unit either has no instance, or that the instance matches. */
+        if (u->type != _UNIT_TYPE_INVALID && !streq_ptr(u->instance, instance))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "instance is illegal: u->type(%d), u->instance(%s) and i(%s) for name '%s': %m",
                                             u->type, u->instance, instance, name);
@@ -962,14 +960,14 @@ int unit_merge(Unit *u, Unit *other) {
         if (u->type != other->type)
                 return -EINVAL;
 
-        if (!u->instance != !other->instance)
-                return -EINVAL;
-
         if (!unit_type_may_alias(u->type)) /* Merging only applies to unit names that support aliases */
                 return -EEXIST;
 
         if (!IN_SET(other->load_state, UNIT_STUB, UNIT_NOT_FOUND))
                 return -EEXIST;
+
+        if (!streq_ptr(u->instance, other->instance))
+                return -EINVAL;
 
         if (other->job)
                 return -EEXIST;
