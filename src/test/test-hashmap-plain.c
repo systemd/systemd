@@ -251,7 +251,7 @@ static void test_hashmap_put(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) >= 0);
+        assert_se(hashmap_ensure_allocated(&m, &string_hash_ops) == 1);
         assert_se(m);
 
         valid_hashmap_put = hashmap_put(m, "key 1", val1);
@@ -451,18 +451,20 @@ static void test_hashmap_remove_and_replace(void) {
 }
 
 static void test_hashmap_ensure_allocated(void) {
-        Hashmap *m;
-        int valid_hashmap;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        int r;
 
         log_info("/* %s */", __func__);
 
-        m = hashmap_new(&string_hash_ops);
+        r = hashmap_ensure_allocated(&m, &string_hash_ops);
+        assert_se(r == 1);
 
-        valid_hashmap = hashmap_ensure_allocated(&m, &string_hash_ops);
-        assert_se(valid_hashmap == 0);
+        r = hashmap_ensure_allocated(&m, &string_hash_ops);
+        assert_se(r == 0);
 
-        assert_se(m);
-        hashmap_free(m);
+        /* different hash ops shouldn't matter at this point */
+        r = hashmap_ensure_allocated(&m, &trivial_hash_ops);
+        assert_se(r == 0);
 }
 
 static void test_hashmap_foreach_key(void) {
@@ -557,8 +559,7 @@ static void test_hashmap_foreach(void) {
 }
 
 static void test_hashmap_merge(void) {
-        Hashmap *m;
-        Hashmap *n;
+        Hashmap *m, *n;
         char *val1, *val2, *val3, *val4, *r;
 
         log_info("/* %s */", __func__);
@@ -572,8 +573,8 @@ static void test_hashmap_merge(void) {
         val4 = strdup("my val4");
         assert_se(val4);
 
-        n = hashmap_new(&string_hash_ops);
         m = hashmap_new(&string_hash_ops);
+        n = hashmap_new(&string_hash_ops);
 
         hashmap_put(m, "Key 1", val1);
         hashmap_put(m, "Key 2", val2);
@@ -586,8 +587,8 @@ static void test_hashmap_merge(void) {
         r = hashmap_get(m, "Key 4");
         assert_se(r && streq(r, "my val4"));
 
-        assert_se(n);
         assert_se(m);
+        assert_se(n);
         hashmap_free(n);
         hashmap_free_free(m);
 }
