@@ -11,8 +11,7 @@ class sd_dump_hashmaps(gdb.Command):
 
     def invoke(self, arg, from_tty):
         d = gdb.parse_and_eval("hashmap_debug_list")
-        all_entry_sizes = gdb.parse_and_eval("all_entry_sizes")
-        all_direct_buckets = gdb.parse_and_eval("all_direct_buckets")
+        hashmap_type_info = gdb.parse_and_eval("hashmap_type_info")
         uchar_t = gdb.lookup_type("unsigned char")
         ulong_t = gdb.lookup_type("unsigned long")
         debug_offset = gdb.parse_and_eval("(unsigned long)&((HashmapBase*)0)->debug")
@@ -28,14 +27,14 @@ class sd_dump_hashmaps(gdb.Command):
             else:
                 storage_ptr = h["direct"]["storage"].cast(uchar_t.pointer())
                 n_entries = h["n_direct_entries"]
-                n_buckets = all_direct_buckets[int(h["type"])];
+                n_buckets = hashmap_type_info[h["type"]]["n_direct_buckets"]
 
             t = ["plain", "ordered", "set"][int(h["type"])]
 
             print(f'{t}, {h["hash_ops"]}, {bool(h["has_indirect"])}, {n_entries}, {d["max_entries"]}, {n_buckets}, {d["func"]}, {d["file"]}, {d["line"]}')
 
             if arg != "" and n_entries > 0:
-                dib_raw_addr = storage_ptr + (all_entry_sizes[h["type"]] * n_buckets)
+                dib_raw_addr = storage_ptr + hashmap_type_info[h["type"]]["entry_size"] * n_buckets
 
                 histogram = {}
                 for i in range(0, n_buckets):
