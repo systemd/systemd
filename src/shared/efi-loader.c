@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,6 +12,7 @@
 #include "io-util.h"
 #include "parse-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "utf8.h"
@@ -100,31 +102,58 @@ not_supported:
         return -EOPNOTSUPP;
 }
 
-static int get_os_indications(uint64_t *os_indication) {
+static int get_os_indications(uint64_t *ret) {
+        static struct stat cache_stat = {};
         _cleanup_free_ void *v = NULL;
+        _cleanup_free_ char *fn = NULL;
+        static uint64_t cache;
+        struct stat new_stat;
         size_t s;
         int r;
+
+        assert(ret);
 
         /* Let's verify general support first */
         r = efi_reboot_to_firmware_supported();
         if (r < 0)
                 return r;
 
+        fn = efi_variable_path(EFI_VENDOR_GLOBAL, "OsIndications");
+        if (!fn)
+                return -ENOMEM;
+
+        /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
+        if (stat(fn, &new_stat) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                /* Doesn't exist? Then we can exit early (also see below) */
+                *ret = 0;
+                return 0;
+
+        } else if (stat_inode_unmodified(&new_stat, &cache_stat)) {
+                /* inode didn't change, we can return the cached value */
+                *ret = cache;
+                return 0;
+        }
+
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
         if (r == -ENOENT) {
                 /* Some firmware implementations that do support OsIndications and report that with
-                 * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's pretend it's 0
-                 * then, to hide this implementation detail. Note that this call will return -ENOENT then only if the
-                 * support for OsIndications is missing entirely, as determined by efi_reboot_to_firmware_supported()
-                 * above. */
-                *os_indication = 0;
+                 * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's
+                 * pretend it's 0 then, to hide this implementation detail. Note that this call will return
+                 * -ENOENT then only if the support for OsIndications is missing entirely, as determined by
+                 * efi_reboot_to_firmware_supported() above. */
+                *ret = 0;
                 return 0;
-        } else if (r < 0)
+        }
+        if (r < 0)
                 return r;
         if (s != sizeof(uint64_t))
                 return -EINVAL;
 
-        *os_indication = *(uint64_t *)v;
+        cache_stat = new_stat;
+        *ret = cache = *(uint64_t *)v;
         return 0;
 }
 
