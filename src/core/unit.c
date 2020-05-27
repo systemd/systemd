@@ -317,7 +317,7 @@ int unit_add_name(Unit *u, const char *text) {
 }
 
 int unit_choose_id(Unit *u, const char *name) {
-        _cleanup_free_ char *t = NULL, *i = NULL;
+        _cleanup_free_ char *t = NULL;
         char *s;
         int r;
 
@@ -343,11 +343,6 @@ int unit_choose_id(Unit *u, const char *name) {
         if (!s)
                 return -ENOENT;
 
-        /* Determine the new instance from the new id */
-        r = unit_name_to_instance(name, &i);
-        if (r < 0)
-                return r;
-
         if (u->id) {
                 r = set_remove_and_put(u->aliases, name, u->id);
                 if (r < 0)
@@ -356,10 +351,6 @@ int unit_choose_id(Unit *u, const char *name) {
                 assert_se(set_remove(u->aliases, name)); /* see set_get() above… */
 
         u->id = s; /* Old u->id is now stored in the set, and s is not stored anywhere */
-
-        free(u->instance);
-        u->instance = i;
-
         unit_add_to_dbus_queue(u);
 
         return 0;
