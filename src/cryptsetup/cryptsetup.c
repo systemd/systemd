@@ -78,7 +78,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
     loud
     quiet
     keyscript=
-    tmp= (the version without argument is supported)
     initramfs
 */
 
@@ -232,7 +231,8 @@ static int parse_one_option(const char *option) {
         } else if (STR_IN_SET(option, "tcrypt-veracrypt", "veracrypt")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
-        } else if (STR_IN_SET(option, "plain", "swap", "tmp"))
+        } else if (STR_IN_SET(option, "plain", "swap", "tmp") ||
+                   startswith(option, "tmp="))
                 arg_type = CRYPT_PLAIN;
         else if ((val = startswith(option, "timeout="))) {
 

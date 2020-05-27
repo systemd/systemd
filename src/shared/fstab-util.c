@@ -80,7 +80,7 @@ int fstab_is_mount_point(const char *mount) {
 }
 
 int fstab_filter_options(const char *opts, const char *names,
-                         const char **namefound, char **value, char **filtered) {
+                         const char **ret_namefound, char **ret_value, char **ret_filtered) {
         const char *name, *n = NULL, *x;
         _cleanup_strv_free_ char **stor = NULL;
         _cleanup_free_ char *v = NULL, **strv = NULL;
@@ -92,7 +92,7 @@ int fstab_filter_options(const char *opts, const char *names,
 
         /* If !value and !filtered, this function is not allowed to fail. */
 
-        if (!filtered) {
+        if (!ret_filtered) {
                 const char *word, *state;
                 size_t l;
 
@@ -108,7 +108,7 @@ int fstab_filter_options(const char *opts, const char *names,
                                 x = word + strlen(name);
                                 if (IN_SET(*x, '\0', '=', ',')) {
                                         n = name;
-                                        if (value) {
+                                        if (ret_value) {
                                                 free(v);
                                                 if (IN_SET(*x, '\0', ','))
                                                         v = NULL;
@@ -145,7 +145,7 @@ int fstab_filter_options(const char *opts, const char *names,
                 found:
                         /* Keep the last occurrence found */
                         n = name;
-                        if (value) {
+                        if (ret_value) {
                                 free(v);
                                 if (*x == '\0')
                                         v = NULL;
@@ -162,19 +162,19 @@ int fstab_filter_options(const char *opts, const char *names,
         }
 
 answer:
-        if (namefound)
-                *namefound = n;
-        if (filtered) {
+        if (ret_namefound)
+                *ret_namefound = n;
+        if (ret_filtered) {
                 char *f;
 
                 f = strv_join(strv, ",");
                 if (!f)
                         return -ENOMEM;
 
-                *filtered = f;
+                *ret_filtered = f;
         }
-        if (value)
-                *value = TAKE_PTR(v);
+        if (ret_value)
+                *ret_value = TAKE_PTR(v);
 
         return !!n;
 }
