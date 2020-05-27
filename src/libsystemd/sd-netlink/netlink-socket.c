@@ -16,10 +16,6 @@
 #include "socket-util.h"
 #include "util.h"
 
-/* For some reason we need some extra cmsg space on some kernels. It's not clear why, and one of those days
- * we need to track this down. See: https://github.com/systemd/systemd/pull/15457 */
-#define EXTRA_CMSG_SPACE 1024
-
 int socket_open(int family) {
         int fd;
 
@@ -244,7 +240,7 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
 
 static int socket_recv_message(int fd, struct iovec *iov, uint32_t *ret_mcast_group, bool peek) {
         union sockaddr_union sender;
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo)) + EXTRA_CMSG_SPACE) control;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct nl_pktinfo))) control;
         struct msghdr msg = {
                 .msg_iov = iov,
                 .msg_iovlen = 1,
