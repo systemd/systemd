@@ -1245,6 +1245,18 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
+
+                r = efi_get_reboot_to_firmware();
+                if (r > 0)
+                        printf(" Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
+                else if (r == 0)
+                        printf(" Boot into FW: supported\n");
+                else if (r == -EOPNOTSUPP)
+                        printf(" Boot into FW: not supported\n");
+                else {
+                        errno = -r;
+                        printf(" Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
                 printf("\n");
 
                 printf("Current Boot Loader:\n");
