@@ -101,7 +101,8 @@ int efi_get_variable(
                                 return -errno;
                         if (try >= EFI_N_RETRIES)
                                 return -EBUSY;
-                        usleep(EFI_RETRY_DELAY);
+
+                        (void) usleep(EFI_RETRY_DELAY);
                 }
 
                 if (n != sizeof(a))
@@ -109,7 +110,7 @@ int efi_get_variable(
         }
 
         if (ret_value) {
-                buf = malloc(st.st_size - 4 + 2);
+                buf = malloc(st.st_size - 4 + 3);
                 if (!buf)
                         return -ENOMEM;
 
@@ -118,9 +119,10 @@ int efi_get_variable(
                         return -errno;
                 assert(n <= st.st_size - 4);
 
-                /* Always NUL terminate (2 bytes, to protect UTF-16) */
+                /* Always NUL terminate (3 bytes, to properly protect UTF-16, even if truncated in the middle of a character) */
                 ((char*) buf)[n] = 0;
                 ((char*) buf)[n + 1] = 0;
+                ((char*) buf)[n + 2] = 0;
         } else
                 /* Assume that the reported size is accurate */
                 n = st.st_size - 4;
