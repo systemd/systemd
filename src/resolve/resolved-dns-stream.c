@@ -88,6 +88,7 @@ static int dns_stream_complete(DnsStream *s, int error) {
 
 static int dns_stream_identify(DnsStream *s) {
         CMSG_BUFFER_TYPE(CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
+                         + CMSG_SPACE(int) + /* for the TTL */
                          + EXTRA_CMSG_SPACE /* kernel appears to require extra space */) control;
         struct msghdr mh = {};
         struct cmsghdr *cmsg;
