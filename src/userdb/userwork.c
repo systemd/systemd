@@ -724,7 +724,7 @@ static int run(int argc, char *argv[]) {
                         last_busy_usec = n;
                 else if (listen_idle_usec != USEC_INFINITY && n >= usec_add(last_busy_usec, listen_idle_usec)) {
                         char buf[FORMAT_TIMESPAN_MAX];
-                        log_debug("Exiting worker, been idle for %s, .",
+                        log_debug("Exiting worker, been idle for %s.",
                                   format_timespan(buf, sizeof(buf), usec_sub_unsigned(n, last_busy_usec), 0));
                         break;
                 }
