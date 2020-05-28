@@ -30,8 +30,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(service = xdg_autostart_service_parse_desktop(name));
         assert_se(service->name = strdup("fuzz-xdg-desktop.service"));
-        if (service)
-                (void) xdg_autostart_service_generate_unit(service, tmpdir);
+        (void) xdg_autostart_service_generate_unit(service, tmpdir);
 
         return 0;
 }
