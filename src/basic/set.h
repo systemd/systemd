@@ -5,6 +5,14 @@
 #include "hashmap.h"
 #include "macro.h"
 
+#define set_free_and_replace(a, b)              \
+        ({                                      \
+                set_free(a);                    \
+                (a) = (b);                      \
+                (b) = NULL;                     \
+                0;                              \
+        })
+
 Set *internal_set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) internal_set_new(ops HASHMAP_DEBUG_SRC_ARGS)
 
