@@ -332,7 +332,9 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
                 /* We require genuine randomness here, since we want to make sure we won't collide with other
                  * systems booting up at the very same time. We do allow RDRAND however, since this is not
                  * cryptographic key material. */
-                genuine_random_bytes(mac->ether_addr_octet, ETH_ALEN, RANDOM_ALLOW_RDRAND);
+                r = genuine_random_bytes(mac->ether_addr_octet, ETH_ALEN, RANDOM_ALLOW_RDRAND);
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to acquire random data to generate MAC: %m");
         } else {
                 uint64_t result;
 
