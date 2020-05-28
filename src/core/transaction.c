@@ -656,6 +656,10 @@ static int transaction_apply(
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
+                r = hashmap_ensure_allocated(&m->jobs, NULL);
+                if (r < 0)
+                        return r;
+
                 r = hashmap_put(m->jobs, UINT32_TO_PTR(j->id), j);
                 if (r < 0)
                         goto rollback;

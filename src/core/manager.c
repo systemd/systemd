@@ -833,10 +833,6 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&m->jobs, NULL);
-        if (r < 0)
-                return r;
-
         r = hashmap_ensure_allocated(&m->cgroup_unit, &path_hash_ops);
         if (r < 0)
                 return r;
@@ -3962,6 +3958,11 @@ void manager_check_finished(Manager *m) {
                                                         manager_watch_jobs_next_time(m));
                 return;
         }
+
+        /* The jobs hashmap tends to grow a lot during boot, and then it's not reused until shutdown. Let's
+           kill the hashmap if it is relatively large. */
+        if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
+                m->jobs = hashmap_free(m->jobs);
 
         manager_flip_auto_status(m, false, "boot finished");
 
