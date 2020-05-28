@@ -65,16 +65,16 @@ systemdshutdowndir=${systemd_shutdown_dir}
 tmpfiles_dir=${prefix}/lib/tmpfiles.d
 tmpfilesdir=${tmpfiles_dir}
 
-sysusers_dir=${prefix}/lib/sysusers.d
+sysusers_dir=${rootprefix}/lib/sysusers.d
 sysusersdir=${sysusers_dir}
 
-sysctl_dir=${prefix}/lib/sysctl.d
+sysctl_dir=${rootprefix}/lib/sysctl.d
 sysctldir=${sysctl_dir}
 
-binfmt_dir=${prefix}/lib/binfmt.d
+binfmt_dir=${rootprefix}/lib/binfmt.d
 binfmtdir=${binfmt_dir}
 
-modules_load_dir=${prefix}/lib/modules-load.d
+modules_load_dir=${rootprefix}/lib/modules-load.d
 modulesloaddir=${modules_load_dir}
 
 catalog_dir=${prefix}/lib/systemd/catalog

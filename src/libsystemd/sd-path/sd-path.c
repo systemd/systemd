@@ -321,7 +321,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
         case SD_PATH_SYSTEMD_UTIL_DIR:
-                *ret = ROOTPREFIX "lib/systemd";
+                *ret = ROOTPREFIX "/lib/systemd";
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR:
@@ -329,7 +329,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-preset";
+                *ret = ROOTPREFIX "/lib/systemd/system-preset";
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_UNIT_DIR:
@@ -337,7 +337,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_PRESET_DIR:
-                *ret = ROOTPREFIX "lib/systemd/user-preset";
+                *ret = ROOTPREFIX "/lib/systemd/user-preset";
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_CONF_DIR:
@@ -357,11 +357,11 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SLEEP_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-sleep";
+                *ret = ROOTPREFIX "/lib/systemd/system-sleep";
                 return 0;
 
         case SD_PATH_SYSTEMD_SHUTDOWN_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-shutdown";
+                *ret = ROOTPREFIX "/lib/systemd/system-shutdown";
                 return 0;
 
         /* FIXME: systemd.pc uses ${prefix}, but CONF_PATHS_NULSTR doesn't.
@@ -371,19 +371,19 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSUSERS_DIR:
-                *ret = "/usr/lib/sysusers.d";
+                *ret = ROOTPREFIX "/lib/sysusers.d";
                 return 0;
 
         case SD_PATH_SYSCTL_DIR:
-                *ret = "/usr/lib/sysctl.d";
+                *ret = ROOTPREFIX "/lib/sysctl.d";
                 return 0;
 
         case SD_PATH_BINFMT_DIR:
-                *ret = "/usr/lib/binfmt.d";
+                *ret = ROOTPREFIX "/lib/binfmt.d";
                 return 0;
 
         case SD_PATH_MODULES_LOAD_DIR:
-                *ret = "/usr/lib/modules-load.d";
+                *ret = ROOTPREFIX "/lib/modules-load.d";
                 return 0;
 
         case SD_PATH_CATALOG_DIR:
