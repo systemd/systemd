@@ -160,7 +160,7 @@ method GetUserRecord(
         service : string
 ) -> (
         record : object,
-        incomplete : boolean
+        incomplete : bool
 )
 
 method GetGroupRecord(
@@ -169,7 +169,7 @@ method GetGroupRecord(
         service : string
 ) -> (
         record : object,
-        incomplete : boolean
+        incomplete : bool
 )
 
 method GetMemberships(
