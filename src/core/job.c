@@ -602,8 +602,9 @@ static void job_log_begin_status_message(Unit *u, uint32_t job_id, JobType t) {
 
         format = job_get_begin_status_message_format(u, t);
 
+        _cleanup_free_ char *status_string = unit_status_string(u);
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buf, sizeof buf, format, unit_status_string(u));
+        (void) snprintf(buf, sizeof buf, format, status_string);
         REENABLE_WARNING;
 
         mid = t == JOB_START ? "MESSAGE_ID=" SD_MESSAGE_UNIT_STARTING_STR :
@@ -890,6 +891,7 @@ static void job_print_done_status_message(Unit *u, JobType t, JobResult result) 
 }
 
 static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, JobResult result) {
+        _cleanup_free_ char *status_string = NULL;
         const char *format, *mid;
         char buf[LINE_MAX];
         static const int job_result_log_level[_JOB_RESULT_MAX] = {
@@ -915,11 +917,12 @@ static void job_log_done_status_message(Unit *u, uint32_t job_id, JobType t, Job
         if (log_on_console() && job_print_done_status_messages[result].word)
                 return;
 
+        status_string = unit_status_string(u);
         /* Show condition check message if the job did not actually do anything due to failed condition. */
         if ((t == JOB_START && result == JOB_DONE && !u->condition_result) ||
             (t == JOB_START && result == JOB_SKIPPED)) {
                 log_struct(LOG_INFO,
-                           "MESSAGE=Condition check resulted in %s being skipped.", unit_status_string(u),
+                           "MESSAGE=Condition check resulted in %s being skipped.", status_string,
                            "JOB_ID=%" PRIu32, job_id,
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),

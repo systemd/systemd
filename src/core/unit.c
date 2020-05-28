@@ -1168,13 +1168,16 @@ const char *unit_description(Unit *u) {
         return strna(u->id);
 }
 
-const char *unit_status_string(Unit *u) {
+char *unit_status_string(Unit *u) {
         assert(u);
 
         if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_NAME && u->id)
-                return u->id;
+                return strdup(u->id);
 
-        return unit_description(u);
+        if (u->description && u->id)
+                return strjoin(u->id, ": ", u->description);
+        else
+                return strdup(strna(u->id));
 }
 
 static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependencyMask mask, bool *space) {

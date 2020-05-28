@@ -196,6 +196,7 @@ static void manager_flip_auto_status(Manager *m, bool enable, const char *reason
 
 static void manager_print_jobs_in_progress(Manager *m) {
         _cleanup_free_ char *job_of_n = NULL;
+        _cleanup_free_ char *status_string = NULL;
         Iterator i;
         Job *j;
         unsigned counter = 0, print_nr;
@@ -236,11 +237,12 @@ static void manager_print_jobs_in_progress(Manager *m) {
         if (job_get_timeout(j, &x) > 0)
                 format_timespan(limit, sizeof(limit), x - j->begin_usec, 1*USEC_PER_SEC);
 
+        status_string = unit_status_string(j->unit);
         manager_status_printf(m, STATUS_TYPE_EPHEMERAL, cylon,
                               "%sA %s job is running for %s (%s / %s)",
                               strempty(job_of_n),
                               job_type_to_string(j->type),
-                              unit_status_string(j->unit),
+                              status_string,
                               time, limit);
 }
 
