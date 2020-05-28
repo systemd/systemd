@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "install.h"
 #include "mkdir.h"
 #include "rm-rf.h"
@@ -23,6 +24,7 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", NULL) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", NULL) == -ENOENT);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", NULL) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/a.service");
         assert_se(write_string_file(p,
@@ -150,6 +152,22 @@ static void test_basic_mask_and_enable(const char *root) {
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "b.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "c.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "d.service", &state) >= 0 && state == UNIT_FILE_ALIAS);
+
+        /* Test masking with relative symlinks */
+
+        p = strjoina(root, "/usr/lib/systemd/system/e.service");
+        assert_se(symlink("../../../../../../dev/null", p) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", NULL) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        assert_se(unlink(p) == 0);
+        assert_se(symlink("/usr/../dev/null", p) >= 0);
+
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", NULL) >= 0);
+        assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "e.service", &state) >= 0 && state == UNIT_FILE_MASKED);
+
+        assert_se(unlink(p) == 0);
 }
 
 static void test_linked_units(const char *root) {
@@ -1226,6 +1244,12 @@ int main(int argc, char *argv[]) {
 
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
         assert_se(mkdir_p(p, 0755) >= 0);
+
+        p = strjoina(root, "/dev/");
+        assert_se(mkdir_p(p, 0755) >= 0);
+
+        p = strjoina(root, "/dev/null");
+        assert_se(touch(p) >= 0);
 
         test_basic_mask_and_enable(root);
         test_linked_units(root);

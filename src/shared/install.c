@@ -1324,25 +1324,26 @@ static int unit_file_load_or_readlink(
                 const char *path,
                 const char *root_dir,
                 SearchFlags flags) {
-
-        _cleanup_free_ char *target = NULL;
+        struct stat st;
         int r;
 
         r = unit_file_load(c, info, path, root_dir, flags);
         if (r != -ELOOP || (flags & SEARCH_DROPIN))
                 return r;
 
-        /* This is a symlink, let's read it. */
-
-        r = readlink_malloc(path, &target);
-        if (r < 0)
-                return r;
-
-        if (path_equal(target, "/dev/null"))
+        r = chase_symlinks_and_stat(path, root_dir, CHASE_WARN, NULL, &st, NULL);
+        if (r > 0 && null_or_empty(&st))
                 info->type = UNIT_FILE_TYPE_MASKED;
         else {
+                _cleanup_free_ char *target = NULL;
                 const char *bn;
                 UnitType a, b;
+
+                /* This is a symlink, let's read it. */
+
+                r = readlink_malloc(path, &target);
+                if (r < 0)
+                        return r;
 
                 bn = basename(target);
 
