@@ -501,9 +501,7 @@ static void bidi_set_free(Unit *u, Hashmap *h) {
         /* Frees the hashmap and makes sure we are dropped from the inverse pointers */
 
         HASHMAP_FOREACH_KEY(v, other, h, i) {
-                UnitDependency d;
-
-                for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
+                for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                         hashmap_remove(other->dependencies[d], u);
 
                 unit_add_to_gc_queue(other);
@@ -599,7 +597,6 @@ static void unit_done(Unit *u) {
 }
 
 void unit_free(Unit *u) {
-        UnitDependency d;
         Iterator i;
         char *t;
 
@@ -650,7 +647,7 @@ void unit_free(Unit *u) {
                 job_free(j);
         }
 
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
 
         if (u->on_console)
@@ -875,19 +872,17 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         assert(d < _UNIT_DEPENDENCY_MAX);
 
         /* Fix backwards pointers. Let's iterate through all dependent units of the other unit. */
-        HASHMAP_FOREACH_KEY(v, back, other->dependencies[d], i) {
-                UnitDependency k;
+        HASHMAP_FOREACH_KEY(v, back, other->dependencies[d], i)
 
-                /* Let's now iterate through the dependencies of that dependencies of the other units, looking for
-                 * pointers back, and let's fix them up, to instead point to 'u'. */
-
-                for (k = 0; k < _UNIT_DEPENDENCY_MAX; k++) {
+                /* Let's now iterate through the dependencies of that dependencies of the other units,
+                 * looking for pointers back, and let's fix them up, to instead point to 'u'. */
+                for (UnitDependency k = 0; k < _UNIT_DEPENDENCY_MAX; k++)
                         if (back == u) {
                                 /* Do not add dependencies between u and itself. */
                                 if (hashmap_remove(back->dependencies[k], other))
                                         maybe_warn_about_dependency(u, other_id, k);
                         } else {
-                                UnitDependencyInfo di_u, di_other, di_merged;
+                                UnitDependencyInfo di_u, di_other;
 
                                 /* Let's drop this dependency between "back" and "other", and let's create it between
                                  * "back" and "u" instead. Let's merge the bit masks of the dependency we are moving,
@@ -899,7 +894,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
 
                                 di_u.data = hashmap_get(back->dependencies[k], u);
 
-                                di_merged = (UnitDependencyInfo) {
+                                UnitDependencyInfo di_merged = {
                                         .origin_mask = di_u.origin_mask | di_other.origin_mask,
                                         .destination_mask = di_u.destination_mask | di_other.destination_mask,
                                 };
@@ -911,9 +906,6 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
 
                                 /* assert_se(hashmap_remove_and_replace(back->dependencies[k], other, u, di_merged.data) >= 0); */
                         }
-                }
-
-        }
 
         /* Also do not move dependencies on u to itself */
         back = hashmap_remove(other->dependencies[d], u);
@@ -927,7 +919,6 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
 }
 
 int unit_merge(Unit *u, Unit *other) {
-        UnitDependency d;
         const char *other_id = NULL;
         int r;
 
@@ -966,7 +957,7 @@ int unit_merge(Unit *u, Unit *other) {
                 other_id = strdupa(other->id);
 
         /* Make reservations to ensure merge_dependencies() won't fail */
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 r = reserve_dependencies(u, other, d);
                 /*
                  * We don't rollback reservations if we fail. We don't have
@@ -986,7 +977,7 @@ int unit_merge(Unit *u, Unit *other) {
                 unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 merge_dependencies(u, other, other_id, d);
 
         other->load_state = UNIT_MERGED;
@@ -1221,7 +1212,6 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
-        UnitDependency d;
         Iterator i;
         const char *prefix2;
         char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
@@ -1377,7 +1367,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, strna(format_timestamp(timestamp[0], sizeof(timestamp[0]), u->assert_timestamp.realtime)),
                         prefix, yes_no(u->assert_result));
 
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 UnitDependencyInfo di;
                 Unit *other;
 
@@ -1509,7 +1499,6 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
-        UnitDependencyMask mask;
         assert(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
@@ -1518,7 +1507,7 @@ static int unit_add_slice_dependencies(Unit *u) {
         /* Slice units are implicitly ordered against their parent slices (as this relationship is encoded in the
            name), while all other units are ordered based on configuration (as in their case Slice= configures the
            relationship). */
-        mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
+        UnitDependencyMask mask = u->type == UNIT_SLICE ? UNIT_DEPENDENCY_IMPLICIT : UNIT_DEPENDENCY_FILE;
 
         if (UNIT_ISSET(u->slice))
                 return unit_add_two_dependencies(u, UNIT_AFTER, UNIT_REQUIRES, UNIT_DEREF(u->slice), true, mask);
@@ -5502,8 +5491,6 @@ static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, 
 }
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
-        UnitDependency d;
-
         assert(u);
 
         /* Removes all dependencies u has on other units marked for ownership by 'mask'. */
@@ -5511,7 +5498,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
         if (mask == 0)
                 return;
 
-        for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
+        for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 bool done;
 
                 do {
@@ -5522,8 +5509,6 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                         done = true;
 
                         HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d], i) {
-                                UnitDependency q;
-
                                 if ((di.origin_mask & ~mask) == di.origin_mask)
                                         continue;
                                 di.origin_mask &= ~mask;
@@ -5534,7 +5519,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                  * all dependency types on the other unit and delete all those which point to us and
                                  * have the right mask set. */
 
-                                for (q = 0; q < _UNIT_DEPENDENCY_MAX; q++) {
+                                for (UnitDependency q = 0; q < _UNIT_DEPENDENCY_MAX; q++) {
                                         UnitDependencyInfo dj;
 
                                         dj.data = hashmap_get(other->dependencies[q], u);
