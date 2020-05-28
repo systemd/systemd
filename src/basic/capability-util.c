@@ -107,6 +107,18 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         unsigned long i;
         int r;
 
+        /* Remove capabilities requested in ambient set, but not in the bounding set */
+        for (i = 0; i <= cap_last_cap(); i++) {
+                if (set == 0)
+                        break;
+
+                if (FLAGS_SET(set, (UINT64_C(1) << i)) && prctl(PR_CAPBSET_READ, i) != 1) {
+                        log_debug("Ambient capability %s requested but missing from bounding set,"
+                                        " suppressing automatically.", capability_to_name(i));
+                        set &= ~(UINT64_C(1) << i);
+                }
+        }
+
         /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
 
         /* Check that we can use PR_CAP_AMBIENT or quit early. */
