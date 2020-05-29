@@ -32,7 +32,7 @@ struct Match {
         /* For concrete matches */
         char *data;
         size_t size;
-        uint64_t hash;
+        uint64_t hash; /* old-style jenkins hash. New-style siphash is different per file, hence won't be cached here */
 
         /* For terms */
         LIST_HEAD(Match, matches);

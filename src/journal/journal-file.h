@@ -71,6 +71,7 @@ typedef struct JournalFile {
         bool defrag_on_close:1;
         bool close_fd:1;
         bool archive:1;
+        bool keyed_hash:1;
 
         direction_t last_direction;
         LocationType location_type;
@@ -195,6 +196,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
 
+#define JOURNAL_HEADER_KEYED_HASH(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
+
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
 
 uint64_t journal_file_entry_n_items(Object *o) _pure_;
@@ -262,3 +266,5 @@ static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
         assert(f);
         return f->compress_xz || f->compress_lz4;
 }
+
+uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);

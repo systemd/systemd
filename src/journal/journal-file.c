@@ -16,6 +16,7 @@
 #include "btrfs-util.h"
 #include "chattr-util.h"
 #include "compress.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -419,7 +420,8 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         h.incompatible_flags |= htole32(
                 f->compress_xz * HEADER_INCOMPATIBLE_COMPRESSED_XZ |
-                f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4);
+                f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
+                f->keyed_hash * HEADER_INCOMPATIBLE_KEYED_HASH);
 
         h.compatible_flags = htole32(
                 f->seal * HEADER_COMPATIBLE_SEALED);
@@ -486,16 +488,21 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                   f->path, type, flags & ~any);
                 flags = (flags & any) & ~supported;
                 if (flags) {
-                        const char* strv[3];
+                        const char* strv[4];
                         unsigned n = 0;
                         _cleanup_free_ char *t = NULL;
 
-                        if (compatible && (flags & HEADER_COMPATIBLE_SEALED))
-                                strv[n++] = "sealed";
-                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ))
-                                strv[n++] = "xz-compressed";
-                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
-                                strv[n++] = "lz4-compressed";
+                        if (compatible) {
+                                if (flags & HEADER_COMPATIBLE_SEALED)
+                                        strv[n++] = "sealed";
+                        } else {
+                                if (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ)
+                                        strv[n++] = "xz-compressed";
+                                if (flags & HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
+                                        strv[n++] = "lz4-compressed";
+                                if (flags & HEADER_INCOMPATIBLE_KEYED_HASH)
+                                        strv[n++] = "keyed-hash";
+                        }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
 
@@ -594,6 +601,8 @@ static int journal_file_verify_header(JournalFile *f) {
         f->compress_lz4 = JOURNAL_HEADER_COMPRESSED_LZ4(f->header);
 
         f->seal = JOURNAL_HEADER_SEALED(f->header);
+
+        f->keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
 
         return 0;
 }
@@ -1334,21 +1343,35 @@ int journal_file_find_field_object_with_hash(
         return 0;
 }
 
+uint64_t journal_file_hash_data(
+                JournalFile *f,
+                const void *data,
+                size_t sz) {
+
+        assert(f);
+        assert(data || sz == 0);
+
+        /* We try to unify our codebase on siphash, hence new-styled journal files utilizing the keyed hash
+         * function use siphash. Old journal files use the Jenkins hash. */
+
+        if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                return siphash24(data, sz, f->header->file_id.bytes);
+
+        return jenkins_hash64(data, sz);
+}
+
 int journal_file_find_field_object(
                 JournalFile *f,
                 const void *field, uint64_t size,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t hash;
-
         assert(f);
         assert(field && size > 0);
 
-        hash = jenkins_hash64(field, size);
-
         return journal_file_find_field_object_with_hash(
                         f,
-                        field, size, hash,
+                        field, size,
+                        journal_file_hash_data(f, field, size),
                         ret, ret_offset);
 }
 
@@ -1446,16 +1469,13 @@ int journal_file_find_data_object(
                 const void *data, uint64_t size,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t hash;
-
         assert(f);
         assert(data || size == 0);
 
-        hash = jenkins_hash64(data, size);
-
         return journal_file_find_data_object_with_hash(
                         f,
-                        data, size, hash,
+                        data, size,
+                        journal_file_hash_data(f, data, size),
                         ret, ret_offset);
 }
 
@@ -1472,7 +1492,7 @@ static int journal_file_append_field(
         assert(f);
         assert(field && size > 0);
 
-        hash = jenkins_hash64(field, size);
+        hash = journal_file_hash_data(f, field, size);
 
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
         if (r < 0)
@@ -1535,7 +1555,7 @@ static int journal_file_append_data(
         assert(f);
         assert(data || size == 0);
 
-        hash = jenkins_hash64(data, size);
+        hash = journal_file_hash_data(f, data, size);
 
         r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
         if (r < 0)
@@ -2028,7 +2048,20 @@ int journal_file_append_entry(
                 if (r < 0)
                         return r;
 
-                xor_hash ^= le64toh(o->data.hash);
+                /* When calculating the XOR hash field, we need to take special care if the "keyed-hash"
+                 * journal file flag is on. We use the XOR hash field to quickly determine the identity of a
+                 * specific record, and give records with otherwise identical position (i.e. match in seqno,
+                 * timestamp, …) a stable ordering. But for that we can't have it that the hash of the
+                 * objects in each file is different since they are keyed. Hence let's calculate the Jenkins
+                 * hash here for that. This also has the benefit that cursors for old and new journal files
+                 * are completely identical (they include the XOR hash after all). For classic Jenkins-hash
+                 * files things are easier, we can just take the value from the stored record directly. */
+
+                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                        xor_hash ^= jenkins_hash64(iovec[i].iov_base, iovec[i].iov_len);
+                else
+                        xor_hash ^= le64toh(o->data.hash);
+
                 items[i].object_offset = htole64(p);
                 items[i].hash = o->data.hash;
         }
@@ -3149,7 +3182,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential number ID: %s\n"
                "State: %s\n"
                "Compatible flags:%s%s\n"
-               "Incompatible flags:%s%s%s\n"
+               "Incompatible flags:%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data hash table size: %"PRIu64"\n"
@@ -3174,6 +3207,7 @@ void journal_file_print_header(JournalFile *f) {
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
+               JOURNAL_HEADER_KEYED_HASH(f->header) ? " KEYED-HASH" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -3299,19 +3333,31 @@ int journal_file_open(
 #endif
         };
 
+        /* We turn on keyed hashes by default, but provide an environment variable to turn them off, if
+         * people really want that */
+        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+        if (r < 0) {
+                if (r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring.");
+                f->keyed_hash = true;
+        } else
+                f->keyed_hash = r;
+
         if (DEBUG_LOGGING) {
-                static int last_seal = -1, last_compress = -1;
+                static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
                 static uint64_t last_bytes = UINT64_MAX;
                 char bytes[FORMAT_BYTES_MAX];
 
                 if (last_seal != f->seal ||
+                    last_keyed_hash != f->keyed_hash ||
                     last_compress != JOURNAL_FILE_COMPRESS(f) ||
                     last_bytes != f->compress_threshold_bytes) {
 
-                        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
-                                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
+                        log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
+                                  yes_no(f->seal), yes_no(f->keyed_hash), yes_no(JOURNAL_FILE_COMPRESS(f)),
                                   format_bytes(bytes, sizeof bytes, f->compress_threshold_bytes));
                         last_seal = f->seal;
+                        last_keyed_hash = f->keyed_hash;
                         last_compress = JOURNAL_FILE_COMPRESS(f);
                         last_bytes = f->compress_threshold_bytes;
                 }
@@ -3769,7 +3815,11 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                 if (r < 0)
                         return r;
 
-                xor_hash ^= le64toh(u->data.hash);
+                if (JOURNAL_HEADER_KEYED_HASH(to->header))
+                        xor_hash ^= jenkins_hash64(data, l);
+                else
+                        xor_hash ^= le64toh(u->data.hash);
+
                 items[i].object_offset = htole64(h);
                 items[i].hash = u->data.hash;
 

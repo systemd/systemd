@@ -279,6 +279,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert(j->level1->type == MATCH_OR_TERM);
         assert(j->level2->type == MATCH_AND_TERM);
 
+        /* Old-style Jenkins (unkeyed) hashing only here. We do not cover new-style siphash (keyed) hashing
+         * here, since it's different for each file, and thus can't be pre-calculated in the Match object. */
         hash = jenkins_hash64(data, size);
 
         LIST_FOREACH(matches, l3, j->level2->matches) {
@@ -501,9 +503,16 @@ static int next_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                uint64_t dp;
+                uint64_t dp, hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, m->hash, NULL, &dp);
+                /* If the keyed hash logic is used, we need to calculate the hash fresh per file. Otherwise
+                 * we can use what we pre-calculated. */
+                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                        hash = journal_file_hash_data(f, m->data, m->size);
+                else
+                        hash = m->hash;
+
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 
@@ -590,9 +599,14 @@ static int find_location_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                uint64_t dp;
+                uint64_t dp, hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, m->hash, NULL, &dp);
+                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                        hash = journal_file_hash_data(f, m->data, m->size);
+                else
+                        hash = m->hash;
+
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 
