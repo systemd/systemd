@@ -78,32 +78,37 @@ enum {
         SD_PATH_SEARCH_STATE_FACTORY,
         SD_PATH_SEARCH_CONFIGURATION,
 
-        /* Various systemd paths, generally mirroring systemd.pc */
-        SD_PATH_SYSTEMD_UTIL_DIR,
-        SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR,
-        SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR,
-        SD_PATH_SYSTEMD_USER_UNIT_DIR,
-        SD_PATH_SYSTEMD_USER_PRESET_DIR,
-        SD_PATH_SYSTEMD_SYSTEM_CONF_DIR,
-        SD_PATH_SYSTEMD_USER_CONF_DIR,
-        SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH,
-        SD_PATH_SYSTEMD_USER_UNIT_PATH,
-        SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR,
-        SD_PATH_SYSTEMD_USER_GENERATOR_DIR,
-        SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH,
-        SD_PATH_SYSTEMD_USER_GENERATOR_PATH,
-        SD_PATH_SYSTEMD_SLEEP_DIR,
-        SD_PATH_SYSTEMD_SHUTDOWN_DIR,
+        /* Various systemd paths, generally mirroring systemd.pc — Except we drop the "dir" suffix (and
+         * replaces "path" by "search"), since this API is about dirs/paths anyway, and contains "path"
+         * already in the prefix */
+        SD_PATH_SYSTEMD_UTIL,
+        SD_PATH_SYSTEMD_SYSTEM_UNIT,
+        SD_PATH_SYSTEMD_SYSTEM_PRESET,
+        SD_PATH_SYSTEMD_SYSTEM_CONF,
+        SD_PATH_SYSTEMD_USER_UNIT,
+        SD_PATH_SYSTEMD_USER_PRESET,
+        SD_PATH_SYSTEMD_USER_CONF,
 
-        SD_PATH_TMPFILES_DIR,
-        SD_PATH_SYSUSERS_DIR,
-        SD_PATH_SYSCTL_DIR,
-        SD_PATH_BINFMT_DIR,
-        SD_PATH_MODULES_LOAD_DIR,
-        SD_PATH_CATALOG_DIR,
+        SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT,
+        SD_PATH_SYSTEMD_SEARCH_USER_UNIT,
+
+        SD_PATH_SYSTEMD_SYSTEM_GENERATOR,
+        SD_PATH_SYSTEMD_USER_GENERATOR,
+        SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR,
+        SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR,
+
+        SD_PATH_SYSTEMD_SLEEP,
+        SD_PATH_SYSTEMD_SHUTDOWN,
+
+        SD_PATH_TMPFILES,
+        SD_PATH_SYSUSERS,
+        SD_PATH_SYSCTL,
+        SD_PATH_BINFMT,
+        SD_PATH_MODULES_LOAD,
+        SD_PATH_CATALOG,
 
         /* systemd-networkd search paths */
-        SD_PATH_SYSTEMD_NETWORK_PATH,
+        SD_PATH_SYSTEMD_SEARCH_NETWORK,
 
         _SD_PATH_MAX,
 };

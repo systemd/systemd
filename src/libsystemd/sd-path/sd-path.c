@@ -320,73 +320,73 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_USER_DESKTOP:
                 return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
-        case SD_PATH_SYSTEMD_UTIL_DIR:
-                *ret = ROOTPREFIX "lib/systemd";
+        case SD_PATH_SYSTEMD_UTIL:
+                *ret = ROOTPREFIX "/lib/systemd";
                 return 0;
 
-        case SD_PATH_SYSTEMD_SYSTEM_UNIT_DIR:
+        case SD_PATH_SYSTEMD_SYSTEM_UNIT:
                 *ret = SYSTEM_DATA_UNIT_PATH;
                 return 0;
 
-        case SD_PATH_SYSTEMD_SYSTEM_PRESET_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-preset";
+        case SD_PATH_SYSTEMD_SYSTEM_PRESET:
+                *ret = ROOTPREFIX "/lib/systemd/system-preset";
                 return 0;
 
-        case SD_PATH_SYSTEMD_USER_UNIT_DIR:
+        case SD_PATH_SYSTEMD_USER_UNIT:
                 *ret = USER_DATA_UNIT_DIR;
                 return 0;
 
-        case SD_PATH_SYSTEMD_USER_PRESET_DIR:
-                *ret = ROOTPREFIX "lib/systemd/user-preset";
+        case SD_PATH_SYSTEMD_USER_PRESET:
+                *ret = ROOTPREFIX "/lib/systemd/user-preset";
                 return 0;
 
-        case SD_PATH_SYSTEMD_SYSTEM_CONF_DIR:
+        case SD_PATH_SYSTEMD_SYSTEM_CONF:
                 *ret = SYSTEM_CONFIG_UNIT_DIR;
                 return 0;
 
-        case SD_PATH_SYSTEMD_USER_CONF_DIR:
+        case SD_PATH_SYSTEMD_USER_CONF:
                 *ret = USER_CONFIG_UNIT_DIR;
                 return 0;
 
-        case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_DIR:
+        case SD_PATH_SYSTEMD_SYSTEM_GENERATOR:
                 *ret = SYSTEM_GENERATOR_DIR;
                 return 0;
 
-        case SD_PATH_SYSTEMD_USER_GENERATOR_DIR:
+        case SD_PATH_SYSTEMD_USER_GENERATOR:
                 *ret = USER_GENERATOR_DIR;
                 return 0;
 
-        case SD_PATH_SYSTEMD_SLEEP_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-sleep";
+        case SD_PATH_SYSTEMD_SLEEP:
+                *ret = ROOTPREFIX "/lib/systemd/system-sleep";
                 return 0;
 
-        case SD_PATH_SYSTEMD_SHUTDOWN_DIR:
-                *ret = ROOTPREFIX "lib/systemd/system-shutdown";
+        case SD_PATH_SYSTEMD_SHUTDOWN:
+                *ret = ROOTPREFIX "/lib/systemd/system-shutdown";
                 return 0;
 
         /* FIXME: systemd.pc uses ${prefix}, but CONF_PATHS_NULSTR doesn't.
          *        Should ${prefix} use in systemd.pc be removed? */
-        case SD_PATH_TMPFILES_DIR:
+        case SD_PATH_TMPFILES:
                 *ret = "/usr/lib/tmpfiles.d";
                 return 0;
 
-        case SD_PATH_SYSUSERS_DIR:
-                *ret = "/usr/lib/sysusers.d";
+        case SD_PATH_SYSUSERS:
+                *ret = ROOTPREFIX "/lib/sysusers.d";
                 return 0;
 
-        case SD_PATH_SYSCTL_DIR:
-                *ret = "/usr/lib/sysctl.d";
+        case SD_PATH_SYSCTL:
+                *ret = ROOTPREFIX "/lib/sysctl.d";
                 return 0;
 
-        case SD_PATH_BINFMT_DIR:
-                *ret = "/usr/lib/binfmt.d";
+        case SD_PATH_BINFMT:
+                *ret = ROOTPREFIX "/lib/binfmt.d";
                 return 0;
 
-        case SD_PATH_MODULES_LOAD_DIR:
-                *ret = "/usr/lib/modules-load.d";
+        case SD_PATH_MODULES_LOAD:
+                *ret = ROOTPREFIX "/lib/modules-load.d";
                 return 0;
 
-        case SD_PATH_CATALOG_DIR:
+        case SD_PATH_CATALOG:
                 *ret = "/usr/lib/systemd/catalog";
                 return 0;
         }
@@ -607,10 +607,10 @@ static int get_search(uint64_t type, char ***list) {
         case SD_PATH_SEARCH_BINARIES_DEFAULT:
                 return strv_from_nulstr(list, DEFAULT_PATH_NULSTR);
 
-        case SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH:
-        case SD_PATH_SYSTEMD_USER_UNIT_PATH: {
+        case SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT:
+        case SD_PATH_SYSTEMD_SEARCH_USER_UNIT: {
                 _cleanup_(lookup_paths_free) LookupPaths lp = {};
-                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_UNIT_PATH ?
+                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT ?
                                                     UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
                 r = lookup_paths_init(&lp, scope, 0, NULL);
@@ -621,10 +621,10 @@ static int get_search(uint64_t type, char ***list) {
                 return 0;
         }
 
-        case SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH:
-        case SD_PATH_SYSTEMD_USER_GENERATOR_PATH: {
+        case SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR:
+        case SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR: {
                 char **t;
-                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SYSTEM_GENERATOR_PATH ?
+                const UnitFileScope scope = type == SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR ?
                                                     UNIT_FILE_SYSTEM : UNIT_FILE_USER;
 
                 t = generator_binary_paths(scope);
@@ -635,7 +635,7 @@ static int get_search(uint64_t type, char ***list) {
                 return 0;
         }
 
-        case SD_PATH_SYSTEMD_NETWORK_PATH:
+        case SD_PATH_SYSTEMD_SEARCH_NETWORK:
                 return strv_from_nulstr(list, NETWORK_DIRS_NULSTR);
 
         }
