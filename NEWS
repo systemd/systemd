@@ -338,6 +338,17 @@ CHANGES WITH 246 in spe:
           unit when the unit is stopped. It will now warn about services using
           KillMode=none, as this is generally an unsafe thing to make use of.
 
+        * .socket units gained a new boolean setting PassPacketInfo=. If
+          enabled, the kernel will attach additional per-packet metadata to all
+          packets read from the socket, as ancillary message. This controls the
+          IP_PKTINFO, IPV6_RECVPKTINFO, NETLINK_PKTINFO socket options,
+          depending on socket type.
+
+        * A new boolean option AssignAcquiredDelegatedPrefixAddress= has been
+          added to the [DHCPv6] section of .network files. If enabled (which is
+          the default) an address from any acquire delegated prefix is
+          automatically chosen and assigned to the interface.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an
