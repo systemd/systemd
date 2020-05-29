@@ -159,7 +159,7 @@ int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr) {
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_NTP_SERVERS, addr);
 }
-int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr) {
+int sd_dhcp_lease_get_sip_servers(sd_dhcp_lease *lease, const struct in_addr **addr) {
         return sd_dhcp_lease_get_servers(lease, SD_DHCP_LEASE_SIP_SERVERS, addr);
 }
 int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr) {
@@ -1003,7 +1003,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fputc('\n', f);
         }
 
-        r = sd_dhcp_lease_get_sip(lease, &addresses);
+        r = sd_dhcp_lease_get_sip_servers(lease, &addresses);
         if (r > 0) {
                 fputs("SIP=", f);
                 serialize_in_addrs(f, addresses, r, false, NULL);

@@ -1602,7 +1602,7 @@ static int manager_save(Manager *m) {
                 }
 
                 if (link->network->dhcp_use_sip) {
-                        r = sd_dhcp_lease_get_sip(link->dhcp_lease, &addresses);
+                        r = sd_dhcp_lease_get_sip_servers(link->dhcp_lease, &addresses);
                         if (r > 0) {
                                 r = ordered_set_put_in4_addrv(sip, addresses, r, in4_addr_is_non_local);
                                 if (r < 0)
