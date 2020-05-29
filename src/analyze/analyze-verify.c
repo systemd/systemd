@@ -94,6 +94,7 @@ static int generate_path(char **var, char **filenames) {
 }
 
 static int verify_socket(Unit *u) {
+        Unit *service;
         int r;
 
         assert(u);
@@ -101,26 +102,15 @@ static int verify_socket(Unit *u) {
         if (u->type != UNIT_SOCKET)
                 return 0;
 
-        /* Cannot run this without the service being around */
-
-        /* This makes sure instance is created if necessary. */
-        r = socket_instantiate_service(SOCKET(u));
+        r = socket_load_service_unit(SOCKET(u), -1, &service);
         if (r < 0)
-                return log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
+                return log_unit_error_errno(u, r, "service unit for the socket cannot be loaded: %m");
 
-        /* This checks both type of sockets */
-        if (UNIT_ISSET(SOCKET(u)->service)) {
-                Service *service;
+        if (service->load_state != UNIT_LOADED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                            "service %s not loaded, socket cannot be started.", service->id);
 
-                service = SERVICE(UNIT_DEREF(SOCKET(u)->service));
-                log_unit_debug(u, "Using %s", UNIT(service)->id);
-
-                if (UNIT(service)->load_state != UNIT_LOADED) {
-                        log_unit_error(u, "Service %s not loaded, %s cannot be started.", UNIT(service)->id, u->id);
-                        return -ENOENT;
-                }
-        }
-
+        log_unit_debug(u, "using service unit %s.", service->id);
         return 0;
 }
 
