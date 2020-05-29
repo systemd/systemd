@@ -241,7 +241,7 @@ _public_ int sd_network_link_get_ntp(int ifindex, char ***ret) {
 }
 
 _public_ int sd_network_link_get_sip(int ifindex, char ***ret) {
-        return network_link_get_strv(ifindex, "SIP", ret);
+        return network_link_get_strv(ifindex, "SIP_SERVERS", ret);
 }
 
 _public_ int sd_network_link_get_search_domains(int ifindex, char ***ret) {
@@ -253,7 +253,7 @@ _public_ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
 }
 
 _public_ int sd_network_link_get_sip_servers(int ifindex, char ***ret) {
-        return network_link_get_strv(ifindex, "SIP", ret);
+        return network_link_get_strv(ifindex, "SIP_SERVERS", ret);
 }
 
 _public_ int sd_network_link_get_pop3_servers(int ifindex, char ***pop3) {

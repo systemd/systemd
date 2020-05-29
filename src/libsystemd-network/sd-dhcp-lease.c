@@ -1005,7 +1005,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_sip_servers(lease, &addresses);
         if (r > 0) {
-                fputs("SIP=", f);
+                fputs("SIP_SERVERS=", f);
                 serialize_in_addrs(f, addresses, r, false, NULL);
                 fputc('\n', f);
         }
@@ -1132,7 +1132,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "BROADCAST", &broadcast,
                            "DNS", &dns,
                            "NTP", &ntp,
-                           "SIP", &sip,
+                           "SIP_SERVERS", &sip,
                            "POP3_SERVERS", &pop3_server,
                            "SMTP_SERVERS", &smtp_server,
                            "LPR_SERVERS", &lpr_server,
