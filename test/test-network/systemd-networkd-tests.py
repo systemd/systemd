@@ -445,6 +445,9 @@ class Utilities():
     def check_link_exists(self, link):
         self.assertTrue(link_exists(link))
 
+    def check_link_attr(self, *args):
+        self.assertEqual(read_link_attr(*args[:-1]), args[-1]);
+
     def wait_operstate(self, link, operstate='degraded', setup_state='configured', setup_timeout=5, fail_assert=True):
         """Wait for the link to reach the specified operstate and/or setup state.
 
@@ -1671,11 +1674,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-gateway-next-static.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
+        '25-test1.network',
         '25-veth-peer.network',
         '25-veth.netdev',
         '25-vrf.netdev',
         '26-link-local-addressing-ipv6.network',
-        'configure-without-carrier.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
 
@@ -1762,15 +1765,56 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '192.168.100.10/24')
 
     def test_configure_without_carrier(self):
-        copy_unit_to_networkd_unit_path('configure-without-carrier.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:routable'])
+        self.wait_operstate('test1', 'off', '')
+        check_output('ip link set dev test1 up carrier off')
 
-        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
-        print(output)
-        self.assertRegex(output, '192.168.0.15')
-        self.assertRegex(output, '192.168.0.1')
-        self.assertRegex(output, 'routable')
+        copy_unit_to_networkd_unit_path('25-test1.network.d/configure-without-carrier.conf', dropins=False)
+        restart_networkd()
+        self.wait_online(['test1:no-carrier'])
+
+        carrier_map = {'on': '1', 'off': '0'}
+        routable_map = {'on': 'routable', 'off': 'no-carrier'}
+        for carrier in ['off', 'on', 'off']:
+            with self.subTest(carrier=carrier):
+                if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
+                    check_output(f'ip link set dev test1 carrier {carrier}')
+                self.wait_online([f'test1:{routable_map[carrier]}'])
+
+                output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
+                print(output)
+                self.assertRegex(output, '192.168.0.15')
+                self.assertRegex(output, '192.168.0.1')
+                self.assertRegex(output, routable_map[carrier])
+
+    def test_configure_without_carrier_yes_ignore_carrier_loss_no(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev')
+        start_networkd()
+        self.wait_operstate('test1', 'off', '')
+        check_output('ip link set dev test1 up carrier off')
+
+        copy_unit_to_networkd_unit_path('25-test1.network')
+        restart_networkd()
+        self.wait_online(['test1:no-carrier'])
+
+        carrier_map = {'on': '1', 'off': '0'}
+        routable_map = {'on': 'routable', 'off': 'no-carrier'}
+        for (carrier, have_config) in [('off', True), ('on', True), ('off', False)]:
+            with self.subTest(carrier=carrier, have_config=have_config):
+                if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
+                    check_output(f'ip link set dev test1 carrier {carrier}')
+                self.wait_online([f'test1:{routable_map[carrier]}'])
+
+                output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
+                print(output)
+                if have_config:
+                    self.assertRegex(output, '192.168.0.15')
+                    self.assertRegex(output, '192.168.0.1')
+                else:
+                    self.assertNotRegex(output, '192.168.0.15')
+                    self.assertNotRegex(output, '192.168.0.1')
+                self.assertRegex(output, routable_map[carrier])
 
     def test_routing_policy_rule(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev')
@@ -2608,6 +2652,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         '11-dummy.netdev',
         '12-dummy.netdev',
         '26-bridge.netdev',
+        '26-bridge-configure-without-carrier.network',
         '26-bridge-slave-interface-1.network',
         '26-bridge-slave-interface-2.network',
         '26-bridge-vlan-master.network',
@@ -2721,6 +2766,55 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route list table all dev bridge99')
         print(output)
         self.assertRegex(output, 'ff00::/8 table local metric 256 (linkdown )?pref medium')
+
+    def test_bridge_configure_without_carrier(self):
+        copy_unit_to_networkd_unit_path('26-bridge.netdev', '26-bridge-configure-without-carrier.network',
+                                        '11-dummy.netdev')
+        start_networkd()
+
+        # With ConfigureWithoutCarrier=yes, the bridge should remain configured for all these situations
+        for test in ['no-slave', 'add-slave', 'slave-up', 'slave-no-carrier', 'slave-carrier', 'slave-down']:
+            with self.subTest(test=test):
+                if test == 'no-slave':
+                    # bridge has no slaves; it's up but *might* not have carrier
+                    self.wait_online(['bridge99:no-carrier'])
+                    # due to a bug in the kernel, newly-created bridges are brought up
+                    # *with* carrier, unless they have had any setting changed; e.g.
+                    # their mac set, priority set, etc.  Then, they will lose carrier
+                    # as soon as a (down) slave interface is added, and regain carrier
+                    # again once the slave interface is brought up.
+                    #self.check_link_attr('bridge99', 'carrier', '0')
+                elif test == 'add-slave':
+                    # add slave to bridge, but leave it down; bridge is definitely no-carrier
+                    self.check_link_attr('test1', 'operstate', 'down')
+                    check_output('ip link set dev test1 master bridge99')
+                    self.wait_online(['bridge99:no-carrier:no-carrier'])
+                    self.check_link_attr('bridge99', 'carrier', '0')
+                elif test == 'slave-up':
+                    # bring up slave, which will have carrier; bridge gains carrier
+                    check_output('ip link set dev test1 up')
+                    self.wait_online(['bridge99:routable'])
+                    self.check_link_attr('bridge99', 'carrier', '1')
+                elif test == 'slave-no-carrier':
+                    # drop slave carrier; bridge loses carrier
+                    check_output('ip link set dev test1 carrier off')
+                    self.wait_online(['bridge99:no-carrier:no-carrier'])
+                    self.check_link_attr('bridge99', 'carrier', '0')
+                elif test == 'slave-carrier':
+                    # restore slave carrier; bridge gains carrier
+                    check_output('ip link set dev test1 carrier on')
+                    self.wait_online(['bridge99:routable'])
+                    self.check_link_attr('bridge99', 'carrier', '1')
+                elif test == 'slave-down':
+                    # bring down slave; bridge loses carrier
+                    check_output('ip link set dev test1 down')
+                    self.wait_online(['bridge99:no-carrier:no-carrier'])
+                    self.check_link_attr('bridge99', 'carrier', '0')
+
+                output = check_output(*networkctl_cmd, '-n', '0', 'status', 'bridge99', env=env)
+                print(output)
+                self.assertRegex(output, '10.1.2.3')
+                self.assertRegex(output, '10.1.2.1')
 
     def test_bridge_ignore_carrier_loss(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',

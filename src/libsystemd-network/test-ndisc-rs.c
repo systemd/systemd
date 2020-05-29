@@ -297,6 +297,7 @@ static void test_rs(void) {
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
+        assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_stop(nd) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);

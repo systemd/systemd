@@ -271,6 +271,9 @@ int network_verify(Network *network) {
         if (network->dhcp_use_gateway < 0)
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
+        if (network->ignore_carrier_loss < 0)
+                network->ignore_carrier_loss = network->configure_without_carrier;
+
         if (network->dhcp_critical >= 0) {
                 if (network->keep_configuration >= 0)
                         log_warning("%s: Both KeepConfiguration= and deprecated CriticalConnection= are set. "
@@ -461,6 +464,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_route_table_set = false,
                 .ipv6_accept_ra_start_dhcp6_client = true,
 
+                .configure_without_carrier = false,
+                .ignore_carrier_loss = -1,
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .ipv6_address_gen_mode = _LINK_IPV6_ADDRESS_GEN_MODE_INVALID,
                 .can_triple_sampling = -1,
