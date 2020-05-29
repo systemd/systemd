@@ -41,6 +41,9 @@ Features:
 
 * add ConditionSecurity=tpm2
 
+* Remove any support for booting without /usr pre-mounted in the initrd entirely.
+  Update INITRD_INTERFACE.md accordingly.
+
 * pid1: Move to tracking of main pid/control pid of units per pidfd
 
 * pid1: support new clone3() fork-into-cgroup feature
