@@ -33,15 +33,16 @@ typedef struct sd_dhcp_route sd_dhcp_route;
 sd_dhcp_lease *sd_dhcp_lease_ref(sd_dhcp_lease *lease);
 sd_dhcp_lease *sd_dhcp_lease_unref(sd_dhcp_lease *lease);
 
-typedef enum sd_dhcp_lease_info {
-        SD_DHCP_LEASE_DNS_SERVERS = 0,
-        SD_DHCP_LEASE_NTP_SERVERS,
-        SD_DHCP_LEASE_SIP_SERVERS,
-        SD_DHCP_LEASE_POP3_SERVERS,
-        SD_DHCP_LEASE_SMTP_SERVERS,
-        SD_DHCP_LEASE_LPR_SERVERS,
-        _SD_DHCP_LEASE_INFO_MAX,
-} sd_dhcp_lease_info;
+typedef enum sd_dhcp_lease_server_type {
+        SD_DHCP_LEASE_DNS,
+        SD_DHCP_LEASE_NTP,
+        SD_DHCP_LEASE_SIP,
+        SD_DHCP_LEASE_POP3,
+        SD_DHCP_LEASE_SMTP,
+        SD_DHCP_LEASE_LPR,
+        _SD_DHCP_LEASE_SERVER_TYPE_MAX,
+        _SD_DHCP_LEASE_SERVER_TYPE_INVALID = -1,
+} sd_dhcp_lease_server_type;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime);
@@ -52,13 +53,13 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr);
-int sd_dhcp_lease_get_servers(sd_dhcp_lease *lease, sd_dhcp_lease_info what, const struct in_addr **addr);
+int sd_dhcp_lease_get_servers(sd_dhcp_lease *lease, sd_dhcp_lease_server_type what, const struct in_addr **addr);
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_pop3_server(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_smtp_server(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_lpr_servers(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_pop3(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_smtp(sd_dhcp_lease *lease, const struct in_addr **addr);
+int sd_dhcp_lease_get_lpr(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);

@@ -56,8 +56,7 @@ struct sd_dhcp_server {
 
         char *timezone;
 
-        struct in_addr *ntp, *dns, *sip, *pop3_server, *smtp_server, *lpr_server;
-        size_t n_ntp, n_dns, n_sip, n_pop3_server, n_smtp_server, n_lpr_server;
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;

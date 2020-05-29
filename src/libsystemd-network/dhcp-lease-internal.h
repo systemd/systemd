@@ -5,11 +5,9 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <stdint.h>
-#include <linux/if_packet.h>
-
 #include "sd-dhcp-client.h"
 
+#include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "list.h"
 #include "util.h"
@@ -52,23 +50,7 @@ struct sd_dhcp_lease {
         struct in_addr *router;
         size_t router_size;
 
-        struct in_addr *dns;
-        size_t dns_size;
-
-        struct in_addr *ntp;
-        size_t ntp_size;
-
-        struct in_addr *sip;
-        size_t sip_size;
-
-        struct in_addr *pop3_server;
-        size_t pop3_server_size;
-
-        struct in_addr *smtp_server;
-        size_t smtp_server_size;
-
-        struct in_addr *lpr_server;
-        size_t lpr_server_size;
+        DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
         struct sd_dhcp_route *static_route;
         size_t static_route_size, static_route_allocated;

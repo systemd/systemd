@@ -3,6 +3,7 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
+#include <net/if_arp.h>
 #include <sys/ioctl.h>
 
 #include "sd-dhcp-server.h"
@@ -143,12 +144,9 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         sd_event_unref(server->event);
 
         free(server->timezone);
-        free(server->dns);
-        free(server->ntp);
-        free(server->sip);
-        free(server->pop3_server);
-        free(server->smtp_server);
-        free(server->lpr_server);
+
+        for (sd_dhcp_lease_server_type i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
+                free(server->servers[i].addr);
 
         hashmap_free(server->leases_by_client_id);
 
@@ -461,8 +459,20 @@ static int server_send_offer(sd_dhcp_server *server, DHCPRequest *req,
         return 0;
 }
 
-static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
-                           be32_t address) {
+static int server_send_ack(
+                sd_dhcp_server *server,
+                DHCPRequest *req,
+                be32_t address) {
+
+        static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
+                [SD_DHCP_LEASE_DNS] = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+                [SD_DHCP_LEASE_NTP] = SD_DHCP_OPTION_NTP_SERVER,
+                [SD_DHCP_LEASE_SIP] = SD_DHCP_OPTION_SIP_SERVER,
+                [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
+                [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
+                [SD_DHCP_LEASE_LPR] = SD_DHCP_OPTION_LPR_SERVER,
+        };
+
         _cleanup_free_ DHCPPacket *packet = NULL;
         be32_t lease_time;
         sd_dhcp_option *j;
@@ -495,59 +505,19 @@ static int server_send_ack(sd_dhcp_server *server, DHCPRequest *req,
                         return r;
         }
 
-        if (server->n_dns > 0) {
+        for (sd_dhcp_lease_server_type k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
+
+                if (server->servers[k].size <= 0)
+                        continue;
+
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
-                                sizeof(struct in_addr) * server->n_dns, server->dns);
+                                option_map[k],
+                                sizeof(struct in_addr) * server->servers[k].size, server->servers[k].addr);
                 if (r < 0)
                         return r;
         }
 
-        if (server->n_ntp > 0) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_NTP_SERVER,
-                                sizeof(struct in_addr) * server->n_ntp, server->ntp);
-                if (r < 0)
-                        return r;
-        }
-
-        if (server->n_sip > 0) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_SIP_SERVER,
-                                sizeof(struct in_addr) * server->n_sip, server->sip);
-                if (r < 0)
-                        return r;
-        }
-
-        if (server->n_pop3_server > 0) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_POP3_SERVER,
-                                sizeof(struct in_addr) * server->n_pop3_server, server->pop3_server);
-                if (r < 0)
-                        return r;
-        }
-
-        if (server->n_smtp_server > 0) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_SMTP_SERVER,
-                                sizeof(struct in_addr) * server->n_smtp_server, server->smtp_server);
-                if (r < 0)
-                        return r;
-        }
-
-        if (server->n_lpr_server > 0) {
-                r = dhcp_option_append(
-                                &packet->dhcp, req->max_optlen, &offset, 0,
-                                SD_DHCP_OPTION_LPR_SERVER,
-                                sizeof(struct in_addr) * server->n_lpr_server, server->lpr_server);
-                if (r < 0)
-                        return r;
-        }
 
         if (server->timezone) {
                 r = dhcp_option_append(
@@ -1139,57 +1109,20 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
-                sd_dhcp_lease_info what,
+                sd_dhcp_lease_server_type what,
                 const struct in_addr addresses[],
                 size_t n_addresses) {
 
+        struct in_addr *c = NULL;
+
         assert_return(server, -EINVAL);
         assert_return(addresses || n_addresses == 0, -EINVAL);
+        assert_return(what >= 0, -EINVAL);
+        assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
 
-        struct in_addr **a;
-        size_t *n_a;
-
-        switch (what) {
-        case SD_DHCP_LEASE_DNS_SERVERS:
-                a = &server->dns;
-                n_a = &server->n_dns;
-                break;
-
-        case SD_DHCP_LEASE_NTP_SERVERS:
-                a = &server->ntp;
-                n_a = &server->n_ntp;
-                break;
-
-        case SD_DHCP_LEASE_SIP_SERVERS:
-                a = &server->sip;
-                n_a = &server->n_sip;
-                break;
-
-        case SD_DHCP_LEASE_POP3_SERVERS:
-                a = &server->pop3_server;
-                n_a = &server->n_pop3_server;
-                break;
-
-        case SD_DHCP_LEASE_SMTP_SERVERS:
-                a = &server->smtp_server;
-                n_a = &server->n_smtp_server;
-                break;
-
-        case SD_DHCP_LEASE_LPR_SERVERS:
-                a = &server->lpr_server;
-                n_a = &server->n_lpr_server;
-                break;
-
-        default:
-                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Unknown DHCP lease info item %d.", what);
-        }
-
-        if (*n_a == n_addresses &&
-            memcmp(*a, addresses, sizeof(struct in_addr) * n_addresses) == 0)
+        if (server->servers[what].size == n_addresses &&
+            memcmp(server->servers[what].addr, addresses, sizeof(struct in_addr) * n_addresses) == 0)
                 return 0;
-
-        struct in_addr *c = NULL;
 
         if (n_addresses > 0) {
                 c = newdup(struct in_addr, addresses, n_addresses);
@@ -1197,29 +1130,29 @@ int sd_dhcp_server_set_servers(
                         return -ENOMEM;
         }
 
-        free(*a);
-        *a = c;
-        *n_a = n_addresses;
+        free(server->servers[what].addr);
+        server->servers[what].addr = c;
+        server->servers[what].size = n_addresses;
         return 1;
 }
 
 int sd_dhcp_server_set_dns(sd_dhcp_server *server, const struct in_addr dns[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_DNS_SERVERS, dns, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_DNS, dns, n);
 }
 int sd_dhcp_server_set_ntp(sd_dhcp_server *server, const struct in_addr ntp[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_NTP_SERVERS, ntp, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_NTP, ntp, n);
 }
 int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SIP_SERVERS, sip, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SIP, sip, n);
 }
 int sd_dhcp_server_set_pop3(sd_dhcp_server *server, const struct in_addr pop3[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_POP3_SERVERS, pop3, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_POP3, pop3, n);
 }
 int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP_SERVERS, smtp, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_SMTP, smtp, n);
 }
 int sd_dhcp_server_set_lpr(sd_dhcp_server *server, const struct in_addr lpr[], size_t n) {
-        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR_SERVERS, lpr, n);
+        return sd_dhcp_server_set_servers(server, SD_DHCP_LEASE_LPR, lpr, n);
 }
 
 int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled) {

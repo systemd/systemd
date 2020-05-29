@@ -1611,7 +1611,7 @@ static int manager_save(Manager *m) {
                                 return r;
                 }
 
-                r = sd_dhcp_lease_get_pop3_server(link->dhcp_lease, &addresses);
+                r = sd_dhcp_lease_get_pop3(link->dhcp_lease, &addresses);
                 if (r > 0) {
                         r = ordered_set_put_in4_addrv(pop3, addresses, r, in4_addr_is_non_local);
                         if (r < 0)
@@ -1619,7 +1619,7 @@ static int manager_save(Manager *m) {
                 } else if (r < 0 && r != -ENODATA)
                         return r;
 
-                r = sd_dhcp_lease_get_smtp_server(link->dhcp_lease, &addresses);
+                r = sd_dhcp_lease_get_smtp(link->dhcp_lease, &addresses);
                 if (r > 0) {
                         r = ordered_set_put_in4_addrv(smtp, addresses, r, in4_addr_is_non_local);
                         if (r < 0)
@@ -1627,7 +1627,7 @@ static int manager_save(Manager *m) {
                 } else if (r < 0 && r != -ENODATA)
                         return r;
 
-                r = sd_dhcp_lease_get_lpr_servers(link->dhcp_lease, &addresses);
+                r = sd_dhcp_lease_get_lpr(link->dhcp_lease, &addresses);
                 if (r > 0) {
                         r = ordered_set_put_in4_addrv(lpr, addresses, r, in4_addr_is_non_local);
                         if (r < 0)

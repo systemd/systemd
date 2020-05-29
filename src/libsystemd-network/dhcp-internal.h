@@ -7,7 +7,6 @@
 
 #include <linux/if_packet.h>
 #include <net/ethernet.h>
-#include <net/if_arp.h>
 #include <stdint.h>
 
 #include "sd-dhcp-client.h"
@@ -22,6 +21,11 @@ typedef struct sd_dhcp_option {
         void *data;
         size_t length;
 } sd_dhcp_option;
+
+typedef struct DHCPServerData {
+        struct in_addr *addr;
+        size_t size;
+} DHCPServerData;
 
 extern const struct hash_ops dhcp_option_hash_ops;
 
