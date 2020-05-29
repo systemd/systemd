@@ -73,7 +73,6 @@ static int xdg_config_parse_bool(
                 void *userdata) {
 
         bool *b = data;
-        const char *value;
 
         assert(filename);
         assert(lvalue);
@@ -85,7 +84,7 @@ static int xdg_config_parse_bool(
         else if (streq(rvalue, "false"))
                 *b = false;
         else
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid value for boolean: %s", value);
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid value for boolean: %s", rvalue);
 
         return 0;
 }

@@ -37,3 +37,4 @@ SystemCallFilter=@system-service @mount
 [Install]
 WantedBy=multi-user.target
 Alias=dbus-org.freedesktop.home1.service
+Also=systemd-userdbd.service
