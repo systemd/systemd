@@ -89,6 +89,14 @@ OrderedHashmap *internal_ordered_hashmap_new(const struct hash_ops *hash_ops  HA
 #define hashmap_new(ops) internal_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_new(ops) internal_ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
+#define hashmap_free_and_replace(a, b)          \
+        ({                                      \
+                hashmap_free(a);                \
+                (a) = (b);                      \
+                (b) = NULL;                     \
+                0;                              \
+        })
+
 HashmapBase *internal_hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
 static inline Hashmap *hashmap_free(Hashmap *h) {
         return (void*) internal_hashmap_free(HASHMAP_BASE(h), NULL, NULL);

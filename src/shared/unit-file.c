@@ -229,9 +229,9 @@ static bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime) {
 int unit_file_build_name_map(
                 const LookupPaths *lp,
                 usec_t *cache_mtime,
-                Hashmap **ret_unit_ids_map,
-                Hashmap **ret_unit_names_map,
-                Set **ret_path_cache) {
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache) {
 
         /* Build two mappings: any name → main unit (i.e. the end result of symlink resolution), unit name →
          * all aliases (i.e. the entry for a given key is a a list of all names which point to this key). The
@@ -239,7 +239,8 @@ int unit_file_build_name_map(
          * have a key, but it is not present in the value for itself, there was an alias pointing to it, but
          * the unit itself is not loadable.
          *
-         * At the same, build a cache of paths where to find units.
+         * At the same, build a cache of paths where to find units. The non-const parameters are for input
+         * and output. Existing contents will be freed before the new contents are stored.
          */
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
@@ -253,8 +254,8 @@ int unit_file_build_name_map(
         if (cache_mtime && *cache_mtime > 0 && lookup_paths_mtime_good(lp, *cache_mtime))
                 return 0;
 
-        if (ret_path_cache) {
-                paths = set_new(&path_hash_ops);
+        if (path_cache) {
+                paths = set_new(&path_hash_ops_free);
                 if (!paths)
                         return log_oom();
         }
@@ -296,7 +297,7 @@ int unit_file_build_name_map(
                         if (!filename)
                                 return log_oom();
 
-                        if (ret_path_cache) {
+                        if (paths) {
                                 r = set_consume(paths, filename);
                                 if (r < 0)
                                         return log_oom();
@@ -418,10 +419,11 @@ int unit_file_build_name_map(
 
         if (cache_mtime)
                 *cache_mtime = mtime;
-        *ret_unit_ids_map = TAKE_PTR(ids);
-        *ret_unit_names_map = TAKE_PTR(names);
-        if (ret_path_cache)
-                *ret_path_cache = TAKE_PTR(paths);
+
+        hashmap_free_and_replace(*unit_ids_map, ids);
+        hashmap_free_and_replace(*unit_names_map, names);
+        if (path_cache)
+                set_free_and_replace(*path_cache, paths);
 
         return 1;
 }

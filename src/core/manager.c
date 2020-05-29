@@ -696,7 +696,7 @@ static int manager_setup_prefix(Manager *m) {
 static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
-        m->unit_path_cache = set_free_free(m->unit_path_cache);
+        m->unit_path_cache = set_free(m->unit_path_cache);
         m->unit_cache_mtime =  0;
 }
 
@@ -830,10 +830,6 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 return r;
 
         r = hashmap_ensure_allocated(&m->units, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_ensure_allocated(&m->jobs, NULL);
         if (r < 0)
                 return r;
 
@@ -3962,6 +3958,11 @@ void manager_check_finished(Manager *m) {
                                                         manager_watch_jobs_next_time(m));
                 return;
         }
+
+        /* The jobs hashmap tends to grow a lot during boot, and then it's not reused until shutdown. Let's
+           kill the hashmap if it is relatively large. */
+        if (hashmap_buckets(m->jobs) > hashmap_size(m->units) / 10)
+                m->jobs = hashmap_free(m->jobs);
 
         manager_flip_auto_status(m, false, "boot finished");
 
