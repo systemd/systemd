@@ -286,6 +286,15 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 UNIQ_T(A, aq) < UNIQ_T(B, bq) ? UNIQ_T(A, aq) : UNIQ_T(B, bq); \
         })
 
+/* evaluates to (void) if _A or _B are not constant or of different types */
+#define CONST_MIN(_A, _B) \
+        (__builtin_choose_expr(                                         \
+                __builtin_constant_p(_A) &&                             \
+                __builtin_constant_p(_B) &&                             \
+                __builtin_types_compatible_p(typeof(_A), typeof(_B)),   \
+                ((_A) < (_B)) ? (_A) : (_B),                            \
+                VOID_0))
+
 #define MIN3(x, y, z)                                   \
         ({                                              \
                 const typeof(x) _c = MIN(x, y);         \
