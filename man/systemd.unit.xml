@@ -1263,7 +1263,7 @@
           <term><varname>ConditionNeedsUpdate=</varname></term>
 
           <listitem><para>Takes one of <filename>/var</filename> or <filename>/etc</filename> as argument,
-          possibly prefixed with a <literal>!</literal> (to inverting the condition). This condition may be
+          possibly prefixed with a <literal>!</literal> (to invert the condition). This condition may be
           used to conditionalize units on whether the specified directory requires an update because
           <filename>/usr</filename>'s modification time is newer than the stamp file
           <filename>.updated</filename> in the specified directory. This is useful to implement offline
