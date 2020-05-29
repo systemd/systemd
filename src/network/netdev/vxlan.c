@@ -45,7 +45,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         r = sd_netlink_message_append_in6_addr(m, IFLA_VXLAN_GROUP6, &v->group.in6);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_GROUP attribute: %m");
-        } else  if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
+        } else if (in_addr_is_null(v->remote_family, &v->remote) == 0) {
                 if (v->remote_family == AF_INET)
                         r = sd_netlink_message_append_in_addr(m, IFLA_VXLAN_GROUP, &v->remote.in);
                 else
