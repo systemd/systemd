@@ -4,6 +4,7 @@
 ***/
 
 #include <errno.h>
+#include <net/if_arp.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"

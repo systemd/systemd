@@ -1,4 +1,7 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include <errno.h>
+#include <net/if_arp.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>

@@ -4,10 +4,11 @@
 ***/
 
 #include <errno.h>
+#include <net/if.h>
+#include <net/if_arp.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <net/if.h>
 
 #include "sd-dhcp-client.h"
 #include "sd-event.h"

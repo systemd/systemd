@@ -4012,7 +4012,7 @@ static void serialize_addresses(
                 char **addresses,
                 sd_dhcp_lease *lease,
                 bool conditional,
-                sd_dhcp_lease_info what,
+                sd_dhcp_lease_server_type what,
                 sd_dhcp6_lease *lease6,
                 bool conditional6,
                 int (*lease6_get_addr)(sd_dhcp6_lease*, const struct in6_addr**),
@@ -4138,7 +4138,7 @@ int link_save(Link *link) {
                                     NULL,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_dns,
-                                    SD_DHCP_LEASE_DNS_SERVERS,
+                                    SD_DHCP_LEASE_DNS,
                                     dhcp6_lease,
                                     link->network->dhcp6_use_dns,
                                     sd_dhcp6_lease_get_dns,
@@ -4162,7 +4162,7 @@ int link_save(Link *link) {
                                     link->ntp ?: link->network->ntp,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_ntp,
-                                    SD_DHCP_LEASE_NTP_SERVERS,
+                                    SD_DHCP_LEASE_NTP,
                                     dhcp6_lease,
                                     link->network->dhcp6_use_ntp,
                                     sd_dhcp6_lease_get_ntp_addrs,
@@ -4172,28 +4172,28 @@ int link_save(Link *link) {
                                     link->network->sip,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_sip,
-                                    SD_DHCP_LEASE_SIP_SERVERS,
+                                    SD_DHCP_LEASE_SIP,
                                     false, NULL, NULL, NULL);
 
-                serialize_addresses(f, "POP3_SERVERS", NULL,
+                serialize_addresses(f, "POP3", NULL,
                                     link->network->pop3,
                                     link->dhcp_lease,
                                     true,
-                                    SD_DHCP_LEASE_POP3_SERVERS,
+                                    SD_DHCP_LEASE_POP3,
                                     false, NULL, NULL, NULL);
 
-                serialize_addresses(f, "SMTP_SERVERS", NULL,
+                serialize_addresses(f, "SMTP", NULL,
                                     link->network->smtp,
                                     link->dhcp_lease,
                                     true,
-                                    SD_DHCP_LEASE_SMTP_SERVERS,
+                                    SD_DHCP_LEASE_SMTP,
                                     false, NULL, NULL, NULL);
 
-                serialize_addresses(f, "LPR_SERVERS", NULL,
+                serialize_addresses(f, "LPR", NULL,
                                     link->network->lpr,
                                     link->dhcp_lease,
                                     true,
-                                    SD_DHCP_LEASE_LPR_SERVERS,
+                                    SD_DHCP_LEASE_LPR,
                                     false, NULL, NULL, NULL);
 
                 /************************************************************/

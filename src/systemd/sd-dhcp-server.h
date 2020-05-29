@@ -52,7 +52,7 @@ int sd_dhcp_server_set_emit_router(sd_dhcp_server *server, int enabled);
 
 int sd_dhcp_server_set_servers(
                 sd_dhcp_server *server,
-                sd_dhcp_lease_info what,
+                sd_dhcp_lease_server_type what,
                 const struct in_addr addresses[],
                 size_t n_addresses);
 

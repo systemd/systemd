@@ -79,7 +79,7 @@ static int link_push_uplink_dns_to_dhcp_server(Link *link, sd_dhcp_server *s) {
 
 static int link_push_uplink_to_dhcp_server(
                 Link *link,
-                sd_dhcp_lease_info what,
+                sd_dhcp_lease_server_type what,
                 sd_dhcp_server *s) {
 
         _cleanup_free_ struct in_addr *addresses = NULL;
@@ -90,35 +90,35 @@ static int link_push_uplink_to_dhcp_server(
         if (!link->network)
                 return 0;
 
-        log_link_debug(link, "Copying %s from link", dhcp_lease_info_to_string(what));
+        log_link_debug(link, "Copying %s from link", dhcp_lease_server_type_to_string(what));
 
         switch (what) {
-        case SD_DHCP_LEASE_DNS_SERVERS:
+        case SD_DHCP_LEASE_DNS:
                 /* DNS servers are stored as parsed data, so special handling is required.
                  * TODO: check if DNS servers should be stored unparsed too. */
                 return link_push_uplink_dns_to_dhcp_server(link, s);
 
-        case SD_DHCP_LEASE_NTP_SERVERS:
+        case SD_DHCP_LEASE_NTP:
                 servers = link->network->ntp;
                 lease_condition = link->network->dhcp_use_ntp;
                 break;
 
-        case SD_DHCP_LEASE_POP3_SERVERS:
+        case SD_DHCP_LEASE_POP3:
                 servers = link->network->pop3;
                 lease_condition = true;
                 break;
 
-        case SD_DHCP_LEASE_SMTP_SERVERS:
+        case SD_DHCP_LEASE_SMTP:
                 servers = link->network->smtp;
                 lease_condition = true;
                 break;
 
-        case SD_DHCP_LEASE_SIP_SERVERS:
+        case SD_DHCP_LEASE_SIP:
                 servers = link->network->sip;
                 lease_condition = link->network->dhcp_use_sip;
                 break;
 
-        case SD_DHCP_LEASE_LPR_SERVERS:
+        case SD_DHCP_LEASE_LPR:
                 servers = link->network->lpr;
                 lease_condition = true;
                 break;
@@ -290,38 +290,38 @@ int dhcp4_server_configure(Link *link) {
                 const struct in_addr *servers;
                 unsigned n_servers;
         } configs[] = {
-                [SD_DHCP_LEASE_DNS_SERVERS] = {
+                [SD_DHCP_LEASE_DNS] = {
                         link->network->dhcp_server_emit_dns,
                         link->network->dhcp_server_dns,
                         link->network->n_dhcp_server_dns,
                 },
-                [SD_DHCP_LEASE_NTP_SERVERS] = {
+                [SD_DHCP_LEASE_NTP] = {
                         link->network->dhcp_server_emit_ntp,
                         link->network->dhcp_server_ntp,
                         link->network->n_dhcp_server_ntp,
                 },
-                [SD_DHCP_LEASE_SIP_SERVERS] = {
+                [SD_DHCP_LEASE_SIP] = {
                         link->network->dhcp_server_emit_sip,
                         link->network->dhcp_server_sip,
                         link->network->n_dhcp_server_sip,
                 },
-                [SD_DHCP_LEASE_POP3_SERVERS] = {
+                [SD_DHCP_LEASE_POP3] = {
                         true,
                         link->network->dhcp_server_pop3,
                         link->network->n_dhcp_server_pop3,
                 },
-                [SD_DHCP_LEASE_SMTP_SERVERS] = {
+                [SD_DHCP_LEASE_SMTP] = {
                         true,
                         link->network->dhcp_server_smtp,
                         link->network->n_dhcp_server_smtp,
                 },
-                [SD_DHCP_LEASE_LPR_SERVERS] = {
+                [SD_DHCP_LEASE_LPR] = {
                         true,
                         link->network->dhcp_server_lpr,
                         link->network->n_dhcp_server_lpr,
                 },
         };
-        assert_cc(ELEMENTSOF(configs) == _SD_DHCP_LEASE_INFO_MAX);
+        assert_cc(ELEMENTSOF(configs) == _SD_DHCP_LEASE_SERVER_TYPE_MAX);
 
         for (unsigned n = 0; n < ELEMENTSOF(configs); n++)
                 if (configs[n].condition) {
@@ -337,17 +337,17 @@ int dhcp4_server_configure(Link *link) {
                                 if (!uplink) {
                                         log_link_debug(link,
                                                        "Not emitting %s on link, couldn't find suitable uplink.",
-                                                       dhcp_lease_info_to_string(n));
+                                                       dhcp_lease_server_type_to_string(n));
                                         r = 0;
                                 } else if (uplink->network)
                                         r = link_push_uplink_to_dhcp_server(uplink, n, link->dhcp_server);
-                                else if (n == SD_DHCP_LEASE_DNS_SERVERS)
+                                else if (n == SD_DHCP_LEASE_DNS)
                                         r = dhcp4_server_set_dns_from_resolve_conf(link);
                         }
                         if (r < 0)
                                 log_link_warning_errno(link, r,
                                                        "Failed to set %s for DHCP server, ignoring: %m",
-                                                       dhcp_lease_info_to_string(n));
+                                                       dhcp_lease_server_type_to_string(n));
                 }
 
         r = sd_dhcp_server_set_emit_router(link->dhcp_server, link->network->dhcp_server_emit_router);
