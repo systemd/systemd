@@ -739,6 +739,9 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_dns);
         free(network->dhcp_server_ntp);
         free(network->dhcp_server_sip);
+        free(network->dhcp_server_pop3);
+        free(network->dhcp_server_smtp);
+        free(network->dhcp_server_lpr);
 
         set_free_free(network->dnssec_negative_trust_anchors);
 
