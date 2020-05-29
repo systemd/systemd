@@ -481,7 +481,7 @@ int config_parse_dhcp_server_ntp(
                                                    &n->dhcp_server_ntp, &n->n_dhcp_server_ntp);
 }
 
-int config_parse_dhcp_server_sip(
+int config_parse_dhcp_server_sip_servers(
                 const char *unit,
                 const char *filename,
                 unsigned line,

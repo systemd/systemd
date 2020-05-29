@@ -216,7 +216,7 @@ DHCPServer.DNS,                              config_parse_dhcp_server_dns,      
 DHCPServer.EmitNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_ntp)
 DHCPServer.NTP,                              config_parse_dhcp_server_ntp,                             0,                             0
 DHCPServer.EmitSIP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_sip)
-DHCPServer.SIP,                              config_parse_dhcp_server_sip,                             0,                             0
+DHCPServer.SIPServers,                       config_parse_dhcp_server_sip_servers,                     0,                             0
 DHCPServer.POP3Servers,                      config_parse_dhcp_server_pop3_servers,                    0,                             0
 DHCPServer.SMTPServers,                      config_parse_dhcp_server_smtp_servers,                    0,                             0
 DHCPServer.LPRServers,                       config_parse_dhcp_server_lpr_servers,                     0,                             0
@@ -401,6 +401,7 @@ DHCP.RapidCommit,                            config_parse_bool,                 
 DHCP.ForceDHCPv6PDOtherInformation,          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv4.UseDomainName,                        config_parse_dhcp_use_domains,                            0,                             offsetof(Network, dhcp_use_domains)
 DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
+DHCPServer.SIP,                              config_parse_dhcp_server_sip_servers,                     0,                             0
 TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,       config_parse_network_emulator_delay,   0,                             0
 TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec, config_parse_network_emulator_delay,   0,                             0

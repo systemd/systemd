@@ -1997,7 +1997,7 @@
 
       <varlistentry>
         <term><varname>EmitSIP=</varname></term>
-        <term><varname>SIP=</varname></term>
+        <term><varname>SIPServers=</varname></term>
 
         <listitem><para>Similar to the <varname>EmitDNS=</varname> and
         <varname>DNS=</varname> settings described above, these

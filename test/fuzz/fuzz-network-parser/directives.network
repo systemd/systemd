@@ -283,6 +283,7 @@ Timezone=
 EmitDNS=
 NTP=
 EmitSIP=
+SIPServers=
 SIP=
 POP3Servers=
 SMTPServers=
