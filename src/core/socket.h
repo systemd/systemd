@@ -121,6 +121,7 @@ struct Socket {
         bool broadcast;
         bool pass_cred;
         bool pass_sec;
+        bool pass_pktinfo;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
         SocketAddressBindIPv6Only bind_ipv6_only;

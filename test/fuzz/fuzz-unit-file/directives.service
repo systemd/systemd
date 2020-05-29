@@ -164,6 +164,7 @@ PIDFile=
 PartOf=
 PassCredentials=
 PassSecurity=
+PassPacketInfo=
 PathChanged=
 PathExists=
 PathExistsGlob=

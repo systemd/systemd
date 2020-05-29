@@ -17,7 +17,7 @@ Before=sockets.target
 [Socket]
 ReceiveBuffer=128M
 ListenNetlink=route 1361
-PassCredentials=yes
+PassPacketInfo=yes
 
 [Install]
 WantedBy=sockets.target

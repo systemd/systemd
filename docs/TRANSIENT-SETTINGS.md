@@ -429,6 +429,7 @@ Most socket unit settings are available to transient units.
 ✓ Broadcast=
 ✓ PassCredentials=
 ✓ PassSecurity=
+✓ PassPacketInfo=
 ✓ TCPCongestion=
 ✓ ReusePort=
 ✓ MessageQueueMaxMessages=

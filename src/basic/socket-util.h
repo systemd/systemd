@@ -220,3 +220,5 @@ int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
+
+int socket_pass_pktinfo(int fd, bool b);
