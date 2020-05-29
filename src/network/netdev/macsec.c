@@ -102,7 +102,7 @@ static void macsec_receive_channel_free(ReceiveChannel *c) {
 
         if (c->macsec) {
                 if (c->sci.as_uint64 > 0)
-                        ordered_hashmap_remove(c->macsec->receive_channels, &c->sci.as_uint64);
+                        ordered_hashmap_remove_value(c->macsec->receive_channels, &c->sci.as_uint64, c);
 
                 if (c->section)
                         ordered_hashmap_remove(c->macsec->receive_channels_by_section, c->section);
