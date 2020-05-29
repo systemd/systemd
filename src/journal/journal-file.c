@@ -445,7 +445,6 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 }
 
 static int journal_file_refresh_header(JournalFile *f) {
-        sd_id128_t boot_id;
         int r;
 
         assert(f);
@@ -458,11 +457,9 @@ static int journal_file_refresh_header(JournalFile *f) {
         else if (r < 0)
                 return r;
 
-        r = sd_id128_get_boot(&boot_id);
+        r = sd_id128_get_boot(&f->header->boot_id);
         if (r < 0)
                 return r;
-
-        f->header->boot_id = boot_id;
 
         r = journal_file_set_online(f);
 
