@@ -275,14 +275,16 @@ int unit_add_name(Unit *u, const char *text) {
         /* Ensure that this unit either has no instance, or that the instance matches. */
         if (u->type != _UNIT_TYPE_INVALID && !streq_ptr(u->instance, instance))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "instance is illegal: u->type(%d), u->instance(%s) and i(%s) for name '%s': %m",
-                                            u->type, u->instance, instance, name);
+                                            "cannot add name %s, the instances don't match (\"%s\" != \"%s\").",
+                                            name, instance, u->instance);
 
         if (u->id && !unit_type_may_alias(t))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST), "aliases are not allowed for name '%s': %m", name);
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
+                                            "cannot add name %s, aliases are not allowed for %s units.",
+                                            name, unit_type_to_string(t));
 
         if (hashmap_size(u->manager->units) >= MANAGER_MAX_NAMES)
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(E2BIG), "too many units: %m");
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(E2BIG), "cannot add name, manager has too many units: %m");
 
         /* Add name to the global hashmap first, because that's easier to undo */
         r = hashmap_put(u->manager->units, name, u);
