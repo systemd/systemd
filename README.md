@@ -14,6 +14,7 @@ System and Service Manager
 [![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)<br/>
 [![CentOS CI Build Status](https://ci.centos.org/buildStatus/icon?job=systemd-pr-build)](https://ci.centos.org/job/systemd-pr-build/)<br/>
 [![Build Status](https://dev.azure.com/evvers/systemd-systemd/_apis/build/status/systemd.systemd?branchName=master)](https://dev.azure.com/evvers/systemd-systemd/_build/latest?definitionId=1&branchName=master)<br/>
+[![Fossies codespell report](https://fossies.org/linux/test/systemd-master.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-master.tar.gz/codespell.html)</br>
 [![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)
 
 ## Details

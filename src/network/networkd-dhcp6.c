@@ -424,7 +424,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                  *    order. Prefixes that were previously already allocated to another
                  *    link will be skipped.
 
-                 * If a subnet id request couldn't be fullfilled the failure will be logged (as error)
+                 * If a subnet id request couldn't be fulfilled the failure will be logged (as error)
                  * and no further attempts at obtaining a prefix will be made.
 
                  * The assignment has to be split in two phases since subnet id
@@ -442,7 +442,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
                 /* if r == -EAGAIN then the allocation failed because we ran
                  * out of addresses for the preferred subnet id's. This doesn't
-                 * mean we can't fullfill other prefix requests.
+                 * mean we can't fulfill other prefix requests.
                  *
                  * Since we do not have dedicated lists of links that request
                  * specific subnet id's and those that accept any prefix we
@@ -458,7 +458,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                         return r;
 
                 /* If the prefix distribution did return -EAGAIN we will try to
-                 * fullfill those with the next available pd delegated prefix. */
+                 * fulfill those with the next available pd delegated prefix. */
         }
 
         return 0;
