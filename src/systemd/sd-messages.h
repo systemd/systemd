@@ -161,6 +161,11 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_UNSAFE_USER_NAME       SD_ID128_MAKE(b6,1f,da,c6,12,e9,4b,91,82,28,5b,99,88,43,06,1f)
 #define SD_MESSAGE_UNSAFE_USER_NAME_STR   SD_ID128_MAKE_STR(b6,1f,da,c6,12,e9,4b,91,82,28,5b,99,88,43,06,1f)
 
+#define SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE \
+                                          SD_ID128_MAKE(1b,3b,b9,40,37,f0,4b,bf,81,02,8e,13,5a,12,d2,93)
+#define SD_MESSAGE_MOUNT_POINT_PATH_NOT_SUITABLE_STR \
+                                          SD_ID128_MAKE_STR(1b,3b,b9,40,37,f0,4b,bf,81,02,8e,13,5a,12,d2,93)
+
 _SD_END_DECLARATIONS;
 
 #endif
