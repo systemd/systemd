@@ -94,10 +94,10 @@ bool null_or_empty(struct stat *st) {
         if (S_ISREG(st->st_mode) && st->st_size <= 0)
                 return true;
 
-        /* We don't want to hardcode the major/minor of /dev/null,
-         * hence we do a simpler "is this a device node?" check. */
+        /* We don't want to hardcode the major/minor of /dev/null, hence we do a simpler "is this a character
+         * device node?" check. */
 
-        if (S_ISCHR(st->st_mode) || S_ISBLK(st->st_mode))
+        if (S_ISCHR(st->st_mode))
                 return true;
 
         return false;
@@ -107,6 +107,10 @@ int null_or_empty_path(const char *fn) {
         struct stat st;
 
         assert(fn);
+
+        /* If we have the path, let's do an easy text comparison first. */
+        if (path_equal(fn, "/dev/null"))
+                return true;
 
         if (stat(fn, &st) < 0)
                 return -errno;
