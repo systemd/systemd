@@ -199,6 +199,7 @@ static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_TMPFS_TMP;
 static void *arg_root_hash = NULL;
+static char *arg_verity_data = NULL;
 static size_t arg_root_hash_size = 0;
 static char **arg_syscall_whitelist = NULL;
 static char **arg_syscall_blacklist = NULL;
@@ -242,6 +243,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_whitelist, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_blacklist, strv_freep);
 #if HAVE_SECCOMP
@@ -303,6 +305,7 @@ static int help(void) {
                "     --read-only            Mount the root directory read-only\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
                "     --root-hash=HASH       Specify verity root hash for root disk image\n"
+               "     --verity-data=PATH     Specify hash device for verity\n"
                "     --pivot-root=PATH[:PATH]\n"
                "                            Pivot root to given directory in the container\n\n"
                "%3$sExecution:%4$s\n"
@@ -663,6 +666,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_OCI_BUNDLE,
                 ARG_NO_PAGER,
+                ARG_VERITY_DATA,
         };
 
         static const struct option options[] = {
@@ -728,6 +732,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pipe",                   no_argument,       NULL, ARG_PIPE                   },
                 { "oci-bundle",             required_argument, NULL, ARG_OCI_BUNDLE             },
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
+                { "verity-data",            required_argument, NULL, ARG_VERITY_DATA            },
                 {}
         };
 
@@ -1315,6 +1320,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_root_hash_size = l;
                         break;
                 }
+
+                case ARG_VERITY_DATA:
+                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_data);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_SYSTEM_CALL_FILTER: {
                         bool negative;
@@ -5080,6 +5091,7 @@ static int run(int argc, char *argv[]) {
                 }
 
         } else {
+                DissectImageFlags dissect_image_flags = DISSECT_IMAGE_REQUIRE_ROOT | DISSECT_IMAGE_RELAX_VAR_CHECK;
                 assert(arg_image);
                 assert(!arg_template);
 
@@ -5129,13 +5141,13 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (!arg_root_hash) {
-                                r = root_hash_load(arg_image, &arg_root_hash, &arg_root_hash_size);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to load root hash file for %s: %m", arg_image);
-                                        goto finish;
-                                }
+                        r = verity_metadata_load(arg_image, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
+                                        arg_verity_data ? NULL : &arg_verity_data);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
+                                goto finish;
                         }
+                        dissect_image_flags |= arg_verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
                 }
 
                 if (!mkdtemp(tmprootdir)) {
@@ -5161,7 +5173,8 @@ static int run(int argc, char *argv[]) {
                                 loop->fd,
                                 arg_image,
                                 arg_root_hash, arg_root_hash_size,
-                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK,
+                                arg_verity_data,
+                                dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {
                         /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
@@ -5179,7 +5192,7 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root_hash && dissected_image->can_verity)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
 
-                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, 0, &decrypted_image);
+                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, 0, &decrypted_image);
                 if (r < 0)
                         goto finish;
 
