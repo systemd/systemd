@@ -1078,7 +1078,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
                 s = DEFAULT_DATA_HASH_TABLE_SIZE;
 
-        log_debug("Reserving %"PRIu64" entries in hash table.", s / sizeof(HashItem));
+        log_debug("Reserving %"PRIu64" entries in data hash table.", s / sizeof(HashItem));
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
@@ -1107,6 +1107,8 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
          * number should grow very slowly only */
 
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
+        log_debug("Reserving %"PRIu64" entries in field hash table.", s / sizeof(HashItem));
+
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
                                        offsetof(Object, hash_table.items) + s,
