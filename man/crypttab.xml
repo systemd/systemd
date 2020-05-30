@@ -178,6 +178,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>bitlk</option></term>
+
+        <listitem><para>Decrypt Bitlocker drive. Encryption parameters
+        are deduced by cryptsetup from Bitlocker header.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>_netdev</option></term>
 
         <listitem><para>Marks this cryptsetup device as requiring network. It will be

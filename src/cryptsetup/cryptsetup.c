@@ -38,7 +38,7 @@
 #define CRYPT_SECTOR_SIZE 512
 #define CRYPT_MAX_SECTOR_SIZE 4096
 
-static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT or CRYPT_PLAIN */
+static const char *arg_type = NULL; /* ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT, CRYPT_BITLK or CRYPT_PLAIN */
 static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
 static unsigned arg_sector_size = CRYPT_SECTOR_SIZE;
@@ -220,6 +220,11 @@ static int parse_one_option(const char *option) {
                 arg_submit_from_crypt_cpus = true;
         else if (streq(option, "luks"))
                 arg_type = ANY_LUKS;
+/* since cryptsetup 2.3.0 (Feb 2020) */
+#ifdef CRYPT_BITLK
+        else if (streq(option, "bitlk"))
+                arg_type = CRYPT_BITLK;
+#endif
         else if (streq(option, "tcrypt"))
                 arg_type = CRYPT_TCRYPT;
         else if (STR_IN_SET(option, "tcrypt-hidden", "tcrypthidden")) {
@@ -545,7 +550,7 @@ static int attach_tcrypt(
         return 0;
 }
 
-static int attach_luks_or_plain(
+static int attach_luks_or_plain_or_bitlk(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
@@ -950,6 +955,15 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
+/* since cryptsetup 2.3.0 (Feb 2020) */
+#ifdef CRYPT_BITLK
+                if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_BITLK)) {
+                        r = crypt_load(cd, CRYPT_BITLK, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", crypt_get_device_name(cd));
+                }
+#endif
+
                 for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                         _cleanup_strv_free_erase_ char **passwords = NULL;
 
@@ -988,7 +1002,7 @@ static int run(int argc, char *argv[]) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
                                 r = attach_tcrypt(cd, argv[2], key_file, key_data, key_data_size, passwords, flags);
                         else
-                                r = attach_luks_or_plain(cd, argv[2], key_file, key_data, key_data_size, passwords, flags, until);
+                                r = attach_luks_or_plain_or_bitlk(cd, argv[2], key_file, key_data, key_data_size, passwords, flags, until);
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN)
