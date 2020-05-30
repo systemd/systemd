@@ -24,6 +24,13 @@ _bootctl_set-oneshot() {
     _bootctl_comp_ids
 }
 
+_bootctl_reboot-to-firmware() {
+    local -a _completions
+    _completions=( yes no )
+    typeset -U _completions
+   _describe 'possible values' _completions
+}
+
 (( $+functions[_bootctl_commands] )) || _bootctl_commands()
 {
     local -a _bootctl_cmds
@@ -32,8 +39,11 @@ _bootctl_set-oneshot() {
         "install:Install systemd-boot to the ESP and EFI variables"
         "update:Update systemd-boot in the ESP and EFI variables"
         "remove:Remove systemd-boot from the ESP and EFI variables"
-        "random-seed:Initialize random seed in ESP and EFI variables"
         "is-installed:Test whether systemd-boot is installed in the ESP"
+        "random-seed:Initialize random seed in ESP and EFI variables"
+        "systemd-efi-options:Query or set system options string in EFI variable"
+        "reboot-to-firmware:Query or set reboot-to-firmware EFI flag"
+        "list:List boot loader entries"
         "set-default:Set the default boot loader entry"
         "set-oneshot:Set the default boot loader entry only for the next boot"
     )
@@ -59,4 +69,5 @@ _arguments \
     {-x,--print-boot-path}'[Print path to the $BOOT partition]' \
     '--no-variables[Do not touch EFI variables]' \
     '--no-pager[Do not pipe output into a pager]' \
+    '--graceful[Do not fail when locating ESP or writing fails]' \
     '*::bootctl command:_bootctl_commands'
