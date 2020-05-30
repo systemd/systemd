@@ -139,6 +139,16 @@
           </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DOCUMENTATION=</varname></term>
+        <listitem>
+          <para>A documentation URL with further information about the topic of the log message. Tools such
+          as <command>journalctl</command> will include a hyperlink to an URL specified this way in their
+          output. Should be a <literal>http://</literal>, <literal>https://</literal>,
+          <literal>file:/</literal>, <literal>man:</literal> or <literal>info:</literal> URL.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

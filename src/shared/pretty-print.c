@@ -18,7 +18,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static bool urlify_enabled(void) {
+bool urlify_enabled(void) {
         static int cached_urlify_enabled = -1;
 
         /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a

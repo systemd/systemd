@@ -107,6 +107,7 @@ static void dump_special_glyphs(void) {
         dump_glyph(SPECIAL_GLYPH_MU);
         dump_glyph(SPECIAL_GLYPH_CHECK_MARK);
         dump_glyph(SPECIAL_GLYPH_CROSS_MARK);
+        dump_glyph(SPECIAL_GLYPH_EXTERNAL_LINK);
         dump_glyph(SPECIAL_GLYPH_ECSTATIC_SMILEY);
         dump_glyph(SPECIAL_GLYPH_HAPPY_SMILEY);
         dump_glyph(SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY);
