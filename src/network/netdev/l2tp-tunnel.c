@@ -44,7 +44,7 @@ static void l2tp_session_free(L2tpSession *s) {
                 return;
 
         if (s->tunnel && s->section)
-                ordered_hashmap_remove(s->tunnel->sessions_by_section, s);
+                ordered_hashmap_remove(s->tunnel->sessions_by_section, s->section);
 
         network_config_section_free(s->section);
 
