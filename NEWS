@@ -349,6 +349,10 @@ CHANGES WITH 246 in spe:
           the default) an address from any acquire delegated prefix is
           automatically chosen and assigned to the interface.
 
+        * "systemctl reboot" takes the option "--reboot-argument=".
+          The optional positional argument to "systemctl reboot" is now
+          being deprecated in favor of this option.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an

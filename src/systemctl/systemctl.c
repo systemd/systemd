@@ -130,6 +130,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static const char *arg_reboot_argument = NULL;
 static enum action {
         ACTION_SYSTEMCTL,
         ACTION_HALT,
@@ -3556,10 +3557,23 @@ static int start_special(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (a == ACTION_REBOOT && argc > 1) {
-                r = update_reboot_parameter_and_warn(argv[1], false);
-                if (r < 0)
-                        return r;
+        if (a == ACTION_REBOOT) {
+                const char *arg = NULL;
+
+                if (argc > 1) {
+                        if (arg_reboot_argument)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Both --reboot-argument= and positional argument passed to reboot command, refusing.");
+
+                        log_notice("Positional argument to reboot command is deprecated, please use --reboot-argument= instead. Accepting anyway.");
+                        arg = argv[1];
+                } else
+                        arg = arg_reboot_argument;
+
+                if (arg) {
+                        r = update_reboot_parameter_and_warn(arg, false);
+                        if (r < 0)
+                                return r;
+                }
 
         } else if (a == ACTION_KEXEC) {
                 r = load_kexec_kernel();
@@ -7708,7 +7722,7 @@ static int systemctl_help(void) {
                "  emergency                           Enter system emergency mode\n"
                "  halt                                Shut down and halt the system\n"
                "  poweroff                            Shut down and power-off the system\n"
-               "  reboot [ARG]                        Shut down and reboot the system\n"
+               "  reboot                              Shut down and reboot the system\n"
                "  kexec                               Shut down and reboot the system with kexec\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
                "  switch-root ROOT [INIT]             Change to a different root file system\n"
@@ -8026,6 +8040,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WITH_DEPENDENCIES,
                 ARG_WAIT,
                 ARG_WHAT,
+                ARG_REBOOT_ARG,
         };
 
         static const struct option options[] = {
@@ -8079,6 +8094,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
                 { "show-transaction",    no_argument,       NULL, 'T'                     },
                 { "what",                required_argument, NULL, ARG_WHAT                },
+                { "reboot-argument",     required_argument, NULL, ARG_REBOOT_ARG          },
                 {}
         };
 
@@ -8473,6 +8489,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_REBOOT_ARG:
+                        arg_reboot_argument = optarg;
+                        break;
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */

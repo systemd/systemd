@@ -1295,7 +1295,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reboot</command> <optional><replaceable>arg</replaceable></optional></term>
+          <term><command>reboot</command></term>
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly equivalent to <command>systemctl start reboot.target
@@ -1311,11 +1311,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
             succeed even when the system manager has crashed.</para>
 
-            <para>If the optional argument <replaceable>arg</replaceable> is given, it will be passed as the optional
+            <para>If the switch <option>--reboot-argument=</option> is given, it will be passed as the optional
             argument to the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-            system call. The value is architecture and firmware specific. As an example, <literal>recovery</literal>
-            might be used to trigger system recovery, and <literal>fota</literal> might be used to trigger a
-            <quote>firmware over the air</quote> update.</para>
+            system call.</para>
           </listitem>
         </varlistentry>
 
@@ -2114,6 +2112,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           a specific boot loader entry on the following boot. Takes a boot loader entry identifier as argument, or
           <literal>help</literal> in order to list available entries. Note that not all boot loaders support this
           functionality.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--reboot-argument=</option></term>
+
+        <listitem>
+          <para>This switch is used with <command>reboot</command>. The value is architecture and firmware specific. As an example, <literal>recovery</literal>
+            might be used to trigger system recovery, and <literal>fota</literal> might be used to trigger a
+            <quote>firmware over the air</quote> update.</para>
         </listitem>
       </varlistentry>
 
