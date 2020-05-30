@@ -2969,17 +2969,20 @@ static int property_get_reboot_to_boot_loader_entry(
         return sd_bus_message_append(reply, "s", v);
 }
 
-static int boot_loader_entry_exists(const char *id) {
+static int boot_loader_entry_exists(Manager *m, const char *id) {
         _cleanup_(boot_config_free) BootConfig config = {};
         int r;
 
+        assert(m);
         assert(id);
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
         if (r < 0 && r != -ENOKEY) /* don't complain if no GPT is found, hence skip ENOKEY */
                 return r;
 
-        (void) boot_entries_augment_from_loader(&config, true);
+        r = manager_read_efi_boot_loader_entries(m);
+        if (r >= 0)
+                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries, true);
 
         return boot_config_has_entry(&config, id);
 }
@@ -3004,7 +3007,7 @@ static int method_set_reboot_to_boot_loader_entry(
         if (isempty(v))
                 v = NULL;
         else if (efi_loader_entry_name_valid(v)) {
-                r = boot_loader_entry_exists(v);
+                r = boot_loader_entry_exists(m, v);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -3123,18 +3126,21 @@ static int property_get_boot_loader_entries(
                 sd_bus_error *error) {
 
         _cleanup_(boot_config_free) BootConfig config = {};
+        Manager *m = userdata;
         size_t i;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(userdata);
+        assert(m);
 
         r = boot_entries_load_config_auto(NULL, NULL, &config);
         if (r < 0 && r != -ENOKEY) /* don't complain if there's no GPT found */
                 return r;
 
-        (void) boot_entries_augment_from_loader(&config, true);
+        r = manager_read_efi_boot_loader_entries(m);
+        if (r >= 0)
+                (void) boot_entries_augment_from_loader(&config, m->efi_boot_loader_entries, true);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)

@@ -123,6 +123,9 @@ struct Manager {
         uint64_t runtime_dir_inodes;
         uint64_t sessions_max;
         uint64_t inhibitors_max;
+
+        char **efi_boot_loader_entries;
+        bool efi_boot_loader_entries_set;
 };
 
 void manager_reset_config(Manager *m);
@@ -168,3 +171,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs_size);
 
 int manager_setup_wall_message_timer(Manager *m);
 bool logind_wall_tty_filter(const char *tty, void *userdata);
+
+int manager_read_efi_boot_loader_entries(Manager *m);

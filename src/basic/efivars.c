@@ -69,19 +69,21 @@ int efi_get_variable(
                 return 0;
         }
 
-        if (DEBUG_LOGGING)
+        if (DEBUG_LOGGING) {
+                log_debug("Reading EFI variable %s.", p);
                 begin = now(CLOCK_MONOTONIC);
+        }
 
         fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return log_debug_errno(errno, "open(\"%s\") failed: %m", p);
 
         if (fstat(fd, &st) < 0)
-                return -errno;
+                return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
         if (st.st_size < 4)
-                return -ENODATA;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable %s is shorter than 4 bytes, refusing.", p);
         if (st.st_size > 4*1024*1024 + 4)
-                return -E2BIG;
+                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "EFI variable %s is ridiculously large, refusing.", p);
 
         if (ret_value || ret_attribute) {
                 /* The kernel ratelimits reads from the efivarfs because EFI is inefficient, and we'll
@@ -96,31 +98,34 @@ int efi_get_variable(
                         n = read(fd, &a, sizeof(a));
                         if (n >= 0)
                                 break;
-                        log_debug_errno(errno, "read from \"%s\" failed: %m", p);
+                        log_debug_errno(errno, "Reading from \"%s\" failed: %m", p);
                         if (errno != EINTR)
                                 return -errno;
                         if (try >= EFI_N_RETRIES)
                                 return -EBUSY;
-                        usleep(EFI_RETRY_DELAY);
+
+                        (void) usleep(EFI_RETRY_DELAY);
                 }
 
                 if (n != sizeof(a))
-                        return -EIO;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Read %zi bytes from EFI variable %s, expected %zu.",  n, p, sizeof(a));
         }
 
         if (ret_value) {
-                buf = malloc(st.st_size - 4 + 2);
+                buf = malloc(st.st_size - 4 + 3);
                 if (!buf)
                         return -ENOMEM;
 
                 n = read(fd, buf, (size_t) st.st_size - 4);
                 if (n < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to read value of EFI variable %s: %m", p);
                 assert(n <= st.st_size - 4);
 
-                /* Always NUL terminate (2 bytes, to protect UTF-16) */
+                /* Always NUL terminate (3 bytes, to properly protect UTF-16, even if truncated in the middle of a character) */
                 ((char*) buf)[n] = 0;
                 ((char*) buf)[n + 1] = 0;
+                ((char*) buf)[n + 2] = 0;
         } else
                 /* Assume that the reported size is accurate */
                 n = st.st_size - 4;
@@ -228,6 +233,14 @@ int efi_set_variable(
         r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
         if (r < 0)
                 goto finish;
+
+        /* For some reason efivarfs doesn't update mtime automatically. Let's do it manually then. This is
+         * useful for processes that cache EFI variables to detect when changes occurred. */
+        if (futimens(fd, (struct timespec[2]) {
+                                { .tv_nsec = UTIME_NOW },
+                                { .tv_nsec = UTIME_NOW }
+                        }) < 0)
+                log_debug_errno(errno, "Failed to update mtime/atime on %s, ignoring: %m", p);
 
         r = 0;
 
