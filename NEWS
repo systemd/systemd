@@ -122,6 +122,10 @@ CHANGES WITH 246 in spe:
           sd_bus_member_name_is_valid() + sd_bus_object_path_is_valid() will
           validate strings to check if they qualify as various D-Bus concepts.
 
+        * The sd-bus api gained the SD_BUS_METHOD_WITH_ARGS(),
+          SD_BUS_METHOD_WITH_ARGS_OFFSET() and SD_BUS_SIGNAL_WITH_ARGS() macros
+          that simplify adding argument names to D-Bus methods and signals.
+
         * systemctl gained a new "-P" switch that is a shortcut for "--value
           --property=…".
 
