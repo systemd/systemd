@@ -25,7 +25,8 @@
 #if ENABLE_EFI
 
 /* Reads from efivarfs sometimes fail with EINTR. Retry that many times. */
-#define EFI_N_RETRIES 5
+#define EFI_N_RETRIES_NO_DELAY 20
+#define EFI_N_RETRIES_TOTAL 25
 #define EFI_RETRY_DELAY (50 * USEC_PER_MSEC)
 
 char* efi_variable_path(sd_id128_t vendor, const char *name) {
@@ -101,10 +102,11 @@ int efi_get_variable(
                         log_debug_errno(errno, "Reading from \"%s\" failed: %m", p);
                         if (errno != EINTR)
                                 return -errno;
-                        if (try >= EFI_N_RETRIES)
+                        if (try >= EFI_N_RETRIES_TOTAL)
                                 return -EBUSY;
 
-                        (void) usleep(EFI_RETRY_DELAY);
+                        if (try >= EFI_N_RETRIES_NO_DELAY)
+                                (void) usleep(EFI_RETRY_DELAY);
                 }
 
                 if (n != sizeof(a))
