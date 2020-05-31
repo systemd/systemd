@@ -46,9 +46,19 @@ static void test_parse_uid(void) {
 
         r = parse_uid("65535", &uid);
         assert_se(r == -ENXIO);
+        assert_se(uid == 100);
+
+        r = parse_uid("0x1234", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
+        r = parse_uid("01234", &uid);
+        assert_se(r == 0);
+        assert_se(uid == 1234);
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
+        assert_se(uid == 1234);
 }
 
 static void test_uid_ptr(void) {

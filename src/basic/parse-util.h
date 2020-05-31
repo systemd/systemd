@@ -50,9 +50,13 @@ static inline int safe_atoux16(const char *s, uint16_t *ret) {
 
 int safe_atoi16(const char *s, int16_t *ret);
 
-static inline int safe_atou32(const char *s, uint32_t *ret_u) {
+static inline int safe_atou32_full(const char *s, unsigned base, uint32_t *ret_u) {
         assert_cc(sizeof(uint32_t) == sizeof(unsigned));
-        return safe_atou(s, (unsigned*) ret_u);
+        return safe_atou_full(s, base, (unsigned*) ret_u);
+}
+
+static inline int safe_atou32(const char *s, uint32_t *ret_u) {
+        return safe_atou32_full(s, 0, (unsigned*) ret_u);
 }
 
 static inline int safe_atoi32(const char *s, int32_t *ret_i) {
