@@ -1400,7 +1400,20 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
          * target unit needlessly. But we cannot be sure which drops-ins have already
          * been loaded and which not, at least without doing complicated book-keeping,
          * so let's always reread all drop-ins. */
-        return unit_load_dropin(unit_follow_merge(u));
+        r = unit_load_dropin(unit_follow_merge(u));
+        if (r < 0)
+                return r;
+
+        if (u->source_path) {
+                struct stat st;
+
+                if (stat(u->source_path, &st) >= 0)
+                        u->source_mtime = timespec_load(&st.st_mtim);
+                else
+                        u->source_mtime = 0;
+        }
+
+        return 0;
 }
 
 void unit_add_to_target_deps_queue(Unit *u) {
