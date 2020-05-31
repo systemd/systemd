@@ -47,9 +47,14 @@ int parse_uid(const char *s, uid_t *ret) {
         int r;
 
         assert(s);
-
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        /* Explicitly forbid numbers in bases other than decimal */
+        if (!in_charset(s, "0123456789") || (strlen(s) > 1 && s[0] == '0'))
+            return -EINVAL;
+
         r = safe_atou32(s, &uid);
+
         if (r < 0)
                 return r;
 
