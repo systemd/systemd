@@ -559,7 +559,9 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         if ((unsigned long) (uint16_t) l != l)
                 return -ERANGE;
 
-        *ret = (uint16_t) l;
+        if (ret)
+                *ret = (uint16_t) l;
+
         return 0;
 }
 
