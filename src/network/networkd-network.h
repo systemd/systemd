@@ -95,7 +95,7 @@ struct Network {
         char **dhcp_user_class;
         char *dhcp_hostname;
         uint64_t dhcp_max_attempts;
-        unsigned dhcp_route_metric;
+        uint32_t dhcp_route_metric;
         uint32_t dhcp_route_table;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
