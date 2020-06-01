@@ -335,6 +335,7 @@ int network_verify(Network *network) {
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         char *d;
@@ -522,7 +523,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                               "TokenBucketFilter\0"
                               "TrivialLinkEqualizer\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
-                              CONFIG_PARSE_WARN, network);
+                              CONFIG_PARSE_WARN, network, &dropins);
         if (r < 0)
                 return r;
 
@@ -538,9 +539,22 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                                   network->filename);
 
         struct stat stats;
-        if (stat(filename, &stats) < 0)
-                return -errno;
-        network->timestamp = timespec_load(&stats.st_mtim);
+        if (stat(filename, &stats) >= 0)
+                network->timestamp = timespec_load(&stats.st_mtim);
+
+        char **f;
+        STRV_FOREACH(f, dropins) {
+                usec_t t;
+
+                if (stat(*f, &stats) < 0) {
+                        network->timestamp = 0;
+                        break;
+                }
+
+                t = timespec_load(&stats.st_mtim);
+                if (t > network->timestamp)
+                        network->timestamp = t;
+        }
 
         if (network_verify(network) < 0)
                 /* Ignore .network files that do not match the conditions. */
