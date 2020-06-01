@@ -746,6 +746,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun99',
         'vxcan99',
         'vxlan99',
+        'wg97',
         'wg98',
         'wg99',
     ]
@@ -832,6 +833,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
+        '25-wireguard-no-peer.netdev',
+        '25-wireguard-no-peer.network',
         '25-wireguard-preshared-key.txt',
         '25-wireguard-private-key.txt',
         '25-wireguard.netdev',
@@ -1115,9 +1118,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     def test_wireguard(self):
         copy_unit_to_networkd_unit_path('25-wireguard.netdev', '25-wireguard.network',
                                         '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
-                                        '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt')
+                                        '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
+                                        '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
         start_networkd()
-        self.wait_online(['wg99:carrier', 'wg98:routable'])
+        self.wait_online(['wg99:carrier', 'wg98:routable', 'wg97:carrier'])
 
         if shutil.which('wg'):
             call('wg')
@@ -1141,6 +1145,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
             output = check_output('wg show wg98 private-key')
             self.assertRegex(output, r'CJQUtcS9emY2fLYqDlpSZiE/QJyHkPWr\+WHtZLZ90FU=')
+
+            output = check_output('wg show wg97 listen-port')
+            self.assertRegex(output, '51821')
+            output = check_output('wg show wg97 fwmark')
+            self.assertRegex(output, '0x4d3')
 
     def test_geneve(self):
         copy_unit_to_networkd_unit_path('25-geneve.netdev', 'netdev-link-local-addressing-yes.network')
