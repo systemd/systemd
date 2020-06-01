@@ -132,6 +132,7 @@ struct Network {
         bool dhcp6_use_ntp;
         bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
+        uint32_t dhcp6_route_metric;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;

@@ -410,6 +410,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_timezone = false,
                 .rapid_commit = true,
 
+                .dhcp6_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 

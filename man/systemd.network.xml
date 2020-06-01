@@ -1614,8 +1614,7 @@
         <varlistentry>
           <term><varname>RouteMetric=</varname></term>
           <listitem>
-            <para>Set the routing metric for routes specified by the
-            DHCP server.</para>
+            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
@@ -1731,6 +1730,13 @@
           <term><varname>UseNTP=</varname></term>
           <listitem>
             <para>As in the <literal>[DHCPv4]</literal> section.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteMetric=</varname></term>
+          <listitem>
+            <para>Set the routing metric for routes specified by the DHCP server. Defaults to 1024.</para>
           </listitem>
         </varlistentry>
 
