@@ -59,9 +59,9 @@ in particular realize that they may include binary non-text data (though
 usually don't), and the same field might have multiple values assigned within
 the same entry.
 
-This document describes the current format of systemd 195. The documented
+This document describes the current format of systemd 246. The documented
 format is compatible with the format used in the first versions of the journal,
-but received various compatible additions since.
+but received various compatible and incompatible additions since.
 
 If you are wondering why the journal file format has been created in the first
 place instead of adopting an existing database implementation, please have a
@@ -73,7 +73,7 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 * All offsets, sizes, time values, hashes (and most other numeric values) are 64bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
-* The 64bit hash function used is [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function), more specifically jenkins_hashlittle2() with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
+* The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically jenkins_hashlittle2() with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
 * All structures are aligned to 64bit boundaries and padded to multiples of 64bit
 * The format is designed to be read and written via memory mapping using multiple mapped windows.
 * All time values are stored in usec since the respective epoch.
@@ -174,6 +174,9 @@ _packed_ struct Header {
         /* Added in 189 */
         le64_t n_tags;
         le64_t n_entry_arrays;
+        /* Added in 246 */
+        le64_t data_hash_chain_depth;
+        le64_t field_hash_chain_depth;
 };
 ```
 
@@ -218,6 +221,16 @@ entry has been written yet.
 **tail_entry_monotonic** is the monotonic timestamp of the last entry in the
 file, referring to monotonic time of the boot identified by **boot_id**.
 
+**data_hash_chain_depth** is a counter of the deepest chain in the data hash
+table, minus one. This is updated whenever a chain is found that is longer than
+the previous deepest chain found. Note that the counter is updated during hash
+table lookups, as the chains are traversed. This counter is used to determine
+when it is a good time to rotate the journal file, because hash collisions
+became too frequent.
+
+Similar, **field_hash_chain_depth** is a counter of the deepest chain in the
+field hash table, minus one.
+
 
 ## Extensibility
 
@@ -238,20 +251,30 @@ unconditionally exist in all revisions of the file format, all fields starting
 with "n_data" needs to be explicitly checked for via a size check, since they
 were additions after the initial release.
 
-Currently only two extensions flagged in the flags fields are known:
+Currently only five extensions flagged in the flags fields are known:
 
 ```c
 enum {
-        HEADER_INCOMPATIBLE_COMPRESSED = 1
+        HEADER_INCOMPATIBLE_COMPRESSED_XZ   = 1 << 0,
+        HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
+        HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
+        HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
 };
 
 enum {
-        HEADER_COMPATIBLE_SEALED = 1
+        HEADER_COMPATIBLE_SEALED = 1 << 0,
 };
 ```
 
-HEADER_INCOMPATIBLE_COMPRESSED indicates that the file includes DATA objects
-that are compressed using XZ.
+HEADER_INCOMPATIBLE_COMPRESSED_XZ indicates that the file includes DATA objects
+that are compressed using XZ. Similarly, HEADER_INCOMPATIBLE_COMPRESSED_LZ4
+indicates that the file includes DATA objects that are compressed with the LZ4
+algorithm. And HEADER_INCOMPATIBLE_COMPRESSED_ZSTD indicates that there are
+objects compressed with ZSTD.
+
+HEADER_INCOMPATIBLE_KEYED_HASH indicates that instead of the unkeyed Jenkins
+hash function the keyed siphash24 hash function is used for the two hash
+tables, see below.
 
 HEADER_COMPATIBLE_SEALED indicates that the file includes TAG objects required
 for Forward Secure Sealing.
@@ -308,9 +331,9 @@ structure gracefully. (Checking what you read is a pretty good idea out of
 security considerations anyway.) This specifically includes checking offset
 values, and that they point to valid objects, with valid sizes and of the type
 and hash value expected. All code must be written with the fact in mind that a
-file with inconsistent structure file might just be inconsistent temporarily,
-and might become consistent later on. Payload OTOH requires less scrutiny, as
-it should only be linked up (and hence visible to readers) after it was
+file with inconsistent structure might just be inconsistent temporarily, and
+might become consistent later on. Payload OTOH requires less scrutiny, as it
+should only be linked up (and hence visible to readers) after it was
 successfully written to memory (though not necessarily to disk). On non-local
 file systems it is a good idea to verify the payload hashes when reading, in
 order to avoid annoyances with mmap() inconsistencies.
@@ -319,8 +342,8 @@ Clients intending to show a live view of the journal should use inotify() for
 this to watch for files changes. Since file writes done via mmap() do not
 result in inotify() writers shall truncate the file to its current size after
 writing one or more entries, which results in inotify events being
-generated. Note that this is not used as transaction scheme (it doesn't protect
-anything), but merely for triggering wakeups.
+generated. Note that this is not used as a transaction scheme (it doesn't
+protect anything), but merely for triggering wakeups.
 
 Note that inotify will not work on network file systems if reader and writer
 reside on different hosts. Readers which detect they are run on journal files
@@ -334,7 +357,9 @@ All objects carry a common header:
 
 ```c
 enum {
-        OBJECT_COMPRESSED = 1
+        OBJECT_COMPRESSED_XZ   = 1 << 0,
+        OBJECT_COMPRESSED_LZ4  = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD = 1 << 2,
 };
 
 _packed_ struct ObjectHeader {
@@ -346,10 +371,13 @@ _packed_ struct ObjectHeader {
 };
 
 The **type** field is one of the object types listed above. The **flags** field
-currently knows one flag: OBJECT_COMPRESSED. It is only valid for DATA objects
-and indicates that the data payload is compressed with XZ. If OBJECT_COMPRESSED
-is set for an object HEADER_INCOMPATIBLE_COMPRESSED must be set for the file as
-well. The **size** field encodes the size of the object including all its
+currently knows three flags: OBJECT_COMPRESSED_XZ, OBJECT_COMPRESSED_LZ4 and
+OBJECT_COMPRESSED_ZSTD. It is only valid for DATA objects and indicates that
+the data payload is compressed with XZ/LZ4/ZSTD. If one of the
+OBJECT_COMPRESSED_* flags is set for an object then the matching
+HEADER_INCOMPATIBLE_COMPRESSED_XZ/HEADER_INCOMPATIBLE_COMPRESSED_LZ4/HEADER_INCOMPATIBLE_COMPRESSED_ZSTD
+flag must be set for the file as well. At most one of these three bits may be
+set. The **size** field encodes the size of the object including all its
 headers and payload.
 
 
@@ -371,7 +399,12 @@ _packed_ struct DataObject {
 Data objects carry actual field data in the **payload[]** array, including a
 field name, a '=' and the field data. Example:
 `_SYSTEMD_UNIT=foobar.service`. The **hash** field is a hash value of the
-payload.
+payload. If the `HEADER_INCOMPATIBLE_KEYED_HASH` flag is set in the file header
+this is the siphash24 hash value of the payload, keyed by the file ID as stored
+in the `.file_id` field of the file header. If the flag is not set it is the
+non-keyed Jenkins hash of the payload instead. The keyed hash is preferred as
+it makes the format more robust against attackers that want to trigger hash
+collisions in the hash table.
 
 **next_hash_offset** is used to link up DATA objects in the DATA_HASH_TABLE if
 a hash collision happens (in a singly linked list, with an offset of 0
@@ -388,8 +421,9 @@ number of ENTRY objects that reference this object, i.e. the sum of all
 ENTRY_ARRAYS chained up from this object, plus 1.
 
 The **payload[]** field contains the field name and date unencoded, unless
-OBJECT_COMPRESSED is set in the `ObjectHeader`, in which case the payload is
-LZMA compressed.
+OBJECT_COMPRESSED_XZ/OBJECT_COMPRESSED_LZ4/OBJECT_COMPRESSED_ZSTD is set in the
+`ObjectHeader`, in which case the payload is compressed with the indicated
+compression algorithm.
 
 
 ## Field Objects
@@ -448,10 +482,17 @@ identified by **boot_id**.
 The **xor_hash** field contains a binary XOR of the hashes of the payload of
 all DATA objects referenced by this ENTRY. This value is usable to check the
 contents of the entry, being independent of the order of the DATA objects in
-the array.
+the array. Note that even for files that have the
+`HEADER_INCOMPATIBLE_KEYED_HASH` flag set (and thus siphash24 the otherwise
+used hash function) the hash function used for this field, as singular
+exception, is the Jenkins lookup3 hash function. The XOR hash value is used to
+quickly compare the contents of two entries, and to define a well-defined order
+between two entries that otherwise have the same sequence numbers and
+timestamps.
 
 The **items[]** array contains references to all DATA objects of this entry,
-plus their respective hashes.
+plus their respective hashes (which are calculated the same way as in the DATA
+objects, i.e. keyed by the file ID).
 
 In the file ENTRY objects are written ordered monotonically by sequence
 number. For continuous parts of the file written during the same boot
@@ -494,8 +535,8 @@ and create a new one.
 
 The DATA_HASH_TABLE should be sized taking into account to the maximum size the
 file is expected to grow, as configured by the administrator or disk space
-considerations. The FIELD_HASH_TABLE should be sized to a fixed size, as the
-number of fields should be pretty static it depends only on developers'
+considerations. The FIELD_HASH_TABLE should be sized to a fixed size; the
+number of fields should be pretty static as it depends only on developers'
 creativity rather than runtime parameters.
 
 
