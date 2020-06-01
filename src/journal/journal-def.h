@@ -74,13 +74,17 @@ struct DataObject DataObject__contents;
 struct DataObject__packed DataObject__contents _packed_;
 assert_cc(sizeof(struct DataObject) == sizeof(struct DataObject__packed));
 
-struct FieldObject {
-        ObjectHeader object;
-        le64_t hash;
-        le64_t next_hash_offset;
-        le64_t head_data_offset;
-        uint8_t payload[];
-} _packed_;
+#define FieldObject__contents {                 \
+        ObjectHeader object;                    \
+        le64_t hash;                            \
+        le64_t next_hash_offset;                \
+        le64_t head_data_offset;                \
+        uint8_t payload[];                      \
+}
+
+struct FieldObject FieldObject__contents;
+struct FieldObject__packed FieldObject__contents _packed_;
+assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
 
 struct EntryItem {
         le64_t object_offset;
@@ -210,12 +214,15 @@ enum {
         /* Added in 189 */                              \
         le64_t n_tags;                                  \
         le64_t n_entry_arrays;                          \
+        /* Added in 246 */                              \
+        le64_t data_hash_chain_depth;                   \
+        le64_t field_hash_chain_depth;                  \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 240);
+assert_cc(sizeof(struct Header) == 256);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })

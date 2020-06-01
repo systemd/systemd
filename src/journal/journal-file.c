@@ -82,6 +82,9 @@
 /* The mmap context to use for the header we pick as one above the last defined typed */
 #define CONTEXT_HEADER _OBJECT_TYPE_MAX
 
+/* Longest hash chain to rotate after */
+#define HASH_CHAIN_DEPTH_MAX 100
+
 #ifdef __clang__
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
@@ -1288,12 +1291,38 @@ static int journal_file_link_data(
         return 0;
 }
 
+static int next_hash_offset(
+                JournalFile *f,
+                uint64_t *p,
+                le64_t *next_hash_offset,
+                uint64_t *depth,
+                le64_t *header_max_depth) {
+
+        uint64_t nextp;
+
+        nextp = le64toh(READ_NOW(*next_hash_offset));
+        if (nextp > 0) {
+                if (nextp <= *p) /* Refuse going in loops */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Detected hash item loop in %s, refusing.", f->path);
+
+                (*depth)++;
+
+                /* If the depth of this hash chain is larger than all others we have seen so far, record it */
+                if (header_max_depth && f->writable)
+                        *header_max_depth = htole64(MAX(*depth, le64toh(*header_max_depth)));
+        }
+
+        *p = nextp;
+        return 0;
+}
+
 int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t p, osize, h, m;
+        uint64_t p, osize, h, m, depth = 0;
         int r;
 
         assert(f);
@@ -1317,7 +1346,6 @@ int journal_file_find_field_object_with_hash(
 
         h = hash % m;
         p = le64toh(f->field_hash_table[h].head_hash_offset);
-
         while (p > 0) {
                 Object *o;
 
@@ -1337,7 +1365,14 @@ int journal_file_find_field_object_with_hash(
                         return 1;
                 }
 
-                p = le64toh(o->field.next_hash_offset);
+                r = next_hash_offset(
+                                f,
+                                &p,
+                                &o->field.next_hash_offset,
+                                &depth,
+                                JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth) ? &f->header->field_hash_chain_depth : NULL);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1380,7 +1415,7 @@ int journal_file_find_data_object_with_hash(
                 const void *data, uint64_t size, uint64_t hash,
                 Object **ret, uint64_t *ret_offset) {
 
-        uint64_t p, osize, h, m;
+        uint64_t p, osize, h, m, depth = 0;
         int r;
 
         assert(f);
@@ -1458,7 +1493,14 @@ int journal_file_find_data_object_with_hash(
                 }
 
         next:
-                p = le64toh(o->data.next_hash_offset);
+                r = next_hash_offset(
+                                f,
+                                &p,
+                                &o->data.next_hash_offset,
+                                &depth,
+                                JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth) ? &f->header->data_hash_chain_depth : NULL);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -3241,6 +3283,14 @@ void journal_file_print_header(JournalFile *f) {
                 printf("Entry array objects: %"PRIu64"\n",
                        le64toh(f->header->n_entry_arrays));
 
+        if (JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth))
+                printf("Deepest field hash chain: %" PRIu64"\n",
+                       f->header->field_hash_chain_depth);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth))
+                printf("Deepest data hash chain: %" PRIu64"\n",
+                       f->header->data_hash_chain_depth);
+
         if (fstat(f->fd, &st) >= 0)
                 printf("Disk usage: %s\n", format_bytes(bytes, sizeof(bytes), (uint64_t) st.st_blocks * 512ULL));
 }
@@ -4006,11 +4056,9 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
                 return true;
         }
 
-        /* Let's check if the hash tables grew over a certain fill
-         * level (75%, borrowing this value from Java's hash table
-         * implementation), and if so suggest a rotation. To calculate
-         * the fill level we need the n_data field, which only exists
-         * in newer versions. */
+        /* Let's check if the hash tables grew over a certain fill level (75%, borrowing this value from
+         * Java's hash table implementation), and if so suggest a rotation. To calculate the fill level we
+         * need the n_data field, which only exists in newer versions. */
 
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data))
                 if (le64toh(f->header->n_data) * 4ULL > (le64toh(f->header->data_hash_table_size) / sizeof(HashItem)) * 3ULL) {
@@ -4033,6 +4081,22 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec) {
                                   le64toh(f->header->field_hash_table_size) / sizeof(HashItem));
                         return true;
                 }
+
+        /* If there are too many hash collisions somebody is most likely playing games with us. Hence, if our
+         * longest chain is longer than some threshold, let's suggest rotation. */
+        if (JOURNAL_HEADER_CONTAINS(f->header, data_hash_chain_depth) &&
+            le64toh(f->header->data_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
+                log_debug("Data hash table of %s has deepest hash chain of length %" PRIu64 ", suggesting rotation.",
+                          f->path, le64toh(f->header->data_hash_chain_depth));
+                return true;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, field_hash_chain_depth) &&
+            le64toh(f->header->field_hash_chain_depth) > HASH_CHAIN_DEPTH_MAX) {
+                log_debug("Field hash table of %s has deepest hash chain of length at %" PRIu64 ", suggesting rotation.",
+                          f->path, le64toh(f->header->field_hash_chain_depth));
+                return true;
+        }
 
         /* Are the data objects properly indexed by field objects? */
         if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
