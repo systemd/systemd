@@ -107,7 +107,11 @@
         settings. The argument should be a valid locale identifier,
         such as <literal>de_DE.UTF-8</literal>. This controls the
         <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file.</para></listitem>
+        configuration file.</para>
+
+        <para>If the <command>locale-gen</command> binary is found, This option additionally writes the given
+        locale to <filename>/etc/locale.gen</filename>. Note that it is still up to the user to run
+        <command>locale-gen</command> to actually generate the locale.</para></listitem>
       </varlistentry>
 
       <varlistentry>

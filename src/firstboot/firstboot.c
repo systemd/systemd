@@ -271,7 +271,7 @@ static int prompt_locale(void) {
         return 0;
 }
 
-static int process_locale(void) {
+static int process_locale_conf(void) {
         const char *etc_localeconf;
         char* locales[3];
         unsigned i = 0;
@@ -314,6 +314,61 @@ static int process_locale(void) {
                 return log_error_errno(r, "Failed to write %s: %m", etc_localeconf);
 
         log_info("%s written.", etc_localeconf);
+        return 0;
+}
+
+static int process_locale_gen(void) {
+        _cleanup_free_ char *line = NULL;
+        const char *etc_localegen, *charset;
+        int r;
+
+        if (find_binary("locale-gen", arg_root, NULL) < 0) {
+                log_debug("locale-gen not found, skipping locale generation");
+                return 0;
+        }
+
+        etc_localegen = prefix_roota(arg_root, "/etc/locale.gen");
+        if (laccess(etc_localegen, F_OK) >= 0 && !arg_force)
+                return 0;
+
+        if (arg_copy_locale && arg_root) {
+
+                (void) mkdir_parents(etc_localegen, 0755);
+                r = copy_file("/etc/locale.gen", etc_localegen, 0, 0644, 0, 0, COPY_REFLINK);
+                if (r != -ENOENT) {
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy %s: %m", etc_localegen);
+
+                        log_info("%s copied.", etc_localegen);
+                        return 0;
+                }
+        }
+
+        /* No prompt here. We rely on the prompt done by process_locale_conf() instead. */
+
+        if (isempty(arg_locale))
+                return 0;
+
+         /* Try to determine the charset from the given locale. */
+        charset = strrchr(arg_locale, '.');
+        if (charset)
+                charset++;
+        else {
+                log_info("Could not determine locale (%s) charset, assuming UTF-8", arg_locale);
+                charset = "UTF-8";
+        }
+
+        line = strjoin(arg_locale, " ", charset);
+        if (!line)
+                return -ENOMEM;
+
+        r = write_string_file(etc_localegen, line,
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_SYNC | WRITE_STRING_FILE_MKDIR_0755 |
+                              (arg_force ? WRITE_STRING_FILE_ATOMIC : 0));
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_localegen);
+
+        log_info("%s written", etc_localegen);
         return 0;
 }
 
@@ -1141,7 +1196,13 @@ static int run(int argc, char *argv[]) {
         if (r > 0 && !enabled)
                 return 0; /* disabled */
 
-        r = process_locale();
+        r = process_locale_conf();
+        if (r < 0)
+                return r;
+
+        /* process_locale_gen() depends on the prompt_locale() call made in process_locale_conf(). */
+
+        r = process_locale_gen();
         if (r < 0)
                 return r;
 

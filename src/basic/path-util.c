@@ -635,7 +635,6 @@ int find_binary(const char *name, const char *root, char **ret) {
 
         for (;;) {
                 _cleanup_free_ char *j = NULL, *element = NULL;
-                const char *path;
 
                 r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
@@ -646,9 +645,7 @@ int find_binary(const char *name, const char *root, char **ret) {
                 if (!path_is_absolute(element))
                         continue;
 
-                path = prefix_roota(root, element);
-
-                j = path_join(path, name);
+                j = path_join(root, element, name);
                 if (!j)
                         return -ENOMEM;
 
