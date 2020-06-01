@@ -416,7 +416,7 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (unsigned) l != l)
                 return -ERANGE;
@@ -475,7 +475,7 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (*s == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
 
         if (ret_llu)
@@ -517,7 +517,7 @@ int safe_atou8(const char *s, uint8_t *ret) {
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (uint8_t) l != l)
                 return -ERANGE;
@@ -554,7 +554,7 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (uint16_t) l != l)
                 return -ERANGE;
