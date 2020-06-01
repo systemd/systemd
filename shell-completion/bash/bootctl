@@ -31,7 +31,7 @@ _bootctl() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local -A OPTS=(
-        [STANDALONE]='-h --help --no-variables -p --print-esp-path -x --print-boot-path --version --no-pager'
+        [STANDALONE]='-h --help -p --print-esp-path -x --print-boot-path --version --no-variables --no-pager --graceful'
         [ARG]='--esp-path --boot-path'
     )
 
@@ -56,8 +56,10 @@ _bootctl() {
     fi
 
     local -A VERBS=(
-        [STANDALONE]='help install list remove status update'
+        # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
+        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list'
         [BOOTENTRY]='set-default set-oneshot'
+        [BOOLEAN]='reboot-to-firmware'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -86,6 +88,8 @@ _bootctl() {
         else
             comps=''
         fi
+    elif __contains_word "$verb" ${VERBS[BOOLEAN]}; then
+        comps="yes no"
     fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

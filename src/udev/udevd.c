@@ -1472,7 +1472,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-               "Manages devices.\n\n"
+               "Rule-based manager for device events and files.\n\n"
                "  -h --help                   Print this message\n"
                "  -V --version                Print version of the program\n"
                "  -d --daemon                 Detach and run in the background\n"

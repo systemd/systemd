@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=udev Kernel Device Manager
+Description=Rule-based manager for device events and files
 Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
 After=systemd-sysusers.service systemd-hwdb-update.service
