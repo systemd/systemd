@@ -1000,7 +1000,13 @@ static uint64_t journal_file_entry_seqnum(JournalFile *f, uint64_t *seqnum) {
         return r;
 }
 
-int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, Object **ret, uint64_t *offset) {
+int journal_file_append_object(
+                JournalFile *f,
+                ObjectType type,
+                uint64_t size,
+                Object **ret,
+                uint64_t *ret_offset) {
+
         int r;
         uint64_t p;
         Object *tail, *o;
@@ -1010,8 +1016,6 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
         assert(f->header);
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
-        assert(offset);
-        assert(ret);
 
         r = journal_file_set_online(f);
         if (r < 0)
@@ -1055,8 +1059,11 @@ int journal_file_append_object(JournalFile *f, ObjectType type, uint64_t size, O
         f->header->tail_object_offset = htole64(p);
         f->header->n_objects = htole64(le64toh(f->header->n_objects) + 1);
 
-        *ret = o;
-        *offset = p;
+        if (ret)
+                *ret = o;
+
+        if (ret_offset)
+                *ret_offset = p;
 
         return 0;
 }
@@ -1275,7 +1282,7 @@ static int journal_file_link_data(
 int journal_file_find_field_object_with_hash(
                 JournalFile *f,
                 const void *field, uint64_t size, uint64_t hash,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t p, osize, h, m;
         int r;
@@ -1315,8 +1322,8 @@ int journal_file_find_field_object_with_hash(
 
                         if (ret)
                                 *ret = o;
-                        if (offset)
-                                *offset = p;
+                        if (ret_offset)
+                                *ret_offset = p;
 
                         return 1;
                 }
@@ -1330,7 +1337,7 @@ int journal_file_find_field_object_with_hash(
 int journal_file_find_field_object(
                 JournalFile *f,
                 const void *field, uint64_t size,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t hash;
 
@@ -1339,15 +1346,16 @@ int journal_file_find_field_object(
 
         hash = hash64(field, size);
 
-        return journal_file_find_field_object_with_hash(f,
-                                                        field, size, hash,
-                                                        ret, offset);
+        return journal_file_find_field_object_with_hash(
+                        f,
+                        field, size, hash,
+                        ret, ret_offset);
 }
 
 int journal_file_find_data_object_with_hash(
                 JournalFile *f,
                 const void *data, uint64_t size, uint64_t hash,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t p, osize, h, m;
         int r;
@@ -1406,8 +1414,8 @@ int journal_file_find_data_object_with_hash(
                                 if (ret)
                                         *ret = o;
 
-                                if (offset)
-                                        *offset = p;
+                                if (ret_offset)
+                                        *ret_offset = p;
 
                                 return 1;
                         }
@@ -1420,8 +1428,8 @@ int journal_file_find_data_object_with_hash(
                         if (ret)
                                 *ret = o;
 
-                        if (offset)
-                                *offset = p;
+                        if (ret_offset)
+                                *ret_offset = p;
 
                         return 1;
                 }
@@ -1436,7 +1444,7 @@ int journal_file_find_data_object_with_hash(
 int journal_file_find_data_object(
                 JournalFile *f,
                 const void *data, uint64_t size,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t hash;
 
@@ -1445,15 +1453,16 @@ int journal_file_find_data_object(
 
         hash = hash64(data, size);
 
-        return journal_file_find_data_object_with_hash(f,
-                                                       data, size, hash,
-                                                       ret, offset);
+        return journal_file_find_data_object_with_hash(
+                        f,
+                        data, size, hash,
+                        ret, ret_offset);
 }
 
 static int journal_file_append_field(
                 JournalFile *f,
                 const void *field, uint64_t size,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t hash, p;
         uint64_t osize;
@@ -1473,8 +1482,8 @@ static int journal_file_append_field(
                 if (ret)
                         *ret = o;
 
-                if (offset)
-                        *offset = p;
+                if (ret_offset)
+                        *ret_offset = p;
 
                 return 0;
         }
@@ -1506,8 +1515,8 @@ static int journal_file_append_field(
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = p;
+        if (ret_offset)
+                *ret_offset = p;
 
         return 0;
 }
@@ -1515,7 +1524,7 @@ static int journal_file_append_field(
 static int journal_file_append_data(
                 JournalFile *f,
                 const void *data, uint64_t size,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t hash, p;
         uint64_t osize;
@@ -1536,8 +1545,8 @@ static int journal_file_append_data(
                 if (ret)
                         *ret = o;
 
-                if (offset)
-                        *offset = p;
+                if (ret_offset)
+                        *ret_offset = p;
 
                 return 0;
         }
@@ -1607,8 +1616,8 @@ static int journal_file_append_data(
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = p;
+        if (ret_offset)
+                *ret_offset = p;
 
         return 0;
 }
@@ -1832,7 +1841,7 @@ static int journal_file_append_entry_internal(
                 uint64_t xor_hash,
                 const EntryItem items[], unsigned n_items,
                 uint64_t *seqnum,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
         uint64_t np;
         uint64_t osize;
         Object *o;
@@ -1871,8 +1880,8 @@ static int journal_file_append_entry_internal(
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = np;
+        if (ret_offset)
+                *ret_offset = np;
 
         return 0;
 }
@@ -1976,7 +1985,7 @@ int journal_file_append_entry(
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[], unsigned n_iovec,
                 uint64_t *seqnum,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         unsigned i;
         EntryItem *items;
@@ -2028,7 +2037,7 @@ int journal_file_append_entry(
          * times for rotating media. */
         typesafe_qsort(items, n_iovec, entry_item_cmp);
 
-        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, ret_offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -2097,7 +2106,7 @@ static int generic_array_get(
                 JournalFile *f,
                 uint64_t first,
                 uint64_t i,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         Object *o;
         uint64_t p = 0, a, t = 0;
@@ -2147,8 +2156,8 @@ found:
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = p;
+        if (ret_offset)
+                *ret_offset = p;
 
         return 1;
 }
@@ -2158,7 +2167,7 @@ static int generic_array_get_plus_one(
                 uint64_t extra,
                 uint64_t first,
                 uint64_t i,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         Object *o;
 
@@ -2174,13 +2183,13 @@ static int generic_array_get_plus_one(
                 if (ret)
                         *ret = o;
 
-                if (offset)
-                        *offset = extra;
+                if (ret_offset)
+                        *ret_offset = extra;
 
                 return 1;
         }
 
-        return generic_array_get(f, first, i-1, ret, offset);
+        return generic_array_get(f, first, i-1, ret, ret_offset);
 }
 
 enum {
@@ -2197,8 +2206,8 @@ static int generic_array_bisect(
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset,
-                uint64_t *idx) {
+                uint64_t *ret_offset,
+                uint64_t *ret_idx) {
 
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = (uint64_t) -1;
         bool subtract_one = false;
@@ -2397,11 +2406,11 @@ found:
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = p;
+        if (ret_offset)
+                *ret_offset = p;
 
-        if (idx)
-                *idx = t + i + (subtract_one ? -1 : 0);
+        if (ret_idx)
+                *ret_idx = t + i + (subtract_one ? -1 : 0);
 
         return 1;
 }
@@ -2415,8 +2424,8 @@ static int generic_array_bisect_plus_one(
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset,
-                uint64_t *idx) {
+                uint64_t *ret_offset,
+                uint64_t *ret_idx) {
 
         int r;
         bool step_back = false;
@@ -2452,13 +2461,13 @@ static int generic_array_bisect_plus_one(
                         return 0;
         }
 
-        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, offset, idx);
+        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret, ret_offset, ret_idx);
 
         if (r == 0 && step_back)
                 goto found;
 
-        if (r > 0 && idx)
-                (*idx)++;
+        if (r > 0 && ret_idx)
+                (*ret_idx)++;
 
         return r;
 
@@ -2470,11 +2479,11 @@ found:
         if (ret)
                 *ret = o;
 
-        if (offset)
-                *offset = extra;
+        if (ret_offset)
+                *ret_offset = extra;
 
-        if (idx)
-                *idx = 0;
+        if (ret_idx)
+                *ret_idx = 0;
 
         return 1;
 }
@@ -2517,17 +2526,18 @@ int journal_file_move_to_entry_by_seqnum(
                 uint64_t seqnum,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
         assert(f);
         assert(f->header);
 
-        return generic_array_bisect(f,
-                                    le64toh(f->header->entry_array_offset),
-                                    le64toh(f->header->n_entries),
-                                    seqnum,
-                                    test_object_seqnum,
-                                    direction,
-                                    ret, offset, NULL);
+        return generic_array_bisect(
+                        f,
+                        le64toh(f->header->entry_array_offset),
+                        le64toh(f->header->n_entries),
+                        seqnum,
+                        test_object_seqnum,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 static int test_object_realtime(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -2556,17 +2566,18 @@ int journal_file_move_to_entry_by_realtime(
                 uint64_t realtime,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
         assert(f);
         assert(f->header);
 
-        return generic_array_bisect(f,
-                                    le64toh(f->header->entry_array_offset),
-                                    le64toh(f->header->n_entries),
-                                    realtime,
-                                    test_object_realtime,
-                                    direction,
-                                    ret, offset, NULL);
+        return generic_array_bisect(
+                        f,
+                        le64toh(f->header->entry_array_offset),
+                        le64toh(f->header->n_entries),
+                        realtime,
+                        test_object_realtime,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
@@ -2608,7 +2619,7 @@ int journal_file_move_to_entry_by_monotonic(
                 uint64_t monotonic,
                 direction_t direction,
                 Object **ret,
-                uint64_t *offset) {
+                uint64_t *ret_offset) {
 
         Object *o;
         int r;
@@ -2621,14 +2632,15 @@ int journal_file_move_to_entry_by_monotonic(
         if (r == 0)
                 return -ENOENT;
 
-        return generic_array_bisect_plus_one(f,
-                                             le64toh(o->data.entry_offset),
-                                             le64toh(o->data.entry_array_offset),
-                                             le64toh(o->data.n_entries),
-                                             monotonic,
-                                             test_object_monotonic,
-                                             direction,
-                                             ret, offset, NULL);
+        return generic_array_bisect_plus_one(
+                        f,
+                        le64toh(o->data.entry_offset),
+                        le64toh(o->data.entry_array_offset),
+                        le64toh(o->data.n_entries),
+                        monotonic,
+                        test_object_monotonic,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 void journal_file_reset_location(JournalFile *f) {
@@ -2734,7 +2746,7 @@ int journal_file_next_entry(
                 JournalFile *f,
                 uint64_t p,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t i, n, ofs;
         int r;
@@ -2791,8 +2803,8 @@ int journal_file_next_entry(
                                        "%s: entry array not properly ordered at entry %" PRIu64,
                                        f->path, i);
 
-        if (offset)
-                *offset = ofs;
+        if (ret_offset)
+                *ret_offset = ofs;
 
         return 1;
 }
@@ -2802,7 +2814,7 @@ int journal_file_next_entry_for_data(
                 Object *o, uint64_t p,
                 uint64_t data_offset,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         uint64_t i, n, ofs;
         Object *d;
@@ -2867,8 +2879,8 @@ int journal_file_next_entry_for_data(
                                        "%s data entry array not properly ordered at entry %" PRIu64,
                                        f->path, i);
 
-        if (offset)
-                *offset = ofs;
+        if (ret_offset)
+                *ret_offset = ofs;
 
         return 1;
 }
@@ -2878,7 +2890,7 @@ int journal_file_move_to_entry_by_offset_for_data(
                 uint64_t data_offset,
                 uint64_t p,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         int r;
         Object *d;
@@ -2889,14 +2901,15 @@ int journal_file_move_to_entry_by_offset_for_data(
         if (r < 0)
                 return r;
 
-        return generic_array_bisect_plus_one(f,
-                                             le64toh(d->data.entry_offset),
-                                             le64toh(d->data.entry_array_offset),
-                                             le64toh(d->data.n_entries),
-                                             p,
-                                             test_object_offset,
-                                             direction,
-                                             ret, offset, NULL);
+        return generic_array_bisect_plus_one(
+                        f,
+                        le64toh(d->data.entry_offset),
+                        le64toh(d->data.entry_array_offset),
+                        le64toh(d->data.n_entries),
+                        p,
+                        test_object_offset,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 int journal_file_move_to_entry_by_monotonic_for_data(
@@ -2905,7 +2918,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 sd_id128_t boot_id,
                 uint64_t monotonic,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         Object *o, *d;
         int r;
@@ -2972,8 +2985,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 if (p == q) {
                         if (ret)
                                 *ret = qo;
-                        if (offset)
-                                *offset = q;
+                        if (ret_offset)
+                                *ret_offset = q;
 
                         return 1;
                 }
@@ -2987,7 +3000,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(
                 uint64_t data_offset,
                 uint64_t seqnum,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         Object *d;
         int r;
@@ -2998,14 +3011,15 @@ int journal_file_move_to_entry_by_seqnum_for_data(
         if (r < 0)
                 return r;
 
-        return generic_array_bisect_plus_one(f,
-                                             le64toh(d->data.entry_offset),
-                                             le64toh(d->data.entry_array_offset),
-                                             le64toh(d->data.n_entries),
-                                             seqnum,
-                                             test_object_seqnum,
-                                             direction,
-                                             ret, offset, NULL);
+        return generic_array_bisect_plus_one(
+                        f,
+                        le64toh(d->data.entry_offset),
+                        le64toh(d->data.entry_array_offset),
+                        le64toh(d->data.n_entries),
+                        seqnum,
+                        test_object_seqnum,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 int journal_file_move_to_entry_by_realtime_for_data(
@@ -3013,7 +3027,7 @@ int journal_file_move_to_entry_by_realtime_for_data(
                 uint64_t data_offset,
                 uint64_t realtime,
                 direction_t direction,
-                Object **ret, uint64_t *offset) {
+                Object **ret, uint64_t *ret_offset) {
 
         Object *d;
         int r;
@@ -3024,14 +3038,15 @@ int journal_file_move_to_entry_by_realtime_for_data(
         if (r < 0)
                 return r;
 
-        return generic_array_bisect_plus_one(f,
-                                             le64toh(d->data.entry_offset),
-                                             le64toh(d->data.entry_array_offset),
-                                             le64toh(d->data.n_entries),
-                                             realtime,
-                                             test_object_realtime,
-                                             direction,
-                                             ret, offset, NULL);
+        return generic_array_bisect_plus_one(
+                        f,
+                        le64toh(d->data.entry_offset),
+                        le64toh(d->data.entry_array_offset),
+                        le64toh(d->data.n_entries),
+                        realtime,
+                        test_object_realtime,
+                        direction,
+                        ret, ret_offset, NULL);
 }
 
 void journal_file_dump(JournalFile *f) {
