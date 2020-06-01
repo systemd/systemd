@@ -18,6 +18,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 int parse_boolean(const char *v) {
         if (!v)
@@ -338,6 +339,32 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
         return 0;
 }
 
+static const char *mangle_base(const char *s, unsigned *base) {
+        const char *k;
+
+        assert(s);
+        assert(base);
+
+        /* Base already explicitly specified, then don't do anything. */
+        if (SAFE_ATO_MASK_FLAGS(*base) != 0)
+                return s;
+
+        /* Support Python 3 style "0b" and 0x" prefixes, because they truly make sense, much more than C's "0" prefix for octal. */
+        k = STARTSWITH_SET(s, "0b", "0B");
+        if (k) {
+                *base = 2 | (*base & SAFE_ATO_ALL_FLAGS);
+                return k;
+        }
+
+        k = STARTSWITH_SET(s, "0o", "0O");
+        if (k) {
+                *base = 8 | (*base & SAFE_ATO_ALL_FLAGS);
+                return k;
+        }
+
+        return s;
+}
+
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
@@ -369,6 +396,8 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
                 return -EINVAL; /* This is particularly useful to avoid ambiguities between C's octal
                                  * notation and assumed-to-be-decimal integers with a leading zero. */
 
+        s = mangle_base(s, &base);
+
         errno = 0;
         l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base) /* Let's mask off the flags bits so that only the actual
                                                       * base is left */);
@@ -388,13 +417,17 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
 }
 
 int safe_atoi(const char *s, int *ret_i) {
+        unsigned base = 0;
         char *x = NULL;
         long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtol(s, &x, 0);
+        l = strtol(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -429,6 +462,8 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
             s[0] == '0' && s[1] != 0)
                 return -EINVAL;
 
+        s = mangle_base(s, &base);
+
         errno = 0;
         l = strtoull(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
@@ -445,13 +480,17 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
 }
 
 int safe_atolli(const char *s, long long int *ret_lli) {
+        unsigned base = 0;
         char *x = NULL;
         long long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtoll(s, &x, 0);
+        l = strtoll(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -464,15 +503,17 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 }
 
 int safe_atou8(const char *s, uint8_t *ret) {
-        char *x = NULL;
+        unsigned base = 0;
         unsigned long l;
+        char *x = NULL;
 
         assert(s);
 
         s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -508,6 +549,8 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
             s[0] == '0' && s[1] != 0)
                 return -EINVAL;
 
+        s = mangle_base(s, &base);
+
         errno = 0;
         l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
@@ -526,13 +569,17 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
 }
 
 int safe_atoi16(const char *s, int16_t *ret) {
+        unsigned base = 0;
         char *x = NULL;
         long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtol(s, &x, 0);
+        l = strtol(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
