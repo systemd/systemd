@@ -9,7 +9,7 @@
 /*
  * If you change this file you probably should also change its documentation:
  *
- * http://www.freedesktop.org/wiki/Software/systemd/journal-files
+ * https://systemd.io/JOURNAL_FILE_FORMAT
  */
 
 typedef struct Header Header;

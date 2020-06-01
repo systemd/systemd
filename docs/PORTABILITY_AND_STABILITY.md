@@ -98,7 +98,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [Unit file format](https://www.freedesktop.org/software/systemd/man/systemd.unit.html) | File format | yes | yes | numerous | no | - | no |
 | [Network](https://www.freedesktop.org/software/systemd/man/systemd.network.html) & [Netdev file format](https://www.freedesktop.org/software/systemd/man/systemd.netdev.html) | File format | yes | yes | no | no | - | no |
 | [Link file format](https://www.freedesktop.org/software/systemd/man/systemd.link.html) | File format | yes | yes | no | no | - | no |
-| [Journal File Format](https://www.freedesktop.org/wiki/Software/systemd/journal-files) | File format | yes | yes | - | maybe | - | no |
+| [Journal File Format](https://systemd.io/JOURNAL_FILE_FORMAT) | File format | yes | yes | - | maybe | - | no |
 | [Journal Export Format](https://www.freedesktop.org/wiki/Software/systemd/export) | File format | yes | yes | - | yes | - | no |
 | [Cooperation in cgroup tree](https://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups) | Treaty | yes | yes | libvirt | yes | libvirt | no |
 | [Password Agents](https://www.freedesktop.org/wiki/Software/systemd/PasswordAgents) | Socket+Files | yes | yes | - | yes | - | no |
