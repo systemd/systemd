@@ -339,8 +339,25 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_ZSTD
+        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+                                 text, sizeof(text), false);
+        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+                                 data, sizeof(data), true);
+
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   text, sizeof(text), false);
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   data, sizeof(data), true);
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   huge, HUGE_SIZE, true);
+
         test_compress_stream("ZSTD", "zstdcat",
                              compress_stream_zstd, decompress_stream_zstd, srcfile);
+
+        test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
 #else
         log_info("/* ZSTD test skipped */");
 #endif

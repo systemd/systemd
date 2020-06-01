@@ -925,9 +925,10 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if ((o->object.flags & OBJECT_COMPRESSED_XZ) &&
-                    (o->object.flags & OBJECT_COMPRESSED_LZ4)) {
-                        error(p, "Objected with double compression");
+                if (!!(o->object.flags & OBJECT_COMPRESSED_XZ) +
+                    !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
+                    !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
+                        error(p, "Object has multiple compression flags set");
                         r = -EINVAL;
                         goto fail;
                 }
@@ -940,6 +941,12 @@ int journal_file_verify(
 
                 if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !JOURNAL_HEADER_COMPRESSED_LZ4(f->header)) {
                         error(p, "LZ4 compressed object in file without LZ4 compression");
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !JOURNAL_HEADER_COMPRESSED_ZSTD(f->header)) {
+                        error(p, "ZSTD compressed object in file without ZSTD compression");
                         r = -EBADMSG;
                         goto fail;
                 }

@@ -67,6 +67,7 @@ typedef struct JournalFile {
         bool writable:1;
         bool compress_xz:1;
         bool compress_lz4:1;
+        bool compress_zstd:1;
         bool seal:1;
         bool defrag_on_close:1;
         bool close_fd:1;
@@ -106,7 +107,7 @@ typedef struct JournalFile {
         unsigned last_seen_generation;
 
         uint64_t compress_threshold_bytes;
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
         void *compress_buffer;
         size_t compress_buffer_size;
 #endif
@@ -196,6 +197,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_COMPRESSED_LZ4(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
 
+#define JOURNAL_HEADER_COMPRESSED_ZSTD(h) \
+        FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
+
 #define JOURNAL_HEADER_KEYED_HASH(h) \
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_KEYED_HASH)
 
@@ -264,7 +268,7 @@ int journal_file_map_field_hash_table(JournalFile *f);
 
 static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
         assert(f);
-        return f->compress_xz || f->compress_lz4;
+        return f->compress_xz || f->compress_lz4 || f->compress_zstd;
 }
 
 uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
