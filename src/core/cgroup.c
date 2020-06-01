@@ -2319,6 +2319,8 @@ void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
 
         /* This adds the path from the specified unit to root slice to the queue and siblings at each level.
          * The unit itself is excluded (assuming it's handled separately).
+         * The function must invalidate cgroup_members_mask of all ancestors in order to calculate up to date
+         * masks.
          *
          * Propagation of realization "side-ways" (i.e. towards siblings) is relevant on cgroup-v1 where
          * scheduling becomes very weird if two units that own processes reside in the same slice, but one is
@@ -2332,6 +2334,9 @@ void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                 Iterator i;
                 Unit *m;
                 void *v;
+
+                /* Children of slice likely changed when we're called */
+                slice->cgroup_members_mask_valid = false;
 
                 HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
                         /* Skip units that have a dependency on the slice but aren't actually in it. */

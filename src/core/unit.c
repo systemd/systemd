@@ -664,10 +664,8 @@ void unit_free(Unit *u) {
         /* A unit is being dropped from the tree, make sure our siblings and ancestor slices are realized
          * properly. Do this after we detach the unit from slice tree in order to eliminate its effect on
          * controller masks. */
-        if (UNIT_ISSET(u->slice)) {
-                unit_invalidate_cgroup_members_masks(UNIT_DEREF(u->slice));
+        if (UNIT_ISSET(u->slice))
                 unit_add_siblings_to_cgroup_realize_queue(u);
-        }
 
         if (u->on_console)
                 manager_unref_console(u->manager);
