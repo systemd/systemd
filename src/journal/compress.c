@@ -57,8 +57,10 @@ static int zstd_ret_to_errno(size_t ret) {
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
 static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
-        [OBJECT_COMPRESSED_XZ] = "XZ",
-        [OBJECT_COMPRESSED_LZ4] = "LZ4",
+        [OBJECT_COMPRESSED_XZ]   = "XZ",
+        [OBJECT_COMPRESSED_LZ4]  = "LZ4",
+        /* If we add too many more entries here, it's going to grow quite large (and be mostly sparse), since
+         * the array key is actually a bitmask, not a plain enum */
 };
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
