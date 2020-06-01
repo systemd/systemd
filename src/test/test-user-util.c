@@ -52,13 +52,33 @@ static void test_parse_uid(void) {
         assert_se(r == -EINVAL);
         assert_se(uid == 100);
 
+        r = parse_uid("+1234", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
+        r = parse_uid("-1234", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
+        r = parse_uid(" 1234", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
         r = parse_uid("01234", &uid);
-        assert_se(r == 0);
-        assert_se(uid == 1234);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
+        r = parse_uid("-0", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
+
+        r = parse_uid("+0", &uid);
+        assert_se(r == -EINVAL);
+        assert_se(uid == 100);
 
         r = parse_uid("asdsdas", &uid);
         assert_se(r == -EINVAL);
-        assert_se(uid == 1234);
+        assert_se(uid == 100);
 }
 
 static void test_uid_ptr(void) {
