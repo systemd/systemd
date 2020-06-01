@@ -163,9 +163,9 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                                 return r;
                         }
 
-                        h2 = hash64(b, b_size);
+                        h2 = jenkins_hash64(b, b_size);
                 } else
-                        h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+                        h2 = jenkins_hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
                 if (h1 != h2) {
                         error(offset, "Invalid hash (%08"PRIx64" vs. %08"PRIx64, h1, h2);

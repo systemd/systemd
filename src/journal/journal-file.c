@@ -1344,7 +1344,7 @@ int journal_file_find_field_object(
         assert(f);
         assert(field && size > 0);
 
-        hash = hash64(field, size);
+        hash = jenkins_hash64(field, size);
 
         return journal_file_find_field_object_with_hash(
                         f,
@@ -1451,7 +1451,7 @@ int journal_file_find_data_object(
         assert(f);
         assert(data || size == 0);
 
-        hash = hash64(data, size);
+        hash = jenkins_hash64(data, size);
 
         return journal_file_find_data_object_with_hash(
                         f,
@@ -1472,7 +1472,7 @@ static int journal_file_append_field(
         assert(f);
         assert(field && size > 0);
 
-        hash = hash64(field, size);
+        hash = jenkins_hash64(field, size);
 
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
         if (r < 0)
@@ -1535,7 +1535,7 @@ static int journal_file_append_data(
         assert(f);
         assert(data || size == 0);
 
-        hash = hash64(data, size);
+        hash = jenkins_hash64(data, size);
 
         r = journal_file_find_data_object_with_hash(f, data, size, hash, &o, &p);
         if (r < 0)
