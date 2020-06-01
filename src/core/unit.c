@@ -620,14 +620,6 @@ void unit_free(Unit *u) {
         if (!u)
                 return;
 
-        if (UNIT_ISSET(u->slice)) {
-                /* A unit is being dropped from the tree, make sure our parent slice recalculates the member mask */
-                unit_invalidate_cgroup_members_masks(UNIT_DEREF(u->slice));
-
-                /* And make sure the parent is realized again, updating cgroup memberships */
-                unit_add_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
-        }
-
         u->transient_file = safe_fclose(u->transient_file);
 
         if (!MANAGER_IS_RELOADING(u->manager))
@@ -668,6 +660,14 @@ void unit_free(Unit *u) {
 
         for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
+
+        /* A unit is being dropped from the tree, make sure our siblings and ancestor slices are realized
+         * properly. Do this after we detach the unit from slice tree in order to eliminate its effect on
+         * controller masks. */
+        if (UNIT_ISSET(u->slice)) {
+                unit_invalidate_cgroup_members_masks(UNIT_DEREF(u->slice));
+                unit_add_siblings_to_cgroup_realize_queue(u);
+        }
 
         if (u->on_console)
                 manager_unref_console(u->manager);

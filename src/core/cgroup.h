@@ -212,7 +212,7 @@ CGroupMask unit_get_enable_mask(Unit *u);
 
 void unit_invalidate_cgroup_members_masks(Unit *u);
 
-void unit_add_to_cgroup_realize_queue(Unit *u);
+void unit_add_siblings_to_cgroup_realize_queue(Unit *u);
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
 char *unit_default_cgroup_path(const Unit *u);
