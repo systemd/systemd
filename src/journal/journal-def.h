@@ -172,7 +172,8 @@ enum {
 #  define HEADER_COMPATIBLE_SUPPORTED 0
 #endif
 
-#define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
+#define HEADER_SIGNATURE                                                \
+        ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
 #define struct_Header__contents {                       \
         uint8_t signature[8]; /* "LPKSHHRH" */          \
@@ -212,7 +213,8 @@ struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
 assert_cc(sizeof(struct Header) == 240);
 
-#define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+#define FSS_HEADER_SIGNATURE                                            \
+        ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
 struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */
