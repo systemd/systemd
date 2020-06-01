@@ -54,26 +54,24 @@ int parse_pid(const char *s, pid_t* ret_pid) {
 }
 
 int parse_mode(const char *s, mode_t *ret) {
-        char *x;
-        long l;
+        unsigned m;
+        int r;
 
         assert(s);
-        assert(ret);
 
-        s += strspn(s, WHITESPACE);
-        if (s[0] == '-')
+        r = safe_atou_full(s, 8 |
+                           SAFE_ATO_REFUSE_PLUS_MINUS, /* Leading '+' or even '-' char? that's just weird,
+                                                        * refuse. User might have wanted to add mode flags or
+                                                        * so, but this parser doesn't allow that, so let's
+                                                        * better be safe. */
+                           &m);
+        if (r < 0)
+                return r;
+        if (m > 07777)
                 return -ERANGE;
 
-        errno = 0;
-        l = strtol(s, &x, 8);
-        if (errno > 0)
-                return -errno;
-        if (!x || x == s || *x != 0)
-                return -EINVAL;
-        if (l < 0 || l  > 07777)
-                return -ERANGE;
-
-        *ret = (mode_t) l;
+        if (ret)
+                *ret = m;
         return 0;
 }
 
