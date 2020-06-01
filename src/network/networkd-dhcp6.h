@@ -13,3 +13,6 @@ int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
 int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
 int dhcp6_prefix_remove(Manager *m, struct in6_addr *addr);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);

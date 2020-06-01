@@ -10,6 +10,7 @@
 
 #include "sd-dhcp6-client.h"
 
+#include "escape.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "missing_network.h"
@@ -20,6 +21,7 @@
 #include "siphash24.h"
 #include "string-util.h"
 #include "radv-internal.h"
+#include "web-util.h"
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 static Link *dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
@@ -1076,4 +1078,80 @@ static int dhcp6_assign_delegated_prefix(Link *link,
                 link->address_messages++;
 
         return 0;
+}
+
+int config_parse_dhcp6_pd_hint(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, (union in_addr_union *) &network->dhcp6_pd_address, &network->dhcp6_pd_length);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PrefixDelegationHint=%s, ignoring assignment", rvalue);
+                return 0;
+        }
+
+        if (network->dhcp6_pd_length < 1 || network->dhcp6_pd_length > 128) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid prefix length='%d', ignoring assignment", network->dhcp6_pd_length);
+                network->dhcp6_pd_length = 0;
+                return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp6_mud_url(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *unescaped = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp6_mudurl = mfree(network->dhcp6_mudurl);
+                return 0;
+        }
+
+        r = cunescape(rvalue, 0, &unescaped);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(unescaped) || strlen(unescaped) > UINT8_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
+
+                return 0;
+        }
+
+        return free_and_replace(network->dhcp6_mudurl, unescaped);
 }
