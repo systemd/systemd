@@ -89,7 +89,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         r = config_parse_many(filename, DNSSD_SERVICE_DIRS, dropin_dirname,
                               "Service\0",
                               config_item_perf_lookup, resolved_dnssd_gperf_lookup,
-                              false, service);
+                              false, service, NULL);
         if (r < 0)
                 return r;
 

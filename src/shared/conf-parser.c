@@ -492,7 +492,8 @@ int config_parse_many(
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata) {
+                void *userdata,
+                char ***ret_dropins) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
         _cleanup_strv_free_ char **files = NULL;
@@ -508,7 +509,14 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
+        r = config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
+        if (r < 0)
+                return r;
+
+        if (ret_dropins)
+                *ret_dropins = TAKE_PTR(files);
+
+        return 0;
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
