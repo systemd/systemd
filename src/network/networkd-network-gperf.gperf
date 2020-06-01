@@ -198,6 +198,7 @@ DHCPv6.MUDURL,                               config_parse_dhcp6_mud_url,        
 DHCPv6.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET6,                      0
 DHCPv6.UserClass,                            config_parse_dhcp_user_class,                             AF_INET6,                      offsetof(Network, dhcp6_user_class)
 DHCPv6.VendorClass,                          config_parse_dhcp_vendor_class,                           0,                             offsetof(Network, dhcp6_vendor_class)
+DHCPv6.SendVendorOption,                     config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_vendor_options)
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv6.AssignAcquiredDelegatedPrefixAddress, config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign_prefix)
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0

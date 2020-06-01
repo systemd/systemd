@@ -137,6 +137,7 @@ struct Network {
         char **dhcp6_vendor_class;
         struct in6_addr dhcp6_pd_address;
         OrderedHashmap *dhcp6_client_send_options;
+        OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
 
         /* DHCP Server Support */

@@ -437,13 +437,13 @@ int config_parse_dhcp_send_option(
 
         _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL, *old4 = NULL;
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL, *old6 = NULL;
+        uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
         OrderedHashmap **options = data;
+        uint16_t u16, uint16_data;
         union in_addr_union addr;
         DHCPOptionDataType type;
         uint8_t u8, uint8_data;
-        uint16_t u16, uint16_data;
-        uint32_t uint32_data;
         const void *udata;
         const char *p;
         ssize_t sz;
@@ -460,10 +460,29 @@ int config_parse_dhcp_send_option(
         }
 
         p = rvalue;
+        if (ltype == AF_INET6 && streq(lvalue, "SendVendorOption")) {
+                r = extract_first_word(&p, &word, ":", 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r <= 0 || isempty(p)) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Invalid DHCP option, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+
+                r = safe_atou32(word, &enterprise_identifier);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to parse DHCPv6 enterprise identifier data, ignoring assignment: %s", p);
+                        return 0;
+                }
+                word = mfree(word);
+        }
+
         r = extract_first_word(&p, &word, ":", 0);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r <= 0) {
+        if (r <= 0 || isempty(p)) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Invalid DHCP option, ignoring assignment: %s", rvalue);
                 return 0;
@@ -588,7 +607,7 @@ int config_parse_dhcp_send_option(
         }
 
         if (ltype == AF_INET6) {
-                r = sd_dhcp6_option_new(u16, udata, sz, &opt6);
+                r = sd_dhcp6_option_new(u16, udata, sz, enterprise_identifier, &opt6);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);

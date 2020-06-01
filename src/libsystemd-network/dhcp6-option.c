@@ -79,6 +79,39 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
         return 0;
 }
 
+int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options) {
+        sd_dhcp6_option *options;
+        Iterator i;
+        int r;
+
+        assert(buf);
+        assert(*buf);
+        assert(buflen);
+        assert(vendor_options);
+
+        ORDERED_HASHMAP_FOREACH(options, vendor_options, i) {
+                _cleanup_free_ uint8_t *p = NULL;
+                size_t total;
+
+                total = 4 + 2 + 2 + options->length;
+
+                p = malloc(total);
+                if (!p)
+                        return -ENOMEM;
+
+                unaligned_write_be32(p, options->enterprise_identifier);
+                unaligned_write_be16(p + 4, options->option);
+                unaligned_write_be16(p + 6, options->length);
+                memcpy(p + 8, options->data, options->length);
+
+                r = dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_VENDOR_OPTS, total, p);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, const DHCP6IA *ia) {
         uint16_t len;
         uint8_t *ia_hdr;
@@ -683,7 +716,7 @@ static sd_dhcp6_option* dhcp6_option_free(sd_dhcp6_option *i) {
         return mfree(i);
 }
 
-int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, sd_dhcp6_option **ret) {
+int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, uint32_t enterprise_identifier, sd_dhcp6_option **ret) {
         assert_return(ret, -EINVAL);
         assert_return(length == 0 || data, -EINVAL);
 
@@ -698,6 +731,7 @@ int sd_dhcp6_option_new(uint16_t option, const void *data, size_t length, sd_dhc
         *p = (sd_dhcp6_option) {
                 .n_ref = 1,
                 .option = option,
+                .enterprise_identifier = enterprise_identifier,
                 .length = length,
                 .data = TAKE_PTR(q),
         };

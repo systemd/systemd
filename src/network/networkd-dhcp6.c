@@ -756,6 +756,7 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
 int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        sd_dhcp6_option *vendor_option;
         sd_dhcp6_option *send_option;
         void *request_options;
         const DUID *duid;
@@ -852,6 +853,14 @@ int dhcp6_configure(Link *link) {
                 r = sd_dhcp6_client_set_request_vendor_class(client, link->network->dhcp6_vendor_class);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor class: %m");
+        }
+
+        ORDERED_HASHMAP_FOREACH(vendor_option, link->network->dhcp6_client_send_vendor_options, i) {
+                r = sd_dhcp6_client_add_vendor_option(client, vendor_option);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor option: %m");
         }
 
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);

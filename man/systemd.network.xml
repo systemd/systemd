@@ -1766,6 +1766,22 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SendVendorOption=</varname></term>
+          <listitem>
+            <para>Send an arbitrary vendor option in the DHCPv6 request. Takes an enterprise identifier, DHCP option number,
+            data type, and data separated with a colon
+            (<literal><replaceable>enterprise identifier</replaceable>:<replaceable>option</replaceable>:<replaceable>type</replaceable>:
+            <replaceable>value</replaceable></literal>). Enterprise identifier is an unsigned integer ranges 1..4294967294.
+            The option number must be an integer in the range 1..254. Data type takes one of <literal>uint8</literal>,
+            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
+            <literal>string</literal>. Special characters in the data string may be escaped using
+            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
+            then all options specified earlier are cleared. Defaults to unset.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ForceDHCPv6PDOtherInformation=</varname></term>
           <listitem>
             <para>Takes a boolean that enforces DHCPv6 stateful mode when the 'Other information' bit is set in
