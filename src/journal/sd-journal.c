@@ -240,7 +240,7 @@ static void match_free_if_empty(Match *m) {
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         Match *l3, *l4, *add_here = NULL, *m;
-        le64_t le_hash;
+        uint64_t hash;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -279,7 +279,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert(j->level1->type == MATCH_OR_TERM);
         assert(j->level2->type == MATCH_AND_TERM);
 
-        le_hash = htole64(hash64(data, size));
+        hash = hash64(data, size);
 
         LIST_FOREACH(matches, l3, j->level2->matches) {
                 assert(l3->type == MATCH_OR_TERM);
@@ -289,7 +289,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
 
                         /* Exactly the same match already? Then ignore
                          * this addition */
-                        if (l4->le_hash == le_hash &&
+                        if (l4->hash == hash &&
                             l4->size == size &&
                             memcmp(l4->data, data, size) == 0)
                                 return 0;
@@ -315,7 +315,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (!m)
                 goto fail;
 
-        m->le_hash = le_hash;
+        m->hash = hash;
         m->size = size;
         m->data = memdup(data, size);
         if (!m->data)
@@ -503,7 +503,7 @@ static int next_for_match(
         if (m->type == MATCH_DISCRETE) {
                 uint64_t dp;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, m->hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 
@@ -592,7 +592,7 @@ static int find_location_for_match(
         if (m->type == MATCH_DISCRETE) {
                 uint64_t dp;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, m->hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 

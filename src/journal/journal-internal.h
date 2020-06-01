@@ -32,7 +32,7 @@ struct Match {
         /* For concrete matches */
         char *data;
         size_t size;
-        le64_t le_hash;
+        uint64_t hash;
 
         /* For terms */
         LIST_HEAD(Match, matches);
