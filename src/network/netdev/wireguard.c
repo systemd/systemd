@@ -219,6 +219,7 @@ static int wireguard_set_interface(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         WireguardIPmask *mask_start = NULL;
         WireguardPeer *peer, *peer_start;
+        bool sent_once = false;
         uint32_t serial;
         Wireguard *w;
         int r;
@@ -227,7 +228,7 @@ static int wireguard_set_interface(NetDev *netdev) {
         w = WIREGUARD(netdev);
         assert(w);
 
-        for (peer_start = w->peers; peer_start; ) {
+        for (peer_start = w->peers; peer_start || !sent_once; ) {
                 uint16_t i = 0;
 
                 message = sd_netlink_message_unref(message);
@@ -278,6 +279,8 @@ static int wireguard_set_interface(NetDev *netdev) {
                 r = sd_netlink_send(netdev->manager->genl, message, &serial);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not set wireguard device: %m");
+
+                sent_once = true;
         }
 
         return 0;
