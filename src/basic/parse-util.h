@@ -21,6 +21,12 @@ int parse_range(const char *t, unsigned *lower, unsigned *upper);
 int parse_errno(const char *t);
 int parse_syscall_and_errno(const char *in, char **name, int *error);
 
+#define SAFE_ATO_REFUSE_PLUS_MINUS (1U << 30)
+#define SAFE_ATO_REFUSE_LEADING_ZERO (1U << 29)
+#define SAFE_ATO_REFUSE_LEADING_WHITESPACE (1U << 28)
+#define SAFE_ATO_ALL_FLAGS (SAFE_ATO_REFUSE_PLUS_MINUS|SAFE_ATO_REFUSE_LEADING_ZERO|SAFE_ATO_REFUSE_LEADING_WHITESPACE)
+#define SAFE_ATO_MASK_FLAGS(base) ((base) & ~SAFE_ATO_ALL_FLAGS)
+
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
 
 static inline int safe_atou(const char *s, unsigned *ret_u) {
