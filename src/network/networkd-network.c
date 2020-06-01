@@ -538,9 +538,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                                   network->filename);
 
         struct stat stats;
-        if (stat(filename, &stats) < 0)
-                return -errno;
-        network->timestamp = timespec_load(&stats.st_mtim);
+        if (stat(filename, &stats) >= 0)
+                network->timestamp = timespec_load(&stats.st_mtim);
 
         if (network_verify(network) < 0)
                 /* Ignore .network files that do not match the conditions. */
