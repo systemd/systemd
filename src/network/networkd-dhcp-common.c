@@ -63,6 +63,50 @@ int config_parse_dhcp(
         return 0;
 }
 
+int config_parse_dhcp_route_metric(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        uint32_t metric;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &metric);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse RouteMetric=%s, ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        if (streq_ptr(section, "DHCPv4")) {
+                network->dhcp_route_metric = metric;
+                network->dhcp_route_metric_set = true;
+        } else if (streq_ptr(section, "DHCPv6")) {
+                network->dhcp6_route_metric = metric;
+                network->dhcp6_route_metric_set = true;
+        } else { /* [DHCP] section */
+                if (!network->dhcp_route_metric_set)
+                        network->dhcp_route_metric = metric;
+                if (!network->dhcp6_route_metric_set)
+                        network->dhcp6_route_metric = metric;
+        }
+
+        return 0;
+}
+
 int config_parse_dhcp_use_dns(
                 const char* unit,
                 const char *filename,
@@ -90,8 +134,18 @@ int config_parse_dhcp_use_dns(
                 return 0;
         }
 
-        network->dhcp_use_dns = r;
-        network->dhcp6_use_dns = r;
+        if (streq_ptr(section, "DHCPv4")) {
+                network->dhcp_use_dns = r;
+                network->dhcp_use_dns_set = true;
+        } else if (streq_ptr(section, "DHCPv6")) {
+                network->dhcp6_use_dns = r;
+                network->dhcp6_use_dns_set = true;
+        } else { /* [DHCP] section */
+                if (!network->dhcp_use_dns_set)
+                        network->dhcp_use_dns = r;
+                if (!network->dhcp6_use_dns_set)
+                        network->dhcp6_use_dns = r;
+        }
 
         return 0;
 }
@@ -155,8 +209,18 @@ int config_parse_dhcp_use_ntp(
                 return 0;
         }
 
-        network->dhcp_use_ntp = r;
-        network->dhcp6_use_ntp = r;
+        if (streq_ptr(section, "DHCPv4")) {
+                network->dhcp_use_ntp = r;
+                network->dhcp_use_ntp_set = true;
+        } else if (streq_ptr(section, "DHCPv6")) {
+                network->dhcp6_use_ntp = r;
+                network->dhcp6_use_ntp_set = true;
+        } else { /* [DHCP] section */
+                if (!network->dhcp_use_ntp_set)
+                        network->dhcp_use_ntp = r;
+                if (!network->dhcp6_use_ntp_set)
+                        network->dhcp6_use_ntp = r;
+        }
 
         return 0;
 }
