@@ -383,20 +383,35 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         unsigned long l;
 
         assert(s);
-        assert(base <= 16);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
 
-        /* strtoul() is happy to parse negative values, and silently
-         * converts them to unsigned values without generating an
-         * error. We want a clean error, hence let's look for the "-"
-         * prefix on our own, and generate an error. But let's do so
-         * only after strtoul() validated that the string is clean
-         * otherwise, so that we return EINVAL preferably over
-         * ERANGE. */
+        /* strtoul() is happy to parse negative values, and silently converts them to unsigned values without
+         * generating an error. We want a clean error, hence let's look for the "-" prefix on our own, and
+         * generate an error. But let's do so only after strtoul() validated that the string is clean
+         * otherwise, so that we return EINVAL preferably over ERANGE. */
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL; /* Note that we check the "-" prefix again a second time below, but return a
+                                 * different error. I.e. if the SAFE_ATO_REFUSE_PLUS_MINUS flag is set we
+                                 * blanket refuse +/- prefixed integers, while if it is missing we'll just
+                                 * return ERANGE, because the string actually parses correctly, but doesn't
+                                 * fit in the return type. */
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && !streq(s, "0"))
+                return -EINVAL; /* This is particularly useful to avoid ambiguities between C's octal
+                                 * notation and assumed-to-be-decimal integers with a leading zero. */
+
         errno = 0;
-        l = strtoul(s, &x, base);
+        l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base) /* Let's mask off the flags bits so that only the actual
+                                                      * base is left */);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -438,11 +453,24 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
         unsigned long long l;
 
         assert(s);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL;
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && s[1] != 0)
+                return -EINVAL;
+
         errno = 0;
-        l = strtoull(s, &x, base);
+        l = strtoull(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -504,13 +532,24 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         unsigned long l;
 
         assert(s);
-        assert(ret);
-        assert(base <= 16);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL;
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && s[1] != 0)
+                return -EINVAL;
+
         errno = 0;
-        l = strtoul(s, &x, base);
+        l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
