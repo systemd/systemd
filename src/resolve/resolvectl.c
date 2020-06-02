@@ -1753,7 +1753,6 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 static int status_all(sd_bus *bus, StatusMode mode) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        sd_netlink_message *i;
         bool empty_line = false;
         int r;
 
@@ -1780,7 +1779,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
         r = 0;
-        for (i = reply; i; i = sd_netlink_message_next(i)) {
+        for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 const char *name;
                 int ifindex, q;
                 uint16_t type;
@@ -3033,7 +3032,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
 
 static int translate(const char *verb, const char *single_arg, size_t num_args, char **args, sd_bus *bus) {
         char **fake, **p;
-        size_t num, i;
+        size_t num;
 
         assert(verb);
         assert(num_args == 0 || args);
@@ -3044,7 +3043,7 @@ static int translate(const char *verb, const char *single_arg, size_t num_args, 
         *p++ = (char *) verb;
         if (single_arg)
                 *p++ = (char *) single_arg;
-        for (i = 0; i < num_args; i++)
+        for (size_t i = 0; i < num_args; i++)
                 *p++ = args[i];
 
         optind = 0;

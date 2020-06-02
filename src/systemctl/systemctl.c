@@ -397,8 +397,6 @@ static int output_table(Table *table) {
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const UnitInfo *u;
-        int job_count = 0;
         int r;
 
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
@@ -417,7 +415,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         (void) table_set_empty_string(table, "-");
 
-        for (u = unit_infos; unit_infos && u < unit_infos + c; u++) {
+        int job_count = 0;
+        for (const UnitInfo *u = unit_infos; unit_infos && u < unit_infos + c; u++) {
                 _cleanup_free_ char *j = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "";
                 const char *on_circle = "", *id;
