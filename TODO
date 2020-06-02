@@ -62,6 +62,13 @@ Features:
   operate on disk images directly. Specifically: bootctl, firstboot, tmpfiles,
   sysusers, systemctl, repart, journalctl, coredumpctl.
 
+* seccomp: by default mask x32 ABI system wide on x86-64. it's on its way out
+
+* seccomp: don't install filters for ABIs that are masked anyway for the
+  specific service
+
+* seccomp: maybe merge all filters we install into one with that libseccomp API that allows merging.
+
 * per-service credential system. Specifically: add LoadCredential= (for loading
   cred from file), AcquireCredential= (for asking user for cred, via
   ask-password), PassCredential= (for passing on credential systemd itself
