@@ -40,6 +40,7 @@ int fchmod_umask(int fd, mode_t mode);
 int fchmod_opath(int fd, mode_t m);
 
 int fd_warn_permissions(const char *path, int fd);
+int stat_warn_permissions(const char *path, const struct stat *st);
 
 #define laccess(path, mode) faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW)
 

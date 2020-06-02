@@ -353,26 +353,36 @@ int fchmod_opath(int fd, mode_t m) {
         return 0;
 }
 
+int stat_warn_permissions(const char *path, const struct stat *st) {
+        assert(path);
+        assert(st);
+
+        /* Don't complain if we are reading something that is not a file, for example /dev/null */
+        if (!S_ISREG(st->st_mode))
+                return 0;
+
+        if (st->st_mode & 0111)
+                log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
+
+        if (st->st_mode & 0002)
+                log_warning("Configuration file %s is marked world-writable. Please remove world writability permission bits. Proceeding anyway.", path);
+
+        if (getpid_cached() == 1 && (st->st_mode & 0044) != 0044)
+                log_warning("Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.", path);
+
+        return 0;
+}
+
 int fd_warn_permissions(const char *path, int fd) {
         struct stat st;
+
+        assert(path);
+        assert(fd >= 0);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Don't complain if we are reading something that is not a file, for example /dev/null */
-        if (!S_ISREG(st.st_mode))
-                return 0;
-
-        if (st.st_mode & 0111)
-                log_warning("Configuration file %s is marked executable. Please remove executable permission bits. Proceeding anyway.", path);
-
-        if (st.st_mode & 0002)
-                log_warning("Configuration file %s is marked world-writable. Please remove world writability permission bits. Proceeding anyway.", path);
-
-        if (getpid_cached() == 1 && (st.st_mode & 0044) != 0044)
-                log_warning("Configuration file %s is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.", path);
-
-        return 0;
+        return stat_warn_permissions(path, &st);
 }
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
