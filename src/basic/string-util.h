@@ -27,6 +27,7 @@
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
 int strcmp_ptr(const char *a, const char *b) _pure_;
+int strcasecmp_ptr(const char *a, const char *b) _pure_;
 
 static inline bool streq_ptr(const char *a, const char *b) {
         return strcmp_ptr(a, b) == 0;

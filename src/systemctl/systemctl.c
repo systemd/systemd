@@ -322,28 +322,17 @@ static bool install_client_side(void) {
 }
 
 static int compare_unit_info(const UnitInfo *a, const UnitInfo *b) {
-        const char *d1, *d2;
         int r;
 
         /* First, order by machine */
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         /* Second, order by unit type */
-        d1 = strrchr(a->id, '.');
-        d2 = strrchr(b->id, '.');
-        if (d1 && d2) {
-                r = strcasecmp(d1, d2);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(strrchr(a->id, '.'), strrchr(b->id, '.'));
+        if (r != 0)
+                return r;
 
         /* Third, order by name */
         return strcasecmp(a->id, b->id);
@@ -975,21 +964,15 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         assert(a);
         assert(b);
 
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         r = strcmp(a->path, b->path);
-        if (r == 0)
-                r = strcmp(a->type, b->type);
+        if (r != 0)
+                return r;
 
-        return r;
+        return strcmp(a->type, b->type);
 }
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
@@ -1234,15 +1217,9 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         assert(a);
         assert(b);
 
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         r = CMP(a->next_elapse, b->next_elapse);
         if (r != 0)
