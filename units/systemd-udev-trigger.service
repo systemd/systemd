@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=udev Coldplug all Devices
+Description=Coldplug All udev Devices
 Documentation=man:udev(7) man:systemd-udevd.service(8)
 DefaultDependencies=no
 Wants=systemd-udevd.service
