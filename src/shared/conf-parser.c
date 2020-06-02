@@ -199,7 +199,7 @@ static int parse_line(
                 if (!fn)
                         return -ENOMEM;
 
-                return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata);
+                return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata, NULL);
         }
 
         if (!utf8_is_valid(l))
@@ -289,13 +289,15 @@ int config_parse(const char *unit,
                  ConfigItemLookup lookup,
                  const void *table,
                  ConfigParseFlags flags,
-                 void *userdata) {
+                 void *userdata,
+                 usec_t *ret_mtime) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
         int r, fd;
+        usec_t mtime;
 
         assert(filename);
         assert(lookup);
@@ -313,8 +315,16 @@ int config_parse(const char *unit,
         }
 
         fd = fileno(f);
-        if (fd >= 0) /* stream might not have an fd, let's be careful hence */
-                fd_warn_permissions(filename, fd);
+        if (fd >= 0) { /* stream might not have an fd, let's be careful hence */
+                struct stat st;
+
+                if (fstat(fd, &st) < 0)
+                        return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_ERR : LOG_DEBUG, errno,
+                                              "Failed to fstat(%s): %m", filename);
+
+                (void) stat_warn_permissions(filename, &st);
+                mtime = timespec_load(&st.st_mtim);
+        }
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
@@ -331,7 +341,7 @@ int config_parse(const char *unit,
                         return r;
                 }
                 if (r < 0) {
-                        if (CONFIG_PARSE_WARN)
+                        if (FLAGS_SET(flags, CONFIG_PARSE_WARN))
                                 log_error_errno(r, "%s:%u: Error while reading configuration file: %m", filename, line);
 
                         return r;
@@ -434,6 +444,9 @@ int config_parse(const char *unit,
                 }
         }
 
+        if (ret_mtime)
+                *ret_mtime = mtime;
+
         return 0;
 }
 
@@ -444,22 +457,31 @@ static int config_parse_many_files(
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata) {
+                void *userdata,
+                usec_t *ret_mtime) {
 
+        usec_t mtime = 0;
         char **fn;
         int r;
 
         if (conf_file) {
-                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata);
+                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata, &mtime);
                 if (r < 0)
                         return r;
         }
 
         STRV_FOREACH(fn, files) {
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata);
+                usec_t t;
+
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &t);
                 if (r < 0)
                         return r;
+                if (t > mtime) /* Find the newest */
+                        mtime = t;
         }
+
+        if (ret_mtime)
+                *ret_mtime = mtime;
 
         return 0;
 }
@@ -472,7 +494,8 @@ int config_parse_many_nulstr(
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata) {
+                void *userdata,
+                usec_t *ret_mtime) {
 
         _cleanup_strv_free_ char **files = NULL;
         int r;
@@ -481,7 +504,7 @@ int config_parse_many_nulstr(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
+        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
 }
 
 /* Parse each config file in the directories specified as strv. */
@@ -494,7 +517,7 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                char ***ret_dropins) {
+                usec_t *ret_mtime) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
         _cleanup_strv_free_ char **files = NULL;
@@ -510,14 +533,7 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        r = config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata);
-        if (r < 0)
-                return r;
-
-        if (ret_dropins)
-                *ret_dropins = TAKE_PTR(files);
-
-        return 0;
+        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \

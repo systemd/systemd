@@ -381,11 +381,14 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_many_nulstr(PKGSYSCONFDIR "/resolved.conf",
-                                     CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
-                                     "Resolve\0",
-                                     config_item_perf_lookup, resolved_gperf_lookup,
-                                     CONFIG_PARSE_WARN, m);
+        r = config_parse_many_nulstr(
+                        PKGSYSCONFDIR "/resolved.conf",
+                        CONF_PATHS_NULSTR("systemd/resolved.conf.d"),
+                        "Resolve\0",
+                        config_item_perf_lookup, resolved_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        m,
+                        NULL);
         if (r < 0)
                 return r;
 

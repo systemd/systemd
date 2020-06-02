@@ -335,13 +335,17 @@ static void test_config_parse(unsigned i, const char *s) {
                          ConfigItemLookup lookup,
                          const void *table,
                          ConfigParseFlags flags,
-                         void *userdata)
+                         void *userdata,
+                         usec_t *ret_mtime)
         */
 
         r = config_parse(NULL, name, f,
-                         "Section\0-NoWarnSection\0",
+                         "Section\0"
+                         "-NoWarnSection\0",
                          config_item_table_lookup, items,
-                         CONFIG_PARSE_WARN, NULL);
+                         CONFIG_PARSE_WARN,
+                         NULL,
+                         NULL);
 
         switch (i) {
         case 0 ... 4:

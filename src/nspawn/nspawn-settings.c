@@ -78,7 +78,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
                          "Files\0",
                          config_item_perf_lookup, nspawn_gperf_lookup,
                          CONFIG_PARSE_WARN,
-                         s);
+                         s, NULL);
         if (r < 0)
                 return r;
 

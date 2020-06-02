@@ -10,6 +10,7 @@
 #include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
+#include "time-util.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
@@ -84,11 +85,12 @@ int config_parse(
                 const char *unit,
                 const char *filename,
                 FILE *f,
-                const char *sections,  /* nulstr */
+                const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata);
+                void *userdata,
+                usec_t *ret_mtime);         /* possibly NULL */
 
 int config_parse_many_nulstr(
                 const char *conf_file,      /* possibly NULL */
@@ -97,7 +99,8 @@ int config_parse_many_nulstr(
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
-                void *userdata);
+                void *userdata,
+                usec_t *ret_mtime);         /* possibly NULL */
 
 int config_parse_many(
                 const char *conf_file,      /* possibly NULL */
@@ -108,7 +111,7 @@ int config_parse_many(
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata,
-                char ***ret_dropins);       /* possibly NULL */
+                usec_t *ret_mtime);         /* possibly NULL */
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);

@@ -59,10 +59,14 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 {}
         };
 
-        (void) config_parse_many_nulstr(PKGSYSCONFDIR "/sleep.conf",
-                                        CONF_PATHS_NULSTR("systemd/sleep.conf.d"),
-                                        "Sleep\0", config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        (void) config_parse_many_nulstr(
+                        PKGSYSCONFDIR "/sleep.conf",
+                        CONF_PATHS_NULSTR("systemd/sleep.conf.d"),
+                        "Sleep\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
 
         /* use default values unless set */
         sc->allow_suspend = allow_suspend != 0;

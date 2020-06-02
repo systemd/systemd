@@ -4864,7 +4864,9 @@ int unit_load_fragment(Unit *u) {
                         r = config_parse(u->id, fragment, f,
                                          UNIT_VTABLE(u)->sections,
                                          config_item_perf_lookup, load_fragment_gperf_lookup,
-                                         CONFIG_PARSE_ALLOW_INCLUDE, u);
+                                         CONFIG_PARSE_ALLOW_INCLUDE,
+                                         u,
+                                         NULL);
                         if (r == -ENOEXEC)
                                 log_unit_notice_errno(u, r, "Unit configuration has fatal error, unit will not be started.");
                         if (r < 0)

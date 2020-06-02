@@ -686,10 +686,13 @@ int netdev_load_one(Manager *manager, const char *filename) {
         };
 
         dropin_dirname = strjoina(basename(filename), ".d");
-        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
-                              NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
-                              config_item_perf_lookup, network_netdev_gperf_lookup,
-                              CONFIG_PARSE_WARN, netdev_raw, NULL);
+        r = config_parse_many(
+                        filename, NETWORK_DIRS, dropin_dirname,
+                        NETDEV_COMMON_SECTIONS NETDEV_OTHER_SECTIONS,
+                        config_item_perf_lookup, network_netdev_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        netdev_raw,
+                        NULL);
         if (r < 0)
                 return r;
 
@@ -726,10 +729,12 @@ int netdev_load_one(Manager *manager, const char *filename) {
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
 
-        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
-                              NETDEV_VTABLE(netdev)->sections,
-                              config_item_perf_lookup, network_netdev_gperf_lookup,
-                              CONFIG_PARSE_WARN, netdev, NULL);
+        r = config_parse_many(
+                        filename, NETWORK_DIRS, dropin_dirname,
+                        NETDEV_VTABLE(netdev)->sections,
+                        config_item_perf_lookup, network_netdev_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        netdev, NULL);
         if (r < 0)
                 return r;
 
