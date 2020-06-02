@@ -46,7 +46,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_ntp);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_sip);
 CONFIG_PARSER_PROTOTYPE(config_parse_iaid);
 CONFIG_PARSER_PROTOTYPE(config_parse_section_route_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
