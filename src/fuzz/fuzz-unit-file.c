@@ -74,7 +74,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         name, name, f,
                         UNIT_VTABLE(u)->sections,
                         config_item_perf_lookup, load_fragment_gperf_lookup,
-                        CONFIG_PARSE_ALLOW_INCLUDE,
+                        0,
                         u,
                         NULL);
 
