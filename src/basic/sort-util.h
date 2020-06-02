@@ -39,7 +39,7 @@ static inline void* bsearch_safe(const void *key, const void *base,
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
-static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
+static inline void _qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn_t compar) {
         if (nmemb <= 1)
                 return;
 
@@ -52,7 +52,7 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, __compar_fn
 #define typesafe_qsort(p, n, func)                                      \
         ({                                                              \
                 int (*_func_)(const typeof(p[0])*, const typeof(p[0])*) = func; \
-                qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
+                _qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
         })
 
 static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, __compar_d_fn_t compar, void *userdata) {
