@@ -2002,6 +2002,22 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
         else
                 any = true;
 
+#if defined(__SNR_openat2)
+        /* The new openat2() system call can't be filtered sensibly, since it moves the flags parameter into
+         * an indirect structure. Let's block it entirely for now. That should be a reasonably OK thing to do
+         * for now, since openat2() is very new and code generally needs fallback logic anyway to be
+         * compatible with kernels that are not absolutely recent. */
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(openat2),
+                        0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for openat2: %m");
+        else
+                any = true;
+#endif
+
         r = seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
