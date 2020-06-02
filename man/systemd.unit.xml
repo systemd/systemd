@@ -226,9 +226,6 @@
     <filename>foo-.service.d/10-override.conf</filename> would override
     <filename>service.d/10-override.conf</filename>.</para>
 
-    <!-- Note that we do not document .include here, as we consider it mostly obsolete, and want
-         people to use .d/ drop-ins instead. -->
-
     <para>Note that while systemd offers a flexible dependency system
     between units it is recommended to use this functionality only
     sparingly and instead rely on techniques such as bus-based or

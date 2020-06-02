@@ -357,6 +357,11 @@ CHANGES WITH 246 in spe:
           The optional positional argument to "systemctl reboot" is now
           being deprecated in favor of this option.
 
+        * Support for the .include syntax in unit files has been removed. The
+          concept has been obsolete for 6 years and we started warning about
+          its pending removal 2 years ago (also see NEWS file below). It's
+          finally gone now.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an

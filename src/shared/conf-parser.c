@@ -159,7 +159,7 @@ static int parse_line(
                 char *l,
                 void *userdata) {
 
-        char *e, *include;
+        char *e;
 
         assert(filename);
         assert(line > 0);
@@ -172,35 +172,6 @@ static int parse_line(
 
         if (*l == '\n')
                 return 0;
-
-        include = first_word(l, ".include");
-        if (include) {
-                _cleanup_free_ char *fn = NULL;
-
-                /* .includes are a bad idea, we only support them here
-                 * for historical reasons. They create cyclic include
-                 * problems and make it difficult to detect
-                 * configuration file changes with an easy
-                 * stat(). Better approaches, such as .d/ drop-in
-                 * snippets exist.
-                 *
-                 * Support for them should be eventually removed. */
-
-                if (!(flags & CONFIG_PARSE_ALLOW_INCLUDE)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, ".include not allowed here. Ignoring.");
-                        return 0;
-                }
-
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           ".include directives are deprecated, and support for them will be removed in a future version of systemd. "
-                           "Please use drop-in files instead.");
-
-                fn = file_in_same_dir(filename, strstrip(include));
-                if (!fn)
-                        return -ENOMEM;
-
-                return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata, NULL);
-        }
 
         if (!utf8_is_valid(l))
                 return log_syntax_invalid_utf8(unit, LOG_WARNING, filename, line, l);
