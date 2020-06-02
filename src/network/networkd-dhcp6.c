@@ -27,7 +27,7 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 static Link *dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
 static int dhcp6_prefix_remove_all(Manager *m, Link *link);
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link);
+static bool dhcp6_link_get_dhcpv6_prefix(Link *link, struct in6_addr *out);
 static int dhcp6_assign_delegated_prefix(Link *link, const struct in6_addr *prefix,
                                          uint8_t prefix_len,
                                          uint32_t lifetime_preferred,
@@ -301,15 +301,12 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                        n_prefixes, strnull(buf), pd_prefix_len);
 
         HASHMAP_FOREACH(link, manager->links, i) {
-                union in_addr_union assigned_prefix;
+                union in_addr_union assigned_prefix, current_prefix;
 
                 if (link == dhcp6_link)
                         continue;
 
                 if (!dhcp6_get_prefix_delegation(link))
-                        continue;
-
-                if (dhcp6_link_has_dhcpv6_prefix(link))
                         continue;
 
                 if (assign_preferred_subnet_id != dhcp6_has_preferred_subnet_id(link))
@@ -326,6 +323,14 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                         continue;
                 } else if (r < 0)
                         return r;
+
+                /* Continue configuring the prefix if it is the first or the
+                 * same as already configured, otherwise just skip this link. */
+                if (dhcp6_link_get_dhcpv6_prefix(link, &current_prefix.in6) &&
+                                !in_addr_equal(AF_INET6, &current_prefix, &assigned_prefix)) {
+                                log_link_debug(link, "Already has another DHCPv6 prefix assigned.");
+                                continue;
+                }
 
                 (void) in_addr_to_string(AF_INET6, &assigned_prefix, &assigned_buf);
                 r = dhcp6_pd_prefix_assign(link, &assigned_prefix.in6, 64,
@@ -1026,16 +1031,19 @@ static int dhcp6_prefix_remove_all(Manager *m, Link *link) {
         return 0;
 }
 
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link) {
+static bool dhcp6_link_get_dhcpv6_prefix(Link *link, struct in6_addr *out) {
+        struct in6_addr *addr;
         Iterator i;
         Link *l;
 
         assert(link);
         assert(link->manager);
 
-        HASHMAP_FOREACH(l, link->manager->dhcp6_prefixes, i)
-                if (link == l)
+        HASHMAP_FOREACH_KEY(l, addr, link->manager->dhcp6_prefixes, i)
+                if (link == l) {
+                        *out = *addr;
                         return true;
+                }
 
         return false;
 }
