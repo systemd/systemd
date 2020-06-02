@@ -976,7 +976,12 @@ static int partition_read_definition(Partition *p, const char *path) {
         };
         int r;
 
-        r = config_parse(NULL, path, NULL, "Partition\0", config_item_table_lookup, table, CONFIG_PARSE_WARN, p);
+        r = config_parse(NULL, path, NULL,
+                         "Partition\0",
+                         config_item_table_lookup, table,
+                         CONFIG_PARSE_WARN,
+                         p,
+                         NULL);
         if (r < 0)
                 return r;
 

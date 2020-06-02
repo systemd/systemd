@@ -1633,23 +1633,24 @@ static int server_parse_config_file(Server *s) {
                 /* If we are running in namespace mode, load the namespace specific configuration file, and nothing else */
                 namespaced = strjoina(PKGSYSCONFDIR "/journald@", s->namespace, ".conf");
 
-                r = config_parse(
-                                NULL,
-                                namespaced, NULL,
-                                "Journal\0",
-                                config_item_perf_lookup, journald_gperf_lookup,
-                                CONFIG_PARSE_WARN, s);
+                r = config_parse(NULL,
+                                 namespaced, NULL,
+                                 "Journal\0",
+                                 config_item_perf_lookup, journald_gperf_lookup,
+                                 CONFIG_PARSE_WARN, s,
+                                 NULL);
                 if (r < 0)
                         return r;
 
                 return 0;
         }
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/journald.conf",
-                                        CONF_PATHS_NULSTR("systemd/journald.conf.d"),
-                                        "Journal\0",
-                                        config_item_perf_lookup, journald_gperf_lookup,
-                                        CONFIG_PARSE_WARN, s);
+        return config_parse_many_nulstr(
+                        PKGSYSCONFDIR "/journald.conf",
+                        CONF_PATHS_NULSTR("systemd/journald.conf.d"),
+                        "Journal\0",
+                        config_item_perf_lookup, journald_gperf_lookup,
+                        CONFIG_PARSE_WARN, s, NULL);
 }
 
 static int server_dispatch_sync(sd_event_source *es, usec_t t, void *userdata) {

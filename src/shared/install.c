@@ -1304,7 +1304,8 @@ static int unit_file_load(
                          "-Target\0"
                          "-Timer\0",
                          config_item_table_lookup, items,
-                         CONFIG_PARSE_ALLOW_INCLUDE, info);
+                         CONFIG_PARSE_ALLOW_INCLUDE, info,
+                         NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 

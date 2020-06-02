@@ -562,12 +562,17 @@ static int parse_config(void) {
                 { "Upload",  "ServerKeyFile",          config_parse_path_or_ignore, 0, &arg_key    },
                 { "Upload",  "ServerCertificateFile",  config_parse_path_or_ignore, 0, &arg_cert   },
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0, &arg_trust  },
-                {}};
+                {}
+        };
 
-        return config_parse_many_nulstr(PKGSYSCONFDIR "/journal-upload.conf",
-                                        CONF_PATHS_NULSTR("systemd/journal-upload.conf.d"),
-                                        "Upload\0", config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        return config_parse_many_nulstr(
+                        PKGSYSCONFDIR "/journal-upload.conf",
+                        CONF_PATHS_NULSTR("systemd/journal-upload.conf.d"),
+                        "Upload\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
 }
 
 static int help(void) {

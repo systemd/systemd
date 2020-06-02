@@ -335,7 +335,6 @@ int network_verify(Network *network) {
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename) {
         _cleanup_free_ char *fname = NULL, *name = NULL;
         _cleanup_(network_unrefp) Network *network = NULL;
-        _cleanup_strv_free_ char **dropins = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         char *d;
@@ -477,54 +476,57 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ip_service_type = -1,
         };
 
-        r = config_parse_many(filename, NETWORK_DIRS, dropin_dirname,
-                              "Match\0"
-                              "Link\0"
-                              "Network\0"
-                              "Address\0"
-                              "Neighbor\0"
-                              "IPv6AddressLabel\0"
-                              "RoutingPolicyRule\0"
-                              "Route\0"
-                              "NextHop\0"
-                              "DHCP\0" /* compat */
-                              "DHCPv4\0"
-                              "DHCPv6\0"
-                              "DHCPServer\0"
-                              "IPv6AcceptRA\0"
-                              "IPv6NDPProxyAddress\0"
-                              "Bridge\0"
-                              "BridgeFDB\0"
-                              "BridgeVLAN\0"
-                              "IPv6PrefixDelegation\0"
-                              "IPv6Prefix\0"
-                              "IPv6RoutePrefix\0"
-                              "LLDP\0"
-                              "TrafficControlQueueingDiscipline\0"
-                              "CAN\0"
-                              "QDisc\0"
-                              "BFIFO\0"
-                              "CAKE\0"
-                              "ControlledDelay\0"
-                              "DeficitRoundRobinScheduler\0"
-                              "DeficitRoundRobinSchedulerClass\0"
-                              "PFIFO\0"
-                              "PFIFOFast\0"
-                              "PFIFOHeadDrop\0"
-                              "FairQueueing\0"
-                              "FairQueueingControlledDelay\0"
-                              "GenericRandomEarlyDetection\0"
-                              "HeavyHitterFilter\0"
-                              "HierarchyTokenBucket\0"
-                              "HierarchyTokenBucketClass\0"
-                              "NetworkEmulator\0"
-                              "PIE\0"
-                              "StochasticFairBlue\0"
-                              "StochasticFairnessQueueing\0"
-                              "TokenBucketFilter\0"
-                              "TrivialLinkEqualizer\0",
-                              config_item_perf_lookup, network_network_gperf_lookup,
-                              CONFIG_PARSE_WARN, network, &dropins);
+        r = config_parse_many(
+                        filename, NETWORK_DIRS, dropin_dirname,
+                        "Match\0"
+                        "Link\0"
+                        "Network\0"
+                        "Address\0"
+                        "Neighbor\0"
+                        "IPv6AddressLabel\0"
+                        "RoutingPolicyRule\0"
+                        "Route\0"
+                        "NextHop\0"
+                        "DHCP\0" /* compat */
+                        "DHCPv4\0"
+                        "DHCPv6\0"
+                        "DHCPServer\0"
+                        "IPv6AcceptRA\0"
+                        "IPv6NDPProxyAddress\0"
+                        "Bridge\0"
+                        "BridgeFDB\0"
+                        "BridgeVLAN\0"
+                        "IPv6PrefixDelegation\0"
+                        "IPv6Prefix\0"
+                        "IPv6RoutePrefix\0"
+                        "LLDP\0"
+                        "TrafficControlQueueingDiscipline\0"
+                        "CAN\0"
+                        "QDisc\0"
+                        "BFIFO\0"
+                        "CAKE\0"
+                        "ControlledDelay\0"
+                        "DeficitRoundRobinScheduler\0"
+                        "DeficitRoundRobinSchedulerClass\0"
+                        "PFIFO\0"
+                        "PFIFOFast\0"
+                        "PFIFOHeadDrop\0"
+                        "FairQueueing\0"
+                        "FairQueueingControlledDelay\0"
+                        "GenericRandomEarlyDetection\0"
+                        "HeavyHitterFilter\0"
+                        "HierarchyTokenBucket\0"
+                        "HierarchyTokenBucketClass\0"
+                        "NetworkEmulator\0"
+                        "PIE\0"
+                        "StochasticFairBlue\0"
+                        "StochasticFairnessQueueing\0"
+                        "TokenBucketFilter\0"
+                        "TrivialLinkEqualizer\0",
+                        config_item_perf_lookup, network_network_gperf_lookup,
+                        CONFIG_PARSE_WARN,
+                        network,
+                        &network->timestamp);
         if (r < 0)
                 return r;
 
@@ -538,24 +540,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         if (r < 0)
                 log_warning_errno(r, "%s: Failed to add default route on device, ignoring: %m",
                                   network->filename);
-
-        struct stat stats;
-        if (stat(filename, &stats) >= 0)
-                network->timestamp = timespec_load(&stats.st_mtim);
-
-        char **f;
-        STRV_FOREACH(f, dropins) {
-                usec_t t;
-
-                if (stat(*f, &stats) < 0) {
-                        network->timestamp = 0;
-                        break;
-                }
-
-                t = timespec_load(&stats.st_mtim);
-                if (t > network->timestamp)
-                        network->timestamp = t;
-        }
 
         if (network_verify(network) < 0)
                 /* Ignore .network files that do not match the conditions. */

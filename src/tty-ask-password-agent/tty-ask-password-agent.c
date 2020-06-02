@@ -192,7 +192,9 @@ static int process_one_password_file(const char *filename) {
         r = config_parse(NULL, filename, NULL,
                          NULL,
                          config_item_table_lookup, items,
-                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_WARN, NULL);
+                         CONFIG_PARSE_RELAXED|CONFIG_PARSE_WARN,
+                         NULL,
+                         NULL);
         if (r < 0)
                 return r;
 

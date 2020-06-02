@@ -319,7 +319,8 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
         r = config_parse(NULL, service->path, NULL,
                          "Desktop Entry\0",
                          xdg_config_item_table_lookup, items,
-                         CONFIG_PARSE_WARN, service);
+                         CONFIG_PARSE_WARN, service,
+                         NULL);
         /* If parsing failed, only hide the file so it will still mask others. */
         if (r < 0) {
                 log_warning_errno(r, "Failed to parse %s, ignoring it", service->path);

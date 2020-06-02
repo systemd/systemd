@@ -657,7 +657,13 @@ static int parse_config_file(void) {
                 CONF_PATHS_NULSTR("systemd/system.conf.d") :
                 CONF_PATHS_NULSTR("systemd/user.conf.d");
 
-        (void) config_parse_many_nulstr(fn, conf_dirs_nulstr, "Manager\0", config_item_table_lookup, items, CONFIG_PARSE_WARN, NULL);
+        (void) config_parse_many_nulstr(
+                        fn, conf_dirs_nulstr,
+                        "Manager\0",
+                        config_item_table_lookup, items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we used USEC_INFINITY
          * like everywhere else. */
