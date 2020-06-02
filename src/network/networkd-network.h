@@ -95,7 +95,8 @@ struct Network {
         char **dhcp_user_class;
         char *dhcp_hostname;
         uint64_t dhcp_max_attempts;
-        unsigned dhcp_route_metric;
+        uint32_t dhcp_route_metric;
+        bool dhcp_route_metric_set;
         uint32_t dhcp_route_table;
         uint32_t dhcp_fallback_lease_lifetime;
         uint32_t dhcp_route_mtu;
@@ -106,8 +107,10 @@ struct Network {
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
         bool dhcp_use_dns;
+        bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
+        bool dhcp_use_ntp_set;
         bool dhcp_use_sip;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
@@ -129,9 +132,13 @@ struct Network {
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;
+        bool dhcp6_use_dns_set;
         bool dhcp6_use_ntp;
+        bool dhcp6_use_ntp_set;
         bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
+        uint32_t dhcp6_route_metric;
+        bool dhcp6_route_metric_set;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;

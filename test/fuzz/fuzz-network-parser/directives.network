@@ -121,6 +121,7 @@ UserClass=
 VendorClass=
 AssignAcquiredDelegatedPrefixAddress=
 SendVendorOption=
+RouteMetric=
 [Route]
 Destination=
 Protocol=
