@@ -76,6 +76,7 @@ static unsigned arg_children_max = 0;
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
 static int arg_timeout_signal = SIGKILL;
+static bool arg_blockdev_read_only = false;
 
 typedef struct Manager {
         sd_event *event;
@@ -383,6 +384,56 @@ static int worker_lock_block_device(sd_device *dev, int *ret_fd) {
         return 1;
 }
 
+static int worker_mark_block_device_read_only(sd_device *dev) {
+        _cleanup_close_ int fd = -1;
+        const char *val;
+        int state = 1, r;
+
+        assert(dev);
+
+        if (!arg_blockdev_read_only)
+                return 0;
+
+        /* Do this only once, when the block device is new. If the device is later retriggered let's not
+         * toggle the bit again, so that people can boot up with full read-only mode and then unset the bit
+         * for specific devices only. */
+        if (!device_for_action(dev, DEVICE_ACTION_ADD))
+                return 0;
+
+        r = sd_device_get_subsystem(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
+
+        if (!streq(val, "block"))
+                return 0;
+
+        r = sd_device_get_sysname(dev, &val);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        /* Exclude synthetic devices for now, this is supposed to be a safety feature to avoid modification
+         * of physical devices, and what sits on top of those doesn't really matter if we don't allow the
+         * underlying block devices to recieve changes. */
+        if (STARTSWITH_SET(val, "dm-", "md", "drbd", "loop", "nbd", "zram"))
+                return 0;
+
+        r = sd_device_get_devname(dev, &val);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get devname: %m");
+
+        fd = open(val, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK);
+        if (fd < 0)
+                return log_device_debug_errno(dev, errno, "Failed to open '%s', ignoring: %m", val);
+
+        if (ioctl(fd, BLKROSET, &state) < 0)
+                return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", val);
+
+        log_device_info(dev, "Successfully marked block device '%s' read-only.", val);
+        return 0;
+}
+
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
@@ -411,6 +462,8 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         r = worker_lock_block_device(dev, &fd_lock);
         if (r < 0)
                 return r;
+
+        (void) worker_mark_block_device_read_only(dev);
 
         /* apply rules, create node, symlinks */
         r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_timeout_signal, manager->properties, manager->rules);
@@ -1417,14 +1470,12 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
  *   udev.children_max=<number of workers>     events are fully serialized if set to 1
  *   udev.exec_delay=<number of seconds>       delay execution of every executed program
  *   udev.event_timeout=<number of seconds>    seconds to wait before terminating an event
+ *   udev.blockdev_read_only<=bool>            mark all block devices read-only when they appear
  */
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        int r = 0;
+        int r;
 
         assert(key);
-
-        if (!value)
-                return 0;
 
         if (proc_cmdline_key_streq(key, "udev.log_priority")) {
 
@@ -1457,14 +1508,37 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = parse_sec(value, &arg_exec_delay_usec);
 
         } else if (proc_cmdline_key_streq(key, "udev.timeout_signal")) {
+
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
                 r = signal_from_string(value);
                 if (r > 0)
                         arg_timeout_signal = r;
-        } else if (startswith(key, "udev."))
-                log_warning("Unknown udev kernel command line option \"%s\", ignoring", key);
+
+        } else if (proc_cmdline_key_streq(key, "udev.blockdev_read_only")) {
+
+                if (!value)
+                        arg_blockdev_read_only = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse udev.blockdev-read-only argument, ignoring: %s", value);
+                        else
+                                arg_blockdev_read_only = r;
+                }
+
+                if (arg_blockdev_read_only)
+                        log_notice("All physical block devices will be marked read-only.");
+
+                return 0;
+
+        } else {
+                if (startswith(key, "udev."))
+                        log_warning("Unknown udev kernel command line option \"%s\", ignoring.", key);
+
+                return 0;
+        }
 
         if (r < 0)
                 log_warning_errno(r, "Failed to parse \"%s=%s\", ignoring: %m", key, value);

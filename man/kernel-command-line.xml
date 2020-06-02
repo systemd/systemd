@@ -273,7 +273,8 @@
         <term><varname>rd.udev.event_timeout=</varname></term>
         <term><varname>udev.timeout_signal=</varname></term>
         <term><varname>rd.udev.timeout_signal=</varname></term>
-
+        <term><varname>udev.blockdev_read_only</varname></term>
+        <term><varname>rd.udev.blockdev_read_only</varname></term>
         <term><varname>net.ifnames=</varname></term>
         <term><varname>net.naming-scheme=</varname></term>
 

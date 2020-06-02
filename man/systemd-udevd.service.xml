@@ -140,8 +140,8 @@
 
   <refsect1><title>Kernel command line</title>
     <variablelist class='kernel-commandline-options'>
-      <para>Parameters starting with "rd." will be read when
-      <command>systemd-udevd</command> is used in an initrd.</para>
+      <para>Parameters prefixed with "rd." will be read when <command>systemd-udevd</command> is used in an
+      initrd, those without will be processed both in the initrd and on the host.</para>
       <varlistentry>
         <term><varname>udev.log_priority=</varname></term>
         <term><varname>rd.udev.log_priority=</varname></term>
@@ -182,6 +182,22 @@
           <para>Specifies a signal that <filename>systemd-udevd</filename> will send to
           workers on timeout. Note that kernel command line option overrides both the
           setting in the configuration file and the one on the program command line.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.blockdev_read_only</varname></term>
+        <term><varname>rd.udev.blockdev_read_only</varname></term>
+        <listitem>
+          <para>If specified, mark all physical block devices read-only as they appear. Synthetic block
+          devices (such as loopback block devices or device mapper devices) are left as they are. This is
+          useful to guarantee that the contents of physical block devices remains unmodified during runtime,
+          for example to implement fully stateless systems, for testing or for recovery situations where
+          corrupted file systems shall not be corrupted further through accidental modification.</para>
+
+          <para>A block device may be marked writable again by issuing the <command>blockdev
+          --setrw</command> command, see <citerefentry
+          project='man-pages'><refentrytitle>blockdev</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
