@@ -40,6 +40,12 @@
       <arg choice="plain"><option>--umount</option></arg>
       <arg choice="plain" rep="repeat"><replaceable>WHAT|WHERE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain"><option>--remount</option></arg>
+      <arg choice="plain"><replaceable>WHERE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -240,6 +246,15 @@
         <listitem><para>Instead of establishing a mount or automount point, print a terse list of block devices
         containing file systems that may be mounted with <literal>systemd-mount</literal>, along with useful metadata
         such as labels, etc.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-r</option></term>
+        <term><option>--remount</option></term>
+
+        <listitem><para>Restart a mount unit of an already mounted filesystem corresponding to the specified
+        mount point <replaceable>WHERE</replaceable>. This can be used to change mount options of
+        the mount unit temporarily.</para></listitem>
       </varlistentry>
 
       <varlistentry>
