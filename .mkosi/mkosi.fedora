@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=31
+Release=32
 
 [Output]
 Format=gpt_ext4
