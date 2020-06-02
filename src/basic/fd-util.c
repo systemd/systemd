@@ -102,13 +102,16 @@ int fclose_nointr(FILE *f) {
 
         /* Same as close_nointr(), but for fclose() */
 
+        errno = 0; /* Extra safety: if the FILE* object is not encapsulating an fd, it might not set errno
+                    * correctly. Let's hence initialize it to zero first, so that we aren't confused by any
+                    * prior errno here */
         if (fclose(f) == 0)
                 return 0;
 
         if (errno == EINTR)
                 return 0;
 
-        return -errno;
+        return errno_or_else(EIO);
 }
 
 FILE* safe_fclose(FILE *f) {
