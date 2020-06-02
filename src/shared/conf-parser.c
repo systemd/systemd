@@ -330,7 +330,7 @@ int config_parse(const char *unit,
                         return r;
                 }
                 if (r < 0) {
-                        if (CONFIG_PARSE_WARN)
+                        if (FLAGS_SET(flags, CONFIG_PARSE_WARN))
                                 log_error_errno(r, "%s:%u: Error while reading configuration file: %m", filename, line);
 
                         return r;
